@@ -5376,7 +5376,8 @@ def any_linear_images_problem(yp):
                     #if ((is_image_source_srgb(image, source) and not ch_linear) or
                     #    (not is_image_source_srgb(image, source) and ch_linear)
                     #    ):
-                    if not ch_linear:
+                    # NOTE: Float image is pretended to be sRGB even if it's using linear colorspace
+                    if (image.is_float and ch_linear) or (not image.is_float and not ch_linear):
                         return True
 
                 if not image.is_float and ((is_image_source_srgb(image, source) and linear) or

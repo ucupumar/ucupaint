@@ -4896,7 +4896,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     normal_strength : FloatProperty(
         name = 'Normal Strength',
         description = 'Normal strength',
-        default=1.0, min=0.0, max=10.0, 
+        default=1.0, min=0.0, max=100.0, 
         update=update_normal_strength)
 
     image_flip_y : BoolProperty(
