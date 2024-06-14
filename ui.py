@@ -3436,10 +3436,14 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             row = master.row(align=True)
             row.active = is_hidden
             if image and (image.yia.is_image_atlas or image.yua.is_udim_atlas): 
-                if image.preview and ypup.use_image_preview: row.prop(layer, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+                if ypup.use_image_preview: 
+                    if not image.preview: image.preview_ensure()
+                    row.prop(layer, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
                 else: row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
             elif image: 
-                if image.preview and ypup.use_image_preview: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+                if ypup.use_image_preview: 
+                    if not image.preview: image.preview_ensure()
+                    row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
                 else: row.prop(image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
             elif layer.type == 'VCOL': 
                 row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
@@ -3458,7 +3462,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     ae_prop = 'active_edit_1'
                 row.active = False
                 if image: 
-                    if image.preview and ypup.use_image_preview: row.prop(active_override, ae_prop, text='', emboss=False, icon_value=image.preview.icon_id)
+                    if ypup.use_image_preview: 
+                        if not image.preview: image.preview_ensure()
+                        row.prop(active_override, ae_prop, text='', emboss=False, icon_value=image.preview.icon_id)
                     else: row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('image'))
                 elif layer.type == 'VCOL': 
                     row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
@@ -3474,7 +3480,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('texture'))
             else:
                 if image: 
-                    if image.preview and ypup.use_image_preview: row.label(text='', icon_value=image.preview.icon_id)
+                    if ypup.use_image_preview: 
+                        if not image.preview: image.preview_ensure()
+                        row.label(text='', icon_value=image.preview.icon_id)
                     else: row.label(text='', icon_value=lib.get_icon('image'))
                 elif layer.type == 'VCOL': 
                     row.label(text='', icon_value=lib.get_icon('vertex_color'))
@@ -3502,7 +3510,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     override_ch = c
                     if src and c.override_type == 'IMAGE':
                         active_override_image = src.image
-                        if src.image.preview and ypup.use_image_preview: row.label(text='', icon_value=src.image.preview.icon_id)
+                        if ypup.use_image_preview: 
+                            if not src.image.preview: src.image.preview_ensure()
+                            row.label(text='', icon_value=src.image.preview.icon_id)
                         else: row.label(text='', icon_value=lib.get_icon('image'))
                     elif c.override_type == 'VCOL':
                         #active_override_vcol = c
@@ -3513,7 +3523,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     if c.override_type == 'IMAGE':
                         src = get_channel_source(c, layer)
                         if src: 
-                            if src.image.preview and ypup.use_image_preview: row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                            if ypup.use_image_preview: 
+                                if not src.image.preview: src.image.preview_ensure()
+                                row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                             else: row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                     elif c.override_type == 'VCOL':
                         row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
@@ -3528,13 +3540,17 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     override_ch = c
                     if src and c.override_1_type == 'IMAGE':
                         active_override_image = src.image
-                        if src.image.preview and ypup.use_image_preview: row.label(text='', icon_value=src.image.preview.icon_id)
+                        if ypup.use_image_preview: 
+                            if not src.image.preview: src.image.preview_ensure()
+                            row.label(text='', icon_value=src.image.preview.icon_id)
                         else: row.label(text='', icon_value=lib.get_icon('image'))
                 else:
                     if c.override_1_type == 'IMAGE':
                         src = get_channel_source_1(c, layer)
                         if src: 
-                            if src.image.preview and ypup.use_image_preview: row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                            if ypup.use_image_preview: 
+                                if not src.image.preview: src.image.preview_ensure()
+                                row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=src.image.preview.icon_id)
                             else: row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=lib.get_icon('image'))
 
         # Mask icons
@@ -3550,7 +3566,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 src = mask_tree.nodes.get(m.source)
                 if m.type == 'IMAGE':
                     active_mask_image = src.image
-                    if src.image.preview and ypup.use_image_preview: row.label(text='', icon_value=src.image.preview.icon_id)
+                    if ypup.use_image_preview: 
+                        if not src.image.preview: src.image.preview_ensure()
+                        row.label(text='', icon_value=src.image.preview.icon_id)
                     else: 
                         if m.source_input == 'ALPHA':
                             row.label(text='', icon_value=lib.get_icon('image_alpha'))
@@ -3577,7 +3595,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             else:
                 if m.type == 'IMAGE':
                     src = mask_tree.nodes.get(m.source)
-                    if src.image.preview and ypup.use_image_preview: row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                    if ypup.use_image_preview: 
+                        if not src.image.preview: src.image.preview_ensure()
+                        row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                     else: 
                         if m.source_input == 'ALPHA':
                             row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image_alpha'))
