@@ -3454,11 +3454,17 @@ class YPaint(bpy.types.PropertyGroup):
 
     # Channels
     channels : CollectionProperty(type=YPaintChannel)
-    active_channel_index : IntProperty(default=0, update=update_active_yp_channel)
+    active_channel_index : IntProperty(
+            name = 'Active Channel Index',
+            description = 'Active channel index',
+            default=0, update=update_active_yp_channel)
 
     # Layers
     layers : CollectionProperty(type=Layer.YLayer)
-    active_layer_index : IntProperty(default=0, update=update_layer_index)
+    active_layer_index : IntProperty(
+            name = 'Active Layer Index',
+            description = 'Active layer index',
+            default=0, update=update_layer_index)
 
     # UVs
     uvs : CollectionProperty(type=YPaintUV)
