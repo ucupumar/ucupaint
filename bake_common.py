@@ -70,9 +70,8 @@ def is_join_objects_problematic(yp, mat=None):
             return True
 
     if mat:
-        output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+        output = get_material_output(mat)
         if output: 
-            output = output[0]
             if search_join_problematic_texcoord(mat.node_tree, output):
                 return True
 
@@ -281,10 +280,9 @@ def prepare_other_objs_channels(yp, other_objs):
                 if mat in mats: continue
                 if not mat.use_nodes: continue
 
-                # Get output
-                output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+                # Get material output
+                output = get_material_output(mat)
                 if not output: continue
-                output = output[0]
 
                 socket = None
                 default = None

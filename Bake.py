@@ -2870,9 +2870,9 @@ def update_enable_baked_outside(self, context):
 
                         mtree.links.new(tex_disp.outputs[0], disp.inputs[0])
 
-                        output_mat = [n for n in mtree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+                        output_mat = get_material_output(mat)
                         if output_mat and ch.enable_subdiv_setup and ch.subdiv_adaptive:
-                            mtree.links.new(disp.outputs[0], output_mat[0].inputs['Displacement'])
+                            mtree.links.new(disp.outputs[0], output_mat.inputs['Displacement'])
 
                     if ch.enable_bake_to_vcol:
                         mtree.links.new(vcol.outputs['Color'], l.to_socket)
@@ -3052,8 +3052,8 @@ def set_adaptive_displacement_node(mat, node):
 
 def get_adaptive_displacement_node(mat, node, set_one=False):
 
-    try: output_mat = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output][0]
-    except: return None
+    output_mat = get_material_output(mat)
+    if not output_mat: return None
 
     height_ch = get_root_height_channel(node.node_tree.yp)
     if not height_ch: return None
@@ -3151,8 +3151,8 @@ def check_subdiv_setup(height_ch):
         remove_node(tree, height_ch, 'end_max_height_tweak')
 
     # Get active output material
-    try: output_mat = [n for n in mtree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output][0]
-    except: return
+    output_mat = get_material_output(mat)
+    if not output_mat: return
 
     # Get active ypaint node
     node = get_active_ypaint_node()

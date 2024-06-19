@@ -1368,7 +1368,8 @@ class YBakeToLayer(bpy.types.Operator):
         
         # Other object channels related
         all_other_mats = []
-        ori_sockets = {}
+        ori_from_nodes = {}
+        ori_from_sockets = {}
 
         if self.type == 'OTHER_OBJECT_CHANNELS':
             ch_ids = [i for i, coo in enumerate(ch_other_objects) if len(coo) > 0]
@@ -1383,19 +1384,24 @@ class YBakeToLayer(bpy.types.Operator):
             # Remember original socket connected to outputs
             for m in all_other_mats:
                 soc = None
-                outputs = [n for n in m.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-                if outputs: 
-                    for l in outputs[0].inputs[0].links:
+                from_node = ''
+                from_socket = ''
+                mout = get_material_output(m)
+                if mout: 
+                    for l in mout.inputs[0].links:
                         soc = l.from_socket
+                        from_node = l.from_node.name
+                        from_socket = l.from_socket.name
 
                     # Create temporary emission
                     temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
                     if not temp_emi:
                         temp_emi = m.node_tree.nodes.new('ShaderNodeEmission')
                         temp_emi.name = TEMP_EMISSION
-                        m.node_tree.links.new(temp_emi.outputs[0], outputs[0].inputs[0])
+                        m.node_tree.links.new(temp_emi.outputs[0], mout.inputs[0])
 
-                ori_sockets[m.name] = soc
+                ori_from_nodes[m.name] = from_node
+                ori_from_sockets[m.name] = from_socket
 
         # Newly created layer index and image
         active_id = None
@@ -1423,9 +1429,12 @@ class YBakeToLayer(bpy.types.Operator):
 
                     # Set back original socket
                     for m in all_other_mats:
-                        outputs = [n for n in m.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-                        if outputs: 
-                            m.node_tree.links.new(ori_sockets[m.name], outputs[0].inputs[0])
+                        mout = get_material_output(m)
+                        if mout: 
+                            nod = m.node_tree.nodes.get(ori_from_nodes[m.name])
+                            if nod:
+                                soc = nod.outputs.get(ori_from_sockets[m.name])
+                                if soc: m.node_tree.links.new(soc, mout.inputs[0])
 
                 else:
                     bake_type = 'EMIT'
@@ -1804,9 +1813,12 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type == 'OTHER_OBJECT_CHANNELS':
             for m in all_other_mats:
                 # Set back original socket
-                outputs = [n for n in m.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-                if outputs: 
-                    m.node_tree.links.new(ori_sockets[m.name], outputs[0].inputs[0])
+                mout = get_material_output(m)
+                if mout: 
+                    nod = m.node_tree.nodes.get(ori_from_nodes[m.name])
+                    if nod:
+                        soc = nod.outputs.get(ori_from_sockets[m.name])
+                        if soc: m.node_tree.links.new(soc, mout.inputs[0])
 
                 # Remove temp emission
                 temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
@@ -1939,6 +1951,8 @@ class YBakeToLayer(bpy.types.Operator):
         #if active_id != yp.active_layer_index:
         if active_id != None and not self.overwrite_current:
             yp.active_layer_index = active_id
+        elif image:
+            update_image_editor_image(context, image)
 
         # Expand image source to show rebake button
         if self.target_type == 'MASK':
