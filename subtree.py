@@ -1555,7 +1555,7 @@ def check_uv_nodes(yp, generate_missings=False):
 
     # Get active object
     obj = bpy.context.object
-    mat = obj.active_material
+    mat = get_active_material()
 
     dirty = False
 
