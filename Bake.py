@@ -2844,6 +2844,7 @@ def update_enable_baked_outside(self, context):
                         tex_disp.location.x = loc_x
                         tex_disp.location.y = loc_y
                         tex_disp.parent = frame
+                        tex_disp.interpolation = 'Cubic'
                         mtree.links.new(uv.outputs[0], tex_disp.inputs[0])
 
                         if not is_greater_than_280() and baked_disp.image.colorspace_settings.name != 'sRGB':

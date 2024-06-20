@@ -1615,6 +1615,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             else:
                 disp_img_name = tree.name + ' Displacement'
 
+            # Set interpolation to cubic
+            baked_disp.interpolation = 'Cubic'
+
             disp_img = img.copy()
             disp_img.name = disp_img_name
             disp_img.colorspace_settings.name = 'Non-Color'
