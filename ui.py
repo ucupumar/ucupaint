@@ -837,10 +837,12 @@ def draw_root_channels_ui(context, layout, node):
     #rcol.context_pointer_set('node', node)
 
     if is_greater_than_280():
-        rcol.operator_menu_enum("node.y_add_new_ypaint_channel", 'type', icon='ADD', text='')
+        rcol.menu("NODE_MT_y_new_channel_menu", text='', icon='ADD')
+        #rcol.operator_menu_enum("node.y_add_new_ypaint_channel", 'type', icon='ADD', text='')
         rcol.operator("node.y_remove_ypaint_channel", icon='REMOVE', text='')
     else: 
-        rcol.operator_menu_enum("node.y_add_new_ypaint_channel", 'type', icon='ZOOMIN', text='')
+        rcol.menu("NODE_MT_y_new_channel_menu", text='', icon='ZOOMIN')
+        #rcol.operator_menu_enum("node.y_add_new_ypaint_channel", 'type', icon='ZOOMIN', text='')
         rcol.operator("node.y_remove_ypaint_channel", icon='ZOOMOUT', text='')
 
     rcol.operator("node.y_move_ypaint_channel", text='', icon='TRIA_UP').direction = 'UP'
@@ -3895,6 +3897,28 @@ class YBakeTargetMenu(bpy.types.Menu):
                 col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
             else: col.operator('node.y_save_as_image', text='Save As Image')
 
+class YNewChannelMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_channel_menu"
+    bl_description = 'Add New Channel'
+    bl_label = "New Channel Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        col = self.layout.column()
+        col.label(text='Add New Channel')
+
+        icon_value = lib.custom_icons[lib.channel_custom_icon_dict['VALUE']].icon_id
+        col.operator("node.y_add_new_ypaint_channel", icon_value=icon_value, text='Value').type = 'VALUE'
+
+        icon_value = lib.custom_icons[lib.channel_custom_icon_dict['RGB']].icon_id
+        col.operator("node.y_add_new_ypaint_channel", icon_value=icon_value, text='RGB').type = 'RGB'
+
+        icon_value = lib.custom_icons[lib.channel_custom_icon_dict['NORMAL']].icon_id
+        col.operator("node.y_add_new_ypaint_channel", icon_value=icon_value, text='Normal').type = 'NORMAL'
+
 class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"
     bl_description = 'Add New Layer'
@@ -3982,7 +4006,7 @@ class YNewLayerMenu(bpy.types.Menu):
         #c.make_image_blank = True
 
         col = row.column()
-        #col.label(text='Generated:')
+        col.label(text='Generated Layer:')
         #col.operator("node.y_new_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
         col.operator("node.y_new_layer", icon_value=lib.get_icon('texture'), text='Brick').type = 'BRICK'
         col.operator("node.y_new_layer", text='Checker').type = 'CHECKER'
@@ -3997,6 +4021,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_new_layer", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
 
         col = row.column()
+        col.label(text='Bake as Layer:')
         c = col.operator("node.y_bake_to_layer", icon_value=lib.get_icon('bake'), text='Ambient Occlusion')
         c.type = 'AO'
         c.target_type = 'LAYER'
@@ -5264,6 +5289,7 @@ def register():
     else: bpy.utils.register_class(YPaintAboutPopover)
 
     bpy.utils.register_class(YPaintSpecialMenu)
+    bpy.utils.register_class(YNewChannelMenu)
     bpy.utils.register_class(YNewLayerMenu)
     bpy.utils.register_class(YBakeTargetMenu)
     bpy.utils.register_class(YBakedImageMenu)
@@ -5320,6 +5346,7 @@ def unregister():
     else: bpy.utils.unregister_class(YPaintAboutPopover)
 
     bpy.utils.unregister_class(YPaintSpecialMenu)
+    bpy.utils.unregister_class(YNewChannelMenu)
     bpy.utils.unregister_class(YNewLayerMenu)
     bpy.utils.unregister_class(YBakeTargetMenu)
     bpy.utils.unregister_class(YBakedImageMenu)
