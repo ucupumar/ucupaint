@@ -2330,13 +2330,14 @@ def draw_layers_ui(context, layout, node):
             baked = nodes.get(root_ch.baked)
             baked_vcol_node = nodes.get(root_ch.baked_vcol)
 
+            icon_name = lib.channel_custom_icon_dict[root_ch.type]
+            icon_value = lib.custom_icons[icon_name].icon_id
+
             if not baked or not baked.image or root_ch.no_layer_using:
-                col.label(text="This channel hasn't been baked yet!")
+                col.label(text=root_ch.name + " channel hasn't been baked yet!", icon_value=icon_value)
             else:
                 row = col.row(align=True)
                 title = 'Baked ' + root_ch.name + ':'
-                icon_name = lib.channel_custom_icon_dict[root_ch.type]
-                icon_value = lib.custom_icons[icon_name].icon_id
                 row.label(text=title, icon_value=icon_value)
 
                 row.context_pointer_set('root_ch', root_ch)
