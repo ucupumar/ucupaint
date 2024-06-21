@@ -1285,7 +1285,7 @@ def get_valid_filepath(img, use_hdr):
 
     return img.filepath
 
-def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1, force_use_udim=False, tilenums=[]):
+def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear'):
 
     print('BAKE CHANNEL: Baking', root_ch.name + ' channel...')
 
@@ -1388,6 +1388,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL':
                 baked.color_space = 'NONE'
             else: baked.color_space = 'COLOR'
+        baked.interpolation = interpolation
         
         # Normal related nodes
         if root_ch.type == 'NORMAL':

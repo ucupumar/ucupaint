@@ -1173,6 +1173,12 @@ class YBakeChannels(bpy.types.Operator):
     uv_map : StringProperty(default='', update=update_bake_channel_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'Image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
@@ -1323,76 +1329,81 @@ class YBakeChannels(bpy.types.Operator):
         mat = obj.active_material
 
         row = split_layout(self.layout, 0.4)
-        col = row.column(align=True)
+        col = row.column() #align=True)
 
-        col.label(text='Width:')
-        col.label(text='Height:')
-        #col.label(text='')
-        col.separator()
-        col.label(text='Samples:')
-        col.label(text='AA Level:')
+        ccol = col.column(align=True)
+        ccol.label(text='Width:')
+        ccol.label(text='Height:')
+        ccol.separator()
+        ccol.label(text='Samples:')
+        ccol.label(text='AA Level:')
 
         if is_greater_than_310():
-            col.separator()
-        col.label(text='Margin:')
+            ccol.separator()
+        ccol.label(text='Margin:')
 
         col.separator()
+
         if is_greater_than_280():
             col.label(text='Bake Device:')
-            col.separator()
+        col.label(text='Interpolation:')
         col.label(text='UV Map:')
-        col.separator()
+
+        ccol = col.column(align=True)
+
         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
         active_channel = None
         if self.only_active_channel and not is_version_320():
             active_channel = self.channels[0]
             if active_channel.enable_bake_to_vcol:
-                col.label(text='')
+                ccol.separator()
+                ccol.label(text='')
         elif self.enable_bake_as_vcol and not is_version_320():
-            col.label(text='Force First Vcol:')
-        if UDIM.is_udim_supported():
-            col.label(text='')
-        col.label(text='')
-        if is_greater_than_281():
-            col.label(text='')
-        col.label(text='')
+            ccol.separator()
+            ccol.label(text='Force First Vcol:')
 
-        col = row.column(align=True)
+        col = row.column()
 
-        col.prop(self, 'width', text='')
-        col.prop(self, 'height', text='')
-        #col.prop(self, 'hdr')
-        col.separator()
+        ccol = col.column(align=True)
+        ccol.prop(self, 'width', text='')
+        ccol.prop(self, 'height', text='')
+        ccol.separator()
+        ccol.prop(self, 'samples', text='')
+        ccol.prop(self, 'aa_level', text='')
 
-        col.prop(self, 'samples', text='')
-        col.prop(self, 'aa_level', text='')
         if is_greater_than_310():
-            col.separator()
-            split = split_layout(col, 0.4, align=True)
+            ccol.separator()
+            split = split_layout(ccol, 0.4, align=True)
             split.prop(self, 'margin', text='')
             split.prop(self, 'margin_type', text='')
         else:
-            col.prop(self, 'margin', text='')
+            ccol.prop(self, 'margin', text='')
+
         col.separator()
 
         if is_greater_than_280():
             col.prop(self, 'bake_device', text='')
-            col.separator()
+        col.prop(self, 'interpolation', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
-        col.separator()
+
+        ccol = col.column(align=True)
+
         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
         if active_channel and active_channel.enable_bake_to_vcol:
-            col.prop(self, 'vcol_force_first_ch_idx_bool', text='Force First Vcol')
-            col.separator()
+            ccol.separator()
+            ccol.prop(self, 'vcol_force_first_ch_idx_bool', text='Force First Vcol')
         elif self.enable_bake_as_vcol and not is_version_320():
-            col.prop(self, 'vcol_force_first_ch_idx', text='')
-            col.separator()
+            ccol.separator()
+            ccol.prop(self, 'vcol_force_first_ch_idx', text='')
+
+        ccol.separator()
+
         if UDIM.is_udim_supported():
-            col.prop(self, 'use_udim')
-        col.prop(self, 'fxaa', text='Use FXAA')
+            ccol.prop(self, 'use_udim')
+        ccol.prop(self, 'fxaa', text='Use FXAA')
         if is_greater_than_281():
-            col.prop(self, 'denoise', text='Use Denoise')
-        col.prop(self, 'force_bake_all_polygons')
+            ccol.prop(self, 'denoise', text='Use Denoise')
+        ccol.prop(self, 'force_bake_all_polygons')
 
     def execute(self, context):
 
@@ -1534,7 +1545,7 @@ class YBakeChannels(bpy.types.Operator):
             if not ch.no_layer_using:
                 #if ch.type != 'NORMAL': continue
                 use_hdr = not ch.use_clamp
-                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, tilenums=tilenums)
+                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, tilenums=tilenums, interpolation=self.interpolation)
 
         # Process baked images
         baked_images = []
@@ -2766,6 +2777,7 @@ def update_enable_baked_outside(self, context):
                 tex.location.x = loc_x
                 tex.location.y = loc_y
                 tex.parent = frame
+                tex.interpolation = baked.interpolation
                 mtree.links.new(uv.outputs[0], tex.inputs[0])
 
                 baked_vcol = tree.nodes.get(ch.baked_vcol)
