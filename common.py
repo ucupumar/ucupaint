@@ -472,6 +472,12 @@ limited_mask_blend_types = {
     'LINEAR_LIGHT',
     }
 
+eraser_names = {
+        'TEXTURE_PAINT' : 'Eraser Tex',
+        'VERTEX_PAINT' : 'Eraser Vcol',
+        'SCULPT' : 'Eraser Paint',
+        }
+
 rgba_letters = ['r', 'g', 'b', 'a']
 
 TEXCOORD_IO_PREFIX = 'Texcoord '

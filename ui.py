@@ -2892,7 +2892,7 @@ def draw_layers_ui(context, layout, node):
         ve = context.scene.ve_edit
         if obj.mode == 'TEXTURE_PAINT':
             brush = context.tool_settings.image_paint.brush
-            if ((mask_image and mask.source_input == 'RGB') or override_image) and brush.blend == 'ERASE_ALPHA':
+            if ((mask_image and mask.source_input == 'RGB') or override_image) and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -2901,7 +2901,7 @@ def draw_layers_ui(context, layout, node):
 
         elif obj.mode == 'VERTEX_PAINT' and is_greater_than_280(): 
             brush = context.tool_settings.vertex_paint.brush
-            if mask_vcol and mask.source_input == 'RGB' and brush.blend == 'ERASE_ALPHA':
+            if mask_vcol and mask.source_input == 'RGB' and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -2910,7 +2910,7 @@ def draw_layers_ui(context, layout, node):
 
         elif obj.mode == 'SCULPT' and is_greater_than_320(): 
             brush = context.tool_settings.sculpt.brush
-            if mask_vcol and mask.source_input == 'RGB' and brush.blend == 'ERASE_ALPHA':
+            if mask_vcol and mask.source_input == 'RGB' and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True

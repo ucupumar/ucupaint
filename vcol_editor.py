@@ -45,11 +45,9 @@ class YToggleEraser(bpy.types.Operator):
         if mode == 'TEXTURE_PAINT':
             brush = context.tool_settings.image_paint.brush
             draw_brush = bpy.data.brushes.get('TexDraw')
-            eraser_name = 'Eraser Tex'
         elif mode == 'VERTEX_PAINT' and is_greater_than_280(): 
             brush = context.tool_settings.vertex_paint.brush
             draw_brush = bpy.data.brushes.get('Draw')
-            eraser_name = 'Eraser Vcol'
         elif mode == 'SCULPT' and is_greater_than_320(): 
             brush = context.tool_settings.sculpt.brush
             draw_brush = bpy.data.brushes.get('Paint')
@@ -59,12 +57,12 @@ class YToggleEraser(bpy.types.Operator):
                 else:
                     self.report({'ERROR'}, "Cannot find a paint brush!")
                     return {'CANCELLED'}
-            eraser_name = 'Eraser Paint'
         else:
             self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
             return {'CANCELLED'}
 
         # Get eraser brush
+        eraser_name = eraser_names[mode]
         eraser_brush = bpy.data.brushes.get(eraser_name)
 
         if not eraser_brush:
