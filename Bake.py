@@ -1554,6 +1554,10 @@ class YBakeChannels(bpy.types.Operator):
             baked = tree.nodes.get(ch.baked)
             if baked and baked.image:
 
+                # Denoise
+                if self.denoise and is_greater_than_281():
+                    denoise_image(baked.image)
+
                 # AA process
                 if self.aa_level > 1:
                     resize_image(baked.image, self.width, self.height, 
@@ -1563,16 +1567,16 @@ class YBakeChannels(bpy.types.Operator):
                 if self.fxaa and ch.use_clamp:
                     fxaa_image(baked.image, ch.enable_alpha, bake_device=self.bake_device)
 
-                # Denoise
-                if self.denoise and is_greater_than_281():
-                    denoise_image(baked.image)
-
                 baked_images.append(baked.image)
 
             if ch.type == 'NORMAL':
 
                 baked_disp = tree.nodes.get(ch.baked_disp)
                 if baked_disp and baked_disp.image:
+
+                    # Denoise
+                    if self.denoise and is_greater_than_281():
+                        denoise_image(baked_disp.image)
 
                     # AA process
                     if self.aa_level > 1:
@@ -1583,14 +1587,14 @@ class YBakeChannels(bpy.types.Operator):
                     if self.fxaa:
                         fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=self.bake_device)
 
-                    # Denoise
-                    if self.denoise and is_greater_than_281():
-                        denoise_image(baked_disp.image)
-
                     baked_images.append(baked_disp.image)
 
                 baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image:
+
+                    # Denoise
+                    if self.denoise and is_greater_than_281():
+                        denoise_image(baked_normal_overlay.image)
 
                     # AA process
                     if self.aa_level > 1:
@@ -1599,10 +1603,6 @@ class YBakeChannels(bpy.types.Operator):
                     # FXAA
                     if self.fxaa:
                         fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
-
-                    # Denoise
-                    if self.denoise and is_greater_than_281():
-                        denoise_image(baked_normal_overlay.image)
 
                     baked_images.append(baked_normal_overlay.image)
 
