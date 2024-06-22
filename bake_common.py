@@ -1448,7 +1448,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         else:
             # NOTE: Sometimes user like to add solid color as base color rather than edit the channel background color
-            # So check the first layer that uses solid color and has no masks and use it as bake background color
+            # So check the first layer that uses solid color that has no masks and use it as bake background color
             base_solid_color = None
             for layer in yp.layers:
                 if not layer.enable or layer.type != 'COLOR' or len(layer.masks) > 0 or layer.parent_idx != -1: continue

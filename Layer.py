@@ -4728,7 +4728,10 @@ def update_channel_active_edit(self, context):
     yp.active_layer_index = layer_idx
 
 class YLayerChannel(bpy.types.PropertyGroup):
-    enable : BoolProperty(default=True, update=update_channel_enable)
+    enable : BoolProperty(
+            name = 'Enable Layer Channel',
+            description = 'Enable layer channel',
+            default=True, update=update_channel_enable)
 
     layer_input : EnumProperty(
             name = 'Layer Input',
@@ -4756,12 +4759,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     blend_type : EnumProperty(
             name = 'Blend',
+            description = 'Blend type of layer channel',
             items = blend_type_items,
             default = 'MIX',
             update = update_blend_type)
 
     normal_blend_type : EnumProperty(
             name = 'Normal Blend Type',
+            description = 'Blend type of layer normal channel',
             items = normal_blend_items,
             default = 'MIX',
             update = update_blend_type)
@@ -5191,7 +5196,11 @@ def update_layer_blur_vector_factor(self, context):
         blur_vector.inputs[0].default_value = layer.blur_vector_factor / 100.0
 
 class YLayer(bpy.types.PropertyGroup):
-    name : StringProperty(default='', update=update_layer_name)
+    name : StringProperty(
+            name = 'Layer Name',
+            description = 'Layer name',
+            default='', update=update_layer_name)
+
     enable : BoolProperty(
             name = 'Enable Layer', description = 'Enable layer',
             default=True, update=update_layer_enable)

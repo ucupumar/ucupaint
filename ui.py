@@ -5109,11 +5109,30 @@ def update_mask_channel_ui(self, context):
     mask_ch.expand_content = self.expand_content
 
 class YBakeTargetUI(bpy.types.PropertyGroup):
-    expand_content : BoolProperty(default=True, update=update_bake_target_ui)
-    expand_r : BoolProperty(default=False, update=update_bake_target_ui)
-    expand_g : BoolProperty(default=False, update=update_bake_target_ui)
-    expand_b : BoolProperty(default=False, update=update_bake_target_ui)
-    expand_a : BoolProperty(default=False, update=update_bake_target_ui)
+    expand_content : BoolProperty(
+            name='Bake Target Options',
+            description='Expand bake target options',
+            default=True, update=update_bake_target_ui)
+
+    expand_r : BoolProperty(
+            name='R Channel',
+            description='Expand bake target R channel options',
+            default=False, update=update_bake_target_ui)
+
+    expand_g : BoolProperty(
+            name='G Channel',
+            description='Expand bake target R channel options',
+            default=False, update=update_bake_target_ui)
+
+    expand_b : BoolProperty(
+            name='B Channel',
+            description='Expand bake target B channel options',
+            default=False, update=update_bake_target_ui)
+
+    expand_a : BoolProperty(
+            name='A Channel',
+            description='Expand bake target A channel options',
+            default=False, update=update_bake_target_ui)
 
 class YModifierUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
@@ -5121,43 +5140,142 @@ class YModifierUI(bpy.types.PropertyGroup):
 
 class YChannelUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
-    expand_content : BoolProperty(default=False, update=update_channel_ui)
-    expand_bump_settings : BoolProperty(default=False, update=update_channel_ui)
-    expand_intensity_settings : BoolProperty(default=False, update=update_channel_ui)
-    expand_base_vector : BoolProperty(default=True, update=update_channel_ui)
-    expand_transition_bump_settings : BoolProperty(default=True, update=update_channel_ui)
-    expand_transition_ramp_settings : BoolProperty(default=True, update=update_channel_ui)
-    expand_transition_ao_settings : BoolProperty(default=True, update=update_channel_ui)
-    expand_subdiv_settings : BoolProperty(default=False, update=update_channel_ui)
-    expand_parallax_settings : BoolProperty(default=False, update=update_channel_ui)
-    expand_alpha_settings : BoolProperty(default=False, update=update_channel_ui)
-    expand_bake_to_vcol_settings : BoolProperty(default=False, update=update_channel_ui)
-    expand_smooth_bump_settings : BoolProperty(default=False, update=update_channel_ui)
-    expand_input_settings : BoolProperty(default=True, update=update_channel_ui)
-    expand_source : BoolProperty(default=True, update=update_channel_ui)
-    expand_source_1 : BoolProperty(default=True, update=update_channel_ui)
+    expand_content : BoolProperty(
+            name='Channel Options',
+            description='Expand channel options',
+            default=False, update=update_channel_ui)
+
+    expand_bump_settings : BoolProperty(
+            name='Bump',
+            description='Expand bump settings',
+            default=False, update=update_channel_ui)
+
+    expand_intensity_settings : BoolProperty(
+            name='Intensity',
+            description='Expand intensity settings',
+            default=False, update=update_channel_ui)
+
+    expand_base_vector : BoolProperty(
+            name='Base Vector',
+            description='Expand base vector options',
+            default=True, update=update_channel_ui)
+
+    expand_transition_bump_settings : BoolProperty(
+            name='Transition Bump',
+            description='Expand transition bump settings',
+            default=True, update=update_channel_ui)
+
+    expand_transition_ramp_settings : BoolProperty(
+            name='Transition Ramp',
+            description='Expand transition ramp settings',
+            default=True, update=update_channel_ui)
+
+    expand_transition_ao_settings : BoolProperty(
+            name='Transition AO',
+            description='Expand transition AO settings',
+            default=True, update=update_channel_ui)
+
+    expand_subdiv_settings : BoolProperty(
+            name='Displacement Subdivision',
+            description='Expand displacement subdivision settings',
+            default=False, update=update_channel_ui)
+
+    expand_parallax_settings : BoolProperty(
+            name='Parallax',
+            description='Expand parallax settings',
+            default=False, update=update_channel_ui)
+
+    expand_alpha_settings : BoolProperty(
+            name='Channel Alpha',
+            description='Expand alpha settings',
+            default=False, update=update_channel_ui)
+
+    expand_bake_to_vcol_settings : BoolProperty(
+            name='Bake to Vertex Color',
+            description='Expand bake to vertex color settings',
+            default=False, update=update_channel_ui)
+
+    expand_smooth_bump_settings : BoolProperty(
+            name='Smooth Bump',
+            description='Expand smooth bump settings',
+            default=False, update=update_channel_ui)
+
+    expand_input_settings : BoolProperty(
+            name='Input',
+            description='Expand input settings',
+            default=True, update=update_channel_ui)
+
+    expand_source : BoolProperty(
+            name='Channel Source',
+            description='Expand channel source settings',
+            default=True, update=update_channel_ui)
+
+    expand_source_1 : BoolProperty(
+            name='Channel Normal Source',
+            description='Expand channel normal source settings',
+            default=True, update=update_channel_ui)
+
     modifiers : CollectionProperty(type=YModifierUI)
     modifiers_1 : CollectionProperty(type=YModifierUI)
 
 class YMaskChannelUI(bpy.types.PropertyGroup):
-    expand_content : BoolProperty(default=False, update=update_mask_channel_ui)
+    expand_content : BoolProperty(
+            name='Mask Channel Options',
+            description='Expand mask channel options',
+            default=False, update=update_mask_channel_ui)
 
 class YMaskUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
-    expand_content : BoolProperty(default=True, update=update_mask_ui)
-    expand_channels : BoolProperty(default=True, update=update_mask_ui)
-    expand_source : BoolProperty(default=True, update=update_mask_ui)
-    expand_vector : BoolProperty(default=True, update=update_mask_ui)
+    expand_content : BoolProperty(
+            name='Mask Options',
+            description='Expand mask options',
+            default=True, update=update_mask_ui)
+
+    expand_channels : BoolProperty(
+            name='Mask Channel',
+            description='Expand mask channels',
+            default=True, update=update_mask_ui)
+
+    expand_source : BoolProperty(
+            name='Mask Source',
+            description='Expand mask source options',
+            default=True, update=update_mask_ui)
+
+    expand_vector : BoolProperty(
+            name='Mask Vector',
+            description='Expand mask vector options',
+            default=True, update=update_mask_ui)
+
     channels : CollectionProperty(type=YMaskChannelUI)
     modifiers : CollectionProperty(type=YModifierUI)
 
 class YLayerUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
-    expand_content : BoolProperty(default=False, update=update_layer_ui)
-    expand_vector : BoolProperty(default=False, update=update_layer_ui)
-    expand_masks : BoolProperty(default=False, update=update_layer_ui)
-    expand_source : BoolProperty(default=False, update=update_layer_ui)
-    expand_channels : BoolProperty(default=True, update=update_layer_ui)
+
+    expand_content : BoolProperty(
+            name='Layer Options',
+            description='Expand layer options',
+            default=False, update=update_layer_ui)
+
+    expand_vector : BoolProperty(
+            name='Layer Vector',
+            description='Expand layer vector options',
+            default=False, update=update_layer_ui)
+
+    expand_masks : BoolProperty(
+            name='Masks',
+            description='Expand all masks',
+            default=False, update=update_layer_ui)
+
+    expand_source : BoolProperty(
+            name='Layer Source',
+            description='Expand layer source options',
+            default=False, update=update_layer_ui)
+
+    expand_channels : BoolProperty(
+            name='Layer Channels',
+            description='Expand all layer channel options',
+            default=True, update=update_layer_ui)
 
     channels : CollectionProperty(type=YChannelUI)
     masks : CollectionProperty(type=YMaskUI)
@@ -5171,17 +5289,44 @@ class YMaterialUI(bpy.types.PropertyGroup):
     active_ypaint_node : StringProperty(default='') #, update=update_mat_active_yp_node)
 
 class YPaintUI(bpy.types.PropertyGroup):
-    show_object : BoolProperty(default=False)
-    show_materials : BoolProperty(default=False)
-    show_channels : BoolProperty(default=True)
-    show_layers : BoolProperty(default=True)
-    show_bake_targets : BoolProperty(default=False)
-    show_stats : BoolProperty(default=False)
-    show_support : BoolProperty(default=False)
+    show_object : BoolProperty(
+            name='Active Object',
+            description='Show active object options',
+            default=False)
+
+    show_materials : BoolProperty(
+            name='Materials',
+            description='Show material lists',
+            default=False)
+
+    show_channels : BoolProperty(
+            name='Channels',
+            description='Show channel lists',
+            default=True)
+
+    show_layers : BoolProperty(
+            name='Layers',
+            description='Show layer lists',
+            default=True)
+
+    show_bake_targets : BoolProperty(
+            name='Custom Bake Targets',
+            description='Show custom bake target lists',
+            default=False)
+
+    show_stats : BoolProperty(
+            name='Stats',
+            description='Show node stats',
+            default=False)
+
+    show_support : BoolProperty(
+            name='Support',
+            description='Show support',
+            default=False)
 
     expand_channels : BoolProperty(
-            name='Expand all channels',
-            description='Expand all channels',
+            name='Toggle all layer channels',
+            description='Toggle all layer channels',
             default=False)
 
     expand_mask_channels : BoolProperty(
