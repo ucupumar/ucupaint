@@ -5274,7 +5274,7 @@ class YLayerUI(bpy.types.PropertyGroup):
 
     expand_channels : BoolProperty(
             name='Layer Channels',
-            description='Expand all layer channel options',
+            description='Expand layer channels properties',
             default=True, update=update_layer_ui)
 
     channels : CollectionProperty(type=YChannelUI)
@@ -5325,8 +5325,8 @@ class YPaintUI(bpy.types.PropertyGroup):
             default=False)
 
     expand_channels : BoolProperty(
-            name='Toggle all layer channels',
-            description='Toggle all layer channels',
+            name='Show Channel Toggle',
+            description="Show layer channels toggle",
             default=False)
 
     expand_mask_channels : BoolProperty(
