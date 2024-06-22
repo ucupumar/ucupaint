@@ -1293,6 +1293,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     yp = tree.yp
     ypup = get_user_preferences()
 
+    channel_idx = get_channel_index(root_ch)
+
     # Check if udim image is needed based on number of tiles
     if tilenums == []:
         objs = get_all_objects_with_same_materials(mat)
@@ -1332,7 +1334,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             img = source.image.copy()
             img.name = img_name
 
-        ch = target_layer.channels[get_channel_index(root_ch)]
+        ch = target_layer.channels[channel_idx]
 
     # Check if udim will be used
     use_udim = force_use_udim or len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED')
@@ -1445,7 +1447,22 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             color = (0.0, 0.0, 0.0, 1.0)
 
         else:
-            col = node.inputs[root_ch.name].default_value
+            # NOTE: Sometimes user like to add solid color as base color rather than edit the channel background color
+            # So check the first layer that uses solid color and has no masks and use it as bake background color
+            base_solid_color = None
+            for layer in yp.layers:
+                if not layer.enable or layer.type != 'COLOR' or len(layer.masks) > 0 or layer.parent_idx != -1: continue
+                c = layer.channels[channel_idx]
+                if not c.enable or c.override: continue
+                source = get_layer_source(layer)
+                if source:
+                    base_solid_color = source.outputs[0].default_value
+                    break
+
+            if base_solid_color != None:
+                col = base_solid_color
+            else: col = node.inputs[root_ch.name].default_value
+
             col = Color((col[0], col[1], col[2]))
             col = linear_to_srgb(col)
             color = (col.r, col.g, col.b, 1.0)
