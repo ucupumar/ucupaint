@@ -5295,7 +5295,7 @@ class YLayerUI(bpy.types.PropertyGroup):
 
     expand_channels : BoolProperty(
             name='Layer Channels',
-            description='Expand layer channels properties',
+            description='Expand layer channels',
             default=True, update=update_layer_ui)
 
     channels : CollectionProperty(type=YChannelUI)
