@@ -1193,11 +1193,11 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     elif layer.type == 'BACKGROUND':
         if len(layer.modifiers) > 0:
             if lui.expand_content:
-                icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
+                icon_value = lib.custom_icons["uncollapsed_background"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_background"].icon_id
             row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
         else:
-            row.label(text='', icon_value=lib.get_icon('texture'))
+            row.label(text='', icon_value=lib.get_icon('background'))
         row.label(text=layer.name)
     elif layer.type == 'COLOR':
         if lui.expand_content:
