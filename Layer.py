@@ -1694,11 +1694,16 @@ class BaseMultipleImagesLayer():
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.yptimer.time = str(time.time())
 
         # Make sure to expand channels so it can be obvious which channels are active
         wm.ypui.expand_channels = True
+
+        # Expand vector transformation because it's highly likely user want to tweak this
+        wm.ypui.layer_ui.expand_content = True
+        wm.ypui.layer_ui.expand_vector = True
+
+        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
 
     def invoke_operator(self, context:bpy.context):
         obj = context.object
