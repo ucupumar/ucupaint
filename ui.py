@@ -2583,7 +2583,7 @@ def draw_layers_ui(context, layout, node):
 
         # Check main uv of height channel
         height_ch = get_root_height_channel(yp)
-        if height_ch and height_ch.main_uv != '':
+        if height_ch and height_ch.enable_smooth_bump and height_ch.main_uv != '':
             uv_layer = uv_layers.get(height_ch.main_uv)
             if not uv_layer and height_ch.main_uv not in uv_missings:
                 uv_missings.append(height_ch.main_uv)
