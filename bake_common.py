@@ -1,5 +1,6 @@
 import bpy, time, os, numpy, tempfile
 from .common import *
+from .input_outputs import *
 from .node_connections import *
 from . import lib, Layer, ImageAtlas, UDIM
 
@@ -938,7 +939,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
     blur = mat.node_tree.nodes.new('ShaderNodeGroup')
     blur.node_tree = get_node_tree_lib(lib.BLUR_VECTOR)
-    blur.inputs[0].default_value = factor / 100.0
+    blur.inputs[0].default_value = factor
 
     source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -1339,11 +1340,16 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     # Check if udim will be used
     use_udim = force_use_udim or len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED')
 
+    # Get output node and remember original bsdf input
+    output = get_active_mat_output_node(mat.node_tree)
+    ori_bsdf = output.inputs[0].links[0].from_socket
+
+    # Get material output
+    mat_out = get_material_output(mat)
+
     # Create setup nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
-
-    ori_subdiv_setup = False
 
     if root_ch.type == 'NORMAL':
 
@@ -1352,17 +1358,12 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
         else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
 
-        # Disable subdiv setup first if eevee next displacement is used
-        if root_ch.enable_subdiv_setup and ypup.eevee_next_displacement:
-            ori_subdiv_setup = True
-            root_ch.enable_subdiv_setup = False
-
     # Set tex as active node
     mat.node_tree.nodes.active = tex
 
-    # Get output node and remember original bsdf input
-    output = get_active_mat_output_node(mat.node_tree)
-    ori_bsdf = output.inputs[0].links[0].from_socket
+    #disp_from_socket = None
+    #for l in output.inputs['Displacement'].links:
+    #    disp_from_socket = l.from_socket
 
     # Connect emit to output material
     mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
@@ -1544,13 +1545,28 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     # Bake displacement
     if root_ch.type == 'NORMAL':
 
+        # Make sure height outputs available
+        check_all_channel_ios(yp, reconnect=True, force_height_io=True)
+
         if not target_layer:
 
             ### Normal overlay only
-            if is_overlay_normal_empty(yp):
+            if is_overlay_normal_empty(yp) and not root_ch.enable_subdiv_setup:
                 # Remove baked_normal_overlay
                 remove_node(tree, root_ch, 'baked_normal_overlay')
             else:
+
+                # Original displacement connection
+                ori_disp_from_node = ''
+                ori_disp_from_socket = ''
+
+                # Remove displacement link if subdiv setup is on
+                if root_ch.enable_subdiv_setup:
+                    for link in mat_out.inputs['Displacement'].links:
+                        ori_disp_from_node = link.from_node.name
+                        ori_disp_from_socket = link.from_socket.name
+                        mat.node_tree.links.remove(link)
+                        break
 
                 baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
                 if not baked_normal_overlay:
@@ -1614,6 +1630,127 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     bpy.data.images.remove(temp)
                 else:
                     baked_normal_overlay.image = norm_img
+
+                # Recover displacement link
+                if ori_disp_from_node != '':
+                    nod = mat.node_tree.nodes.get(ori_disp_from_node)
+                    if nod: 
+                        soc = nod.outputs.get(ori_disp_from_socket)
+                        if soc:
+                            mat.node_tree.links.new(soc, mat_out.inputs['Displacement'])
+
+            ### Vector Displacement
+            if not any_layers_using_vdisp(yp):
+                # Remove baked_vdisp
+                remove_node(tree, root_ch, 'baked_vdisp')
+            else:
+
+                baked_vdisp = tree.nodes.get(root_ch.baked_vdisp)
+                if not baked_vdisp:
+                    baked_vdisp = new_node(tree, root_ch, 'baked_vdisp', 'ShaderNodeTexImage', 
+                            'Baked ' + root_ch.name + ' Vector Displacement')
+                    if hasattr(baked_vdisp, 'color_space'):
+                        baked_vdisp.color_space = 'NONE'
+
+                if baked_vdisp.image:
+                    vdisp_img_name = baked_vdisp.image.name
+                    filepath = baked_vdisp.image.filepath
+                    baked_vdisp.image.name = '____VDISP_TEMP'
+                else:
+                    vdisp_img_name = tree.name + ' ' + root_ch.name + ' Vector Displacement'
+
+                # Set interpolation to cubic
+                baked_vdisp.interpolation = 'Cubic'
+
+                # Create target image
+                vdisp_img = img.copy()
+                vdisp_img.name = vdisp_img_name
+                vdisp_img.use_generated_float = True
+                vdisp_img.colorspace_settings.name = 'Non-Color'
+                color = (0.0, 0.0, 0.0, 1.0)
+
+                if img.source == 'TILED':
+                    UDIM.fill_tiles(vdisp_img, color)
+                    UDIM.initial_pack_udim(vdisp_img, color)
+                else: 
+                    vdisp_img.generated_color = color
+                    if filepath != '' and (
+                            (use_udim and '.<UDIM>.' in filepath) or 
+                            (not use_udim and '.<UDIM>.' not in filepath)
+                        ):
+                        vdisp_img.filepath = filepath
+
+                tex.image = vdisp_img
+
+                # Bake setup 
+                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['VDISP']], 
+                        emit.inputs[0])
+
+                # Bake
+                print('BAKE CHANNEL: Baking vector displacement image of ' + root_ch.name + ' channel...')
+                bpy.ops.object.bake()
+
+                # Set baked vector displacement image
+                if baked_vdisp.image:
+                    temp = baked_vdisp.image
+                    img_users = get_all_image_users(baked_vdisp.image)
+                    for user in img_users:
+                        user.image = vdisp_img
+                    bpy.data.images.remove(temp)
+                else:
+                    baked_vdisp.image = vdisp_img
+
+            ### Max Height
+
+            # Create target image
+            if UDIM.is_udim_supported():
+                mh_img = bpy.data.images.new(name='____MAXHEIGHT_TEMP', width=100, height=100, 
+                        alpha=False, tiled=False, float_buffer=True)
+            else:
+                mh_img = bpy.data.images.new(name='____MAXHEIGHT_TEMP', width=100, height=100, 
+                        alpha=False, float_buffer=True)
+
+            mh_img.colorspace_settings.name = 'Non-Color'
+            tex.image = mh_img
+
+            # Bake setup (doing little bit doing hacky reconnection here)
+            start = tree.nodes.get(TREE_START)
+            end = tree.nodes.get(TREE_END)
+            ori_soc = end.inputs[root_ch.name].links[0].from_socket
+            max_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
+            # Get the last layer that output max height
+            for l in yp.layers:
+                if not l.enable or not l.channels[get_channel_index(root_ch)].enable: continue
+                lnode = tree.nodes.get(l.group_node)
+                outp = lnode.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
+                if outp:
+                    max_height = outp
+                    break
+            create_link(tree, max_height, end.inputs[root_ch.name])
+            create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
+                    emit.inputs[0])
+
+            # Use high margin to make sure all pixels are covered
+            ori_margin = bpy.context.scene.render.bake.margin
+            bpy.context.scene.render.bake.margin = 1000
+
+            # Bake
+            print('BAKE CHANNEL: Baking max height of ' + root_ch.name + ' channel...')
+            bpy.ops.object.bake()
+
+            # Recover margin
+            bpy.context.scene.render.bake.margin = ori_margin
+
+            # Recover connection
+            create_link(tree, ori_soc, end.inputs[root_ch.name])
+
+            # Set baked max height image
+            max_height_value = mh_img.pixels[0]
+            end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+            end_max_height.outputs[0].default_value = max_height_value
+
+            # Remove max height image
+            bpy.data.images.remove(mh_img)
 
             ### Displacement
 
@@ -1698,6 +1835,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             if spread_height:
                 simple_remove_node(mat.node_tree, spread_height)
 
+        # Recover input outputs
+        check_all_channel_ios(yp)
+
     # Bake alpha
     #if root_ch.type != 'NORMAL' and root_ch.enable_alpha:
     if root_ch.enable_alpha:
@@ -1761,9 +1901,6 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     #for ent in temp_baked:
     #    print('BAKE CHANNEL: Removing temporary baked ' + ent.name + '...')
     #    disable_temp_bake(ent)
-
-    if ori_subdiv_setup:
-        root_ch.enable_subdiv_setup = True
 
     # Set image to target layer
     if target_layer:

@@ -214,6 +214,10 @@ def save_pack_all(yp):
             if baked_disp and baked_disp.image and baked_disp.image not in images:
                 images.append(baked_disp.image)
 
+            baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+            if baked_vdisp and baked_vdisp.image and baked_vdisp.image not in images:
+                images.append(baked_vdisp.image)
+
             if not is_overlay_normal_empty(yp):
                 baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
@@ -419,6 +423,17 @@ class YPackImage(bpy.types.Operator):
                         else: baked_disp.image.pack(as_png=True)
 
                     baked_disp.image.filepath = ''
+
+                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image and not baked_vdisp.image.packed_file:
+                    if is_greater_than_280():
+                        baked_vdisp.image.pack()
+                    else:
+                        if baked_vdisp.image.is_float:
+                            pack_float_image(baked_vdisp.image)
+                        else: baked_vdisp.image.pack(as_png=True)
+
+                    baked_vdisp.image.filepath = ''
 
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
@@ -632,6 +647,10 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 baked_disp = tree.nodes.get(ch.baked_disp)
                 if baked_disp and baked_disp.image:
                     images.append(baked_disp.image)
+
+                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image:
+                    images.append(baked_vdisp.image)
 
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)

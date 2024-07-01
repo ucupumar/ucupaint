@@ -40,6 +40,207 @@ def get_modifier_channel_type(mod, return_non_color=False):
 
     return channel_type
 
+def save_rgb2i_props(tree, m):
+    rgb2i = tree.nodes.get(m.rgb2i)
+    root_tree = m.id_data
+    if rgb2i:
+
+        for fcs in get_action_and_driver_fcurves(tree):
+            for fc in fcs:
+                match = re.match(r'^nodes\["' + m.rgb2i + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                if match:
+                    index = int(match.group(1))
+                    if index == 3:
+                        if root_tree != tree: copy_fcurves(fc, root_tree, m, 'rgb2i_col')
+                        else: fc.data_path = m.path_from_id() + '.rgb2i_col'
+
+        m.rgb2i_col = rgb2i.inputs['RGB To Intensity Color'].default_value
+
+def load_rgb2i_anim_props(tree, m):
+    rgb2i = tree.nodes.get(m.rgb2i)
+    root_tree = m.id_data
+    if rgb2i:
+        for fcs in get_action_and_driver_fcurves(root_tree):
+            for fc in reversed(fcs):
+                if root_tree != tree:
+                    # Copy fcurve if the tree is different
+                    if fc.data_path == m.path_from_id() + '.rgb2i_col': 
+                        copy_fcurves(fc, tree, rgb2i.inputs[3], 'default_value')
+                        fcs.remove(fc)
+                else:
+                    # Rename data path if the tree is the same
+                    if fc.data_path == m.path_from_id() + '.rgb2i_col': fc.data_path = 'nodes["' + m.rgb2i + '"].inputs[3].default_value'
+
+def save_huesat_props(tree, m):
+    huesat = tree.nodes.get(m.huesat)
+    root_tree = m.id_data
+    if huesat:
+
+        for fcs in get_action_and_driver_fcurves(tree):
+            for fc in fcs:
+                match = re.match(r'^nodes\["' + m.huesat + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                if match:
+                    index = int(match.group(1))
+                    if root_tree != tree:
+                        # Copy fcurve to yp attributes if the tree is different
+                        if index == 0: copy_fcurves(fc, root_tree, m, 'huesat_hue_val')
+                        elif index == 1: copy_fcurves(fc, root_tree, m, 'huesat_saturation_val')
+                        elif index == 2: copy_fcurves(fc, root_tree, m, 'huesat_value_val')
+                    else:
+                        # Rename data path if the tree is the same
+                        if index == 0: fc.data_path = m.path_from_id() + '.huesat_hue_val'
+                        elif index == 1: fc.data_path = m.path_from_id() + '.huesat_saturation_val'
+                        elif index == 2: fc.data_path = m.path_from_id() + '.huesat_value_val'
+
+        m.huesat_hue_val = huesat.inputs['Hue'].default_value
+        m.huesat_saturation_val = huesat.inputs['Saturation'].default_value
+        m.huesat_value_val = huesat.inputs['Value'].default_value
+
+def load_huesat_anim_props(tree, m):
+    huesat = tree.nodes.get(m.huesat)
+    root_tree = m.id_data
+    if huesat:
+
+        for fcs in get_action_and_driver_fcurves(root_tree):
+            for fc in reversed(fcs):
+                if root_tree != tree:
+                    # Copy fcurve if the tree is different
+                    if fc.data_path == m.path_from_id() + '.huesat_hue_val': 
+                        copy_fcurves(fc, tree, huesat.inputs[0], 'default_value')
+                        fcs.remove(fc)
+                    elif fc.data_path == m.path_from_id() + '.huesat_saturation_val': 
+                        copy_fcurves(fc, tree, huesat.inputs[1], 'default_value')
+                        fcs.remove(fc)
+                    elif fc.data_path == m.path_from_id() + '.huesat_value_val': 
+                        copy_fcurves(fc, tree, huesat.inputs[2], 'default_value')
+                        fcs.remove(fc)
+                else:
+                    # Rename data path if the tree is the same
+                    if fc.data_path == m.path_from_id() + '.huesat_hue_val': fc.data_path = 'nodes["' + m.huesat + '"].inputs[0].default_value'
+                    elif fc.data_path == m.path_from_id() + '.huesat_saturation_val': fc.data_path = 'nodes["' + m.huesat + '"].inputs[1].default_value'
+                    elif fc.data_path == m.path_from_id() + '.huesat_value_val': fc.data_path = 'nodes["' + m.huesat + '"].inputs[2].default_value'
+
+def save_brightcon_props(tree, m):
+    brightcon = tree.nodes.get(m.brightcon)
+    root_tree = m.id_data
+    if brightcon:
+
+        for fcs in get_action_and_driver_fcurves(tree):
+            for fc in fcs:
+                match = re.match(r'^nodes\["' + m.brightcon + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                if match:
+                    index = int(match.group(1))
+                    if root_tree != tree:
+                        # Copy fcurve to yp attributes if the tree is different
+                        if index == 1: copy_fcurves(fc, root_tree, m, 'brightness_value')
+                        elif index == 2: copy_fcurves(fc, root_tree, m, 'contrast_value')
+                    else:
+                        # Rename data path if the tree is the same
+                        if index == 1: fc.data_path = m.path_from_id() + '.brightness_value'
+                        elif index == 2: fc.data_path = m.path_from_id() + '.contrast_value'
+
+        m.brightness_value = brightcon.inputs['Bright'].default_value
+        m.contrast_value = brightcon.inputs['Contrast'].default_value
+
+def load_brightcon_anim_props(tree, m):
+    brightcon = tree.nodes.get(m.brightcon)
+    root_tree = m.id_data
+    if brightcon:
+
+        for fcs in get_action_and_driver_fcurves(root_tree):
+            for fc in reversed(fcs):
+                if root_tree != tree:
+                    # Copy fcurve if the tree is different
+                    if fc.data_path == m.path_from_id() + '.brightness_value': 
+                        copy_fcurves(fc, tree, brightcon.inputs[1], 'default_value')
+                        fcs.remove(fc)
+                    elif fc.data_path == m.path_from_id() + '.contrast_value': 
+                        copy_fcurves(fc, tree, brightcon.inputs[2], 'default_value')
+                        fcs.remove(fc)
+                else:
+                    # Rename data path if the tree is the same
+                    if fc.data_path == m.path_from_id() + '.brightness_value': fc.data_path = 'nodes["' + m.brightcon + '"].inputs[1].default_value'
+                    elif fc.data_path == m.path_from_id() + '.contrast_value': fc.data_path = 'nodes["' + m.brightcon + '"].inputs[2].default_value'
+
+def save_math_props(tree, m, channel_type):
+    math = tree.nodes.get(m.math)
+    root_tree = m.id_data
+    if math:
+
+        for fcs in get_action_and_driver_fcurves(tree):
+            for fc in fcs:
+                match = re.match(r'^nodes\["' + m.math + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                if match:
+                    index = int(match.group(1))
+                    if root_tree != tree:
+                        # Copy fcurve to yp attributes if the tree is different
+                        if channel_type == 'VALUE':
+                            if index == 2: copy_fcurves(fc, root_tree, m, 'math_r_val')
+                            elif index == 3: copy_fcurves(fc, root_tree, m, 'math_a_val')
+                        else:
+                            if index == 2: copy_fcurves(fc, root_tree, m, 'math_r_val')
+                            elif index == 3: copy_fcurves(fc, root_tree, m, 'math_g_val')
+                            elif index == 4: copy_fcurves(fc, root_tree, m, 'math_b_val')
+                            elif index == 5: copy_fcurves(fc, root_tree, m, 'math_a_val')
+                    else:
+                        # Rename data path if the tree is the same
+                        if channel_type == 'VALUE':
+                            if index == 2: fc.data_path = m.path_from_id() + '.math_r_val'
+                            elif index == 3: fc.data_path = m.path_from_id() + '.math_a_val'
+                        else:
+                            if index == 2: fc.data_path = m.path_from_id() + '.math_r_val'
+                            elif index == 3: fc.data_path = m.path_from_id() + '.math_g_val'
+                            elif index == 4: fc.data_path = m.path_from_id() + '.math_b_val'
+                            elif index == 5: fc.data_path = m.path_from_id() + '.math_a_val'
+
+        m.math_r_val = math.inputs[2].default_value
+        if channel_type == 'VALUE':
+            m.math_a_val = math.inputs[3].default_value
+        else:
+            m.math_g_val = math.inputs[3].default_value
+            m.math_b_val = math.inputs[4].default_value
+            m.math_a_val = math.inputs[5].default_value
+
+def load_math_anim_props(tree, m, channel_type):
+    math = tree.nodes.get(m.math)
+    root_tree = m.id_data
+    if math:
+
+        for fcs in get_action_and_driver_fcurves(root_tree):
+            for fc in reversed(fcs):
+                if root_tree != tree:
+                    # Copy fcurve if the tree is different
+                    if channel_type == 'VALUE':
+                        if fc.data_path == m.path_from_id() + '.math_r_val': 
+                            copy_fcurves(fc, tree, math.inputs[2], 'default_value')
+                            fcs.remove(fc)
+                        elif fc.data_path == m.path_from_id() + '.math_a_val': 
+                            copy_fcurves(fc, tree, math.inputs[3], 'default_value')
+                            fcs.remove(fc)
+                    else:
+                        if fc.data_path == m.path_from_id() + '.math_r_val': 
+                            copy_fcurves(fc, tree, math.inputs[2], 'default_value')
+                            fcs.remove(fc)
+                        elif fc.data_path == m.path_from_id() + '.math_g_val': 
+                            copy_fcurves(fc, tree, math.inputs[3], 'default_value')
+                            fcs.remove(fc)
+                        elif fc.data_path == m.path_from_id() + '.math_b_val': 
+                            copy_fcurves(fc, tree, math.inputs[4], 'default_value')
+                            fcs.remove(fc)
+                        elif fc.data_path == m.path_from_id() + '.math_a_val': 
+                            copy_fcurves(fc, tree, math.inputs[5], 'default_value')
+                            fcs.remove(fc)
+                else:
+                    # Rename data path if the tree is the same
+                    if channel_type == 'VALUE':
+                        if fc.data_path == m.path_from_id() + '.math_r_val': fc.data_path = 'nodes["' + m.math + '"].inputs[2].default_value'
+                        elif fc.data_path == m.path_from_id() + '.math_a_val': fc.data_path = 'nodes["' + m.math + '"].inputs[3].default_value'
+                    else:
+                        if fc.data_path == m.path_from_id() + '.math_r_val': fc.data_path = 'nodes["' + m.math + '"].inputs[2].default_value'
+                        elif fc.data_path == m.path_from_id() + '.math_g_val': fc.data_path = 'nodes["' + m.math + '"].inputs[3].default_value'
+                        elif fc.data_path == m.path_from_id() + '.math_b_val': fc.data_path = 'nodes["' + m.math + '"].inputs[4].default_value'
+                        elif fc.data_path == m.path_from_id() + '.math_a_val': fc.data_path = 'nodes["' + m.math + '"].inputs[5].default_value'
+
 def check_modifier_nodes(m, tree, ref_tree=None):
 
     yp = m.id_data.yp
@@ -79,9 +280,11 @@ def check_modifier_nodes(m, tree, ref_tree=None):
     elif m.type == 'RGB_TO_INTENSITY':
 
         if not m.enable:
+            save_rgb2i_props(tree, m)
             remove_node(tree, m, 'rgb2i')
         else:
             if ref_tree:
+                save_rgb2i_props(tree, m)
                 rgb2i_ref = ref_tree.nodes.get(m.rgb2i)
                 if rgb2i_ref: ref_tree.nodes.remove(rgb2i_ref)
 
@@ -97,6 +300,8 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 if non_color:
                     rgb2i.inputs['Gamma'].default_value = 1.0
                 else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
+
+                load_rgb2i_anim_props(tree, m)
 
     elif m.type == 'INTENSITY_TO_RGB':
 
@@ -243,9 +448,12 @@ def check_modifier_nodes(m, tree, ref_tree=None):
     elif m.type == 'HUE_SATURATION':
 
         if not m.enable:
+            save_huesat_props(tree, m)
             remove_node(tree, m, 'huesat')
         else:
             if ref_tree:
+                save_huesat_props(tree, m)
+
                 # Remove previous nodes
                 huesat_ref = ref_tree.nodes.get(m.huesat)
                 if huesat_ref: ref_tree.nodes.remove(huesat_ref)
@@ -260,12 +468,17 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 huesat.inputs['Saturation'].default_value = m.huesat_saturation_val
                 huesat.inputs['Value'].default_value = m.huesat_value_val
 
+                load_huesat_anim_props(tree, m)
+
     elif m.type == 'BRIGHT_CONTRAST':
 
         if not m.enable:
+            save_brightcon_props(tree, m)
             remove_node(tree, m, 'brightcon')
         else:
             if ref_tree:
+                save_brightcon_props(tree, m)
+
                 # Remove previous nodes
                 brightcon_ref = ref_tree.nodes.get(m.brightcon)
                 if brightcon_ref: ref_tree.nodes.remove(brightcon_ref)
@@ -278,6 +491,8 @@ def check_modifier_nodes(m, tree, ref_tree=None):
             if dirty:
                 brightcon.inputs['Bright'].default_value = m.brightness_value
                 brightcon.inputs['Contrast'].default_value = m.contrast_value
+
+                load_brightcon_anim_props(tree, m)
 
     elif m.type == 'MULTIPLIER':
 
@@ -311,9 +526,12 @@ def check_modifier_nodes(m, tree, ref_tree=None):
     elif m.type == 'MATH':
 
         if not m.enable:
+            save_math_props(tree, m, channel_type)
             remove_node(tree, m, 'math')
         else:
             if ref_tree:
+                save_math_props(ref_tree, m, channel_type)
+
                 # Remove previous nodes
                 math_ref = ref_tree.nodes.get(m.math)
                 if math_ref: ref_tree.nodes.remove(math_ref)
@@ -352,6 +570,8 @@ def check_modifier_nodes(m, tree, ref_tree=None):
 
                     math.node_tree.nodes.get('Math.G').use_clamp = m.use_clamp
                     math.node_tree.nodes.get('Math.B').use_clamp = m.use_clamp
+
+                load_math_anim_props(tree, m, channel_type)
 
 def delete_modifier_nodes(tree, mod):
 
