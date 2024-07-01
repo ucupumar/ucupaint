@@ -124,6 +124,8 @@ def update_yp_tree(tree):
 
     update_happened = False
 
+    # SECTION I: Update based on yp version
+
     # Version 0.9.1 and above will fix wrong bake type stored on images bake type
     if LooseVersion(yp.version) < LooseVersion('0.9.1'):
         #print(cur_version)
@@ -451,6 +453,21 @@ def update_yp_tree(tree):
                 if height_ch and height_ch.enable:
                     update_layer_images_interpolation(layer, 'Cubic')
 
+    # SECTION II: Updates based on the blender version
+
+    # Blender 2.92 can finally access it's vertex color alpha
+    if is_greater_than_292() and (is_created_before_292() or LooseVersion(yp.blender_version) < LooseVersion('2.9.2')):
+        show_message = False
+        for layer in yp.layers:
+            # Update vcol layer to use alpha by reconnection
+            if layer.type == 'VCOL':
+                reconnect_layer_nodes(layer)
+                rearrange_layer_nodes(layer)
+                show_message = True
+
+        if show_message:
+            print("INFO: Now " + get_addon_title() + " capable to use vertex paint alpha since Blender 2.92, Enjoy!")
+
     # Update version
     if update_happened or LooseVersion(yp.version) < LooseVersion(cur_version):
         yp.version = cur_version
@@ -488,23 +505,6 @@ def update_routine(name):
     # Actually update tangent process
     if need_to_update_tangent_process_300:
         update_tangent_process_300()
-
-    # Special update for opening Blender below 2.92 file
-    if is_created_before_292() and is_greater_than_292():
-        show_message = False
-        for ng in bpy.data.node_groups:
-            if not hasattr(ng, 'yp'): continue
-            if not ng.yp.is_ypaint_node: continue
-            show_message = True
-            
-            for layer in ng.yp.layers:
-                # Update vcol layer to use alpha by reconnection
-                if layer.type == 'VCOL':
-                    reconnect_layer_nodes(layer)
-                    rearrange_layer_nodes(layer)
-
-        if show_message:
-            print("INFO: Now " + get_addon_title() + " capable to use vertex paint alpha since Blender 2.92, Enjoy!")
 
     # Blender 4.10 no longer has musgrave node
     if is_created_before_410() and is_greater_than_410():
