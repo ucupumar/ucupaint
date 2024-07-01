@@ -118,11 +118,347 @@ def update_tangent_process_300():
                 print('INFO:', 'Vertex color "' + vcol.name + '" in', ob.name, 'is deleted!')
                 vcols.remove(vcol)
 
+def update_yp_tree(tree):
+    cur_version = get_current_version_str()
+    yp = tree.yp
+
+    update_happened = False
+
+    # Version 0.9.1 and above will fix wrong bake type stored on images bake type
+    if LooseVersion(yp.version) < LooseVersion('0.9.1'):
+        #print(cur_version)
+        for layer in yp.layers:
+            if layer.type == 'IMAGE':
+                source = get_layer_source(layer)
+
+                if source.image and source.image.y_bake_info.is_baked:
+                    #print(source.image)
+                    for type_name, label in bake_type_suffixes.items():
+                        if label in source.image.name and source.image.y_bake_info.bake_type != type_name:
+                            source.image.y_bake_info.bake_type = type_name
+                            print('INFO: Bake type of', source.image.name, 'is fixed by setting it to', label + '!')
+                            update_happened = True
+
+    # Version 0.9.2 and above will move mapping outside source group
+    if LooseVersion(yp.version) < LooseVersion('0.9.2'):
+
+        for layer in yp.layers:
+            tree = get_tree(layer)
+
+            mapping_replaced = False
+
+            # Move layer mapping
+            if layer.source_group != '':
+                group = tree.nodes.get(layer.source_group)
+                if group:
+                    mapping_ref = group.node_tree.nodes.get(layer.mapping)
+                    if mapping_ref:
+                        mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping')
+                        copy_node_props(mapping_ref, mapping)
+                        group.node_tree.nodes.remove(mapping_ref)
+                        set_uv_neighbor_resolution(layer) #, mapping=mapping)
+                        mapping_replaced = True
+                        print('INFO: Mapping of', layer.name, 'is moved out!')
+
+            # Move mask mapping
+            for mask in layer.masks:
+                if mask.group_node != '':
+                    group = tree.nodes.get(mask.group_node)
+                    if group:
+                        mapping_ref = group.node_tree.nodes.get(mask.mapping)
+                        if mapping_ref:
+                            mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping')
+                            copy_node_props(mapping_ref, mapping)
+                            group.node_tree.nodes.remove(mapping_ref)
+                            set_uv_neighbor_resolution(mask) #, mapping=mapping)
+                            mapping_replaced = True
+                            print('INFO: Mapping of', mask.name, 'is moved out!')
+
+            if mapping_replaced:
+                reconnect_layer_nodes(layer)
+                rearrange_layer_nodes(layer)
+                update_happened = True
+
+    # Version 0.9.3 and above will replace override color modifier with newer override system
+    if LooseVersion(yp.version) < LooseVersion('0.9.3'):
+
+        for layer in yp.layers:
+            for i, ch in enumerate(layer.channels):
+                root_ch = yp.channels[i]
+                mod_ids = []
+                for j, mod in enumerate(ch.modifiers):
+                    if mod.type == 'OVERRIDE_COLOR':
+                        mod_ids.append(j)
+
+                for j in reversed(mod_ids):
+                    mod = ch.modifiers[j]
+                    tree = get_mod_tree(ch)
+
+                    ch.override = True
+                    if root_ch.type == 'VALUE':
+                        ch.override_value = mod.oc_val
+                    else:
+                        ch.override_color = (mod.oc_col[0], mod.oc_col[1], mod.oc_col[2])
+
+                    if ch.override_type != 'DEFAULT':
+                        ch.override_type = 'DEFAULT'
+
+                    # Delete the nodes and modifier
+                    remove_node(tree, mod, 'oc')
+                    ch.modifiers.remove(j)
+
+                if mod_ids:
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
+                    update_happened = True
+
+    # Version 0.9.4 and above will replace multipier modifier with math modifier
+    if LooseVersion(yp.version) < LooseVersion('0.9.4'):
+
+        mods = []
+        parents = []
+        types = []
+
+        for channel in yp.channels:
+            channel_tree = get_mod_tree(channel)
+            for mod in channel.modifiers:
+                if mod.type == 'MULTIPLIER' :
+                    mods.append(mod)
+                    parents.append(channel)
+                    types.append(channel.type)
+
+        for layer in yp.layers:
+            layer_tree = get_mod_tree(layer)
+            for mod in layer.modifiers:
+                if mod.type == 'MULTIPLIER' :
+                    mods.append(mod)
+                    parents.append(layer)
+                    types.append('RGB')
+
+            for i, ch in enumerate(layer.channels):
+                root_ch = yp.channels[i]
+                ch_tree = get_mod_tree(ch)
+                for j, mod in enumerate(ch.modifiers):
+                    if mod.type == 'MULTIPLIER' :
+                        mods.append(mod)
+                        parents.append(ch)
+                        types.append(root_ch.type)
+
+        for i, mod in enumerate(mods):
+            parent = parents[i]
+            ch_type = types[i]
+
+            tree = get_mod_tree(parent)
+
+            mod.name = 'Math'
+            mod.type = 'MATH'
+            remove_node(tree, mod, 'multiplier')
+            math = new_node(tree, mod, 'math', 'ShaderNodeGroup', 'Math')
+
+            if ch_type == 'VALUE':
+                math.node_tree = get_node_tree_lib(MOD_MATH_VALUE)
+            else:
+                math.node_tree = get_node_tree_lib(MOD_MATH)
+            
+            duplicate_lib_node_tree(math)
+
+            mod.affect_alpha = True
+            math.node_tree.nodes.get('Mix.A').mute = False
+
+            mod.math_a_val = mod.multiplier_a_val
+            mod.math_r_val = mod.multiplier_r_val
+            math.node_tree.nodes.get('Math.R').use_clamp = mod.use_clamp
+            math.node_tree.nodes.get('Math.A').use_clamp = mod.use_clamp
+            if ch_type != 'VALUE':
+                mod.math_g_val = mod.multiplier_g_val
+                mod.math_b_val = mod.multiplier_b_val
+                math.node_tree.nodes.get('Math.G').use_clamp = mod.use_clamp
+                math.node_tree.nodes.get('Math.B').use_clamp = mod.use_clamp
+
+        if mods:
+            for layer in yp.layers:
+                reconnect_layer_nodes(layer)
+                rearrange_layer_nodes(layer)
+            reconnect_yp_nodes(tree)
+            rearrange_yp_nodes(tree)
+            update_happened = True
+
+    # Version 0.9.5 and above have ability to use vertex color alpha on layer
+    if LooseVersion(yp.version) < LooseVersion('0.9.5'):
+
+        for layer in yp.layers:
+            # Update vcol layer to use alpha by reconnection
+            if layer.type == 'VCOL':
+
+                # Smooth bump channel need another fake neighbor for alpha
+                smooth_bump_ch = get_smooth_bump_channel(layer)
+                if smooth_bump_ch and smooth_bump_ch.enable:
+                    layer_tree = get_tree(layer)
+                    uv_neighbor_1 = replace_new_node(layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
+                            NEIGHBOR_FAKE, hard_replace=True)
+
+                reconnect_layer_nodes(layer)
+                rearrange_layer_nodes(layer)
+                update_happened = True
+
+    # Version 0.9.8 and above will use sRGB images by default
+    if LooseVersion(yp.version) < LooseVersion('0.9.8'):
+
+        for layer in yp.layers:
+            if not layer.enable: continue
+
+            image_found = False
+            if layer.type == 'IMAGE':
+
+                source = get_layer_source(layer)
+                if source and source.image and not source.image.is_float: 
+                    if source.image.colorspace_settings.name != 'sRGB':
+                        source.image.colorspace_settings.name = 'sRGB'
+                        print('INFO:', source.image.name, 'image is now using sRGB!')
+                    check_layer_image_linear_node(layer)
+                image_found = True
+
+            for ch in layer.channels:
+                if not ch.enable or not ch.override: continue
+
+                if ch.override_type == 'IMAGE':
+
+                    source = get_channel_source(ch)
+                    if source and source.image and not source.image.is_float:
+                        if source.image.colorspace_settings.name != 'sRGB':
+                            source.image.colorspace_settings.name = 'sRGB'
+                            print('INFO:', source.image.name, 'image is now using sRGB!')
+                        check_layer_channel_linear_node(ch)
+                    image_found = True
+
+            for mask in layer.masks:
+                if not mask.enable: continue
+
+                if mask.type == 'IMAGE':
+                    source = get_mask_source(mask)
+                    if source and source.image and not source.image.is_float:
+                        if source.image.colorspace_settings.name != 'sRGB':
+                            source.image.colorspace_settings.name = 'sRGB'
+                            print('INFO:', source.image.name, 'image is now using sRGB!')
+                        check_mask_image_linear_node(mask)
+                    image_found = True
+
+            if image_found:
+                rearrange_layer_nodes(layer)
+                reconnect_layer_nodes(layer)
+                update_happened = True
+
+    # Version 0.9.9 have separate normal and bump override
+    if LooseVersion(yp.version) < LooseVersion('0.9.9'):
+        for layer in yp.layers:
+            for i, ch in enumerate(layer.channels):
+                root_ch = yp.channels[i]
+                if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP' and ch.override:
+
+                    # Disable override first
+                    ch.override = False
+
+                    # Rename pointers
+                    ch.cache_1_image = ch.cache_image
+
+                    # Remove previous pointers
+                    ch.cache_image = ''
+
+                    # Copy props
+                    ch.override_1_type = ch.override_type
+                    ch.override_type = 'DEFAULT'
+
+                    # Enable override
+                    ch.override_1 = True
+
+                    # Copy active edit
+                    ch.active_edit_1 = ch.active_edit
+
+                    update_happened = True
+
+                    print('INFO:', layer.name, root_ch.name, 'now has separate override properties!')
+
+    # Version 1.0.11 will make sure divider alpha node is connected correctly
+    if LooseVersion(yp.version) < LooseVersion('1.0.11'):
+        for layer in yp.layers:
+            if layer.type == 'VCOL':
+                # Refresh divider alpha by setting the prop
+                layer.divide_rgb_by_alpha = layer.divide_rgb_by_alpha
+
+    # Version 1.2 will have mask inputs
+    if LooseVersion(yp.version) < LooseVersion('1.2.0'):
+        update_happened = True
+        for layer in yp.layers:
+            for mask in layer.masks:
+                # Voronoi and noise default is using alpha/value input
+                if mask.type in {'VORONOI', 'NOISE'}:
+                    mask.source_input = 'ALPHA'
+
+    # Version 1.2.4 has voronoi feature prop
+    if LooseVersion(yp.version) < LooseVersion('1.2.4'):
+        update_happened = True
+        for layer in yp.layers:
+            if layer.type == 'VORONOI':
+                source = get_layer_source(layer)
+                yp.halt_update = True
+                layer.voronoi_feature = source.feature
+                yp.halt_update = False
+
+            for ch in layer.channels:
+                if ch.override_type == 'VORONOI':
+                    source = get_channel_source(ch)
+                    if source:
+                        yp.halt_update = True
+                        ch.voronoi_feature = source.feature
+                        yp.halt_update = False
+
+                layer_tree = get_tree(layer)
+                cache_voronoi = layer_tree.nodes.get(ch.cache_voronoi)
+                if cache_voronoi:
+                    yp.halt_update = True
+                    ch.voronoi_feature = cache_voronoi.feature
+                    yp.halt_update = False
+
+            for mask in layer.masks:
+                if mask.type == 'VORONOI':
+                    source = get_mask_source(mask)
+                    yp.halt_update = True
+                    mask.voronoi_feature = source.feature
+                    yp.halt_update = False
+
+    # Version 1.2.5 fix end normal process
+    if LooseVersion(yp.version) < LooseVersion('1.2.5'):
+        update_happened = True
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            check_start_end_root_ch_nodes(tree, height_root_ch)
+            reconnect_yp_nodes(tree)
+            rearrange_yp_nodes(tree)
+
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                if height_ch and height_ch.enable:
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
+
+    # Version 1.2.9 will use cubic interpolation for bump map
+    if LooseVersion(yp.version) < LooseVersion('1.2.9'):
+        update_happened = True
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                if height_ch and height_ch.enable:
+                    update_layer_images_interpolation(layer, 'Cubic')
+
+    # Update version
+    if update_happened or LooseVersion(yp.version) < LooseVersion(cur_version):
+        yp.version = cur_version
+        print('INFO:', tree.name, 'is updated to version', cur_version)
+
 @persistent
 def update_routine(name):
     T = time.time()
-
-    cur_version = get_current_version_str()
 
     # Flag to check mix nodes
     need_to_check_mix_nodes = False
@@ -132,351 +468,16 @@ def update_routine(name):
         if not hasattr(ng, 'yp'): continue
         if not ng.yp.is_ypaint_node: continue
 
-        #print(ng.name, 'ver:', ng.yp.version)
-        update_happened = False
-
-        # Version 0.9.1 and above will fix wrong bake type stored on images bake type
-        if LooseVersion(ng.yp.version) < LooseVersion('0.9.1'):
-            #print(cur_version)
-            for layer in ng.yp.layers:
-                if layer.type == 'IMAGE':
-                    source = get_layer_source(layer)
-
-                    if source.image and source.image.y_bake_info.is_baked:
-                        #print(source.image)
-                        for type_name, label in bake_type_suffixes.items():
-                            if label in source.image.name and source.image.y_bake_info.bake_type != type_name:
-                                source.image.y_bake_info.bake_type = type_name
-                                print('INFO: Bake type of', source.image.name, 'is fixed by setting it to', label + '!')
-                                update_happened = True
-
-        # Version 0.9.2 and above will move mapping outside source group
-        if LooseVersion(ng.yp.version) < LooseVersion('0.9.2'):
-
-            for layer in ng.yp.layers:
-                tree = get_tree(layer)
-
-                mapping_replaced = False
-
-                # Move layer mapping
-                if layer.source_group != '':
-                    group = tree.nodes.get(layer.source_group)
-                    if group:
-                        mapping_ref = group.node_tree.nodes.get(layer.mapping)
-                        if mapping_ref:
-                            mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping')
-                            copy_node_props(mapping_ref, mapping)
-                            group.node_tree.nodes.remove(mapping_ref)
-                            set_uv_neighbor_resolution(layer) #, mapping=mapping)
-                            mapping_replaced = True
-                            print('INFO: Mapping of', layer.name, 'is moved out!')
-
-                # Move mask mapping
-                for mask in layer.masks:
-                    if mask.group_node != '':
-                        group = tree.nodes.get(mask.group_node)
-                        if group:
-                            mapping_ref = group.node_tree.nodes.get(mask.mapping)
-                            if mapping_ref:
-                                mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping')
-                                copy_node_props(mapping_ref, mapping)
-                                group.node_tree.nodes.remove(mapping_ref)
-                                set_uv_neighbor_resolution(mask) #, mapping=mapping)
-                                mapping_replaced = True
-                                print('INFO: Mapping of', mask.name, 'is moved out!')
-
-                if mapping_replaced:
-                    reconnect_layer_nodes(layer)
-                    rearrange_layer_nodes(layer)
-                    update_happened = True
-
-        # Version 0.9.3 and above will replace override color modifier with newer override system
-        if LooseVersion(ng.yp.version) < LooseVersion('0.9.3'):
-
-            for layer in ng.yp.layers:
-                for i, ch in enumerate(layer.channels):
-                    root_ch = ng.yp.channels[i]
-                    mod_ids = []
-                    for j, mod in enumerate(ch.modifiers):
-                        if mod.type == 'OVERRIDE_COLOR':
-                            mod_ids.append(j)
-
-                    for j in reversed(mod_ids):
-                        mod = ch.modifiers[j]
-                        tree = get_mod_tree(ch)
-
-                        ch.override = True
-                        if root_ch.type == 'VALUE':
-                            ch.override_value = mod.oc_val
-                        else:
-                            ch.override_color = (mod.oc_col[0], mod.oc_col[1], mod.oc_col[2])
-
-                        if ch.override_type != 'DEFAULT':
-                            ch.override_type = 'DEFAULT'
-
-                        # Delete the nodes and modifier
-                        remove_node(tree, mod, 'oc')
-                        ch.modifiers.remove(j)
-
-                    if mod_ids:
-                        reconnect_layer_nodes(layer)
-                        rearrange_layer_nodes(layer)
-                        update_happened = True
-
-        # Version 0.9.4 and above will replace multipier modifier with math modifier
-        if LooseVersion(ng.yp.version) < LooseVersion('0.9.4'):
-
-            mods = []
-            parents = []
-            types = []
-
-            for channel in ng.yp.channels:
-                channel_tree = get_mod_tree(channel)
-                for mod in channel.modifiers:
-                    if mod.type == 'MULTIPLIER' :
-                        mods.append(mod)
-                        parents.append(channel)
-                        types.append(channel.type)
-
-            for layer in ng.yp.layers:
-                layer_tree = get_mod_tree(layer)
-                for mod in layer.modifiers:
-                    if mod.type == 'MULTIPLIER' :
-                        mods.append(mod)
-                        parents.append(layer)
-                        types.append('RGB')
-
-                for i, ch in enumerate(layer.channels):
-                    root_ch = ng.yp.channels[i]
-                    ch_tree = get_mod_tree(ch)
-                    for j, mod in enumerate(ch.modifiers):
-                        if mod.type == 'MULTIPLIER' :
-                            mods.append(mod)
-                            parents.append(ch)
-                            types.append(root_ch.type)
-
-            for i, mod in enumerate(mods):
-                parent = parents[i]
-                ch_type = types[i]
-
-                tree = get_mod_tree(parent)
-
-                mod.name = 'Math'
-                mod.type = 'MATH'
-                remove_node(tree, mod, 'multiplier')
-                math = new_node(tree, mod, 'math', 'ShaderNodeGroup', 'Math')
-
-                if ch_type == 'VALUE':
-                    math.node_tree = get_node_tree_lib(MOD_MATH_VALUE)
-                else:
-                    math.node_tree = get_node_tree_lib(MOD_MATH)
-                
-                duplicate_lib_node_tree(math)
-
-                mod.affect_alpha = True
-                math.node_tree.nodes.get('Mix.A').mute = False
-
-                mod.math_a_val = mod.multiplier_a_val
-                mod.math_r_val = mod.multiplier_r_val
-                math.node_tree.nodes.get('Math.R').use_clamp = mod.use_clamp
-                math.node_tree.nodes.get('Math.A').use_clamp = mod.use_clamp
-                if ch_type != 'VALUE':
-                    mod.math_g_val = mod.multiplier_g_val
-                    mod.math_b_val = mod.multiplier_b_val
-                    math.node_tree.nodes.get('Math.G').use_clamp = mod.use_clamp
-                    math.node_tree.nodes.get('Math.B').use_clamp = mod.use_clamp
-
-            if mods:
-                for layer in ng.yp.layers:
-                    reconnect_layer_nodes(layer)
-                    rearrange_layer_nodes(layer)
-                reconnect_yp_nodes(ng)
-                rearrange_yp_nodes(ng)
-                update_happened = True
-
-        # Version 0.9.5 and above have ability to use vertex color alpha on layer
-        if LooseVersion(ng.yp.version) < LooseVersion('0.9.5'):
-
-            for layer in ng.yp.layers:
-                # Update vcol layer to use alpha by reconnection
-                if layer.type == 'VCOL':
-
-                    # Smooth bump channel need another fake neighbor for alpha
-                    smooth_bump_ch = get_smooth_bump_channel(layer)
-                    if smooth_bump_ch and smooth_bump_ch.enable:
-                        layer_tree = get_tree(layer)
-                        uv_neighbor_1 = replace_new_node(layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
-                                NEIGHBOR_FAKE, hard_replace=True)
-
-                    reconnect_layer_nodes(layer)
-                    rearrange_layer_nodes(layer)
-                    update_happened = True
-
-        # Version 0.9.8 and above will use sRGB images by default
-        if LooseVersion(ng.yp.version) < LooseVersion('0.9.8'):
-
-            for layer in ng.yp.layers:
-                if not layer.enable: continue
-
-                image_found = False
-                if layer.type == 'IMAGE':
-
-                    source = get_layer_source(layer)
-                    if source and source.image and not source.image.is_float: 
-                        if source.image.colorspace_settings.name != 'sRGB':
-                            source.image.colorspace_settings.name = 'sRGB'
-                            print('INFO:', source.image.name, 'image is now using sRGB!')
-                        check_layer_image_linear_node(layer)
-                    image_found = True
-
-                for ch in layer.channels:
-                    if not ch.enable or not ch.override: continue
-
-                    if ch.override_type == 'IMAGE':
-
-                        source = get_channel_source(ch)
-                        if source and source.image and not source.image.is_float:
-                            if source.image.colorspace_settings.name != 'sRGB':
-                                source.image.colorspace_settings.name = 'sRGB'
-                                print('INFO:', source.image.name, 'image is now using sRGB!')
-                            check_layer_channel_linear_node(ch)
-                        image_found = True
-
-                for mask in layer.masks:
-                    if not mask.enable: continue
-
-                    if mask.type == 'IMAGE':
-                        source = get_mask_source(mask)
-                        if source and source.image and not source.image.is_float:
-                            if source.image.colorspace_settings.name != 'sRGB':
-                                source.image.colorspace_settings.name = 'sRGB'
-                                print('INFO:', source.image.name, 'image is now using sRGB!')
-                            check_mask_image_linear_node(mask)
-                        image_found = True
-
-                if image_found:
-                    rearrange_layer_nodes(layer)
-                    reconnect_layer_nodes(layer)
-                    update_happened = True
-
-        # Version 0.9.9 have separate normal and bump override
-        if LooseVersion(ng.yp.version) < LooseVersion('0.9.9'):
-            for layer in ng.yp.layers:
-                for i, ch in enumerate(layer.channels):
-                    root_ch = ng.yp.channels[i]
-                    if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP' and ch.override:
-
-                        # Disable override first
-                        ch.override = False
-
-                        # Rename pointers
-                        ch.cache_1_image = ch.cache_image
-
-                        # Remove previous pointers
-                        ch.cache_image = ''
-
-                        # Copy props
-                        ch.override_1_type = ch.override_type
-                        ch.override_type = 'DEFAULT'
-
-                        # Enable override
-                        ch.override_1 = True
-
-                        # Copy active edit
-                        ch.active_edit_1 = ch.active_edit
-
-                        update_happened = True
-
-                        print('INFO:', layer.name, root_ch.name, 'now has separate override properties!')
-
         # Blender 3.4 and version 1.0.9 will make sure all mix node using the newest type
         if LooseVersion(ng.yp.version) < LooseVersion('1.0.9') and is_greater_than_340():
             need_to_check_mix_nodes = True
-            update_happened = True
-
-        # Version 1.0.11 will make sure divider alpha node is connected correctly
-        if LooseVersion(ng.yp.version) < LooseVersion('1.0.11'):
-            for layer in ng.yp.layers:
-                if layer.type == 'VCOL':
-                    # Refresh divider alpha by setting the prop
-                    layer.divide_rgb_by_alpha = layer.divide_rgb_by_alpha
 
         # Version 1.0.12 will use newer tangent process nodes on Blender 3.0 or above
-        if LooseVersion(ng.yp.version) < LooseVersion('1.0.12'):
-            update_happened = True
-            if is_greater_than_300():
-                need_to_update_tangent_process_300 = True
+        if LooseVersion(ng.yp.version) < LooseVersion('1.0.12') and is_greater_than_300():
+            need_to_update_tangent_process_300 = True
 
-        # Version 1.2 will have mask inputs
-        if LooseVersion(ng.yp.version) < LooseVersion('1.2.0'):
-            update_happened = True
-            for layer in ng.yp.layers:
-                for mask in layer.masks:
-                    # Voronoi and noise default is using alpha/value input
-                    if mask.type in {'VORONOI', 'NOISE'}:
-                        mask.source_input = 'ALPHA'
-
-        # Version 1.2.4 has voronoi feature prop
-        if LooseVersion(ng.yp.version) < LooseVersion('1.2.4'):
-            update_happened = True
-            for layer in ng.yp.layers:
-                if layer.type == 'VORONOI':
-                    source = get_layer_source(layer)
-                    ng.yp.halt_update = True
-                    layer.voronoi_feature = source.feature
-                    ng.yp.halt_update = False
-
-                for ch in layer.channels:
-                    if ch.override_type == 'VORONOI':
-                        source = get_channel_source(ch)
-                        if source:
-                            ng.yp.halt_update = True
-                            ch.voronoi_feature = source.feature
-                            ng.yp.halt_update = False
-
-                    layer_tree = get_tree(layer)
-                    cache_voronoi = layer_tree.nodes.get(ch.cache_voronoi)
-                    if cache_voronoi:
-                        ng.yp.halt_update = True
-                        ch.voronoi_feature = cache_voronoi.feature
-                        ng.yp.halt_update = False
-
-                for mask in layer.masks:
-                    if mask.type == 'VORONOI':
-                        source = get_mask_source(mask)
-                        ng.yp.halt_update = True
-                        mask.voronoi_feature = source.feature
-                        ng.yp.halt_update = False
-
-        # Version 1.2.5 fix end normal process
-        if LooseVersion(ng.yp.version) < LooseVersion('1.2.5'):
-            update_happened = True
-            height_root_ch = get_root_height_channel(ng.yp)
-            if height_root_ch:
-                check_start_end_root_ch_nodes(ng, height_root_ch)
-                reconnect_yp_nodes(ng)
-                rearrange_yp_nodes(ng)
-
-                for layer in ng.yp.layers:
-                    height_ch = get_height_channel(layer)
-                    if height_ch and height_ch.enable:
-                        reconnect_layer_nodes(layer)
-                        rearrange_layer_nodes(layer)
-
-        # Version 1.2.9 will use cubic interpolation for bump map
-        if LooseVersion(ng.yp.version) < LooseVersion('1.2.9'):
-            update_happened = True
-            height_root_ch = get_root_height_channel(ng.yp)
-            if height_root_ch:
-                for layer in ng.yp.layers:
-                    height_ch = get_height_channel(layer)
-                    if height_ch and height_ch.enable:
-                        update_layer_images_interpolation(layer, 'Cubic')
-
-        # Update version
-        if update_happened:
-            ng.yp.version = cur_version
-            print('INFO:', ng.name, 'is updated to version', cur_version)
+        # Update yp trees
+        update_yp_tree(ng)
 
     # Actually check and convert old mix nodes
     if need_to_check_mix_nodes:

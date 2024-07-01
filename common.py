@@ -534,6 +534,9 @@ def get_current_version_str():
     manifest = get_manifest()
     return manifest['version']
 
+def get_current_blender_version_str():
+    return str(bpy.app.version).replace(', ', '.').replace('(','').replace(')','')
+
 def get_current_version():
     if not is_greater_than_420():
         bl_info = sys.modules[get_addon_name()].bl_info

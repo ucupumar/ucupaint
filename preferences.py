@@ -140,6 +140,8 @@ def auto_save_images(scene):
         # Update version
         try: tree.yp.version = get_current_version_str()
         except: print('EXCEPTIION: Cannot save yp version!')
+        try: tree.yp.blender_version = get_current_blender_version_str()
+        except: print('EXCEPTIION: Cannot save blender version!')
         try: tree.yp.is_unstable = get_alpha_suffix() != ''
         except: print('EXCEPTIION: Cannot save unstable version flag!')
 
