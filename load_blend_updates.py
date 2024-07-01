@@ -468,6 +468,31 @@ def update_yp_tree(tree):
         if show_message:
             print("INFO: Now " + get_addon_title() + " capable to use vertex paint alpha since Blender 2.92, Enjoy!")
 
+    # Blender 4.1 no longer has musgrave node
+    if is_greater_than_410() and (is_created_before_410() or LooseVersion(yp.blender_version) < LooseVersion('4.1.0')):
+        show_message = False
+            
+        for layer in yp.layers:
+            if layer.type == 'MUSGRAVE':
+                layer.type = 'NOISE'
+                show_message = True
+            for ch in layer.channels:
+                if ch.override_type == 'MUSGRAVE':
+                    ch.override_type = 'NOISE'
+                if ch.override_1_type == 'MUSGRAVE':
+                    ch.override_1_type = 'NOISE'
+            for mask in layer.masks:
+                if mask.type == 'MUSGRAVE':
+                    mask.type = 'NOISE'
+                    show_message = True
+
+        if show_message:
+            print("INFO: 'Musgrave' node is no longer available since Blender 4.1, converting it to 'Noise'..")
+
+    # Update blender version
+    if LooseVersion(yp.blender_version) < get_current_blender_version_str():
+        yp.blender_version = get_current_blender_version_str()
+
     # Update version
     if update_happened or LooseVersion(yp.version) < LooseVersion(cur_version):
         yp.version = cur_version
@@ -505,30 +530,6 @@ def update_routine(name):
     # Actually update tangent process
     if need_to_update_tangent_process_300:
         update_tangent_process_300()
-
-    # Blender 4.10 no longer has musgrave node
-    if is_created_before_410() and is_greater_than_410():
-        show_message = False
-        for ng in bpy.data.node_groups:
-            if not hasattr(ng, 'yp'): continue
-            if not ng.yp.is_ypaint_node: continue
-            
-            for layer in ng.yp.layers:
-                if layer.type == 'MUSGRAVE':
-                    layer.type = 'NOISE'
-                    show_message = True
-                for ch in layer.channels:
-                    if ch.override_type == 'MUSGRAVE':
-                        ch.override_type = 'NOISE'
-                    if ch.override_1_type == 'MUSGRAVE':
-                        ch.override_1_type = 'NOISE'
-                for mask in layer.masks:
-                    if mask.type == 'MUSGRAVE':
-                        mask.type = 'NOISE'
-                        show_message = True
-
-        if show_message:
-            print("INFO: 'Musgrave' node is no longer available since Blender 4.1, converting it to 'Noise'..")
 
     # Special update for opening Blender 2.79 file
     filepath = get_addon_filepath() + "lib.blend"
