@@ -147,17 +147,17 @@ def update_yp_tree(tree):
     if LooseVersion(yp.version) < LooseVersion('0.9.2'):
 
         for layer in yp.layers:
-            tree = get_tree(layer)
+            ltree = get_tree(layer)
 
             mapping_replaced = False
 
             # Move layer mapping
             if layer.source_group != '':
-                group = tree.nodes.get(layer.source_group)
+                group = ltree.nodes.get(layer.source_group)
                 if group:
                     mapping_ref = group.node_tree.nodes.get(layer.mapping)
                     if mapping_ref:
-                        mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping')
+                        mapping = new_node(ltree, layer, 'mapping', 'ShaderNodeMapping')
                         copy_node_props(mapping_ref, mapping)
                         group.node_tree.nodes.remove(mapping_ref)
                         set_uv_neighbor_resolution(layer) #, mapping=mapping)
@@ -167,11 +167,11 @@ def update_yp_tree(tree):
             # Move mask mapping
             for mask in layer.masks:
                 if mask.group_node != '':
-                    group = tree.nodes.get(mask.group_node)
+                    group = ltree.nodes.get(mask.group_node)
                     if group:
                         mapping_ref = group.node_tree.nodes.get(mask.mapping)
                         if mapping_ref:
-                            mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping')
+                            mapping = new_node(ltree, mask, 'mapping', 'ShaderNodeMapping')
                             copy_node_props(mapping_ref, mapping)
                             group.node_tree.nodes.remove(mapping_ref)
                             set_uv_neighbor_resolution(mask) #, mapping=mapping)
@@ -196,7 +196,7 @@ def update_yp_tree(tree):
 
                 for j in reversed(mod_ids):
                     mod = ch.modifiers[j]
-                    tree = get_mod_tree(ch)
+                    mtree = get_mod_tree(ch)
 
                     ch.override = True
                     if root_ch.type == 'VALUE':
@@ -208,7 +208,7 @@ def update_yp_tree(tree):
                         ch.override_type = 'DEFAULT'
 
                     # Delete the nodes and modifier
-                    remove_node(tree, mod, 'oc')
+                    remove_node(mtree, mod, 'oc')
                     ch.modifiers.remove(j)
 
                 if mod_ids:
@@ -252,12 +252,12 @@ def update_yp_tree(tree):
             parent = parents[i]
             ch_type = types[i]
 
-            tree = get_mod_tree(parent)
+            mtree = get_mod_tree(parent)
 
             mod.name = 'Math'
             mod.type = 'MATH'
-            remove_node(tree, mod, 'multiplier')
-            math = new_node(tree, mod, 'math', 'ShaderNodeGroup', 'Math')
+            remove_node(mtree, mod, 'multiplier')
+            math = new_node(mtree, mod, 'math', 'ShaderNodeGroup', 'Math')
 
             if ch_type == 'VALUE':
                 math.node_tree = get_node_tree_lib(MOD_MATH_VALUE)
@@ -456,6 +456,15 @@ def update_yp_tree(tree):
                     update_layer_images_interpolation(layer, 'Cubic')
 
     # SECTION II: Updates based on the blender version
+
+    # Blender 2.90 can hide default normal input
+    if is_greater_than_290() and (is_created_before_290() or LooseVersion(yp.blender_version) < LooseVersion('2.9.0')):
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            inp = get_tree_input_by_name(tree, height_root_ch.name)
+            if inp: 
+                inp.hide_value = True
+                print("INFO: " + tree.name + " Normal input is hidden since Blender 2.90!")
 
     # Blender 2.92 can finally access it's vertex color alpha
     if is_greater_than_292() and (is_created_before_292() or LooseVersion(yp.blender_version) < LooseVersion('2.9.2')):
