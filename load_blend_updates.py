@@ -77,14 +77,23 @@ def convert_mix_nodes(tree):
         elif n.type == 'GROUP' and n.node_tree:
             convert_mix_nodes(n.node_tree)
 
-def update_tangent_process_300():
+def remove_tangent_sign_vcols(objs=None):
+    if not objs: objs = bpy.data.objects
+
+    for ob in objs:
+        vcols = get_vertex_colors(ob)
+        for vcol in reversed(vcols):
+            if vcol.name.startswith(TANGENT_SIGN_PREFIX):
+                print('INFO:', 'Vertex color "' + vcol.name + '" in', ob.name, 'is deleted!')
+                vcols.remove(vcol)
+
+def update_tangent_process(tree, lib_name):
 
     node_groups = []
 
-    for group in bpy.data.node_groups:
-        for node in group.nodes:
-            if node.type == 'GROUP' and node.node_tree and TANGENT_PROCESS in node.node_tree.name:
-                node_groups.append(node)
+    for node in tree.nodes:
+        if node.type == 'GROUP' and node.node_tree and node.node_tree.name.startswith(TANGENT_PROCESS):
+            node_groups.append(node)
 
     for ng in node_groups:
 
@@ -92,7 +101,7 @@ def update_tangent_process_300():
         ori_tree = ng.node_tree
 
         # Duplicate lib tree
-        ng.node_tree = get_node_tree_lib(TANGENT_PROCESS_300)
+        ng.node_tree = get_node_tree_lib(lib_name)
         duplicate_lib_node_tree(ng)
 
         print('INFO:', ori_tree.name, 'is replaced to', ng.node_tree.name + '!')
@@ -110,19 +119,12 @@ def update_tangent_process_300():
         # Create info frames
         create_info_nodes(ng.node_tree)
 
-    # Remove tangent sign vertex colors
-    for ob in bpy.data.objects:
-        vcols = get_vertex_colors(ob)
-        for vcol in reversed(vcols):
-            if vcol.name.startswith(TANGENT_SIGN_PREFIX):
-                print('INFO:', 'Vertex color "' + vcol.name + '" in', ob.name, 'is deleted!')
-                vcols.remove(vcol)
-
 def update_yp_tree(tree):
     cur_version = get_current_version_str()
     yp = tree.yp
 
     update_happened = False
+    updated_to_tangent_process_300 = False
 
     # SECTION I: Update based on yp version
 
@@ -489,6 +491,24 @@ def update_yp_tree(tree):
         if show_message:
             print("INFO: 'Musgrave' node is no longer available since Blender 4.1, converting it to 'Noise'..")
 
+    # SECTION III: Updates based on the blender version and yp version
+
+    # Blender 3.4 and version 1.0.9 will make sure all mix node using the newest type
+    if LooseVersion(yp.version) < LooseVersion('1.0.9') and is_greater_than_340():
+        print('INFO:', 'Converting old mix rgb nodes to newer ones...')
+        convert_mix_nodes(tree)
+
+    # Version 1.0.12 will use newer tangent process nodes on Blender 3.0 or above
+    if is_greater_than_300() and (
+            LooseVersion(yp.version) < LooseVersion('1.0.12') or is_created_before_300() or LooseVersion(yp.blender_version) < LooseVersion('3.0.0')
+        ):
+        update_tangent_process(tree, TANGENT_PROCESS_300)
+        updated_to_tangent_process_300 = True
+
+    # Update tangent process from Blender 2.79 to 2.8x and 2.9x
+    if not is_greater_than_300() and is_greater_than_280() and (is_created_using_279() or LooseVersion(yp.blender_version) < LooseVersion('2.80.0')):
+        update_tangent_process(tree, TANGENT_PROCESS)
+
     # Update blender version
     if LooseVersion(yp.blender_version) < get_current_blender_version_str():
         yp.blender_version = get_current_blender_version_str()
@@ -497,39 +517,27 @@ def update_yp_tree(tree):
     if update_happened or LooseVersion(yp.version) < LooseVersion(cur_version):
         yp.version = cur_version
         print('INFO:', tree.name, 'is updated to version', cur_version)
+    
+    return updated_to_tangent_process_300
 
 @persistent
 def update_routine(name):
     T = time.time()
 
-    # Flag to check mix nodes
-    need_to_check_mix_nodes = False
-    need_to_update_tangent_process_300 = False
+    # Flags
+    updated_to_tangent_process_300 = False
 
     for ng in bpy.data.node_groups:
         if not hasattr(ng, 'yp'): continue
         if not ng.yp.is_ypaint_node: continue
 
-        # Blender 3.4 and version 1.0.9 will make sure all mix node using the newest type
-        if LooseVersion(ng.yp.version) < LooseVersion('1.0.9') and is_greater_than_340():
-            need_to_check_mix_nodes = True
-
-        # Version 1.0.12 will use newer tangent process nodes on Blender 3.0 or above
-        if LooseVersion(ng.yp.version) < LooseVersion('1.0.12') and is_greater_than_300():
-            need_to_update_tangent_process_300 = True
-
         # Update yp trees
-        update_yp_tree(ng)
+        flag = update_yp_tree(ng)
+        if flag: updated_to_tangent_process_300 = True
 
-    # Actually check and convert old mix nodes
-    if need_to_check_mix_nodes:
-        print('INFO:', 'Converting old mix rgb nodes to newer ones...')
-        for mat in bpy.data.materials:
-            if mat.node_tree: convert_mix_nodes(mat.node_tree)
-
-    # Actually update tangent process
-    if need_to_update_tangent_process_300:
-        update_tangent_process_300()
+    # Remove tangent sign vertex colors for Blender 3.0+
+    if updated_to_tangent_process_300:
+        remove_tangent_sign_vcols()
 
     # Special update for opening Blender 2.79 file
     filepath = get_addon_filepath() + "lib.blend"
@@ -646,12 +654,7 @@ def update_routine(name):
         for ng in copied_groups:
             bpy.data.node_groups.remove(ng)
 
-    # Update to newer tangent process for files created using Blender 2.93 or older
-    if not is_created_using_279() and is_created_before_300() and is_greater_than_300():
-        update_tangent_process_300()
-
     print('INFO: ' + get_addon_title() + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-
 
 def get_inside_group_update_names(tree, update_names):
 
