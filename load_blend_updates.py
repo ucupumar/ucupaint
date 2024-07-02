@@ -457,15 +457,6 @@ def update_yp_tree(tree):
 
     # SECTION II: Updates based on the blender version
 
-    # Blender 2.90 can hide default normal input
-    if is_greater_than_290() and (is_created_before_290() or LooseVersion(yp.blender_version) < LooseVersion('2.9.0')):
-        height_root_ch = get_root_height_channel(yp)
-        if height_root_ch:
-            inp = get_tree_input_by_name(tree, height_root_ch.name)
-            if inp: 
-                inp.hide_value = True
-                print("INFO: " + tree.name + " Normal input is hidden since Blender 2.90!")
-
     # Blender 2.92 can finally access it's vertex color alpha
     if is_greater_than_292() and (is_created_before_292() or LooseVersion(yp.blender_version) < LooseVersion('2.9.2')):
         show_message = False
@@ -501,6 +492,18 @@ def update_yp_tree(tree):
             print("INFO: 'Musgrave' node is no longer available since Blender 4.1, converting it to 'Noise'..")
 
     # SECTION III: Updates based on the blender version and yp version
+
+    # Version 1.1.0 and Blender 2.90 can hide default normal input
+    if is_greater_than_290() and (is_created_before_290() or 
+                                  LooseVersion(yp.blender_version) < LooseVersion('2.9.0') or 
+                                  LooseVersion(yp.version) < LooseVersion('1.1.0')
+                                  ):
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            inp = get_tree_input_by_name(tree, height_root_ch.name)
+            if inp: 
+                inp.hide_value = True
+                print("INFO: " + tree.name + " Normal input is hidden since Blender 2.90!")
 
     # Blender 3.4 and version 1.0.9 will make sure all mix node using the newest type
     if LooseVersion(yp.version) < LooseVersion('1.0.9') and is_greater_than_340():
