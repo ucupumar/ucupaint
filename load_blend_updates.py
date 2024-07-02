@@ -123,7 +123,6 @@ def update_yp_tree(tree):
     cur_version = get_current_version_str()
     yp = tree.yp
 
-    update_happened = False
     updated_to_tangent_process_300 = False
 
     # SECTION I: Update based on yp version
@@ -141,7 +140,6 @@ def update_yp_tree(tree):
                         if label in source.image.name and source.image.y_bake_info.bake_type != type_name:
                             source.image.y_bake_info.bake_type = type_name
                             print('INFO: Bake type of', source.image.name, 'is fixed by setting it to', label + '!')
-                            update_happened = True
 
     # Version 0.9.2 and above will move mapping outside source group
     if LooseVersion(yp.version) < LooseVersion('0.9.2'):
@@ -181,7 +179,6 @@ def update_yp_tree(tree):
             if mapping_replaced:
                 reconnect_layer_nodes(layer)
                 rearrange_layer_nodes(layer)
-                update_happened = True
 
     # Version 0.9.3 and above will replace override color modifier with newer override system
     if LooseVersion(yp.version) < LooseVersion('0.9.3'):
@@ -214,7 +211,6 @@ def update_yp_tree(tree):
                 if mod_ids:
                     reconnect_layer_nodes(layer)
                     rearrange_layer_nodes(layer)
-                    update_happened = True
 
     # Version 0.9.4 and above will replace multipier modifier with math modifier
     if LooseVersion(yp.version) < LooseVersion('0.9.4'):
@@ -285,7 +281,6 @@ def update_yp_tree(tree):
                 rearrange_layer_nodes(layer)
             reconnect_yp_nodes(tree)
             rearrange_yp_nodes(tree)
-            update_happened = True
 
     # Version 0.9.5 and above have ability to use vertex color alpha on layer
     if LooseVersion(yp.version) < LooseVersion('0.9.5'):
@@ -303,7 +298,6 @@ def update_yp_tree(tree):
 
                 reconnect_layer_nodes(layer)
                 rearrange_layer_nodes(layer)
-                update_happened = True
 
     # Version 0.9.8 and above will use sRGB images by default
     if LooseVersion(yp.version) < LooseVersion('0.9.8'):
@@ -350,7 +344,6 @@ def update_yp_tree(tree):
             if image_found:
                 rearrange_layer_nodes(layer)
                 reconnect_layer_nodes(layer)
-                update_happened = True
 
     # Version 0.9.9 have separate normal and bump override
     if LooseVersion(yp.version) < LooseVersion('0.9.9'):
@@ -378,8 +371,6 @@ def update_yp_tree(tree):
                     # Copy active edit
                     ch.active_edit_1 = ch.active_edit
 
-                    update_happened = True
-
                     print('INFO:', layer.name, root_ch.name, 'now has separate override properties!')
 
     # Version 1.0.11 will make sure divider alpha node is connected correctly
@@ -391,7 +382,6 @@ def update_yp_tree(tree):
 
     # Version 1.2 will have mask inputs
     if LooseVersion(yp.version) < LooseVersion('1.2.0'):
-        update_happened = True
         for layer in yp.layers:
             for mask in layer.masks:
                 # Voronoi and noise default is using alpha/value input
@@ -400,7 +390,6 @@ def update_yp_tree(tree):
 
     # Version 1.2.4 has voronoi feature prop
     if LooseVersion(yp.version) < LooseVersion('1.2.4'):
-        update_happened = True
         for layer in yp.layers:
             if layer.type == 'VORONOI':
                 source = get_layer_source(layer)
@@ -432,7 +421,6 @@ def update_yp_tree(tree):
 
     # Version 1.2.5 fix end normal process
     if LooseVersion(yp.version) < LooseVersion('1.2.5'):
-        update_happened = True
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch:
             check_start_end_root_ch_nodes(tree, height_root_ch)
@@ -447,7 +435,6 @@ def update_yp_tree(tree):
 
     # Version 1.2.9 will use cubic interpolation for bump map
     if LooseVersion(yp.version) < LooseVersion('1.2.9'):
-        update_happened = True
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch:
             for layer in yp.layers:
@@ -530,10 +517,6 @@ def update_yp_tree(tree):
         yp.version = cur_version
         print('INFO:', tree.name, 'is updated to version', cur_version)
 
-    # Check input outputs and reconnect everything to make sure tree behave correctly
-    if update_happened:
-        check_all_channel_ios(yp)
-    
     return updated_to_tangent_process_300
 
 @persistent
