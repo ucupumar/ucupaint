@@ -137,13 +137,14 @@ def auto_save_images(scene):
         if tree.yp.is_ypaint_node:
             image_ops.save_pack_all(tree.yp)
 
+        # NOTE: Version update only happen when loading the blend file or updating the node tree
         # Update version
-        try: tree.yp.version = get_current_version_str()
-        except: print('EXCEPTIION: Cannot save yp version!')
-        try: tree.yp.blender_version = get_current_blender_version_str()
-        except: print('EXCEPTIION: Cannot save blender version!')
-        try: tree.yp.is_unstable = get_alpha_suffix() != ''
-        except: print('EXCEPTIION: Cannot save unstable version flag!')
+        #try: tree.yp.version = get_current_version_str()
+        #except: print('EXCEPTIION: Cannot save yp version!')
+        #try: tree.yp.blender_version = get_current_blender_version_str()
+        #except: print('EXCEPTIION: Cannot save blender version!')
+        #try: tree.yp.is_unstable = get_alpha_suffix() != ''
+        #except: print('EXCEPTIION: Cannot save unstable version flag!')
 
 # HACK: For some reason active float image will glitch after auto save
 # This hack will fix that

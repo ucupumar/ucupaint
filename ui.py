@@ -4,6 +4,7 @@ from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, NormalMapModifier, Root, UDIM
 from .common import *
+from distutils.version import LooseVersion
 
 def update_yp_ui():
 
@@ -3068,6 +3069,13 @@ def main_draw(self, context):
     group_tree = node.node_tree
     nodes = group_tree.nodes
     yp = group_tree.yp
+
+    if LooseVersion(yp.version) < LooseVersion(get_current_version_str()):
+        col = layout.column()
+        col.alert = True
+        col.label(text=group_tree.name + ' (' + yp.version + ')', icon_value=lib.get_icon('nodetree'))
+        col.operator("node.y_update_yp_trees", text='Update node to version ' + get_current_version_str(), icon='ERROR')
+        return
 
     #layout.label(text='Active: ' + node.node_tree.name, icon_value=lib.get_icon('nodetree'))
     row = layout.row(align=True)
