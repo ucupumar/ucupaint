@@ -1375,7 +1375,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     rgb = create_link(tree, rgb, end_linear.inputs['Normal Overlay'])[0]
                 else: rgb = end_linear.outputs[0]
 
-                if 'Main UV' in end_linear.inputs:
+                if 'Main UV' in end_linear.inputs and ch.main_uv in uv_maps:
                     create_link(tree, uv_maps[ch.main_uv], end_linear.inputs['Main UV'])
 
                 if end_normal_engine_filter:
