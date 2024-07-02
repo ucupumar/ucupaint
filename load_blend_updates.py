@@ -215,7 +215,7 @@ def update_yp_tree(tree):
 
                     # Update input value for version 2.0+
                     if cur_version >= LooseVersion('2.0.0'):
-                        layer_node = ng.nodes.get(layer.group_node)
+                        layer_node = tree.nodes.get(layer.group_node)
                         if layer_node:
                             if root_ch.type == 'VALUE':
                                 inp = layer_node.inputs.get(get_entity_input_name(ch, 'override_value'))
