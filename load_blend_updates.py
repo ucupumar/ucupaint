@@ -477,7 +477,7 @@ def update_yp_tree(tree):
                 show_message = True
 
         if show_message:
-            print("INFO: Now " + get_addon_title() + " capable to use vertex paint alpha since Blender 2.92, Enjoy!")
+            print("INFO: Now " + get_addon_title() + " is capable to use vertex paint alpha since Blender 2.92, Enjoy!")
 
     # Blender 4.1 no longer has musgrave node
     if is_greater_than_410() and (is_created_before_410() or LooseVersion(yp.blender_version) < LooseVersion('4.1.0')):
