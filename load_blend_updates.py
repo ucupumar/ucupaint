@@ -526,9 +526,13 @@ def update_yp_tree(tree):
         yp.blender_version = get_current_blender_version_str()
 
     # Update version
-    if update_happened or LooseVersion(yp.version) < LooseVersion(cur_version):
+    if LooseVersion(yp.version) < LooseVersion(cur_version):
         yp.version = cur_version
         print('INFO:', tree.name, 'is updated to version', cur_version)
+
+    # Check input outputs and reconnect everything to make sure tree behave correctly
+    if update_happened:
+        check_all_channel_ios(yp)
     
     return updated_to_tangent_process_300
 
