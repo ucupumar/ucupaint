@@ -111,7 +111,11 @@ def update_tangent_process(tree, lib_name):
             if n.name.startswith('_'):
                 # Try to get the node on original tree
                 ori_n = ori_tree.nodes.get(n.name)
-                if ori_n: copy_node_props(ori_n, n)
+                if ori_n: 
+                    copy_node_props(ori_n, n)
+                    # There's need to manually copy uv_map prop because the node type can be different
+                    if hasattr(ori_n, 'uv_map') and hasattr(n, 'uv_map'):
+                        n.uv_map = ori_n.uv_map
 
         # Delete original tree
         bpy.data.node_groups.remove(ori_tree)
