@@ -3219,7 +3219,7 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
     if set_one or set_outside:
         
         # Set add vector node
-        if is_greater_than_280() and (not disp and not vdisp) or (disp and not vdisp) or (not disp and vdisp):
+        if is_greater_than_280() and ((not disp and not vdisp) or (disp and not vdisp) or (not disp and vdisp)):
             add_disp = mat.node_tree.nodes.new('ShaderNodeVectorMath')
 
             add_disp.location.x = output_mat.location.x
@@ -3290,12 +3290,15 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
             create_link(mat.node_tree, disp.outputs[0], add_disp.inputs[0])
             create_link(mat.node_tree, vdisp.outputs[0], add_disp.inputs[1])
             create_link(mat.node_tree, add_disp.outputs[0], disp_mat_inp)
+        elif disp:
+            create_link(mat.node_tree, disp.outputs[0], disp_mat_inp)
 
         if set_one:
             # Create links
-            create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
-            create_link(mat.node_tree, height_outp, disp.inputs['Height'])
-            create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])
+            if vdisp: create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
+            if disp:
+                create_link(mat.node_tree, height_outp, disp.inputs['Height'])
+                create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])
 
     if disp and unset_one:
         height_inp = node.inputs.get(height_ch.name + io_suffix['HEIGHT'])
