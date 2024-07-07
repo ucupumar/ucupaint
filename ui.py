@@ -551,10 +551,14 @@ def draw_inbetween_modifier_mask_props(layer, source, layout):
     elif layer.modifier_type == 'RAMP':
         col.template_color_ramp(source, "color_ramp", expand=True)
 
-def draw_input_prop(layout, entity, prop_name):
+def draw_input_prop(layout, entity, prop_name, emboss=None):
     inp = get_entity_prop_input(entity, prop_name)
-    if inp: layout.prop(inp, 'default_value', text='')
-    else: layout.prop(entity, prop_name, text='')
+    if emboss != None:
+        if inp: layout.prop(inp, 'default_value', text='', emboss=emboss)
+        else: layout.prop(entity, prop_name, text='', emboss=emboss)
+    else:
+        if inp: layout.prop(inp, 'default_value', text='')
+        else: layout.prop(entity, prop_name, text='') 
 
 def draw_mask_modifier_stack(layer, mask, layout, ui):
     ypui = bpy.context.window_manager.ypui
@@ -3934,8 +3938,11 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             row.emboss = 'NONE_OR_STATUS'
         elif is_greater_than_292():
             row.emboss = 'UI_EMBOSS_NONE_OR_STATUS'
-        else: row.emboss = 'NONE'
-        draw_input_prop(row, layer, 'intensity_value')
+        elif is_greater_than_280(): row.emboss = 'NONE'
+
+        if is_greater_than_280():
+            draw_input_prop(row, layer, 'intensity_value')
+        else: draw_input_prop(row, layer, 'intensity_value', emboss=False)          
 
         # Layer visibility
         row = master.row()
