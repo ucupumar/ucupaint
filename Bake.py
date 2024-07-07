@@ -3229,16 +3229,6 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
         # Set displacement
         if not disp:
 
-            if not is_greater_than_280():
-                # Remember normal connection, because it will be disconnected to avoid render error
-                for link in norm_outp.links:
-                    con = height_ch.ori_normal_to.add()
-                    con.node = link.to_node.name
-                    con.socket = link.to_socket.name
-
-                # Remove normal connection because it will produce render error
-                break_output_link(mat.node_tree, norm_outp)
-
             # Create displacement node
             disp = create_displacement_node(mat.node_tree) #, disp_mat_inp)
 
@@ -3335,34 +3325,14 @@ def check_subdiv_setup(height_ch):
     node = get_active_ypaint_node()
     norm_outp = node.outputs[height_ch.name]
 
-    # Recover normal for Blender 2.7
-    if not is_greater_than_280():
-
-        #if not yp.use_baked or not height_ch.enable_subdiv_setup or (
-        #        height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive):
-        if not height_ch.enable_subdiv_setup:
-
-            # Relink will only be proceed if no new links found
-            link_found = any([l for l in norm_outp.links])
-            if not link_found:
-
-                # Try to relink to original connections
-                for con in height_ch.ori_normal_to:
-                    try:
-                        node_to = mtree.nodes.get(con.node)
-                        socket_to = node_to.inputs[con.socket]
-                        if len(socket_to.links) < 1:
-                            mtree.links.new(norm_outp, socket_to)
-                    except: pass
-                
-            height_ch.ori_normal_to.clear()
-
     # Scene and material displacement settings
     if height_ch.enable_subdiv_setup:
 
-        if height_ch.subdiv_adaptive:
-            # Adaptive subdivision only works for experimental feature set for now
+        # Displacement only works with experimental feature set on Blender 2.79
+        if height_ch.subdiv_adaptive or not is_greater_than_280():
             scene.cycles.feature_set = 'EXPERIMENTAL'
+
+        if height_ch.subdiv_adaptive:
             scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
             scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
 
