@@ -1366,10 +1366,12 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
 
+        normal_no_bump = None
+
         if end_linear and (end_linear.type != 'GROUP' or end_linear.node_tree):
             if ch.type == 'NORMAL':
 
-                normal_overlay_only = rgb
+                normal_no_bump = rgb
 
                 if 'Normal Overlay' in end_linear.inputs:
                     rgb = create_link(tree, rgb, end_linear.inputs['Normal Overlay'])[0]
@@ -1380,7 +1382,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 #if end_normal_engine_filter:
                 #    create_link(tree, rgb, end_normal_engine_filter.inputs[0])
-                #    create_link(tree, normal_overlay_only, end_normal_engine_filter.inputs[1])
+                #    create_link(tree, normal_no_bump, end_normal_engine_filter.inputs[1])
                 #    rgb = create_link(tree, rgb, end_normal_engine_filter.inputs[2])[0]
 
                 #if end_max_height:
@@ -1503,7 +1505,11 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     alpha = baked_vcol.outputs['Alpha']
 
         #print(rgb)
-        create_link(tree, rgb, end.inputs[io_name])
+        # Blender 2.79 cycles does not need bump normal
+        if not is_greater_than_280() and normal_no_bump and ch.type == 'NORMAL' and ch.enable_subdiv_setup:
+            create_link(tree, normal_no_bump, end.inputs[io_name])
+        else: create_link(tree, rgb, end.inputs[io_name])
+
         #if ch.type == 'RGB' and ch.enable_alpha:
         if ch.enable_alpha:
             create_link(tree, alpha, end.inputs[io_alpha_name])
