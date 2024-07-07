@@ -12,6 +12,7 @@ from .input_outputs import *
 
 DEFAULT_NEW_IMG_SUFFIX = ' Layer'
 DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
+DEFAULT_NEW_VDM_SUFFIX = ' VDM'
 
 def channel_items(self, context):
     node = get_active_ypaint_node()
@@ -42,10 +43,12 @@ def get_normal_map_type_items(self, context):
         items.append(('BUMP_MAP', 'Bump Map', ''))
         items.append(('NORMAL_MAP', 'Normal Map', ''))
         items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', ''))
+        items.append(('VECTOR_DISPLACEMENT_MAP', 'Vector Displacement Map (BETA)', ''))
     else: 
         items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 0))
         items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 1))
         items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', '', 'MATCAP_23', 2))
+        items.append(('VECTOR_DISPLACEMENT_MAP', 'Vector Displacement Map (BETA)', '', 'MATCAP_23', 3))
 
     return items
 
@@ -185,6 +188,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     # Add mapping node
     if is_mapping_possible(layer.type):
         mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
+        mapping.vector_type = 'POINT' #if segment else 'TEXTURE'
 
     # Set layer coordinate type
     layer.texcoord_type = texcoord_type
@@ -273,11 +277,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 check_colorid_vcol(objs)
 
         mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
-                mask_uv_name, mask_image, mask_vcol, mask_segment, interpolation=mask_interpolation)
+                mask_uv_name, mask_image, mask_vcol, mask_segment, interpolation=mask_interpolation, color_id=mask_color_id)
         mask.active_edit = True
-
-        if mask_type == 'COLOR_ID':
-            mask.color_id = mask_color_id
 
     # Fill channel layer props
     shortcut_created = False
@@ -480,7 +481,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
 def update_new_layer_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
-    if self.type != 'IMAGE': 
+    if hasattr(self, 'type') and self.type != 'IMAGE': 
         self.use_udim = False
         return
 
@@ -511,6 +512,167 @@ def update_channel_idx_new_layer(self, context):
 
     if channel and channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP':
         self.interpolation = 'Cubic'
+
+class YNewVDMLayer(bpy.types.Operator):
+    bl_idname = "node.y_new_vdm_layer"
+    bl_label = "New VDM Layer"
+    bl_description = "New Vector Displacement Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name : StringProperty(default='')
+
+    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+
+    blend_type : EnumProperty(
+            name = 'Blend Type',
+            items = normal_blend_items,
+            default = 'OVERLAY')
+
+    use_udim : BoolProperty(
+            name = 'Use UDIM Tiles',
+            description='Use UDIM Tiles',
+            default=False)
+
+    enable_subdiv_setup : BoolProperty(
+            name = 'Enable Displacement Setup',
+            description='Enable Displacement Setup on Normal channel',
+            default=True)
+
+    uv_map : StringProperty(default='', update=update_new_layer_uv_map)
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH' and get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        ypup = get_user_preferences()
+        obj = context.object
+        node = self.node = get_active_ypaint_node()
+        yp = self.yp = node.node_tree.yp
+
+        # Set default name
+        name = obj.active_material.name + DEFAULT_NEW_VDM_SUFFIX
+        self.name = get_unique_name(name, bpy.data.images)
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
+
+        # Set default UV name
+        uv_name = get_default_uv_name(obj, yp)
+        self.uv_map = uv_name
+
+        # UV Map collections update
+        self.uv_map_coll.clear()
+        for uv in get_uv_layers(obj):
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+
+        yp = self.yp
+
+        row = split_layout(self.layout, 0.4)
+
+        col = row.column(align=False)
+
+        col.label(text='Name:')
+        col.label(text='Width:')
+        col.label(text='Height:')
+        col.label(text='Blend Type:')
+        col.label(text='UV Map:')
+
+        col = row.column(align=False)
+
+        col.prop(self, 'name', text='')
+        col.prop(self, 'width', text='')
+        col.prop(self, 'height', text='')
+        col.prop(self, 'blend_type', text='')
+        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        col.prop(self, 'use_udim')
+
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and not height_root_ch.enable_subdiv_setup:
+            col = self.layout.column()
+            col.label(text='Displacement Setup is not enabled yet!', icon='ERROR')
+            col.prop(self, 'enable_subdiv_setup')
+
+    def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
+        node = self.node
+        yp = self.yp
+
+        height_root_ch = get_root_height_channel(yp)
+        if not height_root_ch:
+            self.report({'ERROR'}, "There should be a normal channel!")
+            return {'CANCELLED'}
+        channel_idx = get_channel_index(height_root_ch)
+
+        alpha = True
+        color = (0,0,0,0)
+
+        if self.use_udim:
+            mat = get_active_material()
+            objs = get_all_objects_with_same_materials(mat)
+            tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
+
+            img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
+                    alpha=alpha, float_buffer=True, tiled=True)
+
+            # Fill tiles
+            for tilenum in tilenums:
+                UDIM.fill_tile(img, tilenum, color, self.width, self.height)
+            UDIM.initial_pack_udim(img, color)
+
+        else:
+            img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
+                    alpha=alpha, float_buffer=True)
+
+        #img.generated_type = self.generated_type
+        img.generated_type = 'BLANK'
+        img.generated_color = color
+        if hasattr(img, 'use_alpha'):
+            img.use_alpha = True
+
+        update_image_editor_image(context, img)
+
+        yp.halt_update = True
+
+        layer = add_new_layer(node.node_tree, self.name, 'IMAGE', 
+                channel_idx, 'MIX', self.blend_type, 
+                'VECTOR_DISPLACEMENT_MAP', 'UV', self.uv_map, img,
+                interpolation = 'Cubic'
+                )
+
+        yp.halt_update = False
+
+        if not height_root_ch.enable_subdiv_setup and self.enable_subdiv_setup:
+            height_root_ch.enable_subdiv_setup = True
+
+        # Reconnect and rearrange nodes
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
+
+        # Update UI
+        ypui = context.window_manager.ypui
+        ypui.layer_ui.expand_channels = False
+        ypui.layer_ui.expand_content = False
+        ypui.layer_ui.expand_source = False
+        ch = layer.channels[channel_idx]
+        ch.expand_content = True
+        ypui.need_update = True
+
+        print('INFO: VDM Layer', layer.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
 
 class YNewLayer(bpy.types.Operator):
     bl_idname = "node.y_new_layer"
@@ -1097,6 +1259,11 @@ class YNewLayer(bpy.types.Operator):
         if self.type not in {'IMAGE', 'VCOL', 'COLOR', 'BACKGROUND'}:
             ypui.layer_ui.expand_content = True
             ypui.layer_ui.expand_source = True
+        if self.channel_idx != '-1':
+            ypui.layer_ui.expand_channels = False
+            if yp.channels[channel_idx].type == 'NORMAL':
+                #ypui.layer_ui.channels[channel_idx].expand_content = True
+                layer.channels[channel_idx].expand_content = True
         ypui.need_update = True
 
         print('INFO: Layer', layer.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -4066,30 +4233,6 @@ class YPasteLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def update_layer_channel_override_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    ch_index = int(m.group(2))
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[ch_index]
-    ch = self
-
-    update_override_value(root_ch, layer, ch)
-
-def update_layer_channel_override_1_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    ch_index = int(m.group(2))
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[ch_index]
-    ch = self
-
-    update_override_1_value(root_ch, layer, ch)
-
 def update_layer_channel_override_1(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -4170,7 +4313,7 @@ def update_channel_enable(self, context):
     # Check uv maps
     check_uv_nodes(yp)
 
-    #if yp.disable_quick_toggle:
+    # Refresh layer IO
     check_all_layer_channel_io_and_nodes(layer, tree, ch)
 
     if yp.halt_reconnect: return
@@ -4206,6 +4349,8 @@ def update_normal_map_type(self, context):
     check_all_layer_channel_io_and_nodes(layer, tree, self)
     check_start_end_root_ch_nodes(self.id_data)
     check_uv_nodes(yp)
+
+    check_layer_tree_ios(layer, tree)
 
     #if not yp.halt_reconnect:
     reconnect_layer_nodes(layer)
@@ -4272,46 +4417,6 @@ def update_write_height(self, context):
 
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
-
-def update_normal_strength(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    ch_index = int(m.group(2))
-    root_ch = yp.channels[ch_index]
-    ch = self
-    tree = get_tree(layer)
-
-    normal_proc = tree.nodes.get(ch.normal_proc)
-    if 'Strength' in normal_proc.inputs:
-        normal_proc.inputs['Strength'].default_value = ch.normal_strength
-
-def update_bump_distance(self, context):
-    group_tree = self.id_data
-    yp = group_tree.yp
-    if yp.halt_update: return
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[int(m.group(2))]
-    tree = get_tree(layer)
-
-    if self.normal_map_type == 'NORMAL_MAP' and self.enable_transition_bump: return
-
-    update_displacement_height_ratio(root_ch)
-
-def update_bump_smooth_multiplier(self, context):
-    group_tree = self.id_data
-    yp = group_tree.yp
-    if yp.halt_update: return
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[int(m.group(2))]
-    tree = get_tree(layer)
-
-    if self.override and self.override_type != 'DEFAULT':
-        set_uv_neighbor_resolution(self)
-    else: set_uv_neighbor_resolution(layer)
 
 def update_voronoi_feature(self, context):
     yp = self.id_data.yp
@@ -4508,42 +4613,6 @@ def update_hemi_use_prev_normal(self, context):
 
     reconnect_yp_nodes(layer.id_data)
 
-def update_channel_intensity_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    tree = get_tree(layer)
-    ch_index = int(m.group(2))
-    ch = self
-    root_ch = yp.channels[ch_index]
-
-    intensity = tree.nodes.get(ch.intensity)
-    if intensity:
-        intensity.inputs[1].default_value = ch.intensity_value
-
-    height_proc = tree.nodes.get(ch.height_proc)
-    if height_proc:
-        height_proc.inputs['Intensity'].default_value = ch.intensity_value
-
-    normal_proc = tree.nodes.get(ch.normal_proc)
-    if normal_proc:
-        if 'Strength' in normal_proc.inputs:
-            normal_proc.inputs['Strength'].default_value = ch.normal_strength
-        elif 'Intensity' in normal_proc.inputs:
-            normal_proc.inputs['Intensity'].default_value = ch.intensity_value
-
-    if ch.enable_transition_ramp:
-        transition.set_ramp_intensity_value(tree, layer, ch)
-
-    if ch.enable_transition_ao:
-        tao = tree.nodes.get(ch.tao)
-        if tao: tao.inputs['Intensity'].default_value = transition.get_transition_ao_intensity(ch)
-
-    if root_ch.type == 'NORMAL':
-        update_displacement_height_ratio(root_ch)
-
 def group_trash_update(yp):
     tree = yp.id_data
 
@@ -4661,6 +4730,27 @@ def update_divide_rgb_by_alpha(self, context):
 
     reconnect_layer_nodes(self)
     rearrange_layer_nodes(self)
+
+def update_layer_channel_vdisp_flip_yz(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    m1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', self.path_from_id())
+
+    if m1:
+        layer = yp.layers[int(m1.group(1))]
+        tree = get_tree(layer)
+    else:
+        return
+
+    if self.normal_map_type == 'VECTOR_DISPLACEMENT_MAP' and self.vdisp_enable_flip_yz:
+        vdisp_flip_yz = check_new_node(tree, self, 'vdisp_flip_yz', 'ShaderNodeGroup', 'Flip Y/Z')
+        vdisp_flip_yz.node_tree = lib.get_node_tree_lib(lib.FLIP_YZ)
+    else:
+        remove_node(tree, self, 'vdisp_flip_yz')
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
 def update_image_flip_y(self, context):
     yp = self.id_data.yp
@@ -4785,8 +4875,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     intensity_value : FloatProperty(
             name = 'Channel Intensity Factor', 
             description = 'Channel Intensity Factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update = update_channel_intensity_value)
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     # Modifiers
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
@@ -4801,11 +4890,11 @@ class YLayerChannel(bpy.types.PropertyGroup):
     override_color : FloatVectorProperty(
             name = 'Override Color',
             description = 'Override color value for this channel',
-            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
+            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5))
     override_value : FloatProperty(
             name = 'Override Value',
             description = 'Override value for this channel',
-            min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
+            min=0.0, max=1.0, default=1.0)
     override_vcol_name : StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
 
     # Specific for voronoi
@@ -4826,7 +4915,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     override_1_color : FloatVectorProperty(
             name = 'Override Color',
             description = 'Override color value for normal map of this channel',
-            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 1.0), update=update_layer_channel_override_1_value)
+            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 1.0))
 
     # Sources
     source : StringProperty(default='')
@@ -4855,14 +4944,20 @@ class YLayerChannel(bpy.types.PropertyGroup):
     linear_1 : StringProperty(default='')
     blend : StringProperty(default='')
     intensity : StringProperty(default='')
+    layer_intensity : StringProperty(default='')
     extra_alpha : StringProperty(default='')
 
     # Flip y node
     flip_y : StringProperty(default='')
+    vdisp_flip_yz : StringProperty(default='')
 
     # Height related
     height_proc : StringProperty(default='')
     height_blend : StringProperty(default='')
+    bump_distance_ignorer : StringProperty(default='')
+
+    # Vector Displacement related
+    vdisp_proc : StringProperty(default='')
 
     # For pack/unpack height io
     height_group_unpack : StringProperty(default='')
@@ -4876,20 +4971,22 @@ class YLayerChannel(bpy.types.PropertyGroup):
     bump_distance : FloatProperty(
             name='Bump Height Range', 
             description= 'Bump height range.\n(White equals this value, black equals negative of this value)', 
-            default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
-            update=update_bump_distance)
+            default=0.05, min=-1.0, max=1.0, precision=3) #, # step=1,
+
+    bump_midlevel : FloatProperty(
+            name='Bump Midlevel', 
+            description= 'Neutral bump value that causes no bump',
+            default=0.5, min=0.0, max=1.0, precision=3) 
 
     bump_smooth_multiplier : FloatProperty(
         name = 'Smooth Bump Step Multiplier',
         description = 'Multiply the smooth bump step.\n(The default step is based on image resolution or 1000 for generated blender texture)',
-        default=1.0, min=0.1, max=10.0, 
-        update=update_bump_smooth_multiplier)
+        default=1.0, min=0.1, max=10.0, precision=3)
 
     normal_bump_distance : FloatProperty(
             name='Bump Height Range for normal', 
             description= 'Bump height range for normal channel.\n(White equals this value, black equals negative of this value)', 
-            default=0.00, min=-1.0, max=1.0, precision=3, # step=1,
-            update=update_bump_distance)
+            default=0.00, min=-1.0, max=1.0, precision=3) #, # step=1,
 
     write_height : BoolProperty(
             name = 'Write Height',
@@ -4906,8 +5003,17 @@ class YLayerChannel(bpy.types.PropertyGroup):
     normal_strength : FloatProperty(
         name = 'Normal Strength',
         description = 'Normal strength',
-        default=1.0, min=0.0, max=100.0, 
-        update=update_normal_strength)
+        default=1.0, min=0.0, max=100.0, precision=3)
+
+    vdisp_strength : FloatProperty(
+        name = 'Vector Displacement Strength',
+        description = 'Normal strength',
+        default=1.0, min=-10.0, max=10.0, precision=3)
+
+    vdisp_enable_flip_yz : BoolProperty(
+        name = 'Vector Displacement Flip YZ Channel',
+        description = 'Flip YZ channel value (Compatibility for blender vector displacement standard)',
+        default=True, update=update_layer_channel_vdisp_flip_yz)
 
     image_flip_y : BoolProperty(
             name = 'Image Flip Y',
@@ -4939,22 +5045,19 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_bump_value : FloatProperty(
         name = 'Transition Bump Value',
         description = 'Transition bump value',
-        default=3.0, min=1.0, max=100.0, 
-        update=transition.update_transition_bump_value)
+        default=3.0, min=1.0, max=100.0, precision=3)
 
     transition_bump_second_edge_value : FloatProperty(
             name = 'Second Edge Intensity', 
             description = 'Second Edge intensity value',
-            default=1.2, min=1.0, max=100.0, 
-            update=transition.update_transition_bump_value)
+            default=1.2, min=1.0, max=100.0, precision=3)
 
     transition_bump_distance : FloatProperty(
             #name='Transition Bump Distance', 
             #description= 'Distance of mask bump', 
             name='Transition Bump Height Range', 
             description= 'Transition bump height range.\n(White equals this value, black equals negative of this value)', 
-            default=0.05, min=0.0, max=1.0, precision=3, # step=1,
-            update=transition.update_transition_bump_distance)
+            default=0.05, min=0.0, max=1.0, precision=3) # step=1,
 
     transition_bump_chain : IntProperty(
             name = 'Transition bump chain',
@@ -4983,26 +5086,22 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_bump_crease_factor : FloatProperty(
             name = 'Transition Bump Crease Factor',
             description = 'Transition bump crease factor',
-            default=0.33, min=0.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_bump_crease_factor)
+            default=0.33, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     transition_bump_crease_power : FloatProperty(
             name = 'Transition Bump Crease Power',
             description = 'Transition Bump Crease Power',
-            default=5.0, min=1.0, max=100.0,
-            update=transition.update_transition_bump_crease_power)
+            default=5.0, min=1.0, max=100.0, precision=3)
 
     transition_bump_fac : FloatProperty(
             name='Transition Bump Factor',
             description = 'Transition bump factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_bump_fac)
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     transition_bump_second_fac : FloatProperty(
             name='Transition Bump Second Factor',
             description = 'Transition bump second factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_bump_fac)
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     transition_bump_falloff : BoolProperty(
             name = 'Transition Bump Falloff',
@@ -5020,13 +5119,15 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_bump_falloff_emulated_curve_fac : FloatProperty(
             name='Transition Bump Falloff Emulated Curve Factor',
             description = 'Transition bump curve emulated curve factor',
-            default=1.0, min=-1.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_bump_falloff_emulated_curve_fac)
+            default=1.0, min=-1.0, max=1.0, subtype='FACTOR', precision=3)
 
     tb_bump : StringProperty(default='')
     tb_bump_flip : StringProperty(default='')
     tb_inverse : StringProperty(default='')
     tb_intensity_multiplier : StringProperty(default='')
+    tb_distance_flipper : StringProperty(default='')
+    tb_delta_calc : StringProperty(default='')
+    max_height_calc : StringProperty(default='')
 
     tb_falloff : StringProperty(default='')
     #tb_falloff_n : StringProperty(default='')
@@ -5045,8 +5146,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_ramp_intensity_value : FloatProperty(
             name = 'Channel Intensity Factor', 
             description = 'Channel Intensity Factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_ramp_intensity_value)
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     transition_ramp_blend_type : EnumProperty(
         name = 'Transition Ramp Blend Type',
@@ -5094,20 +5194,16 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     transition_ao_power : FloatProperty(name='Transition AO Power',
             #description='Transition AO edge power (higher value means less AO)', min=1.0, max=100.0, default=4.0,
-            description='Transition AO power', min=1.0, max=100.0, default=4.0,
-            update=transition.update_transition_ao_edge)
+            description='Transition AO power', min=1.0, max=100.0, default=4.0, precision=3)
 
     transition_ao_intensity : FloatProperty(name='Transition AO Intensity',
-            description='Transition AO intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.5,
-            update=transition.update_transition_ao_intensity)
+            description='Transition AO intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.5, precision=3)
 
     transition_ao_color : FloatVectorProperty(name='Transition AO Color', description='Transition AO Color', 
-            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.0, 0.0, 0.0),
-            update=transition.update_transition_ao_color)
+            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.0, 0.0, 0.0))
 
     transition_ao_inside_intensity : FloatProperty(name='Transition AO Inside Intensity', 
-            description='Transition AO Inside Intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.0,
-            update=transition.update_transition_ao_exclude_inside)
+            description='Transition AO Inside Intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.0, precision=3)
 
     transition_ao_blend_type : EnumProperty(
         name = 'Transition AO Blend Type',
@@ -5119,7 +5215,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
             name='Unlink Transition AO with Channel Intensity', 
             description='Unlink Transition AO with Channel Intensity', 
             default=False,
-            update=transition.update_transition_ao_intensity)
+            update=transition.update_transition_ao_intensity_link)
 
     tao : StringProperty(default='')
 
@@ -5181,9 +5277,11 @@ def update_layer_blur_vector(self, context):
     if layer.enable_blur_vector:
         blur_vector = new_node(tree, layer, 'blur_vector', 'ShaderNodeGroup', 'Blur Vector')
         blur_vector.node_tree = get_node_tree_lib(lib.BLUR_VECTOR)
-        blur_vector.inputs[0].default_value = layer.blur_vector_factor / 100.0
+        blur_vector.inputs[0].default_value = layer.blur_vector_factor
     else:
         remove_node(tree, layer, 'blur_vector')
+
+    check_layer_tree_ios(layer, tree)
 
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
@@ -5198,7 +5296,7 @@ def update_layer_blur_vector_factor(self, context):
     blur_vector = tree.nodes.get(layer.blur_vector)
 
     if blur_vector:
-        blur_vector.inputs[0].default_value = layer.blur_vector_factor / 100.0
+        blur_vector.inputs[0].default_value = layer.blur_vector_factor
 
 class YLayer(bpy.types.PropertyGroup):
     name : StringProperty(
@@ -5220,6 +5318,11 @@ class YLayer(bpy.types.PropertyGroup):
             name = 'Layer Type',
             items = layer_type_items,
             default = 'IMAGE')
+
+    intensity_value : FloatProperty(
+            name = 'Layer Intensity Factor', 
+            description = 'Layer Intensity Factor',
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     color_shortcut : BoolProperty(
             name = 'Color Shortcut on the list',
@@ -5422,6 +5525,7 @@ def register():
     bpy.utils.register_class(YRefreshNeighborUV)
     bpy.utils.register_class(YUseLinearColorSpace)
     bpy.utils.register_class(YNewLayer)
+    bpy.utils.register_class(YNewVDMLayer)
     bpy.utils.register_class(YNewVcolToOverrideChannel)
     bpy.utils.register_class(YOpenImageToLayer)
     bpy.utils.register_class(YOpenMultipleImagesToSingleLayer)
@@ -5448,6 +5552,7 @@ def unregister():
     bpy.utils.unregister_class(YRefreshNeighborUV)
     bpy.utils.unregister_class(YUseLinearColorSpace)
     bpy.utils.unregister_class(YNewLayer)
+    bpy.utils.unregister_class(YNewVDMLayer)
     bpy.utils.unregister_class(YNewVcolToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToLayer)
     bpy.utils.unregister_class(YOpenMultipleImagesToSingleLayer)

@@ -54,6 +54,16 @@ def set_input_default_value(group_node, channel, custom_value=None):
         #group_node.inputs[channel.io_index].default_value = (999,999,999)
         group_node.inputs[channel.name].default_value = (999,999,999)
 
+        # Update height default value
+        io_name = channel.name + io_suffix['HEIGHT']
+        inp = get_tree_input_by_name(group_node.node_tree, io_name)
+        if inp: group_node.inputs[io_name].default_value = inp.default_value
+
+        # Update max height default value
+        io_name = channel.name + io_suffix['MAX_HEIGHT']
+        inp = get_tree_input_by_name(group_node.node_tree, io_name)
+        if inp: group_node.inputs[io_name].default_value = inp.default_value
+
     if channel.enable_alpha:
         #group_node.inputs[channel.io_index+1].default_value = 1.0
         group_node.inputs[channel.name + io_suffix['ALPHA']].default_value = 1.0
@@ -737,6 +747,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                         area.spaces[0].viewport_shade = 'MATERIAL'
                     else: area.spaces[0].shading.type = 'MATERIAL'
 
+        # Expand channels now is enabled by default if it's the only yp node
+        if len([ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]) == 1:
+            context.window_manager.ypui.expand_channels = True
+
         # Update UI
         context.window_manager.ypui.need_update = True
 
@@ -804,6 +818,10 @@ class YNewYPaintNode(bpy.types.Operator):
 
         # Set the location of new node
         node.location = space.cursor_location
+
+        # Expand channels now is enabled by default if it's the only yp node
+        if len([ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]) == 1:
+            context.window_manager.ypui.expand_channels = True
 
         # Update UI
         context.window_manager.ypui.need_update = True
@@ -1257,6 +1275,9 @@ class YMoveYPaintChannel(bpy.types.Operator):
         #setattr(ypui, 'show_channel_modifiers_' + str(index), temp_1)
         #setattr(ypui, 'show_channel_modifiers_' + str(new_index), temp_0)
 
+        # Remove props first
+        check_all_channel_ios(yp, reconnect=False, remove_props=True)
+
         # Get IO index
         swap_ch = yp.channels[new_index]
         io_index = channel.io_index
@@ -1375,6 +1396,9 @@ class YRemoveYPaintChannel(bpy.types.Operator):
                 if vcol:
                     vcols.remove(vcol)
                     
+        # Remove props first
+        check_all_channel_ios(yp, reconnect=False, remove_props=True)
+
         # Collapse the UI
         #setattr(ypui, 'show_channel_modifiers_' + str(channel_idx), False)
 
@@ -1481,10 +1505,13 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
+        remove_node(group_tree, channel, 'end_start_bump_overlay')
+        remove_node(group_tree, channel, 'end_normal_engine_filter')
         remove_node(group_tree, channel, 'end_backface')
         remove_node(group_tree, channel, 'end_max_height')
         remove_node(group_tree, channel, 'end_max_height_tweak')
         remove_node(group_tree, channel, 'start_normal_filter')
+        remove_node(group_tree, channel, 'start_bump_process')
         remove_node(group_tree, channel, 'baked')
         remove_node(group_tree, channel, 'baked_vcol')
         remove_node(group_tree, channel, 'baked_normal')
@@ -1913,10 +1940,11 @@ class YOptimizeNormalProcess(bpy.types.Operator):
         if not root_normal_ch:
             return {'CANCELLED'}
 
-        check_start_end_root_ch_nodes(group_tree, specific_channel=root_normal_ch)
+        check_all_channel_ios(yp, reconnect=True)
+        #check_start_end_root_ch_nodes(group_tree, specific_channel=root_normal_ch)
 
-        reconnect_yp_nodes(group_tree)
-        rearrange_yp_nodes(group_tree)
+        #reconnect_yp_nodes(group_tree)
+        #rearrange_yp_nodes(group_tree)
 
         return {'FINISHED'}
 
@@ -2398,7 +2426,9 @@ def update_layer_preview_mode(self, context):
             tree.links.new(preview.outputs[0], output.inputs[0])
 
         else:
-            if channel.type == 'NORMAL':
+            ch = layer.channels[yp.active_channel_index]
+
+            if channel.type == 'NORMAL' and ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
                 preview = get_preview(mat, output, True, True)
             else:
                 preview = get_preview(mat, output, True)
@@ -2415,7 +2445,6 @@ def update_layer_preview_mode(self, context):
                 else: preview.inputs['Gamma'].default_value = 1.0
 
             # Set channel layer blending
-            ch = layer.channels[yp.active_channel_index]
             #mix = preview.node_tree.nodes.get('Mix')
             #mix.blend_type = ch.blend_type
             update_preview_mix(ch, preview)
@@ -2426,6 +2455,10 @@ def update_layer_preview_mode(self, context):
     else:
         check_all_channel_ios(yp)
         remove_preview(mat)
+
+def update_sculpt_mode(self, context):
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_preview_mode(self, context):
     yp = self
@@ -3058,6 +3091,12 @@ def update_channel_main_uv(self, context):
     if self.type == 'NORMAL':
         self.enable_smooth_bump = self.enable_smooth_bump
 
+def update_enable_height_tweak(self, context):
+    check_start_end_root_ch_nodes(self.id_data)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
 # Prevent vcol name from being null
 def get_channel_vcol_name(self):
     name = self.get('bake_to_vcol_name', '') # May be null
@@ -3295,7 +3334,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Real displacement using height map
     enable_subdiv_setup : BoolProperty(
             name = 'Enable Displacement Setup',
-            description = 'Enable displacement setup. Only works if baked results is used',
+            description = 'Enable displacement setup. Only works with Cycles or Eevee Next',
             default=False, update=Bake.update_enable_subdiv_setup)
 
     #subdiv_standard_type : EnumProperty(
@@ -3318,7 +3357,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     subdiv_on_max_polys : IntProperty(
             name = 'Subdiv On Max Polygons',
             description = 'Max Polygons (in thousand) when displacement setup is on',
-            default=1000, min=1, max=5000, 
+            default=1000, min=1, max=10000, 
             update=Bake.update_subdiv_max_polys
             )
 
@@ -3334,11 +3373,37 @@ class YPaintChannel(bpy.types.PropertyGroup):
     #        default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level
     #        )
 
+    # Depcrecated
     subdiv_tweak : FloatProperty(
             name = 'Subdiv Tweak',
             description = 'Tweak displacement height',
-            default=1.0, min=0.0, max=1000.0, 
-            update=Bake.update_subdiv_tweak
+            default=1.0, min=-1000.0, max=1000.0
+            )
+
+    height_tweak : FloatProperty(
+            name = 'Height Tweak',
+            description = 'Multiply height value',
+            default=1.0, min=-1000.0, max=1000.0
+            )
+
+    enable_height_tweak : BoolProperty(
+            name = 'Height Tweak',
+            description = 'Tweak displacement height',
+            default=False,
+            update=update_enable_height_tweak
+            )
+
+    enable_smooth_normal_tweak : BoolProperty(
+            name = 'Smooth Normal Tweak',
+            description = 'Tweak smooth normal',
+            default=False,
+            update=update_enable_height_tweak
+            )
+
+    smooth_normal_tweak : FloatProperty(
+            name = 'Smooth Normal Tweak',
+            description = 'Tweak smooth normal value',
+            default=1.0, min=-1000.0, max=1000.0
             )
 
     subdiv_global_dicing : FloatProperty(subtype='PIXEL', default=1.0, min=0.5, max=1000,
@@ -3366,8 +3431,11 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Node names
     start_linear : StringProperty(default='')
     end_linear : StringProperty(default='')
+    end_start_bump_overlay : StringProperty(default='')
+    end_normal_engine_filter : StringProperty(default='')
     clamp : StringProperty(default='')
     start_normal_filter : StringProperty(default='')
+    start_bump_process : StringProperty(default='')
     bump_process : StringProperty(default='')
     end_max_height : StringProperty(default='')
     end_max_height_tweak : StringProperty(default='')
@@ -3381,15 +3449,22 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_vcol : StringProperty(default='')
 
     baked_disp : StringProperty(default='')
+    baked_vdisp : StringProperty(default='')
     baked_normal_overlay : StringProperty(default='')
 
     # Outside baked nodes
     baked_outside : StringProperty(default='')
     baked_outside_disp : StringProperty(default='')
+    baked_outside_vdisp : StringProperty(default='')
     baked_outside_normal_overlay : StringProperty(default='')
 
     baked_outside_disp_process : StringProperty(default='')
+    baked_outside_vdisp_process : StringProperty(default='')
+    baked_outside_disp_addition : StringProperty(default='')
     baked_outside_normal_process : StringProperty(default='')
+
+    baked_outside_ori_disp_from_node : StringProperty(default='')
+    baked_outside_ori_disp_from_socket : StringProperty(default='')
 
     baked_outside_vcol : StringProperty(default='')
 
@@ -3400,6 +3475,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     expand_parallax_settings : BoolProperty(default=False)
     expand_alpha_settings : BoolProperty(default=False)
     expand_bake_to_vcol_settings : BoolProperty(default=False)
+    expand_input_bump_settings : BoolProperty(default=False)
     expand_smooth_bump_settings : BoolProperty(default=False)
 
     # Connection related
@@ -3474,6 +3550,9 @@ class YPaint(bpy.types.PropertyGroup):
     #temp_channels = CollectionProperty(type=YChannelUI)
     preview_mode : BoolProperty(default=False, update=update_preview_mode)
 
+    # Disable all vector displacement layers when sculpt mode is on
+    sculpt_mode : BoolProperty(default=False, update=update_sculpt_mode)
+
     # Layer Preview Mode
     layer_preview_mode : BoolProperty(
             name= 'Enable Layer Preview Mode',
@@ -3501,7 +3580,7 @@ class YPaint(bpy.types.PropertyGroup):
             #         ),
             items = (('LAYER', 'Layer', ''),
                      ('ALPHA', 'Alpha', ''),
-                     ('SPECIFIC_MASK', 'Specific Mask / Override', ''),
+                     ('SPECIFIC_MASK', 'Active Mask / Override', ''),
                      ),
             #items = layer_preview_mode_type_items,
             default = 'LAYER',

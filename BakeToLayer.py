@@ -266,8 +266,8 @@ class YBakeToLayer(bpy.types.Operator):
     hdr : BoolProperty(name='32 bit Float', default=True)
 
     use_baked_disp : BoolProperty(
-            name='Use Baked Displacement Map',
-            description='Use baked displacement map, this will also apply subdiv setup on object',
+            name='Use Displacement Setup',
+            description='Use displacement setup, this will also apply subdiv setup on object',
             default=False
             )
 
@@ -923,47 +923,13 @@ class YBakeToLayer(bpy.types.Operator):
             height = self.height
 
         # If use baked disp, need to bake normal and height map first
+        subdiv_setup_changes = False
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and self.use_baked_disp and not self.type.startswith('MULTIRES_'):
 
-            # Check if baked displacement already there
-            baked_disp = tree.nodes.get(height_root_ch.baked_disp)
-
-            if baked_disp and baked_disp.image:
-                disp_width = baked_disp.image.size[0]
-                disp_height = baked_disp.image.size[1]
-            else:
-                disp_width = ypup.default_new_image_size
-                disp_height = ypup.default_new_image_size
-
-            if yp.baked_uv_name != '':
-                disp_uv = yp.baked_uv_name
-            else: disp_uv = yp.uvs[0].name
-            
-            # Use 1 sample for baking height
-            prepare_bake_settings(book, objs, yp, samples=1, margin=self.margin, 
-                    uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device,
-                    margin_type=self.margin_type
-                    )
-
-            # Bake height channel
-            bake_channel(disp_uv, mat, node, height_root_ch, disp_width, disp_height)
-
-            # Recover bake settings
-            recover_bake_settings(book, yp)
-
-            # Set baked name
-            if yp.baked_uv_name == '':
-                yp.baked_uv_name = disp_uv
-
-            # Set to use baked
-            yp.use_baked = True
-            ori_subdiv_setup = height_root_ch.enable_subdiv_setup
-            ori_subdiv_adaptive = height_root_ch.subdiv_adaptive
-            height_root_ch.subdiv_adaptive = False
-
             if not height_root_ch.enable_subdiv_setup:
                 height_root_ch.enable_subdiv_setup = True
+                subdiv_setup_changes = True
 
         # To hold temporary objects
         temp_objs = []
@@ -1912,12 +1878,8 @@ class YBakeToLayer(bpy.types.Operator):
                     bpy.ops.object.mode_set(mode = 'OBJECT')
 
         # Recover subdiv setup
-        #if height_root_ch and self.use_baked_disp:
-        if height_root_ch and self.use_baked_disp and not self.type.startswith('MULTIRES_'):
-            yp.use_baked = False
-            height_root_ch.subdiv_adaptive = ori_subdiv_adaptive
-            if height_root_ch.enable_subdiv_setup != ori_subdiv_setup:
-                height_root_ch.enable_subdiv_setup = ori_subdiv_setup
+        if height_root_ch and subdiv_setup_changes:
+            height_root_ch.enable_subdiv_setup = not height_root_ch.enable_subdiv_setup
 
         # Remove flow vcols
         if self.type == 'FLOW':

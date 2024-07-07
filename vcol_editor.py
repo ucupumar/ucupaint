@@ -293,9 +293,9 @@ class YVcolFillFaceCustom(bpy.types.Operator):
                     written_col = vcol.data[loop_indices[0]].color
                     color = (written_col[0], written_col[1], written_col[2])
                                 
-                    context.mask.color_id = Color(color)
+                    set_entity_prop_value(context.mask, 'color_id', Color(color))
                     if not is_greater_than_320():
-                        context.mask.color_id = srgb_to_linear(context.mask.color_id)
+                        set_entity_prop_value(context.mask, 'color_id', srgb_to_linear(get_mask_color_id_color(context.mask)))
                     if is_greater_than_280():
                         color = (written_col[0], written_col[1], written_col[2], written_col[3])
 
