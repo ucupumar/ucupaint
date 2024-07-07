@@ -8,6 +8,7 @@ from distutils.version import LooseVersion #, StrictVersion
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
+from . import Bake
 
 def flip_tangent_sign():
     meshes = []
@@ -128,6 +129,7 @@ def update_yp_tree(tree):
     yp = tree.yp
 
     updated_to_tangent_process_300 = False
+    updated_to_yp_200_displacement = False
 
     # SECTION I: Update based on yp version
 
@@ -213,6 +215,13 @@ def update_yp_tree(tree):
                     ch.modifiers.remove(j)
 
                 if mod_ids:
+
+                    # Update input value for version 2.0+
+                    if cur_version >= LooseVersion('2.0.0'):
+                        if root_ch.type == 'VALUE':
+                            set_entity_prop_value(ch, 'override_value', ch.override_value)
+                        else: set_entity_prop_value(ch, 'override_color', ch.override_color)
+
                     reconnect_layer_nodes(layer)
                     rearrange_layer_nodes(layer)
 
@@ -446,6 +455,184 @@ def update_yp_tree(tree):
                 if height_ch and height_ch.enable:
                     update_layer_images_interpolation(layer, 'Cubic')
 
+    # Version 2.0 won't use custom prop for mapping and intensity
+    if LooseVersion(yp.version) < LooseVersion('2.0.0'):
+
+        # Update input outputs
+        check_all_channel_ios(yp)
+
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and height_root_ch.enable_subdiv_setup:
+
+            if height_root_ch.subdiv_adaptive:
+
+                # Set max height value
+                end_max_height = tree.nodes.get(height_root_ch.end_max_height)
+                if end_max_height:
+                    end_max_height.outputs[0].default_value /= 5.0
+
+                # Set normal scale
+                if height_root_ch.enable_smooth_bump:
+                    height_root_ch.enable_smooth_normal_tweak = True
+                    set_entity_prop_value(height_root_ch, 'smooth_normal_tweak', 5.0)
+
+            # Set displacement method
+            if not height_root_ch.subdiv_adaptive:
+                mats = get_all_materials_with_tree(tree)
+                for mat in mats:
+                    if hasattr(mat, 'displacement_method'):
+                        mat.displacement_method = 'BOTH'
+
+                    if is_greater_than_280():
+                        mat.cycles.displacement_method = 'BOTH'
+                    else: mat.cycles.displacement_method = 'TRUE'
+
+                # Update displacement connection
+                Bake.check_subdiv_setup(height_root_ch)
+
+                updated_to_yp_200_displacement = True
+
+        for layer in yp.layers:
+
+            # Update height distance since the scale is divided by 5 to match closer to blender bump node value
+            if height_root_ch:
+                height_ch = get_height_channel(layer)
+                if height_ch:
+                    if not yp.use_baked and not height_root_ch.enable_subdiv_setup:
+                        set_entity_prop_value(height_ch, 'bump_distance', height_ch.bump_distance*5.0)
+                        set_entity_prop_value(height_ch, 'normal_bump_distance', height_ch.normal_bump_distance*5.0)
+                        set_entity_prop_value(height_ch, 'transition_bump_distance', height_ch.transition_bump_distance*5.0)
+                    elif height_root_ch.subdiv_adaptive:
+                        set_entity_prop_value(height_ch, 'bump_distance', height_ch.bump_distance/5.0)
+                        set_entity_prop_value(height_ch, 'normal_bump_distance', height_ch.normal_bump_distance/5.0)
+                        set_entity_prop_value(height_ch, 'transition_bump_distance', height_ch.transition_bump_distance/5.0)
+
+            # Transfer channel intensity value to layer intensity value if there's only one enabled channel
+            enabled_channels = [c for c in layer.channels if c.enable]
+            if len(enabled_channels) == 1:
+                ch = enabled_channels[0]
+                ch_idx = get_layer_channel_index(layer, ch)
+                root_ch = yp.channels[ch_idx]
+
+                set_entity_prop_value(layer, 'intensity_value', ch.intensity_value)
+                set_entity_prop_value(ch, 'intensity_value', 1.0)
+
+                if len(ch.modifiers) == 0:
+                    layer.expand_channels = False
+
+                # Transfer fcurve
+                if tree.animation_data and tree.animation_data.action:
+                    fcs = tree.animation_data.action.fcurves
+                    for fc in fcs:
+                        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.intensity_value', fc.data_path)
+                        if m:
+                            mlayer = yp.layers[int(m.group(1))]
+                            mch = mlayer.channels[int(m.group(2))]
+                            if mch != ch: continue
+                            fc.data_path = 'yp.layers[' + m.group(1) + '].intensity_value'
+
+        # Subdiv tweak is no longer used
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and hasattr(height_root_ch, 'subdiv_tweak') and height_root_ch.subdiv_tweak != 1.0:
+            height_root_ch.enable_height_tweak = True
+            height_root_ch.height_tweak = height_root_ch.subdiv_tweak
+
+        # Check for mapping actions
+        if tree.animation_data and tree.animation_data.action:
+            fcs = tree.animation_data.action.fcurves
+            new_fcs = []
+            for fc in fcs:
+                #print(fc.data_path)
+
+                # New fcurve
+                nfc = None
+
+                # Get entity
+                mlayer = re.match(r'yp\.layers\[(\d+)\]\.+', fc.data_path)
+                mmask = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.+', fc.data_path)
+
+                if mlayer: entity = yp.layers[int(mlayer.group(1))]
+                if mmask: entity = yp.layers[int(mmask.group(1))].masks[int(mmask.group(2))]
+
+                # Match data path
+                m1 = re.match(r'yp\.layers\[(\d+)\]\.translation', fc.data_path)
+                m2 = re.match(r'yp\.layers\[(\d+)\]\.rotation', fc.data_path)
+                m3 = re.match(r'yp\.layers\[(\d+)\]\.scale', fc.data_path)
+                m4 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.translation', fc.data_path)
+                m5 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.rotation', fc.data_path)
+                m6 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.scale', fc.data_path)
+
+                # Mapping
+                if m1 or m2 or m3 or m4 or m5 or m6:
+                    mapping = get_entity_mapping(entity)
+                    parent_node = mapping.id_data
+
+                    # Translation
+                    if m1 or m4:
+                        if is_greater_than_281():
+                            new_data_path = 'nodes["' + mapping.name + '"].inputs[1].default_value'
+                        else: new_data_path = 'nodes["' + mapping.name + '"].translation'
+
+                    # Rotation
+                    elif m2 or m5:
+                        if is_greater_than_281():
+                            new_data_path = 'nodes["' + mapping.name + '"].inputs[2].default_value'
+                        else: new_data_path = 'nodes["' + mapping.name + '"].rotation'
+
+                    # Scale
+                    else: #elif m3 or m6:
+                        if is_greater_than_281():
+                            new_data_path = 'nodes["' + mapping.name + '"].inputs[3].default_value'
+                        else: new_data_path = 'nodes["' + mapping.name + '"].scale'
+
+                    for i, kp in enumerate(fc.keyframe_points):
+
+                        # Set current frame and value
+                        #mapping.inputs[1].default_value[fc.array_index] = fc.evaluate(int(kp.co[0]))
+                        bpy.context.scene.frame_set(int(kp.co[0]))
+                        if m1 or m4: # Translation
+                            mapping.inputs[1].default_value[fc.array_index] = entity.translation[fc.array_index]
+                        elif m2 or m5: # Rotation
+                            mapping.inputs[2].default_value[fc.array_index] = entity.rotation[fc.array_index]
+                        elif m3 or m6: # Scale
+                            mapping.inputs[3].default_value[fc.array_index] = entity.scale[fc.array_index]
+
+                        # Insert keyframe
+                        parent_node.keyframe_insert(data_path=new_data_path, frame=int(kp.co[0]))
+
+                        # Get new fcurve
+                        if not nfc:
+                            nfc = [f for f in parent_node.animation_data.action.fcurves if f.data_path == new_data_path and f.array_index == fc.array_index][0]
+
+                        # Get new keyframe point
+                        nkp = nfc.keyframe_points[i]
+
+                        # Copy keyframe props
+                        copy_id_props(kp, nkp)
+
+                new_fcs.append(nfc)
+
+            for i, fc in reversed(list(enumerate(fcs))):
+
+                # Get new fcurve
+                nfc = new_fcs[i]
+                if not nfc: continue
+
+                # Copy modifiers
+                for mod in fc.modifiers:
+                    nmod = nfc.modifiers.new(type=mod.type)
+                    copy_id_props(mod, nmod)
+
+                # Copy fcurve props
+                #copy_id_props(fc, nfc)
+                nfc.mute = fc.mute
+                nfc.hide = fc.hide
+                nfc.extrapolation = fc.extrapolation
+                nfc.lock = fc.lock
+
+                # Remove original fcurve
+                fcs.remove(fc)
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
@@ -521,7 +708,7 @@ def update_yp_tree(tree):
         yp.version = cur_version
         print('INFO:', tree.name, 'is updated to version', cur_version)
 
-    return updated_to_tangent_process_300
+    return updated_to_tangent_process_300, updated_to_yp_200_displacement
 
 @persistent
 def update_routine(name):
@@ -529,18 +716,28 @@ def update_routine(name):
 
     # Flags
     updated_to_tangent_process_300 = False
+    updated_to_yp_200_displacement = False
 
     for ng in bpy.data.node_groups:
         if not hasattr(ng, 'yp'): continue
         if not ng.yp.is_ypaint_node: continue
 
         # Update yp trees
-        flag = update_yp_tree(ng)
-        if flag: updated_to_tangent_process_300 = True
+        flag1, flag2 = update_yp_tree(ng)
+        if flag1: updated_to_tangent_process_300 = True
+        if flag2: updated_to_yp_200_displacement = True
 
     # Remove tangent sign vertex colors for Blender 3.0+
     if updated_to_tangent_process_300:
         remove_tangent_sign_vcols()
+
+    # Remove old displace modifiers from all objects
+    if updated_to_yp_200_displacement:
+        for obj in bpy.data.objects:
+            for mod in reversed(obj.modifiers):
+                if mod.type == 'DISPLACE' and mod.name.startswith('yP_Displace'):
+                    set_active_object(obj)
+                    bpy.ops.object.modifier_remove(modifier=mod.name)
 
     # Special update for opening Blender 2.79 file
     filepath = get_addon_filepath() + "lib.blend"

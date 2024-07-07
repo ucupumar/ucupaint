@@ -134,7 +134,7 @@ neighbor_directions = ['n', 's', 'e', 'w']
 normal_blend_items = (
         ('MIX', 'Mix', ''),
         #('VECTOR_MIX', 'Vector Mix', ''),
-        ('OVERLAY', 'Overlay', ''),
+        ('OVERLAY', 'Add', ''),
         ('COMPARE', 'Compare Height', '')
         )
 
@@ -426,11 +426,16 @@ io_suffix = {
         'DISPLACEMENT' : ' Displacement',
         'HEIGHT' : ' Height',
         'MAX_HEIGHT' : ' Max Height',
+        'VDISP' : ' Vector Displacement',
         'HEIGHT_ONS' : ' Height ONS',
         'HEIGHT_EW' : ' Height EW',
         'UV' : ' UV',
         'TANGENT' : ' Tangent',
         'BITANGENT' : ' Bitangent',
+        'HEIGHT_N' : ' Height N',
+        'HEIGHT_S' : ' Height S',
+        'HEIGHT_E' : ' Height E',
+        'HEIGHT_W' : ' Height W',
         }
 
 io_names = {
@@ -479,6 +484,7 @@ eraser_names = {
         }
 
 rgba_letters = ['r', 'g', 'b', 'a']
+nsew_letters = ['n', 's', 'e', 'w']
 
 TEXCOORD_IO_PREFIX = 'Texcoord '
 PARALLAX_MIX_PREFIX = 'Parallax Mix '
@@ -698,6 +704,11 @@ def get_scene_objects():
     if is_greater_than_280():
         return bpy.context.view_layer.objects
     else: return bpy.context.scene.objects
+
+def remove_mesh_obj(obj):
+    data = obj.data
+    bpy.data.objects.remove(obj, do_unlink=True)
+    bpy.data.meshes.remove(data)  
 
 def get_viewport_shade():
     if is_greater_than_280():
@@ -1308,11 +1319,12 @@ def is_vcol_being_used(tree, vcol_name, exception_node=None):
     return False
 
 def remove_node(tree, entity, prop, remove_data=True, parent=None):
-    if not hasattr(entity, prop): return
-    if not tree: return
-    #if prop not in entity: return
 
     dirty = False
+
+    if not hasattr(entity, prop): return dirty
+    if not tree: return dirty
+    #if prop not in entity: return dirty
 
     scene = bpy.context.scene
     node = tree.nodes.get(getattr(entity, prop))
@@ -1326,7 +1338,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
 
         if parent and node.parent != parent:
             setattr(entity, prop, '')
-            return
+            return dirty
 
         if remove_data:
             # Remove image data if the node is the only user
@@ -1371,6 +1383,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
         # Remove the node itself
         #print('Node ' + prop + ' from ' + str(entity) + ' removed!')
         tree.nodes.remove(node)
+        dirty = True
 
     setattr(entity, prop, '')
     #entity[prop] = ''
@@ -2514,11 +2527,11 @@ def get_output_index(root_ch):
     output_index = root_ch.io_index
 
     # Check if there's normal channel above current channel because it has extra output
-    for ch in yp.channels:
-        if ch.type == 'NORMAL' and ch != root_ch:
-            output_index += 1
-        if ch == root_ch:
-            break
+    #for ch in yp.channels:
+    #    if ch.type == 'NORMAL' and ch != root_ch:
+    #        output_index += 1
+    #    if ch == root_ch:
+    #        break
 
     return output_index
 
@@ -2910,8 +2923,8 @@ def get_correct_uv_neighbor_resolution(ch, image=None):
     res_x = image.size[0] if image else 1000
     res_y = image.size[1] if image else 1000
 
-    res_x /= ch.bump_smooth_multiplier
-    res_y /= ch.bump_smooth_multiplier
+    #res_x /= ch.bump_smooth_multiplier
+    #res_y /= ch.bump_smooth_multiplier
 
     return res_x, res_y
 
@@ -3040,6 +3053,10 @@ def update_mapping(entity, use_baked=False):
         scale_z = entity.scale[2]
 
     if (entity.type == 'IMAGE' or use_baked) and segment_name != '':
+
+        # Atlas will only use point vector type for now
+        mapping.vector_type = 'POINT'
+
         image = source.image
         if image.source == 'TILED':
             segment = image.yua.segments.get(segment_name)
@@ -3316,6 +3333,10 @@ def refresh_temp_uv(obj, entity):
         #print('Channel!')
     else: return False
 
+    # Only point mapping are supported for now
+    if mapping and mapping.vector_type not in {'POINT', 'TEXTURE'}:
+        return False
+
     if not hasattr(source, 'image'): return False
 
     img = source.image
@@ -3331,68 +3352,114 @@ def refresh_temp_uv(obj, entity):
 
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
-    #temp_uv_layer = obj.data.uv_layers.new(name=TEMP_UV)
     uv_layers.active = temp_uv_layer
     temp_uv_layer.active_render = True
 
     if not is_greater_than_280():
         temp_uv_layer = obj.data.uv_layers.get(TEMP_UV)
 
+    translation_x = mapping.inputs[1].default_value[0] if is_greater_than_281() else mapping.translation[0]
+    translation_y = mapping.inputs[1].default_value[1] if is_greater_than_281() else mapping.translation[1]
+    translation_z = mapping.inputs[1].default_value[2] if is_greater_than_281() else mapping.translation[2]
+
+    rotation_x = mapping.inputs[2].default_value[0] if is_greater_than_281() else mapping.rotation[0]
+    rotation_y = mapping.inputs[2].default_value[1] if is_greater_than_281() else mapping.rotation[1]
+    rotation_z = mapping.inputs[2].default_value[2] if is_greater_than_281() else mapping.rotation[2]
+
+    scale_x = mapping.inputs[3].default_value[0] if is_greater_than_281() else mapping.scale[0]
+    scale_y = mapping.inputs[3].default_value[1] if is_greater_than_281() else mapping.scale[1]
+    scale_z = mapping.inputs[3].default_value[2] if is_greater_than_281() else mapping.scale[2]
+
     # Create transformation matrix
-    # Scale
-    if not is_greater_than_281():
+    m1 = m2 = m3 = m4 = None
+    if mapping.vector_type == 'POINT':
+
+        # Scale
         m = Matrix((
-            (mapping.scale[0], 0, 0),
-            (0, mapping.scale[1], 0),
-            (0, 0, mapping.scale[2])
+            (scale_x, 0, 0),
+            (0, scale_y, 0),
+            (0, 0, scale_z)
             ))
 
         # Rotate
-        m.rotate(Euler((mapping.rotation[0], mapping.rotation[1], mapping.rotation[2])))
+        m.rotate(Euler((rotation_x, rotation_y, rotation_z)))
 
         # Translate
         m = m.to_4x4()
-        m[0][3] = mapping.translation[0]
-        m[1][3] = mapping.translation[1]
-        m[2][3] = mapping.translation[2]
-    else:
+        m[0][3] = translation_x
+        m[1][3] = translation_y
+        m[2][3] = translation_z
+
+    elif mapping.vector_type == 'TEXTURE': 
+        # Translate matrix
         m = Matrix((
-            (mapping.inputs[3].default_value[0], 0, 0),
-            (0, mapping.inputs[3].default_value[1], 0),
-            (0, 0, mapping.inputs[3].default_value[2])
+            (1, 0, 0, -translation_x),
+            (0, 1, 0, -translation_y),
+            (0, 0, 1, -translation_z),
+            (0, 0, 0, 1),
             ))
 
-        # Rotate
-        m.rotate(Euler((mapping.inputs[2].default_value[0], mapping.inputs[2].default_value[1], mapping.inputs[2].default_value[2])))
+        # Rotate z matrix
+        m1 = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
+        m1.rotate(Euler((0, 0, -rotation_z)))
 
-        # Translate
-        m = m.to_4x4()
-        m[0][3] = mapping.inputs[1].default_value[0]
-        m[1][3] = mapping.inputs[1].default_value[1]
-        m[2][3] = mapping.inputs[1].default_value[2]
+        # Rotate y matrix
+        m2 = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
+        m2.rotate(Euler((0, -rotation_y, 0)))
+
+        # Rotate x matrix
+        m3 = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
+        m3.rotate(Euler((-rotation_x, 0, 0)))
+
+        # Scale matrix
+        m4 = Matrix((
+            (1/scale_x, 0, 0),
+            (0, 1/scale_y, 0),
+            (0, 0, 1/scale_z)
+            ))
 
     # Create numpy array to store uv coordinates
     arr = numpy.zeros(len(obj.data.loops)*2, dtype=numpy.float32)
-    #obj.data.uv_layers.active.data.foreach_get('uv', arr)
     temp_uv_layer.data.foreach_get('uv', arr)
     arr.shape = (arr.shape[0]//2, 2)
 
     # Matrix transformation for each uv coordinates
     if is_greater_than_280():
-        for uv in arr:
-            vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-            vec = m @ vec
-            uv[0] = vec[0]
-            uv[1] = vec[1]
+        if mapping.vector_type == 'TEXTURE':
+            for uv in arr:
+                vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+                vec = m @ vec
+                vec = m1 @ vec
+                vec = m2 @ vec
+                vec = m3 @ vec
+                vec = m4 @ vec
+                uv[0] = vec[0]
+                uv[1] = vec[1]
+        else:
+            for uv in arr:
+                vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+                vec = m @ vec
+                uv[0] = vec[0]
+                uv[1] = vec[1]
     else:
-        for uv in arr:
-            vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-            vec = m * vec
-            uv[0] = vec[0]
-            uv[1] = vec[1]
+        if mapping.vector_type == 'TEXTURE':
+            for uv in arr:
+                vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+                vec = m * vec
+                vec = m1 * vec
+                vec = m2 * vec
+                vec = m3 * vec
+                vec = m4 * vec
+                uv[0] = vec[0]
+                uv[1] = vec[1]
+        else:
+            for uv in arr:
+                vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+                vec = m * vec
+                uv[0] = vec[0]
+                uv[1] = vec[1]
 
     # Set back uv coordinates
-    #obj.data.uv_layers.active.data.foreach_set('uv', arr.ravel())
     temp_uv_layer.data.foreach_set('uv', arr.ravel())
 
     # Set UV mirror offset
@@ -3771,7 +3838,6 @@ def get_layer_channel_max_height(layer, ch, ch_idx=None):
 
     if ch.enable_transition_bump:
         if ch.normal_map_type == 'NORMAL_MAP' and layer.type != 'GROUP':
-            #max_height = ch.transition_bump_distance
             max_height = abs(get_transition_bump_max_distance_with_crease(ch))
         else:
             if ch.transition_bump_flip:
@@ -3839,8 +3905,12 @@ def get_transition_disp_delta(layer, ch):
         delta = get_transition_bump_max_distance(ch) - max_child_heights
 
     else:
+        ##### REPLACED_BY_SHADERS
+
         bump_distance = ch.normal_bump_distance if ch.normal_map_type == 'NORMAL_MAP' else get_layer_channel_bump_distance(layer, ch)
         delta = get_transition_bump_max_distance(ch) - abs(bump_distance)
+
+        #####
 
     return delta
 
@@ -3880,14 +3950,25 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
 
 def get_displacement_max_height(root_ch, layer=None):
     yp = root_ch.id_data.yp
+    tree = root_ch.id_data
     ch_index = get_channel_index(root_ch)
 
-    if layer and layer.parent_idx != -1:
-        parent = get_parent(layer)
-        layers = get_list_of_direct_childrens(parent)
-        max_height = get_max_height_from_list_of_layers(layers, ch_index, layer, top_layers_only=False)
-    else:
-        max_height = get_max_height_from_list_of_layers(yp.layers, ch_index, layer, top_layers_only=True)
+    #if layer and layer.parent_idx != -1:
+    #    parent = get_parent(layer)
+    #    layers = get_list_of_direct_childrens(parent)
+    #    max_height = get_max_height_from_list_of_layers(layers, ch_index, layer, top_layers_only=False)
+    #else:
+    #    max_height = get_max_height_from_list_of_layers(yp.layers, ch_index, layer, top_layers_only=True)
+
+    max_height = 1.0
+
+    end_max_height = tree.nodes.get(root_ch.end_max_height)
+    if end_max_height:
+        max_height = end_max_height.outputs[0].default_value
+
+    end_max_height_tweak = tree.nodes.get(root_ch.end_max_height_tweak)
+    if end_max_height_tweak and 'Height Tweak' in end_max_height_tweak.inputs: 
+        max_height *= end_max_height_tweak.inputs['Height Tweak'].default_value
 
     return max_height
 
@@ -3943,32 +4024,60 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+    layer_node = layer.id_data.nodes.get(layer.group_node)
 
     height_proc = tree.nodes.get(height_ch.height_proc)
     if height_proc and layer.type != 'GROUP':
 
+        #inp = layer_node.inputs.get(get_entity_input_name(height_ch, 'bump_distance'))
+        #if inp: inp.default_value = height_ch.bump_distance
+
+        #inp = layer_node.inputs.get(get_entity_input_name(height_ch, 'normal_bump_distance'))
+        #if inp: inp.default_value = height_ch.normal_bump_distance
+
+        #inp = layer_node.inputs.get(get_entity_input_name(height_ch, 'transition_bump_distance'))
+        #if inp: inp.default_value = height_ch.transition_bump_distance
+
         if height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+
+            ##### REPLACED_BY_SHADERS
+
             inp = height_proc.inputs.get('Value Max Height')
             if inp: inp.default_value = get_layer_channel_bump_distance(layer, height_ch)
+
             inp = height_proc.inputs.get('Transition Max Height')
             if inp: inp.default_value = get_transition_bump_max_distance(height_ch)
+
+            #####
+
+            ##### REPLACED_BY_SHADERS (PARTLY)
+
             inp = height_proc.inputs.get('Delta')
             if inp: inp.default_value = get_transition_disp_delta(layer, height_ch)
+
+            #####
+
         elif height_ch.normal_map_type == 'NORMAL_MAP':
-            inp = height_proc.inputs.get('Bump Height')
-            if inp:
-                if height_ch.enable_transition_bump:
-                    inp.default_value = get_transition_bump_max_distance(height_ch)
-                else: inp.default_value = height_ch.normal_bump_distance
+
+            ##### REPLACED_BY_SHADERS
+
+            #inp = height_proc.inputs.get('Bump Height')
+            #if inp:
+            #    if height_ch.enable_transition_bump:
+            #        inp.default_value = get_transition_bump_max_distance(height_ch)
+            #    else: inp.default_value = height_ch.normal_bump_distance
+            pass
+
+            #####
 
     normal_proc = tree.nodes.get(height_ch.normal_proc)
     if normal_proc:
 
         max_height = get_displacement_max_height(height_root_ch, layer)
 
-        if height_root_ch.enable_smooth_bump: 
-            inp = normal_proc.inputs.get('Bump Height Scale')
-            if inp: inp.default_value = get_fine_bump_distance(max_height)
+        #if height_root_ch.enable_smooth_bump: 
+        #    inp = normal_proc.inputs.get('Bump Height Scale')
+        #    if inp: inp.default_value = get_fine_bump_distance(max_height)
 
         if 'Max Height' in normal_proc.inputs:
             normal_proc.inputs['Max Height'].default_value = max_height
@@ -3989,11 +4098,12 @@ def update_layer_bump_process_max_height(height_root_ch, layer, tree=None):
         max_height = get_displacement_max_height(height_root_ch, prev_layer)
     else: max_height = 0.0
 
-    bump_process.inputs['Max Height'].default_value = max_height
+    if 'Max Height' in bump_process.inputs:
+        bump_process.inputs['Max Height'].default_value = max_height
 
-    if height_root_ch.enable_smooth_bump:
-        if 'Bump Height Scale' in bump_process.inputs:
-            bump_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+    #if height_root_ch.enable_smooth_bump:
+    #    if 'Bump Height Scale' in bump_process.inputs:
+    #        bump_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
     #else:
     #    bump_process.inputs['Tweak'].default_value = 5.0
 
@@ -4033,14 +4143,14 @@ def update_displacement_height_ratio(root_ch, max_height=None):
                 end_linear.inputs['Max Height'].default_value = max_height
             else: end_linear.inputs['Max Height'].default_value = 1.0
 
-        if root_ch.enable_smooth_bump and 'Bump Height Scale' in end_linear.inputs:
-            end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+        #if root_ch.enable_smooth_bump and 'Bump Height Scale' in end_linear.inputs:
+        #    end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
-    end_max_height = group_tree.nodes.get(root_ch.end_max_height)
-    if end_max_height:
-        if max_height != 0.0:
-            end_max_height.outputs[0].default_value = max_height
-        else: end_max_height.outputs[0].default_value = 1.0
+    #end_max_height = group_tree.nodes.get(root_ch.end_max_height)
+    #if end_max_height:
+    #    if max_height != 0.0:
+    #        end_max_height.outputs[0].default_value = max_height
+    #    else: end_max_height.outputs[0].default_value = 1.0
 
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
@@ -4093,12 +4203,6 @@ def get_bump_chain(layer, ch=None):
 
     return min(chain, len(layer.masks))
 
-def get_transition_bump_falloff_emulated_curve_value(ch):
-    if ch.transition_bump_flip:
-        return -ch.transition_bump_falloff_emulated_curve_fac * 0.5 + 0.5
-    else:
-        return ch.transition_bump_falloff_emulated_curve_fac * 0.5 + 0.5
-
 def check_if_node_is_duplicated_from_lib(node, lib_name):
     if not node or node.type != 'GROUP': return False
     m = re.match(r'^' + lib_name + '_Copy\.*\d{0,3}$', node.node_tree.name)
@@ -4121,9 +4225,9 @@ def get_displace_modifier(obj, keyword=''):
 
     return None
 
-def get_multires_modifier(obj, keyword=''):
+def get_multires_modifier(obj, keyword='', include_hidden=False):
     for mod in obj.modifiers:
-        if mod.type == 'MULTIRES' and mod.total_levels > 0 and mod.show_viewport:
+        if mod.type == 'MULTIRES' and mod.total_levels > 0 and (mod.show_viewport or include_hidden):
             if keyword != '' and keyword != mod.name: continue
             return mod
 
@@ -4702,7 +4806,8 @@ def is_tangent_process_needed(yp, uv_name):
         if height_root_ch.main_uv == uv_name and (
                 #(height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch)) or
                 #(not height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch) and any_layers_using_normal_map(height_root_ch))
-                any_layers_using_bump_map(height_root_ch)
+                any_layers_using_bump_map(height_root_ch) or
+                (is_normal_height_input_connected(height_root_ch) and height_root_ch.enable_smooth_bump)
                 ):
             return True
 
@@ -4717,10 +4822,10 @@ def is_height_process_needed(layer):
     height_root_ch = get_root_height_channel(yp)
     if not height_root_ch: return False
 
-    if yp.layer_preview_mode: return True
-
     height_ch = get_height_channel(layer)
     if not height_ch or not height_ch.enable: return False
+
+    if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
     if layer.type == 'GROUP': 
         if is_layer_using_bump_map(layer, height_root_ch):
@@ -4735,10 +4840,10 @@ def is_normal_process_needed(layer):
     height_root_ch = get_root_height_channel(yp)
     if not height_root_ch: return False
 
-    if yp.layer_preview_mode: return True
-
     height_ch = get_height_channel(layer)
     if not height_ch or not height_ch.enable: return False
+
+    if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
     if layer.type == 'GROUP': 
         if is_layer_using_bump_map(layer, height_root_ch) and not height_ch.write_height:
@@ -4957,6 +5062,7 @@ def get_scene_objects():
     else: return bpy.context.scene.objects
 
 def is_mesh_flat_shaded(mesh):
+    # NOTE: This is just approximate way to know if the mesh is flat shaded or not
 
     for i, f in enumerate(mesh.polygons):
         if not f.use_smooth:
@@ -4978,6 +5084,17 @@ def get_all_materials_with_yp_nodes(mesh_only=True):
             if any([n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree and n.node_tree.yp.is_ypaint_node]):
                 if mat not in mats:
                     mats.append(mat)
+
+    return mats
+
+def get_all_materials_with_tree(tree):
+    mats = []
+
+    for mat in bpy.data.materials:
+        if not mat.node_tree: continue
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and node.node_tree == tree and mat not in mats:
+                mats.append(mat)
 
     return mats
 
@@ -5205,6 +5322,15 @@ def get_node(tree, name, parent=None):
 
     return node
 
+def is_normal_height_input_connected(root_normal_ch):
+    # NOTE: Assuming that the active node is using the input tree
+    node = get_active_ypaint_node()
+    if not node: return False
+
+    io_height_name = root_normal_ch.name + io_suffix['HEIGHT']
+    height_inp = node.inputs.get(io_height_name)
+    return height_inp and len(height_inp.links) > 0
+
 def is_normal_input_connected(root_normal_ch):
     # NOTE: Assuming that the active node is using the input tree
     node = get_active_ypaint_node()
@@ -5226,6 +5352,16 @@ def is_overlay_normal_empty(yp):
             return False
 
     return True
+
+def any_layers_using_vdisp(yp):
+
+    for l in yp.layers:
+        c = get_height_channel(l)
+        if not c or not l.enable or not c.enable: continue
+        if c.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+            return True
+
+    return False
 
 # ShaderNodeVertexColor can't use bump map, so ShaderNodeAttribute will be used for now
 def get_vcol_bl_idname():
@@ -5305,7 +5441,8 @@ def check_colorid_vcol(objs):
 def is_colorid_already_being_used(yp, color_id):
     for l in yp.layers:
         for m in l.masks:
-            if abs(m.color_id[0]-color_id[0]) < COLORID_TOLERANCE and abs(m.color_id[1]-color_id[1]) < COLORID_TOLERANCE and abs(m.color_id[2]-color_id[2]) < COLORID_TOLERANCE:
+            mcol = get_mask_color_id_color(m)
+            if abs(mcol[0]-color_id[0]) < COLORID_TOLERANCE and abs(mcol[1]-color_id[1]) < COLORID_TOLERANCE and abs(mcol[2]-color_id[2]) < COLORID_TOLERANCE:
                 return True
     return False
 
@@ -5654,6 +5791,24 @@ def copy_fcurves(src_fc, dest, subdest, attr):
         # Set frame back
         if bpy.context.scene.frame_current != frame_current:
             bpy.context.scene.frame_current = frame_current
+
+def get_action_and_driver_fcurves(obj):
+    fcs = []
+    if obj.animation_data:
+
+        # Fcurves from action
+        if obj.animation_data.action:
+            fcs.append(obj.animation_data.action.fcurves)
+            #for fc in obj.animation_data.action.fcurves:
+            #    fcs.append(fc)
+
+        # Fcurves from drivers
+        for fc in obj.animation_data.drivers:
+            fcs.append(obj.animation_data.drivers)
+            #for fc in obj.animation_data.drivers:
+            #    fcs.append(fc)
+
+    return fcs
 
 def get_yp_fcurves(yp):
     tree = yp.id_data
@@ -6188,9 +6343,108 @@ def get_closest_bsdf_forward(node, valid_types=[]):
 
     return None
 
+def get_entity_input_name(entity, prop_name):
+
+    yp = entity.id_data.yp
+
+    # Get property rna
+    #entity_rna = type(entity).bl_rna
+    #rna = entity_rna.properties[prop_name]
+
+    # Regex
+    m1 = re.match(r'^yp\.layers\[(\d+)\].*', entity.path_from_id())
+
+    if m1:
+        layer_index = int(m1.group(1))
+    else:
+        return ''
+
+    # Get path without layer
+    path = entity.path_from_id()
+    path = path.replace('yp.layers[' + str(layer_index) + ']', '')
+
+    return path + '.' + prop_name
+
+def get_entity_prop_input(entity, prop_name):
+    root_tree = entity.id_data
+    yp = root_tree.yp
+
+    # Regex
+    m1 = re.match(r'^yp\.layers\[(\d+)\].*', entity.path_from_id())
+    if m1:
+        layer_index = int(m1.group(1))
+        layer = yp.layers[layer_index]
+    else:
+        return None
+
+    # Get layer node
+    layer_node = root_tree.nodes.get(layer.group_node)
+
+    # Get path
+    path = entity.path_from_id()
+    path = path.replace('yp.layers[' + str(layer_index) + ']', '')
+    path += '.' + prop_name
+
+    return layer_node.inputs.get(path)
+
+def set_entity_prop_value(entity, prop_name, value):
+    inp = get_entity_prop_input(entity, prop_name)
+    if inp: 
+        if type(value) == Color:
+            inp.default_value = (value.r, value.g, value.b, 1.0)
+        else: inp.default_value = value
+    setattr(entity, prop_name, value)
+
+def get_entity_prop_value(entity, prop_name):
+    inp = get_entity_prop_input(entity, prop_name)
+    if inp: return inp.default_value
+    return getattr(entity, prop_name)
+
+def get_mask_color_id_color(mask):
+    val = get_entity_prop_value(mask, 'color_id')
+    return Color((val[0], val[1], val[2]))
+
 def split_layout(layout, factor, align=False):
     if not is_greater_than_280():
         return layout.split(percentage=factor, align=align)
 
     return layout.split(factor=factor, align=align)
+
+def get_armature_modifier(obj, return_index=False):
+    for i, mod in enumerate(obj.modifiers):
+        if mod.type == 'ARMATURE' and mod.object:
+            if return_index:
+                return mod, i
+            return mod
+
+    if return_index:
+        return None, None
+
+    return None
+
+def remember_armature_index(obj):
+    ys_tree = get_ysculpt_tree(obj)
+    if not ys_tree: return
+    ys = ys_tree.ys
+    
+    mod, idx = get_armature_modifier(obj, return_index=True)
+    if mod:
+        ys.ori_armature_index = idx
+
+def restore_armature_order(obj):
+    ys_tree = get_ysculpt_tree(obj)
+    if not ys_tree: return
+    ys = ys_tree.ys
+
+    mod, idx = get_armature_modifier(obj, return_index=True)
+
+    if not mod: return
+
+    ori_obj = bpy.context.object
+    bpy.context.view_layer.objects.active = obj
+
+    bpy.ops.object.modifier_move_to_index(modifier=mod.name, 
+            index=min(ys.ori_armature_index, len(obj.modifiers)-1))
+
+    bpy.context.view_layer.objects.active = ori_obj    
 

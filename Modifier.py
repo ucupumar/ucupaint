@@ -6,6 +6,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from . import lib
+from bpy_types import bpy_types
 
 modifier_type_items = (
         ('INVERT', 'Invert', 
@@ -44,6 +45,36 @@ can_be_expanded = {
         'MULTIPLIER', # Deprecated
         'MATH'
         }
+
+def get_modifier_channel_type(mod, return_non_color=False):
+
+    yp = mod.id_data.yp
+    match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+    match2 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+    match3 = re.match(r'yp\.layers\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+    if match1: 
+        root_ch = yp.channels[int(match1.group(2))]
+
+        # Get non color flag and channel type
+        non_color = root_ch.colorspace == 'LINEAR'
+        channel_type = root_ch.type
+    elif match2:
+        root_ch = yp.channels[int(match2.group(1))]
+
+        # Get non color flag and channel type
+        non_color = root_ch.colorspace == 'LINEAR'
+        channel_type = root_ch.type
+    elif match3:
+
+        # Image layer modifiers always use srgb colorspace
+        layer = yp.layers[int(match3.group(1))]
+        non_color = layer.type != 'IMAGE'
+        channel_type = 'RGB'
+
+    if return_non_color:
+        return channel_type, non_color
+
+    return channel_type
 
 def add_new_modifier(parent, modifier_type):
 
@@ -283,7 +314,10 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         col = layout.column(align=True)
         row = col.row()
         row.label(text='Color:')
-        row.prop(modifier, 'rgb2i_col', text='')
+        rgb2i = nodes.get(modifier.rgb2i)
+        if rgb2i:
+            row.prop(rgb2i.inputs[3], 'default_value', text='')
+        else: row.prop(modifier, 'rgb2i_col', text='')
 
         # Shortcut only available on layer channel
         if is_layer_ch:
@@ -324,9 +358,15 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         col.label(text='Value:')
 
         col = row.column(align=True)
-        col.prop(modifier, 'huesat_hue_val', text='')
-        col.prop(modifier, 'huesat_saturation_val', text='')
-        col.prop(modifier, 'huesat_value_val', text='')
+        huesat = nodes.get(modifier.huesat)
+        if huesat:
+            col.prop(huesat.inputs[0], 'default_value', text='')
+            col.prop(huesat.inputs[1], 'default_value', text='')
+            col.prop(huesat.inputs[2], 'default_value', text='')
+        else:
+            col.prop(modifier, 'huesat_hue_val', text='')
+            col.prop(modifier, 'huesat_saturation_val', text='')
+            col.prop(modifier, 'huesat_value_val', text='')
 
     elif modifier.type == 'BRIGHT_CONTRAST':
         row = layout.row(align=True)
@@ -335,8 +375,13 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         col.label(text='Contrast:')
 
         col = row.column(align=True)
-        col.prop(modifier, 'brightness_value', text='')
-        col.prop(modifier, 'contrast_value', text='')
+        brightcon = nodes.get(modifier.brightcon)
+        if brightcon:
+            col.prop(brightcon.inputs[1], 'default_value', text='')
+            col.prop(brightcon.inputs[2], 'default_value', text='')
+        else:
+            col.prop(modifier, 'brightness_value', text='')
+            col.prop(modifier, 'contrast_value', text='')
 
     elif modifier.type == 'MULTIPLIER':
         col = layout.column(align=True)
@@ -360,18 +405,29 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         row = col.row()
         row.label(text='Clamp:')
         row.prop(modifier, 'use_clamp', text='')
+        math = nodes.get(modifier.math)
         if channel_type == 'VALUE':
-            col.prop(modifier, 'math_r_val', text='Value')
+            if math: col.prop(math.inputs[2], 'default_value', text='Value')
+            else: col.prop(modifier, 'math_r_val', text='Value')
         else :
-            col.prop(modifier, 'math_r_val', text='R')
-            col.prop(modifier, 'math_g_val', text='G')
-            col.prop(modifier, 'math_b_val', text='B')
+            if math:
+                col.prop(math.inputs[2], 'default_value', text='R')
+                col.prop(math.inputs[3], 'default_value', text='G')
+                col.prop(math.inputs[4], 'default_value', text='B')
+            else:
+                col.prop(modifier, 'math_r_val', text='R')
+                col.prop(modifier, 'math_g_val', text='G')
+                col.prop(modifier, 'math_b_val', text='B')
         col.separator()
         row = col.row()
         row.label(text='Affect Alpha:')
         row.prop(modifier, 'affect_alpha', text='')
         if modifier.affect_alpha :
-            col.prop(modifier, 'math_a_val', text='A')
+            if math: 
+                if channel_type == 'VALUE':
+                    col.prop(math.inputs[3], 'default_value', text='A')
+                else: col.prop(math.inputs[5], 'default_value', text='A')
+            else: col.prop(modifier, 'math_a_val', text='A')
 
 def update_modifier_enable(self, context):
 
@@ -504,56 +560,6 @@ def update_multiplier_val_input(self, context):
             multiplier.inputs[5].default_value = self.multiplier_b_val if self.enable else 1.0
             multiplier.inputs[6].default_value = self.multiplier_a_val if self.enable else 1.0
 
-def update_math_val_input(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update or not self.enable: return
-    channel_type = get_modifier_channel_type(self)
-    tree = get_mod_tree(self)
-
-    if self.type == 'MATH':
-        math = tree.nodes.get(self.math)
-        math.inputs[2].default_value = self.math_r_val if self.enable else 0.0
-        if channel_type == 'VALUE':
-            math.inputs[3].default_value = self.math_a_val if self.enable else 0.0
-        else:
-            math.inputs[3].default_value = self.math_g_val if self.enable else 0.0
-            math.inputs[4].default_value = self.math_b_val if self.enable else 0.0
-            math.inputs[5].default_value = self.math_a_val if self.enable else 0.0
-
-def update_brightcon_value(self, context):
-
-    yp = self.id_data.yp
-    if yp.halt_update or not self.enable: return
-    channel_type = get_modifier_channel_type(self)
-    tree = get_mod_tree(self)
-
-    if self.type == 'BRIGHT_CONTRAST':
-        brightcon = tree.nodes.get(self.brightcon)
-        brightcon.inputs['Bright'].default_value = self.brightness_value if self.enable else 0.0
-        brightcon.inputs['Contrast'].default_value = self.contrast_value if self.enable else 0.0
-
-def update_huesat_value(self, context):
-
-    yp = self.id_data.yp
-    if yp.halt_update or not self.enable: return
-    channel_type = get_modifier_channel_type(self)
-    tree = get_mod_tree(self)
-
-    if self.type == 'HUE_SATURATION':
-        huesat = tree.nodes.get(self.huesat)
-        huesat.inputs['Hue'].default_value = self.huesat_hue_val if self.enable else 0.0
-        huesat.inputs['Saturation'].default_value = self.huesat_saturation_val if self.enable else 0.0
-        huesat.inputs['Value'].default_value = self.huesat_value_val if self.enable else 0.0
-
-def update_rgb2i_col(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update or not self.enable: return
-    tree = get_mod_tree(self)
-
-    if self.type == 'RGB_TO_INTENSITY':
-        rgb2i = tree.nodes.get(self.rgb2i)
-        rgb2i.inputs['RGB To Intensity Color'].default_value = self.rgb2i_col
-
 def update_oc_col(self, context):
 
     yp = self.id_data.yp
@@ -583,8 +589,7 @@ class YPaintModifier(bpy.types.PropertyGroup):
     rgb2i : StringProperty(default='')
 
     rgb2i_col : FloatVectorProperty(name='RGB to Intensity Color', size=4, subtype='COLOR', 
-            default=(1.0,0.0,1.0,1.0), min=0.0, max=1.0,
-            update=update_rgb2i_col)
+            default=(1.0,0.0,1.0,1.0), min=0.0, max=1.0)
 
     # Intensity to RGB nodes
     i2rgb : StringProperty(default='')
@@ -624,16 +629,16 @@ class YPaintModifier(bpy.types.PropertyGroup):
     brightcon : StringProperty(default='')
 
     brightness_value : FloatProperty(name='Brightness', description='Brightness', 
-            default=0.0, min=-100.0, max=100.0, update=update_brightcon_value)
+            default=0.0, min=-100.0, max=100.0)
     contrast_value : FloatProperty(name='Contrast', description='Contrast', 
-            default=0.0, min=-100.0, max=100.0, update=update_brightcon_value)
+            default=0.0, min=-100.0, max=100.0)
 
     # Hue Saturation nodes
     huesat : StringProperty(default='')
 
-    huesat_hue_val : FloatProperty(default=0.5, min=0.0, max=1.0, description='Hue', update=update_huesat_value)
-    huesat_saturation_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Saturation', update=update_huesat_value)
-    huesat_value_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Value', update=update_huesat_value)
+    huesat_hue_val : FloatProperty(default=0.5, min=0.0, max=1.0, description='Hue')
+    huesat_saturation_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Saturation')
+    huesat_value_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Value')
 
     # Multiplier nodes (Deprecated)
     multiplier : StringProperty(default='')
@@ -646,10 +651,10 @@ class YPaintModifier(bpy.types.PropertyGroup):
     # Math nodes
     math : StringProperty(default='')
 
-    math_r_val : FloatProperty(default=1.0, update=update_math_val_input)
-    math_g_val : FloatProperty(default=1.0, update=update_math_val_input)
-    math_b_val : FloatProperty(default=1.0, update=update_math_val_input)
-    math_a_val : FloatProperty(default=1.0, update=update_math_val_input)
+    math_r_val : FloatProperty(default=1.0)
+    math_g_val : FloatProperty(default=1.0)
+    math_b_val : FloatProperty(default=1.0)
+    math_a_val : FloatProperty(default=1.0)
 
     math_meth : EnumProperty(
         name = 'Method',

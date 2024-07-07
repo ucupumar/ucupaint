@@ -1,10 +1,10 @@
 bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, morirain, Patrick W. Crawford, neomonkeus",
-    "version": (1, 2, 10),
+    "version": (2, 0, 0),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
-    "warning": "",
+    "warning": "Beta Version",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "wiki_url": "https://ucupumar.github.io/ucupaint-wiki/",
     "doc_url": "https://ucupumar.github.io/ucupaint-wiki/",
@@ -26,6 +26,8 @@ if "bpy" in locals():
     imp.reload(node_arrangements)
     imp.reload(node_connections)
     imp.reload(preferences)
+    imp.reload(vector_displacement_lib)
+    imp.reload(vector_displacement)
     imp.reload(vcol_editor)
     imp.reload(transition)
     imp.reload(BakeTarget)
@@ -45,6 +47,7 @@ if "bpy" in locals():
 else:
     from . import Localization
     from . import image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
+    from . import vector_displacement_lib, vector_displacement
     from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates
     from . import addon_updater_ops
 
@@ -59,6 +62,7 @@ def register():
     ui.register()
     vcol_editor.register()
     transition.register()
+    vector_displacement.register()
     BakeTarget.register()
     BakeInfo.register()
     UDIM.register()
@@ -85,6 +89,7 @@ def unregister():
     ui.unregister()
     vcol_editor.unregister()
     transition.unregister()
+    vector_displacement.unregister()
     BakeTarget.unregister()
     BakeInfo.unregister()
     UDIM.unregister()

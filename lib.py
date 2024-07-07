@@ -9,6 +9,8 @@ OVERLAY_NORMAL = '~yPL Overlay Normal'
 OVERLAY_NORMAL_STRAIGHT_OVER = '~yPL Overlay Normal Straight Over'
 CHECK_INPUT_NORMAL = '~yPL Check Input Normal'
 CHECK_INPUT_NORMAL_GEOMETRY = '~yPL Check Input Normal Geometry'
+CHECK_INPUT_NORMAL_MIXED = '~yPL Check Input Normal Mixed'
+CHECK_INPUT_NORMAL_MIXED_BL27 = '~yPL Check Input Normal Mixed BL27'
 
 NORMAL_MAP = '~yPL Normal Map'
 NORMAL_MAP_PREP = '~yPL Normal Map Preparation'
@@ -65,6 +67,10 @@ RAMP_FLIP_STRAIGHT_OVER_BLEND = '~yPL Ramp Flip Straight Over Blend'
 VECTOR_MIX ='~yPL Vector Mix'
 #INVERTED_MULTIPLIER ='~yPL Inverted Multiplier'
 INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
+INTENSITY_MULTIPLIER_SHARPEN ='~yPL Intensity Multiplier Sharpen'
+INTENSITY_MULTIPLIER_SHARPEN_INVERT ='~yPL Intensity Multiplier Sharpen Invert'
+INTENSITY_MULTIPLIER_SHARPEN_NO_FACTOR ='~yPL Intensity Multiplier Sharpen No Factor'
+INTENSITY_MULTIPLIER_INVERT ='~yPL Intensity Multiplier Invert'
 GET_BITANGENT ='~yPL Get Bitangent'
 BITANGENT_FROM_NATIVE_TANGENT = '~yPL Bitangent from Native Tangent'
 
@@ -159,15 +165,29 @@ FLIP_BACKFACE_TANGENT_LEGACY = '~yPL Flip Backface Tangent Legacy'
 NORMAL_MAP_PREP_LEGACY = '~yPL Normal Map Preparation Legacy'
 ENGINE_FILTER_LEGACY = '~yPL Engine Filter Legacy'
 
+TB_DELTA_CALC = '~yPL Transition Bump Delta Calculation'
+CH_MAX_HEIGHT_CALC = '~yPL Layer Channel Max Height'
+CH_MAX_HEIGHT_TB_CALC = '~yPL Layer Channel Max Height with Transition Bump'
+CH_MAX_HEIGHT_TBC_CALC = '~yPL Layer Channel Max Height with Transition Bump Crease'
+
 EMULATED_CURVE = '~yPL Emulated Curve'
+EMULATED_CURVE_FLIP = '~yPL Emulated Curve Flip'
 EMULATED_CURVE_SMOOTH = '~yPL Emulated Curve Smooth'
+EMULATED_CURVE_SMOOTH_FLIP = '~yPL Emulated Curve Smooth Flip'
 FALLOFF_CURVE = '~yPL Falloff Curve'
 FALLOFF_CURVE_SMOOTH = '~yPL Falloff Curve Smooth'
 
+START_BUMP_PROCESS = '~yPL Start Bump Process'
+START_FINE_BUMP_PROCESS = '~yPL Start Fine Bump Process'
 FINE_BUMP_PROCESS = '~yPL Fine Bump Process'
-FINE_BUMP_PROCESS_SUBDIV_ON = '~yPL Fine Bump Process Subdiv On'
+#FINE_BUMP_PROCESS = '~yPL Fine Bump Process Sophisticated'
+FINE_BUMP_PROCESS_START_BUMP = '~yPL Fine Bump Process with Start Bump'
+FINE_BUMP_PROCESS_START_BUMP_SUBDIV_ON = '~yPL Fine Bump Process with Start Bump Subdiv On'
 BUMP_PROCESS = '~yPL Bump Process'
 BUMP_PROCESS_SUBDIV_ON = '~yPL Bump Process Subdiv On'
+MAX_HEIGHT_TWEAK = '~yPL Max Height Tweak'
+MAX_HEIGHT_TWEAK_SMOOTH = '~yPL Max Height Tweak Smooth'
+SUBDIV_ON_NORMAL = '~yPL Subdiv On Normal'
 
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'
@@ -179,6 +199,7 @@ SRGB_2_LINEAR = '~yPL SRGB to Linear'
 LINEAR_2_SRGB = '~yPL Linear to SRGB'
 
 FLIP_Y = '~yPL Flip Y'
+FLIP_YZ = '~yPL Flip YZ'
 
 # Modifier tree names
 MOD_RGB2INT = '~yPL Mod RGB To Intensity'
@@ -257,24 +278,6 @@ def get_neighbor_uv_tree_name(texcoord_type, entity):
         return NEIGHBOR_UV_OBJECT
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return NEIGHBOR_UV_CAMERA
-
-def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
-    if label == '': label = 'Intensity Multiplier'
-    im = new_node(tree, obj, prop, 'ShaderNodeGroup', label)
-    im.node_tree = get_node_tree_lib(INTENSITY_MULTIPLIER)
-    set_default_value(im, 1, sharpness)
-    set_default_value(im, 'Sharpen', 1.0)
-
-    if BLENDER_28_GROUP_INPUT_HACK:
-        duplicate_lib_node_tree(im)
-
-    #m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', obj.path_from_id())
-    #if m:
-    #    yp = obj.id_data.yp
-    #    root_ch = yp.channels[int(m.group(2))]
-    #    print(root_ch.name, prop)
-
-    return im
 
 def get_smooth_mix_node(blend_type, layer_type=''):
 

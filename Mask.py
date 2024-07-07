@@ -83,6 +83,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         mask.uv_name = uv_name
 
         mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
+        mapping.vector_type = 'POINT' if segment else 'TEXTURE'
 
         if segment:
             ImageAtlas.set_segment_mapping(mask, segment, image)
@@ -1121,6 +1122,9 @@ class YMoveLayerMask(bpy.types.Operator):
         else:
             return {'CANCELLED'}
 
+        # Remove input props first
+        check_layer_tree_ios(layer, remove_props=True)
+
         # Swap masks
         layer.masks.move(index, new_index)
         swap_mask_fcurves(layer, index, new_index)
@@ -1130,6 +1134,9 @@ class YMoveLayerMask(bpy.types.Operator):
         check_mask_mix_nodes(layer, tree)
         check_mask_source_tree(layer) #, bump_ch)
         #check_mask_image_linear_node(mask)
+
+        # Create input props again
+        check_layer_tree_ios(layer)
 
         # Swap UI expand content
         props = ['expand_content',
@@ -1169,8 +1176,12 @@ class YRemoveLayerMask(bpy.types.Operator):
 
         mask_type = mask.type
 
+        # Remove input props first
+        check_layer_tree_ios(layer, remove_props=True)
+
         remove_mask(layer, mask, obj)
 
+        # Create input props again
         check_all_layer_channel_io_and_nodes(layer, tree)
 
         reconnect_layer_nodes(layer)
@@ -1263,27 +1274,6 @@ def update_mask_active_edit(self, context):
     # Refresh
     yp.active_layer_index = layer_idx
 
-def update_mask_channel_intensity_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(match.group(1))]
-    mask = layer.masks[int(match.group(2))]
-    tree = get_tree(layer)
-
-    mute = not self.enable or not mask.enable or not layer.enable_masks
-
-    mix = tree.nodes.get(self.mix)
-    if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-    #dirs = [d for d in neighbor_directions]
-    #dirs.extend(['pure', 'remains', 'normal'])
-    dirs = ['pure', 'remains', 'normal']
-
-    for d in dirs:
-        mix = tree.nodes.get(getattr(self, 'mix_' + d))
-        if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-
 def update_mask_blur_vector(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -1300,22 +1290,11 @@ def update_mask_blur_vector(self, context):
     else:
         remove_node(tree, mask, 'blur_vector')
 
+    check_layer_tree_ios(layer, tree)
+
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-def update_mask_blur_vector_factor(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', self.path_from_id())
-    layer = yp.layers[int(match.group(1))]
-    mask = self
-    tree = get_tree(layer)
-
-    blur_vector = tree.nodes.get(mask.blur_vector)
-
-    if blur_vector:
-        blur_vector.inputs[0].default_value = mask.blur_vector_factor / 100.0
 
 def update_mask_use_baked(self, context):
     yp = self.id_data.yp
@@ -1342,23 +1321,6 @@ def update_mask_use_baked(self, context):
 
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
-
-def update_mask_intensity_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(match.group(1))]
-    mask = layer.masks[int(match.group(2))]
-    tree = get_tree(layer)
-
-    mute = not mask.enable or not layer.enable_masks
-
-    mix = tree.nodes.get(mask.mix)
-    if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-
-    for c in mask.channels:
-        update_mask_channel_intensity_value(c, context)
 
 def update_layer_mask_channel_enable(self, context):
     yp = self.id_data.yp
@@ -1395,8 +1357,6 @@ def update_layer_mask_channel_enable(self, context):
     #        #    mix.mute = mute
     #        #else: mix.mute = False
     #        mix.mute = mute
-
-    update_mask_channel_intensity_value(self, context)
 
 def update_layer_mask_enable(self, context):
     yp = self.id_data.yp
@@ -1649,17 +1609,6 @@ def update_mask_transform(self, context):
     if yp.halt_update: return
     update_mapping(self)
 
-def update_mask_color_id(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-    mask = self
-
-    if mask.type != 'COLOR_ID': return
-
-    source = get_mask_source(mask)
-    col = (mask.color_id[0], mask.color_id[1], mask.color_id[2], 1.0)
-    if source: source.inputs[0].default_value = col
-
 def update_mask_edge_detect_radius(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -1790,8 +1739,7 @@ class YLayerMask(bpy.types.PropertyGroup):
     intensity_value : FloatProperty(
             name = 'Mask Intensity Factor', 
             description = 'Mask Intensity Factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update = update_mask_intensity_value)
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     # Transform
     translation : FloatVectorProperty(
@@ -1820,15 +1768,13 @@ class YLayerMask(bpy.types.PropertyGroup):
     blur_vector_factor : FloatProperty(
             name = 'Blur Vector Factor', 
             description = 'Mask Intensity Factor',
-            default=1.0, min=0.0, max=100.0,
-            update=update_mask_blur_vector_factor)
+            default=1.0, min=0.0, max=100.0, precision=3)
 
     color_id : FloatVectorProperty(
             name='Color ID', size=3,
             subtype='COLOR',
             default=(1.0, 0.0, 1.0),
             min=0.0, max=1.0,
-            update=update_mask_color_id,
             )
 
     use_baked : BoolProperty(
