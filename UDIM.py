@@ -912,12 +912,7 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
             dirty = True
 
     # Pack after fill
-    #if dirty or image.filepath == '': initial_pack_udim(image)
     if dirty or image.filepath == '' or not is_using_temp_dir(image): initial_pack_udim(image, force_temp_dir=True)
-
-    # Force to pack into temporary directory for image mistakenly not pack
-    #if not image.packed_file: initial_pack_udim(image, force_temp_dir=True)
-    #if not is_using_temp_dir(image): initial_pack_udim(image, force_temp_dir=True)
 
     # Rearrange tiles
     rearrange_tiles(image, convert_dict)
