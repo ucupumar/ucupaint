@@ -3486,8 +3486,6 @@ class YPaintChannel(bpy.types.PropertyGroup):
     ori_height_to : CollectionProperty(type=YNodeConnections)
     ori_max_height_to : CollectionProperty(type=YNodeConnections)
 
-    ori_normal_to : CollectionProperty(type=YNodeConnections)
-
 class YPaintUV(bpy.types.PropertyGroup):
     name : StringProperty(default='')
 

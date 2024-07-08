@@ -187,7 +187,7 @@ def get_temp_udim_dir():
 
 def is_using_temp_dir(image):
     directory = os.path.dirname(bpy.path.abspath(image.filepath))
-    if directory == get_temp_udim_dir() or directory == tempfile.gettempdir():
+    if directory == get_temp_udim_dir() or (bpy.data.filepath == '' and directory == tempfile.gettempdir()):
         return True
     return False
 
@@ -209,7 +209,7 @@ def remove_udim_files_from_disk(image, directory, remove_dir=False, tilenum=-1):
         except Exception as e: print(e)
 
     # Remove directory
-    if remove_dir and directory != tempfile.gettempdir() and len(os.listdir(directory)) == 0:
+    if remove_dir and os.path.isdir(directory) and directory != tempfile.gettempdir() and len(os.listdir(directory)) == 0:
         try: os.rmdir(directory)
         except Exception as e: print(e)
 
@@ -224,7 +224,7 @@ def set_udim_filepath(image, filename, directory):
 
 # UDIM need filepath to work, 
 # So there's need to initialize filepath for every udim image created
-def initial_pack_udim(image, base_color=None, filename=''):
+def initial_pack_udim(image, base_color=None, filename='', force_temp_dir=False):
 
     # Get temporary directory
     temp_dir = get_temp_udim_dir()
@@ -246,17 +246,24 @@ def initial_pack_udim(image, base_color=None, filename=''):
 
     # When blend file is copied to another PC, there's a chance directory is missing
     directory = os.path.dirname(bpy.path.abspath(image.filepath))
-    if not use_temp_dir and not os.path.isdir(directory):
+    if (force_temp_dir and bpy.data.filepath != '') or (not use_temp_dir and not os.path.isdir(directory)):
         ori_ui_type = bpy.context.area.ui_type
         bpy.context.area.ui_type = 'IMAGE_EDITOR'
         bpy.context.space_data.image = image
         path = temp_dir + os.sep + image.name + '.<UDIM>.png'
-        bpy.ops.image.save_as(filepath=path , relative_path=True)
+        bpy.ops.image.save_as(filepath=path, relative_path=True)
+
+        # HACK: For some reason, there's a need to set the filepath manually after save as
+        relpath = bpy.path.relpath(path)
+        try: image.filepath = relpath
+        except Exception as e: print(e)
+
         bpy.context.area.ui_type = ori_ui_type
         use_temp_dir = True
+    else:
+        # Save then pack
+        image.save()
 
-    # Save then pack
-    image.save()
     if use_packed or use_temp_dir:
         image.pack()
 
@@ -645,7 +652,7 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
         copy_tiles(source_image, image, copy_dict)
 
     # Pack image
-    initial_pack_udim(image)
+    initial_pack_udim(image, force_temp_dir=True)
 
     return segment
 
@@ -905,7 +912,12 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
             dirty = True
 
     # Pack after fill
-    if dirty or image.filepath == '': initial_pack_udim(image)
+    #if dirty or image.filepath == '': initial_pack_udim(image)
+    if dirty or image.filepath == '' or not is_using_temp_dir(image): initial_pack_udim(image, force_temp_dir=True)
+
+    # Force to pack into temporary directory for image mistakenly not pack
+    #if not image.packed_file: initial_pack_udim(image, force_temp_dir=True)
+    #if not is_using_temp_dir(image): initial_pack_udim(image, force_temp_dir=True)
 
     # Rearrange tiles
     rearrange_tiles(image, convert_dict)
