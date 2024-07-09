@@ -4437,8 +4437,11 @@ def set_active_vertex_color(obj, vcol):
             # HACK: Baking to vertex color still use active legacy vertex colors data
             if hasattr(obj.data, 'vertex_colors'):
                 v = obj.data.vertex_colors.get(vcol.name)
-                obj.data.vertex_colors.active = v
-        else: obj.data.vertex_colors.active = vcol
+                if obj.data.vertex_colors.active != v:
+                    obj.data.vertex_colors.active = v
+        else: 
+            if obj.data.vertex_colors.active != vcol:
+                obj.data.vertex_colors.active = vcol
     except Exception as e: print(e)
 
 def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER'):
