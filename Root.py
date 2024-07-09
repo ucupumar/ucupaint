@@ -2574,7 +2574,7 @@ def update_layer_index(self, context):
     if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
 
     # Get active image and stuff
-    image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+    image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
     # Set active image to paint slot
     set_active_paint_slot_entity(yp)
@@ -2586,7 +2586,7 @@ def update_layer_index(self, context):
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat, selected_only=True)
     for ob in objs:
-        refresh_temp_uv(ob, src_of_img)
+        refresh_temp_uv(ob, entity)
 
     #update_image_editor_image(context, image)
 
@@ -3780,7 +3780,7 @@ def ypaint_last_object_update(scene):
         if obj.mode == 'TEXTURE_PAINT' or ypwm.last_mode == 'TEXTURE_PAINT':
             ypwm.last_mode = obj.mode
             if yp and len(yp.layers) > 0 :
-                image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+                image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
                 # Store original uv mirror offsets
                 if obj.mode == 'TEXTURE_PAINT':

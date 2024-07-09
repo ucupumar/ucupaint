@@ -402,11 +402,16 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
 
         uv_layers = get_uv_layers(obj)
 
-        image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+        image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
         if image:
             refresh_temp_uv(obj, src_of_img)
             update_image_editor_image(context, image)
             context.scene.tool_settings.image_paint.canvas = image
+        else:
+            uv_name = get_relevant_uv(obj, yp)
+            if uv_name != '':
+                uv = uv_layers.get(uv_name)
+                if uv: uv_layers.active = uv
 
         # Update tangent sign if height channel and tangent sign hack is enabled
         height_ch = get_root_height_channel(yp)
@@ -438,11 +443,11 @@ class YBackToOriginalUV(bpy.types.Operator):
         ypui = context.window_manager.ypui
 
         # Get active image
-        image, uv_name, active, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+        image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
-        if not active: 
+        if not src_of_img: 
             try:
-                active = yp.layers[yp.active_layer_index]
+                src_of_img = yp.layers[yp.active_layer_index]
             except Exception as e:
                 print(e)
                 return {'CANCELLED'}
@@ -451,10 +456,10 @@ class YBackToOriginalUV(bpy.types.Operator):
             uv_layers = get_uv_layers(ob)
 
             for uv in uv_layers:
-                if uv.name == active.uv_name:
+                if uv.name == src_of_img.uv_name:
 
-                    if uv_layers.active != uv_layers.get(active.uv_name):
-                        uv_layers.active = uv_layers.get(active.uv_name)
+                    if uv_layers.src_of_img != uv_layers.get(src_of_img.uv_name):
+                        uv_layers.src_of_img = uv_layers.get(src_of_img.uv_name)
 
                 if uv.name == TEMP_UV:
                     uv_layers.remove(uv)
