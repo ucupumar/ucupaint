@@ -750,14 +750,15 @@ def get_node_input_index(node, inp):
 
     return index
 
-def get_active_material():
+def get_active_material(obj=None):
     scene = bpy.context.scene
     engine = scene.render.engine
-    obj = None
-    if hasattr(bpy.context, 'object'):
-        obj = bpy.context.object
-    elif is_greater_than_280():
-        obj = bpy.context.view_layer.objects.active
+
+    if not obj:
+        if hasattr(bpy.context, 'object'):
+            obj = bpy.context.object
+        elif is_greater_than_280():
+            obj = bpy.context.view_layer.objects.active
 
     if not obj: return None
 
@@ -1156,11 +1157,11 @@ def get_active_node():
 
 # Specific methods for this addon
 
-def get_active_ypaint_node():
+def get_active_ypaint_node(obj=None):
     ypui = bpy.context.window_manager.ypui
 
     # Get material UI prop
-    mat = get_active_material()
+    mat = get_active_material(obj)
     if not mat or not mat.node_tree: 
         ypui.active_mat = ''
         return None

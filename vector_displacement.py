@@ -2,10 +2,13 @@ import bpy, numpy
 from .common import *
 from .bake_common import *
 from .vector_displacement_lib import *
+from .input_outputs import *
 
 TEMP_MULTIRES_NAME = '_YP_TEMP_MULTIRES'
 TEMP_TANGENT_IMAGE_SUFFIX = '_YP_TEMP_TANGENT'
 TEMP_BITANGENT_IMAGE_SUFFIX = '_YP_TEMP_BITANGENT'
+TEMP_COMBINED_VDM_IMAGE_SUFFIX = '_YP_TEMP_COMBINED_VDM'
+TEMP_LAYER_DISABLED_VDM_IMAGE_SUFFIX = '_YP_LAYER_DISABLED_VDM'
 
 def _remember_before_bake(obj):
     book = {}
@@ -211,6 +214,14 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     context = bpy.context
     scene = context.scene
 
+    # Get combined but active layer disabled image
+    layer_disabled_vdm_image = None
+    node = get_active_ypaint_node(obj)
+    if node:
+        yp = node.node_tree.yp
+        if is_multi_vdm_used(yp):
+            layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True)
+
     set_active_object(obj)
     if obj.mode != 'OBJECT':
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -264,8 +275,29 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     # Get tangent and bitangent images
     tanimage, bitimage = get_tangent_bitangent_images(obj, uv_name)
 
+    # Temp object 1: Half combined vdm mesh
+    temp1 = None
+    if layer_disabled_vdm_image:
+        temp1 = temp0.copy()
+        link_object(scene, temp1)
+        temp1.data = temp1.data.copy()
+        temp1.location = obj.location + Vector(((obj.dimensions[0]+0.1)*2, 0.0, 0.0))
+        set_active_object(temp1)
+
+        vdm_loader = get_vdm_loader_geotree(uv_name, layer_disabled_vdm_image, tanimage, bitimage)
+        bpy.ops.object.modifier_add(type='NODES')
+        geomod = temp1.modifiers[-1]
+        geomod.node_group = vdm_loader
+        temp1.modifiers.active = geomod
+
+        # Apply geomod
+        bpy.ops.object.modifier_apply(modifier=geomod.name)
+
+        # Remove vdm loader group
+        bpy.data.node_groups.remove(vdm_loader)
+
     # Calculate offset from two temp objects
-    att, max_value = get_offset_attributes(temp0, temp2, None, intensity)
+    att, max_value = get_offset_attributes(temp0, temp2, temp1, intensity)
 
     # Set material to temp object 0
     temp0.data.materials.clear()
@@ -290,8 +322,11 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     # Remove temp data
     remove_mesh_obj(temp0)
     remove_mesh_obj(temp2)
+    if temp1: remove_mesh_obj(temp1)
     bpy.data.images.remove(tanimage)
     bpy.data.images.remove(bitimage)
+    if layer_disabled_vdm_image:
+        bpy.data.images.remove(layer_disabled_vdm_image)
 
     # Remove material
     if mat.users <= 1: bpy.data.materials.remove(mat, do_unlink=True)
@@ -299,6 +334,115 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     # Set back object to active
     set_active_object(obj)
     set_object_select(obj, True)
+
+def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_current_layer=False):
+    # Bake preparations
+    book = _remember_before_bake(obj)
+    _prepare_bake_settings(book, obj, uv_name)     
+
+    mat = get_active_material(obj)
+    node = get_active_ypaint_node(obj)
+    if not mat or not node: return None
+    #mtree = mat.tree
+    tree = node.node_tree
+    yp = tree.yp
+    height_root_ch = get_root_height_channel(yp)
+    if not height_root_ch: return None
+
+    # Get active layer
+    try: cur_layer = yp.layers[yp.active_layer_index]
+    except Exception as e:
+        print(e)
+        return None
+
+    # Disable sculpt mode first
+    ori_sculpt_mode = yp.sculpt_mode
+    if yp.sculpt_mode:
+        yp.sculpt_mode = False
+
+    # Disable current layer
+    ori_layer_enable = cur_layer.enable
+    if disable_current_layer:
+        cur_layer.enable = False
+
+    # Disable all flip Y/Z
+    ori_flip_yzs = {}
+    for i, l in enumerate(yp.layers):
+        height_ch = get_height_channel(l)
+        if not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
+        ori_flip_yzs[str(i)] = height_ch.vdisp_enable_flip_yz
+        height_ch.vdisp_enable_flip_yz = False
+
+    # Make sure vdm output exists
+    if not height_root_ch.enable_subdiv_setup:
+        check_all_channel_ios(yp, force_height_io=True)
+
+    # Combined VDM image name
+    if disable_current_layer:
+        image_name = obj.name + '_' + uv_name + TEMP_LAYER_DISABLED_VDM_IMAGE_SUFFIX
+    else: image_name = obj.name + '_' + uv_name + TEMP_COMBINED_VDM_IMAGE_SUFFIX
+
+    # Create combined vdm image
+    image = bpy.data.images.new(name=image_name,
+            width=width, height=height, alpha=False, float_buffer=True)
+    image.generated_color = (0,0,0,1)
+
+    # Get output node and remember original bsdf input
+    mat_out = get_active_mat_output_node(mat.node_tree)
+    ori_bsdf = mat_out.inputs[0].links[0].from_socket
+
+    # Create setup nodes
+    tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+
+    # Set tex as active node
+    mat.node_tree.nodes.active = tex
+    tex.image = image
+
+    # Emission connection
+    vdisp_outp = node.outputs.get(height_root_ch.name + io_suffix['VDISP'])
+    mat.node_tree.links.new(vdisp_outp, emit.inputs[0])
+
+    # Connect emit to output material
+    mat.node_tree.links.new(emit.outputs[0], mat_out.inputs[0])
+
+    # Bake!
+    bpy.ops.object.bake()
+
+    # Set fake user for the bake result so it won't disappear
+    #image.use_fake_user = True
+    #image.pack()
+
+    # Recover original bsdf
+    mat.node_tree.links.new(ori_bsdf, mat_out.inputs[0])
+
+    # Remove bake nodes
+    simple_remove_node(mat.node_tree, tex, remove_data=False)
+    simple_remove_node(mat.node_tree, emit)
+
+    # Recover active layer
+    if ori_layer_enable != cur_layer.enable:
+        cur_layer.enable = ori_layer_enable
+
+    # Recover input outputs
+    if not height_root_ch.enable_subdiv_setup:
+        check_all_channel_ios(yp)
+
+    # Recover flip yzs
+    for key, val in ori_flip_yzs.items():
+        l = yp.layers[int(key)]
+        height_ch = get_height_channel(l)
+        if height_ch.vdisp_enable_flip_yz != val:
+            height_ch.vdisp_enable_flip_yz = val
+
+    # Recover sculpt mode
+    if ori_sculpt_mode:
+        yp.sculpt_mode = True
+
+    # Revover bake settings
+    _recover_bake_settings(book, True)
+
+    return image
 
 def get_tangent_bitangent_images(obj, uv_name):
 
@@ -434,6 +578,19 @@ def get_vdm_intensity(layer, ch):
     ch_strength = get_entity_prop_value(ch, 'vdisp_strength')
     return layer_intensity * ch_intensity * ch_strength
 
+def is_multi_vdm_used(yp):
+
+    num_vdms = 0
+
+    # Check if there's another vdm layer
+    for l in yp.layers:
+        if not l.enable: continue
+        hch = get_height_channel(l)
+        if not hch or not hch.enable or hch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
+        num_vdms += 1
+
+    return num_vdms > 1
+
 class YSculptImage(bpy.types.Operator):
     bl_idname = "sculpt.y_sculpt_image"
     bl_label = "Sculpt Vector Displacement Image"
@@ -477,6 +634,11 @@ class YSculptImage(bpy.types.Operator):
         if mapping and is_transformed(mapping):
             self.report({'ERROR'}, "Cannot sculpt VDM with transformed mapping!")
             return {'CANCELLED'}
+
+        # Get combined VDM image
+        combined_vdm_image = None
+        if is_multi_vdm_used(yp):
+            combined_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1])
 
         # Enable sculpt mode to disable all vector displacement layers
         yp.sculpt_mode = True
@@ -526,7 +688,12 @@ class YSculptImage(bpy.types.Operator):
         set_object_select(temp, True)
 
         # Create geometry nodes to load vdm
-        vdm_loader = get_vdm_loader_geotree(uv_name, image, tanimage, bitimage, intensity)
+        sculpt_image = image
+        if combined_vdm_image:
+            sculpt_image = combined_vdm_image
+            intensity = 1.0
+
+        vdm_loader = get_vdm_loader_geotree(uv_name, sculpt_image, tanimage, bitimage, intensity)
         bpy.ops.object.modifier_add(type='NODES')
         geomod = temp.modifiers[-1]
         geomod.node_group = vdm_loader
@@ -569,6 +736,8 @@ class YSculptImage(bpy.types.Operator):
         bpy.data.images.remove(tanimage)
         bpy.data.images.remove(bitimage)
         bpy.data.node_groups.remove(vdm_loader)
+        if combined_vdm_image:
+            bpy.data.images.remove(combined_vdm_image)
 
         # Enable some modifiers again
         for mod_name, ori_show_viewport in ori_show_viewports.items():
