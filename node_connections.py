@@ -1326,7 +1326,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 if io_name in outputs: rgb = outputs[io_name]
 
             if ch.enable_alpha and io_alpha_name in node.inputs:
-                alpha = create_link(tree, alpha, node.inputs[io_alpha_name])[io_alpha_name]
+                outputs = create_link(tree, alpha, node.inputs[io_alpha_name])
+                if io_alpha_name in outputs: alpha = outputs[io_alpha_name]
 
             if height and io_height_name in node.inputs: 
                 outputs = create_link(tree, height, node.inputs[io_height_name])

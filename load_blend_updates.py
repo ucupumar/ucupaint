@@ -459,7 +459,7 @@ def update_yp_tree(tree):
     if LooseVersion(yp.version) < LooseVersion('2.0.0'):
 
         # Update input outputs
-        check_all_channel_ios(yp)
+        check_all_channel_ios(yp, hard_reset=True)
 
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and height_root_ch.enable_subdiv_setup:

@@ -304,7 +304,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                     # Set normal tweak value to 1.0 if it's disabled
                     end_linear.inputs['Normal Tweak'].default_value = 1.0
 
-def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_io=False):
+def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_io=False, hard_reset=False):
 
     #print("Checking YP IO. Specific Layer: " + str(specific_layer))
 
@@ -430,7 +430,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         specific_ch = None
         if yp.layer_preview_mode and yp.active_channel_index < len(layer.channels):
             specific_ch = layer.channels[yp.active_channel_index]
-        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=False)
+        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=False, hard_reset=hard_reset)
 
     if reconnect:
         # Rearrange layers
@@ -443,7 +443,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
-def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False): #, check_uvs=False): #, has_parent=False):
+def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 
     #print("Checking layer IO. Layer: " + layer.name + ' Specific Channel: ' + str(specific_ch))
 
@@ -455,7 +455,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
     #    check_uv_nodes(yp)
 
     # Check layer tree io
-    check_layer_tree_ios(layer, tree, remove_props)
+    check_layer_tree_ios(layer, tree, remove_props, hard_reset=hard_reset)
 
     # Get source_tree
     source_tree = get_source_tree(layer, tree)
@@ -528,7 +528,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
 
         # Recursive to other affected layers
         for ol in other_layers:
-            check_all_layer_channel_io_and_nodes(ol, do_recursive=do_recursive)
+            check_all_layer_channel_io_and_nodes(ol, do_recursive=do_recursive, hard_reset=hard_reset)
             reconnect_layer_nodes(ol)
             rearrange_layer_nodes(ol)
 
@@ -601,12 +601,17 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty):
 
     return dirty
 
-def check_layer_tree_ios(layer, tree=None, remove_props=False):
+def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
     root_tree = layer.id_data
     layer_node = root_tree.nodes.get(layer.group_node)
+
+    # Remove all inputs first if hard reset is True
+    if hard_reset:
+        for inp in reversed(get_tree_inputs(tree)):
+            remove_tree_input(tree, inp)
 
     dirty = False
 
