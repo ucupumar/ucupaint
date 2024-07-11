@@ -6,7 +6,7 @@ def create_link(tree, out, inp):
         tree.links.new(out, inp)
         #print(out, 'is connected to', inp)
     if inp.node: return inp.node.outputs
-    return None
+    return []
 
 def break_link(tree, out, inp):
     for link in out.links:
