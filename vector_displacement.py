@@ -592,16 +592,16 @@ def get_vdm_intensity(layer, ch):
 
 def is_multi_vdm_used(yp):
 
-    num_vdms = 0
+    num_disps = 0
 
     # Check if there's another vdm layer
     for l in yp.layers:
         if not l.enable: continue
         hch = get_height_channel(l)
-        if not hch or not hch.enable or hch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-        num_vdms += 1
+        if not hch or not hch.enable or hch.normal_map_type not in {'BUMP_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}: continue
+        num_disps += 1
 
-    return num_vdms > 1
+    return num_disps > 1
 
 class YSculptImage(bpy.types.Operator):
     bl_idname = "sculpt.y_sculpt_image"
