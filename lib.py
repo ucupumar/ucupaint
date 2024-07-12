@@ -151,6 +151,7 @@ UNPACK_ONSEW = '~yPL Unpack ONSEW'
 PACK_ONSEW = '~yPL Pack ONSEW'
 
 BL27_DISP = '~yPL Blender 2.7 Displacement'
+COMBINED_VDM = '~yPL Combined VDM'
 
 SMOOTH_PREFIX = '~yPL Smooth '
 

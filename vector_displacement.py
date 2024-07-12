@@ -1,4 +1,5 @@
 import bpy, numpy
+from . import lib
 from .common import *
 from .bake_common import *
 from .vector_displacement_lib import *
@@ -395,15 +396,25 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
+    # Get combined vdm calculation node
+    calc = mat.node_tree.nodes.new('ShaderNodeGroup')
+    calc.node_tree = get_node_tree_lib(lib.COMBINED_VDM)
+
     # Set tex as active node
     mat.node_tree.nodes.active = tex
     tex.image = image
 
     # Emission connection
+    disp_outp = node.outputs.get(height_root_ch.name + io_suffix['HEIGHT'])
+    max_height_outp = node.outputs.get(height_root_ch.name + io_suffix['MAX_HEIGHT'])
     vdisp_outp = node.outputs.get(height_root_ch.name + io_suffix['VDISP'])
-    mat.node_tree.links.new(vdisp_outp, emit.inputs[0])
 
-    # Connect emit to output material
+    # Connection
+    #mat.node_tree.links.new(vdisp_outp, emit.inputs[0])
+    mat.node_tree.links.new(disp_outp, calc.inputs['Height'])
+    mat.node_tree.links.new(max_height_outp, calc.inputs['Scale'])
+    mat.node_tree.links.new(vdisp_outp, calc.inputs['Vector Displacement'])
+    mat.node_tree.links.new(calc.outputs[0], emit.inputs[0])
     mat.node_tree.links.new(emit.outputs[0], mat_out.inputs[0])
 
     # Bake!
@@ -419,6 +430,7 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     # Remove bake nodes
     simple_remove_node(mat.node_tree, tex, remove_data=False)
     simple_remove_node(mat.node_tree, emit)
+    simple_remove_node(mat.node_tree, calc)
 
     # Recover active layer
     if ori_layer_enable != cur_layer.enable:
