@@ -1035,7 +1035,10 @@ def draw_root_channels_ui(context, layout, node):
                 brow.prop(chui, 'expand_smooth_bump_settings', text='', emboss=False, icon_value=icon_value)
                 #else:
                 #    brow.label(text='', icon_value=lib.get_icon('input'))
-                brow.label(text='Smoother Bump:')
+                if is_greater_than_280():
+                    brow.label(text='Smoother Bump:')
+                else: brow.label(text='Smooth Bump:')
+
                 if not yp.use_baked:
                     brow.prop(channel, 'enable_smooth_bump', text='')
                 else:
