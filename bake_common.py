@@ -630,9 +630,16 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         uvl = uv_layers.get(book['ori_active_uv'])
         if uvl: uv_layers.active = uvl
 
-    if 'ori_active_render_uv' in book:
-        uvl = uv_layers.get(book['ori_active_render_uv'])
-        if uvl: uvl.active_render = True
+        # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
+        if not is_greater_than_291():
+            if 'ori_active_render_uv' in book:
+                uvl = uv_layers.get(book['ori_active_render_uv'])
+                if uvl: uvl.active_render = True
+
+    if is_greater_than_291():
+        if 'ori_active_render_uv' in book:
+            uvl = uv_layers.get(book['ori_active_render_uv'])
+            if uvl: uvl.active_render = True
 
     # Recover active object and mode
     if is_greater_than_280():

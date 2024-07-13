@@ -579,6 +579,11 @@ def is_greater_than_290():
         return True
     return False
 
+def is_greater_than_291():
+    if bpy.app.version >= (2, 91, 0):
+        return True
+    return False
+
 def is_greater_than_292():
     if bpy.app.version >= (2, 92, 0):
         return True
@@ -3296,9 +3301,10 @@ def refresh_temp_uv(obj, entity):
         if uv_layers.active != entity_uv:
             try: uv_layers.active = entity_uv
             except: print('EXCEPTIION: Cannot set active uv!')
-        #if not entity_uv.active_render:
-        #    try: entity_uv.active_render = True
-        #    except: print('EXCEPTIION: Cannot set active uv render!')
+        # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
+        if not is_greater_than_291() and not entity_uv.active_render:
+            try: entity_uv.active_render = True
+            except: print('EXCEPTIION: Cannot set active uv render!')
 
     if m3 and entity.override_type != 'IMAGE':
         remove_temp_uv(obj, entity)
@@ -3361,7 +3367,9 @@ def refresh_temp_uv(obj, entity):
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
     uv_layers.active = temp_uv_layer
-    #temp_uv_layer.active_render = True
+    # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
+    if not is_greater_than_291():
+        temp_uv_layer.active_render = True
 
     if not is_greater_than_280():
         temp_uv_layer = obj.data.uv_layers.get(TEMP_UV)
