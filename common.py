@@ -4461,6 +4461,24 @@ def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER'):
 
     return obj.data.color_attributes.new(name, data_type, domain)
 
+def get_active_render_uv(obj):
+    uv_layers = get_uv_layers(obj)
+    uv_name = ''
+
+    if obj.type == 'MESH' and len(uv_layers) > 0:
+        for uv_layer in uv_layers:
+            if uv_layer.active_render and uv_layer.name != TEMP_UV:
+                uv_name = uv_layer.name
+                break
+
+        if uv_name == '':
+            for uv_layer in uv_layers:
+                if uv_layer.name != TEMP_UV:
+                    uv_name = uv_layer.name
+                    break
+
+    return uv_name
+
 def get_default_uv_name(obj, yp=None):
     uv_layers = get_uv_layers(obj)
     uv_name = ''
@@ -6480,3 +6498,20 @@ def restore_armature_order(obj):
 
     bpy.context.view_layer.objects.active = ori_obj    
 
+def is_layer_vdm(layer):
+
+    hch = get_height_channel(layer)
+    if not hch or not hch.enable or hch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': 
+        return False
+
+    return True
+
+def get_first_vdm_layer(yp):
+
+    # Check if there's another vdm layer
+    for l in yp.layers:
+        if not l.enable: continue
+        if is_layer_vdm(l):
+            return l
+
+    return None

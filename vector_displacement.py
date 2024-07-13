@@ -220,7 +220,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     node = get_active_ypaint_node(obj)
     if node:
         yp = node.node_tree.yp
-        if is_multi_vdm_used(yp):
+        if is_multi_disp_used(yp):
             layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True)
 
     set_active_object(obj)
@@ -609,7 +609,7 @@ def get_vdm_intensity(layer, ch):
     ch_strength = get_entity_prop_value(ch, 'vdisp_strength')
     return layer_intensity * ch_intensity * ch_strength
 
-def is_multi_vdm_used(yp):
+def is_multi_disp_used(yp):
 
     num_disps = 0
 
@@ -668,7 +668,7 @@ class YSculptImage(bpy.types.Operator):
 
         # Get combined VDM image
         combined_vdm_image = None
-        if is_multi_vdm_used(yp):
+        if is_multi_disp_used(yp):
             combined_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1])
 
         # Enable sculpt mode to disable all vector displacement layers
@@ -886,12 +886,41 @@ class YCancelSculptToImage(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YFixVDMMismatchUV(bpy.types.Operator):
+    bl_idname = "object.y_fix_vdm_missmatch_uv"
+    bl_label = "Fix Missmatch VDM UV"
+    bl_description = "Active VDM layer has different UV than the active render UV, use this operator to fix it"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        obj = context.object
+        mat = get_active_material(obj)
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = yp.layers[yp.active_layer_index]
+
+        # Set uv map active render
+        objs = get_all_objects_with_same_materials(mat)
+        for obj in objs:
+            uv_layers = get_uv_layers(obj)
+            uv = uv_layers.get(layer.uv_name)
+            if uv and not uv.active_render:
+                uv.active_render = True
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YSculptImage)
     bpy.utils.register_class(YApplySculptToImage)
     bpy.utils.register_class(YCancelSculptToImage)
+    bpy.utils.register_class(YFixVDMMismatchUV)
 
 def unregister():
     bpy.utils.unregister_class(YSculptImage)
     bpy.utils.unregister_class(YApplySculptToImage)
     bpy.utils.unregister_class(YCancelSculptToImage)
+    bpy.utils.unregister_class(YFixVDMMismatchUV)

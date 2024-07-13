@@ -3073,6 +3073,15 @@ def draw_layers_ui(context, layout, node):
                 row.alert = obj.mode == 'SCULPT'
                 row.operator('sculpt.y_sculpt_image', icon='SCULPTMODE_HLT', text='Sculpt Image')
 
+        if is_a_mesh and is_layer_vdm(layer):
+            active_uv_name = get_active_render_uv(obj)
+            if active_uv_name != layer.uv_name:
+                bbox = col.box()
+                row = bbox.row(align=True)
+                row.alert = True
+                row.operator('object.y_fix_vdm_missmatch_uv')
+                row.alert = False
+
         # Source
         draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh)
 
