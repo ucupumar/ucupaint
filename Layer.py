@@ -587,8 +587,7 @@ class YNewVDMLayer(bpy.types.Operator):
         col.label(text='Width:')
         col.label(text='Height:')
         col.label(text='Blend Type:')
-        if not first_vdm:
-            col.label(text='UV Map:')
+        col.label(text='UV Map:')
 
         col = row.column(align=False)
 
@@ -598,6 +597,9 @@ class YNewVDMLayer(bpy.types.Operator):
         col.prop(self, 'blend_type', text='')
         if not first_vdm:
             col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        else:
+            col.label(text=self.uv_map + '*') # + ' (used by other VDM)')
+            self.layout.label(text='* Only one UV Map is currently supported')
 
         # NOTE: UDIM is not supported yet
         if False:
