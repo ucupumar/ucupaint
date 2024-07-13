@@ -458,6 +458,17 @@ def update_yp_tree(tree):
     # Version 2.0 won't use custom prop for mapping and intensity
     if LooseVersion(yp.version) < LooseVersion('2.0.0'):
 
+        # Previous version has a possibility to have duplicate layer names
+        layer_name_ids = {}
+        for i, layer in enumerate(yp.layers):
+            if layer.name in layer_name_ids:
+                layer_name_ids[layer.name].append(i)
+            else: layer_name_ids[layer.name] = [i]
+
+        for lname, arr in layer_name_ids.items():
+            for i in range(1, len(arr)):
+                yp.layers[arr[i]].name = get_unique_name(lname, yp.layers)
+
         # Update input outputs
         check_all_channel_ios(yp, hard_reset=True)
 
