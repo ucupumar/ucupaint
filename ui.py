@@ -4225,7 +4225,7 @@ class YNewLayerMenu(bpy.types.Menu):
 
         if is_greater_than_320():
             col.separator()
-            col.operator("node.y_new_vdm_layer", text='Vector Displacement Image (BETA)', icon='SCULPTMODE_HLT')
+            col.operator("node.y_new_vdm_layer", text='Vector Displacement Image', icon='SCULPTMODE_HLT')
 
         #col.separator()
 

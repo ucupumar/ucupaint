@@ -43,12 +43,12 @@ def get_normal_map_type_items(self, context):
         items.append(('BUMP_MAP', 'Bump Map', ''))
         items.append(('NORMAL_MAP', 'Normal Map', ''))
         items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', ''))
-        items.append(('VECTOR_DISPLACEMENT_MAP', 'Vector Displacement Map (BETA)', ''))
+        items.append(('VECTOR_DISPLACEMENT_MAP', 'Vector Displacement Map', ''))
     else: 
         items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 0))
         items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 1))
         items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', '', 'MATCAP_23', 2))
-        items.append(('VECTOR_DISPLACEMENT_MAP', 'Vector Displacement Map (BETA)', '', 'MATCAP_23', 3))
+        items.append(('VECTOR_DISPLACEMENT_MAP', 'Vector Displacement Map', '', 'MATCAP_23', 3))
 
     return items
 
@@ -599,7 +599,7 @@ class YNewVDMLayer(bpy.types.Operator):
             col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         else:
             col.label(text=self.uv_map + '*') # + ' (used by other VDM)')
-            self.layout.label(text='* Only one UV Map is currently supported')
+            self.layout.label(text='* Only one UV map is currently supported')
 
         # NOTE: UDIM is not supported yet
         if False:
