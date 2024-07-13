@@ -3712,6 +3712,8 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_offset_u : FloatProperty(default=0.0)
     ori_offset_v : FloatProperty(default=0.0)
 
+    mesh_hash : StringProperty(default='')
+
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min : FloatProperty(default=0.0)
 #    parallax_scale_span : FloatProperty(default=1.0)

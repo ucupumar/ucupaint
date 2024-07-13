@@ -1,4 +1,4 @@
-import bpy, numpy
+import bpy, numpy, time
 from . import lib
 from .common import *
 from .bake_common import *
@@ -336,8 +336,8 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     remove_mesh_obj(temp0)
     remove_mesh_obj(temp2)
     if temp1: remove_mesh_obj(temp1)
-    bpy.data.images.remove(tanimage)
-    bpy.data.images.remove(bitimage)
+    #bpy.data.images.remove(tanimage)
+    #bpy.data.images.remove(bitimage)
     if layer_disabled_vdm_image:
         bpy.data.images.remove(layer_disabled_vdm_image)
 
@@ -483,6 +483,18 @@ def get_tangent_bitangent_images(obj, uv_name):
     tanimage = bpy.data.images.get(tanimage_name)
     bitimage = bpy.data.images.get(bitimage_name)
 
+    # Check mesh hash
+    mh = get_mesh_hash(obj)
+    if obj.yp.mesh_hash != mh:
+        obj.yp.mesh_hash = mh
+
+        # Remove current images if hash doesn't match
+        if tanimage: bpy.data.images.remove(tanimage)
+        if bitimage: bpy.data.images.remove(bitimage)
+
+        tanimage = None
+        bitimage = None
+
     if not tanimage or not bitimage:
         context = bpy.context
         scene = context.scene 
@@ -584,10 +596,9 @@ def get_tangent_bitangent_images(obj, uv_name):
             # Remove temp mat
             if mat.users <= 1: bpy.data.materials.remove(mat, do_unlink=True)
 
-        # Pack tangent and bitangent images
-        #tanimage.pack()
-        #bitimage.pack()
-
+        # Pack tangent and bitangent images so they won't lost their data
+        tanimage.pack()
+        bitimage.pack()
         #tanimage.use_fake_user=True
         #bitimage.use_fake_user=True
 
@@ -633,6 +644,8 @@ class YSculptImage(bpy.types.Operator):
         return get_active_ypaint_node() and context.object and context.object.type == 'MESH' and hasattr(context, 'image') and context.image
 
     def execute(self, context):
+        T = time.time()
+
         mat = get_active_material()
         obj = context.object
         scene = context.scene
@@ -764,8 +777,8 @@ class YSculptImage(bpy.types.Operator):
 
         # Remove temp data
         remove_mesh_obj(temp) 
-        bpy.data.images.remove(tanimage)
-        bpy.data.images.remove(bitimage)
+        #bpy.data.images.remove(tanimage)
+        #bpy.data.images.remove(bitimage)
         bpy.data.node_groups.remove(vdm_loader)
         if combined_vdm_image:
             bpy.data.images.remove(combined_vdm_image)
@@ -784,6 +797,8 @@ class YSculptImage(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='SCULPT')
 
+        print('INFO: Sculpt mode is entered at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
         return {'FINISHED'}
 
 class YApplySculptToImage(bpy.types.Operator):
@@ -797,6 +812,8 @@ class YApplySculptToImage(bpy.types.Operator):
         return get_active_ypaint_node()
 
     def execute(self, context):
+        T = time.time()
+
         obj = context.object
         node = get_active_ypaint_node()
         tree = node.node_tree
@@ -842,6 +859,8 @@ class YApplySculptToImage(bpy.types.Operator):
         space = bpy.context.space_data
         if space.type == 'VIEW_3D' and space.shading.type not in {'MATERIAL', 'RENDERED'}:
             space.shading.type = 'MATERIAL'
+
+        print('INFO: Applying sculpt to VDM is done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 

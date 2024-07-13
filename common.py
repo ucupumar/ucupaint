@@ -6515,3 +6515,12 @@ def get_first_vdm_layer(yp):
             return l
 
     return None
+
+def get_mesh_hash(obj):
+    if obj.type != 'MESH': return None
+    vertex_count = len(obj.data.vertices)
+    vertices_np = numpy.empty(vertex_count * 3, dtype=numpy.float32)
+    obj.data.vertices.foreach_get("co", vertices_np)
+    h = hash(vertices_np.tobytes())
+    return str(h)
+
