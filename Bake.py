@@ -3280,7 +3280,7 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
             create_link(mat.node_tree, disp.outputs[0], add_disp.inputs[0])
             create_link(mat.node_tree, vdisp.outputs[0], add_disp.inputs[1])
             create_link(mat.node_tree, add_disp.outputs[0], disp_mat_inp)
-        elif disp:
+        elif disp and not vdisp:
             create_link(mat.node_tree, disp.outputs[0], disp_mat_inp)
 
         if set_one:

@@ -629,11 +629,10 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     if recover_active_uv:
         uvl = uv_layers.get(book['ori_active_uv'])
         if uvl: uv_layers.active = uvl
-        if 'ori_active_render_uv' in book:
-            uvl = uv_layers.get(book['ori_active_render_uv'])
-            if uvl: uvl.active_render = True
 
-    #return
+    if 'ori_active_render_uv' in book:
+        uvl = uv_layers.get(book['ori_active_render_uv'])
+        if uvl: uvl.active_render = True
 
     # Recover active object and mode
     if is_greater_than_280():

@@ -3296,9 +3296,9 @@ def refresh_temp_uv(obj, entity):
         if uv_layers.active != entity_uv:
             try: uv_layers.active = entity_uv
             except: print('EXCEPTIION: Cannot set active uv!')
-        if not entity_uv.active_render:
-            try: entity_uv.active_render = True
-            except: print('EXCEPTIION: Cannot set active uv render!')
+        #if not entity_uv.active_render:
+        #    try: entity_uv.active_render = True
+        #    except: print('EXCEPTIION: Cannot set active uv render!')
 
     if m3 and entity.override_type != 'IMAGE':
         remove_temp_uv(obj, entity)
@@ -3361,7 +3361,7 @@ def refresh_temp_uv(obj, entity):
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
     uv_layers.active = temp_uv_layer
-    temp_uv_layer.active_render = True
+    #temp_uv_layer.active_render = True
 
     if not is_greater_than_280():
         temp_uv_layer = obj.data.uv_layers.get(TEMP_UV)

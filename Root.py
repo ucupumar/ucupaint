@@ -2544,7 +2544,7 @@ def update_active_yp_channel(self, context):
             baked_uv_map = uv_layers.get(yp.baked_uv_name)
             if baked_uv_map: 
                 uv_layers.active = baked_uv_map
-                baked_uv_map.active_render = True
+                #baked_uv_map.active_render = True
 
 def update_layer_index(self, context):
     #T = time.time()
