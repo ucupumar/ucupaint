@@ -106,7 +106,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     # Add layer to group
     layer = yp.layers.add()
     layer.type = layer_type
-    layer.name = layer_name
+    layer.name = get_unique_name(layer_name, yp.layers)
     layer.uv_name = uv_name
     check_uvmap_on_other_objects_with_same_mat(mat, uv_name)
 
