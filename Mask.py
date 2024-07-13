@@ -20,7 +20,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     nodes = tree.nodes
 
     mask = layer.masks.add()
-    mask.name = name
+    mask.name = get_unique_name(name, layer.masks)
     mask.type = mask_type
     mask.texcoord_type = texcoord_type
     mask.source_input = source_input

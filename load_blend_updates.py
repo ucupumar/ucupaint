@@ -458,12 +458,22 @@ def update_yp_tree(tree):
     # Version 2.0 won't use custom prop for mapping and intensity
     if LooseVersion(yp.version) < LooseVersion('2.0.0'):
 
-        # Previous version has a possibility to have duplicate layer names
+        # Previous versions have a possibility to have duplicate layer names
         layer_name_ids = {}
         for i, layer in enumerate(yp.layers):
             if layer.name in layer_name_ids:
                 layer_name_ids[layer.name].append(i)
             else: layer_name_ids[layer.name] = [i]
+
+            mask_name_ids = {}
+            for j, mask in enumerate(layer.masks):
+                if mask.name in mask_name_ids:
+                    mask_name_ids[mask.name].append(j)
+                else: mask_name_ids[mask.name] = [j]
+
+            for mname, arr in mask_name_ids.items():
+                for j in range(1, len(arr)):
+                    layer.masks[arr[j]].name = get_unique_name(mname, layer.masks)
 
         for lname, arr in layer_name_ids.items():
             for i in range(1, len(arr)):
