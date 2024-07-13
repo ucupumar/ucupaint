@@ -6,8 +6,6 @@ from .vector_displacement_lib import *
 from .input_outputs import *
 
 TEMP_MULTIRES_NAME = '_YP_TEMP_MULTIRES'
-TEMP_TANGENT_IMAGE_SUFFIX = '_YP_TEMP_TANGENT'
-TEMP_BITANGENT_IMAGE_SUFFIX = '_YP_TEMP_BITANGENT'
 TEMP_COMBINED_VDM_IMAGE_SUFFIX = '_YP_TEMP_COMBINED_VDM'
 TEMP_LAYER_DISABLED_VDM_IMAGE_SUFFIX = '_YP_LAYER_DISABLED_VDM'
 
@@ -477,8 +475,8 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
 
 def get_tangent_bitangent_images(obj, uv_name):
 
-    tanimage_name = obj.name + '_' + uv_name + TEMP_TANGENT_IMAGE_SUFFIX
-    bitimage_name = obj.name + '_' + uv_name + TEMP_BITANGENT_IMAGE_SUFFIX
+    tanimage_name = obj.name + '_' + uv_name + CACHE_TANGENT_IMAGE_SUFFIX
+    bitimage_name = obj.name + '_' + uv_name + CACHE_BITANGENT_IMAGE_SUFFIX
 
     tanimage = bpy.data.images.get(tanimage_name)
     bitimage = bpy.data.images.get(bitimage_name)
@@ -599,8 +597,8 @@ def get_tangent_bitangent_images(obj, uv_name):
         # Pack tangent and bitangent images so they won't lost their data
         tanimage.pack()
         bitimage.pack()
-        #tanimage.use_fake_user=True
-        #bitimage.use_fake_user=True
+        tanimage.use_fake_user=True
+        bitimage.use_fake_user=True
 
         # Revover bake settings
         _recover_bake_settings(book, True)

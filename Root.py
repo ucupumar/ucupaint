@@ -2171,6 +2171,11 @@ class YCleanYPCaches(bpy.types.Operator):
                     if prop.startswith('cache_'):
                         remove_node(layer_tree, ch, prop)
 
+        # Remove tangent and bitangent images
+        for image in reversed(bpy.data.images):
+            if image.name.endswith(CACHE_TANGENT_IMAGE_SUFFIX) or image.name.endswith(CACHE_BITANGENT_IMAGE_SUFFIX):
+                bpy.data.images.remove(image)
+
         return {'FINISHED'}
 
 def get_channel_name(self):
