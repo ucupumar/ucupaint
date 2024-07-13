@@ -539,7 +539,8 @@ class YNewVDMLayer(bpy.types.Operator):
             description='Enable Displacement Setup on Normal channel',
             default=True)
 
-    uv_map : StringProperty(default='', update=update_new_layer_uv_map)
+    # NOTE: UDIM is not supported yet, so no UDIM checking
+    uv_map : StringProperty(default='') #, update=update_new_layer_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -4502,6 +4503,9 @@ def update_uv_name(self, context):
         else:
             uv_layers = get_uv_layers(obj)
             uv_layers.active = uv_layers.get(layer.uv_name)
+
+            if is_layer_vdm(layer):
+                uv_layers.active.active_render = True
 
         # Check for other objects with same material
         check_uvmap_on_other_objects_with_same_mat(mat, layer.uv_name)
