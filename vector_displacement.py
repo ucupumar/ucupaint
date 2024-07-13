@@ -232,6 +232,18 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     if not obj.select_get():
         set_object_select(obj, True)
 
+    # Disable other modifiers
+    ori_mod_show_viewport = []
+    ori_mod_show_render = []
+    for mod in obj.modifiers:
+        if mod.type == 'MULTIRES' or mod.type == 'SUBSURF': continue
+        if mod.show_viewport:
+            mod.show_viewport = False
+            ori_mod_show_viewport.append(mod.name)
+        if mod.show_render:
+            mod.show_render = False
+            ori_mod_show_render.append(mod.name)
+
     # Temp object 0: Base
     temp0 = obj.copy()
     link_object(scene, temp0)
@@ -331,6 +343,13 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
 
     # Remove material
     if mat.users <= 1: bpy.data.materials.remove(mat, do_unlink=True)
+
+    # Recover disabled modifiers
+    for mod in obj.modifiers:
+        if mod.name in ori_mod_show_viewport:
+            mod.show_viewport = True
+        if mod.name in ori_mod_show_render:
+            mod.show_render = True
 
     # Set back object to active
     set_active_object(obj)
