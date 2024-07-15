@@ -217,17 +217,6 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                         process_lib_name = lib.BUMP_PROCESS_SUBDIV_ON
                     else: process_lib_name = lib.BUMP_PROCESS
 
-                # Engine filter is needed if smooth bump is on and subdiv is on
-                #if channel.enable_smooth_bump and channel.enable_subdiv_setup: # and ypup.eevee_next_displacement:
-                if yp.use_baked and channel.enable_subdiv_setup:
-                    lib_name = lib.ENGINE_FILTER if is_greater_than_280() else lib.ENGINE_FILTER_LEGACY
-                    end_normal_engine_filter = replace_new_node(
-                            group_tree, channel, 'end_normal_engine_filter', 'ShaderNodeGroup', 'End Engine Filter', lib_name)
-                    for inp in end_normal_engine_filter.inputs:
-                        inp.default_value = (0.5, 0.5, 1.0, 1.0)
-                else:
-                    remove_node(group_tree, channel, 'end_normal_engine_filter')
-
                 # Create a node to do height tweak
                 if channel.enable_height_tweak:
                     if channel.enable_smooth_bump:
@@ -253,6 +242,18 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 remove_node(group_tree, channel, 'end_linear')
                 #remove_node(group_tree, channel, 'end_max_height')
                 remove_node(group_tree, channel, 'end_max_height_tweak')
+
+            # Engine filter is needed if subdiv is on and channel is baked
+            if yp.use_baked and channel.enable_subdiv_setup and any_layers_using_displacement(channel):
+
+                lib_name = lib.ENGINE_FILTER if is_greater_than_280() else lib.ENGINE_FILTER_LEGACY
+                end_normal_engine_filter = replace_new_node(
+                        group_tree, channel, 'end_normal_engine_filter', 'ShaderNodeGroup', 'End Engine Filter', lib_name)
+                for inp in end_normal_engine_filter.inputs:
+                    inp.default_value = (0.5, 0.5, 1.0, 1.0)
+            else:
+                remove_node(group_tree, channel, 'end_normal_engine_filter')
+
 
             # Remember smooth normal tweak prop from node when certain case met
             end_linear = group_tree.nodes.get(channel.end_linear)

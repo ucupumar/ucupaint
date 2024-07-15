@@ -5035,6 +5035,17 @@ def any_layers_using_bump_map(root_ch):
 
     return False
 
+def any_layers_using_displacement(root_ch):
+    if any_layers_using_bump_map(root_ch):
+        return True
+
+    yp = root_ch.id_data.yp
+    vdm_layer = get_first_vdm_layer(yp)
+    if vdm_layer: 
+        return True
+
+    return False
+
 def any_layers_using_normal_map(root_ch):
     if root_ch.type != 'NORMAL': return False
     yp = root_ch.id_data.yp
