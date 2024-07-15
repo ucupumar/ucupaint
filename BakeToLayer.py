@@ -7,7 +7,7 @@ from .subtree import *
 from .input_outputs import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo, UDIM
+from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo, UDIM, vector_displacement_lib, vector_displacement
 
 TEMP_VCOL = '__temp__vcol__'
 TEMP_EMISSION = '_TEMP_EMI_'
@@ -936,7 +936,39 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Sometimes Cavity bake will create temporary objects
         if (self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp)):
-            objs = temp_objs = get_duplicated_mesh_objects(scene, objs, True)
+
+            # NOTE: Baking cavity with subdiv setup can only happen if there's only one object and no UDIM
+            if is_greater_than_420() and len(objs) == 1 and not self.use_udim and height_root_ch and height_root_ch.enable_subdiv_setup:
+
+                # Check if there's VDM layer
+                vdm_layer = get_first_vdm_layer(yp)
+                vdm_uv_name = vdm_layer.uv_name if vdm_layer else self.uv_map
+
+                # Get baked combined vdm image
+                combined_vdm_image = vector_displacement.get_combined_vdm_image(objs[0], vdm_uv_name, width=self.width, height=self.height)
+
+                # Bake tangent and bitangent
+                # NOTE: Only bake the first object tangent since baking combined mesh can cause memory leak at the moment
+                tanimage, bitimage = vector_displacement.get_tangent_bitangent_images(objs[0], self.uv_map)
+
+                # Duplicate object
+                objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
+
+                # Use VDM loader geometry nodes
+                # NOTE: Geometry nodes currently does not support UDIM, so using UDIM will cause wrong bake result
+                set_active_object(objs[0])
+                vdm_loader = vector_displacement_lib.get_vdm_loader_geotree(self.uv_map, combined_vdm_image, tanimage, bitimage, 1.0)
+                bpy.ops.object.modifier_add(type='NODES')
+                geomod = objs[0].modifiers[-1]
+                geomod.node_group = vdm_loader
+                bpy.ops.object.modifier_apply(modifier=geomod.name)
+
+                # Remove temporary datas
+                bpy.data.node_groups.remove(vdm_loader)
+                bpy.data.images.remove(combined_vdm_image)
+
+            else:
+                objs = temp_objs = get_duplicated_mesh_objects(scene, objs, True)
 
         # Join objects then extend with other objects
         elif self.type.startswith('OTHER_OBJECT_'):
@@ -1100,7 +1132,6 @@ class YBakeToLayer(bpy.types.Operator):
                 except: pass
 
                 bpy.ops.paint.vertex_color_dirt(dirt_angle=math.pi/2)
-                bpy.ops.paint.vertex_color_dirt()
 
             print('BAKE TO LAYER: Applying subsurf/multires is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
 
