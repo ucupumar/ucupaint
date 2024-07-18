@@ -1913,15 +1913,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             create_link(tree, start_rgb, uv_neighbor.inputs[0])
 
         if tangent and bitangent:
-            create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
-            create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
+            if 'Tangent' in uv_neighbor.inputs: create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
+            if 'Bitangent' in uv_neighbor.inputs: create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
 
         if layer.type == 'VCOL' and uv_neighbor_1:
             create_link(tree, start_alpha, uv_neighbor_1.inputs[0])
 
             if tangent and bitangent:
-                create_link(tree, tangent, uv_neighbor_1.inputs['Tangent'])
-                create_link(tree, bitangent, uv_neighbor_1.inputs['Bitangent'])
+                if 'Tangent' in uv_neighbor_1.inputs: create_link(tree, tangent, uv_neighbor_1.inputs['Tangent'])
+                if 'Bitangent' in uv_neighbor_1.inputs: create_link(tree, bitangent, uv_neighbor_1.inputs['Bitangent'])
 
     # Get transition bump channel
     trans_bump_flip = False
