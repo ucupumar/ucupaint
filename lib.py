@@ -1,8 +1,6 @@
 import bpy, time, os
 from .common import *
-from .subtree import *
 from mathutils import *
-#from bpy.app.handlers import persistent
 
 # Node tree names
 OVERLAY_NORMAL = '~yPL Overlay Normal'
@@ -246,18 +244,12 @@ def check_uv_difference_to_main_uv(entity):
     yp = entity.id_data.yp
     height_ch = get_root_height_channel(yp)
     if height_ch:
-
-        # Set height channel main uv if its still empty
-        #if height_ch.main_uv == '' and len(yp.uvs) > 0:
-        #    height_ch.main_uv = yp.uvs[0].name
-
         # Check if entity uv is different to main uv
         if height_ch.main_uv != '' and hasattr(entity, 'uv_name') and entity.uv_name != height_ch.main_uv:
             return True
 
     return False
 
-#def get_neighbor_uv_tree(texcoord_type, different_uv=False, entity=None):
 def get_neighbor_uv_tree(texcoord_type, entity):
 
     if texcoord_type == 'UV':
@@ -269,7 +261,6 @@ def get_neighbor_uv_tree(texcoord_type, entity):
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return get_node_tree_lib(NEIGHBOR_UV_CAMERA)
 
-#def get_neighbor_uv_tree_name(texcoord_type, different_uv=False, entity=None):
 def get_neighbor_uv_tree_name(texcoord_type, entity):
     if texcoord_type == 'UV':
         different_uv = check_uv_difference_to_main_uv(entity)
@@ -407,25 +398,10 @@ def clean_unused_libraries():
         if ng.name.startswith('~yPL ') and ng.users == 0:
             bpy.data.node_groups.remove(ng)
 
-#@persistent
-#def load_libraries(scene):
-#    # Node groups necessary are in nodegroups_lib.blend
-#    filepath = get_addon_filepath() + "lib.blend"
-#
-#    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-#
-#        # Load node groups
-#        exist_groups = [ng.name for ng in bpy.data.node_groups]
-#        for ng in data_from.node_groups:
-#            if ng not in exist_groups:
-#                data_to.node_groups.append(ng)
-
 def register():
     load_custom_icons()
-    #bpy.app.handlers.load_post.append(load_libraries)
 
 def unregister():
     global custom_icons
     if hasattr(bpy.utils, 'previews'):
         bpy.utils.previews.remove(custom_icons)
-    #bpy.app.handlers.load_post.remove(load_libraries)
