@@ -966,8 +966,8 @@ class YBakeToLayer(bpy.types.Operator):
                 bpy.ops.object.modifier_apply(modifier=geomod.name)
 
                 # Remove temporary datas
-                bpy.data.node_groups.remove(vdm_loader)
-                bpy.data.images.remove(combined_vdm_image)
+                remove_datablock(bpy.data.node_groups, vdm_loader)
+                remove_datablock(bpy.data.images, combined_vdm_image)
 
             else:
                 objs = temp_objs = get_duplicated_mesh_objects(scene, objs, True)
@@ -1574,7 +1574,7 @@ class YBakeToLayer(bpy.types.Operator):
                         UDIM.swap_tile(temp_img, 1001, tilenum)
 
                 # Remove temp image
-                bpy.data.images.remove(temp_img)
+                remove_datablock(bpy.data.images, temp_img)
 
             # Back to original size if using SSA
             if use_ssaa:
@@ -1629,7 +1629,7 @@ class YBakeToLayer(bpy.types.Operator):
                 image = ia_image
 
                 # Remove original baked image
-                bpy.data.images.remove(temp_img)
+                remove_datablock(bpy.data.images, temp_img)
 
             # Index 0 is the main image
             if idx == min(ch_ids):
@@ -1942,7 +1942,7 @@ class YBakeToLayer(bpy.types.Operator):
             for o in temp_objs:
                 m = o.data
                 bpy.data.objects.remove(o)
-                bpy.data.meshes.remove(m)
+                remove_datablock(bpy.data.meshes, m)
 
         #return {'FINISHED'}
 
@@ -2454,7 +2454,7 @@ class YBakeEntityToImage(bpy.types.Operator):
             self.image = ia_image
 
             # Remove original baked image
-            bpy.data.images.remove(temp_img)
+            remove_datablock(bpy.data.images, temp_img)
 
         return segment
 
