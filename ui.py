@@ -2742,6 +2742,7 @@ def draw_layers_ui(context, layout, node):
     need_tangent_refresh = False
     if height_root_ch and is_tangent_sign_hacks_needed(yp):
         for uv in yp.uvs:
+            if uv.name not in uv_layers: continue
             if TANGENT_SIGN_PREFIX + uv.name not in vcols:
                 need_tangent_refresh = True
                 break
