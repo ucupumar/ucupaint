@@ -497,8 +497,8 @@ CACHE_BITANGENT_IMAGE_SUFFIX = '_YP_CACHE_BITANGENT'
 
 GAMMA = 2.2
 
-def versiontuple(v):
-    return tuple(map(int, (v.split("."))))
+def version_tuple(version_string):
+    return tuple(version_string.split('.'))
 
 def get_manifest():
     import toml
