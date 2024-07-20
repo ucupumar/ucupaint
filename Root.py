@@ -463,6 +463,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 self.type = bsdf_node.type
                 self.target_bsdf_name = bsdf_node.name
 
+        if not is_greater_than_279() and self.type == 'BSDF_PRINCIPLED':
+            self.type = 'BSDF_DIFFUSE'
+
         # Normal channel does not works to non mesh object
         if obj.type != 'MESH':
             self.normal = False
@@ -516,6 +519,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             col.prop(self, 'switch_to_material_view')
 
     def execute(self, context):
+
+        if not is_greater_than_279() and self.type == 'BSDF_PRINCIPLED':
+            self.report({'ERROR'}, "There's no Principled BSDF in this blender version!")
+            return {'CANCELLED'}
 
         obj = context.object
         mat = get_active_material()
