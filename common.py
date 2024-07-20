@@ -563,7 +563,7 @@ def is_greater_than_277():
     return False
 
 def is_greater_than_278():
-    if bpy.app.version >= (2, 77, 0):
+    if bpy.app.version >= (2, 78, 0):
         return True
     return False
 
