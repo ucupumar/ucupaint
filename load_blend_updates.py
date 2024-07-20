@@ -118,6 +118,7 @@ def update_tangent_process(tree, lib_name):
                         n.uv_map = ori_n.uv_map
 
         # Delete original tree
+        ori_tree.user_clear()
         bpy.data.node_groups.remove(ori_tree)
 
         # Create info frames
@@ -814,6 +815,7 @@ def update_routine(name):
                 print('INFO:', legacy_ng.name, 'is replaced to', newer_ng.name + '!')
 
                 # Remove old tree
+                legacy_ng.user_clear()
                 bpy.data.node_groups.remove(legacy_ng)
 
                 # Create info frames
@@ -865,6 +867,7 @@ def update_routine(name):
                             if ori_n: copy_node_props(ori_n, n)
 
                     # Delete original tree
+                    ori_tree.user_clear()
                     bpy.data.node_groups.remove(ori_tree)
 
                     # Create info frames
@@ -872,6 +875,7 @@ def update_routine(name):
 
         # Remove already copied groups
         for ng in copied_groups:
+            ng.user_clear()
             bpy.data.node_groups.remove(ng)
 
     print('INFO: ' + get_addon_title() + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -1125,6 +1129,7 @@ def update_node_tree_libs(name):
 
         # Remove problematic trees
         for pt in problematic_trees:
+            pt.user_clear()
             bpy.data.node_groups.remove(pt)
 
     if not existing_lib_names: return
@@ -1223,6 +1228,7 @@ def update_node_tree_libs(name):
 
     # Remove lib trees
     for lib_tree in lib_trees:
+        lib_tree.user_clear()
         bpy.data.node_groups.remove(lib_tree)
 
     # Remove temporary libraries (Doesn't work with Blender 2.79)
