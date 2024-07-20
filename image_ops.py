@@ -31,6 +31,7 @@ def save_float_image(image):
     image.source = 'FILE'
 
     # Delete temporary scene
+    tmpscene.user_clear()
     bpy.data.scenes.remove(tmpscene)
 
 def pack_float_image(image):
@@ -78,6 +79,7 @@ def pack_float_image(image):
     else: image.colorspace_settings.name = 'Non-Color'
 
     # Delete temporary scene
+    tmpscene.user_clear()
     bpy.data.scenes.remove(tmpscene)
 
     # Pack image
@@ -303,6 +305,7 @@ def save_pack_all(yp):
 
     # Delete temporary scene
     if tmpscene:
+        tmpscene.user_clear()
         bpy.data.scenes.remove(tmpscene)
 
     # HACK: For some reason active float image will glitch after auto save
@@ -729,6 +732,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
             #print(path)
 
         # Delete temporary scene
+        tmpscene.user_clear()
         bpy.data.scenes.remove(tmpscene)
 
         #print("Selected dir: '" + self.directory + "'")
@@ -1089,6 +1093,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         image.colorspace_settings.name = ori_colorspace
 
         # Delete temporary scene
+        tmpscene.user_clear()
         bpy.data.scenes.remove(tmpscene)
 
         #context.image.save()

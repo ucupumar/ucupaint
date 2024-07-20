@@ -1354,6 +1354,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
         # Remove already existing images
         for img in loaded_images:
             if img not in images:
+                img.user_clear()
                 bpy.data.images.remove(img)
 
         yp = ch.id_data.yp
@@ -1507,6 +1508,7 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         # Remove already existing images
         for img in loaded_images:
             if img not in images:
+                img.user_clear()
                 bpy.data.images.remove(img)
 
         yp = ch.id_data.yp
@@ -1798,6 +1800,7 @@ class BaseMultipleImagesLayer():
             # Remove loaded images
             for image in images:
                 #if image not in exist_images:
+                image.user_clear()
                 bpy.data.images.remove(image)
             return False
 
@@ -1874,6 +1877,7 @@ class BaseMultipleImagesLayer():
         # Remove unused images
         for image in images:
             if image not in valid_images: # and image not in exist_images:
+                image.user_clear()
                 bpy.data.images.remove(image)
 
         # Update UI
@@ -3082,7 +3086,9 @@ def remove_layer(yp, index):
         remove_node(mask_tree, mask, 'source')
 
     # Remove node group and layer tree
-    if layer_tree: bpy.data.node_groups.remove(layer_tree)
+    if layer_tree: 
+        layer_tree.user_clear()
+        bpy.data.node_groups.remove(layer_tree)
     if layer.trash_group_node != '':
         trash = group_tree.nodes.get(yp.trash)
         if trash: trash.node_tree.nodes.remove(trash.node_tree.nodes.get(layer.trash_group_node))

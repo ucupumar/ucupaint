@@ -1489,6 +1489,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             #if ch.mod_tree:
             if ch.mod_group != '':
                 mod_group = ttree.nodes.get(ch.mod_group)
+                mod_group.node_tree.user_clear()
                 bpy.data.node_groups.remove(mod_group.node_tree)
                 ttree.nodes.remove(mod_group)
             else:
@@ -2181,6 +2182,7 @@ class YCleanYPCaches(bpy.types.Operator):
         # Remove tangent and bitangent images
         for image in reversed(bpy.data.images):
             if image.name.endswith(CACHE_TANGENT_IMAGE_SUFFIX) or image.name.endswith(CACHE_BITANGENT_IMAGE_SUFFIX):
+                image.user_clear()
                 bpy.data.images.remove(image)
 
         return {'FINISHED'}
