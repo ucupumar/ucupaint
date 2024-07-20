@@ -562,6 +562,11 @@ def is_greater_than_277():
         return True
     return False
 
+def is_greater_than_278():
+    if bpy.app.version >= (2, 77, 0):
+        return True
+    return False
+
 def is_greater_than_279():
     if bpy.app.version >= (2, 79, 0):
         return True
@@ -691,6 +696,15 @@ def is_created_before_410():
     if bpy.data.version < (4, 1, 0):
         return True
     return False
+
+def remove_datablock(blocks, block):
+    if is_greater_than_279():
+        blocks.remove(block)
+    elif is_greater_than_278():
+        blocks.remove(block, do_unlink=True)
+    else:
+        block.user_clear()
+        blocks.remove(block)
 
 def set_active_object(obj):
     if is_greater_than_280():
@@ -1292,8 +1306,7 @@ def safe_remove_image(image, yp_tree=None):
     if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
         (scene.tool_settings.image_paint.canvas != image and image.users == 1) or
         image.users == 0):
-        image.user_clear()
-        bpy.data.images.remove(image)
+        remove_datablock(bpy.data.images, image)
 
 def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
     #if not node: return
@@ -1321,8 +1334,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
                     if n.bl_idname in {'ShaderNodeTexImage', 'ShaderNodeGroup'}:
                         simple_remove_node(node.node_tree, n, remove_data)
 
-                node.node_tree.user_clear()
-                bpy.data.node_groups.remove(node.node_tree)
+                remove_datablock(bpy.data.node_groups, node.node_tree)
 
             #remove_tree_data_recursive(node)
 
@@ -1372,8 +1384,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
 
                 if node.node_tree and node.node_tree.users == 1:
                     remove_tree_inside_tree(node.node_tree)
-                    node.node_tree.user_clear()
-                    bpy.data.node_groups.remove(node.node_tree)
+                    remove_datablock(bpy.data.node_groups, node.node_tree)
 
             elif hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == get_vcol_bl_idname():
                 
@@ -1609,8 +1620,7 @@ def replace_image(old_image, new_image, yp=None, uv_name = ''):
         #ypui.disable_auto_temp_uv_update = ori_disable_temp_uv
 
     # Remove old image
-    old_image.user_clear()
-    bpy.data.images.remove(old_image)
+    remove_datablock(bpy.data.images, old_image)
 
     return entities
 
@@ -1857,8 +1867,7 @@ def get_node_tree_lib(name):
 
         # Remove duplicated trees
         for t in duplicated_trees:
-            t.user_clear()
-            bpy.data.node_groups.remove(t)
+            remove_datablock(bpy.data.node_groups, t)
         #print(duplicated_trees)
         #print(node_tree.name + ' is loaded!')
 
@@ -1869,8 +1878,7 @@ def remove_tree_inside_tree(tree):
         if node.type == 'GROUP':
             if node.node_tree and node.node_tree.users == 1:
                 remove_tree_inside_tree(node.node_tree)
-                node.node_tree.user_clear()
-                bpy.data.node_groups.remove(node.node_tree)
+                remove_datablock(bpy.data.node_groups, node.node_tree)
             else: node.node_tree = None
 
 def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name='', return_status=False, hard_replace=False, dirty=False):
@@ -1932,8 +1940,7 @@ def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name=
                 # Remove previous tree if it has no user
                 if prev_tree.users == 0:
                     remove_tree_inside_tree(prev_tree)
-                    prev_tree.user_clear()
-                    bpy.data.node_groups.remove(prev_tree)
+                    remove_datablock(bpy.data.node_groups, prev_tree)
 
     if return_status:
         return node, dirty
@@ -1998,8 +2005,7 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
                 # Remove previous tree if it has no user
                 if prev_tree.users == 0:
                     remove_tree_inside_tree(prev_tree)
-                    prev_tree.user_clear()
-                    bpy.data.node_groups.remove(prev_tree)
+                    remove_datablock(bpy.data.node_groups, prev_tree)
 
     if return_status:
         return node, dirty
@@ -3694,8 +3700,7 @@ def create_delete_iterate_nodes__(tree, num_of_iteration):
 
         if ig and counter >= depth:
             if ig.node_tree:
-                ig.node_tree.user_clear()
-                bpy.data.node_groups.remove(ig.node_tree)
+                remove_datablock(bpy.data.node_groups, ig.node_tree)
             tree.nodes.remove(ig)
 
         if not ig_found and counter >= depth:

@@ -579,8 +579,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
             # Remove image if no one using it
             if image.users == 0:
-                image.user_clear()
-                bpy.data.images.remove(image)
+                remove_datablock(bpy.data.images, image)
 
         # Refresh linear nodes
         check_yp_linear_nodes(yp)
@@ -712,8 +711,7 @@ class YConvertToStandardImage(bpy.types.Operator):
                     still_used = True
 
             if not still_used:
-                ia_image.user_clear()
-                bpy.data.images.remove(ia_image)
+                remove_datablock(bpy.data.images, ia_image)
 
         # Refresh linear nodes
         #check_yp_linear_nodes(yp)

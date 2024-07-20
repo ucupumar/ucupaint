@@ -1354,8 +1354,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
         # Remove already existing images
         for img in loaded_images:
             if img not in images:
-                img.user_clear()
-                bpy.data.images.remove(img)
+                remove_datablock(bpy.data.images, img)
 
         yp = ch.id_data.yp
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
@@ -1508,8 +1507,7 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         # Remove already existing images
         for img in loaded_images:
             if img not in images:
-                img.user_clear()
-                bpy.data.images.remove(img)
+                remove_datablock(bpy.data.images, img)
 
         yp = ch.id_data.yp
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
@@ -1800,8 +1798,7 @@ class BaseMultipleImagesLayer():
             # Remove loaded images
             for image in images:
                 #if image not in exist_images:
-                image.user_clear()
-                bpy.data.images.remove(image)
+                remove_datablock(bpy.data.images, image)
             return False
 
         # Check if found more than 1 images for normal channel
@@ -1877,8 +1874,7 @@ class BaseMultipleImagesLayer():
         # Remove unused images
         for image in images:
             if image not in valid_images: # and image not in exist_images:
-                image.user_clear()
-                bpy.data.images.remove(image)
+                remove_datablock(bpy.data.images, image)
 
         # Update UI
         wm.ypui.need_update = True
@@ -3087,8 +3083,7 @@ def remove_layer(yp, index):
 
     # Remove node group and layer tree
     if layer_tree: 
-        layer_tree.user_clear()
-        bpy.data.node_groups.remove(layer_tree)
+        remove_datablock(bpy.data.node_groups, layer_tree)
     if layer.trash_group_node != '':
         trash = group_tree.nodes.get(yp.trash)
         if trash: trash.node_tree.nodes.remove(trash.node_tree.nodes.get(layer.trash_group_node))
