@@ -3196,7 +3196,8 @@ def set_uv_mirror_offsets(obj, matrix):
 
     movec = Vector((mirror.mirror_offset_u/2, mirror.mirror_offset_v/2, 0.0))
     if is_greater_than_280():
-        movec = matrix @ movec
+        # NOTE: For compatibility to older blenders, put matrix multiplication under eval
+        movec = eval('matrix @ movec')
     else: movec = matrix * movec
 
     if mirror.use_mirror_u:
@@ -3447,17 +3448,19 @@ def refresh_temp_uv(obj, entity):
         if mapping.vector_type == 'TEXTURE':
             for uv in arr:
                 vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-                vec = m @ vec
-                vec = m1 @ vec
-                vec = m2 @ vec
-                vec = m3 @ vec
-                vec = m4 @ vec
+                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
+                vec = eval('m @ vec')
+                vec = eval('m1 @ vec')
+                vec = eval('m2 @ vec')
+                vec = eval('m3 @ vec')
+                vec = eval('m4 @ vec')
                 uv[0] = vec[0]
                 uv[1] = vec[1]
         else:
             for uv in arr:
                 vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-                vec = m @ vec
+                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
+                vec = eval('m @ vec')
                 uv[0] = vec[0]
                 uv[1] = vec[1]
     else:
