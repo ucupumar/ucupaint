@@ -949,7 +949,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 if dest_subval:
                     copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif attr_type == bpy_types.bpy_prop_array:
+        elif hasattr(bpy_types, 'bpy_prop_array') and attr_type == bpy_types.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_val[i] = subval
@@ -980,7 +980,7 @@ def copy_node_props_(source, dest, extras = []):
         #        dest_subval = dest_val.add()
         #        copy_id_props(subval, dest_subval)
 
-        if attr_type == bpy_types.bpy_prop_array:
+        if hasattr(bpy_types, 'bpy_prop_array') and attr_type == bpy_types.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 try: 
@@ -5819,7 +5819,9 @@ def copy_fcurves(src_fc, dest, subdest, attr):
     prop_value = getattr(subdest, attr)
 
     # Check array index
-    array_index = src_fc.array_index if type(prop_value) == bpy_types.bpy_prop_array else -1
+    array_index = -1
+    if hasattr(bpy_types, 'bpy_prop_array'):
+        array_index = src_fc.array_index if type(prop_value) == bpy_types.bpy_prop_array else -1
 
     # New fcurve
     nfc = None
