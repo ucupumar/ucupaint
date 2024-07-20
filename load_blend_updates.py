@@ -998,7 +998,7 @@ def copy_lib_tree_contents(tree, lib_tree, lib_trees):
     cur_output_names = [outp.name for outp in get_tree_outputs(tree)]
     for outp in get_tree_outputs(lib_tree):
         if outp.name not in cur_output_names:
-            description = outp.description if hasattr(inp, 'description') else ''
+            description = outp.description if hasattr(outp, 'description') else ''
             noutp = new_tree_output(tree, outp.name, outp.bl_socket_idname, description)
             # NOTE: Reverse is needed because some prop need to be set first, probably not the best solution
             copy_id_props(outp, noutp, socket_exception_props, reverse=True)
