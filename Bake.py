@@ -376,29 +376,29 @@ class YTransferSomeLayerUV(bpy.types.Operator):
     bl_description = "Transfer some layers/masks UV by baking it to other uv (this will take quite some time to finish)"
     bl_options = {'REGISTER', 'UNDO'}
 
-    from_uv_map : StringProperty(default='')
-    uv_map : StringProperty(default='')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    from_uv_map = StringProperty(default='')
+    uv_map = StringProperty(default='')
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    samples : IntProperty(name='Bake Samples', 
+    samples = IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin : IntProperty(name='Bake Margin',
+    margin = IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    margin_type : EnumProperty(name = 'Margin Type',
+    margin_type = EnumProperty(name = 'Margin Type',
             description = '',
             items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
                      ('EXTEND', 'Extend', 'Extend border pixels outwards')),
             default = 'ADJACENT_FACES')
 
-    remove_from_uv : BoolProperty(name='Delete From UV',
+    remove_from_uv = BoolProperty(name='Delete From UV',
             description = "Remove 'From UV' from objects",
             default=False)
 
-    reorder_uv_list : BoolProperty(name='Reorder UV',
+    reorder_uv_list = BoolProperty(name='Reorder UV',
             description = "Reorder 'To UV' so it will have the same index as 'From UV'",
             default=True)
 
@@ -552,18 +552,18 @@ class YTransferLayerUV(bpy.types.Operator):
     bl_description = "Transfer Layer UV by baking it to other uv (this will take quite some time to finish)"
     bl_options = {'REGISTER', 'UNDO'}
 
-    uv_map : StringProperty(default='')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map = StringProperty(default='')
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    samples : IntProperty(name='Bake Samples', 
+    samples = IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin : IntProperty(name='Bake Margin',
+    margin = IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    margin_type : EnumProperty(name = 'Margin Type',
+    margin_type = EnumProperty(name = 'Margin Type',
             description = '',
             items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
                      ('EXTEND', 'Extend', 'Extend border pixels outwards')),
@@ -696,21 +696,21 @@ class YResizeImage(bpy.types.Operator):
     bl_description = "Resize image of layer or mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    layer_name : StringProperty(default='')
-    image_name : StringProperty(default='')
+    layer_name = StringProperty(default='')
+    image_name = StringProperty(default='')
 
-    width : IntProperty(name='Width', default = 1024, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1024, min=1, max=16384)
+    width = IntProperty(name='Width', default = 1024, min=1, max=16384)
+    height = IntProperty(name='Height', default = 1024, min=1, max=16384)
 
-    samples : IntProperty(name='Bake Samples', 
+    samples = IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated image', 
             default=1, min=1)
 
-    all_tiles : BoolProperty(name='Resize All Tiles',
+    all_tiles = BoolProperty(name='Resize All Tiles',
             description='Resize all tiles',
             default=False)
 
-    tile_number : EnumProperty(name='Tile Number',
+    tile_number = EnumProperty(name='Tile Number',
             description='Tile number that will be resized',
             items = UDIM.udim_tilenum_items,
             update=update_resize_image_tile_number)
@@ -851,37 +851,37 @@ class YBakeChannelToVcol(bpy.types.Operator):
     bl_label = "Bake channel to vertex color"
     bl_options = {'REGISTER', 'UNDO'}
 
-    all_materials : BoolProperty(
+    all_materials = BoolProperty(
             name='Bake All Materials',
             description='Bake all materials with ucupaint nodes rather than just the active one',
             default=False)
 
-    vcol_name : StringProperty(
+    vcol_name = StringProperty(
             name='Target Vertex Color Name', 
             description="Target vertex color name, it will create one if it doesn't exists",
             default='')
     
-    add_emission : BoolProperty(
+    add_emission = BoolProperty(
             name='Add Emission', 
             description='Add the result with Emission Channel', 
             default=False)
 
-    emission_multiplier : FloatProperty(
+    emission_multiplier = FloatProperty(
             name='Emission Multiplier',
             description='Emission multiplier so the emission can be more visible on the result',
             default=1.0, min=0.0)
 
-    force_first_index : BoolProperty(
+    force_first_index = BoolProperty(
             name='Force First Index', 
             description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
             default=True)
 
-    include_alpha : BoolProperty(
+    include_alpha = BoolProperty(
             name='Include Alpha',
             description="Bake channel alpha to result (need channel enable alpha)",
             default=False)
 
-    bake_to_alpha_only : BoolProperty(
+    bake_to_alpha_only = BoolProperty(
             name='Bake To Alpha Only',
             description="Bake value into the alpha",
             default=False)
@@ -1064,7 +1064,7 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
     bl_description = "Delete all baked channel images"
     bl_options = {'REGISTER', 'UNDO'}
 
-    also_del_vcol : BoolProperty(
+    also_del_vcol = BoolProperty(
         name="Also delete the vertex color",
         default=False)
 
@@ -1169,57 +1169,57 @@ class YBakeChannels(bpy.types.Operator):
     bl_label = "Bake channels to Image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+    width = IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height = IntProperty(name='Height', default = 1234, min=1, max=16384)
 
-    uv_map : StringProperty(default='', update=update_bake_channel_uv_map)
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map = StringProperty(default='', update=update_bake_channel_uv_map)
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    interpolation : EnumProperty(
+    interpolation = EnumProperty(
             name = 'Image Interpolation Type',
             description = 'Image interpolation type',
             items = interpolation_type_items,
             default = 'Linear')
 
-    samples : IntProperty(name='Bake Samples', 
+    samples = IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin : IntProperty(name='Bake Margin',
+    margin = IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    margin_type : EnumProperty(name = 'Margin Type',
+    margin_type = EnumProperty(name = 'Margin Type',
             description = '',
             items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
                      ('EXTEND', 'Extend', 'Extend border pixels outwards')),
             default = 'ADJACENT_FACES')
 
-    #hdr : BoolProperty(name='32 bit Float', default=False)
+    #hdr = BoolProperty(name='32 bit Float', default=False)
 
-    only_active_channel : BoolProperty(name = 'Only Bake Active Channel',
+    only_active_channel = BoolProperty(name = 'Only Bake Active Channel',
             description = 'Only bake active channel',
             default = False)
 
-    fxaa : BoolProperty(name='Use FXAA', 
+    fxaa = BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
             default=True)
 
-    aa_level : IntProperty(
+    aa_level = IntProperty(
         name='Anti Aliasing Level',
         description='Super Sample Anti Aliasing Level (1=off)',
         default=1, min=1, max=2)
 
-    denoise : BoolProperty(name='Use Denoise', 
+    denoise = BoolProperty(name='Use Denoise', 
             description = "Use Denoise on baked images",
             default=False)
 
-    force_bake_all_polygons : BoolProperty(
+    force_bake_all_polygons = BoolProperty(
             name='Force Bake all Polygons',
             description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
             default=False)
 
-    bake_device : EnumProperty(
+    bake_device = EnumProperty(
             name='Bake Device',
             description='Device to use for baking',
             items = (('GPU', 'GPU Compute', ''),
@@ -1227,26 +1227,26 @@ class YBakeChannels(bpy.types.Operator):
             default='CPU'
             )
     
-    enable_bake_as_vcol : BoolProperty(name='Enable Bake As VCol',
+    enable_bake_as_vcol = BoolProperty(name='Enable Bake As VCol',
             description='Has any channel enabled Bake As Vertex Color',
             default=False)
 
-    vcol_force_first_ch_idx : EnumProperty(
+    vcol_force_first_ch_idx = EnumProperty(
                 name='Force First Vertex Color Channel',
                 description='Force the first channel after baking the Vertex Color',
                 items=bake_vcol_channel_items)
 
-    vcol_force_first_ch_idx_bool : BoolProperty(
+    vcol_force_first_ch_idx_bool = BoolProperty(
                 name='Force First Vertex Color Channel',
                 description='Force the first channel after baking the Vertex Color',
                 default=False)
 
-    use_udim : BoolProperty(
+    use_udim = BoolProperty(
             name = 'Use UDIM Tiles',
             description='Use UDIM Tiles',
             default=False)
 
-    use_udim : BoolProperty(
+    use_udim = BoolProperty(
             name = 'Use UDIM Tiles',
             description='Use UDIM Tiles',
             default=False)
@@ -2024,29 +2024,29 @@ class YMergeLayer(bpy.types.Operator):
     bl_description = "Merge Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction : EnumProperty(
+    direction = EnumProperty(
             name = 'Direction',
             items = (('UP', 'Up', ''),
                      ('DOWN', 'Down', '')),
             default = 'UP')
 
-    channel_idx : EnumProperty(
+    channel_idx = EnumProperty(
             name = 'Channel',
             description = 'Channel for merge reference',
             items = merge_channel_items)
             #update=update_channel_idx_new_layer)
 
-    apply_modifiers : BoolProperty(
+    apply_modifiers = BoolProperty(
             name = 'Apply Layer Modifiers',
             description = 'Apply layer modifiers',
             default = False)
 
-    apply_neighbor_modifiers : BoolProperty(
+    apply_neighbor_modifiers = BoolProperty(
             name = 'Apply Neighbor Modifiers',
             description = 'Apply neighbor modifiers',
             default = True)
 
-    #height_aware : BoolProperty(
+    #height_aware = BoolProperty(
     #        name = 'Height Aware',
     #        description = 'Height will take account for merge',
     #        default = True)
@@ -2362,7 +2362,7 @@ class YMergeMask(bpy.types.Operator):
     bl_description = "Merge Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction : EnumProperty(
+    direction = EnumProperty(
             name = 'Direction',
             items = (('UP', 'Up', ''),
                      ('DOWN', 'Down', '')),
@@ -2549,27 +2549,27 @@ class YBakeTempImage(bpy.types.Operator):
     bl_description = "Bake temporary image of layer, can be useful to prefent glitch on cycles"
     bl_options = {'REGISTER', 'UNDO'}
 
-    uv_map : StringProperty(default='')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map = StringProperty(default='')
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    samples : IntProperty(name='Bake Samples', 
+    samples = IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin : IntProperty(name='Bake Margin',
+    margin = IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    margin_type : EnumProperty(name = 'Margin Type',
+    margin_type = EnumProperty(name = 'Margin Type',
             description = '',
             items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
                      ('EXTEND', 'Extend', 'Extend border pixels outwards')),
             default = 'ADJACENT_FACES')
 
-    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+    width = IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height = IntProperty(name='Height', default = 1234, min=1, max=16384)
 
-    hdr : BoolProperty(name='32 bit Float', default=True)
+    hdr = BoolProperty(name='32 bit Float', default=True)
 
     @classmethod
     def poll(cls, context):
