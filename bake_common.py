@@ -924,10 +924,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
     # Create new plane
     bpy.ops.object.mode_set(mode = 'OBJECT')
-    bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
-    if is_greater_than_280():
-        plane_obj = bpy.context.view_layer.objects.active
-    else: plane_obj = bpy.context.scene.objects.active
+    plane_obj = create_plane_on_object_mode()
 
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=0, bake_device=bake_device)
 
@@ -1041,6 +1038,21 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
     return image
 
+def create_plane_on_object_mode():
+
+    if not is_greater_than_277():
+        bpy.ops.mesh.primitive_plane_add()
+        bpy.ops.object.mode_set(mode = 'EDIT')
+        bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.0)
+        bpy.ops.object.mode_set(mode = 'OBJECT')
+    else: 
+        bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
+
+    if not is_greater_than_280():
+        return bpy.context.scene.objects.active
+
+    return bpy.context.view_layer.objects.active
+
 def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False):
     T = time.time()
     print('FXAA: Doing FXAA pass on', image.name + '...')
@@ -1053,10 +1065,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
 
     # Create new plane
     bpy.ops.object.mode_set(mode = 'OBJECT')
-    bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
-    if is_greater_than_280():
-        plane_obj = bpy.context.view_layer.objects.active
-    else: plane_obj = bpy.context.scene.objects.active
+    plane_obj = create_plane_on_object_mode()
 
     prepare_bake_settings(book, [plane_obj], samples=1, margin=0, bake_device=bake_device)
 
@@ -2177,10 +2186,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
     # Create new plane
     bpy.ops.object.mode_set(mode = 'OBJECT')
-    bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
-    if is_greater_than_280():
-        plane_obj = bpy.context.view_layer.objects.active
-    else: plane_obj = bpy.context.scene.objects.active
+    plane_obj = create_plane_on_object_mode()
 
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=margin, bake_device=bake_device)
 

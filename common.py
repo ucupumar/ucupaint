@@ -557,6 +557,11 @@ def get_current_version():
 def is_online():
     return not is_greater_than_420() or bpy.app.online_access
 
+def is_greater_than_277():
+    if bpy.app.version >= (2, 77, 0):
+        return True
+    return False
+
 def is_greater_than_279():
     if bpy.app.version >= (2, 79, 0):
         return True
