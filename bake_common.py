@@ -1549,8 +1549,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         mat.node_tree.links.new(rgb, emit.inputs[0])
 
-        #if root_ch.type == 'NORMAL':
-        #    return
+        #return
 
         # Bake!
         print('BAKE CHANNEL: Baking main image of ' + root_ch.name + ' channel...')

@@ -1545,7 +1545,6 @@ class YBakeChannels(bpy.types.Operator):
         for ch in self.channels:
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
-                #if ch.type != 'NORMAL': continue
                 use_hdr = not ch.use_clamp
                 bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, tilenums=tilenums, interpolation=self.interpolation)
 

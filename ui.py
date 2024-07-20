@@ -131,7 +131,9 @@ def draw_bake_info(bake_info, layout, entity):
             brow = bcol.row()
             brow.context_pointer_set('other_object', oo)
             brow.context_pointer_set('bake_info', bi)
-            brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
+            if is_greater_than_279():
+                brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
+            else: brow.label(text=oo.object_name, icon_value=lib.get_icon('object_index'))
             brow.operator('node.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())

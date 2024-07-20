@@ -35,20 +35,15 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
 
-        #mat = get_active_material()
-        #objs = get_all_objects_with_same_materials(mat)
-        objs = [bso.object for bso in bi.selected_objects]
+        scene_objs = get_scene_objects()
+        objs = []
+        for bso in bi.selected_objects:
+            if is_greater_than_279():
+                bsoo = bso.object
+            else: bsoo = scene_objs.get(bso.object_name)
 
-        #print(objs)
-
-        # Disable viewport hide of object layer collection
-        #for o in objs:
-        #    layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
-        #    for lc in layer_cols:
-        #        #lc.exclude = False
-        #        lc.hide_viewport = False
-        #        lc.collection.hide_viewport = False
-        #        #lc.collection.hide_render = False
+            if bsoo and bsoo not in objs:
+                objs.append(bsoo)
 
         # Get actual selectable objects
         actual_selectable_objs = []
@@ -80,8 +75,11 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         bpy.ops.mesh.select_all(action='DESELECT')
 
         for bso in bi.selected_objects:
-            obj = bso.object
-            if obj not in actual_selectable_objs: continue
+            if is_greater_than_279():
+                obj = bso.object
+            else: obj = scene_objs.get(bso.object_name)
+
+            if not obj or obj not in actual_selectable_objs: continue
 
             mesh = obj.data
             bm = bmesh.from_edit_mesh(mesh)
@@ -876,14 +874,18 @@ class YBakeToLayer(bpy.types.Operator):
 
                 scene_objs = get_scene_objects()
                 for oo in bi.other_objects:
-                    if oo.object:
+                    if is_greater_than_279():
+                        ooo = oo.object
+                    else: ooo = scene_objs.get(oo.object_name)
+
+                    if ooo:
                         if is_greater_than_280():
                             # Check if object is on current view layer
-                            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, oo.object)
-                            if oo.object not in other_objs and any(layer_cols):
-                                other_objs.append(oo.object)
+                            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, ooo)
+                            if ooo not in other_objs and any(layer_cols):
+                                other_objs.append(ooo)
                         else:
-                            o = scene_objs.get(oo.object.name)
+                            o = scene_objs.get(ooo.name)
                             if o and o not in other_objs:
                                 other_objs.append(o)
 
@@ -1778,13 +1780,23 @@ class YBakeToLayer(bpy.types.Operator):
 
                 # Remember other objects to bake info
                 for o in other_objs:
-                    if not any([oo for oo in bi.other_objects if oo.object == o]):
+                    if is_greater_than_279(): 
+                        oo_recorded = any([oo for oo in bi.other_objects if oo.object == o])
+                    else: oo_recorded = any([oo for oo in bi.other_objects if oo.object_name == o.name])
+
+                    if not oo_recorded:
                         oo = bi.other_objects.add()
-                        oo.object = o
+                        if is_greater_than_279(): 
+                            oo.object = o
+                        oo.object_name = o.name
 
                 # Remove unused other objects on bake info
                 for i, oo in reversed(list(enumerate(bi.other_objects))):
-                    if oo.object not in other_objs:
+                    if is_greater_than_279():
+                        ooo = oo.object
+                    else: ooo = bpy.data.objects.get(oo.object_name)
+
+                    if ooo not in other_objs:
                         bi.other_objects.remove(i)
 
             if self.type == 'SELECTED_VERTICES':
@@ -1799,7 +1811,9 @@ class YBakeToLayer(bpy.types.Operator):
                 for obj_name, v_indices in obj_vertex_indices.items():
                     obj = bpy.data.objects.get(obj_name)
                     bso = bi.selected_objects.add()
-                    bso.object = obj
+                    if is_greater_than_279():
+                        bso.object = obj
+                    bso.object_name = obj.name
 
                     # Collect selected vertex data to bake info
                     for vi in v_indices:

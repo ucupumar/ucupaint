@@ -318,8 +318,9 @@ def save_pack_all(yp):
                 ypui.refresh_image_hack = True
 
     # Clean object reference on images
-    for image in images:
-        clean_object_references(image)
+    if is_greater_than_279():
+        for image in images:
+            clean_object_references(image)
 
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
