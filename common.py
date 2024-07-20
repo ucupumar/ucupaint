@@ -4544,8 +4544,13 @@ def set_active_paint_slot_entity(yp):
     image = None
     mat = get_active_material()
     node = get_active_ypaint_node()
+    obj = bpy.context.object
     scene = bpy.context.scene
     root_tree = yp.id_data
+
+    # Multiple materials will use single active image instead active material image
+    # since it's the only way texture paint mode won't mess with other material image
+    is_multiple_mats = obj.type == 'MESH' and len(obj.data.materials) > 1
 
     # Set material active node 
     node.select = True
@@ -4663,7 +4668,7 @@ def set_active_paint_slot_entity(yp):
 
                 image = source.image
 
-    if image and is_greater_than_281():
+    if not is_multiple_mats and image and is_greater_than_281():
 
         scene.tool_settings.image_paint.mode = 'MATERIAL'
 
