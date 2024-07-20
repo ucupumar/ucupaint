@@ -494,6 +494,16 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
                         scene.layers[i] = True
                         break
 
+            # Blender 2.76 need all objects to be UV unwrapped
+            if not is_greater_than_277():
+                ori_active_object = scene.objects.active
+                uv_layers = get_uv_layers(obj)
+                if len(uv_layers) == 0:
+                    scene.objects.active = obj
+                    bpy.ops.node.y_add_simple_uvs()
+                if scene.objects.active != ori_active_object:
+                    scene.objects.active = ori_active_object
+
     book['obj_mods_lib'] = {}
     if disable_problematic_modifiers:
         for obj in objs:

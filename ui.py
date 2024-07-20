@@ -4300,22 +4300,23 @@ class YNewLayerMenu(bpy.types.Menu):
         c.target_type = 'LAYER'
         c.overwrite_current = False
 
-        col.separator()
+        if is_greater_than_277():
+            col.separator()
 
-        c = col.operator("node.y_bake_to_layer", text='Other Objects Emission')
-        c.type = 'OTHER_OBJECT_EMISSION'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
+            c = col.operator("node.y_bake_to_layer", text='Other Objects Emission')
+            c.type = 'OTHER_OBJECT_EMISSION'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
 
-        c = col.operator("node.y_bake_to_layer", text='Other Objects Normal')
-        c.type = 'OTHER_OBJECT_NORMAL'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
+            c = col.operator("node.y_bake_to_layer", text='Other Objects Normal')
+            c.type = 'OTHER_OBJECT_NORMAL'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
 
-        c = col.operator("node.y_bake_to_layer", text='Other Objects Channels')
-        c.type = 'OTHER_OBJECT_CHANNELS'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
+            c = col.operator("node.y_bake_to_layer", text='Other Objects Channels')
+            c.type = 'OTHER_OBJECT_CHANNELS'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
 
         col.separator()
 
