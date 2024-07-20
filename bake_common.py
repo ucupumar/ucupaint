@@ -96,10 +96,10 @@ def remember_before_bake(yp=None, mat=None):
     book['ori_normal_space'] = scene.render.bake.normal_space
     book['ori_simplify'] = scene.render.use_simplify
     book['ori_device'] = scene.cycles.device
-    book['ori_use_pass_direct'] = scene.render.bake.use_pass_direct
-    book['ori_use_pass_indirect'] = scene.render.bake.use_pass_indirect
-    book['ori_use_pass_diffuse'] = scene.render.bake.use_pass_diffuse
-    book['ori_use_pass_emit'] = scene.render.bake.use_pass_emit
+    if hasattr(scene.render.bake, 'use_pass_direct'): book['ori_use_pass_direct'] = scene.render.bake.use_pass_direct
+    if hasattr(scene.render.bake, 'use_pass_indirect'): book['ori_use_pass_indirect'] = scene.render.bake.use_pass_indirect
+    if hasattr(scene.render.bake, 'use_pass_diffuse'): book['ori_use_pass_diffuse'] = scene.render.bake.use_pass_diffuse
+    if hasattr(scene.render.bake, 'use_pass_emit'): book['ori_use_pass_emit'] = scene.render.bake.use_pass_emit
     if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'):
         book['ori_use_pass_ambient_occlusion'] = scene.render.bake.use_pass_ambient_occlusion
 
@@ -377,12 +377,11 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         if is_greater_than_280(): scene.render.bake.cage_object = cage_object
         else: scene.render.bake.cage_object = cage_object.name
     scene.render.use_simplify = False
-    scene.render.bake.use_pass_direct = True
-    scene.render.bake.use_pass_indirect = True
-    scene.render.bake.use_pass_diffuse = True
-    scene.render.bake.use_pass_emit = True
-    if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'):
-        scene.render.bake.use_pass_ambient_occlusion = True
+    if hasattr(scene.render.bake, 'use_pass_direct'): scene.render.bake.use_pass_direct = True
+    if hasattr(scene.render.bake, 'use_pass_indirect'): scene.render.bake.use_pass_indirect = True
+    if hasattr(scene.render.bake, 'use_pass_diffuse'): scene.render.bake.use_pass_diffuse = True
+    if hasattr(scene.render.bake, 'use_pass_emit'): scene.render.bake.use_pass_emit = True
+    if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'): scene.render.bake.use_pass_ambient_occlusion = True
 
     if hasattr(scene.render, 'tile_x'):
         scene.render.tile_x = tile_x
@@ -577,12 +576,11 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene.render.bake.use_clear = book['ori_use_clear']
     scene.render.use_simplify = book['ori_simplify']
     scene.cycles.device = book['ori_device']
-    scene.render.bake.use_pass_direct = book['ori_use_pass_direct']
-    scene.render.bake.use_pass_indirect = book['ori_use_pass_indirect']
-    scene.render.bake.use_pass_emit = book['ori_use_pass_emit']
-    scene.render.bake.use_pass_diffuse = book['ori_use_pass_diffuse']
-    if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'):
-        scene.render.bake.use_pass_ambient_occlusion = book['ori_use_pass_ambient_occlusion']
+    if hasattr(scene.render.bake, 'use_pass_direct'): scene.render.bake.use_pass_direct = book['ori_use_pass_direct']
+    if hasattr(scene.render.bake, 'use_pass_indirect'): scene.render.bake.use_pass_indirect = book['ori_use_pass_indirect']
+    if hasattr(scene.render.bake, 'use_pass_emit'): scene.render.bake.use_pass_emit = book['ori_use_pass_emit']
+    if hasattr(scene.render.bake, 'use_pass_diffuse'): scene.render.bake.use_pass_diffuse = book['ori_use_pass_diffuse']
+    if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'): scene.render.bake.use_pass_ambient_occlusion = book['ori_use_pass_ambient_occlusion']
     if hasattr(scene.render, 'tile_x'):
         scene.render.tile_x = book['ori_tile_x']
         scene.render.tile_y = book['ori_tile_y']
@@ -814,6 +812,7 @@ def recover_composite_settings(book):
             bpy.data.cameras.remove(cam)
 
     # Remove temp scene
+    scene.user_clear()
     bpy.data.scenes.remove(scene)
 
     # Go back to original scene
@@ -896,6 +895,7 @@ def denoise_image(image):
         copy_image_pixels(temp_image, image)
 
         # Remove temp image
+        temp_image.user_clear()
         bpy.data.images.remove(temp_image)
         os.remove(filepath)
 
@@ -1009,20 +1009,25 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
             UDIM.swap_tile(image, 1001, tilenum)
 
         # Remove temp images
+        image_copy.user_clear()
         bpy.data.images.remove(image_copy)
 
     # Remove temp datas
     print('BLUR: Removing temporary data of blur pass')
     if alpha_aware:
         if straight_over.node_tree.users == 1:
+            straight_over.node_tree.user_clear()
             bpy.data.node_groups.remove(straight_over.node_tree)
 
     if blur.node_tree.users == 1:
+        blur.node_tree.user_clear()
         bpy.data.node_groups.remove(blur.node_tree)
 
+    mat.user_clear()
     bpy.data.materials.remove(mat)
     plane = plane_obj.data
     bpy.ops.object.delete()
+    plane.user_clear()
     bpy.data.meshes.remove(plane)
 
     # Recover settings
@@ -1149,22 +1154,30 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
             UDIM.swap_tile(image, 1001, tilenum)
 
         # Remove temp images
+        image_copy.user_clear()
         bpy.data.images.remove(image_copy)
-        if image_ori : bpy.data.images.remove(image_ori)
+        if image_ori : 
+            image_ori.user_clear()
+            bpy.data.images.remove(image_ori)
 
     # Remove temp datas
     print('FXAA: Removing temporary data of FXAA pass')
     if alpha_aware:
         if straight_over.node_tree.users == 1:
+            straight_over.node_tree.user_clear()
             bpy.data.node_groups.remove(straight_over.node_tree)
 
     if fxaa.node_tree.users == 1:
+        tex_node.node_tree.user_clear()
         bpy.data.node_groups.remove(tex_node.node_tree)
+        fxaa.node_tree.user_clear()
         bpy.data.node_groups.remove(fxaa.node_tree)
 
+    mat.user_clear()
     bpy.data.materials.remove(mat)
     plane = plane_obj.data
     bpy.ops.object.delete()
+    plane.user_clear()
     bpy.data.meshes.remove(plane)
 
     # Recover settings
@@ -1633,6 +1646,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     img_users = get_all_image_users(baked_normal_overlay.image)
                     for user in img_users:
                         user.image = norm_img
+                    temp.user_clear()
                     bpy.data.images.remove(temp)
                 else:
                     baked_normal_overlay.image = norm_img
@@ -1702,6 +1716,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     img_users = get_all_image_users(baked_vdisp.image)
                     for user in img_users:
                         user.image = vdisp_img
+                    temp.user_clear()
                     bpy.data.images.remove(temp)
                 else:
                     baked_vdisp.image = vdisp_img
@@ -1756,6 +1771,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             end_max_height.outputs[0].default_value = max_height_value
 
             # Remove max height image
+            mh_img.user_clear()
             bpy.data.images.remove(mh_img)
 
             ### Displacement
@@ -1834,6 +1850,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     img_users = get_all_image_users(baked_disp.image)
                     for user in img_users:
                         user.image = disp_img
+                    temp.user_clear()
                     bpy.data.images.remove(temp)
                 else:
                     baked_disp.image = disp_img
@@ -1880,6 +1897,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 UDIM.swap_tile(alpha_img, 1001, tilenum)
 
         # Remove temp image
+        alpha_img.user_clear()
         bpy.data.images.remove(alpha_img)
 
     if not target_layer:
@@ -1889,6 +1907,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             img_users = get_all_image_users(baked.image)
             for user in img_users:
                 user.image = img
+            temp.user_clear()
             bpy.data.images.remove(temp)
         else:
             baked.image = img
@@ -1919,11 +1938,13 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 UDIM.copy_tiles(img, ori_img, copy_dict)
 
             # Remove temp image
+            img.user_clear()
             bpy.data.images.remove(img)
         else:
             source.image = img
 
             if ori_img.users == 0:
+                ori_img.user_clear()
                 bpy.data.images.remove(ori_img)
 
         return True
@@ -2118,6 +2139,7 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
     # Remove temp meshes
     for nm in new_meshes:
         if nm != merged_obj.data:
+            nm.user_clear()
             bpy.data.meshes.remove(nm)
 
     print('INFO: Merging mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
@@ -2297,6 +2319,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
             else: copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, segment)
 
             # Remove alpha image
+            alpha_img.user_clear()
             bpy.data.images.remove(alpha_img)
 
         if image.source == 'TILED':
@@ -2306,6 +2329,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
             # Copy resized image to tile
             copy_image_pixels(scaled_img, image)
 
+            scaled_img.user_clear()
             bpy.data.images.remove(scaled_img)
         else:
             if not new_segment:
@@ -2319,10 +2343,13 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
     # Remove temp datas
     if straight_over.node_tree.users == 1:
+        straight_over.node_tree.user_clear()
         bpy.data.node_groups.remove(straight_over.node_tree)
+    mat.user_clear()
     bpy.data.materials.remove(mat)
     plane = plane_obj.data
     bpy.ops.object.delete()
+    plane.user_clear()
     bpy.data.meshes.remove(plane)
 
     # Recover settings
@@ -2347,7 +2374,9 @@ def get_temp_default_material():
 
 def remove_temp_default_material():
     mat = bpy.data.materials.get(TEMP_MATERIAL)
-    if mat: bpy.data.materials.remove(mat)
+    if mat: 
+        mat.user_clear()
+        bpy.data.materials.remove(mat)
 
 def get_temp_emit_white_mat():
     mat = bpy.data.materials.get(TEMP_EMIT_WHITE)
@@ -2365,7 +2394,9 @@ def get_temp_emit_white_mat():
 
 def remove_temp_emit_white_mat():
     mat = bpy.data.materials.get(TEMP_EMIT_WHITE)
-    if mat: bpy.data.materials.remove(mat)
+    if mat: 
+        mat.user_clear()
+        bpy.data.materials.remove(mat)
 
 def get_output_uv_names_from_geometry_nodes(obj):
     if not is_greater_than_350: return []
