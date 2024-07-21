@@ -510,7 +510,8 @@ def draw_tex_props(source, layout, entity=None):
         col.prop(source, 'wave_type', text='')
         if hasattr(source, 'bands_direction'):
             col.prop(source, 'bands_direction', text='')
-        col.prop(source, 'wave_profile', text='')
+        if hasattr(source, 'wave_profile'):
+            col.prop(source, 'wave_profile', text='')
         col.separator()
 
         for inp in source.inputs:
@@ -4288,17 +4289,18 @@ class YNewLayerMenu(bpy.types.Menu):
         c.target_type = 'LAYER'
         c.overwrite_current = False
 
-        col.separator()
+        if is_greater_than_280():
+            col.separator()
 
-        c = col.operator("node.y_bake_to_layer", text='Multires Normal')
-        c.type = 'MULTIRES_NORMAL'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
+            c = col.operator("node.y_bake_to_layer", text='Multires Normal')
+            c.type = 'MULTIRES_NORMAL'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
 
-        c = col.operator("node.y_bake_to_layer", text='Multires Displacement')
-        c.type = 'MULTIRES_DISPLACEMENT'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
+            c = col.operator("node.y_bake_to_layer", text='Multires Displacement')
+            c.type = 'MULTIRES_DISPLACEMENT'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
 
         if is_greater_than_277():
             col.separator()
