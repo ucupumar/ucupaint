@@ -1897,7 +1897,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 UDIM.swap_tile(alpha_img, 1001, tilenum)
 
         # Remove temp image
-        remove_datablock(bpy.data.images, alpha_img)
+        remove_datablock(bpy.data.images, alpha_img, user=tex, user_prop='image')
 
     if not target_layer:
         # Set image to baked node and replace all previously original users
@@ -1910,7 +1910,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         else:
             baked.image = img
 
-    simple_remove_node(mat.node_tree, tex)
+    simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img)
     simple_remove_node(mat.node_tree, emit)
     #simple_remove_node(mat.node_tree, lin2srgb)
     #simple_remove_node(mat.node_tree, srgb2lin)

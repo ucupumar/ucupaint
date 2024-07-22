@@ -697,12 +697,14 @@ def is_created_before_410():
         return True
     return False
 
-def remove_datablock(blocks, block):
+def remove_datablock(blocks, block, user=None, user_prop=''):
     if is_greater_than_279():
         blocks.remove(block)
     elif is_greater_than_278():
         blocks.remove(block, do_unlink=True)
     else:
+        if user and user_prop != '':
+            setattr(user, user_prop, None)
         block.user_clear()
         blocks.remove(block)
 
@@ -1334,7 +1336,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
                     if n.bl_idname in {'ShaderNodeTexImage', 'ShaderNodeGroup'}:
                         simple_remove_node(node.node_tree, n, remove_data)
 
-                remove_datablock(bpy.data.node_groups, node.node_tree)
+                remove_datablock(bpy.data.node_groups, node.node_tree, user=node, user_prop='node_tree')
 
             #remove_tree_data_recursive(node)
 
@@ -1384,7 +1386,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
 
                 if node.node_tree and node.node_tree.users == 1:
                     remove_tree_inside_tree(node.node_tree)
-                    remove_datablock(bpy.data.node_groups, node.node_tree)
+                    remove_datablock(bpy.data.node_groups, node.node_tree, user=node, user_prop='node_tree')
 
             elif hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == get_vcol_bl_idname():
                 
@@ -1878,7 +1880,7 @@ def remove_tree_inside_tree(tree):
         if node.type == 'GROUP':
             if node.node_tree and node.node_tree.users == 1:
                 remove_tree_inside_tree(node.node_tree)
-                remove_datablock(bpy.data.node_groups, node.node_tree)
+                remove_datablock(bpy.data.node_groups, node.node_tree, user=node, user_prop='node_tree')
             else: node.node_tree = None
 
 def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name='', return_status=False, hard_replace=False, dirty=False):
@@ -3700,7 +3702,7 @@ def create_delete_iterate_nodes__(tree, num_of_iteration):
 
         if ig and counter >= depth:
             if ig.node_tree:
-                remove_datablock(bpy.data.node_groups, ig.node_tree)
+                remove_datablock(bpy.data.node_groups, ig.node_tree, user=ig, user_prop='node_tree')
             tree.nodes.remove(ig)
 
         if not ig_found and counter >= depth:
