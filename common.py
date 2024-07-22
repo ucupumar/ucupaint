@@ -4553,8 +4553,9 @@ def set_active_paint_slot_entity(yp):
     is_multiple_mats = obj.type == 'MESH' and len(obj.data.materials) > 1
 
     # Set material active node 
-    node.select = True
-    mat.node_tree.nodes.active = node
+    if is_greater_than_281():
+        node.select = True
+        mat.node_tree.nodes.active = node
 
     if yp.use_baked and len(yp.channels) > 0:
 
