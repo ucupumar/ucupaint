@@ -1356,6 +1356,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             segment = source.image.yua.segments.get(target_layer.segment_name)
         else:
             img_name = source.image.name
+            # Set new name for original image
+            source.image.name = get_unique_name(img_name, bpy.data.images)
             img = source.image.copy()
             img.name = img_name
 
@@ -1937,9 +1939,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             remove_datablock(bpy.data.images, img)
         else:
             source.image = img
-
-            if ori_img.users == 0:
-                remove_datablock(bpy.data.images, ori_img)
+            safe_remove_image(ori_img)
 
         return True
 

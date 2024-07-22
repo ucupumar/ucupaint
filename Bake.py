@@ -2180,7 +2180,7 @@ class YMergeLayer(bpy.types.Operator):
 
             book = remember_before_bake(yp)
             prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
-                    uv_map=layer.uv_name, bake_type='EMIT' 
+                    uv_map=layer.uv_name, bake_type='EMIT', bake_device='CPU'
                     )
 
             # Merge objects if necessary

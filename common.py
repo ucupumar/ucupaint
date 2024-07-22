@@ -1300,7 +1300,7 @@ def get_nodes_using_yp(mat, yp):
 #    if tree.users == 0:
 #        bpy.data.node_groups.remove(tree)
 
-def safe_remove_image(image, yp_tree=None):
+def safe_remove_image(image):
     scene = bpy.context.scene
 
     if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
@@ -1378,7 +1378,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
             if node.bl_idname == 'ShaderNodeTexImage':
 
                 image = node.image
-                if image: safe_remove_image(image, yp_tree)
+                if image: safe_remove_image(image)
 
             elif node.bl_idname == 'ShaderNodeGroup':
 
