@@ -31,7 +31,7 @@ def save_float_image(image):
     image.source = 'FILE'
 
     # Delete temporary scene
-    bpy.data.scenes.remove(tmpscene)
+    remove_datablock(bpy.data.scenes, tmpscene)
 
 def pack_float_image(image):
     original_path = image.filepath
@@ -78,7 +78,7 @@ def pack_float_image(image):
     else: image.colorspace_settings.name = 'Non-Color'
 
     # Delete temporary scene
-    bpy.data.scenes.remove(tmpscene)
+    remove_datablock(bpy.data.scenes, tmpscene)
 
     # Pack image
     image.pack()
@@ -214,6 +214,10 @@ def save_pack_all(yp):
             if baked_disp and baked_disp.image and baked_disp.image not in images:
                 images.append(baked_disp.image)
 
+            baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+            if baked_vdisp and baked_vdisp.image and baked_vdisp.image not in images:
+                images.append(baked_vdisp.image)
+
             if not is_overlay_normal_empty(yp):
                 baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
@@ -238,7 +242,6 @@ def save_pack_all(yp):
 
     # Save/pack images
     for image in images:
-        clean_object_references(image)
         if not image or not image.is_dirty: continue
         T = time.time()
         if image.packed_file or image.filepath == '':
@@ -300,7 +303,7 @@ def save_pack_all(yp):
 
     # Delete temporary scene
     if tmpscene:
-        bpy.data.scenes.remove(tmpscene)
+        remove_datablock(bpy.data.scenes, tmpscene)
 
     # HACK: For some reason active float image will glitch after auto save
     # This is only happen if active object is on texture paint mode
@@ -313,6 +316,11 @@ def save_pack_all(yp):
             if image in packed_float_images:
                 ypui = bpy.context.window_manager.ypui
                 ypui.refresh_image_hack = True
+
+    # Clean object reference on images
+    if is_greater_than_279():
+        for image in images:
+            clean_object_references(image)
 
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
@@ -416,6 +424,17 @@ class YPackImage(bpy.types.Operator):
                         else: baked_disp.image.pack(as_png=True)
 
                     baked_disp.image.filepath = ''
+
+                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image and not baked_vdisp.image.packed_file:
+                    if is_greater_than_280():
+                        baked_vdisp.image.pack()
+                    else:
+                        if baked_vdisp.image.is_float:
+                            pack_float_image(baked_vdisp.image)
+                        else: baked_vdisp.image.pack(as_png=True)
+
+                    baked_vdisp.image.filepath = ''
 
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
@@ -630,6 +649,10 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 if baked_disp and baked_disp.image:
                     images.append(baked_disp.image)
 
+                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image:
+                    images.append(baked_vdisp.image)
+
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
@@ -707,7 +730,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
             #print(path)
 
         # Delete temporary scene
-        bpy.data.scenes.remove(tmpscene)
+        remove_datablock(bpy.data.scenes, tmpscene)
 
         #print("Selected dir: '" + self.directory + "'")
 
@@ -990,20 +1013,23 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             self.report({'ERROR'}, 'Unpacking image atlas is not supported yet!')
             return {'CANCELLED'}
 
-        # Need to pack first to save the image
-        if image.is_dirty:
-            if is_greater_than_280():
-                image.pack()
-            else:
-                if image.is_float:
-                    pack_float_image(image)
-                else: image.pack(as_png=True)
-
-        # Unpack image if image is packed
+        # Packing and unpacking sometimes does not work if the blend file is not saved yet
         unpack = False
-        if self.unpack or image.packed_file:
-            unpack = True
-            self.unpack_image(context)
+        if bpy.data.filepath != '':
+
+            # Need to pack first to save the image
+            if image.is_dirty:
+                if is_greater_than_280():
+                    image.pack()
+                else:
+                    if image.is_float:
+                        pack_float_image(image)
+                    else: image.pack(as_png=True)
+
+            # Unpack image if image is packed
+            if self.unpack or image.packed_file:
+                unpack = True
+                self.unpack_image(context)
 
         # Create temporary scene
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
@@ -1014,7 +1040,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         # Some image need to set to srgb when saving
         ori_colorspace = image.colorspace_settings.name
-        if not image.is_float:
+        if not image.is_float and not image.is_dirty:
             image.colorspace_settings.name = 'sRGB'
 
         # Set settings
@@ -1048,8 +1074,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             if not self.copy:
                 image.filepath = self.filepath
 
-                if self.relative:
-                    image.filepath = bpy.path.relpath(image.filepath)
+                if self.relative and bpy.data.filepath != '':
+                    try: image.filepath = bpy.path.relpath(image.filepath)
+                    except Exception as e: print(e)
                 else: image.filepath = bpy.path.abspath(image.filepath)
 
                 image.source = 'FILE'
@@ -1063,7 +1090,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         image.colorspace_settings.name = ori_colorspace
 
         # Delete temporary scene
-        bpy.data.scenes.remove(tmpscene)
+        remove_datablock(bpy.data.scenes, tmpscene)
 
         #context.image.save()
         return {'FINISHED'}

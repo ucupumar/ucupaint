@@ -12,7 +12,7 @@ from .input_outputs import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1), source_input='RGB', edge_detect_radius=0.05, modifier_type='INVERT'):
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1), source_input='RGB', edge_detect_radius=0.05, modifier_type='INVERT', interpolation='Linear'):
     yp = layer.id_data.yp
     yp.halt_update = True
 
@@ -20,7 +20,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     nodes = tree.nodes
 
     mask = layer.masks.add()
-    mask.name = name
+    mask.name = get_unique_name(name, layer.masks)
     mask.type = mask_type
     mask.texcoord_type = texcoord_type
     mask.source_input = source_input
@@ -47,6 +47,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.image = image
         if hasattr(source, 'color_space'):
             source.color_space = 'NONE'
+        source.interpolation = interpolation
     elif mask_type == 'VCOL':
         if vcol: set_source_vcol_name(source, vcol.name)
         else: set_source_vcol_name(source, name)
@@ -82,6 +83,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         mask.uv_name = uv_name
 
         mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
+        mapping.vector_type = 'POINT' if segment else 'TEXTURE'
 
         if segment:
             ImageAtlas.set_segment_mapping(mask, segment, image)
@@ -166,6 +168,7 @@ def remove_mask(layer, mask, obj):
                     segment = image.yia.segments.get(mask.segment_name)
                     segment.unused = True
                 elif image.yua.is_udim_atlas:
+                    print('ZEGMENT:', mask.segment_name)
                     UDIM.remove_udim_atlas_segment_by_name(image, mask.segment_name, yp=yp)
 
     disable_mask_source_tree(layer, mask)
@@ -240,6 +243,12 @@ class YNewLayerMask(bpy.types.Operator):
     width : IntProperty(name='Width', default = 1234, min=1, max=16384)
     height : IntProperty(name='Height', default = 1234, min=1, max=16384)
     
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     blend_type : EnumProperty(
         name = 'Blend',
         description = 'Blend type',
@@ -376,6 +385,14 @@ class YNewLayerMask(bpy.types.Operator):
         else:
             self.blend_type = 'MULTIPLY'
 
+        # Check if there's height channel and use cubic interpolation if there is one
+        height_ch = get_height_channel(layer)
+        if height_ch and height_ch.enable and self.type == 'IMAGE':
+            self.interpolation = 'Cubic'
+        elif layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source and source.image: self.interpolation = source.interpolation
+
         return context.window_manager.invoke_props_dialog(self)
 
     def check(self, context):
@@ -403,6 +420,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='Width:')
             col.label(text='Height:')
+            col.label(text='Interpolation:')
 
         if self.type in {'VCOL', 'IMAGE'}:
             col.label(text='Color:')
@@ -442,6 +460,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
+            col.prop(self, 'interpolation', text='')
 
         if self.type in {'VCOL', 'IMAGE'}:
             col.prop(self, 'color_option', text='')
@@ -600,7 +619,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         # Add new mask
         mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
-                self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, modifier_type=self.modifier_type)
+                self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, modifier_type=self.modifier_type, interpolation=self.interpolation)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}:
@@ -643,6 +662,12 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             options={'HIDDEN', 'SKIP_SAVE'})
 
     relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
+
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
 
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
@@ -699,6 +724,14 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         # Default source input is always color for now
         self.source_input = 'RGB'
 
+        # Check if there's height channel and use cubic interpolation if there is one
+        height_ch = get_height_channel(self.layer)
+        if height_ch and height_ch.enable:
+            self.interpolation = 'Cubic'
+        elif self.layer.type == 'IMAGE':
+            source = get_layer_source(self.layer)
+            if source and source.image: self.interpolation = source.interpolation
+
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -711,6 +744,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         row = self.layout.row()
 
         col = row.column()
+        col.label(text='Interpolation:')
         col.label(text='Vector:')
         if len(self.layer.masks) > 0:
             col.label(text='Blend:')
@@ -718,6 +752,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         col.label(text='Image Channel:')
 
         col = row.column()
+        col.prop(self, 'interpolation', text='')
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -754,7 +789,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 image.colorspace_settings.name = 'Non-Color'
 
             # Add new mask
-            mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, blend_type=self.blend_type, source_input=self.source_input)
+            mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, 
+                                blend_type=self.blend_type, source_input=self.source_input,
+                                interpolation=self.interpolation
+                                )
 
         reconnect_layer_nodes(layer)
         rearrange_layer_nodes(layer)
@@ -803,6 +841,12 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             items = (('IMAGE', 'Image', ''),
                 ('VCOL', 'Vertex Color', '')),
             default = 'IMAGE')
+
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
 
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
@@ -891,6 +935,14 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                 self.image_name = ''
             else: self.image_name = self.image_name
 
+            # Check if there's height channel and use cubic interpolation if there is one
+            height_ch = get_height_channel(layer)
+            if height_ch and height_ch.enable:
+                self.interpolation = 'Cubic'
+            elif layer.type == 'IMAGE':
+                source = get_layer_source(layer)
+                if source and source.image: self.interpolation = source.interpolation
+
         elif self.type == 'VCOL':
 
             layer_vcol_name = None
@@ -938,6 +990,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         col = row.column()
         if self.type == 'IMAGE':
+            col.label(text='Interpolation:')
             col.label(text='Vector:')
 
         if len(layer.masks) > 0:
@@ -951,6 +1004,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         col = row.column()
 
         if self.type == 'IMAGE':
+            col.prop(self, 'interpolation', text='')
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -1009,7 +1063,10 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                     set_active_vertex_color(o, other_v)
 
         # Add new mask
-        mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, blend_type=self.blend_type, source_input=self.source_input)
+        mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, 
+                            blend_type=self.blend_type, source_input=self.source_input,
+                            interpolation=self.interpolation
+                            )
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'} and self.source_input == 'RGB':
@@ -1065,6 +1122,9 @@ class YMoveLayerMask(bpy.types.Operator):
         else:
             return {'CANCELLED'}
 
+        # Remove input props first
+        check_layer_tree_ios(layer, remove_props=True)
+
         # Swap masks
         layer.masks.move(index, new_index)
         swap_mask_fcurves(layer, index, new_index)
@@ -1074,6 +1134,9 @@ class YMoveLayerMask(bpy.types.Operator):
         check_mask_mix_nodes(layer, tree)
         check_mask_source_tree(layer) #, bump_ch)
         #check_mask_image_linear_node(mask)
+
+        # Create input props again
+        check_layer_tree_ios(layer)
 
         # Swap UI expand content
         props = ['expand_content',
@@ -1113,8 +1176,12 @@ class YRemoveLayerMask(bpy.types.Operator):
 
         mask_type = mask.type
 
+        # Remove input props first
+        check_layer_tree_ios(layer, remove_props=True)
+
         remove_mask(layer, mask, obj)
 
+        # Create input props again
         check_all_layer_channel_io_and_nodes(layer, tree)
 
         reconnect_layer_nodes(layer)
@@ -1207,27 +1274,6 @@ def update_mask_active_edit(self, context):
     # Refresh
     yp.active_layer_index = layer_idx
 
-def update_mask_channel_intensity_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(match.group(1))]
-    mask = layer.masks[int(match.group(2))]
-    tree = get_tree(layer)
-
-    mute = not self.enable or not mask.enable or not layer.enable_masks
-
-    mix = tree.nodes.get(self.mix)
-    if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-    #dirs = [d for d in neighbor_directions]
-    #dirs.extend(['pure', 'remains', 'normal'])
-    dirs = ['pure', 'remains', 'normal']
-
-    for d in dirs:
-        mix = tree.nodes.get(getattr(self, 'mix_' + d))
-        if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-
 def update_mask_blur_vector(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -1244,22 +1290,11 @@ def update_mask_blur_vector(self, context):
     else:
         remove_node(tree, mask, 'blur_vector')
 
+    check_layer_tree_ios(layer, tree)
+
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-def update_mask_blur_vector_factor(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', self.path_from_id())
-    layer = yp.layers[int(match.group(1))]
-    mask = self
-    tree = get_tree(layer)
-
-    blur_vector = tree.nodes.get(mask.blur_vector)
-
-    if blur_vector:
-        blur_vector.inputs[0].default_value = mask.blur_vector_factor / 100.0
 
 def update_mask_use_baked(self, context):
     yp = self.id_data.yp
@@ -1286,23 +1321,6 @@ def update_mask_use_baked(self, context):
 
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
-
-def update_mask_intensity_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(match.group(1))]
-    mask = layer.masks[int(match.group(2))]
-    tree = get_tree(layer)
-
-    mute = not mask.enable or not layer.enable_masks
-
-    mix = tree.nodes.get(mask.mix)
-    if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-
-    for c in mask.channels:
-        update_mask_channel_intensity_value(c, context)
 
 def update_layer_mask_channel_enable(self, context):
     yp = self.id_data.yp
@@ -1339,8 +1357,6 @@ def update_layer_mask_channel_enable(self, context):
     #        #    mix.mute = mute
     #        #else: mix.mute = False
     #        mix.mute = mute
-
-    update_mask_channel_intensity_value(self, context)
 
 def update_layer_mask_enable(self, context):
     yp = self.id_data.yp
@@ -1566,6 +1582,21 @@ def update_mask_blend_type(self, context):
     # Rearrange nodes
     rearrange_layer_nodes(layer)
 
+def update_mask_voronoi_feature(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = self
+
+    if mask.type != 'VORONOI': return
+
+    source = get_mask_source(mask)
+    source.feature = mask.voronoi_feature
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
 def update_mask_object_index(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -1577,17 +1608,6 @@ def update_mask_transform(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
     update_mapping(self)
-
-def update_mask_color_id(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-    mask = self
-
-    if mask.type != 'COLOR_ID': return
-
-    source = get_mask_source(mask)
-    col = (mask.color_id[0], mask.color_id[1], mask.color_id[2], 1.0)
-    if source: source.inputs[0].default_value = col
 
 def update_mask_edge_detect_radius(self, context):
     yp = self.id_data.yp
@@ -1719,8 +1739,7 @@ class YLayerMask(bpy.types.PropertyGroup):
     intensity_value : FloatProperty(
             name = 'Mask Intensity Factor', 
             description = 'Mask Intensity Factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update = update_mask_intensity_value)
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     # Transform
     translation : FloatVectorProperty(
@@ -1749,15 +1768,13 @@ class YLayerMask(bpy.types.PropertyGroup):
     blur_vector_factor : FloatProperty(
             name = 'Blur Vector Factor', 
             description = 'Mask Intensity Factor',
-            default=1.0, min=0.0, max=100.0,
-            update=update_mask_blur_vector_factor)
+            default=1.0, min=0.0, max=100.0, precision=3)
 
     color_id : FloatVectorProperty(
             name='Color ID', size=3,
             subtype='COLOR',
             default=(1.0, 0.0, 1.0),
             min=0.0, max=1.0,
-            update=update_mask_color_id,
             )
 
     use_baked : BoolProperty(
@@ -1804,6 +1821,15 @@ class YLayerMask(bpy.types.PropertyGroup):
     edge_detect_radius : FloatProperty(
             default=0.05, min=0.0, max=10.0,
             update=update_mask_edge_detect_radius)
+
+    # Specific for voronoi
+    voronoi_feature : EnumProperty(
+            name = 'Voronoi Feature',
+            description = 'The voronoi feature that will be used for compute',
+            items = voronoi_feature_items,
+            default = 'F1',
+            update = update_mask_voronoi_feature
+            )
 
     # Nodes
     source : StringProperty(default='')

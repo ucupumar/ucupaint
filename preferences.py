@@ -44,10 +44,10 @@ class YPaintPreferences(AddonPreferences):
             description = 'Show unfinished experimental features',
             default = False)
 
-    eevee_next_displacement : BoolProperty(
-            name = 'Enable EEVEE-Next Displacement (Experimental)',
-            description = 'Enable EEVEE-Next realtime Displacement (Experimental and requires Blender 4.1 or above)',
-            default = False)
+    #eevee_next_displacement : BoolProperty(
+    #        name = 'Enable EEVEE-Next Displacement (Experimental)',
+    #        description = 'Enable EEVEE-Next realtime Displacement (Experimental and requires Blender 4.1 or above)',
+    #        default = False)
 
     use_image_preview : BoolProperty(
             name = 'Use Image Preview/Thumbnail',
@@ -111,10 +111,10 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'make_preview_mode_srgb')
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'show_experimental')
-        if is_greater_than_420():
-            self.layout.prop(self, 'eevee_next_displacement')
+        #if is_greater_than_420():
+        #    self.layout.prop(self, 'eevee_next_displacement')
         self.layout.prop(self, 'developer_mode')
-        self.layout.prop(self, 'parallax_without_baked')
+        #self.layout.prop(self, 'parallax_without_baked')
 
         if self.developer_mode:
             box = self.layout.box()
@@ -166,11 +166,14 @@ def auto_save_images(scene):
         if tree.yp.is_ypaint_node:
             image_ops.save_pack_all(tree.yp)
 
+        # NOTE: Version update only happen when loading the blend file or updating the node tree
         # Update version
-        try: tree.yp.version = get_current_version_str()
-        except: print('EXCEPTIION: Cannot save yp version!')
-        try: tree.yp.is_unstable = get_alpha_suffix() != ''
-        except: print('EXCEPTIION: Cannot save unstable version flag!')
+        #try: tree.yp.version = get_current_version_str()
+        #except: print('EXCEPTIION: Cannot save yp version!')
+        #try: tree.yp.blender_version = get_current_blender_version_str()
+        #except: print('EXCEPTIION: Cannot save blender version!')
+        #try: tree.yp.is_unstable = get_alpha_suffix() != ''
+        #except: print('EXCEPTIION: Cannot save unstable version flag!')
 
 # HACK: For some reason active float image will glitch after auto save
 # This hack will fix that

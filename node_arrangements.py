@@ -193,6 +193,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         # Blend
         frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
+        check_set_node_parent(tree, ch.layer_intensity, frame)
         check_set_node_parent(tree, ch.intensity, frame)
         check_set_node_parent(tree, ch.extra_alpha, frame)
         check_set_node_parent(tree, ch.blend, frame)
@@ -204,6 +205,9 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             #check_set_node_parent(tree, ch.spread_alpha_e, frame)
             #check_set_node_parent(tree, ch.spread_alpha_w, frame)
             
+            check_set_node_parent(tree, ch.bump_distance_ignorer, frame)
+            check_set_node_parent(tree, ch.tb_distance_flipper, frame)
+            check_set_node_parent(tree, ch.tb_delta_calc, frame)
             check_set_node_parent(tree, ch.height_proc, frame)
 
             check_set_node_parent(tree, ch.height_blend, frame)
@@ -212,8 +216,12 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             #check_set_node_parent(tree, ch.height_blend_e, frame)
             #check_set_node_parent(tree, ch.height_blend_w, frame)
 
+            check_set_node_parent(tree, ch.max_height_calc, frame)
+
             check_set_node_parent(tree, ch.normal_proc, frame)
             check_set_node_parent(tree, ch.normal_flip, frame)
+
+            check_set_node_parent(tree, ch.vdisp_proc, frame)
 
             #check_set_node_parent(tree, ch.blend_height, frame)
             #check_set_node_parent(tree, ch.intensity_height, frame)
@@ -1215,7 +1223,10 @@ def rearrange_layer_nodes(layer, tree=None):
     # Start node
     check_set_node_loc(tree, TREE_START, loc)
 
-    loc.x += 250
+    start = tree.nodes.get(TREE_START)
+    check_set_node_width(start, 250)
+
+    loc.x += 300
     loc.y = 0
 
     #bookmark_x = loc.x
@@ -1261,6 +1272,9 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x += 200
                 y_offset += 90
 
+        if check_set_node_loc(tree, ch.layer_intensity, loc):
+            loc.x += 200
+
         if root_ch.type == 'NORMAL':
             save_y = loc.y
             #spread_alpha = tree.nodes.get(ch.spread_alpha)
@@ -1284,6 +1298,15 @@ def rearrange_layer_nodes(layer, tree=None):
 
             #    loc.y = save_y
             #    loc.x += 200
+
+            if check_set_node_loc(tree, ch.bump_distance_ignorer, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.tb_distance_flipper, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.tb_delta_calc, loc):
+                loc.x += 200
 
             #elif spread_alpha:
             if check_set_node_loc(tree, ch.spread_alpha, loc):
@@ -1321,10 +1344,19 @@ def rearrange_layer_nodes(layer, tree=None):
             if check_set_node_loc(tree, ch.height_blend, loc):
                 loc.x += 200
 
+            if check_set_node_loc(tree, ch.max_height_calc, loc):
+                loc.x += 200
+
             if check_set_node_loc(tree, ch.normal_proc, loc):
                 loc.x += 200
 
             if check_set_node_loc(tree, ch.normal_flip, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.vdisp_flip_yz, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.vdisp_proc, loc):
                 loc.x += 200
 
         if check_set_node_loc(tree, ch.intensity, loc):
@@ -1725,6 +1757,9 @@ def rearrange_yp_nodes(group_tree):
         if check_set_node_loc(group_tree, channel.start_normal_filter, loc):
             loc.y -= 120
 
+        if check_set_node_loc(group_tree, channel.start_bump_process, loc):
+            loc.y -= 250
+
         if i == num_channels-1:
             if check_set_node_loc(group_tree, ONE_VALUE, loc):
                 loc.y -= 90
@@ -1754,9 +1789,12 @@ def rearrange_yp_nodes(group_tree):
 
         loc.y = len(parent_ids) * -250
 
+        tnode = group_tree.nodes.get(t.group_node)
+        check_set_node_width(tnode, 300)
+
         if check_set_node_loc(group_tree, t.group_node, loc):
         #if check_set_node_loc_x(group_tree, t.group_node, loc.x):
-            loc.x += 200
+            loc.x += 350
 
     #stack = []
     #for i, t in enumerate(yp.layers):
@@ -1797,22 +1835,23 @@ def rearrange_yp_nodes(group_tree):
 
     # End nodes
     for i, channel in enumerate(yp.channels):
+
+        #if not yp.use_baked and check_set_node_loc(group_tree, channel.end_normal_engine_filter, loc):
+        #    loc.y -= 170
+
         if check_set_node_loc(group_tree, channel.end_linear, loc):
             if channel.type == 'RGB':
                 loc.y -= 110
             elif channel.type == 'VALUE':
                 loc.y -= 170
             elif channel.type == 'NORMAL':
-                loc.y -= 320
+                loc.y -= 300
 
         if check_set_node_loc(group_tree, channel.clamp, loc):
             loc.y -= 240
 
         if check_set_node_loc(group_tree, channel.end_max_height_tweak, loc):
-            loc.y -= 160
-
-        if check_set_node_loc(group_tree, channel.end_max_height, loc):
-            loc.y -= 110
+            loc.y -= 220
 
         if check_set_node_loc(group_tree, channel.end_backface, loc):
             loc.y -= 180
@@ -1827,6 +1866,9 @@ def rearrange_yp_nodes(group_tree):
         loc.x = ori_x
 
         if check_set_node_loc(group_tree, ch.baked, loc):
+            loc.x += 270
+
+        if yp.use_baked and check_set_node_loc(group_tree, channel.end_normal_engine_filter, loc):
             loc.x += 200
 
         if check_set_node_loc(group_tree, ch.baked_normal_prep, loc):
@@ -1847,6 +1889,12 @@ def rearrange_yp_nodes(group_tree):
             loc.y -= 270
 
         if check_set_node_loc(group_tree, ch.baked_disp, loc):
+            loc.y -= 270
+
+        if check_set_node_loc(group_tree, ch.end_max_height, loc):
+            loc.y -= 110
+
+        if check_set_node_loc(group_tree, ch.baked_vdisp, loc):
             loc.y -= 270
 
         if check_set_node_loc(group_tree, ch.baked_vcol, loc):

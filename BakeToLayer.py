@@ -7,7 +7,7 @@ from .subtree import *
 from .input_outputs import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo, UDIM
+from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo, UDIM, vector_displacement_lib, vector_displacement
 
 TEMP_VCOL = '__temp__vcol__'
 TEMP_EMISSION = '_TEMP_EMI_'
@@ -35,20 +35,15 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
 
-        #mat = get_active_material()
-        #objs = get_all_objects_with_same_materials(mat)
-        objs = [bso.object for bso in bi.selected_objects]
+        scene_objs = get_scene_objects()
+        objs = []
+        for bso in bi.selected_objects:
+            if is_greater_than_279():
+                bsoo = bso.object
+            else: bsoo = scene_objs.get(bso.object_name)
 
-        #print(objs)
-
-        # Disable viewport hide of object layer collection
-        #for o in objs:
-        #    layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
-        #    for lc in layer_cols:
-        #        #lc.exclude = False
-        #        lc.hide_viewport = False
-        #        lc.collection.hide_viewport = False
-        #        #lc.collection.hide_render = False
+            if bsoo and bsoo not in objs:
+                objs.append(bsoo)
 
         # Get actual selectable objects
         actual_selectable_objs = []
@@ -80,8 +75,11 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         bpy.ops.mesh.select_all(action='DESELECT')
 
         for bso in bi.selected_objects:
-            obj = bso.object
-            if obj not in actual_selectable_objs: continue
+            if is_greater_than_279():
+                obj = bso.object
+            else: obj = scene_objs.get(bso.object_name)
+
+            if not obj or obj not in actual_selectable_objs: continue
 
             mesh = obj.data
             bm = bmesh.from_edit_mesh(mesh)
@@ -266,8 +264,8 @@ class YBakeToLayer(bpy.types.Operator):
     hdr : BoolProperty(name='32 bit Float', default=True)
 
     use_baked_disp : BoolProperty(
-            name='Use Baked Displacement Map',
-            description='Use baked displacement map, this will also apply subdiv setup on object',
+            name='Use Displacement Setup',
+            description='Use displacement setup, this will also apply subdiv setup on object',
             default=False
             )
 
@@ -758,6 +756,7 @@ class YBakeToLayer(bpy.types.Operator):
         scene = context.scene
         obj = context.object
         ypup = get_user_preferences()
+        channel_idx = int(self.channel_idx) if len(yp.channels) > 0 else -1
 
         active_layer = None
         if len(yp.layers) > 0:
@@ -844,9 +843,11 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "No valid objects found to bake!")
             return {'CANCELLED'}
 
+        do_overwrite = False
         overwrite_img = None
         if (self.overwrite_choice or self.overwrite_current) and self.overwrite_image_name != '':
             overwrite_img = bpy.data.images.get(self.overwrite_image_name)
+            do_overwrite = True
 
         segment = None
         if overwrite_img:
@@ -873,14 +874,18 @@ class YBakeToLayer(bpy.types.Operator):
 
                 scene_objs = get_scene_objects()
                 for oo in bi.other_objects:
-                    if oo.object:
+                    if is_greater_than_279():
+                        ooo = oo.object
+                    else: ooo = scene_objs.get(oo.object_name)
+
+                    if ooo:
                         if is_greater_than_280():
                             # Check if object is on current view layer
-                            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, oo.object)
-                            if oo.object not in other_objs and any(layer_cols):
-                                other_objs.append(oo.object)
+                            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, ooo)
+                            if ooo not in other_objs and any(layer_cols):
+                                other_objs.append(ooo)
                         else:
-                            o = scene_objs.get(oo.object.name)
+                            o = scene_objs.get(ooo.name)
                             if o and o not in other_objs:
                                 other_objs.append(o)
 
@@ -920,54 +925,52 @@ class YBakeToLayer(bpy.types.Operator):
             height = self.height
 
         # If use baked disp, need to bake normal and height map first
+        subdiv_setup_changes = False
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and self.use_baked_disp and not self.type.startswith('MULTIRES_'):
 
-            # Check if baked displacement already there
-            baked_disp = tree.nodes.get(height_root_ch.baked_disp)
-
-            if baked_disp and baked_disp.image:
-                disp_width = baked_disp.image.size[0]
-                disp_height = baked_disp.image.size[1]
-            else:
-                disp_width = ypup.default_new_image_size
-                disp_height = ypup.default_new_image_size
-
-            if yp.baked_uv_name != '':
-                disp_uv = yp.baked_uv_name
-            else: disp_uv = yp.uvs[0].name
-            
-            # Use 1 sample for baking height
-            prepare_bake_settings(book, objs, yp, samples=1, margin=self.margin, 
-                    uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device,
-                    margin_type=self.margin_type
-                    )
-
-            # Bake height channel
-            bake_channel(disp_uv, mat, node, height_root_ch, disp_width, disp_height)
-
-            # Recover bake settings
-            recover_bake_settings(book, yp)
-
-            # Set baked name
-            if yp.baked_uv_name == '':
-                yp.baked_uv_name = disp_uv
-
-            # Set to use baked
-            yp.use_baked = True
-            ori_subdiv_setup = height_root_ch.enable_subdiv_setup
-            ori_subdiv_adaptive = height_root_ch.subdiv_adaptive
-            height_root_ch.subdiv_adaptive = False
-
             if not height_root_ch.enable_subdiv_setup:
                 height_root_ch.enable_subdiv_setup = True
+                subdiv_setup_changes = True
 
         # To hold temporary objects
         temp_objs = []
 
         # Sometimes Cavity bake will create temporary objects
         if (self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp)):
-            objs = temp_objs = get_duplicated_mesh_objects(scene, objs, True)
+
+            # NOTE: Baking cavity with subdiv setup can only happen if there's only one object and no UDIM
+            if is_greater_than_420() and len(objs) == 1 and not self.use_udim and height_root_ch and height_root_ch.enable_subdiv_setup:
+
+                # Check if there's VDM layer
+                vdm_layer = get_first_vdm_layer(yp)
+                vdm_uv_name = vdm_layer.uv_name if vdm_layer else self.uv_map
+
+                # Get baked combined vdm image
+                combined_vdm_image = vector_displacement.get_combined_vdm_image(objs[0], vdm_uv_name, width=self.width, height=self.height)
+
+                # Bake tangent and bitangent
+                # NOTE: Only bake the first object tangent since baking combined mesh can cause memory leak at the moment
+                tanimage, bitimage = vector_displacement.get_tangent_bitangent_images(objs[0], self.uv_map)
+
+                # Duplicate object
+                objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
+
+                # Use VDM loader geometry nodes
+                # NOTE: Geometry nodes currently does not support UDIM, so using UDIM will cause wrong bake result
+                set_active_object(objs[0])
+                vdm_loader = vector_displacement_lib.get_vdm_loader_geotree(self.uv_map, combined_vdm_image, tanimage, bitimage, 1.0)
+                bpy.ops.object.modifier_add(type='NODES')
+                geomod = objs[0].modifiers[-1]
+                geomod.node_group = vdm_loader
+                bpy.ops.object.modifier_apply(modifier=geomod.name)
+
+                # Remove temporary datas
+                remove_datablock(bpy.data.node_groups, vdm_loader)
+                remove_datablock(bpy.data.images, combined_vdm_image)
+
+            else:
+                objs = temp_objs = get_duplicated_mesh_objects(scene, objs, True)
 
         # Join objects then extend with other objects
         elif self.type.startswith('OTHER_OBJECT_'):
@@ -1131,7 +1134,6 @@ class YBakeToLayer(bpy.types.Operator):
                 except: pass
 
                 bpy.ops.paint.vertex_color_dirt(dirt_angle=math.pi/2)
-                bpy.ops.paint.vertex_color_dirt()
 
             print('BAKE TO LAYER: Applying subsurf/multires is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
 
@@ -1365,7 +1367,8 @@ class YBakeToLayer(bpy.types.Operator):
         
         # Other object channels related
         all_other_mats = []
-        ori_sockets = {}
+        ori_from_nodes = {}
+        ori_from_sockets = {}
 
         if self.type == 'OTHER_OBJECT_CHANNELS':
             ch_ids = [i for i, coo in enumerate(ch_other_objects) if len(coo) > 0]
@@ -1380,19 +1383,28 @@ class YBakeToLayer(bpy.types.Operator):
             # Remember original socket connected to outputs
             for m in all_other_mats:
                 soc = None
-                outputs = [n for n in m.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-                if outputs: 
-                    for l in outputs[0].inputs[0].links:
+                from_node = ''
+                from_socket = ''
+                mout = get_material_output(m)
+                if mout: 
+                    for l in mout.inputs[0].links:
                         soc = l.from_socket
+                        from_node = l.from_node.name
+                        from_socket = l.from_socket.name
 
                     # Create temporary emission
                     temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
                     if not temp_emi:
                         temp_emi = m.node_tree.nodes.new('ShaderNodeEmission')
                         temp_emi.name = TEMP_EMISSION
-                        m.node_tree.links.new(temp_emi.outputs[0], outputs[0].inputs[0])
+                        m.node_tree.links.new(temp_emi.outputs[0], mout.inputs[0])
 
-                ori_sockets[m.name] = soc
+                ori_from_nodes[m.name] = from_node
+                ori_from_sockets[m.name] = from_socket
+
+        # Newly created layer index and image
+        active_id = None
+        image = None
 
         for idx in ch_ids:
 
@@ -1416,9 +1428,12 @@ class YBakeToLayer(bpy.types.Operator):
 
                     # Set back original socket
                     for m in all_other_mats:
-                        outputs = [n for n in m.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-                        if outputs: 
-                            m.node_tree.links.new(ori_sockets[m.name], outputs[0].inputs[0])
+                        mout = get_material_output(m)
+                        if mout: 
+                            nod = m.node_tree.nodes.get(ori_from_nodes[m.name])
+                            if nod:
+                                soc = nod.outputs.get(ori_from_sockets[m.name])
+                                if soc: m.node_tree.links.new(soc, mout.inputs[0])
 
                 else:
                     bake_type = 'EMIT'
@@ -1487,7 +1502,9 @@ class YBakeToLayer(bpy.types.Operator):
             image.colorspace_settings.name = colorspace
 
             # Set image filepath if overwrite image is found
-            if overwrite_img:
+            if do_overwrite:
+                # Get overwrite image again to avoid pointer error
+                overwrite_img = bpy.data.images.get(self.overwrite_image_name)
                 #if idx == 0:
                 if idx == min(ch_ids):
                     if not overwrite_img.packed_file and overwrite_img.filepath != '':
@@ -1557,7 +1574,7 @@ class YBakeToLayer(bpy.types.Operator):
                         UDIM.swap_tile(temp_img, 1001, tilenum)
 
                 # Remove temp image
-                bpy.data.images.remove(temp_img)
+                remove_datablock(bpy.data.images, temp_img)
 
             # Back to original size if using SSA
             if use_ssaa:
@@ -1612,11 +1629,14 @@ class YBakeToLayer(bpy.types.Operator):
                 image = ia_image
 
                 # Remove original baked image
-                bpy.data.images.remove(temp_img)
+                remove_datablock(bpy.data.images, temp_img)
 
             # Index 0 is the main image
             if idx == min(ch_ids):
-                if overwrite_img:
+                if do_overwrite:
+
+                    # Get overwrite image again to avoid pointer error
+                    overwrite_img = bpy.data.images.get(self.overwrite_image_name)
 
                     active_id = yp.active_layer_index
 
@@ -1668,7 +1688,7 @@ class YBakeToLayer(bpy.types.Operator):
                         layer_name = get_unique_name(layer_name, yp.layers)
 
                     yp.halt_update = True
-                    layer = Layer.add_new_layer(node.node_tree, layer_name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+                    layer = Layer.add_new_layer(node.node_tree, layer_name, 'IMAGE', channel_idx, self.blend_type, 
                             self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, None, segment
                             )
                     yp.halt_update = False
@@ -1713,17 +1733,17 @@ class YBakeToLayer(bpy.types.Operator):
                 layer = yp.layers[yp.active_layer_index]
                 root_ch = yp.channels[idx]
                 ch = layer.channels[idx]
-                ch.enable = True
+                if not ch.enable: ch.enable = True
 
                 # Normal channel will use second override
                 if root_ch.type == 'NORMAL':
-                    ch.normal_map_type = 'NORMAL_MAP'
-                    ch.override_1 = True
-                    ch.override_1_type = 'IMAGE'
+                    if ch.normal_map_type != 'NORMAL_MAP': ch.normal_map_type = 'NORMAL_MAP'
+                    if not ch.override_1: ch.override_1 = True
+                    if ch.override_1_type != 'IMAGE': ch.override_1_type = 'IMAGE'
                     source = get_channel_source_1(ch, layer)
                 else:
-                    ch.override = True
-                    ch.override_type = 'IMAGE'
+                    if not ch.override: ch.override = True
+                    if ch.override_type != 'IMAGE': ch.override_type = 'IMAGE'
                     source = get_channel_source(ch, layer)
 
                 # If image already exists on source
@@ -1746,8 +1766,8 @@ class YBakeToLayer(bpy.types.Operator):
             # Set bake info to image/segment
             bi = segment.bake_info if segment else image.y_bake_info
 
-            bi.is_baked = True
-            bi.bake_type = self.type
+            if not bi.is_baked: bi.is_baked = True
+            if bi.bake_type != self.type: bi.bake_type = self.type
             for attr in dir(bi):
                 #if attr in dir(self):
                 if attr.startswith('__'): continue
@@ -1760,13 +1780,23 @@ class YBakeToLayer(bpy.types.Operator):
 
                 # Remember other objects to bake info
                 for o in other_objs:
-                    if not any([oo for oo in bi.other_objects if oo.object == o]):
+                    if is_greater_than_279(): 
+                        oo_recorded = any([oo for oo in bi.other_objects if oo.object == o])
+                    else: oo_recorded = any([oo for oo in bi.other_objects if oo.object_name == o.name])
+
+                    if not oo_recorded:
                         oo = bi.other_objects.add()
-                        oo.object = o
+                        if is_greater_than_279(): 
+                            oo.object = o
+                        oo.object_name = o.name
 
                 # Remove unused other objects on bake info
                 for i, oo in reversed(list(enumerate(bi.other_objects))):
-                    if oo.object not in other_objs:
+                    if is_greater_than_279():
+                        ooo = oo.object
+                    else: ooo = bpy.data.objects.get(oo.object_name)
+
+                    if ooo not in other_objs:
                         bi.other_objects.remove(i)
 
             if self.type == 'SELECTED_VERTICES':
@@ -1781,7 +1811,9 @@ class YBakeToLayer(bpy.types.Operator):
                 for obj_name, v_indices in obj_vertex_indices.items():
                     obj = bpy.data.objects.get(obj_name)
                     bso = bi.selected_objects.add()
-                    bso.object = obj
+                    if is_greater_than_279():
+                        bso.object = obj
+                    bso.object_name = obj.name
 
                     # Collect selected vertex data to bake info
                     for vi in v_indices:
@@ -1792,9 +1824,12 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type == 'OTHER_OBJECT_CHANNELS':
             for m in all_other_mats:
                 # Set back original socket
-                outputs = [n for n in m.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-                if outputs: 
-                    m.node_tree.links.new(ori_sockets[m.name], outputs[0].inputs[0])
+                mout = get_material_output(m)
+                if mout: 
+                    nod = m.node_tree.nodes.get(ori_from_nodes[m.name])
+                    if nod:
+                        soc = nod.outputs.get(ori_from_sockets[m.name])
+                        if soc: m.node_tree.links.new(soc, mout.inputs[0])
 
                 # Remove temp emission
                 temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
@@ -1855,8 +1890,9 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Delete temp vcol
             vcols = get_vertex_colors(obj)
-            vcol = vcols.get(TEMP_VCOL)
-            if vcol: vcols.remove(vcol)
+            if vcols:
+                vcol = vcols.get(TEMP_VCOL)
+                if vcol: vcols.remove(vcol)
 
         # Recover flip normals setup
         if self.flip_normals:
@@ -1887,12 +1923,8 @@ class YBakeToLayer(bpy.types.Operator):
                     bpy.ops.object.mode_set(mode = 'OBJECT')
 
         # Recover subdiv setup
-        #if height_root_ch and self.use_baked_disp:
-        if height_root_ch and self.use_baked_disp and not self.type.startswith('MULTIRES_'):
-            yp.use_baked = False
-            height_root_ch.subdiv_adaptive = ori_subdiv_adaptive
-            if height_root_ch.enable_subdiv_setup != ori_subdiv_setup:
-                height_root_ch.enable_subdiv_setup = ori_subdiv_setup
+        if height_root_ch and subdiv_setup_changes:
+            height_root_ch.enable_subdiv_setup = not height_root_ch.enable_subdiv_setup
 
         # Remove flow vcols
         if self.type == 'FLOW':
@@ -1910,7 +1942,7 @@ class YBakeToLayer(bpy.types.Operator):
             for o in temp_objs:
                 m = o.data
                 bpy.data.objects.remove(o)
-                bpy.data.meshes.remove(m)
+                remove_datablock(bpy.data.meshes, m)
 
         #return {'FINISHED'}
 
@@ -1922,18 +1954,26 @@ class YBakeToLayer(bpy.types.Operator):
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
-        # Refresh active index
+        # Refresh active index (only when not overwriting current entity)
         #if active_id != yp.active_layer_index:
-        yp.active_layer_index = active_id
+        if active_id != None and not self.overwrite_current:
+            yp.active_layer_index = active_id
+        elif image:
+            update_image_editor_image(context, image)
 
+        # Expand image source to show rebake button
         if self.target_type == 'MASK':
             ypui.layer_ui.expand_masks = True
+        else:
+            ypui.layer_ui.expand_content = True
+            ypui.layer_ui.expand_source = True
         ypui.need_update = True
 
         # Refresh mapping and stuff
         #yp.active_layer_index = yp.active_layer_index
 
-        print('BAKE TO LAYER: Baking', image.name, 'is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        if image: print('BAKE TO LAYER: Baking', image.name, 'is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        else: print('BAKE TO LAYER: No image created! Executed at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
@@ -2061,12 +2101,12 @@ def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, s
     # Bake!
     bpy.ops.object.bake()
 
-    if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
     if blur: 
         samples = 4096 if is_greater_than_300() else 128
         blur_image(image, False, bake_device=bake_device, factor=blur_factor, samples=samples)
-    if denoise: 
+    if denoise:
         denoise_image(image)
+    if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
 
     # Remove temp bake nodes
     simple_remove_node(mat.node_tree, tex, remove_data=False)
@@ -2277,8 +2317,10 @@ class YBakeEntityToImage(bpy.types.Operator):
                 try: setattr(self, attr, getattr(bi, attr))
                 except: pass
 
-            if self.entity.uv_name in self.uv_map_coll:
-                self.uv_map = self.entity.baked_uv_name if self.entity.baked_uv_name != '' else self.entity.uv_name
+            if self.entity.baked_uv_name != '' and self.entity.baked_uv_name in self.uv_map_coll:
+                self.uv_map = self.entity.baked_uv_name
+            elif self.entity.uv_name in self.uv_map_coll:
+                self.uv_map = self.entity.uv_name
 
         else:
             if len(self.uv_map_coll) > 0:
@@ -2287,6 +2329,18 @@ class YBakeEntityToImage(bpy.types.Operator):
             # Use user preference default image size if input uses default image size
             if self.width == 1234 and self.height == 1234:
                 self.width = self.height = ypup.default_new_image_size
+
+            # Auto set some props for some types
+            if self.entity.type == 'EDGE_DETECT':
+                self.samples = 32
+                self.hdr = True
+                self.fxaa = False
+                self.denoise = True
+            else:
+                self.samples = 1
+                self.hdr = False
+                self.fxaa = True
+                self.denoise = False
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -2400,7 +2454,7 @@ class YBakeEntityToImage(bpy.types.Operator):
             self.image = ia_image
 
             # Remove original baked image
-            bpy.data.images.remove(temp_img)
+            remove_datablock(bpy.data.images, temp_img)
 
         return segment
 
@@ -2412,6 +2466,10 @@ class YBakeEntityToImage(bpy.types.Operator):
 
         if self.layer and not self.mask:
             self.report({'ERROR'}, "This feature is not implemented yet!")
+            return {'CANCELLED'}
+
+        if self.uv_map == '':
+            self.report({'ERROR'}, "UV Map cannot be empty!")
             return {'CANCELLED'}
 
         T = time.time()

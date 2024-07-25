@@ -1,10 +1,10 @@
 bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, morirain, Patrick W. Crawford, neomonkeus",
-    "version": (1, 2, 4),
+    "version": (2, 0, 1),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
-    "warning": "Beta Version",
+    "warning": "",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "wiki_url": "https://ucupumar.github.io/ucupaint-wiki/",
     "doc_url": "https://ucupumar.github.io/ucupaint-wiki/",
@@ -26,6 +26,8 @@ if "bpy" in locals():
     imp.reload(node_arrangements)
     imp.reload(node_connections)
     imp.reload(preferences)
+    imp.reload(vector_displacement_lib)
+    imp.reload(vector_displacement)
     imp.reload(vcol_editor)
     imp.reload(transition)
     imp.reload(BakeTarget)
@@ -46,7 +48,9 @@ if "bpy" in locals():
 else:
     from . import Localization
     from . import image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, addon_updater_ops, TexLib
+    from . import vector_displacement_lib, vector_displacement
+    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, TexLib
+    from . import addon_updater_ops
 
 import bpy 
 
@@ -59,6 +63,7 @@ def register():
     ui.register()
     vcol_editor.register()
     transition.register()
+    vector_displacement.register()
     BakeTarget.register()
     BakeInfo.register()
     UDIM.register()
@@ -73,9 +78,9 @@ def register():
     Root.register()
     TexLib.register()
     load_blend_updates.register()
-    addon_updater_ops.register(bl_info)
+    addon_updater_ops.register()
 
-    print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
+    print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is registered!')
 
 def unregister():
     Localization.unregister_module(ui)
@@ -86,6 +91,7 @@ def unregister():
     ui.unregister()
     vcol_editor.unregister()
     transition.unregister()
+    vector_displacement.unregister()
     BakeTarget.unregister()
     BakeInfo.unregister()
     UDIM.unregister()
@@ -102,7 +108,7 @@ def unregister():
     load_blend_updates.unregister()
     addon_updater_ops.unregister()
 
-    print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is unregistered!')
+    print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is unregistered!')
 
 if __name__ == "__main__":
     register()

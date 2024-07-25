@@ -1,13 +1,14 @@
-import bpy, time
+import bpy, time, os
 from .common import *
-from .subtree import *
 from mathutils import *
-#from bpy.app.handlers import persistent
 
 # Node tree names
 OVERLAY_NORMAL = '~yPL Overlay Normal'
 OVERLAY_NORMAL_STRAIGHT_OVER = '~yPL Overlay Normal Straight Over'
 CHECK_INPUT_NORMAL = '~yPL Check Input Normal'
+CHECK_INPUT_NORMAL_GEOMETRY = '~yPL Check Input Normal Geometry'
+CHECK_INPUT_NORMAL_MIXED = '~yPL Check Input Normal Mixed'
+CHECK_INPUT_NORMAL_MIXED_BL27 = '~yPL Check Input Normal Mixed BL27'
 
 NORMAL_MAP = '~yPL Normal Map'
 NORMAL_MAP_PREP = '~yPL Normal Map Preparation'
@@ -64,6 +65,10 @@ RAMP_FLIP_STRAIGHT_OVER_BLEND = '~yPL Ramp Flip Straight Over Blend'
 VECTOR_MIX ='~yPL Vector Mix'
 #INVERTED_MULTIPLIER ='~yPL Inverted Multiplier'
 INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
+INTENSITY_MULTIPLIER_SHARPEN ='~yPL Intensity Multiplier Sharpen'
+INTENSITY_MULTIPLIER_SHARPEN_INVERT ='~yPL Intensity Multiplier Sharpen Invert'
+INTENSITY_MULTIPLIER_SHARPEN_NO_FACTOR ='~yPL Intensity Multiplier Sharpen No Factor'
+INTENSITY_MULTIPLIER_INVERT ='~yPL Intensity Multiplier Invert'
 GET_BITANGENT ='~yPL Get Bitangent'
 BITANGENT_FROM_NATIVE_TANGENT = '~yPL Bitangent from Native Tangent'
 
@@ -144,6 +149,7 @@ UNPACK_ONSEW = '~yPL Unpack ONSEW'
 PACK_ONSEW = '~yPL Pack ONSEW'
 
 BL27_DISP = '~yPL Blender 2.7 Displacement'
+COMBINED_VDM = '~yPL Combined VDM'
 
 SMOOTH_PREFIX = '~yPL Smooth '
 
@@ -158,19 +164,29 @@ FLIP_BACKFACE_TANGENT_LEGACY = '~yPL Flip Backface Tangent Legacy'
 NORMAL_MAP_PREP_LEGACY = '~yPL Normal Map Preparation Legacy'
 ENGINE_FILTER_LEGACY = '~yPL Engine Filter Legacy'
 
+TB_DELTA_CALC = '~yPL Transition Bump Delta Calculation'
+CH_MAX_HEIGHT_CALC = '~yPL Layer Channel Max Height'
+CH_MAX_HEIGHT_TB_CALC = '~yPL Layer Channel Max Height with Transition Bump'
+CH_MAX_HEIGHT_TBC_CALC = '~yPL Layer Channel Max Height with Transition Bump Crease'
+
 EMULATED_CURVE = '~yPL Emulated Curve'
+EMULATED_CURVE_FLIP = '~yPL Emulated Curve Flip'
 EMULATED_CURVE_SMOOTH = '~yPL Emulated Curve Smooth'
+EMULATED_CURVE_SMOOTH_FLIP = '~yPL Emulated Curve Smooth Flip'
 FALLOFF_CURVE = '~yPL Falloff Curve'
 FALLOFF_CURVE_SMOOTH = '~yPL Falloff Curve Smooth'
 
+START_BUMP_PROCESS = '~yPL Start Bump Process'
+START_FINE_BUMP_PROCESS = '~yPL Start Fine Bump Process'
 FINE_BUMP_PROCESS = '~yPL Fine Bump Process'
-FINE_BUMP_PROCESS_NO_OVERLAY = '~yPL Fine Bump Process No Overlay'
-FINE_BUMP_PROCESS_SUBDIV_ON = '~yPL Fine Bump Process Subdiv On'
-FINE_BUMP_PROCESS_NO_OVERLAY_SUBDIV_ON = '~yPL Fine Bump Process No Overlay Subdiv On'
+#FINE_BUMP_PROCESS = '~yPL Fine Bump Process Sophisticated'
+FINE_BUMP_PROCESS_START_BUMP = '~yPL Fine Bump Process with Start Bump'
+FINE_BUMP_PROCESS_START_BUMP_SUBDIV_ON = '~yPL Fine Bump Process with Start Bump Subdiv On'
 BUMP_PROCESS = '~yPL Bump Process'
-BUMP_PROCESS_NO_OVERLAY = '~yPL Bump Process No Overlay'
 BUMP_PROCESS_SUBDIV_ON = '~yPL Bump Process Subdiv On'
-BUMP_PROCESS_NO_OVERLAY_SUBDIV_ON = '~yPL Bump Process No Overlay Subdiv On'
+MAX_HEIGHT_TWEAK = '~yPL Max Height Tweak'
+MAX_HEIGHT_TWEAK_SMOOTH = '~yPL Max Height Tweak Smooth'
+SUBDIV_ON_NORMAL = '~yPL Subdiv On Normal'
 
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'
@@ -182,6 +198,7 @@ SRGB_2_LINEAR = '~yPL SRGB to Linear'
 LINEAR_2_SRGB = '~yPL Linear to SRGB'
 
 FLIP_Y = '~yPL Flip Y'
+FLIP_YZ = '~yPL Flip YZ'
 
 # Modifier tree names
 MOD_RGB2INT = '~yPL Mod RGB To Intensity'
@@ -214,106 +231,11 @@ def load_custom_icons():
     if not hasattr(bpy.utils, 'previews'): return
     global custom_icons
     custom_icons = bpy.utils.previews.new()
-    filepath = get_addon_filepath() + 'icons' + os.sep
-    custom_icons.load('asterisk', filepath + 'asterisk_icon.png', 'IMAGE')
+    folder = get_addon_filepath() + 'icons' + os.sep
 
-    custom_icons.load('channels', filepath + 'channels_icon.png', 'IMAGE')
-    custom_icons.load('rgb_channel', filepath + 'rgb_channel_icon.png', 'IMAGE')
-    custom_icons.load('value_channel', filepath + 'value_channel_icon.png', 'IMAGE')
-    custom_icons.load('vector_channel', filepath + 'vector_channel_icon.png', 'IMAGE')
-
-    custom_icons.load('add_modifier', filepath + 'add_modifier_icon.png', 'IMAGE')
-    custom_icons.load('add_mask', filepath + 'add_mask_icon.png', 'IMAGE')
-
-    custom_icons.load('texture', filepath + 'texture_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_texture', filepath + 'collapsed_texture_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_texture', filepath + 'uncollapsed_texture_icon.png', 'IMAGE')
-
-    custom_icons.load('image', filepath + 'image_icon.png', 'IMAGE')
-    custom_icons.load('image_alpha', filepath + 'image_alpha_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_image', filepath + 'collapsed_image_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_image', filepath + 'uncollapsed_image_icon.png', 'IMAGE')
-
-    custom_icons.load('modifier', filepath + 'modifier_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_modifier', filepath + 'collapsed_modifier_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_modifier', filepath + 'uncollapsed_modifier_icon.png', 'IMAGE')
-
-    custom_icons.load('input', filepath + 'input_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_input', filepath + 'collapsed_input_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_input', filepath + 'uncollapsed_input_icon.png', 'IMAGE')
-
-    custom_icons.load('uv', filepath + 'uv_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_uv', filepath + 'collapsed_uv_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_uv', filepath + 'uncollapsed_uv_icon.png', 'IMAGE')
-
-    custom_icons.load('mask', filepath + 'mask_icon.png', 'IMAGE')
-    custom_icons.load('disabled_mask', filepath + 'disabled_mask_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_mask', filepath + 'collapsed_mask_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_mask', filepath + 'uncollapsed_mask_icon.png', 'IMAGE')
-
-    custom_icons.load('collapsed_vcol', filepath + 'collapsed_vertex_color_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_vcol', filepath + 'uncollapsed_vertex_color_icon.png', 'IMAGE')
-
-    custom_icons.load('close', filepath + 'close_icon.png', 'IMAGE')
-    custom_icons.load('clean', filepath + 'clean_icon.png', 'IMAGE')
-
-    custom_icons.load('vertex_color', filepath + 'vertex_color_icon.png', 'IMAGE')
-    custom_icons.load('vertex_color_alpha', filepath + 'vertex_color_alpha_icon.png', 'IMAGE')
-
-    custom_icons.load('bake', filepath + 'bake_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_bake', filepath + 'collapsed_bake_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_bake', filepath + 'uncollapsed_bake_icon.png', 'IMAGE')
-
-    custom_icons.load('group', filepath + 'group_icon.png', 'IMAGE')
-    custom_icons.load('background', filepath + 'background_icon.png', 'IMAGE')
-    custom_icons.load('blend', filepath + 'blend_icon.png', 'IMAGE')
-    custom_icons.load('open_image', filepath + 'open_image_icon.png', 'IMAGE')
-    custom_icons.load('nodetree', filepath + 'nodetree_icon.png', 'IMAGE')
-    custom_icons.load('rename', filepath + 'rename_icon.png', 'IMAGE')
-
-    custom_icons.load('object_index', filepath + 'object_index_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_object_index', filepath + 'collapsed_object_index_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_object_index', filepath + 'uncollapsed_object_index_icon.png', 'IMAGE')
-
-    custom_icons.load('edge_detect', filepath + 'edge_detect_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_edge_detect', filepath + 'collapsed_edge_detect_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_edge_detect', filepath + 'uncollapsed_edge_detect_icon.png', 'IMAGE')
-
-    custom_icons.load('backface', filepath + 'backface_icon.png', 'IMAGE')
-
-    custom_icons.load('hemi', filepath + 'hemi_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_hemi', filepath + 'collapsed_hemi_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_hemi', filepath + 'uncollapsed_hemi_icon.png', 'IMAGE')
-
-    custom_icons.load('color', filepath + 'color_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_color', filepath + 'collapsed_color_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_color', filepath + 'uncollapsed_color_icon.png', 'IMAGE')
-
-    custom_icons.load('collapsed_channels', filepath + 'collapsed_channels_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_channels', filepath + 'uncollapsed_channels_icon.png', 'IMAGE')
-
-    custom_icons.load('collapsed_rgb_channel', filepath + 'collapsed_rgb_channel_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_rgb_channel', filepath + 'uncollapsed_rgb_channel_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_value_channel', filepath + 'collapsed_value_channel_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_value_channel', filepath + 'uncollapsed_value_channel_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_channel_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_channel_icon.png', 'IMAGE')
-
-    custom_icons.load('r', filepath + 'r_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_r', filepath + 'collapsed_r_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_r', filepath + 'uncollapsed_r_icon.png', 'IMAGE')
-
-    custom_icons.load('g', filepath + 'g_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_g', filepath + 'collapsed_g_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_g', filepath + 'uncollapsed_g_icon.png', 'IMAGE')
-
-    custom_icons.load('b', filepath + 'b_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_b', filepath + 'collapsed_b_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_b', filepath + 'uncollapsed_b_icon.png', 'IMAGE')
-
-    custom_icons.load('a', filepath + 'a_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_a', filepath + 'collapsed_a_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_a', filepath + 'uncollapsed_a_icon.png', 'IMAGE')
+    for f in os.listdir(folder):
+        icon_name = f.replace('_icon.png', '')
+        custom_icons.load(icon_name, folder + f, 'IMAGE')
 
 def get_icon(custom_icon_name):
     return custom_icons[custom_icon_name].icon_id
@@ -322,18 +244,12 @@ def check_uv_difference_to_main_uv(entity):
     yp = entity.id_data.yp
     height_ch = get_root_height_channel(yp)
     if height_ch:
-
-        # Set height channel main uv if its still empty
-        #if height_ch.main_uv == '' and len(yp.uvs) > 0:
-        #    height_ch.main_uv = yp.uvs[0].name
-
         # Check if entity uv is different to main uv
         if height_ch.main_uv != '' and hasattr(entity, 'uv_name') and entity.uv_name != height_ch.main_uv:
             return True
 
     return False
 
-#def get_neighbor_uv_tree(texcoord_type, different_uv=False, entity=None):
 def get_neighbor_uv_tree(texcoord_type, entity):
 
     if texcoord_type == 'UV':
@@ -345,7 +261,6 @@ def get_neighbor_uv_tree(texcoord_type, entity):
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return get_node_tree_lib(NEIGHBOR_UV_CAMERA)
 
-#def get_neighbor_uv_tree_name(texcoord_type, different_uv=False, entity=None):
 def get_neighbor_uv_tree_name(texcoord_type, entity):
     if texcoord_type == 'UV':
         different_uv = check_uv_difference_to_main_uv(entity)
@@ -355,24 +270,6 @@ def get_neighbor_uv_tree_name(texcoord_type, entity):
         return NEIGHBOR_UV_OBJECT
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return NEIGHBOR_UV_CAMERA
-
-def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
-    if label == '': label = 'Intensity Multiplier'
-    im = new_node(tree, obj, prop, 'ShaderNodeGroup', label)
-    im.node_tree = get_node_tree_lib(INTENSITY_MULTIPLIER)
-    set_default_value(im, 1, sharpness)
-    set_default_value(im, 'Sharpen', 1.0)
-
-    if BLENDER_28_GROUP_INPUT_HACK:
-        duplicate_lib_node_tree(im)
-
-    #m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', obj.path_from_id())
-    #if m:
-    #    yp = obj.id_data.yp
-    #    root_ch = yp.channels[int(m.group(2))]
-    #    print(root_ch.name, prop)
-
-    return im
 
 def get_smooth_mix_node(blend_type, layer_type=''):
 
@@ -501,25 +398,10 @@ def clean_unused_libraries():
         if ng.name.startswith('~yPL ') and ng.users == 0:
             bpy.data.node_groups.remove(ng)
 
-#@persistent
-#def load_libraries(scene):
-#    # Node groups necessary are in nodegroups_lib.blend
-#    filepath = get_addon_filepath() + "lib.blend"
-#
-#    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-#
-#        # Load node groups
-#        exist_groups = [ng.name for ng in bpy.data.node_groups]
-#        for ng in data_from.node_groups:
-#            if ng not in exist_groups:
-#                data_to.node_groups.append(ng)
-
 def register():
     load_custom_icons()
-    #bpy.app.handlers.load_post.append(load_libraries)
 
 def unregister():
     global custom_icons
     if hasattr(bpy.utils, 'previews'):
         bpy.utils.previews.remove(custom_icons)
-    #bpy.app.handlers.load_post.remove(load_libraries)
