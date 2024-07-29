@@ -165,6 +165,35 @@ class TexLibCancelDownload(Operator):
             
         return {'CANCELLED'}
 
+class TexLibRemoveTexture(Operator):
+    """Remove existing textures"""
+
+    bl_label = ""
+    bl_idname = "texlib.remove"
+    attribute:StringProperty()
+    id:StringProperty()
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text="Are you sure to remove this texture?")
+ 
+    def execute(self, context:bpy.context):
+        dir = _get_textures_dir() + self.id + os.sep + self.attribute
+        print("item", self.id," | attr", self.attribute, " | file ", dir)
+        # remove folder
+        if os.path.exists(dir):
+            for root, dirs, files in os.walk(dir, topdown=False):
+                for name in files:
+                    os.remove(os.path.join(root, name))
+                for name in dirs:
+                    os.rmdir(os.path.join(root, name))
+            os.rmdir(dir)
+            return {'FINISHED'}
+        return {'CANCELLED'}
+    
 class TexLibDownload(Operator):
     """Download textures from source"""
 
@@ -315,7 +344,11 @@ class TexLibBrowser(Panel):
                             op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
                             op.attribute = d
                             op.id = sel_mat.name
-                        # if not local_files_mode:
+
+                            op_remove:TexLibRemoveTexture = btn_row.operator("texlib.remove", icon="REMOVE")
+                            op_remove.attribute = d
+                            op_remove.id = sel_mat.name
+
                         op:TexLibDownload = btn_row.operator("texlib.download", icon="IMPORT")
                         op.attribute = d
                         op.id = sel_mat.name
@@ -349,6 +382,8 @@ class TEXLIB_UL_Material(UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row.template_icon(icon_value = item.thumb, scale = 1.0)
             row.label(text=item.name)
+            row.label(text="hapus")
+
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
@@ -728,7 +763,7 @@ def _get_thread(id:str):
         return threads[id]
     return None
 
-classes = [DownloadQueue,  MaterialItem, TexLibProps, TexLibBrowser, TexLibDownload, TexLibAddToUcupaint, TexLibCancelDownload, TEXLIB_UL_Material
+classes = [DownloadQueue,  MaterialItem, TexLibProps, TexLibBrowser, TexLibDownload, TexLibRemoveTexture, TexLibAddToUcupaint, TexLibCancelDownload, TEXLIB_UL_Material
             ,TexLibCancelSearch, TEXLIB_UL_Downloads]
 
 def register():
