@@ -350,7 +350,7 @@ class YBakeToLayer(bpy.types.Operator):
         height_root_ch = get_root_height_channel(yp)
 
         # Set default float image
-        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT'}:
+        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT', 'BEVEL_MASK'}:
             self.hdr = True
         else:
             self.hdr = False
