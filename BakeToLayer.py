@@ -722,7 +722,7 @@ class YBakeToLayer(bpy.types.Operator):
             col.prop(self, 'ssaa')
         else: col.prop(self, 'fxaa')
 
-        if self.type in {'AO'} and is_greater_than_281():
+        if self.type in {'AO', 'BEVEL_MASK'} and is_greater_than_281():
             col.prop(self, 'denoise')
 
         col.separator()
@@ -914,7 +914,7 @@ class YBakeToLayer(bpy.types.Operator):
         use_ssaa = self.ssaa and self.type.startswith('OTHER_OBJECT_')
 
         # Denoising only available for AO bake for now
-        use_denoise = self.denoise and self.type in {'AO'} and is_greater_than_281()
+        use_denoise = self.denoise and self.type in {'AO', 'BEVEL_MASK'} and is_greater_than_281()
 
         # SSAA will multiply size by 2 then resize it back
         if use_ssaa:
