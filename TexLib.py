@@ -49,6 +49,10 @@ def update_input_search(self, context):
         last_search.clear()
         return
 
+    # cancel previous search
+    if THREAD_SEARCHING in threads:
+        cancel_searching(context)
+
     thread_search = threading.Thread(target=searching_material, args=(self.input_search,context))
     thread_search.progress = 0
     thread_search.cancel = False
@@ -165,11 +169,11 @@ class TexLibCancelDownload(Operator):
             
         return {'CANCELLED'}
 
-class TexLibRemoveTexture(Operator):
+class TexLibRemoveTextureAttribute(Operator):
     """Remove existing textures"""
 
     bl_label = ""
-    bl_idname = "texlib.remove"
+    bl_idname = "texlib.remove_attribute"
     attribute:StringProperty()
     id:StringProperty()
 
@@ -181,8 +185,9 @@ class TexLibRemoveTexture(Operator):
         layout.label(text="Are you sure to remove this texture?")
  
     def execute(self, context:bpy.context):
-        dir = _get_textures_dir() + self.id + os.sep + self.attribute
-        print("item", self.id," | attr", self.attribute, " | file ", dir)
+        dir_up = _get_textures_dir() + self.id
+        dir = dir_up + os.sep + self.attribute
+        # print("item", self.id," | attr", self.attribute, " | file ", dir)
         # remove folder
         if os.path.exists(dir):
             for root, dirs, files in os.walk(dir, topdown=False):
@@ -191,6 +196,12 @@ class TexLibRemoveTexture(Operator):
                 for name in dirs:
                     os.rmdir(os.path.join(root, name))
             os.rmdir(dir)
+
+            # remove parent folder if empty
+            if not os.listdir(dir_up):
+                os.rmdir(dir_up)
+                my_list = context.scene.texlib.downloaded_material_items
+                my_list.remove(my_list.find(self.id))
             return {'FINISHED'}
         return {'CANCELLED'}
     
@@ -290,14 +301,20 @@ class TexLibBrowser(Panel):
 
             layout.separator()
             layout.label(text="Textures:")
+            col_lay = layout.row()
             if local_files_mode:
-                layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "downloaded_material_items", texlib, "downloaded_material_index")
+                col_lay.template_list("TEXLIB_UL_Material", "material_list", texlib, "downloaded_material_items", texlib, "downloaded_material_index")
             else:
-                layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "material_items", texlib, "material_index")
+                col_lay.template_list("TEXLIB_UL_Material", "material_list", texlib, "material_items", texlib, "material_index")
 
             if sel_index < len(my_list):
                 sel_mat:MaterialItem = my_list[sel_index]
                 mat_id:str = sel_mat.name
+                
+                if local_files_mode:
+                    del_it = col_lay.operator("texlib.remove_attributes", icon="REMOVE")
+                    del_it.id = mat_id
+
                 layout.separator()
                 layout.label(text="Preview:")
                 prev_box = layout.box()
@@ -345,7 +362,7 @@ class TexLibBrowser(Panel):
                             op.attribute = d
                             op.id = sel_mat.name
 
-                            op_remove:TexLibRemoveTexture = btn_row.operator("texlib.remove", icon="REMOVE")
+                            op_remove:TexLibRemoveTextureAttribute = btn_row.operator("texlib.remove_attribute", icon="REMOVE")
                             op_remove.attribute = d
                             op_remove.id = sel_mat.name
 
@@ -382,8 +399,6 @@ class TEXLIB_UL_Material(UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row.template_icon(icon_value = item.thumb, scale = 1.0)
             row.label(text=item.name)
-            row.label(text="hapus")
-
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
@@ -394,14 +409,45 @@ class TexLibCancelSearch(Operator):
     bl_label = ""
     
     def execute(self, context):
-        thread_search = threads[THREAD_SEARCHING]
-        thread_search.cancel = True
-        texlib = context.scene.texlib
-        
-        searching_dwn = texlib.searching_download
-        searching_dwn.alive = False
-
+        cancel_searching(context)
         return{'FINISHED'}
+    
+class TexLibRemoveTextureAllAttributes(Operator):
+    bl_idname = "texlib.remove_attributes"
+    bl_label = ""
+    id:StringProperty()
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text="Are you sure to remove this textures?")
+ 
+    def execute(self, context:bpy.context):
+        dir = _get_textures_dir() + self.id 
+        print("item", self.id, " | file ", dir)
+        my_list = context.scene.texlib.downloaded_material_items
+        my_list.remove(my_list.find(self.id))
+        # remove folder
+        if os.path.exists(dir):
+            for root, dirs, files in os.walk(dir, topdown=False):
+                for name in files:
+                    os.remove(os.path.join(root, name))
+                for name in dirs:
+                    os.rmdir(os.path.join(root, name))
+            os.rmdir(dir)
+            return {'FINISHED'}
+        
+        return {'CANCELLED'}
+    
+def cancel_searching(context):
+    thread_search = threads[THREAD_SEARCHING]
+    thread_search.cancel = True
+    texlib = context.scene.texlib
+    
+    searching_dwn = texlib.searching_download
+    searching_dwn.alive = False
 
 def load_material_items(material_items, list_tex):
     material_items.clear()
@@ -763,8 +809,8 @@ def _get_thread(id:str):
         return threads[id]
     return None
 
-classes = [DownloadQueue,  MaterialItem, TexLibProps, TexLibBrowser, TexLibDownload, TexLibRemoveTexture, TexLibAddToUcupaint, TexLibCancelDownload, TEXLIB_UL_Material
-            ,TexLibCancelSearch, TEXLIB_UL_Downloads]
+classes = [DownloadQueue,  MaterialItem, TexLibProps, TexLibBrowser, TexLibDownload, TexLibRemoveTextureAttribute, TexLibRemoveTextureAllAttributes, 
+           TexLibAddToUcupaint, TexLibCancelDownload, TEXLIB_UL_Material,TexLibCancelSearch, TEXLIB_UL_Downloads]
 
 def register():
     for cl in classes:
