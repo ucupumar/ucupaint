@@ -4063,6 +4063,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
         col = row.column()
 
         col.operator('node.y_bake_channels', text='Bake All Channels', icon_value=lib.get_icon('bake')).only_active_channel = False
+        col.operator('godot.export', text='Export to godot shader', icon_value=lib.get_icon('color'))
         col.operator('node.y_rename_ypaint_tree', text='Rename Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()
