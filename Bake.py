@@ -1246,11 +1246,6 @@ class YBakeChannels(bpy.types.Operator):
             description='Use UDIM Tiles',
             default=False)
 
-    use_udim : BoolProperty(
-            name = 'Use UDIM Tiles',
-            description='Use UDIM Tiles',
-            default=False)
-
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'

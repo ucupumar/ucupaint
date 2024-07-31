@@ -499,8 +499,6 @@ class YBakeToLayer(bpy.types.Operator):
         self.overwrite_image_name = ''
         self.overwrite_segment_name = ''
         if overwrite_entity:
-            #self.entity = overwrite_entity
-            self.uv_map = overwrite_entity.uv_name
 
             if self.target_type == 'LAYER':
                 source = get_layer_source(overwrite_entity)
@@ -543,6 +541,8 @@ class YBakeToLayer(bpy.types.Operator):
                     #if attr in dir(self):
                     try: setattr(self, attr, getattr(bi, attr))
                     except: pass
+
+            self.uv_map = overwrite_entity.uv_name
         
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
@@ -740,8 +740,14 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'flip_normals')
         col.prop(self, 'force_bake_all_polygons')
 
-        if self.type not in {'OTHER_OBJECT_CHANNELS'}:
+        if UDIM.is_udim_supported() or self.type not in {'OTHER_OBJECT_CHANNELS'}:
             col.separator()
+
+        if UDIM.is_udim_supported():
+            ccol = col.column(align=True)
+            ccol.prop(self, 'use_udim')
+
+        if self.type not in {'OTHER_OBJECT_CHANNELS'}:
             ccol = col.column(align=True)
             #ccol.active = not self.use_udim
             ccol.prop(self, 'use_image_atlas')
