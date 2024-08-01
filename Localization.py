@@ -205,7 +205,7 @@ langs = {
 
     },
     'ar': {
-
+        ('*', 'Special node to manage painting layers for Cycles and Eevee materials'): 'materials Eevee and Cycles ـﻟ ﻢﺳﺮﻟا تﺎﻘﺒﻃ ةرادإ ﻞﺟﻷ ﺔﺻﺎﺧ ةﺪﻘﻋ'
 
 
     }
