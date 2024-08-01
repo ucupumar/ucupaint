@@ -203,5 +203,8 @@ langs = {
         ('*', 'Number of Color Ramps: '): '颜色渐变数量: ',
         ('*', 'Number of RGB Curves: '): 'RGB曲线数量: ',
 
+    },
+    'ar': {
+
     }
 }
