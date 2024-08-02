@@ -3971,6 +3971,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
 
 def draw_ypaint_about(self, context):
+    
     col = self.layout.column(align=True)
     col.label(text=get_addon_title() + ' is created by:')
     col.operator('wm.url_open', text='ucupumar', icon='ARMATURE_DATA').url = 'https://github.com/sponsors/ucupumar'
