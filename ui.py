@@ -2426,6 +2426,7 @@ def draw_layer_masks(context, layout, layer):
             # Channels row
             for k, c in enumerate(mask.channels):
                 rrow = bcol.row(align=True)
+                rrow.active = layer.channels[k].enable
                 root_ch = yp.channels[k]
                 rrow.label(text='', 
                         icon_value=lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id)
