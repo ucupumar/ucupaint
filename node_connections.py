@@ -2845,7 +2845,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if ch_intensity:
                     create_link(tree, ch_intensity, max_height_calc.inputs['Intensity'])
 
-                if 'Midlevel' in max_height_calc.inputs:
+                if ch_bump_midlevel and 'Midlevel' in max_height_calc.inputs:
                     create_link(tree, ch_bump_midlevel, max_height_calc.inputs['Midlevel'])
 
                 if normal_proc and 'Max Height' in normal_proc.inputs:
