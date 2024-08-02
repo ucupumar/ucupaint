@@ -300,7 +300,7 @@ langs = {
         ('*', 'Mask Color:'): 'عﺎﻨﻘﻟا نﻮﻟ:',
         ('*', 'Use Baked'): 'ظﻮﻔﺤﻤﻟا ماﺪﺨﺘﺳأ',
         ('*', 'Enable Baked Outside'): 'ﺎﺟرﺎﺧ ﻞﻳﺪﻌﺘﻟا ﻞﻴﻌﻔﺗ',
-        ('*', 'Create baked texture nodes outside of main node\n(Can be useful for exporting material to other application)'): '(ﺞﻣاﺮﺑ ﺮﻴﻐﻟ جاﺮﺧﻷا ﻞﺟﻷ ةﺪﻴﻔﻣ نﻮﻜﺗ نأ ﻦﻜﻤﻤﻟا ﻦﻣ)ucupaint\n ـﻟ ﺔﻴﺳﺎﺳﻷا ةرﺪﻘﻌﻟا جرﺎﺧ ﺔﻃﻮﻔﺤﻤﻟا رﻮﺼﻠﻟ ﺪﻘﻋ ءﺎﺸﻧإ',
+        ('*', 'Create baked texture nodes outside of main node\n(Can be useful for exporting material to other application)'): 'ucupaint ـﻟ ﺔﻴﺳﺎﺳﻷا ةﺪﻘﻌﻟا جرﺎﺧ ﺔﻃﻮﻔﺤﻤﻟا رﻮﺼﻠﻟ ﺪﻘﻋ ءﺎﺸﻧإ \n(ﺞﻣاﺮﺑ ﺮﻴﻐﻟ جاﺮﺧﻷا ﻞﺟﻷ ةﺪﻴﻔﻣ نﻮﻜﺗ نأ ﻦﻜﻤﻤﻟا ﻦﻣ)',
         ('*', 'No active image'): 'ﺔﻟﺎﻌﻓ ةرﻮﺻ ﺪﺟﻮﺗ ﻻ',
         ('*', 'Active Image: '): 'ﺔﻟﺎﻌﻔﻟا ةرﻮﺼﻟا: ',
         ('*', 'Shortcut on list:'): 'ﻢﺋاﻮﻘﻟا ﻰﻠﻋ تارﺎﺼﺘﺧأ:',
