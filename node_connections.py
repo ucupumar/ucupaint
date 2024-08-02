@@ -2772,10 +2772,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         alpha_e = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 e'])['Color e']
                         alpha_w = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 w'])['Color w']
                     elif 'Color1 n' in mask_mix.inputs:
-                        alpha_n = create_link(tree, alpha_n, mask_mix.inputs['Color1 n'])['Color n']
-                        alpha_s = create_link(tree, alpha_s, mask_mix.inputs['Color1 s'])['Color s']
-                        alpha_e = create_link(tree, alpha_e, mask_mix.inputs['Color1 e'])['Color e']
-                        alpha_w = create_link(tree, alpha_w, mask_mix.inputs['Color1 w'])['Color w']
+                        if alpha_n: alpha_n = create_link(tree, alpha_n, mask_mix.inputs['Color1 n'])['Color n']
+                        if alpha_s: alpha_s = create_link(tree, alpha_s, mask_mix.inputs['Color1 s'])['Color s']
+                        if alpha_e: alpha_e = create_link(tree, alpha_e, mask_mix.inputs['Color1 e'])['Color e']
+                        if alpha_w: alpha_w = create_link(tree, alpha_w, mask_mix.inputs['Color1 w'])['Color w']
 
                         if group_alpha and 'Limit' in mask_mix.inputs:
                             create_link(tree, group_alpha, mask_mix.inputs['Limit'])
