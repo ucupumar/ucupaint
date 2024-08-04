@@ -635,7 +635,7 @@ def rearrange_layer_nodes(layer, tree=None):
     check_set_node_width(start, 250)
 
     loc.x -= start_x
-    loc.y = -(len(start.outputs) * 40)
+    if start: loc.y = -(len(start.outputs) * 40)
 
     # Arrange pack unpack height group
     if layer.type == 'GROUP':
