@@ -1451,29 +1451,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
     ypui = context.window_manager.ypui
     lui = ypui.layer_ui
     
-    row = layout.row(align=True)
-    if lui.expand_channels:
-        icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
-    else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
-    row.prop(lui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
-
-    #label = 'Channels:'
-    #if not lui.expand_channels:
-    #    for i, ch in enumerate(layer.channels):
-
-    #        if ch.enable:
-
-    #            if i == 0:
-    #                label += ' '
-    #            #elif i < len(layer.channels)-1:
-    #            else:
-    #                label += ', '
-
-    #            label += yp.channels[i].name
-
-    #    row.label(text=label)
-    #    return
-
     enabled_channels = [c for c in layer.channels if c.enable]
     root_ch = None
     ch = None
@@ -1512,8 +1489,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
     if lui.expand_channels:
         label += ':'
     
+    row = layout.row(align=True)
+    if lui.expand_channels:
+        icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
+    else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
+    row.prop(lui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
+
     row.label(text=label)
-    #draw_input_prop(row, layer, 'intensity_value')
 
     if ch and root_ch:
         if root_ch.type == 'NORMAL':

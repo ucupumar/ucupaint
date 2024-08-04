@@ -625,8 +625,7 @@ def rearrange_layer_nodes(layer, tree=None):
         chain = min(len(layer.masks), bump_ch.transition_bump_chain)
 
     # Back to source nodes
-    start_x = -350
-    loc = Vector((start_x, 0))
+    loc = Vector((0, 0))
 
     # Start node
     check_set_node_loc(tree, TREE_START, loc)
@@ -634,8 +633,105 @@ def rearrange_layer_nodes(layer, tree=None):
     start = tree.nodes.get(TREE_START)
     check_set_node_width(start, 250)
 
-    loc.x -= start_x
+    if start: loc.y = -(len(start.outputs) * 25)
+
+    cache_found = False
+
+    # Layer Caches
+    if check_set_node_loc(tree, layer.cache_color, loc, hide=False):
+        loc.y -= 200
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_brick, loc, hide=False):
+        loc.y -= 400
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_checker, loc, hide=False):
+        loc.y -= 170
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_gradient, loc, hide=False):
+        loc.y -= 140
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_magic, loc, hide=False):
+        loc.y -= 180
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_musgrave, loc, hide=False):
+        loc.y -= 270
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_noise, loc, hide=False):
+        loc.y -= 170
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_voronoi, loc, hide=False):
+        loc.y -= 170
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_wave, loc, hide=False):
+        loc.y -= 260
+        cache_found = True
+
+    # Channel Caches
+    for ch in layer.channels:
+
+        if check_set_node_loc(tree, ch.cache_ramp, loc, hide=False):
+            loc.y -= 250
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_falloff_curve, loc, hide=False):
+            loc.y -= 270
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_image, loc, hide=False):
+            loc.y -= 270
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_vcol, loc, hide=False):
+            loc.y -= 200
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_brick, loc, hide=False):
+            loc.y -= 400
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_checker, loc, hide=False):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_gradient, loc, hide=False):
+            loc.y -= 140
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_magic, loc, hide=False):
+            loc.y -= 180
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_musgrave, loc, hide=False):
+            loc.y -= 270
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_noise, loc, hide=False):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_voronoi, loc, hide=False):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_wave, loc, hide=False):
+            loc.y -= 260
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_1_image, loc, hide=False):
+            loc.y -= 270
+            cache_found = True
+
+    if cache_found or start: loc.x += 350
     if start: loc.y = -(len(start.outputs) * 40)
+    else: loc.y = 0
 
     # Arrange pack unpack height group
     if layer.type == 'GROUP':
@@ -791,81 +887,8 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, layer.bump_process, loc):
         loc.y -= 300
 
-    loc = Vector((-600, 0))
-
-    # Channel Caches
-    for ch in layer.channels:
-
-        if check_set_node_loc(tree, ch.cache_ramp, loc, hide=False):
-            loc.y -= 250
-
-        if check_set_node_loc(tree, ch.cache_falloff_curve, loc, hide=False):
-            loc.y -= 270
-
-        if check_set_node_loc(tree, ch.cache_image, loc, hide=False):
-            loc.y -= 270
-
-        if check_set_node_loc(tree, ch.cache_vcol, loc, hide=False):
-            loc.y -= 200
-
-        if check_set_node_loc(tree, ch.cache_brick, loc, hide=False):
-            loc.y -= 400
-
-        if check_set_node_loc(tree, ch.cache_checker, loc, hide=False):
-            loc.y -= 170
-
-        if check_set_node_loc(tree, ch.cache_gradient, loc, hide=False):
-            loc.y -= 140
-
-        if check_set_node_loc(tree, ch.cache_magic, loc, hide=False):
-            loc.y -= 180
-
-        if check_set_node_loc(tree, ch.cache_musgrave, loc, hide=False):
-            loc.y -= 270
-
-        if check_set_node_loc(tree, ch.cache_noise, loc, hide=False):
-            loc.y -= 170
-
-        if check_set_node_loc(tree, ch.cache_voronoi, loc, hide=False):
-            loc.y -= 170
-
-        if check_set_node_loc(tree, ch.cache_wave, loc, hide=False):
-            loc.y -= 260
-
-        if check_set_node_loc(tree, ch.cache_1_image, loc, hide=False):
-            loc.y -= 270
-
-    loc = Vector((-300, 0))
-
-    # Layer Caches
-    if check_set_node_loc(tree, layer.cache_color, loc, hide=False):
-        loc.y -= 200
-
-    if check_set_node_loc(tree, layer.cache_brick, loc, hide=False):
-        loc.y -= 400
-
-    if check_set_node_loc(tree, layer.cache_checker, loc, hide=False):
-        loc.y -= 170
-
-    if check_set_node_loc(tree, layer.cache_gradient, loc, hide=False):
-        loc.y -= 140
-
-    if check_set_node_loc(tree, layer.cache_magic, loc, hide=False):
-        loc.y -= 180
-
-    if check_set_node_loc(tree, layer.cache_musgrave, loc, hide=False):
-        loc.y -= 270
-
-    if check_set_node_loc(tree, layer.cache_noise, loc, hide=False):
-        loc.y -= 170
-
-    if check_set_node_loc(tree, layer.cache_voronoi, loc, hide=False):
-        loc.y -= 170
-
-    if check_set_node_loc(tree, layer.cache_wave, loc, hide=False):
-        loc.y -= 260
-
-    loc = Vector((380, 0))
+    loc.x += 350
+    loc.y = 0
 
     # Layer modifiers
     if layer.source_group == '':
