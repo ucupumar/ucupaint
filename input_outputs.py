@@ -458,24 +458,17 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
     # Check layer tree io
     check_layer_tree_ios(layer, tree, remove_props, hard_reset=hard_reset)
 
-    # Get source_tree
-    source_tree = get_source_tree(layer, tree)
-
-    # Find override channels
-    #using_vector = is_layer_using_vector(layer)
-
-    # Mapping node
-    #if layer.type not in {'BACKGROUND', 'VCOL', 'GROUP', 'COLOR'} or using_vector:
+    # Create mapping if necessary
     if is_layer_using_vector(layer):
-        mapping = source_tree.nodes.get(layer.mapping)
+        mapping = tree.nodes.get(layer.mapping)
         if not mapping:
-            mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
+            mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
 
     # Flip Y
     #update_image_flip_y(self, context)
 
     # Linear node
-    check_layer_image_linear_node(layer, source_tree)
+    check_layer_image_linear_node(layer)
 
     # Check the need of bump process
     check_layer_bump_process(layer, tree)
