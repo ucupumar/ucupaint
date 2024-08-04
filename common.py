@@ -501,10 +501,10 @@ def version_tuple(version_string):
     return tuple(version_string.split('.'))
 
 def get_manifest():
-    import toml
+    import tomllib
     # Load manifest file
-    with open(get_addon_filepath() + 'blender_manifest.toml', 'r') as f:
-        manifest = toml.load(f)
+    with open(get_addon_filepath() + 'blender_manifest.toml', 'rb') as f:
+        manifest = tomllib.load(f)
     return manifest
 
 def get_addon_name():
