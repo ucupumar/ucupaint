@@ -624,11 +624,18 @@ def rearrange_layer_nodes(layer, tree=None):
         #flip_bump = bump_ch.transition_bump_flip
         chain = min(len(layer.masks), bump_ch.transition_bump_chain)
 
-    #start_x = 350
-    #loc = Vector((350, 0))
-
     # Back to source nodes
-    loc = Vector((0, 0))
+    start_x = -350
+    loc = Vector((start_x, 0))
+
+    # Start node
+    check_set_node_loc(tree, TREE_START, loc)
+
+    start = tree.nodes.get(TREE_START)
+    check_set_node_width(start, 250)
+
+    loc.x -= start_x
+    loc.y = -(len(start.outputs) * 40)
 
     # Arrange pack unpack height group
     if layer.type == 'GROUP':
@@ -777,6 +784,9 @@ def rearrange_layer_nodes(layer, tree=None):
 
     if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240
+
+    #if check_set_node_loc(tree, TREE_START, loc):
+    #    loc.y -= 240
 
     if check_set_node_loc(tree, layer.bump_process, loc):
         loc.y -= 300
@@ -1221,13 +1231,13 @@ def rearrange_layer_nodes(layer, tree=None):
     loc.y = 0
 
     # Start node
-    check_set_node_loc(tree, TREE_START, loc)
+    #check_set_node_loc(tree, TREE_START, loc)
 
-    start = tree.nodes.get(TREE_START)
-    check_set_node_width(start, 250)
+    #start = tree.nodes.get(TREE_START)
+    #check_set_node_width(start, 250)
 
-    loc.x += 300
-    loc.y = 0
+    #loc.x += 300
+    #loc.y = 0
 
     #bookmark_x = loc.x
 

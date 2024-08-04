@@ -1737,8 +1737,8 @@ class YLayerMask(bpy.types.PropertyGroup):
         update = update_mask_blend_type)
 
     intensity_value : FloatProperty(
-            name = 'Mask Intensity Factor', 
-            description = 'Mask Intensity Factor',
+            name = 'Mask Opacity', 
+            description = 'Mask opacity',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     # Transform

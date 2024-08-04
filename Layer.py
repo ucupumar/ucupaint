@@ -4894,8 +4894,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update = update_blend_type)
 
     intensity_value : FloatProperty(
-            name = 'Channel Intensity Factor', 
-            description = 'Channel Intensity Factor',
+            name = 'Layer Channel Opacity', 
+            description = 'Layer channel opacity',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     # Modifiers
@@ -5341,8 +5341,8 @@ class YLayer(bpy.types.PropertyGroup):
             default = 'IMAGE')
 
     intensity_value : FloatProperty(
-            name = 'Layer Intensity Factor', 
-            description = 'Layer Intensity Factor',
+            name = 'Layer Opacity', 
+            description = 'Layer opacity',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     color_shortcut : BoolProperty(

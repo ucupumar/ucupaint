@@ -2237,7 +2237,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if channel_enabled:
         layer_intensity = tree.nodes.get(ch.layer_intensity)
         if not layer_intensity:
-            layer_intensity = new_node(tree, ch, 'layer_intensity', 'ShaderNodeMath', 'Layer Intensity')
+            layer_intensity = new_node(tree, ch, 'layer_intensity', 'ShaderNodeMath', 'Layer Opacity')
             layer_intensity.operation = 'MULTIPLY'
     else:
         if remove_node(tree, ch, 'layer_intensity'): need_reconnect = True
@@ -2290,7 +2290,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
             # Intensity nodes
             intensity = tree.nodes.get(ch.intensity)
             if not intensity:
-                intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
+                intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Channel Opacity')
                 intensity.operation = 'MULTIPLY'
 
             # Channel intensity
