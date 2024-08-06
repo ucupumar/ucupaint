@@ -1,3 +1,4 @@
+import shutil
 from bpy.types import Context
 from .common import * 
 from .preferences import * 
@@ -58,10 +59,6 @@ uniform vec2 {1} = vec2({2},{3});
     def execute(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-
-        
-
-        # content_shader = self.script_top
         
         index = 0
         layer:Layer.YLayer
@@ -69,6 +66,12 @@ uniform vec2 {1} = vec2({2},{3});
         global_vars = ""
         fragment_vars = ""
         combine_content = ""
+
+        # get directory of filepath
+        my_directory = os.path.dirname(self.filepath)
+        if not os.path.exists(my_directory):
+            os.makedirs(my_directory)
+        
         for layer in yp.layers:
             if layer.enable:
                 mapping = get_layer_mapping(layer)
@@ -83,8 +86,23 @@ uniform vec2 {1} = vec2({2},{3});
 
                 skala = mapping.inputs[3].default_value
                 global_vars += self.script_vars.format(layer_var, scale_var, skala.x, skala.y)
-
                 fragment_vars += self.script_fragment_var.format(index, scale_var, layer_var)
+
+                source = get_layer_source(layer)
+
+                image_path = source.image.filepath_from_user()
+
+                # copy to directory 
+                print("copy ", image_path, " to ", my_directory)
+                shutil.copy(image_path, my_directory)
+
+                print("filepath ", index, " = ",source.image.filepath_from_user())
+                print("rawpath ", index, " = ",source.image.filepath)
+                print("path user ", index, " = ",source.image.filepath_raw)
+                # if source == 'FILE':
+                # else:
+                #     print("layer ", index, " = ",source)
+                    
                 for idx, msk in enumerate(layer.masks):
                     mask_var = layer_var + "_mask_" + str(idx)
                     # mask_scale_var = mask_var + "_scale_"+str(idx)
@@ -106,11 +124,16 @@ uniform vec2 {1} = vec2({2},{3});
 
         # content_shader += self.script_fragment.format(fragment_vars, "coba")
         print(content_shader)
+
+        file = open(self.filepath, "w")
+        file.write(content_shader)
+        file.close()
+
         return {'FINISHED'}
 
-#     def invoke(self, context, event):
-#         context.window_manager.fileselect_add(self)
-#         return {'RUNNING_MODAL'}
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
 
 #     def execute(self, context:bpy.context):
 #         print("Exporting to godot >> "+self.filepath)
