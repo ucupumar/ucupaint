@@ -1762,17 +1762,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     uv_neighbor = nodes.get(layer.uv_neighbor)
     uv_neighbor_1 = nodes.get(layer.uv_neighbor_1)
 
-    if layer.type == 'GROUP':
-        texcoord = source
-    else: texcoord = nodes.get(layer.texcoord)
+    #if layer.type == 'GROUP':
+    #    texcoord = source
+    #else: texcoord = nodes.get(layer.texcoord)
 
     #texcoord = nodes.get(TEXCOORD)
+    texcoord = nodes.get(layer.texcoord)
     #geometry = nodes.get(GEOMETRY)
     blur_vector = nodes.get(layer.blur_vector)
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
     divider_alpha = nodes.get(layer.divider_alpha)
     flip_y = nodes.get(layer.flip_y)
+    decal_process = nodes.get(layer.decal_process)
 
     # Get tangent and bitangent
     layer_tangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['TANGENT'])
@@ -1832,6 +1834,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if is_layer_using_vector(layer):
         if layer.texcoord_type == 'UV':
             vector = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['UV'])
+        elif layer.texcoord_type == 'Decal':
+            vector = texcoord.outputs['Object']
+            if decal_process: 
+                layer_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'decal_distance_value'))
+                vector = create_link(tree, vector, decal_process.inputs[0])[0]
+                if layer_decal_distance: create_link(tree, layer_decal_distance, decal_process.inputs[1])
         else: vector = get_essential_node(tree, TREE_START).get(io_names[layer.texcoord_type])
 
         if vector and blur_vector:
@@ -1840,7 +1848,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             layer_blur_factor = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'blur_vector_factor'))
             if layer_blur_factor: create_link(tree, layer_blur_factor, blur_vector.inputs[0])
 
-        if vector and mapping:
+        if vector and mapping and layer.texcoord_type != 'Decal':
             vector = create_link(tree, vector, mapping.inputs[0])[0]
 
     if vector and layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
@@ -2400,6 +2408,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         layer_intensity = nodes.get(ch.layer_intensity)
         intensity_multiplier = nodes.get(ch.intensity_multiplier)
         extra_alpha = nodes.get(ch.extra_alpha)
+        decal_alpha = nodes.get(ch.decal_alpha)
         blend = nodes.get(ch.blend)
 
         # Check if normal is overriden
@@ -2478,6 +2487,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if j == chain-1 and intensity_multiplier:
                 transition_input = alpha
                 alpha = create_link(tree, alpha, intensity_multiplier.inputs[0])[0]
+
+        # Decal intensity
+        if decal_alpha and decal_process:
+            alpha = create_link(tree, alpha, decal_alpha.inputs[0])[0]
+            create_link(tree, decal_process.outputs[1], decal_alpha.inputs[1])[0]
 
         # If transition bump is not found, use last alpha as input
         if not trans_bump_ch:

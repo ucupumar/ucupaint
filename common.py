@@ -351,6 +351,7 @@ texcoord_type_items = (
         ('Camera', 'Camera', ''),
         ('Window', 'Window', ''),
         ('Reflection', 'Reflection', ''),
+        ('Decal', 'Decal', ''),
         )
 
 interpolation_type_items = (
@@ -445,6 +446,7 @@ io_names = {
         'Camera' : 'Texcoord Camera',
         'Window' : 'Texcoord Window',
         'Reflection' : 'Texcoord Reflection',
+        'Decal' : 'Texcoord Object',
         }
 
 math_method_items = (

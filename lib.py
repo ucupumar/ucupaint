@@ -151,6 +151,8 @@ PACK_ONSEW = '~yPL Pack ONSEW'
 BL27_DISP = '~yPL Blender 2.7 Displacement'
 COMBINED_VDM = '~yPL Combined VDM'
 
+DECAL_PROCESS = '~yPL Decal Process'
+
 SMOOTH_PREFIX = '~yPL Smooth '
 
 # Nodes that require Blender 2.81 at minimum
@@ -266,7 +268,7 @@ def get_neighbor_uv_tree_name(texcoord_type, entity):
         different_uv = check_uv_difference_to_main_uv(entity)
         if different_uv: return NEIGHBOR_UV_OTHER_UV
         return NEIGHBOR_UV_TANGENT
-    if texcoord_type in {'Generated', 'Normal', 'Object'}:
+    if texcoord_type in {'Generated', 'Normal', 'Object', 'Decal'}:
         return NEIGHBOR_UV_OBJECT
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return NEIGHBOR_UV_CAMERA
