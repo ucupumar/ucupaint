@@ -18,24 +18,42 @@ class ExportShader(Operator):
 
     
 
-    script_top = '''
+    script_template = '''
 shader_type spatial;
+{0}vec4 layer(vec4 foreground, vec4 background) {{
+    return foreground * foreground.a + background * (1.0 - foreground.a);
+}}
+
+void fragment() {{ 
+{1}
+    ALBEDO = mix_all.rgb;
+}}
 
 '''
+
     script_vars = '''
 uniform sampler2D {0};
 uniform vec2 {1} = vec2({2},{3});
 '''
     script_mask_vars = "uniform sampler2D {0};"
-    script_method = '''
-
-void fragment() {{
-    vec2 scaled_uv = UV * {}0;
-    vec4 albedo = texture({}0, scaled_uv);
     
-    ALBEDO = albedo.rgb;
-}}
-''' 
+    script_fragment_var = '''
+    vec2 scaled_uv_{0} = UV * {1};
+    vec4 albedo_{0} = texture({2}, scaled_uv_{0});'''
+
+    script_mask_fragment_var = '''
+    vec4 mask_{0} = texture({1}, UV);
+    albedo_{0}.a = mask_{0}.r;
+'''
+
+    script_layer_combine_0 = '''
+
+    vec4 mix_all = layer(albedo_0, albedo_1);'''
+
+    script_layer_combine_next = '''
+    mix_all = layer(mix_all, albedo_{0});
+'''
+  #vec4 albedo = texture({1}, scaled_uv_{0});
     
     def execute(self, context):
         node = get_active_ypaint_node()
@@ -43,11 +61,14 @@ void fragment() {{
 
         
 
-        content_shader = self.script_top
+        # content_shader = self.script_top
         
         index = 0
         layer:Layer.YLayer
 
+        global_vars = ""
+        fragment_vars = ""
+        combine_content = ""
         for layer in yp.layers:
             if layer.enable:
                 mapping = get_layer_mapping(layer)
@@ -61,15 +82,29 @@ void fragment() {{
                 print("scl", mapping.inputs[3].default_value)
 
                 skala = mapping.inputs[3].default_value
-                content_shader += self.script_vars.format(layer_var, scale_var, skala.x, skala.y)
+                global_vars += self.script_vars.format(layer_var, scale_var, skala.x, skala.y)
 
-                mask_var = layer_var + "_mask"
+                fragment_vars += self.script_fragment_var.format(index, scale_var, layer_var)
                 for idx, msk in enumerate(layer.masks):
-                    mask_scale_var = mask_var + "_scale_"+str(idx)
-                    content_shader += self.script_mask_vars.format(mask_scale_var)
+                    mask_var = layer_var + "_mask_" + str(idx)
+                    # mask_scale_var = mask_var + "_scale_"+str(idx)
+                    global_vars += self.script_mask_vars.format(mask_var)
+                    fragment_vars += self.script_mask_fragment_var.format(index, mask_var)
+
+                global_vars += "\n"
+
+                if index == 1:
+                    combine_content += self.script_layer_combine_0
+                elif index > 1:
+                    combine_content += self.script_layer_combine_next.format(index)
+                    
                 index += 1
 
-        content_shader += self.script_method.format(scale_var, layer_var)
+        fragment_vars += combine_content
+
+        content_shader = self.script_template.format(global_vars, fragment_vars)
+
+        # content_shader += self.script_fragment.format(fragment_vars, "coba")
         print(content_shader)
         return {'FINISHED'}
 
