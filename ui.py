@@ -1379,6 +1379,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             #else:
             #    row.prop(lui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
+
             split = split_layout(row, 0.275, align=True)
 
             split.label(text='Vector:')
@@ -1393,6 +1394,12 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
                 ssplit.prop(layer, 'texcoord_type', text='')
                 ssplit.prop(layer, 'projection_blend', text='')
+            elif layer.texcoord_type == 'Decal':
+                ssplit = split_layout(split, 0.4, align=True)
+                texcoord = layer_tree.nodes.get(layer.texcoord)
+                if texcoord:
+                    ssplit.prop(layer, 'texcoord_type', text='')
+                    ssplit.prop(texcoord, 'object', text='')
             else:
                 split.prop(layer, 'texcoord_type', text='')
 
@@ -1413,27 +1420,38 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                         splits = split_layout(boxcol, 0.5, align=True)
                         splits.label(text='Projection Blend:')
                         splits.prop(layer, 'projection_blend', text='')
+
+                    if layer.texcoord_type == 'Decal':
+                        splits = split_layout(boxcol, 0.5, align=True)
+                        splits.label(text='Decal Distance:')
+                        draw_input_prop(splits, layer, 'decal_distance_value')
+
+                        boxcol.context_pointer_set('entity', layer)
+                        boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+
                     rrow = boxcol.row()
                     mapping = get_layer_mapping(layer)
-                    rrow.label(text='Offset:')
-                    rrow.prop(mapping, 'vector_type', text='')
-                    if is_greater_than_281():
-                        boxcol.prop(mapping.inputs[1], 'default_value', text='')
-                        boxcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                        boxcol.prop(mapping.inputs[3], 'default_value', text='Scale')
-                    else:
-                        boxcol.prop(mapping, 'translation', text='')
-                        boxcol.prop(mapping, 'rotation')
-                        boxcol.prop(mapping, 'scale')
 
-                    #boxcol.prop(layer, 'translation', text='')
-                    #boxcol.prop(layer, 'rotation')
-                    #boxcol.prop(layer, 'scale')
+                    if layer.texcoord_type != 'Decal':
+                        rrow.label(text='Offset:')
+                        rrow.prop(mapping, 'vector_type', text='')
+                        if is_greater_than_281():
+                            boxcol.prop(mapping.inputs[1], 'default_value', text='')
+                            boxcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
+                            boxcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                        else:
+                            boxcol.prop(mapping, 'translation', text='')
+                            boxcol.prop(mapping, 'rotation')
+                            boxcol.prop(mapping, 'scale')
 
-                    if yp.need_temp_uv_refresh:
-                        rrow = boxcol.row(align=True)
-                        rrow.alert = True
-                        rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+                        #boxcol.prop(layer, 'translation', text='')
+                        #boxcol.prop(layer, 'rotation')
+                        #boxcol.prop(layer, 'scale')
+
+                        if yp.need_temp_uv_refresh:
+                            rrow = boxcol.row(align=True)
+                            rrow.alert = True
+                            rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
                 # Blur row
                 rrow = boxcol.row(align=True)

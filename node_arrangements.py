@@ -193,6 +193,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         # Blend
         frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
+        check_set_node_parent(tree, ch.decal_alpha, frame)
         check_set_node_parent(tree, ch.layer_intensity, frame)
         check_set_node_parent(tree, ch.intensity, frame)
         check_set_node_parent(tree, ch.extra_alpha, frame)
@@ -840,7 +841,7 @@ def rearrange_layer_nodes(layer, tree=None):
 
     #if layer.source_group == '' and check_set_node_loc(tree, layer.mapping, loc):
     if check_set_node_loc(tree, layer.mapping, loc):
-        loc.y -= 360
+        loc.y -= 430
 
     if check_set_node_loc(tree, layer.baked_mapping, loc):
         loc.y -= 360
@@ -875,8 +876,11 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, GEOMETRY, loc):
         loc.y -= 240
 
-    if check_set_node_loc(tree, TEXCOORD, loc):
-        loc.y -= 240
+    #if check_set_node_loc(tree, TEXCOORD, loc):
+    #    loc.y -= 240
+
+    if check_set_node_loc(tree, layer.decal_process, loc):
+        loc.y -= 170
 
     if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240
@@ -1304,6 +1308,9 @@ def rearrange_layer_nodes(layer, tree=None):
             if check_set_node_loc(tree, ch.tr_ramp_blend, loc):
                 loc.x += 200
                 y_offset += 90
+
+        if check_set_node_loc(tree, ch.decal_alpha, loc):
+            loc.x += 200
 
         if check_set_node_loc(tree, ch.layer_intensity, loc):
             loc.x += 200

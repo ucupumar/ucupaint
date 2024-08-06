@@ -183,7 +183,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         layer.hemi_use_prev_normal = hemi_use_prev_normal
 
     # Add texcoord node
-    texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
+    #texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
 
     # Add mapping node
     if is_mapping_possible(layer.type):
@@ -3047,6 +3047,15 @@ def remove_layer(yp, index):
     layer_tree = get_tree(layer)
     mat = obj.active_material
 
+    # Dealing with decal object
+    if layer.texcoord_type == 'Decal':
+        texcoord = layer_tree.nodes.get(layer.texcoord)
+        if texcoord and texcoord.object:
+            decal_obj = texcoord.object
+            if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
+                texcoord.object = None
+                remove_datablock(bpy.data.objects, decal_obj)
+
     # Dealing with image atlas segments
     if layer.type == 'IMAGE': # and layer.segment_name != '':
         src = get_layer_source(layer)
@@ -3739,6 +3748,15 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                 mod_group_1 = ttree.nodes.get(layer.mod_group_1)
                 if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
 
+        # Decal object duplicate
+        if layer.texcoord_type == 'Decal':
+            texcoord = ttree.nodes.get(layer.texcoord)
+            if texcoord and texcoord.object:
+                nname = get_unique_name(texcoord.object.name, bpy.data.objects)
+                texcoord.object = texcoord.object.copy()
+                texcoord.object.name = nname
+                link_object(bpy.context.scene, texcoord.object)
+
         if layer.type == 'IMAGE': # and ypui.make_image_single_user:
             img = source.image
             if img:
@@ -4251,6 +4269,39 @@ class YPasteLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YSelectDecalObject(bpy.types.Operator):
+    bl_idname = "node.y_select_decal_object"
+    bl_label = "Select Decal Object"
+    bl_description = "Select Decal Object"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return group_node and hasattr(context, 'entity')
+
+    def execute(self, context):
+        entity = context.entity
+
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+        if m1: tree = get_tree(entity)
+        elif m2: tree = get_mask_tree(entity)
+        else: return {'CANCELLED'}
+
+        texcoord = tree.nodes.get(entity.texcoord)
+
+        if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+            try: bpy.ops.object.mode_set(mode='OBJECT')
+            except: pass
+            bpy.ops.object.select_all(action='DESELECT')
+            set_active_object(texcoord.object)
+            set_object_select(texcoord.object, True)
+        else: return {'CANCELLED'}
+
+        return {'FINISHED'}
+
 def update_layer_channel_override_1(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -4577,7 +4628,8 @@ def update_texcoord_type(self, context):
             set_uv_neighbor_resolution(smooth_bump_ch, uv_neighbor)
 
     # Update layer tree inputs
-    check_layer_tree_ios(layer, tree)
+    #check_layer_tree_ios(layer, tree)
+    check_all_layer_channel_io_and_nodes(layer, tree)
 
     # Check layer projections
     check_layer_projections(layer)
@@ -4966,6 +5018,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     blend : StringProperty(default='')
     intensity : StringProperty(default='')
     layer_intensity : StringProperty(default='')
+    decal_alpha : StringProperty(default='')
     extra_alpha : StringProperty(default='')
 
     # Flip y node
@@ -5473,6 +5526,11 @@ class YLayer(bpy.types.PropertyGroup):
             default=1.0, min=0.0, max=100.0,
             update=update_layer_blur_vector_factor)
 
+    decal_distance_value : FloatProperty(
+            name = 'Decal Distance',
+            description = 'Distance between surface and the decal object',
+            min=0.0, max=100.0, default=0.5, precision=3)
+
     use_baked : BoolProperty(
             name = 'Use Baked',
             description = 'Use baked layer image',
@@ -5516,6 +5574,8 @@ class YLayer(bpy.types.PropertyGroup):
     baked_mapping : StringProperty(default='')
     texcoord : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    decal_process : StringProperty(default='')
 
     #need_temp_uv_refresh : BoolProperty(default=False)
 
@@ -5566,6 +5626,7 @@ def register():
     bpy.utils.register_class(YDuplicateLayer)
     bpy.utils.register_class(YCopyLayer)
     bpy.utils.register_class(YPasteLayer)
+    bpy.utils.register_class(YSelectDecalObject)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YLayer)
 
@@ -5593,5 +5654,6 @@ def unregister():
     bpy.utils.unregister_class(YDuplicateLayer)
     bpy.utils.unregister_class(YCopyLayer)
     bpy.utils.unregister_class(YPasteLayer)
+    bpy.utils.unregister_class(YSelectDecalObject)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YLayer)
