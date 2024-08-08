@@ -18,9 +18,9 @@ class ExportShader(Operator):
 
     filepath: StringProperty(subtype='FILE_PATH', options={'SKIP_SAVE'})
 
-    use_shortcut = True
+    use_shortcut = False
 
-    temp_godot = "godot4/"
+    godot_directory = "/home/bocilmania/Documents/projects/godot/witch/"
 
     script_template = '''
 shader_type spatial;
@@ -58,12 +58,48 @@ uniform vec2 {1} = vec2({2},{3});
     mix_all = layer(mix_all, albedo_{0});
 '''
   #vec4 albedo = texture({1}, scaled_uv_{0});
+
+    def get_godot_directory(self, path:str):
+
+        current_dir = os.path.dirname(path)
+        godot_project_dir = ""
+
+        while godot_project_dir == "":
+            for filename in os.listdir(current_dir):
+                fl = os.path.join(current_dir, filename)
+                if os.path.isfile(fl):
+                    if filename == "project.godot":
+                        godot_project_dir = current_dir
+                        break
+                    # print("check ", filename, " = ", fl)
+            # move up directory
+
+            parent_dir = os.path.dirname(current_dir)
+            if parent_dir == current_dir:
+                # print("break here ", current_dir)
+                break
+            current_dir = parent_dir
+        print("godot project ", godot_project_dir)
+
+        return godot_project_dir
     
+    def fix_filename(self, filename:str):
+        base, ext = os.path.splitext(filename)
+        retval = filename
+
+        if ext != ".gdshader":
+            retval = base + ".gdshader"
+        else:
+            print("File extension is already .gdshader")
+
+        print(f"File extension changed to: {retval}")
+        return retval
+
     def execute(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        
+        print("====================================")
         index = 0
         layer:Layer.YLayer
 
@@ -72,17 +108,40 @@ uniform vec2 {1} = vec2({2},{3});
         combine_content = ""
 
         # get directory of filepath
-        my_directory = "/home/bocilmania/Documents/projects/blender/ekspor/"
+        my_directory = "/home/bocilmania/Documents/projects/godot/witch/models/box"
         # addon directory
         addon_dir = os.path.dirname(os.path.realpath(__file__))
 
-        base_arg = ["godot", "--headless", "--path", os.path.join(addon_dir, self.temp_godot)]
+    
+        self.godot_directory = self.get_godot_directory(self.filepath)
+
+        if self.godot_directory == "":
+            self.report({'ERROR'}, "This is not a godot directory")
+            return {'CANCELLED'}
+
+        if self.use_shortcut:
+            self.filepath = os.path.join(my_directory, "box.gdshader")
+        else:
+            my_directory = os.path.dirname(self.filepath)
+
+
+        self.filepath = self.fix_filename(self.filepath)
+
+        print("save to ", self.filepath, " in ", self.godot_directory)
+
+        base_arg = ["godot", "--headless", "--path", self.godot_directory]
         asset_args = []
 
-        if not self.use_shortcut:
-            my_directory = os.path.dirname(self.filepath)
-            if not os.path.exists(my_directory):
-                os.makedirs(my_directory)
+        relative_path = os.path.relpath(self.filepath, self.godot_directory)
+        relative_path = os.path.dirname(relative_path)
+        
+        print(f"Relative path: {relative_path}")
+
+        if not os.path.exists(my_directory):
+            print("create directory ", my_directory)
+            os.makedirs(my_directory)
+        else:
+            print("directory exist ", my_directory)
         
         for layer in yp.layers:
             if layer.enable:
@@ -91,10 +150,6 @@ uniform vec2 {1} = vec2({2},{3});
                 layer_var = "layer_"+str(index)
 
                 scale_var = layer_var + "_scale"
-
-                # print("pos", mapping.inputs[1].default_value)
-                # print("rot", mapping.inputs[2].default_value)
-                # print("scl", mapping.inputs[3].default_value)
 
                 skala = mapping.inputs[3].default_value
                 global_vars += self.script_vars.format(layer_var, scale_var, skala.x, skala.y)
@@ -151,31 +206,10 @@ uniform vec2 {1} = vec2({2},{3});
 
         content_shader = self.script_template.format(global_vars, fragment_vars)
 
-        # content_shader += self.script_fragment.format(fragment_vars, "coba")
         print(content_shader)
 
-        if self.use_shortcut:
-            self.filepath = os.path.join(my_directory, "box.gdshader")
-
-        temp_folder = os.path.join(addon_dir, self.temp_godot, "assets")
-
-        # delete content of temp folder
-        for filename in os.listdir(temp_folder):
-            file_path = os.path.join(temp_folder, filename)
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                print('Failed to delete %s. Reason: %s' % (file_path, e))
-
-        # copy to temp folder
-        for filename in os.listdir(my_directory):
-            file_path = os.path.join(my_directory, filename)
-            shutil.copy(file_path, temp_folder)
-
-        print("addon dir ", addon_dir)
+        script_location = os.path.join(addon_dir, "godot4", "blender_import.gd")
+        print("addon dir ", script_location)
 
         name_asset = bpy.path.display_name_from_filepath(self.filepath)
 
@@ -185,10 +219,11 @@ uniform vec2 {1} = vec2({2},{3});
         file.write(content_shader)
         file.close()
 
-        all_params = base_arg + ["-s", "scripts/blender_import.gd", "--", name_asset] + asset_args
-        print("all params ", all_params)
-
+        all_params = base_arg + ["-s", script_location, "--", name_asset, relative_path] + asset_args
+        print("all params=", " ".join(all_params))
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         print(subprocess.run(base_arg + ["--import"], capture_output=True))
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         print(subprocess.run(all_params, capture_output=True))
         print(subprocess.run(base_arg + ["--import"], capture_output=True))
 
@@ -199,7 +234,7 @@ uniform vec2 {1} = vec2({2},{3});
             return self.execute(context)
         else:
             context.window_manager.fileselect_add(self)
-            return {'FINISHED'}
+            return {'RUNNING_MODAL'}
     
 
 classes = [ExportShader]
