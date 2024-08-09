@@ -18,7 +18,8 @@ class ExportShader(Operator):
 
     filepath: StringProperty(subtype='FILE_PATH', options={'SKIP_SAVE'})
 
-    use_shortcut = False
+    use_shortcut = True
+    shader_generation_test = True
 
     godot_directory = "/home/bocilmania/Documents/projects/godot/witch/"
 
@@ -30,7 +31,7 @@ shader_type spatial;
 
 void fragment() {{ 
 {1}
-    ALBEDO = mix_all.rgb;
+    ALBEDO = albedo_all.rgb;
 }}
 
 '''
@@ -39,6 +40,10 @@ void fragment() {{
 uniform sampler2D {0};
 uniform vec2 {1} = vec2({2},{3}); 
 '''
+    script_vars_roughness = "uniform sampler2D {}_roughness;\n"
+
+    script_vars_normal = "uniform sampler2D {}_normal;\n"
+
     script_mask_vars = "uniform sampler2D {0};"
     
     script_fragment_var = '''
@@ -50,12 +55,27 @@ uniform vec2 {1} = vec2({2},{3});
     albedo_{0}.a = mask_{0}.r;
 '''
 
-    script_layer_combine_0 = '''
+    script_albedo_combine_0 = '''
 
-    vec4 mix_all = layer(albedo_0, albedo_1);'''
+    vec4 albedo_all = layer(albedo_0, albedo_1);'''
 
-    script_layer_combine_next = '''
-    mix_all = layer(mix_all, albedo_{0});
+    script_albedo_combine_next = '''
+    albedo_all = layer(albedo_all, albedo_{0});
+'''
+
+
+    script_roughness_combine_0 = '''
+
+    vec4 roughness_all = layer(roughness_{0}, roughness_{1});'''
+
+    script_roughness_combine_next = '''
+    roughness_all = layer(roughness_all, roughness_{0});
+'''
+    script_roughness_fragment = '''
+    vec4 roughness_texture_channel = vec4(0.33, 0.33, 0.33, 0.0);
+    float rough = dot(roughness_all, roughness_texture_channel);
+
+    ROUGHNESS = rough;
 '''
   #vec4 albedo = texture({1}, scaled_uv_{0});
 
@@ -112,18 +132,22 @@ uniform vec2 {1} = vec2({2},{3});
         # addon directory
         addon_dir = os.path.dirname(os.path.realpath(__file__))
 
-    
-        self.godot_directory = self.get_godot_directory(self.filepath)
-
-        if self.godot_directory == "":
-            self.report({'ERROR'}, "This is not a godot directory")
-            return {'CANCELLED'}
-
         if self.use_shortcut:
             self.filepath = os.path.join(my_directory, "box.gdshader")
         else:
             my_directory = os.path.dirname(self.filepath)
 
+        if not os.path.exists(my_directory):
+            print("create directory ", my_directory)
+            os.makedirs(my_directory)
+        else:
+            print("directory exist ", my_directory)
+
+        self.godot_directory = self.get_godot_directory(self.filepath)
+
+        if self.godot_directory == "":
+            self.report({'ERROR'}, "This is not a godot directory")
+            return {'CANCELLED'}
 
         self.filepath = self.fix_filename(self.filepath)
 
@@ -137,13 +161,10 @@ uniform vec2 {1} = vec2({2},{3});
         
         print(f"Relative path: {relative_path}")
 
-        if not os.path.exists(my_directory):
-            print("create directory ", my_directory)
-            os.makedirs(my_directory)
-        else:
-            print("directory exist ", my_directory)
+
+        roughness_overrides = []
         
-        for layer in yp.layers:
+        for layer_idx, layer in enumerate(yp.layers):
             if layer.enable:
                 mapping = get_layer_mapping(layer)
 
@@ -165,6 +186,39 @@ uniform vec2 {1} = vec2({2},{3});
                 # copy to directory 
                 print("copy ", image_path, " to ", my_directory)
                 shutil.copy(image_path, my_directory)
+
+                yp = layer.id_data.yp
+
+                channel:Layer.YLayerChannel
+                for id_ch, channel in enumerate(layer.channels):
+                    ch_name = yp.channels[id_ch].name
+                    print("channel ", channel.name, " enable ", channel.enable, " name_", yp.channels[id_ch].name)
+                    if channel.enable:
+                        ch_image_path = ""
+                        ch_image_path_1 = ""
+
+                        if channel.override:
+                            source_ch = get_channel_source(channel, layer)
+                            ch_image_path = source_ch.image.filepath_from_user()
+                    
+                            print("channel path ", id_ch, " = ",ch_image_path)
+
+                        if channel.override_1:
+                            source_ch_1 = get_channel_source_1(channel, layer)
+                            ch_image_path_1 = source_ch_1.image.filepath_from_user()
+                           
+                            print("channel path 1", id_ch, " = ",ch_image_path_1)
+
+                        if ch_image_path != "":
+                            shutil.copy(ch_image_path, my_directory)
+                        if ch_image_path_1 != "":
+                            shutil.copy(ch_image_path_1, my_directory)
+
+                        if ch_name == "Roughness":
+                            global_vars += self.script_vars_roughness.format(layer_var)
+                            roughness_overrides.append(layer_idx)
+                        elif ch_name == "Normal":
+                            global_vars += self.script_vars_normal.format(layer_var)
 
                 # print("filepath ", index, " = ",source.image.filepath_from_user())
                 # print("rawpath ", index, " = ",source.image.filepath)
@@ -195,11 +249,19 @@ uniform vec2 {1} = vec2({2},{3});
                 global_vars += "\n"
 
                 if index == 1:
-                    combine_content += self.script_layer_combine_0
+                    combine_content += self.script_albedo_combine_0
                 elif index > 1:
-                    combine_content += self.script_layer_combine_next.format(index)
+                    combine_content += self.script_albedo_combine_next.format(index)
                     
                 index += 1
+
+        if len(roughness_overrides) > 0:
+            if len(roughness_overrides) == 1:
+                combine_content += '''
+    vec4 roughness_all = roughness_{};
+'''.format(roughness_overrides[0])
+            for lyr_idx, lyr in enumerate(roughness_overrides):
+                pass
 
         # print("parameter ", asset_args)
         fragment_vars += combine_content
@@ -215,17 +277,18 @@ uniform vec2 {1} = vec2({2},{3});
 
         print("file name", name_asset)
 
-        file = open(self.filepath, "w")
-        file.write(content_shader)
-        file.close()
+        if not self.shader_generation_test:
+            file = open(self.filepath, "w")
+            file.write(content_shader)
+            file.close()
 
-        all_params = base_arg + ["-s", script_location, "--", name_asset, relative_path] + asset_args
-        print("all params=", " ".join(all_params))
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        print(subprocess.run(base_arg + ["--import"], capture_output=True))
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        print(subprocess.run(all_params, capture_output=True))
-        print(subprocess.run(base_arg + ["--import"], capture_output=True))
+            all_params = base_arg + ["-s", script_location, "--", name_asset, relative_path] + asset_args
+            print("all params=", " ".join(all_params))
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            print(subprocess.run(base_arg + ["--import"], capture_output=True))
+            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            print(subprocess.run(all_params, capture_output=True))
+            print(subprocess.run(base_arg + ["--import"], capture_output=True))
 
         return {'FINISHED'}
 
