@@ -2066,10 +2066,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             elif 'Normal' in mask_source.inputs: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], mask_source.inputs['Normal'])
 
         # Mask source directions
-        mask_source_n = nodes.get(mask.source_n)
-        mask_source_s = nodes.get(mask.source_s)
-        mask_source_e = nodes.get(mask.source_e)
-        mask_source_w = nodes.get(mask.source_w)
+        mask_val_n = None
+        mask_val_s = None
+        mask_val_e = None
+        mask_val_w = None
 
         # Mask start
         mask_vector = None
@@ -2116,10 +2116,36 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if mask_vector:
                     create_link(tree, mask_vector, mask_uv_neighbor.inputs[0])
 
-                if mask_source_n: create_link(tree, mask_uv_neighbor.outputs['n'], mask_source_n.inputs[0])
-                if mask_source_s: create_link(tree, mask_uv_neighbor.outputs['s'], mask_source_s.inputs[0])
-                if mask_source_e: create_link(tree, mask_uv_neighbor.outputs['e'], mask_source_e.inputs[0])
-                if mask_source_w: create_link(tree, mask_uv_neighbor.outputs['w'], mask_source_w.inputs[0])
+                mask_source_n = nodes.get(mask.source_n)
+                mask_source_s = nodes.get(mask.source_s)
+                mask_source_e = nodes.get(mask.source_e)
+                mask_source_w = nodes.get(mask.source_w)
+
+                if mask_source_n: mask_val_n = create_link(tree, mask_uv_neighbor.outputs['n'], mask_source_n.inputs[0])[0]
+                if mask_source_s: mask_val_s = create_link(tree, mask_uv_neighbor.outputs['s'], mask_source_s.inputs[0])[0]
+                if mask_source_e: mask_val_e = create_link(tree, mask_uv_neighbor.outputs['e'], mask_source_e.inputs[0])[0]
+                if mask_source_w: mask_val_w = create_link(tree, mask_uv_neighbor.outputs['w'], mask_source_w.inputs[0])[0]
+
+                # Decal Stuff
+                if mask_decal_process:
+
+                    mask_decal_alpha_n = nodes.get(mask.decal_alpha_n)
+                    mask_decal_alpha_s = nodes.get(mask.decal_alpha_s)
+                    mask_decal_alpha_e = nodes.get(mask.decal_alpha_e)
+                    mask_decal_alpha_w = nodes.get(mask.decal_alpha_w)
+
+                    if mask_decal_alpha_n:
+                        mask_val_n = create_link(tree, mask_val_n, mask_decal_alpha_n.inputs[0])[0]
+                        create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha_n.inputs[1])
+                    if mask_decal_alpha_s:
+                        mask_val_s = create_link(tree, mask_val_s, mask_decal_alpha_s.inputs[0])[0]
+                        create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha_s.inputs[1])
+                    if mask_decal_alpha_e:
+                        mask_val_e = create_link(tree, mask_val_e, mask_decal_alpha_e.inputs[0])[0]
+                        create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha_e.inputs[1])
+                    if mask_decal_alpha_w:
+                        mask_val_w = create_link(tree, mask_val_w, mask_decal_alpha_w.inputs[0])[0]
+                        create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha_w.inputs[1])
 
             # UV Neighbor multiplier
             if bump_smooth_multiplier_value and 'Multiplier' in mask_uv_neighbor.inputs:
@@ -2203,14 +2229,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                                 create_link(tree, mask_val, mask_mix.inputs['Color2 w'])
                     else:
                         if 'Color2 n' in mask_mix.inputs:
-                            if mask_source_n: 
-                                create_link(tree, mask_source_n.outputs[0], mask_mix.inputs['Color2 n'])
+                            if mask_val_n: 
+                                create_link(tree, mask_val_n, mask_mix.inputs['Color2 n'])
                             else: 
                                 create_link(tree, mask_val, mask_mix.inputs['Color2 n'])
 
-                        if mask_source_s: create_link(tree, mask_source_s.outputs[0], mask_mix.inputs['Color2 s'])
-                        if mask_source_e: create_link(tree, mask_source_e.outputs[0], mask_mix.inputs['Color2 e'])
-                        if mask_source_w: create_link(tree, mask_source_w.outputs[0], mask_mix.inputs['Color2 w'])
+                        if mask_val_s: create_link(tree, mask_val_s, mask_mix.inputs['Color2 s'])
+                        if mask_val_e: create_link(tree, mask_val_e, mask_mix.inputs['Color2 e'])
+                        if mask_val_w: create_link(tree, mask_val_w, mask_mix.inputs['Color2 w'])
 
     if merge_mask and yp.layer_preview_mode:
         if alpha_preview:
@@ -2733,6 +2759,26 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, alpha_s, spread_alpha.inputs['Alpha s'])
                     create_link(tree, alpha_e, spread_alpha.inputs['Alpha e'])
                     create_link(tree, alpha_w, spread_alpha.inputs['Alpha w'])
+
+            # Decal
+            decal_alpha_n = nodes.get(ch.decal_alpha_n)
+            decal_alpha_s = nodes.get(ch.decal_alpha_s)
+            decal_alpha_e = nodes.get(ch.decal_alpha_e)
+            decal_alpha_w = nodes.get(ch.decal_alpha_w)
+
+            if decal_process:
+                if decal_alpha_n: 
+                    alpha_n = create_link(tree, alpha_n, decal_alpha_n.inputs[0])[0]
+                    create_link(tree, decal_process.outputs[1], decal_alpha_n.inputs[1])
+                if decal_alpha_s: 
+                    alpha_s = create_link(tree, alpha_s, decal_alpha_s.inputs[0])[0]
+                    create_link(tree, decal_process.outputs[1], decal_alpha_s.inputs[1])
+                if decal_alpha_e: 
+                    alpha_e = create_link(tree, alpha_e, decal_alpha_e.inputs[0])[0]
+                    create_link(tree, decal_process.outputs[1], decal_alpha_e.inputs[1])
+                if decal_alpha_w: 
+                    alpha_w = create_link(tree, alpha_w, decal_alpha_w.inputs[0])[0]
+                    create_link(tree, decal_process.outputs[1], decal_alpha_w.inputs[1])
 
             end_chain = alpha_after_mod
             end_chain_n = alpha_n

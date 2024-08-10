@@ -462,6 +462,10 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
 
+    height_root_ch = get_root_height_channel(yp)
+    height_ch = get_height_channel(layer)
+    height_ch_enabled = get_channel_enabled(height_ch) if height_ch else False
+
     # Create texcoord node if decal is used
     texcoord = tree.nodes.get(mask.texcoord)
     if get_mask_enabled(mask) and mask.texcoord_type == 'Decal':
@@ -481,6 +485,15 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
         if decal_alpha.operation != 'MULTIPLY':
             decal_alpha.operation = 'MULTIPLY'
 
+        if height_ch and height_ch_enabled and height_root_ch.enable_smooth_bump:
+            for letter in nsew_letters:
+                decal_alpha = check_new_node(tree, mask, 'decal_alpha_' + letter, 'ShaderNodeMath', 'Decal Alpha ' + letter.upper())
+                if decal_alpha.operation != 'MULTIPLY':
+                    decal_alpha.operation = 'MULTIPLY'
+        else:
+            for letter in nsew_letters:
+                remove_node(tree, mask, 'decal_alpha_' + letter)
+
         if mask.type == 'IMAGE':
             source = get_mask_source(mask)
             if source:
@@ -490,6 +503,10 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
             remove_node(tree, mask, 'texcoord')
         remove_node(tree, mask, 'decal_process')
         remove_node(tree, mask, 'decal_alpha')
+
+        if height_ch:
+            for letter in nsew_letters:
+                remove_node(tree, mask, 'decal_alpha_' + letter)
 
 def check_layer_texcoord_nodes(layer, tree=None):
     yp = layer.id_data.yp
@@ -511,13 +528,25 @@ def check_layer_texcoord_nodes(layer, tree=None):
             decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
 
         # Create decal alpha nodes
-        for ch in layer.channels:
-            if not get_channel_enabled(ch): 
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
+            ch_enabled = get_channel_enabled(ch)
+            if ch_enabled:
+                decal_alpha = check_new_node(tree, ch, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
+                if decal_alpha.operation != 'MULTIPLY':
+                    decal_alpha.operation = 'MULTIPLY'
+            else:
                 remove_node(tree, ch, 'decal_alpha')
-                continue
-            decal_alpha = check_new_node(tree, ch, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
-            if decal_alpha.operation != 'MULTIPLY':
-                decal_alpha.operation = 'MULTIPLY'
+
+            if root_ch.type == 'NORMAL':
+                if ch_enabled and root_ch.enable_smooth_bump:
+                    for letter in nsew_letters:
+                        decal_alpha = check_new_node(tree, ch, 'decal_alpha_' + letter, 'ShaderNodeMath', 'Decal Alpha ' + letter.upper())
+                        if decal_alpha.operation != 'MULTIPLY':
+                            decal_alpha.operation = 'MULTIPLY'
+                else:
+                    for letter in nsew_letters:
+                        remove_node(tree, ch, 'decal_alpha_' + letter)
 
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
@@ -528,8 +557,13 @@ def check_layer_texcoord_nodes(layer, tree=None):
             remove_node(tree, layer, 'texcoord')
         remove_node(tree, layer, 'decal_process')
 
-        for ch in layer.channels:
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
             remove_node(tree, ch, 'decal_alpha')
+
+            if root_ch.type == 'NORMAL':
+                for letter in nsew_letters:
+                    remove_node(tree, ch, 'decal_alpha_' + letter)
 
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 

@@ -194,6 +194,10 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         # Blend
         frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
         check_set_node_parent(tree, ch.decal_alpha, frame)
+        check_set_node_parent(tree, ch.decal_alpha_n, frame)
+        check_set_node_parent(tree, ch.decal_alpha_s, frame)
+        check_set_node_parent(tree, ch.decal_alpha_e, frame)
+        check_set_node_parent(tree, ch.decal_alpha_w, frame)
         check_set_node_parent(tree, ch.layer_intensity, frame)
         check_set_node_parent(tree, ch.intensity, frame)
         check_set_node_parent(tree, ch.extra_alpha, frame)
@@ -256,6 +260,10 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, mask.blur_vector, frame)
         check_set_node_parent(tree, mask.decal_process, frame)
         check_set_node_parent(tree, mask.decal_alpha, frame)
+        check_set_node_parent(tree, mask.decal_alpha_n, frame)
+        check_set_node_parent(tree, mask.decal_alpha_s, frame)
+        check_set_node_parent(tree, mask.decal_alpha_e, frame)
+        check_set_node_parent(tree, mask.decal_alpha_w, frame)
         check_set_node_parent(tree, mask.mapping, frame)
         check_set_node_parent(tree, mask.baked_mapping, frame)
         check_set_node_parent(tree, mask.texcoord, frame)
@@ -1061,6 +1069,18 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, mask.decal_alpha, loc, True):
             loc.y -= 40
 
+        if check_set_node_loc(tree, mask.decal_alpha_n, loc, True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, mask.decal_alpha_s, loc, True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, mask.decal_alpha_e, loc, True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, mask.decal_alpha_w, loc, True):
+            loc.y -= 40
+
         if mask.group_node != '' and check_set_node_loc(tree, mask.group_node, loc, True):
             rearrange_mask_tree_nodes(mask)
             loc.y -= 40
@@ -1321,7 +1341,29 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x += 200
                 y_offset += 90
 
-        if check_set_node_loc(tree, ch.decal_alpha, loc):
+        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and layer.texcoord_type == 'Decal':
+
+            ori_y = loc.y
+
+            if check_set_node_loc(tree, ch.decal_alpha, loc, True):
+                loc.y -= 40
+
+            if check_set_node_loc(tree, ch.decal_alpha_n, loc, True):
+                loc.y -= 40
+
+            if check_set_node_loc(tree, ch.decal_alpha_s, loc, True):
+                loc.y -= 40
+
+            if check_set_node_loc(tree, ch.decal_alpha_e, loc, True):
+                loc.y -= 40
+
+            if check_set_node_loc(tree, ch.decal_alpha_w, loc, True):
+                loc.y -= 40
+            
+            loc.x += 200
+            loc.y = ori_y
+
+        elif check_set_node_loc(tree, ch.decal_alpha, loc):
             loc.x += 200
 
         if check_set_node_loc(tree, ch.layer_intensity, loc):

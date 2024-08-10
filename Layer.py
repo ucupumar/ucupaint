@@ -5026,8 +5026,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
     blend : StringProperty(default='')
     intensity : StringProperty(default='')
     layer_intensity : StringProperty(default='')
-    decal_alpha : StringProperty(default='')
     extra_alpha : StringProperty(default='')
+    decal_alpha : StringProperty(default='')
+    decal_alpha_n : StringProperty(default='')
+    decal_alpha_s : StringProperty(default='')
+    decal_alpha_e : StringProperty(default='')
+    decal_alpha_w : StringProperty(default='')
 
     # Flip y node
     flip_y : StringProperty(default='')

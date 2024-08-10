@@ -1864,6 +1864,10 @@ class YLayerMask(bpy.types.PropertyGroup):
     decal_process : StringProperty(default='')
     texcoord : StringProperty(default='')
     decal_alpha : StringProperty(default='')
+    decal_alpha_n : StringProperty(default='')
+    decal_alpha_s : StringProperty(default='')
+    decal_alpha_e : StringProperty(default='')
+    decal_alpha_w : StringProperty(default='')
 
     linear : StringProperty(default='')
 
