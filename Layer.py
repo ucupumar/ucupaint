@@ -3792,6 +3792,14 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                     if s: s.node_tree = mask_group.node_tree
             else:
                 mask_source = ttree.nodes.get(mask.source)
+            # Decal object duplicate
+            if mask.texcoord_type == 'Decal':
+                texcoord = ttree.nodes.get(mask.texcoord)
+                if texcoord and texcoord.object:
+                    nname = get_unique_name(texcoord.object.name, bpy.data.objects)
+                    texcoord.object = texcoord.object.copy()
+                    texcoord.object.name = nname
+                    link_object(bpy.context.scene, texcoord.object)
 
             if mask.type == 'IMAGE': # and ypui.make_image_single_user:
                 img = mask_source.image

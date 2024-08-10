@@ -444,27 +444,64 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
+def create_decal_empty():
+    scene = bpy.context.scene
+    empty_name = get_unique_name('Decal', bpy.data.objects)
+    empty = bpy.data.objects.new(empty_name, None)
+    empty.empty_display_type = 'SINGLE_ARROW'
+    link_object(scene, empty)
+    if is_greater_than_280():
+        empty.location = scene.cursor.location.copy()
+        empty.rotation_euler = scene.cursor.rotation_euler.copy()
+    else: 
+        empty.location = scene.cursor_location.copy()
+
+    return empty
+
+def check_mask_texcoord_nodes(layer, mask, tree=None):
+    yp = layer.id_data.yp
+    if not tree: tree = get_tree(layer)
+
+    # Create texcoord node if decal is used
+    texcoord = tree.nodes.get(mask.texcoord)
+    if get_mask_enabled(mask) and mask.texcoord_type == 'Decal':
+
+        # Create new empty object if there's no texcoord yet
+        if not texcoord:
+            empty = create_decal_empty()
+            texcoord = new_node(tree, mask, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
+            texcoord.object = empty
+
+        decal_process = tree.nodes.get(mask.decal_process)
+        if not decal_process:
+            decal_process = new_node(tree, mask, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
+            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+
+        decal_alpha = check_new_node(tree, mask, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
+        if decal_alpha.operation != 'MULTIPLY':
+            decal_alpha.operation = 'MULTIPLY'
+
+        if mask.type == 'IMAGE':
+            source = get_mask_source(mask)
+            if source:
+                source.extension = 'CLIP'
+    else:
+        if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
+            remove_node(tree, mask, 'texcoord')
+        remove_node(tree, mask, 'decal_process')
+        remove_node(tree, mask, 'decal_alpha')
+
 def check_layer_texcoord_nodes(layer, tree=None):
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
 
-    # Create texcoord node if necessary
+    # Create texcoord node if decal is used
     texcoord = tree.nodes.get(layer.texcoord)
     if get_layer_enabled(layer) and layer.texcoord_type == 'Decal':
 
         # Create new empty object if there's no texcoord yet
         if not texcoord:
-            scene = bpy.context.scene
-            empty_name = get_unique_name('Decal', bpy.data.objects)
-            empty = bpy.data.objects.new(empty_name, None)
-            empty.empty_display_type = 'SINGLE_ARROW'
-            link_object(scene, empty)
-            if is_greater_than_280():
-                empty.location = scene.cursor.location.copy()
-                empty.rotation_euler = scene.cursor.rotation_euler.copy()
-            else: 
-                empty.location = scene.cursor_location.copy()
-
+            empty = create_decal_empty()
             texcoord = new_node(tree, layer, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
             texcoord.object = empty
 
@@ -473,7 +510,7 @@ def check_layer_texcoord_nodes(layer, tree=None):
             decal_process = new_node(tree, layer, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
             decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
 
-        # Create decal intensity nodes
+        # Create decal alpha nodes
         for ch in layer.channels:
             if not get_channel_enabled(ch): 
                 remove_node(tree, ch, 'decal_alpha')
@@ -547,8 +584,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
             check_mask_mix_nodes(layer, tree, specific_ch=ch)
 
     # Mask nodes
-    #for mask in layer.masks:
-    #    check_mask_image_linear_node(mask)
+    for mask in layer.masks:
+        check_mask_texcoord_nodes(layer, mask, tree)
+        #check_mask_image_linear_node(mask)
 
     # Linear nodes
     check_yp_linear_nodes(yp, layer, False)
@@ -822,6 +860,11 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             # Mask blur vector
             if mask.enable_blur_vector:
                 dirty = create_prop_input(mask, 'blur_vector_factor', valid_inputs, input_index, dirty)
+                input_index += 1
+
+            # Mask decal distance
+            if mask.texcoord_type == 'Decal':
+                dirty = create_prop_input(mask, 'decal_distance_value', valid_inputs, input_index, dirty)
                 input_index += 1
 
             # Color ID

@@ -254,8 +254,11 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, mask.source_w, frame)
 
         check_set_node_parent(tree, mask.blur_vector, frame)
+        check_set_node_parent(tree, mask.decal_process, frame)
+        check_set_node_parent(tree, mask.decal_alpha, frame)
         check_set_node_parent(tree, mask.mapping, frame)
         check_set_node_parent(tree, mask.baked_mapping, frame)
+        check_set_node_parent(tree, mask.texcoord, frame)
 
         for c in mask.channels:
             check_set_node_parent(tree, c.mix, frame)
@@ -1055,6 +1058,9 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y = 0
         loc.x = farthest_x
 
+        if check_set_node_loc(tree, mask.decal_alpha, loc, True):
+            loc.y -= 40
+
         if mask.group_node != '' and check_set_node_loc(tree, mask.group_node, loc, True):
             rearrange_mask_tree_nodes(mask)
             loc.y -= 40
@@ -1094,8 +1100,14 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, mask.blur_vector, loc):
             loc.y -= 140
 
+        if check_set_node_loc(tree, mask.decal_process, loc):
+            loc.y -= 170
+
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130
+
+        if check_set_node_loc(tree, mask.texcoord, loc):
+            loc.y -= 170
 
         #if check_set_node_loc(tree, mask.tangent_flip, loc):
         #    loc.y -= 120
