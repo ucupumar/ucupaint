@@ -3048,13 +3048,7 @@ def remove_layer(yp, index):
     mat = obj.active_material
 
     # Dealing with decal object
-    if layer.texcoord_type == 'Decal':
-        texcoord = layer_tree.nodes.get(layer.texcoord)
-        if texcoord and texcoord.object:
-            decal_obj = texcoord.object
-            if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
-                texcoord.object = None
-                remove_datablock(bpy.data.objects, decal_obj)
+    remove_decal_object(layer_tree, layer)
 
     # Dealing with image atlas segments
     if layer.type == 'IMAGE': # and layer.segment_name != '':
@@ -3074,6 +3068,9 @@ def remove_layer(yp, index):
 
     # Remove Mask source
     for mask in layer.masks:
+
+        # Dealing with decal object
+        remove_decal_object(layer_tree, mask)
 
         # Dealing with image atlas segments
         if mask.type == 'IMAGE': # and mask.segment_name != '':

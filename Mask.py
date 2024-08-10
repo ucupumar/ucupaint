@@ -155,13 +155,7 @@ def remove_mask(layer, mask, obj):
     mask_index = [i for i, m in enumerate(layer.masks) if m == mask][0]
 
     # Dealing with decal object
-    if mask.texcoord_type == 'Decal':
-        texcoord = tree.nodes.get(mask.texcoord)
-        if texcoord and texcoord.object:
-            decal_obj = texcoord.object
-            if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
-                texcoord.object = None
-                remove_datablock(bpy.data.objects, decal_obj)
+    remove_decal_object(tree, mask)
 
     # Remove mask fcurves first
     remove_entity_fcurves(mask)

@@ -6577,3 +6577,12 @@ def get_mesh_hash(obj):
     h = hash(vertices_np.tobytes())
     return str(h)
 
+def remove_decal_object(tree, entity):
+    # NOTE: This will remove the texcoord object even if the entity is not using decal
+    #if entity.texcoord_type == 'Decal':
+    texcoord = tree.nodes.get(entity.texcoord)
+    if texcoord and texcoord.object:
+        decal_obj = texcoord.object
+        if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
+            texcoord.object = None
+            remove_datablock(bpy.data.objects, decal_obj)
