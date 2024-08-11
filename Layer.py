@@ -1978,6 +1978,8 @@ class BaseMultipleImagesLayer():
             uv_name = get_default_uv_name(obj, yp)
             self.mask_uv_name = uv_name
 
+        return True
+
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
     """Open all images inside material node tree to single layer"""
     bl_idname = "node.y_open_images_from_material_to_single_layer"
