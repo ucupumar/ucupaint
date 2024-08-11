@@ -4206,8 +4206,12 @@ class YNewLayerMenu(bpy.types.Menu):
 
         col.operator("node.y_open_image_to_layer", text='Open Image')
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
-        col.operator("node.y_open_multiple_images_to_single_layer", text='Open Images to Single Layer')
-        col.operator("node.y_open_images_from_material_to_layer", text='Open Images from Material')
+
+        col.operator("node.y_open_images_to_single_layer", text='Open Images to Single Layer')
+        col.operator("node.y_open_images_from_material_to_single_layer", text='Open Images from Material')
+
+        # NOTE: Dedicated menu for opening images to single layer is kinda hard to see, so it's probably better be hidden for now
+        #col.menu("NODE_MT_y_open_images_to_single_layer_menu", text='Open Images to Single Layer')
 
         col.separator()
 
@@ -4499,6 +4503,21 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         if hasattr(context, 'image'):
             col.menu("NODE_MT_y_image_convert_menu", text='Convert Image')
+
+class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_open_images_to_single_layer_menu"
+    bl_label = "Open Images to Single Layer Menu"
+    bl_description = "Open Images to Single Layer Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        col = self.layout.column()
+
+        col.operator("node.y_open_images_to_single_layer", icon='FILE_FOLDER', text='From Directory')
+        col.operator("node.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material')
 
 class YImageConvertToMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_image_convert_menu"
@@ -5738,6 +5757,7 @@ def register():
     bpy.utils.register_class(YBakedImageMenu)
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YImageConvertToMenu)
+    bpy.utils.register_class(YOpenImagesToSingleLayerMenu)
     bpy.utils.register_class(YUVSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
     bpy.utils.register_class(YModifier1Menu)
@@ -5796,6 +5816,7 @@ def unregister():
     bpy.utils.unregister_class(YBakedImageMenu)
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YImageConvertToMenu)
+    bpy.utils.unregister_class(YOpenImagesToSingleLayerMenu)
     bpy.utils.unregister_class(YUVSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
     bpy.utils.unregister_class(YModifier1Menu)

@@ -1807,10 +1807,6 @@ class BaseMultipleImagesLayer():
             root_ch = valid_channels[i]
             syname = valid_synonyms[i]
 
-            # Set image to linear
-            #if image.colorspace_settings.name != 'Non-Color':
-            #    image.colorspace_settings.name = 'Non-Color'
-
             # Set relative
             if self.relative:
                 try: image.filepath = bpy.path.relpath(image.filepath)
@@ -1983,9 +1979,9 @@ class BaseMultipleImagesLayer():
             self.mask_uv_name = uv_name
 
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
-    """Open images from material to layer"""
-    bl_idname = "node.y_open_images_from_material_to_layer"
-    bl_label = "Open Images from Material to Layer"
+    """Open all images inside material node tree to single layer"""
+    bl_idname = "node.y_open_images_from_material_to_single_layer"
+    bl_label = "Open Images from Material to Single Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     mat_name : StringProperty(default='')
@@ -2088,10 +2084,10 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         print(mat)
         return {'FINISHED'}
 
-class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
-    """Open Multiple Images to Single Layer"""
-    bl_idname = "node.y_open_multiple_images_to_single_layer"
-    bl_label = "Open Multiple Images to Single Layer"
+class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
+    """Open images to single layer"""
+    bl_idname = "node.y_open_images_to_single_layer"
+    bl_label = "Open Images to Single Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -5719,7 +5715,7 @@ def register():
     bpy.utils.register_class(YNewVDMLayer)
     bpy.utils.register_class(YNewVcolToOverrideChannel)
     bpy.utils.register_class(YOpenImageToLayer)
-    bpy.utils.register_class(YOpenMultipleImagesToSingleLayer)
+    bpy.utils.register_class(YOpenImagesToSingleLayer)
     bpy.utils.register_class(YOpenImagesFromMaterialToLayer)
     bpy.utils.register_class(YOpenImageToOverrideChannel)
     bpy.utils.register_class(YOpenImageToOverride1Channel)
@@ -5748,7 +5744,7 @@ def unregister():
     bpy.utils.unregister_class(YNewVDMLayer)
     bpy.utils.unregister_class(YNewVcolToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToLayer)
-    bpy.utils.unregister_class(YOpenMultipleImagesToSingleLayer)
+    bpy.utils.unregister_class(YOpenImagesToSingleLayer)
     bpy.utils.unregister_class(YOpenImagesFromMaterialToLayer)
     bpy.utils.unregister_class(YOpenImageToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToOverride1Channel)
