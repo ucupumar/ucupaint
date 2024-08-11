@@ -2206,6 +2206,10 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
         # Update UI
         wm.ypui.need_update = True
+        if self.texcoord_type == 'Decal':
+            wm.ypui.layer_ui.expand_content = True
+            wm.ypui.layer_ui.expand_vector = True
+
         print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
@@ -2700,6 +2704,10 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
+        if self.texcoord_type == 'Decal':
+            wm.ypui.layer_ui.expand_content = True
+            wm.ypui.layer_ui.expand_vector = True
+
         print('INFO: Image', self.image_name, 'is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 

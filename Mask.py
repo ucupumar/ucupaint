@@ -806,6 +806,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         # Update UI
         wm.ypui.need_update = True
+        if self.texcoord_type == 'Decal':
+            mask.expand_content = True
+            mask.expand_vector = True
+
         print('INFO: Image(s) is opened as mask(s) at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
@@ -1088,6 +1092,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         ypui.layer_ui.expand_masks = True
         ypui.need_update = True
+        if self.texcoord_type == 'Decal':
+            mask.expand_content = True
+            mask.expand_vector = True
 
         return {'FINISHED'}
 
