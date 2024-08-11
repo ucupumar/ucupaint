@@ -4207,6 +4207,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_open_image_to_layer", text='Open Image')
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
         col.operator("node.y_open_multiple_images_to_single_layer", text='Open Images to Single Layer')
+        col.operator("node.y_open_images_from_material_to_layer", text='Open Images from Material')
 
         col.separator()
 

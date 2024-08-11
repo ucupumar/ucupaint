@@ -1,4 +1,4 @@
-import bpy, time, re, os, random
+import bpy, time, re, os, random, pathlib
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
@@ -1665,12 +1665,12 @@ class BaseMultipleImagesLayer():
     #def is_mask_using_image_atlas(self):
     #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
     
-    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list) -> bool:
+    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, images=[]) -> bool:
     
         T = time.time()
 
-        #images = tuple(load_image(path, directory) for path in import_list)
-        images = list(load_image(path, directory) for path in import_list)
+        if import_list:
+            images.extend(list(load_image(path, directory) for path in import_list))
 
         # Check existing images
         #exist_images = []
@@ -1680,14 +1680,9 @@ class BaseMultipleImagesLayer():
         #            exist_images.append(old_img)
         #            break
 
-        #print(images)
-
         valid_channels = []
         valid_images = []
         valid_synonyms = []
-        #channel_ids = []
-
-        # Dict
 
         # Check for DirectX and OpenGL images
         dx_image = None
@@ -1791,9 +1786,6 @@ class BaseMultipleImagesLayer():
 
                         secondary_imgae_found = True
 
-        #for i, image in enumerate(valid_images):
-        #    print(image.name, valid_channels[i].name, valid_synonyms[i])
-
         if not valid_images:
             # Remove loaded images
             for image in images:
@@ -1830,11 +1822,6 @@ class BaseMultipleImagesLayer():
             # Use image directly to layer for the first index
             if i == 0:
                 yp.halt_update = True
-                #layer = add_new_layer(node.node_tree, image.name, 'IMAGE', int(ch_idx), 'MIX', 
-                #        'MIX', normal_map_type, self.texcoord_type, self.uv_map,
-                #        image, None, None, 
-                #        )
-
                                                  
                 layer = add_new_layer(node.node_tree, image.name, 'IMAGE', 
                         int(ch_idx), 'MIX', 'MIX', 
@@ -1844,8 +1831,6 @@ class BaseMultipleImagesLayer():
                         use_udim_for_mask=self.use_udim_for_mask)
 
                 yp.halt_update = False
-                #reconnect_yp_nodes(node.node_tree)
-                #rearrange_yp_nodes(node.node_tree)
                 tree = get_tree(layer)
             else:
                 ch = layer.channels[ch_idx]
@@ -1889,6 +1874,8 @@ class BaseMultipleImagesLayer():
         print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
+        return True
+
     def invoke_operator(self, context:bpy.context):
         obj = context.object
         node = get_active_ypaint_node()
@@ -1918,7 +1905,7 @@ class BaseMultipleImagesLayer():
         #self.normal_map_type = 'NORMAL_MAP'
 
         #return context.window_manager.invoke_props_dialog(self)
-    def draw_operator(self, context):
+    def draw_operator(self, context, display_relative_toggle=True):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         obj = context.object
@@ -1973,7 +1960,8 @@ class BaseMultipleImagesLayer():
         #    else: 
         #        rrow.prop(self, 'blend_type', text='')
 
-        self.layout.prop(self, 'relative')
+        if display_relative_toggle:
+            self.layout.prop(self, 'relative')
 
     def check_operator(self, context:bpy.context):
         ypup = get_user_preferences()
@@ -1994,6 +1982,111 @@ class BaseMultipleImagesLayer():
             uv_name = get_default_uv_name(obj, yp)
             self.mask_uv_name = uv_name
 
+class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
+    """Open images from material to layer"""
+    bl_idname = "node.y_open_images_from_material_to_layer"
+    bl_label = "Open Images from Material to Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    mat_name : StringProperty(default='')
+    mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        self.invoke_operator(context)
+
+        self.mat_coll.clear()
+
+        obj = context.object
+        cur_mats = []
+        if obj.data and hasattr(obj.data, 'materials'):
+            cur_mats = obj.data.materials
+
+        # Get material lists from current file
+        for mat in bpy.data.materials:
+            if mat.name not in {'Dots Stroke'} and mat.name not in cur_mats:
+                self.mat_coll.add().name = mat.name
+
+        # Get material lists from asset library
+        if is_greater_than_300():
+
+            prefs = bpy.context.preferences
+            filepaths = prefs.filepaths
+            asset_libraries = filepaths.asset_libraries
+        
+            for asset_library in asset_libraries:
+                library_name = asset_library.name
+                library_path = pathlib.Path(asset_library.path)
+                blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
+                print(f"Checking the content of library '{library_name}'")
+                for blend_file in blend_files:
+                    with bpy.data.libraries.load(str(blend_file), assets_only=True) as (file_contents, _):
+                        for mat in file_contents.materials:
+                            if mat not in self.mat_coll:
+                                self.mat_coll.add().name = mat
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = split_layout(self.layout, 0.325, align=True)
+        row.label(text='Material')
+        row.prop_search(self, "mat_name", self, "mat_coll", text='', icon='MATERIAL_DATA')
+        self.draw_operator(context, display_relative_toggle=False)
+
+    def execute(self, context):
+
+        if self.mat_name == '':
+            self.report({'ERROR'}, "Source material cannot be empty!")
+            return {'CANCELLED'}
+
+        # Get material from local first
+        mat = bpy.data.materials.get(self.mat_name)
+
+        # Get material from asset library if not found
+        if not mat and is_greater_than_300():
+            prefs = bpy.context.preferences
+            filepaths = prefs.filepaths
+            asset_libraries = filepaths.asset_libraries
+            
+            for asset_library in asset_libraries:
+                library_name = asset_library.name
+                library_path = pathlib.Path(asset_library.path)
+                blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
+                print(f"Checking the content of library '{library_name}'")
+                for blend_file in blend_files:
+                    with bpy.data.libraries.load(str(blend_file), assets_only=True) as (data_from, data_to):
+                        for mat in data_from.materials:
+                            if mat == self.mat_name:
+                                data_to.materials.append(mat)
+
+            mat = bpy.data.materials.get(self.mat_name)
+
+        if not mat:
+            self.report({'ERROR'}, "Source material cannot be found!")
+            return {'CANCELLED'}
+
+        
+        # Check material for images
+        images = []
+        if mat.node_tree:
+            for node in mat.node_tree.nodes:
+                if node.type == 'TEX_IMAGE':
+                    if node.image:
+                        images.append(node.image)
+
+        if not images:
+            self.report({'ERROR'}, "Cannot found images inside the material!")
+            return {'CANCELLED'}
+
+        if not self.open_images_to_single_layer(context, directory='', import_list=[], images=images):
+            self.report({'ERROR'}, "Images should have channel name as suffix!")
+            return {'CANCELLED'}
+
+        print(mat)
+        return {'FINISHED'}
 
 class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
     """Open Multiple Images to Single Layer"""
@@ -5627,6 +5720,7 @@ def register():
     bpy.utils.register_class(YNewVcolToOverrideChannel)
     bpy.utils.register_class(YOpenImageToLayer)
     bpy.utils.register_class(YOpenMultipleImagesToSingleLayer)
+    bpy.utils.register_class(YOpenImagesFromMaterialToLayer)
     bpy.utils.register_class(YOpenImageToOverrideChannel)
     bpy.utils.register_class(YOpenImageToOverride1Channel)
     bpy.utils.register_class(YOpenAvailableDataToLayer)
@@ -5655,6 +5749,7 @@ def unregister():
     bpy.utils.unregister_class(YNewVcolToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToLayer)
     bpy.utils.unregister_class(YOpenMultipleImagesToSingleLayer)
+    bpy.utils.unregister_class(YOpenImagesFromMaterialToLayer)
     bpy.utils.unregister_class(YOpenImageToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToOverride1Channel)
     bpy.utils.unregister_class(YOpenAvailableDataToLayer)
