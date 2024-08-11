@@ -957,7 +957,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 dest_subval = dest_val.add()
                 copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif attr_type == bpy_types.bpy_prop_collection:
+        elif hasattr(bpy_types, 'bpy_prop_collection') and attr_type == bpy_types.bpy_prop_collection:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_subval = None
