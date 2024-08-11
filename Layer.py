@@ -2017,7 +2017,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
                 library_name = asset_library.name
                 library_path = pathlib.Path(asset_library.path)
                 blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
-                print(f"Checking the content of library '{library_name}'")
+                print("Checking the content of library '" + library_name + "'")
                 for blend_file in blend_files:
                     with bpy.data.libraries.load(str(blend_file), assets_only=True) as (file_contents, _):
                         for mat in file_contents.materials:
@@ -2051,7 +2051,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
                 library_name = asset_library.name
                 library_path = pathlib.Path(asset_library.path)
                 blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
-                print(f"Checking the content of library '{library_name}'")
+                print("Checking the content of library '" + library_name + "'")
                 for blend_file in blend_files:
                     with bpy.data.libraries.load(str(blend_file), assets_only=True) as (data_from, data_to):
                         for mat in data_from.materials:
@@ -2064,7 +2064,6 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             self.report({'ERROR'}, "Source material cannot be found!")
             return {'CANCELLED'}
 
-        
         # Check material for images
         images = []
         if mat.node_tree:
@@ -2081,7 +2080,6 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             self.report({'ERROR'}, "Images should have channel name as suffix!")
             return {'CANCELLED'}
 
-        print(mat)
         return {'FINISHED'}
 
 class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
