@@ -3949,6 +3949,7 @@ class YDuplicateLayer(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     make_image_blank : BoolProperty(default=False)
+    make_image_packed : BoolProperty(default=False)
 
     @classmethod
     def poll(cls, context):
