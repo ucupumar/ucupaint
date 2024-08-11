@@ -6341,7 +6341,7 @@ def is_image_filepath_unique(image):
             return False
     return True
 
-def duplicate_image(image):
+def duplicate_image(image, make_image_packed= False):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
@@ -6355,7 +6355,10 @@ def duplicate_image(image):
     new_image = image.copy()
     new_image.name = new_name
 
-    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
+    if not make_image_packed :
+        os.system('copy %s %s' %(image.name, new_name))
+
+    if image.source == 'TILED'  or (not image.packed_file and image.filepath != '' and make_image_packed == True):
 
         # NOTE: Duplicated image will always be packed for now
         if not image.packed_file:
