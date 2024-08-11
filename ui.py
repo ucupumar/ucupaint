@@ -1433,7 +1433,9 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                         draw_input_prop(splits, layer, 'decal_distance_value')
 
                         boxcol.context_pointer_set('entity', layer)
-                        boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                        if is_greater_than_280():
+                            boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                        else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
 
                     if layer.texcoord_type != 'Decal':
                         rrow = boxcol.row()
@@ -2394,7 +2396,9 @@ def draw_layer_masks(context, layout, layer):
                         draw_input_prop(splits, mask, 'decal_distance_value')
 
                         boxcol.context_pointer_set('entity', mask)
-                        boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                        if is_greater_than_280():
+                            boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                        else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
 
                     if mask.texcoord_type != 'Decal':
                         rrow = boxcol.row()
