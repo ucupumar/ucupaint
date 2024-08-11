@@ -1762,17 +1762,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     uv_neighbor = nodes.get(layer.uv_neighbor)
     uv_neighbor_1 = nodes.get(layer.uv_neighbor_1)
 
-    if layer.type == 'GROUP':
-        texcoord = source
-    else: texcoord = nodes.get(layer.texcoord)
+    #if layer.type == 'GROUP':
+    #    texcoord = source
+    #else: texcoord = nodes.get(layer.texcoord)
 
     #texcoord = nodes.get(TEXCOORD)
+    texcoord = nodes.get(layer.texcoord)
     #geometry = nodes.get(GEOMETRY)
     blur_vector = nodes.get(layer.blur_vector)
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
     divider_alpha = nodes.get(layer.divider_alpha)
     flip_y = nodes.get(layer.flip_y)
+    decal_process = nodes.get(layer.decal_process)
 
     # Get tangent and bitangent
     layer_tangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['TANGENT'])
@@ -1832,6 +1834,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if is_layer_using_vector(layer):
         if layer.texcoord_type == 'UV':
             vector = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['UV'])
+        elif layer.texcoord_type == 'Decal':
+            if texcoord:
+                vector = texcoord.outputs['Object']
+                if decal_process: 
+                    layer_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'decal_distance_value'))
+                    vector = create_link(tree, vector, decal_process.inputs[0])[0]
+                    if layer_decal_distance: create_link(tree, layer_decal_distance, decal_process.inputs[1])
         else: vector = get_essential_node(tree, TREE_START).get(io_names[layer.texcoord_type])
 
         if vector and blur_vector:
@@ -1840,7 +1849,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             layer_blur_factor = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'blur_vector_factor'))
             if layer_blur_factor: create_link(tree, layer_blur_factor, blur_vector.inputs[0])
 
-        if vector and mapping:
+        if vector and mapping and layer.texcoord_type != 'Decal':
             vector = create_link(tree, vector, mapping.inputs[0])[0]
 
     if vector and layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
@@ -2032,6 +2041,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         mask_blur_vector = nodes.get(mask.blur_vector)
         mask_mapping = nodes.get(mask.mapping)
+        mask_decal_process = nodes.get(mask.decal_process)
+        mask_decal_alpha = nodes.get(mask.decal_alpha)
+        mask_texcoord = nodes.get(mask.texcoord)
+
+        if mask_decal_alpha and mask_decal_process:
+            mask_val = create_link(tree, mask_val, mask_decal_alpha.inputs[0])[0]
+            create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha.inputs[1])
 
         if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and mask.active_edit == True:
             if alpha_preview:
@@ -2050,10 +2066,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             elif 'Normal' in mask_source.inputs: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], mask_source.inputs['Normal'])
 
         # Mask source directions
-        mask_source_n = nodes.get(mask.source_n)
-        mask_source_s = nodes.get(mask.source_s)
-        mask_source_e = nodes.get(mask.source_e)
-        mask_source_w = nodes.get(mask.source_w)
+        mask_val_n = None
+        mask_val_s = None
+        mask_val_e = None
+        mask_val_w = None
 
         # Mask start
         mask_vector = None
@@ -2061,6 +2077,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
             if mask.use_baked or mask.texcoord_type == 'UV':
                 mask_vector = get_essential_node(tree, TREE_START).get(mask_uv_name + io_suffix['UV'])
+            elif mask.texcoord_type == 'Decal':
+                if mask_texcoord:
+                    mask_vector = mask_texcoord.outputs['Object']
+                    if mask_decal_process: 
+                        layer_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_distance_value'))
+                        mask_vector = create_link(tree, mask_vector, mask_decal_process.inputs[0])[0]
+                        if layer_decal_distance: create_link(tree, layer_decal_distance, mask_decal_process.inputs[1])
             else: 
                 mask_vector = get_essential_node(tree, TREE_START).get(io_names[mask.texcoord_type])
 
@@ -2073,7 +2096,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     if mask_blur_vector:
                         mask_vector = create_link(tree, mask_vector, mask_blur_vector.inputs[1])[0]
 
-                    if mask_mapping:
+                    if mask_mapping and mask.texcoord_type != 'Decal':
                         mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
 
                 else:
@@ -2093,10 +2116,36 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if mask_vector:
                     create_link(tree, mask_vector, mask_uv_neighbor.inputs[0])
 
-                if mask_source_n: create_link(tree, mask_uv_neighbor.outputs['n'], mask_source_n.inputs[0])
-                if mask_source_s: create_link(tree, mask_uv_neighbor.outputs['s'], mask_source_s.inputs[0])
-                if mask_source_e: create_link(tree, mask_uv_neighbor.outputs['e'], mask_source_e.inputs[0])
-                if mask_source_w: create_link(tree, mask_uv_neighbor.outputs['w'], mask_source_w.inputs[0])
+                mask_source_n = nodes.get(mask.source_n)
+                mask_source_s = nodes.get(mask.source_s)
+                mask_source_e = nodes.get(mask.source_e)
+                mask_source_w = nodes.get(mask.source_w)
+
+                if mask_source_n: mask_val_n = create_link(tree, mask_uv_neighbor.outputs['n'], mask_source_n.inputs[0])[0]
+                if mask_source_s: mask_val_s = create_link(tree, mask_uv_neighbor.outputs['s'], mask_source_s.inputs[0])[0]
+                if mask_source_e: mask_val_e = create_link(tree, mask_uv_neighbor.outputs['e'], mask_source_e.inputs[0])[0]
+                if mask_source_w: mask_val_w = create_link(tree, mask_uv_neighbor.outputs['w'], mask_source_w.inputs[0])[0]
+
+                # Decal Stuff
+                if mask_decal_process:
+
+                    mask_decal_alpha_n = nodes.get(mask.decal_alpha_n)
+                    mask_decal_alpha_s = nodes.get(mask.decal_alpha_s)
+                    mask_decal_alpha_e = nodes.get(mask.decal_alpha_e)
+                    mask_decal_alpha_w = nodes.get(mask.decal_alpha_w)
+
+                    if mask_decal_alpha_n:
+                        mask_val_n = create_link(tree, mask_val_n, mask_decal_alpha_n.inputs[0])[0]
+                        create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha_n.inputs[1])
+                    if mask_decal_alpha_s:
+                        mask_val_s = create_link(tree, mask_val_s, mask_decal_alpha_s.inputs[0])[0]
+                        create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha_s.inputs[1])
+                    if mask_decal_alpha_e:
+                        mask_val_e = create_link(tree, mask_val_e, mask_decal_alpha_e.inputs[0])[0]
+                        create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha_e.inputs[1])
+                    if mask_decal_alpha_w:
+                        mask_val_w = create_link(tree, mask_val_w, mask_decal_alpha_w.inputs[0])[0]
+                        create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha_w.inputs[1])
 
             # UV Neighbor multiplier
             if bump_smooth_multiplier_value and 'Multiplier' in mask_uv_neighbor.inputs:
@@ -2180,14 +2229,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                                 create_link(tree, mask_val, mask_mix.inputs['Color2 w'])
                     else:
                         if 'Color2 n' in mask_mix.inputs:
-                            if mask_source_n: 
-                                create_link(tree, mask_source_n.outputs[0], mask_mix.inputs['Color2 n'])
+                            if mask_val_n: 
+                                create_link(tree, mask_val_n, mask_mix.inputs['Color2 n'])
                             else: 
                                 create_link(tree, mask_val, mask_mix.inputs['Color2 n'])
 
-                        if mask_source_s: create_link(tree, mask_source_s.outputs[0], mask_mix.inputs['Color2 s'])
-                        if mask_source_e: create_link(tree, mask_source_e.outputs[0], mask_mix.inputs['Color2 e'])
-                        if mask_source_w: create_link(tree, mask_source_w.outputs[0], mask_mix.inputs['Color2 w'])
+                        if mask_val_s: create_link(tree, mask_val_s, mask_mix.inputs['Color2 s'])
+                        if mask_val_e: create_link(tree, mask_val_e, mask_mix.inputs['Color2 e'])
+                        if mask_val_w: create_link(tree, mask_val_w, mask_mix.inputs['Color2 w'])
 
     if merge_mask and yp.layer_preview_mode:
         if alpha_preview:
@@ -2400,6 +2449,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         layer_intensity = nodes.get(ch.layer_intensity)
         intensity_multiplier = nodes.get(ch.intensity_multiplier)
         extra_alpha = nodes.get(ch.extra_alpha)
+        decal_alpha = nodes.get(ch.decal_alpha)
         blend = nodes.get(ch.blend)
 
         # Check if normal is overriden
@@ -2478,6 +2528,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if j == chain-1 and intensity_multiplier:
                 transition_input = alpha
                 alpha = create_link(tree, alpha, intensity_multiplier.inputs[0])[0]
+
+        # Decal alpha
+        if decal_alpha and decal_process:
+            alpha = create_link(tree, alpha, decal_alpha.inputs[0])[0]
+            create_link(tree, decal_process.outputs[1], decal_alpha.inputs[1])[0]
 
         # If transition bump is not found, use last alpha as input
         if not trans_bump_ch:
@@ -2704,6 +2759,26 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, alpha_s, spread_alpha.inputs['Alpha s'])
                     create_link(tree, alpha_e, spread_alpha.inputs['Alpha e'])
                     create_link(tree, alpha_w, spread_alpha.inputs['Alpha w'])
+
+            # Decal
+            decal_alpha_n = nodes.get(ch.decal_alpha_n)
+            decal_alpha_s = nodes.get(ch.decal_alpha_s)
+            decal_alpha_e = nodes.get(ch.decal_alpha_e)
+            decal_alpha_w = nodes.get(ch.decal_alpha_w)
+
+            if decal_process:
+                if decal_alpha_n: 
+                    alpha_n = create_link(tree, alpha_n, decal_alpha_n.inputs[0])[0]
+                    create_link(tree, decal_process.outputs[1], decal_alpha_n.inputs[1])
+                if decal_alpha_s: 
+                    alpha_s = create_link(tree, alpha_s, decal_alpha_s.inputs[0])[0]
+                    create_link(tree, decal_process.outputs[1], decal_alpha_s.inputs[1])
+                if decal_alpha_e: 
+                    alpha_e = create_link(tree, alpha_e, decal_alpha_e.inputs[0])[0]
+                    create_link(tree, decal_process.outputs[1], decal_alpha_e.inputs[1])
+                if decal_alpha_w: 
+                    alpha_w = create_link(tree, alpha_w, decal_alpha_w.inputs[0])[0]
+                    create_link(tree, decal_process.outputs[1], decal_alpha_w.inputs[1])
 
             end_chain = alpha_after_mod
             end_chain_n = alpha_n

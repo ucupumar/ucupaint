@@ -154,6 +154,9 @@ def remove_mask(layer, mask, obj):
     # Get mask index
     mask_index = [i for i, m in enumerate(layer.masks) if m == mask][0]
 
+    # Dealing with decal object
+    remove_decal_object(tree, mask)
+
     # Remove mask fcurves first
     remove_entity_fcurves(mask)
     shift_mask_fcurves_up(layer, mask_index)
@@ -1771,6 +1774,11 @@ class YLayerMask(bpy.types.PropertyGroup):
             description = 'Mask Intensity Factor',
             default=1.0, min=0.0, max=100.0, precision=3)
 
+    decal_distance_value : FloatProperty(
+            name = 'Decal Distance',
+            description = 'Distance between surface and the decal object',
+            min=0.0, max=100.0, default=0.5, precision=3)
+
     color_id : FloatVectorProperty(
             name='Color ID', size=3,
             subtype='COLOR',
@@ -1846,6 +1854,14 @@ class YLayerMask(bpy.types.PropertyGroup):
     mapping : StringProperty(default='')
     baked_mapping : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    decal_process : StringProperty(default='')
+    texcoord : StringProperty(default='')
+    decal_alpha : StringProperty(default='')
+    decal_alpha_n : StringProperty(default='')
+    decal_alpha_s : StringProperty(default='')
+    decal_alpha_e : StringProperty(default='')
+    decal_alpha_w : StringProperty(default='')
 
     linear : StringProperty(default='')
 

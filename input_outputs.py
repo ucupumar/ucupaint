@@ -444,6 +444,127 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
+def create_decal_empty():
+    scene = bpy.context.scene
+    empty_name = get_unique_name('Decal', bpy.data.objects)
+    empty = bpy.data.objects.new(empty_name, None)
+    empty.empty_display_type = 'SINGLE_ARROW'
+    link_object(scene, empty)
+    if is_greater_than_280():
+        empty.location = scene.cursor.location.copy()
+        empty.rotation_euler = scene.cursor.rotation_euler.copy()
+    else: 
+        empty.location = scene.cursor_location.copy()
+
+    return empty
+
+def check_mask_texcoord_nodes(layer, mask, tree=None):
+    yp = layer.id_data.yp
+    if not tree: tree = get_tree(layer)
+
+    height_root_ch = get_root_height_channel(yp)
+    height_ch = get_height_channel(layer)
+    height_ch_enabled = get_channel_enabled(height_ch) if height_ch else False
+
+    # Create texcoord node if decal is used
+    texcoord = tree.nodes.get(mask.texcoord)
+    if get_mask_enabled(mask) and mask.texcoord_type == 'Decal':
+
+        # Create new empty object if there's no texcoord yet
+        if not texcoord:
+            empty = create_decal_empty()
+            texcoord = new_node(tree, mask, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
+            texcoord.object = empty
+
+        decal_process = tree.nodes.get(mask.decal_process)
+        if not decal_process:
+            decal_process = new_node(tree, mask, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
+            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+
+        decal_alpha = check_new_node(tree, mask, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
+        if decal_alpha.operation != 'MULTIPLY':
+            decal_alpha.operation = 'MULTIPLY'
+
+        if height_ch and height_ch_enabled and height_root_ch.enable_smooth_bump:
+            for letter in nsew_letters:
+                decal_alpha = check_new_node(tree, mask, 'decal_alpha_' + letter, 'ShaderNodeMath', 'Decal Alpha ' + letter.upper())
+                if decal_alpha.operation != 'MULTIPLY':
+                    decal_alpha.operation = 'MULTIPLY'
+        else:
+            for letter in nsew_letters:
+                remove_node(tree, mask, 'decal_alpha_' + letter)
+
+        if mask.type == 'IMAGE':
+            source = get_mask_source(mask)
+            if source:
+                source.extension = 'CLIP'
+    else:
+        if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
+            remove_node(tree, mask, 'texcoord')
+        remove_node(tree, mask, 'decal_process')
+        remove_node(tree, mask, 'decal_alpha')
+
+        if height_ch:
+            for letter in nsew_letters:
+                remove_node(tree, mask, 'decal_alpha_' + letter)
+
+def check_layer_texcoord_nodes(layer, tree=None):
+    yp = layer.id_data.yp
+    if not tree: tree = get_tree(layer)
+
+    # Create texcoord node if decal is used
+    texcoord = tree.nodes.get(layer.texcoord)
+    if get_layer_enabled(layer) and layer.texcoord_type == 'Decal':
+
+        # Create new empty object if there's no texcoord yet
+        if not texcoord:
+            empty = create_decal_empty()
+            texcoord = new_node(tree, layer, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
+            texcoord.object = empty
+
+        decal_process = tree.nodes.get(layer.decal_process)
+        if not decal_process:
+            decal_process = new_node(tree, layer, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
+            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+
+        # Create decal alpha nodes
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
+            ch_enabled = get_channel_enabled(ch)
+            if ch_enabled:
+                decal_alpha = check_new_node(tree, ch, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
+                if decal_alpha.operation != 'MULTIPLY':
+                    decal_alpha.operation = 'MULTIPLY'
+            else:
+                remove_node(tree, ch, 'decal_alpha')
+
+            if root_ch.type == 'NORMAL':
+                if ch_enabled and root_ch.enable_smooth_bump:
+                    for letter in nsew_letters:
+                        decal_alpha = check_new_node(tree, ch, 'decal_alpha_' + letter, 'ShaderNodeMath', 'Decal Alpha ' + letter.upper())
+                        if decal_alpha.operation != 'MULTIPLY':
+                            decal_alpha.operation = 'MULTIPLY'
+                else:
+                    for letter in nsew_letters:
+                        remove_node(tree, ch, 'decal_alpha_' + letter)
+
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source:
+                source.extension = 'CLIP'
+    else:
+        if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
+            remove_node(tree, layer, 'texcoord')
+        remove_node(tree, layer, 'decal_process')
+
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
+            remove_node(tree, ch, 'decal_alpha')
+
+            if root_ch.type == 'NORMAL':
+                for letter in nsew_letters:
+                    remove_node(tree, ch, 'decal_alpha_' + letter)
+
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 
     #print("Checking layer IO. Layer: " + layer.name + ' Specific Channel: ' + str(specific_ch))
@@ -457,6 +578,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
 
     # Check layer tree io
     check_layer_tree_ios(layer, tree, remove_props, hard_reset=hard_reset)
+
+    # Check texcoord nodes
+    check_layer_texcoord_nodes(layer, tree)
 
     # Create mapping if necessary
     if is_layer_using_vector(layer):
@@ -494,8 +618,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
             check_mask_mix_nodes(layer, tree, specific_ch=ch)
 
     # Mask nodes
-    #for mask in layer.masks:
-    #    check_mask_image_linear_node(mask)
+    for mask in layer.masks:
+        check_mask_texcoord_nodes(layer, mask, tree)
+        #check_mask_image_linear_node(mask)
 
     # Linear nodes
     check_yp_linear_nodes(yp, layer, False)
@@ -645,6 +770,10 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if layer.enable_blur_vector:
             dirty = create_prop_input(layer, 'blur_vector_factor', valid_inputs, input_index, dirty)
             input_index += 1
+
+        if layer.texcoord_type == 'Decal':
+            dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty)
+            input_index += 1
         
         # Channel prop inputs
         for i, ch in enumerate(layer.channels):
@@ -765,6 +894,11 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             # Mask blur vector
             if mask.enable_blur_vector:
                 dirty = create_prop_input(mask, 'blur_vector_factor', valid_inputs, input_index, dirty)
+                input_index += 1
+
+            # Mask decal distance
+            if mask.texcoord_type == 'Decal':
+                dirty = create_prop_input(mask, 'decal_distance_value', valid_inputs, input_index, dirty)
                 input_index += 1
 
             # Color ID
@@ -959,11 +1093,11 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     texcoords = []
 
     # Check layer texcoords
-    if layer_enabled and layer.texcoord_type != 'UV' and layer.type not in {'VCOL', 'COLOR', 'HEMI', 'GROUP', 'BACKGROUND'}:
+    if layer_enabled and layer.texcoord_type not in {'UV', 'Decal'} and layer.type not in {'VCOL', 'COLOR', 'HEMI', 'GROUP', 'BACKGROUND'}:
         texcoords.append(layer.texcoord_type)
 
     for mask in layer.masks:
-        if get_mask_enabled(mask, layer) and mask.texcoord_type != 'UV' and mask.type not in {'VCOL', 'COLOR_ID', 'OBJECT_INDEX', 'HEMI'} and mask.texcoord_type not in texcoords:
+        if get_mask_enabled(mask, layer) and mask.texcoord_type not in {'UV', 'Decal'} and mask.type not in {'VCOL', 'COLOR_ID', 'OBJECT_INDEX', 'HEMI'} and mask.texcoord_type not in texcoords:
             texcoords.append(mask.texcoord_type)
 
     for texcoord in texcoords:
