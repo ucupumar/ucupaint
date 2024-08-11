@@ -2047,6 +2047,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         mat = bpy.data.materials.get(self.mat_name)
 
         # Get material from asset library if not found
+        from_asset_library = False
         if not mat and is_greater_than_300():
             prefs = bpy.context.preferences
             filepaths = prefs.filepaths
@@ -2064,6 +2065,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
                                 data_to.materials.append(mat)
 
             mat = bpy.data.materials.get(self.mat_name)
+            from_asset_library = True
 
         if not mat:
             self.report({'ERROR'}, "Source material cannot be found!")
@@ -2084,6 +2086,10 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         if not self.open_images_to_single_layer(context, directory='', import_list=[], images=images):
             self.report({'ERROR'}, "Images should have channel name as suffix!")
             return {'CANCELLED'}
+
+        # Remove material if it has only fake users
+        if from_asset_library and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
+            remove_datablock(bpy.data.materials, mat)
 
         return {'FINISHED'}
 
