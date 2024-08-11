@@ -448,7 +448,9 @@ def create_decal_empty():
     scene = bpy.context.scene
     empty_name = get_unique_name('Decal', bpy.data.objects)
     empty = bpy.data.objects.new(empty_name, None)
-    empty.empty_display_type = 'SINGLE_ARROW'
+    if is_greater_than_280():
+        empty.empty_display_type = 'SINGLE_ARROW'
+    else: empty.empty_draw_type = 'SINGLE_ARROW'
     link_object(scene, empty)
     if is_greater_than_280():
         empty.location = scene.cursor.location.copy()
