@@ -2026,6 +2026,9 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
         return context.window_manager.invoke_props_dialog(self)
 
+    def check(self, context):
+        return self.check_operator(context)
+
     def draw(self, context):
         row = split_layout(self.layout, 0.325, align=True)
         row.label(text='Material')
