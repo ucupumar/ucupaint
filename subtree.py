@@ -1809,9 +1809,13 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         # Max Height calculation node
         if ch.enable_transition_bump:
             if ch.transition_bump_crease and not ch.transition_bump_flip:
-                lib_name = lib.CH_MAX_HEIGHT_TBC_CALC
+                if ch.normal_blend_type == 'OVERLAY':
+                    lib_name = lib.CH_MAX_HEIGHT_TBC_ADD_CALC
+                else: lib_name = lib.CH_MAX_HEIGHT_TBC_CALC
             else:
-                lib_name = lib.CH_MAX_HEIGHT_TB_CALC
+                if ch.normal_blend_type == 'OVERLAY':
+                    lib_name = lib.CH_MAX_HEIGHT_TB_ADD_CALC
+                else: lib_name = lib.CH_MAX_HEIGHT_TB_CALC
         else:
             lib_name = lib.CH_MAX_HEIGHT_CALC
 
