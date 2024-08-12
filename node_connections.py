@@ -3456,7 +3456,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             tr_ramp_blend = nodes.get(ch.tr_ramp_blend)
             tr_intensity_value = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'transition_ramp_intensity_value'))
-            tb_second_fac = start.outputs.get(get_entity_input_name(ch, 'transition_bump_second_fac'))
+            tb_second_fac = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'transition_bump_second_fac'))
 
             create_link(tree, transition_input, tr_ramp.inputs['Transition'])
 
