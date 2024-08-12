@@ -19,18 +19,19 @@ class ExportShader(Operator):
     filepath: StringProperty(subtype='FILE_PATH', options={'SKIP_SAVE'})
 
     use_shortcut = True
-    shader_generation_test = True
+    shader_generation_test = False
 
     godot_directory = "/home/bocilmania/Documents/projects/godot/witch/"
 
     script_template = '''
 shader_type spatial;
+
+uniform float normal_depth = 1.0;
 {0}vec4 layer(vec4 foreground, vec4 background) {{
     return foreground * foreground.a + background * (1.0 - foreground.a);
 }}
 
-void fragment() {{ 
-{1}
+void fragment() {{ {1}
     ALBEDO = albedo_all.rgb;
 }}
 
@@ -47,13 +48,23 @@ uniform vec2 {1} = vec2({2},{3});
     script_mask_vars = "uniform sampler2D {0};"
     
     script_fragment_var = '''
+
     vec2 scaled_uv_{0} = UV * {1};
     vec4 albedo_{0} = texture({2}, scaled_uv_{0});'''
 
+    script_fragment_roughness_var = '''
+    vec4 roughness_{0} = texture({1}, scaled_uv_{0});'''
+    script_fragment_normal_var = '''
+    vec4 normal_{0} = texture({1}, scaled_uv_{0});'''
+
     script_mask_fragment_var = '''
     vec4 mask_{0} = texture({1}, UV);
-    albedo_{0}.a = mask_{0}.r;
-'''
+    albedo_{0}.a = mask_{0}.r;''' 
+    script_mask_normal_var = '''
+    normal_{0}.a = mask_{0}.r;'''
+    script_mask_roughness_var = '''
+    roughness_{0}.a = mask_{0}.r;'''
+
 
     script_albedo_combine_0 = '''
 
@@ -63,9 +74,10 @@ uniform vec2 {1} = vec2({2},{3});
     albedo_all = layer(albedo_all, albedo_{0});
 '''
 
-
+    script_roughness_1 = '''
+    vec4 roughness_all = roughness_{};
+'''
     script_roughness_combine_0 = '''
-
     vec4 roughness_all = layer(roughness_{0}, roughness_{1});'''
 
     script_roughness_combine_next = '''
@@ -76,6 +88,20 @@ uniform vec2 {1} = vec2({2},{3});
     float rough = dot(roughness_all, roughness_texture_channel);
 
     ROUGHNESS = rough;
+'''
+
+    script_normal_1 = '''
+    vec4 normal_all = normal_{};
+'''
+    script_normal_combine_0 = '''
+    vec4 normal_all = layer(normal_{0}, normal_{1});'''
+
+    script_normal_combine_next = '''
+    normal_all = layer(normal_all, normal_{0});
+'''
+    script_normal_fragment = '''
+    NORMAL_MAP = normal_all.rgb;
+    NORMAL_MAP_DEPTH = normal_depth;
 '''
   #vec4 albedo = texture({1}, scaled_uv_{0});
 
@@ -163,6 +189,7 @@ uniform vec2 {1} = vec2({2},{3});
 
 
         roughness_overrides = []
+        normal_overrides = []
         
         for layer_idx, layer in enumerate(yp.layers):
             if layer.enable:
@@ -217,8 +244,21 @@ uniform vec2 {1} = vec2({2},{3});
                         if ch_name == "Roughness":
                             global_vars += self.script_vars_roughness.format(layer_var)
                             roughness_overrides.append(layer_idx)
+
+                            layer_roughness = layer_var + "_roughness"
+                            asset_args.append(layer_roughness)
+                            asset_args.append(bpy.path.basename(ch_image_path))
+                            fragment_vars += self.script_fragment_roughness_var.format(index, layer_roughness)
+                            
                         elif ch_name == "Normal":
                             global_vars += self.script_vars_normal.format(layer_var)
+                            normal_overrides.append(layer_idx)
+
+                            layer_normal = layer_var + "_normal"
+                            asset_args.append(layer_normal)
+                            asset_args.append(bpy.path.basename(ch_image_path_1)) # todo : override 0 or override 1
+                            fragment_vars += self.script_fragment_normal_var.format(index, layer_normal)
+
 
                 # print("filepath ", index, " = ",source.image.filepath_from_user())
                 # print("rawpath ", index, " = ",source.image.filepath)
@@ -228,6 +268,12 @@ uniform vec2 {1} = vec2({2},{3});
                     mask_var = layer_var + "_mask_" + str(idx)
                     global_vars += self.script_mask_vars.format(mask_var)
                     fragment_vars += self.script_mask_fragment_var.format(index, mask_var)
+
+                    if layer_idx in roughness_overrides:
+                        fragment_vars += self.script_mask_roughness_var.format(index)
+                    if layer_idx in normal_overrides:
+                        fragment_vars += self.script_mask_normal_var.format(index)
+
 
                     mask_tree = get_mask_tree(msk)
                     mask_source = mask_tree.nodes.get(msk.source)
@@ -257,13 +303,29 @@ uniform vec2 {1} = vec2({2},{3});
 
         if len(roughness_overrides) > 0:
             if len(roughness_overrides) == 1:
-                combine_content += '''
-    vec4 roughness_all = roughness_{};
-'''.format(roughness_overrides[0])
-            for lyr_idx, lyr in enumerate(roughness_overrides):
-                pass
+                combine_content += self.script_roughness_1.format(roughness_overrides[0])
+            else:
+                for lyr_idx, lyr in enumerate(roughness_overrides):
+                    if lyr_idx == 1:
+                        combine_content += self.script_roughness_combine_0.format(roughness_overrides[lyr_idx - 1], roughness_overrides[lyr_idx])
+                    elif lyr_idx > 1:
+                        combine_content += self.script_roughness_combine_next.format(lyr)
 
-        # print("parameter ", asset_args)
+            combine_content += self.script_roughness_fragment
+
+        if len(normal_overrides) > 0:
+            if len(normal_overrides) == 1:
+                combine_content += self.script_normal_1.format(normal_overrides[0])
+            else:
+                for lyr_idx, lyr in enumerate(normal_overrides):
+                    if lyr_idx == 1:
+                        combine_content += self.script_normal_combine_0.format(normal_overrides[lyr_idx - 1], normal_overrides[lyr_idx])
+                    elif lyr_idx > 1:
+                        combine_content += self.script_normal_combine_next.format(lyr)
+
+            combine_content += self.script_normal_fragment
+        
+        print("parameter ", asset_args)
         fragment_vars += combine_content
 
         content_shader = self.script_template.format(global_vars, fragment_vars)
