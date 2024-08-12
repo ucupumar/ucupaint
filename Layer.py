@@ -1665,9 +1665,12 @@ class BaseMultipleImagesLayer():
     #def is_mask_using_image_atlas(self):
     #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
     
-    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, images=[]) -> bool:
+    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, non_import_images=[]) -> bool:
     
         T = time.time()
+
+        images = []
+        images.extend(non_import_images)
 
         if import_list:
             images.extend(list(load_image(path, directory) for path in import_list))
@@ -1751,7 +1754,9 @@ class BaseMultipleImagesLayer():
                         continue
 
                     # Get filename without extension
-                    img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
+                    if image.filepath != '':
+                        img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
+                    else: img_name = image.name.lower()
 
                     if (
                             ## Check image name suffix and match it with channel name
@@ -1790,6 +1795,7 @@ class BaseMultipleImagesLayer():
             # Remove loaded images
             for image in images:
                 #if image not in exist_images:
+                if image in non_import_images: continue
                 remove_datablock(bpy.data.images, image)
             return False
 
@@ -1831,7 +1837,7 @@ class BaseMultipleImagesLayer():
             else:
                 ch = layer.channels[ch_idx]
                 ch.enable = True
-                if root_ch.type == 'NORMAL' and syname == 'normal':
+                if root_ch.type == 'NORMAL' and (syname == 'normal' or 'normal without bump' in image.name.lower()):
                     image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
                     image_node.image = image
                     ch.override_1 = True
@@ -2079,17 +2085,46 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
                     if node.image:
                         images.append(node.image)
 
+        # Check for yp images
+        output = get_material_output(mat)
+        yp_node = get_closest_yp_node_backward(output)
+        if yp_node:
+            otree = yp_node.node_tree
+            oyp = otree.yp
+            for root_ch in oyp.channels:
+
+                # NOTE: Only use standard normal for now
+                #baked_disp = None
+                #baked_normal_overlay = None
+                #if root_ch.type == 'NORMAL':
+                #    baked_disp = otree.nodes.get(root_ch.baked_disp)
+                #    if baked_disp and baked_disp.image:
+                #        images.append(baked_disp.image)
+
+                #    baked_normal_overlay = otree.nodes.get(root_ch.baked_normal_overlay)
+                #    if baked_normal_overlay and baked_normal_overlay.image:
+                #        images.append(baked_normal_overlay.image)
+
+                #if root_ch.type != 'NORMAL' or not (baked_disp and baked_normal_overlay):
+                baked = otree.nodes.get(root_ch.baked)
+                if baked and baked.image:
+                    images.append(baked.image)
+
         if not images:
             self.report({'ERROR'}, "Cannot found images inside the material!")
             return {'CANCELLED'}
 
-        if not self.open_images_to_single_layer(context, directory='', import_list=[], images=images):
+        failed = False
+        if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images):
             self.report({'ERROR'}, "Images should have channel name as suffix!")
-            return {'CANCELLED'}
+            failed = True
 
         # Remove material if it has only fake users
         if from_asset_library and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
             remove_datablock(bpy.data.materials, mat)
+
+        if failed:
+            return {'CANCELLED'}
 
         return {'FINISHED'}
 
@@ -3854,7 +3889,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
         # Decal object duplicate
         if layer.texcoord_type == 'Decal':
             texcoord = ttree.nodes.get(layer.texcoord)
-            if texcoord and texcoord.object:
+            if texcoord and hasattr(texcoord, 'object') and texcoord.object:
                 nname = get_unique_name(texcoord.object.name, bpy.data.objects)
                 texcoord.object = texcoord.object.copy()
                 texcoord.object.name = nname
@@ -3898,7 +3933,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
             # Decal object duplicate
             if mask.texcoord_type == 'Decal':
                 texcoord = ttree.nodes.get(mask.texcoord)
-                if texcoord and texcoord.object:
+                if texcoord and hasattr(texcoord, 'object') and texcoord.object:
                     nname = get_unique_name(texcoord.object.name, bpy.data.objects)
                     texcoord.object = texcoord.object.copy()
                     texcoord.object.name = nname
