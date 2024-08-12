@@ -1183,6 +1183,45 @@ def get_unique_name(name, items, surname = ''):
 
     return unique_name
 
+def get_name_with_counter(name, items, surname = ''):
+
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
+
+    if surname != '':
+        unique_name = name + ' ' + surname
+    else: unique_name = name
+
+    name_found = [item for item in item_names if item == unique_name]    
+    if name_found:
+
+            m = re.match(r'^(.+)\s(\d*)$', name)
+            if m:
+                name = m.group(1)
+                i = int(m.group(2))
+            else:
+                i = 1
+
+    if name_found:
+        j = 0
+        for c in range(len(name)):
+            if name[c] == '.': j = c
+        
+        while True:
+
+            if surname != '':
+                new_name = name[j] + surname
+            else: new_name = name[:j] + str(i) + name[j:]
+
+            name_found = [item for item in item_names if item == new_name]
+            if not name_found:
+                unique_name = new_name
+                break
+            i += 1
+    return unique_name
+
 def get_active_node():
     mat = get_active_material()
     if not mat or not mat.node_tree: return None
@@ -6348,16 +6387,20 @@ def duplicate_image(image, make_image_packed= False):
             image.pack()
         else: image.save()
 
+        
     # Get new name
     new_name = get_unique_name(image.name, bpy.data.images)
+    new_image_name = get_name_with_counter(image.name, bpy.data.images)
+    old_image_name = bpy.data.images[image.name].filepath_from_user()
+    new_image_name = old_image_name.replace(image.name, new_image_name)
 
     # Copy image
     new_image = image.copy()
     new_image.name = new_name
 
     if not make_image_packed :
-        os.system('copy %s %s' %(image.name, new_name))
-
+        os.system('copy \"%s\" \"%s\"' %(old_image_name, new_image_name))
+    
     if image.source == 'TILED'  or (not image.packed_file and image.filepath != '' and make_image_packed == True):
 
         # NOTE: Duplicated image will always be packed for now
