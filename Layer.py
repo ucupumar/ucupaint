@@ -2093,22 +2093,21 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             oyp = otree.yp
             for root_ch in oyp.channels:
 
-                # NOTE: Only use standard normal for now
-                #baked_disp = None
-                #baked_normal_overlay = None
-                #if root_ch.type == 'NORMAL':
-                #    baked_disp = otree.nodes.get(root_ch.baked_disp)
-                #    if baked_disp and baked_disp.image:
-                #        images.append(baked_disp.image)
+                baked_disp = None
+                baked_normal_overlay = None
+                if root_ch.type == 'NORMAL':
+                    baked_disp = otree.nodes.get(root_ch.baked_disp)
+                    if baked_disp and baked_disp.image:
+                        images.append(baked_disp.image)
 
-                #    baked_normal_overlay = otree.nodes.get(root_ch.baked_normal_overlay)
-                #    if baked_normal_overlay and baked_normal_overlay.image:
-                #        images.append(baked_normal_overlay.image)
+                    baked_normal_overlay = otree.nodes.get(root_ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image:
+                        images.append(baked_normal_overlay.image)
 
-                #if root_ch.type != 'NORMAL' or not (baked_disp and baked_normal_overlay):
-                baked = otree.nodes.get(root_ch.baked)
-                if baked and baked.image:
-                    images.append(baked.image)
+                if root_ch.type != 'NORMAL' or not (baked_disp and baked_normal_overlay):
+                    baked = otree.nodes.get(root_ch.baked)
+                    if baked and baked.image:
+                        images.append(baked.image)
 
         if not images:
             self.report({'ERROR'}, "Cannot found images inside the material!")
