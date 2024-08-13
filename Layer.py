@@ -1914,7 +1914,7 @@ class BaseMultipleImagesLayer():
 
         #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         
-        row = self.layout.row()
+        row = split_layout(self.layout, 0.325)
 
         col = row.column()
         col.label(text='Vector:')
