@@ -4270,13 +4270,6 @@ class YNewLayerMenu(bpy.types.Menu):
             col.separator()
             col.operator("node.y_new_vdm_layer", text='Vector Displacement Image', icon='SCULPTMODE_HLT')
 
-        #col.separator()
-
-        #c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Duplicated Layer')
-        #c.make_image_blank = False
-        #c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Blank Layer with copied setup')
-        #c.make_image_blank = True
-
         col = row.column()
         col.label(text='Generated Layer:')
         #col.operator("node.y_new_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
@@ -4438,10 +4431,9 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer')
-        c.make_image_blank = False
-        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Blank Layer')
-        c.make_image_blank = True
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer').mode = 'COPY_DATA'
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Blank)').mode = 'BLANK_DATA'
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Link)').mode = 'LINK_DATA'
 
         col.separator()
 

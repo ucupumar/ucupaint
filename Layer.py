@@ -4111,7 +4111,14 @@ class YDuplicateLayer(bpy.types.Operator):
     bl_description = "Duplicate Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    make_image_blank : BoolProperty(default=False)
+    mode : EnumProperty(
+            name = 'Duplicate Mode',
+            items = (
+                ('COPY_DATA', 'Copy Data', 'Use copied data for the newly duplicated layer'),
+                ('BLANK_DATA', 'Blank Data', 'Use blank images and vertex colors for the newly duplicated layer'),
+                ('LINK_DATA', 'Link Data', 'Use the same data for newly duplicated layer'),
+                ),
+            default = 'COPY_DATA')
 
     @classmethod
     def poll(cls, context):
@@ -4170,7 +4177,12 @@ class YDuplicateLayer(bpy.types.Operator):
             new_group_node.node_tree = group_node.node_tree
 
             # Duplicate images and some nodes inside
-            duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank)
+            if self.mode == 'COPY_DATA':
+                duplicate_layer_nodes_and_images(tree, new_layer, True, False)
+            elif self.mode == 'BLANK_DATA':
+                duplicate_layer_nodes_and_images(tree, new_layer, True, True)
+            elif self.mode == 'LINK_DATA':
+                duplicate_layer_nodes_and_images(tree, new_layer, False)
 
             # Rename masks
             mask_names = [m.name for m in l.masks]
@@ -4358,7 +4370,7 @@ class YPasteLayer(bpy.types.Operator):
             new_group_node.node_tree = get_tree(ls)
 
             # Duplicate images and some nodes inside
-            duplicate_layer_nodes_and_images(tree, new_layer, True, False) #self.make_image_blank)
+            duplicate_layer_nodes_and_images(tree, new_layer, True, False)
 
             pasted_layer_names.append(new_layer.name)
 

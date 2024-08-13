@@ -1844,8 +1844,6 @@ class YDuplicateYPNodes(bpy.types.Operator):
         yp = tree.yp
 
         # Make all layers single(dual) user
-        #for layer in yp.layers:
-        #Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=ypui.make_image_single_user)
         Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=True)
 
         # Duplicate uv nodes
