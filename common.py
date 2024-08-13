@@ -1196,23 +1196,24 @@ def get_name_with_counter(name, items, surname = ''):
     else: unique_name = name
 
     name_found = [item for item in item_names if item == unique_name]
-    extenstion = re.match(r'.([.].{2,4}$)', name)
-    name = name.replace(extenstion, "")
+    name_arr = name.split(".")
+    extension = name_arr[-1]
     
     if name_found:
 
-        m = re.match(r'^(.+)[(](\d)[)]$', name)
+        m = re.match(r'^(.+)[(](\d)[)]$', name_arr[0])
         if m:
             name = m.group(1)
             i = int(m.group(2))
         else:
             i = 1
+            name = name_arr[0]
 
         while True:
 
             if surname != '':
                 new_name = name[j] + surname
-            else: new_name = name + "(" + str(i) + ")" + extenstion
+            else: new_name = name + "(" + str(i) + ")." + extension
 
             name_found = [item for item in item_names if item == new_name]
             if not name_found:
