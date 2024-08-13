@@ -4004,6 +4004,30 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             else: eye_icon = 'HIDE_ON'
         row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
 
+def draw_yp_asset_browser_menu(self, context):
+
+    assets = context.selected_assets if is_greater_than_400() else context.selected_asset_files
+
+    mat_asset = None
+    for asset in assets:
+        if asset.id_type == 'MATERIAL':
+            mat_asset = asset
+            break
+
+    obj = context.object
+
+    if mat_asset and obj:
+        self.layout.separator()
+        op = self.layout.operator("node.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Images from Material to ' + get_addon_title() + ' layer')
+        op.mat_name = mat_asset.name
+
+        if obj.type == 'MESH':
+            op.texcoord_type = 'UV'
+            active_uv_name = get_active_render_uv(obj)
+            op.uv_map = active_uv_name
+        else:
+            op.texcoord_type = 'Generated'
+
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
     col.label(text=get_addon_title() + ' is created by:')
@@ -5791,6 +5815,9 @@ def register():
     # Add yPaint node ui
     bpy.types.NODE_MT_add.append(add_new_ypaint_node_menu)
 
+    if is_greater_than_300():
+        bpy.types.ASSETBROWSER_MT_context_menu.append(draw_yp_asset_browser_menu)
+
     # Handlers
     bpy.app.handlers.load_post.append(yp_load_ui_settings)
     bpy.app.handlers.save_pre.append(yp_save_ui_settings)
@@ -5846,6 +5873,9 @@ def unregister():
 
     # Remove add yPaint node ui
     bpy.types.NODE_MT_add.remove(add_new_ypaint_node_menu)
+
+    if is_greater_than_300():
+        bpy.types.ASSETBROWSER_MT_context_menu.remove(draw_yp_asset_browser_menu)
 
     # Remove Handlers
     bpy.app.handlers.load_post.remove(yp_load_ui_settings)
