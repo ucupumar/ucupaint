@@ -550,9 +550,11 @@ def check_layer_texcoord_nodes(layer, tree=None):
                     for letter in nsew_letters:
                         remove_node(tree, ch, 'decal_alpha_' + letter)
 
+        # Set image extension type to clip
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source:
+                layer.original_image_extension = source.extension
                 source.extension = 'CLIP'
     else:
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
@@ -566,6 +568,16 @@ def check_layer_texcoord_nodes(layer, tree=None):
             if root_ch.type == 'NORMAL':
                 for letter in nsew_letters:
                     remove_node(tree, ch, 'decal_alpha_' + letter)
+
+        # Recover image extension type
+        if layer.type == 'IMAGE' and layer.original_texcoord == 'Decal' and layer.original_image_extension != '':
+            source = get_layer_source(layer)
+            if source:
+                source.extension = layer.original_image_extension
+                layer.original_image_extension = ''
+
+    # Save original texcoord type
+    layer.original_texcoord = layer.texcoord_type
 
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 

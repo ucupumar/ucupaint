@@ -5608,6 +5608,17 @@ class YLayer(bpy.types.PropertyGroup):
             default = 'UV',
             update=update_texcoord_type)
 
+    original_texcoord : EnumProperty(
+            name = 'Original Layer Coordinate Type',
+            items = texcoord_type_items,
+            default = 'UV'
+            )
+
+    original_image_extension : StringProperty(
+            name = 'Original Image Extension Type',
+            default = ''
+            )
+
     projection_blend : FloatProperty(
             name = 'Box Projection Blend',
             description = 'Amount of blend to use between sides',
