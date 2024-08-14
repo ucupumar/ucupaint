@@ -1703,15 +1703,18 @@ class BaseMultipleImagesLayer():
 
         # Check if initial of synonym is in the end of image name
         # Avoid initial a because it's too common
-        initial = syname[0]
-        if initial != 'a' and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
+        initial = syname[0] if syname not in {'displacement', 'base color'} else ''
+        if initial not in {'a', ''} and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
             return True
 
         return False
     
-    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, images=[]) -> bool:
+    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, non_import_images=[]) -> bool:
     
         T = time.time()
+        
+        images = []
+        images.extend(non_import_images)
 
         # Load images from directory
         if import_list:
@@ -1768,9 +1771,6 @@ class BaseMultipleImagesLayer():
                 #if ch in valid_channels: break
                 if main_image_found: break
             
-                # Get channel name possible variation
-                initial = syname[0]
-
                 for image in images:
 
                     # One image will only use one channel
@@ -2150,7 +2150,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             images = filtered_images
 
         failed = False
-        if not self.open_images_to_single_layer(context, directory='', import_list=[], images=images):
+        if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images):
             self.report({'ERROR'}, "Images should have channel name as suffix!")
             failed = True
 
