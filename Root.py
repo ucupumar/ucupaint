@@ -1844,8 +1844,6 @@ class YDuplicateYPNodes(bpy.types.Operator):
         yp = tree.yp
 
         # Make all layers single(dual) user
-        #for layer in yp.layers:
-        #Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=ypui.make_image_single_user)
         Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=True)
 
         # Duplicate uv nodes
@@ -3213,7 +3211,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     use_clamp : BoolProperty(
             name = 'Use Clamp',
-            description = 'Clamp result to 0..1 range',
+            description = 'Clamp result to 0..1 range.\nDisabling this will make the baked channel uses float image',
             default = True,
             update=update_channel_use_clamp)
 
@@ -3348,7 +3346,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Real displacement using height map
     enable_subdiv_setup : BoolProperty(
             name = 'Enable Displacement Setup',
-            description = 'Enable displacement setup. Only works with Cycles or Eevee Next',
+            description = 'Enable displacement setup. Only works with Cycles or Eevee Next.\nThis will also make the baked displacement uses float image',
             default=False, update=Bake.update_enable_subdiv_setup)
 
     #subdiv_standard_type : EnumProperty(
