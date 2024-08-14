@@ -1718,7 +1718,9 @@ class BaseMultipleImagesLayer():
 
         # Load images from directory
         if import_list:
-            images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
+            if is_greater_than_277():
+                images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
+            else: images.extend(list(load_image(path, directory) for path in import_list))
 
         valid_channels = []
         valid_images = []
