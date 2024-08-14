@@ -1664,6 +1664,50 @@ class BaseMultipleImagesLayer():
 
     #def is_mask_using_image_atlas(self):
     #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
+
+    def is_synonym_in_image_name(self, syname, img_name):
+
+        # Check entire name of synonym if it's on image name
+        if (img_name.endswith(syname) or # Example: 'rocks_normalgl'
+            '_' + syname in img_name or # Example: 'rocks_normalgl_4k
+            ' ' + syname in img_name # Example: 'rocks normalgl 4k'
+            ):
+            return True
+
+        if ' ' in syname:
+            # Check if synonym without whitespace is on image name
+            no_whitespace = syname.replace(' ', '')
+            if (img_name.endswith(no_whitespace) or # Example: 'rocks_ambientocclusion'
+                '_' + no_whitespace + '_' in img_name or # Example: 'rocks_ambientocclusion_4k'
+                ' ' + no_whitespace + ' ' in img_name # Example: 'rocks ambientocclusion 4k'
+                ):
+                return True
+
+            # Check if synonym with underscore is on image name
+            underscore = syname.replace(' ', '_')
+            if (img_name.endswith(underscore) or # Example: 'rocks_ambient_occlusion'
+                '_' + underscore + '_' in img_name or # Example: 'rocks_ambient_occlusion_4k'
+                ' ' + underscore + ' ' in img_name # Example: 'rocks ambient_occlusion 4k'
+                ):
+                return True
+
+        # Check parts of synonym if it's on image name
+        for i in range(3, 6):
+            if len(syname) > i:
+                part = syname[:i]
+                if (img_name.endswith(('_' + part, '.' + part)) or  # Example: 'rocks_diff' / 'rocks.diff'
+                    '_' + part + '_' in img_name or # Example: 'rocks_diff_4k'
+                    ' ' + part + ' ' in img_name # Example: 'rocks diff 4k'
+                    ):
+                    return True
+
+        # Check if initial of synonym is in the end of image name
+        # Avoid initial a because it's too common
+        initial = syname[0]
+        if initial != 'a' and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
+            return True
+
+        return False
     
     def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, non_import_images=[]) -> bool:
     
@@ -1676,11 +1720,11 @@ class BaseMultipleImagesLayer():
             images.extend(list(load_image(path, directory) for path in import_list))
 
         # Check existing images
-        #exist_images = []
+        #existing_images = []
         #for i, new_img in enumerate(images):
         #    for old_img in bpy.data.images:
         #        if old_img.filepath == new_img.filepath:
-        #            exist_images.append(old_img)
+        #            existing_images.append(old_img)
         #            break
 
         valid_channels = []
@@ -1695,9 +1739,9 @@ class BaseMultipleImagesLayer():
             # Get filename without extension
             name = os.path.splitext(os.path.basename(image.filepath))[0]
             lname = name.lower()
-            if 'normaldx' in lname:
+            if 'normaldx' in lname or 'nor_gl' in lname:
                 dx_image = image
-            if 'normalgl' in lname:
+            if 'normalgl' in lname or 'nor_dx' in lname:
                 gl_image = image
 
         synonym_libs = {
@@ -1737,13 +1781,6 @@ class BaseMultipleImagesLayer():
                 # Get channel name possible variation
                 initial = syname[0]
 
-                if len(ch.name) > 3:
-                    threes = syname[:3]
-                else: threes = ''
-
-                no_whitespace = syname.replace(' ', '')
-                underscore = syname.replace(' ', '_')
-
                 for image in images:
 
                     # One image will only use one channel
@@ -1758,29 +1795,8 @@ class BaseMultipleImagesLayer():
                         img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
                     else: img_name = image.name.lower()
 
-                    if (
-                            ## Check image name suffix and match it with channel name
-                            #(img_name.endswith(syname)) or
-
-                            #(img_name.endswith(no_whitespace)) or
-
-                            #(img_name.endswith(underscore)) or
-
-                            # Check if synonym is in image name
-                            (syname in img_name) or
-
-                            (no_whitespace in img_name) or
-
-                            (underscore in img_name) or
-
-                            # Check image name suffix and match it with channel initial first threes
-                            (threes != '' and img_name.endswith(('_' + threes, '.' + threes))) or
-
-                            # Check image name suffix and match it with channel initial name
-                            # Avoid initial a because it's too common
-                            (initial != 'a' and img_name.endswith(('_' + initial, '.' + initial)))
-
-                            ):
+                    # Check if synonym is in image name
+                    if self.is_synonym_in_image_name(syname, img_name):
                         valid_images.append(image)
                         valid_channels.append(ch)
                         valid_synonyms.append(syname)
@@ -1794,7 +1810,7 @@ class BaseMultipleImagesLayer():
         if not valid_images:
             # Remove loaded images
             for image in images:
-                #if image not in exist_images:
+                #if image not in existing_images:
                 if image in non_import_images: continue
                 remove_datablock(bpy.data.images, image)
             return False
@@ -1860,7 +1876,7 @@ class BaseMultipleImagesLayer():
 
         # Remove unused images
         for image in images:
-            if image not in valid_images: # and image not in exist_images:
+            if image not in valid_images: # and image not in existing_images:
                 remove_datablock(bpy.data.images, image)
 
         # Update UI
