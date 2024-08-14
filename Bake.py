@@ -1605,7 +1605,6 @@ class YBakeChannels(bpy.types.Operator):
         # Set bake info to baked images
         for img in baked_images:
             bi = img.y_bake_info
-            bi.is_baked = True
             for attr in dir(bi):
                 #if attr in dir(self):
                 if attr.startswith('__'): continue
@@ -1613,6 +1612,8 @@ class YBakeChannels(bpy.types.Operator):
                 if attr in {'rna_type'}: continue
                 try: setattr(bi, attr, getattr(self, attr))
                 except: pass
+            bi.is_baked = True
+            bi.is_baked_channel = True
 
         # Process custom bake target images
         # Can only happen when only active channel is off since require all baked images to have the same resolution

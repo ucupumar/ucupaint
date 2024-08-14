@@ -19,7 +19,8 @@ class YBakeInfoSelectedObject(bpy.types.PropertyGroup):
 
 class YBakeInfoProps(bpy.types.PropertyGroup):
 
-    is_baked : BoolProperty(default=False)
+    is_baked : BoolProperty(default=False) # Flag to mark if the image is from baking or not
+    is_baked_channel : BoolProperty(default=False) # Flag to mark if the image baked from main channel
 
     bake_type : EnumProperty(
             name = 'Bake Type',

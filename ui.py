@@ -160,7 +160,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
 
     col = layout.column()
 
-    if image.y_bake_info.is_baked:
+    if image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel:
         bi = image.y_bake_info
         if image.yia.is_image_atlas or image.yua.is_udim_atlas:
             col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
