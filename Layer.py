@@ -1669,7 +1669,7 @@ class BaseMultipleImagesLayer():
 
         # Check entire name of synonym if it's on image name
         if (img_name.endswith(syname) or # Example: 'rocks_normalgl'
-            '_' + syname in img_name or # Example: 'rocks_normalgl_4k
+            '_' + syname in img_name or # Example: 'rocks_normalgl_4k'
             ' ' + syname in img_name # Example: 'rocks normalgl 4k'
             ):
             return True
@@ -1709,23 +1709,13 @@ class BaseMultipleImagesLayer():
 
         return False
     
-    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, non_import_images=[]) -> bool:
+    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, images=[]) -> bool:
     
         T = time.time()
 
-        images = []
-        images.extend(non_import_images)
-
+        # Load images from directory
         if import_list:
-            images.extend(list(load_image(path, directory) for path in import_list))
-
-        # Check existing images
-        #existing_images = []
-        #for i, new_img in enumerate(images):
-        #    for old_img in bpy.data.images:
-        #        if old_img.filepath == new_img.filepath:
-        #            existing_images.append(old_img)
-        #            break
+            images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
 
         valid_channels = []
         valid_images = []
@@ -2129,8 +2119,38 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             self.report({'ERROR'}, "Cannot found images inside the material!")
             return {'CANCELLED'}
 
+        # Check for existing images if the image source is from asset library
+        if from_asset_library:
+            filtered_images = []
+            existing_images = []
+            duplicated_images = []
+            for new_img in images:
+                for old_img in bpy.data.images:
+                    if old_img in images: continue
+                    if old_img.filepath == new_img.filepath:
+                        existing_images.append(old_img)
+                        duplicated_images.append(new_img)
+                        break
+
+            # Add existing images to list
+            for img in existing_images:
+                if img not in filtered_images:
+                    filtered_images.append(img)
+
+            # Add imported images to list
+            for img in images:
+                if img not in filtered_images and img not in duplicated_images:
+                    filtered_images.append(img)
+
+            # Remove duplicated images
+            for img in duplicated_images:
+                remove_datablock(bpy.data.images, img)
+
+            # Use filtered images
+            images = filtered_images
+
         failed = False
-        if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images):
+        if not self.open_images_to_single_layer(context, directory='', import_list=[], images=images):
             self.report({'ERROR'}, "Images should have channel name as suffix!")
             failed = True
 
