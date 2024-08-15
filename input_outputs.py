@@ -499,6 +499,7 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
         if mask.type == 'IMAGE':
             source = get_mask_source(mask)
             if source:
+                mask.original_image_extension = source.extension
                 source.extension = 'CLIP'
     else:
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
@@ -509,6 +510,16 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
         if height_ch:
             for letter in nsew_letters:
                 remove_node(tree, mask, 'decal_alpha_' + letter)
+
+        # Recover image extension type
+        if mask.type == 'IMAGE' and mask.original_texcoord == 'Decal' and mask.original_image_extension != '':
+            source = get_mask_source(mask)
+            if source:
+                source.extension = mask.original_image_extension
+                mask.original_image_extension = ''
+
+    # Save original texcoord type
+    mask.original_texcoord = mask.texcoord_type
 
 def check_layer_texcoord_nodes(layer, tree=None):
     yp = layer.id_data.yp
@@ -1111,7 +1122,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         texcoords.append(layer.texcoord_type)
 
     for mask in layer.masks:
-        if get_mask_enabled(mask, layer) and mask.texcoord_type not in {'UV', 'Decal'} and mask.type not in {'VCOL', 'COLOR_ID', 'OBJECT_INDEX', 'HEMI'} and mask.texcoord_type not in texcoords:
+        if get_mask_enabled(mask, layer) and mask.texcoord_type not in {'UV', 'Decal', 'Layer'} and mask.type not in {'VCOL', 'COLOR_ID', 'OBJECT_INDEX', 'HEMI'} and mask.texcoord_type not in texcoords:
             texcoords.append(mask.texcoord_type)
 
     for texcoord in texcoords:

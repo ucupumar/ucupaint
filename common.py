@@ -354,6 +354,18 @@ texcoord_type_items = (
         ('Decal', 'Decal', ''),
         )
 
+mask_texcoord_type_items = (
+        ('Generated', 'Generated', ''),
+        ('Normal', 'Normal', ''),
+        ('UV', 'UV', ''),
+        ('Object', 'Object', ''),
+        ('Camera', 'Camera', ''),
+        ('Window', 'Window', ''),
+        ('Reflection', 'Reflection', ''),
+        ('Decal', 'Decal', ''),
+        ('Layer', 'Use Layer Vector', ''),
+        )
+
 interpolation_type_items = (
         ('Linear', 'Linear', 'Linear interpolation.'),
         ('Closest', 'Closest', 'No interpolation (sample closest texel).'),
@@ -5404,7 +5416,11 @@ def is_layer_using_vector(layer):
         return True
 
     for ch in layer.channels:
-        if ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+        if ch.enable and ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+            return True
+
+    for mask in layer.masks:
+        if mask.enable and mask.texcoord_type == 'Layer':
             return True
 
     return False

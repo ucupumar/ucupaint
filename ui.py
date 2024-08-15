@@ -2376,7 +2376,9 @@ def draw_layer_masks(context, layout, layer):
                 rbox = rrow.box()
                 rbox.active = not mask.use_baked
                 boxcol = rbox.column()
-                if mask_image and (mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas):
+                if mask.texcoord_type == 'Layer':
+                    boxcol.label(text="Mask is using layer vector", icon='INFO')
+                elif mask_image and (mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas):
                     #boxcol.label(text="Transform vector with image atlas is not possible!")
                     pass
                 else:
@@ -2426,12 +2428,13 @@ def draw_layer_masks(context, layout, layer):
                             rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
             
                 # Blur row
-                rrow = boxcol.row(align=True)
-                splits = split_layout(rrow, 0.3)
-                splits.label(text='Blur:')
-                if mask.enable_blur_vector:
-                    draw_input_prop(splits, mask, 'blur_vector_factor')
-                rrow.prop(mask, 'enable_blur_vector', text='')
+                if mask.texcoord_type != 'Layer':
+                    rrow = boxcol.row(align=True)
+                    splits = split_layout(rrow, 0.3)
+                    splits.label(text='Blur:')
+                    if mask.enable_blur_vector:
+                        draw_input_prop(splits, mask, 'blur_vector_factor')
+                    rrow.prop(mask, 'enable_blur_vector', text='')
 
         draw_mask_modifier_stack(layer, mask, rrcol, maskui)
 

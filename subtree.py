@@ -357,7 +357,8 @@ def check_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
     chain = get_bump_chain(layer)
 
     if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and get_mask_enabled(mask) and (
-        (write_height_ch or mask_idx < chain) and (mask.use_baked or mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'MODIFIER', 'EDGE_DETECT', 'HEMI', 'VCOL'})
+        (write_height_ch or mask_idx < chain) and 
+        (mask.use_baked or (mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'MODIFIER', 'EDGE_DETECT', 'HEMI', 'VCOL'} and mask.texcoord_type != 'Layer'))
         ):
 
         #if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
