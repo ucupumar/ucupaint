@@ -726,7 +726,7 @@ class YNewLayer(bpy.types.Operator):
     channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items, #set=set_channel_idx, get=get_channel_idx)
+            items = channel_items,
             update=update_channel_idx_new_layer)
 
     blend_type : EnumProperty(
@@ -1826,8 +1826,11 @@ class BaseMultipleImagesLayer():
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            m = re.match(r'^yp\.channels\[(\d+)\].*', root_ch.path_from_id())
-            ch_idx = int(m.group(1))
+            ch_idx = get_channel_index(root_ch)
+
+            # Use non-color for non-color channel
+            if root_ch.colorspace == 'LINEAR' and not image.is_dirty:
+                image.colorspace_settings.name = 'Non-Color'
 
             # Use image directly to layer for the first index
             if i == 0:
