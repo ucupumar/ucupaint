@@ -821,7 +821,9 @@ def register():
     global previews_collection
     previews_collection = bpy.utils.previews.new()
     previews_collection.preview_items = {}
-    # load_previews()
+
+    if read_asset_info():
+        load_previews()
 
     bpy.app.timers.register(monitor_downloads, first_interval=1, persistent=True)    
 

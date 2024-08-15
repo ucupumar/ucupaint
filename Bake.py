@@ -1246,11 +1246,6 @@ class YBakeChannels(bpy.types.Operator):
             description='Use UDIM Tiles',
             default=False)
 
-    use_udim : BoolProperty(
-            name = 'Use UDIM Tiles',
-            description='Use UDIM Tiles',
-            default=False)
-
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1664,6 +1659,7 @@ class YBakeChannels(bpy.types.Operator):
                     if len(tilenums) > 1:
                         btimg = bpy.data.images.new(name=bt.name, width=self.width, height=self.height, 
                                 alpha=True, tiled=True) #float_buffer=hdr)
+                        btimg.colorspace_settings.name = 'Non-Color'
                         btimg.filepath = filepath
 
                         # Fill tiles
@@ -1674,6 +1670,7 @@ class YBakeChannels(bpy.types.Operator):
                     else:
                         btimg = bpy.data.images.new(name=bt.name,
                             width=self.width, height=self.height, alpha=True, float_buffer=False)
+                        btimg.colorspace_settings.name = 'Non-Color'
                         btimg.filepath = filepath
                         btimg.generated_color = color
                 else:

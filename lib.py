@@ -151,6 +151,8 @@ PACK_ONSEW = '~yPL Pack ONSEW'
 BL27_DISP = '~yPL Blender 2.7 Displacement'
 COMBINED_VDM = '~yPL Combined VDM'
 
+DECAL_PROCESS = '~yPL Decal Process'
+
 SMOOTH_PREFIX = '~yPL Smooth '
 
 # Nodes that require Blender 2.81 at minimum
@@ -167,7 +169,9 @@ ENGINE_FILTER_LEGACY = '~yPL Engine Filter Legacy'
 TB_DELTA_CALC = '~yPL Transition Bump Delta Calculation'
 CH_MAX_HEIGHT_CALC = '~yPL Layer Channel Max Height'
 CH_MAX_HEIGHT_TB_CALC = '~yPL Layer Channel Max Height with Transition Bump'
+CH_MAX_HEIGHT_TB_ADD_CALC = '~yPL Layer Channel Max Height with Transition Bump Add'
 CH_MAX_HEIGHT_TBC_CALC = '~yPL Layer Channel Max Height with Transition Bump Crease'
+CH_MAX_HEIGHT_TBC_ADD_CALC = '~yPL Layer Channel Max Height with Transition Bump Crease Add'
 
 EMULATED_CURVE = '~yPL Emulated Curve'
 EMULATED_CURVE_FLIP = '~yPL Emulated Curve Flip'
@@ -266,7 +270,7 @@ def get_neighbor_uv_tree_name(texcoord_type, entity):
         different_uv = check_uv_difference_to_main_uv(entity)
         if different_uv: return NEIGHBOR_UV_OTHER_UV
         return NEIGHBOR_UV_TANGENT
-    if texcoord_type in {'Generated', 'Normal', 'Object'}:
+    if texcoord_type in {'Generated', 'Normal', 'Object', 'Decal'}:
         return NEIGHBOR_UV_OBJECT
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return NEIGHBOR_UV_CAMERA

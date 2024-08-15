@@ -102,6 +102,7 @@ def get_tile_numbers(objs, uv_name):
 
     # Get all uv coordinates
     for o in objs:
+        if o.type != 'MESH': continue
         uv = o.data.uv_layers.get(uv_name)
         if not uv: continue
     

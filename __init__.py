@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Ucupaint",
-    "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, morirain, Patrick W. Crawford, neomonkeus",
+    "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, morirain, Patrick W. Crawford, neomonkeus, Kareem Haddad",
     "version": (2, 0, 1),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
@@ -43,13 +43,14 @@ if "bpy" in locals():
     imp.reload(BakeToLayer)
     imp.reload(Root)
     imp.reload(TexLib)
+    imp.reload(Godot)
     imp.reload(load_blend_updates)
     imp.reload(addon_updater_ops)
 else:
     from . import Localization
     from . import image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
     from . import vector_displacement_lib, vector_displacement
-    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, TexLib
+    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, TexLib, Godot
     from . import addon_updater_ops
 
 import bpy 
@@ -77,6 +78,7 @@ def register():
     BakeToLayer.register()
     Root.register()
     TexLib.register()
+    Godot.register()
     load_blend_updates.register()
     addon_updater_ops.register()
 
@@ -105,6 +107,7 @@ def unregister():
     BakeToLayer.unregister()
     Root.unregister()
     TexLib.unregister()
+    Godot.unregister()
     load_blend_updates.unregister()
     addon_updater_ops.unregister()
 

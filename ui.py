@@ -1379,6 +1379,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             #else:
             #    row.prop(lui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
+            texcoord = layer_tree.nodes.get(layer.texcoord)
+
             split = split_layout(row, 0.275, align=True)
 
             split.label(text='Vector:')
@@ -1393,6 +1395,11 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
                 ssplit.prop(layer, 'texcoord_type', text='')
                 ssplit.prop(layer, 'projection_blend', text='')
+            elif layer.texcoord_type == 'Decal' and not lui.expand_vector:
+                ssplit = split_layout(split, 0.4, align=True)
+                if texcoord:
+                    ssplit.prop(layer, 'texcoord_type', text='')
+                    ssplit.prop(texcoord, 'object', text='')
             else:
                 split.prop(layer, 'texcoord_type', text='')
 
@@ -1413,27 +1420,46 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                         splits = split_layout(boxcol, 0.5, align=True)
                         splits.label(text='Projection Blend:')
                         splits.prop(layer, 'projection_blend', text='')
-                    rrow = boxcol.row()
-                    mapping = get_layer_mapping(layer)
-                    rrow.label(text='Offset:')
-                    rrow.prop(mapping, 'vector_type', text='')
-                    if is_greater_than_281():
-                        boxcol.prop(mapping.inputs[1], 'default_value', text='')
-                        boxcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                        boxcol.prop(mapping.inputs[3], 'default_value', text='Scale')
-                    else:
-                        boxcol.prop(mapping, 'translation', text='')
-                        boxcol.prop(mapping, 'rotation')
-                        boxcol.prop(mapping, 'scale')
 
-                    #boxcol.prop(layer, 'translation', text='')
-                    #boxcol.prop(layer, 'rotation')
-                    #boxcol.prop(layer, 'scale')
+                    if layer.texcoord_type == 'Decal':
 
-                    if yp.need_temp_uv_refresh:
-                        rrow = boxcol.row(align=True)
-                        rrow.alert = True
-                        rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+                        if texcoord:
+                            splits = split_layout(boxcol, 0.45, align=True)
+                            splits.label(text='Decal Object:')
+                            splits.prop(texcoord, 'object', text='')
+
+                        splits = split_layout(boxcol, 0.5, align=True)
+                        splits.label(text='Decal Distance:')
+                        draw_input_prop(splits, layer, 'decal_distance_value')
+
+                        boxcol.context_pointer_set('entity', layer)
+                        if is_greater_than_280():
+                            boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                        else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
+
+                    if layer.texcoord_type != 'Decal':
+                        rrow = boxcol.row()
+                        mapping = get_layer_mapping(layer)
+
+                        rrow.label(text='Offset:')
+                        rrow.prop(mapping, 'vector_type', text='')
+                        if is_greater_than_281():
+                            boxcol.prop(mapping.inputs[1], 'default_value', text='')
+                            boxcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
+                            boxcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                        else:
+                            boxcol.prop(mapping, 'translation', text='')
+                            boxcol.prop(mapping, 'rotation')
+                            boxcol.prop(mapping, 'scale')
+
+                        #boxcol.prop(layer, 'translation', text='')
+                        #boxcol.prop(layer, 'rotation')
+                        #boxcol.prop(layer, 'scale')
+
+                        if yp.need_temp_uv_refresh:
+                            rrow = boxcol.row(align=True)
+                            rrow.alert = True
+                            rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
                 # Blur row
                 rrow = boxcol.row(align=True)
@@ -1451,29 +1477,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
     ypui = context.window_manager.ypui
     lui = ypui.layer_ui
     
-    row = layout.row(align=True)
-    if lui.expand_channels:
-        icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
-    else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
-    row.prop(lui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
-
-    #label = 'Channels:'
-    #if not lui.expand_channels:
-    #    for i, ch in enumerate(layer.channels):
-
-    #        if ch.enable:
-
-    #            if i == 0:
-    #                label += ' '
-    #            #elif i < len(layer.channels)-1:
-    #            else:
-    #                label += ', '
-
-    #            label += yp.channels[i].name
-
-    #    row.label(text=label)
-    #    return
-
     enabled_channels = [c for c in layer.channels if c.enable]
     root_ch = None
     ch = None
@@ -1512,8 +1515,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
     if lui.expand_channels:
         label += ':'
     
+    row = layout.row(align=True)
+    if lui.expand_channels:
+        icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
+    else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
+    row.prop(lui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
+
     row.label(text=label)
-    #draw_input_prop(row, layer, 'intensity_value')
 
     if ch and root_ch:
         if root_ch.type == 'NORMAL':
@@ -2120,6 +2128,8 @@ def draw_layer_masks(context, layout, layer):
     ypui = context.window_manager.ypui
     lui = ypui.layer_ui
 
+    layer_tree = get_tree(layer)
+
     col = layout.column()
     col.active = layer.enable_masks
 
@@ -2335,6 +2345,7 @@ def draw_layer_masks(context, layout, layer):
             splits.active = not mask.use_baked
 
             mask_src = get_mask_source(mask)
+            texcoord = layer_tree.nodes.get(mask.texcoord)
 
             splits.label(text='Vector:')
             if mask.texcoord_type == 'UV':
@@ -2351,6 +2362,11 @@ def draw_layer_masks(context, layout, layer):
 
                 rrrow.prop(mask, 'texcoord_type', text='')
                 rrrow.prop(mask_src, 'projection_blend', text='')
+            elif mask.texcoord_type == 'Decal' and not maskui.expand_vector:
+                ssplit = split_layout(splits, 0.4, align=True)
+                if texcoord:
+                    ssplit.prop(mask, 'texcoord_type', text='')
+                    ssplit.prop(texcoord, 'object', text='')
             else:
                 splits.prop(mask, 'texcoord_type', text='')
 
@@ -2368,29 +2384,46 @@ def draw_layer_masks(context, layout, layer):
                         splits = split_layout(boxcol, 0.5, align=True)
                         splits.label(text='Projection Blend:')
                         splits.prop(mask_src, 'projection_blend', text='')
-                    rrow = boxcol.row()
-                    mapping = get_mask_mapping(mask)
-                    rrow.label(text='Offset:')
-                    rrow.prop(mapping, 'vector_type', text='')
-                    if is_greater_than_281():
-                        boxcol.prop(mapping.inputs[1], 'default_value', text='')
-                        boxcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                        boxcol.prop(mapping.inputs[3], 'default_value', text='Scale')
-                    else:
-                        boxcol.prop(mapping, 'translation', text='')
-                        boxcol.prop(mapping, 'rotation')
-                        boxcol.prop(mapping, 'scale')
 
-                    #boxcol.prop(mask, 'translation', text='Offset')
-                    #boxcol.prop(mask, 'rotation')
-                    #boxcol.prop(mask, 'scale')
+                    if mask.texcoord_type == 'Decal':
+                        if texcoord:
+                            splits = split_layout(boxcol, 0.45, align=True)
+                            splits.label(text='Decal Object:')
+                            splits.prop(texcoord, 'object', text='')
 
-                    if mask.type == 'IMAGE' and mask.active_edit and (
-                            yp.need_temp_uv_refresh
-                            ):
-                        rrow = boxcol.row(align=True)
-                        rrow.alert = True
-                        rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+                        splits = split_layout(boxcol, 0.5, align=True)
+                        splits.label(text='Decal Distance:')
+                        draw_input_prop(splits, mask, 'decal_distance_value')
+
+                        boxcol.context_pointer_set('entity', mask)
+                        if is_greater_than_280():
+                            boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                        else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
+
+                    if mask.texcoord_type != 'Decal':
+                        rrow = boxcol.row()
+                        mapping = get_mask_mapping(mask)
+                        rrow.label(text='Offset:')
+                        rrow.prop(mapping, 'vector_type', text='')
+                        if is_greater_than_281():
+                            boxcol.prop(mapping.inputs[1], 'default_value', text='')
+                            boxcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
+                            boxcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                        else:
+                            boxcol.prop(mapping, 'translation', text='')
+                            boxcol.prop(mapping, 'rotation')
+                            boxcol.prop(mapping, 'scale')
+
+                        #boxcol.prop(mask, 'translation', text='Offset')
+                        #boxcol.prop(mask, 'rotation')
+                        #boxcol.prop(mask, 'scale')
+
+                        if mask.type == 'IMAGE' and mask.active_edit and (
+                                yp.need_temp_uv_refresh
+                                ):
+                            rrow = boxcol.row(align=True)
+                            rrow.alert = True
+                            rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
             
                 # Blur row
                 rrow = boxcol.row(align=True)
@@ -2426,6 +2459,7 @@ def draw_layer_masks(context, layout, layer):
             # Channels row
             for k, c in enumerate(mask.channels):
                 rrow = bcol.row(align=True)
+                rrow.active = layer.channels[k].enable
                 root_ch = yp.channels[k]
                 rrow.label(text='', 
                         icon_value=lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id)
@@ -3970,6 +4004,30 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             else: eye_icon = 'HIDE_ON'
         row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
 
+def draw_yp_asset_browser_menu(self, context):
+
+    assets = context.selected_assets if is_greater_than_400() else context.selected_asset_files
+
+    mat_asset = None
+    for asset in assets:
+        if asset.id_type == 'MATERIAL':
+            mat_asset = asset
+            break
+
+    obj = context.object
+
+    if mat_asset and obj:
+        self.layout.separator()
+        op = self.layout.operator("node.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Images from Material to ' + get_addon_title() + ' layer')
+        op.mat_name = mat_asset.name
+
+        if obj.type == 'MESH':
+            op.texcoord_type = 'UV'
+            active_uv_name = get_active_render_uv(obj)
+            op.uv_map = active_uv_name
+        else:
+            op.texcoord_type = 'Generated'
+
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
     col.label(text=get_addon_title() + ' is created by:')
@@ -3978,6 +4036,7 @@ def draw_ypaint_about(self, context):
     col.operator('wm.url_open', text='swifterik', icon='ARMATURE_DATA').url = 'https://jblaha.art/'
     col.operator('wm.url_open', text='rifai', icon='ARMATURE_DATA').url = 'https://github.com/rifai'
     col.operator('wm.url_open', text='morirain', icon='ARMATURE_DATA').url = 'https://github.com/morirain'
+    col.operator('wm.url_open', text='kareemov03', icon='ARMATURE_DATA').url = 'https://www.artstation.com/kareem'
     col.separator()
 
     col.label(text='Documentation:')
@@ -4063,6 +4122,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
         col = row.column()
 
         col.operator('node.y_bake_channels', text='Bake All Channels', icon_value=lib.get_icon('bake')).only_active_channel = False
+        col.operator('godot.export', text='Export to godot shader', icon_value=lib.get_icon('color'))
         col.operator('node.y_rename_ypaint_tree', text='Rename Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()
@@ -4171,7 +4231,12 @@ class YNewLayerMenu(bpy.types.Menu):
 
         col.operator("node.y_open_image_to_layer", text='Open Image')
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
-        col.operator("node.y_open_multiple_images_to_single_layer", text='Open Images to Single Layer')
+
+        col.operator("node.y_open_images_to_single_layer", text='Open Images to Single Layer')
+        col.operator("node.y_open_images_from_material_to_single_layer", text='Open Images from Material')
+
+        # NOTE: Dedicated menu for opening images to single layer is kinda hard to see, so it's probably better be hidden for now
+        #col.menu("NODE_MT_y_open_images_to_single_layer_menu", text='Open Images to Single Layer')
 
         col.separator()
 
@@ -4229,13 +4294,6 @@ class YNewLayerMenu(bpy.types.Menu):
         if is_greater_than_320():
             col.separator()
             col.operator("node.y_new_vdm_layer", text='Vector Displacement Image', icon='SCULPTMODE_HLT')
-
-        #col.separator()
-
-        #c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Duplicated Layer')
-        #c.make_image_blank = False
-        #c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Blank Layer with copied setup')
-        #c.make_image_blank = True
 
         col = row.column()
         col.label(text='Generated Layer:')
@@ -4398,10 +4456,9 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer')
-        c.make_image_blank = False
-        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Blank Layer')
-        c.make_image_blank = True
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer').mode = 'COPY_DATA'
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Blank)').mode = 'BLANK_DATA'
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Link)').mode = 'LINK_DATA'
 
         col.separator()
 
@@ -4463,6 +4520,21 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         if hasattr(context, 'image'):
             col.menu("NODE_MT_y_image_convert_menu", text='Convert Image')
+
+class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_open_images_to_single_layer_menu"
+    bl_label = "Open Images to Single Layer Menu"
+    bl_description = "Open Images to Single Layer Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        col = self.layout.column()
+
+        col.operator("node.y_open_images_to_single_layer", icon='FILE_FOLDER', text='From Directory')
+        col.operator("node.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material')
 
 class YImageConvertToMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_image_convert_menu"
@@ -5702,6 +5774,7 @@ def register():
     bpy.utils.register_class(YBakedImageMenu)
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YImageConvertToMenu)
+    bpy.utils.register_class(YOpenImagesToSingleLayerMenu)
     bpy.utils.register_class(YUVSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
     bpy.utils.register_class(YModifier1Menu)
@@ -5743,6 +5816,9 @@ def register():
     # Add yPaint node ui
     bpy.types.NODE_MT_add.append(add_new_ypaint_node_menu)
 
+    if is_greater_than_300():
+        bpy.types.ASSETBROWSER_MT_context_menu.append(draw_yp_asset_browser_menu)
+
     # Handlers
     bpy.app.handlers.load_post.append(yp_load_ui_settings)
     bpy.app.handlers.save_pre.append(yp_save_ui_settings)
@@ -5760,6 +5836,7 @@ def unregister():
     bpy.utils.unregister_class(YBakedImageMenu)
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YImageConvertToMenu)
+    bpy.utils.unregister_class(YOpenImagesToSingleLayerMenu)
     bpy.utils.unregister_class(YUVSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
     bpy.utils.unregister_class(YModifier1Menu)
@@ -5797,6 +5874,9 @@ def unregister():
 
     # Remove add yPaint node ui
     bpy.types.NODE_MT_add.remove(add_new_ypaint_node_menu)
+
+    if is_greater_than_300():
+        bpy.types.ASSETBROWSER_MT_context_menu.remove(draw_yp_asset_browser_menu)
 
     # Remove Handlers
     bpy.app.handlers.load_post.remove(yp_load_ui_settings)
