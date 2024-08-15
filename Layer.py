@@ -2025,24 +2025,6 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             if mat.name not in {'Dots Stroke'} and mat.name not in cur_mats:
                 self.mat_coll.add().name = mat.name
 
-        # Get material lists from asset library
-        if is_greater_than_300():
-
-            prefs = bpy.context.preferences
-            filepaths = prefs.filepaths
-            asset_libraries = filepaths.asset_libraries
-        
-            for asset_library in asset_libraries:
-                library_name = asset_library.name
-                library_path = pathlib.Path(asset_library.path)
-                blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
-                print("Checking the content of library '" + library_name + "'")
-                for blend_file in blend_files:
-                    with bpy.data.libraries.load(str(blend_file), assets_only=True) as (file_contents, _):
-                        for mat in file_contents.materials:
-                            if mat not in self.mat_coll:
-                                self.mat_coll.add().name = mat
-
         return context.window_manager.invoke_props_dialog(self)
 
     def check(self, context):
