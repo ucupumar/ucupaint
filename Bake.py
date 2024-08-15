@@ -1551,7 +1551,7 @@ class YBakeChannels(bpy.types.Operator):
             if baked and baked.image:
 
                 # Denoise
-                if self.denoise and is_greater_than_281():
+                if self.denoise and is_greater_than_281() and ch.type != 'NORMAL':
                     denoise_image(baked.image)
 
                 # AA process
@@ -1580,17 +1580,13 @@ class YBakeChannels(bpy.types.Operator):
                                 baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
 
                     # FXAA
-                    if self.fxaa:
+                    if self.fxaa and not baked_disp.image.is_float:
                         fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=self.bake_device)
 
                     baked_images.append(baked_disp.image)
 
                 baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image:
-
-                    # Denoise
-                    if self.denoise and is_greater_than_281():
-                        denoise_image(baked_normal_overlay.image)
 
                     # AA process
                     if self.aa_level > 1:
@@ -1601,6 +1597,16 @@ class YBakeChannels(bpy.types.Operator):
                         fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
 
                     baked_images.append(baked_normal_overlay.image)
+
+                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image:
+
+                    # AA process
+                    if self.aa_level > 1:
+                        resize_image(baked_vdisp.image, self.width, self.height, 
+                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+
+                    baked_images.append(baked_vdisp.image)
 
         # Set bake info to baked images
         for img in baked_images:
@@ -1707,6 +1713,8 @@ class YBakeChannels(bpy.types.Operator):
                         elif ch.type == 'NORMAL' and btc.normal_type == 'DISPLACEMENT':
                             baked = tree.nodes.get(ch.baked_disp)
                             subidx = 0
+                        elif ch.type == 'NORMAL' and btc.normal_type == 'VECTOR_DISPLACEMENT':
+                            baked = tree.nodes.get(ch.baked_vdisp)
                         else: baked = tree.nodes.get(ch.baked)
 
                         if baked and baked.image:
