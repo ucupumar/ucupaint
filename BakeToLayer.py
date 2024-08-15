@@ -416,6 +416,9 @@ class YBakeToLayer(bpy.types.Operator):
         elif self.type == 'OTHER_OBJECT_EMISSION':
             self.subsurf_influence = False
 
+            self.margin = 0
+            self.ssaa = True
+
         elif self.type == 'OTHER_OBJECT_NORMAL':
             self.subsurf_influence = False
 
@@ -424,9 +427,14 @@ class YBakeToLayer(bpy.types.Operator):
                 self.normal_map_type = 'NORMAL_MAP'
                 self.normal_blend_type = 'OVERLAY'
 
+            self.margin = 0
+            self.ssaa = True
+
         elif self.type == 'OTHER_OBJECT_CHANNELS':
             self.subsurf_influence = False
             self.use_image_atlas = False
+            self.margin = 0
+            self.ssaa = True
 
         elif self.type == 'SELECTED_VERTICES':
             self.subsurf_influence = False
