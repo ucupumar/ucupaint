@@ -1734,9 +1734,9 @@ class BaseMultipleImagesLayer():
             # Get filename without extension
             name = os.path.splitext(os.path.basename(image.filepath))[0]
             lname = name.lower()
-            if 'normaldx' in lname or 'nor_gl' in lname:
+            if 'normaldx' in lname or 'nor_dx' in lname:
                 dx_image = image
-            if 'normalgl' in lname or 'nor_dx' in lname:
+            if 'normalgl' in lname or 'nor_gl' in lname:
                 gl_image = image
 
         synonym_libs = {
