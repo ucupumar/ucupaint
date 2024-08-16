@@ -1810,7 +1810,10 @@ class BaseMultipleImagesLayer():
         # Check if found more than 1 images for normal channel
         
         if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
-            normal_map_type = 'BUMP_NORMAL_MAP'
+            # NOTE: Most PBR textures are optimized to use 'displacement only without bump' in conjunction with normal map
+            # Since this addon already produce normal map with the displacement, it's better to not use assigned normal map
+            #normal_map_type = 'BUMP_NORMAL_MAP'
+            normal_map_type = 'BUMP_MAP'
         elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] == 'normal']):
             normal_map_type = 'NORMAL_MAP'
         else: normal_map_type = 'BUMP_MAP'
