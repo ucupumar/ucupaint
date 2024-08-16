@@ -34,7 +34,11 @@ class DownloadQueue(PropertyGroup):
         subtype = 'PERCENTAGE'
     )
 
-
+def update_check_all(self, context):
+    self.check_local = self.check_all
+    self.check_ambiencg = self.check_all
+    self.check_polyhaven = self.check_all
+    
 def update_input_search(self, context):
     if self.input_last == self.input_search:
         print("no search:"+self.input_search)
@@ -68,43 +72,48 @@ def change_mode_asset(self, context):
         read_asset_info()
         load_previews()
 
-    if self.mode_asset == "ONLINE":
-        pass
-    else:
-        textures_dir = _get_textures_dir()
-        tex_lis = os.listdir(textures_dir)
+    # if self.mode_asset == "ONLINE":
+    #     pass
+    # else:
+    #     textures_dir = _get_textures_dir()
+    #     tex_lis = os.listdir(textures_dir)
 
-        _offline_files = {}
-        for tx in tex_lis:
-            tx_dir = os.path.join(textures_dir, tx)
-            attr_lis = os.listdir(tx_dir)
+    #     _offline_files = {}
+    #     for tx in tex_lis:
+    #         tx_dir = os.path.join(textures_dir, tx)
+    #         attr_lis = os.listdir(tx_dir)
 
-            for att in attr_lis:
-                attr_dir = os.path.join(tx_dir, att)
-                if _texture_exist(tx, attr_dir):
-                    _offline_files[tx] = assets_lib[tx] 
-                    break       
+    #         for att in attr_lis:
+    #             attr_dir = os.path.join(tx_dir, att)
+    #             if _texture_exist(tx, attr_dir):
+    #                 _offline_files[tx] = assets_lib[tx] 
+    #                 break       
 
-        load_material_items(self.downloaded_material_items, _offline_files)
+    #     load_material_items(self.downloaded_material_items, _offline_files)
 
 class TexLibProps(PropertyGroup):
     page: IntProperty(name="page", default= 0)
     input_search:StringProperty(name="Search", update=update_input_search)
+    check_all:BoolProperty(name="Check All", default=True, update=update_check_all)
+    check_local:BoolProperty(name="Local", default=True)
+    check_ambiencg:BoolProperty(name="AmbientCG", default=True)
+    check_polyhaven:BoolProperty(name="Polyhaven", default=True)
+
     input_last:StringProperty()
     material_items:CollectionProperty(type= MaterialItem)
     material_index:IntProperty(default=0, name="Material index")
     downloaded_material_items:CollectionProperty(type= MaterialItem)
     downloaded_material_index:IntProperty(default=0, name="Material index")
 
-    mode_asset:EnumProperty(
-            items =  (('ONLINE', 'Online', ''), ('DOWNLOADED', 'Downloaded', '')),
-            name = 'Location',
-            default = 'ONLINE',
-            description = 'Location of the PBR Texture.\n'
-                '  Local: the assets that you have already downloaded.\n'
-                '  Online: available for download on AmbientCG.com.\n',
-            update=change_mode_asset
-        )
+    # mode_asset:EnumProperty(
+    #         items =  (('ONLINE', 'Online', ''), ('DOWNLOADED', 'Downloaded', '')),
+    #         name = 'Location',
+    #         default = 'ONLINE',
+    #         description = 'Location of the PBR Texture.\n'
+    #             '  Local: the assets that you have already downloaded.\n'
+    #             '  Online: available for download on AmbientCG.com.\n',
+    #         update=change_mode_asset
+    #     )
 
     downloads:CollectionProperty(type=DownloadQueue)
     searching_download:PointerProperty(type=DownloadQueue)
@@ -269,31 +278,36 @@ class TexLibBrowser(Panel):
         scene = context.scene
         texlib:TexLibProps = scene.texlib
 
-        layout.prop(texlib, "mode_asset", expand=True)
-        local_files_mode = texlib.mode_asset == "DOWNLOADED"
+        # layout.prop(texlib, "mode_asset", expand=True)
+        # local_files_mode = texlib.mode_asset == "DOWNLOADED"
 
-        if local_files_mode:
-            sel_index = texlib.downloaded_material_index
-            my_list = texlib.downloaded_material_items
-        else:
-            sel_index = texlib.material_index
-            my_list = texlib.material_items
+        # if local_files_mode:
+        #     sel_index = texlib.downloaded_material_index
+        #     my_list = texlib.downloaded_material_items
+        # else:
+        sel_index = texlib.material_index
+        my_list = texlib.material_items
 
-            layout.prop(texlib, "input_search")
-            searching_dwn = texlib.searching_download
-        
-            if searching_dwn.alive:
-                prog = searching_dwn.progress
+        layout.prop(texlib, "input_search")
+        source_search = layout.row()
+        source_search.prop(texlib, "check_all")
+        source_search.prop(texlib, "check_local")
+        source_search.prop(texlib, "check_ambiencg")
+        source_search.prop(texlib, "check_polyhaven")
 
-                if prog >= 0:
-                    row_search = layout.row()
+        searching_dwn = texlib.searching_download
+    
+        if searching_dwn.alive:
+            prog = searching_dwn.progress
 
-                    if prog < 10:
-                        row_search.label(text="Searching...")
-                    else:
-                        row_search.prop(searching_dwn, "progress", slider=True, text="Retrieving thumbnails.")
-                        # row_search.label(text="Retrieving thumbnails..."+str(prog)+"%")
-                    row_search.operator("texlib.cancel_search", icon="CANCEL")
+            if prog >= 0:
+                row_search = layout.row()
+
+                if prog < 10:
+                    row_search.label(text="Searching...")
+                else:
+                    row_search.prop(searching_dwn, "progress", slider=True, text="Retrieving thumbnails.")
+                row_search.operator("texlib.cancel_search", icon="CANCEL")
                     
         # print("list", local_files_mode, ":",sel_index,"/",len(my_list))
         # print("list", local_files_mode, ":",texlib.material_index,"/",len(texlib.material_items)," | ", texlib.downloaded_material_index,"/",len(texlib.downloaded_material_items))
@@ -302,18 +316,14 @@ class TexLibBrowser(Panel):
             layout.separator()
             layout.label(text="Textures:")
             col_lay = layout.row()
-            if local_files_mode:
-                col_lay.template_list("TEXLIB_UL_Material", "material_list", texlib, "downloaded_material_items", texlib, "downloaded_material_index")
-            else:
-                col_lay.template_list("TEXLIB_UL_Material", "material_list", texlib, "material_items", texlib, "material_index")
+           
+            col_lay.template_list("TEXLIB_UL_Material", "material_list", texlib, "material_items", texlib, "material_index")
 
             if sel_index < len(my_list):
                 sel_mat:MaterialItem = my_list[sel_index]
                 mat_id:str = sel_mat.name
                 
-                if local_files_mode:
-                    del_it = col_lay.operator("texlib.remove_attributes", icon="REMOVE")
-                    del_it.id = mat_id
+               
 
                 layout.separator()
                 layout.label(text="Preview:")
@@ -395,14 +405,20 @@ class TEXLIB_UL_Material(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         """Demo UIList."""
 
+        item_id = item.name
+        if hasattr(previews_collection, "preview_items") and item_id in previews_collection.preview_items:
+            thumb = previews_collection.preview_items[item_id][3]
+        else:
+            thumb = lib.custom_icons["input"].icon_id
+
         row = layout.row(align=True)
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            row.template_icon(icon_value = item.thumb, scale = 1.0)
+            row.template_icon(icon_value = thumb, scale = 1.0)
             row.label(text=item.name)
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
-            layout.label(text=item.name, icon_value = item.thumb)
+            layout.label(text=item.name, icon_value = thumb)
 
 class TexLibCancelSearch(Operator):
     bl_idname = "texlib.cancel_search"
@@ -460,6 +476,15 @@ def load_material_items(material_items, list_tex):
         else:
             new_item.thumb = lib.custom_icons["input"].icon_id
 
+def load_saved_material_items():
+    material_items = bpy.context.scene.texlib.material_items
+    for new_item in material_items:
+        item_id = new_item.name
+        if hasattr(previews_collection, "preview_items") and item_id in previews_collection.preview_items:
+            new_item.thumb = previews_collection.preview_items[item_id][3]
+        else:
+            new_item.thumb = lib.custom_icons["input"].icon_id
+
 def load_per_material(file_name:str, material_item):
     item = os.path.basename(file_name)
 
@@ -493,7 +518,7 @@ def searching_material(keyword:str, context:Context):
     thread_search.progress = 100
 
 def load_previews():
-    # print(">>>>>>>>>>>>>>>>>>>>>>> INIT TexLIB")
+    print(">>>>>>>>>>>>>>>>>>>>>>> INIT TexLIB")
     dir_name = _get_preview_dir()
     files = os.listdir(dir_name)
     
@@ -503,11 +528,12 @@ def load_previews():
         file = dir_name + item
         my_id = item.split(".")[0]
         sizefile = os.path.getsize(file)
-        # print(">>item",item,"file",file,"size", sizefile)
         if sizefile == 0: # detect corrupt image
             os.remove(file)
             continue
         loaded = previews_collection.load(item, file, 'IMAGE', force_reload=True)
+        print(">>item",item,"file",file,"size", sizefile, "id", loaded.icon_id)
+
         preview_items[my_id] = (my_id, item, "", loaded.icon_id, index)
 
     previews_collection.preview_items.update(preview_items)
@@ -702,7 +728,7 @@ def read_asset_info() -> bool:
         return True
     return False
 
-def retrieve_assets_info(keyword:str = '', save_ori:bool = False, page:int = 0, limit:int = 100):
+def retrieve_assets_info(keyword:str = '', save_ori:bool = False, page:int = 0, limit:int = 20):
     base_link = "https://ambientCG.com/api/v2/full_json"
     params = {
         'type': 'Material',
@@ -824,6 +850,7 @@ def register():
 
     if read_asset_info():
         load_previews()
+        # load_saved_material_items()
 
     bpy.app.timers.register(monitor_downloads, first_interval=1, persistent=True)    
 
