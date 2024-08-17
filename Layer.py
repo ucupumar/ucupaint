@@ -1895,7 +1895,7 @@ class BaseMultipleImagesLayer():
     def invoke_operator(self, context:bpy.context):
         obj = context.object
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        yp = node.node_tree.yp if node else None
         ypup = get_user_preferences()
 
         # Use user preference default image size if input uses default image size
@@ -1922,12 +1922,8 @@ class BaseMultipleImagesLayer():
 
         #return context.window_manager.invoke_props_dialog(self)
     def draw_operator(self, context, display_relative_toggle=True):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
         obj = context.object
 
-        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
-        
         row = split_layout(self.layout, 0.325)
 
         col = row.column()
@@ -2001,9 +1997,9 @@ class BaseMultipleImagesLayer():
         return True
 
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
-    """Open all images inside material node tree to single layer"""
     bl_idname = "node.y_open_images_from_material_to_single_layer"
-    bl_label = "Open Images from Material to Single Layer"
+    bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
+    bl_description = "Open images inside material node tree to single " + get_addon_title() + " layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     mat_name : StringProperty(default='')
@@ -2011,7 +2007,8 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
     @classmethod
     def poll(cls, context):
-        return get_active_ypaint_node()
+        #return get_active_ypaint_node()
+        return context.object
 
     def invoke(self, context, event):
         self.invoke_operator(context)
@@ -2139,6 +2136,13 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             # Use filtered images
             images = filtered_images
 
+        # Use quick setup if yp node is not found
+        node = get_active_ypaint_node()
+        quick_setup_happen = False
+        if not node:
+            bpy.ops.node.y_quick_ypaint_node_setup()
+            quick_setup_happen = True
+
         failed = False
         if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images):
             self.report({'ERROR'}, "Images should have channel name as suffix!")
@@ -2149,14 +2153,16 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             remove_datablock(bpy.data.materials, mat)
 
         if failed:
+            if quick_setup_happen:
+                bpy.ops.node.y_remove_yp_node()
             return {'CANCELLED'}
 
         return {'FINISHED'}
 
 class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
-    """Open images to single layer"""
     bl_idname = "node.y_open_images_to_single_layer"
-    bl_label = "Open Images to Single Layer"
+    bl_label = "Open Images to single Layer"
+    bl_description = "Open images to single layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod

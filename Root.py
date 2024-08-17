@@ -443,6 +443,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             description = 'Switch to material view so the node setup is automatically visible',
             default = True)
 
+    target_bsdf_name : StringProperty(default = '')
+    not_muted_paint_opacity : BoolProperty(default = False)
+    not_on_material_view : BoolProperty(default = True)
+
     @classmethod
     def poll(cls, context):
         return context.object
