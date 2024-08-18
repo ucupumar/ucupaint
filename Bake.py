@@ -1246,6 +1246,11 @@ class YBakeChannels(bpy.types.Operator):
             description='Use UDIM Tiles',
             default=False)
 
+    use_float_for_displacement : BoolProperty(
+            name = 'Use Float for Displacement',
+            description='Use float image for baked displacement',
+            default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1322,6 +1327,10 @@ class YBakeChannels(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        height_root_ch = get_root_height_channel(yp)
+        
         obj = context.object
         mat = obj.active_material
 
@@ -1401,6 +1410,9 @@ class YBakeChannels(bpy.types.Operator):
         if is_greater_than_281():
             ccol.prop(self, 'denoise', text='Use Denoise')
         ccol.prop(self, 'force_bake_all_polygons')
+
+        if height_root_ch:
+            ccol.prop(self, 'use_float_for_displacement')
 
     def execute(self, context):
 
@@ -1541,7 +1553,8 @@ class YBakeChannels(bpy.types.Operator):
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 use_hdr = not ch.use_clamp
-                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, tilenums=tilenums, interpolation=self.interpolation)
+                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
+                             tilenums=tilenums, interpolation=self.interpolation, use_float_for_displacement=self.use_float_for_displacement)
 
         # Process baked images
         baked_images = []

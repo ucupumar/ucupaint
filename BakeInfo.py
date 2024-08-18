@@ -132,6 +132,11 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             items = interpolation_type_items,
             default = 'Linear')
 
+    use_float_for_displacement : BoolProperty(
+            name = 'Use Float for Displacement',
+            description='Use float image for baked displacement',
+            default=False)
+
     # To store other objects info
     other_objects : CollectionProperty(type=YBakeInfoOtherObject)
     

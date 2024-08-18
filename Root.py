@@ -3350,7 +3350,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Real displacement using height map
     enable_subdiv_setup : BoolProperty(
             name = 'Enable Displacement Setup',
-            description = 'Enable displacement setup. Only works with Cycles or Eevee Next.\nThis will also make the baked displacement uses float image',
+            description = 'Enable displacement setup. Only works with Cycles or Eevee Next.',
             default=False, update=Bake.update_enable_subdiv_setup)
 
     #subdiv_standard_type : EnumProperty(
