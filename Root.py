@@ -1993,8 +1993,8 @@ class YFixMissingData(bpy.types.Operator):
             for ch in layer.channels:
                 ch_src = get_channel_source(ch, layer)
                 if not ch_src:
-                    if ch.override: ch.override = False
-                    if ch.override_1: ch.override_1 = False
+                    if ch.override and ch.override_type != 'DEFAULT': ch.override = False
+                    if ch.override_1 and ch.override_1_type != 'DEFAULT': ch.override_1 = False
 
         if yp.active_layer_index > len(yp.layers):
             yp.active_layer_index = len(yp.layers)-1
