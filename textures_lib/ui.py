@@ -8,7 +8,8 @@ from .properties import assets_lib
 from .properties import TexLibProps, MaterialItem, DownloadQueue
 
 from .operators import TexLibAddToUcupaint, TexLibCancelDownload, TexLibDownload, TexLibRemoveTextureAttribute
-from .operators import _get_thread, _get_thread_id, _texture_exist
+from .operators import get_thread, get_thread_id
+from .downloader import texture_exist
 
 class TexLibBrowser(Panel):
     bl_label = "Texlib Browser"
@@ -87,7 +88,7 @@ class TexLibBrowser(Panel):
                     ukuran = round(dwn["size"] / 1000000,2)
                     lokasi = dwn["location"]
                     
-                    check_exist:bool = _texture_exist(mat_id, lokasi)
+                    check_exist:bool = texture_exist(mat_id, lokasi)
 
                     # if local_files_mode and not check_exist:
                     #     continue
@@ -100,8 +101,8 @@ class TexLibBrowser(Panel):
                     # rr.label(text=d, )
                     row.label(text=str(ukuran)+ "MB")
 
-                    thread_id = _get_thread_id(mat_id, d)
-                    dwn_thread = _get_thread(thread_id)
+                    thread_id = get_thread_id(mat_id, d)
+                    dwn_thread = get_thread(thread_id)
 
                     btn_row = ui_attr.row()
                     btn_row.alignment = "RIGHT"

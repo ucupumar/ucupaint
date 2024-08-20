@@ -7,7 +7,10 @@ from bpy.props import StringProperty, IntProperty, BoolProperty
 from .. import Layer
 from ..common import * 
 
-from .properties import assets_lib, TexLibProps, DownloadQueue, _get_thread_id, _get_thread, _get_textures_dir, download_stream, cancel_searching, _texture_exist, threads
+from .downloader import download_stream, get_thread_id, get_thread
+from .downloader import threads
+
+from .properties import assets_lib, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching
 
 class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
     """Open Multiple Textures to Layer Ucupaint"""
@@ -52,8 +55,8 @@ class TexLibCancelDownload(Operator):
     id:StringProperty()
 
     def execute(self, context:bpy.context):
-        thread_id = _get_thread_id(self.id, self.attribute)
-        thread = _get_thread(thread_id)
+        thread_id = get_thread_id(self.id, self.attribute)
+        thread = get_thread(thread_id)
 
         if thread == None:
             return {'CANCELLED'}
@@ -84,7 +87,7 @@ class TexLibRemoveTextureAttribute(Operator):
         layout.label(text="Are you sure to remove this texture?")
  
     def execute(self, context:bpy.context):
-        dir_up = _get_textures_dir() + self.id
+        dir_up = get_textures_dir() + self.id
         dir = dir_up + os.sep + self.attribute
         # print("item", self.id," | attr", self.attribute, " | file ", dir)
         # remove folder
@@ -136,11 +139,11 @@ class TexLibDownload(Operator):
             # print("make dir "+directory)
             os.makedirs(directory)
 
-        thread_id = _get_thread_id(self.id, self.attribute)
+        thread_id = get_thread_id(self.id, self.attribute)
         new_thread = threading.Thread(target=download_stream, args=(link,file_name,thread_id,))
         new_thread.progress = 0
         new_thread.cancel = False
-        threads[_get_thread_id(self.id, self.attribute)] = new_thread
+        threads[get_thread_id(self.id, self.attribute)] = new_thread
 
         new_thread.start()
 
@@ -176,7 +179,7 @@ class TexLibRemoveTextureAllAttributes(Operator):
         layout.label(text="Are you sure to remove this textures?")
  
     def execute(self, context:bpy.context):
-        dir = _get_textures_dir() + self.id 
+        dir = get_textures_dir() + self.id 
         print("item", self.id, " | file ", dir)
         my_list = context.scene.texlib.downloaded_material_items
         my_list.remove(my_list.find(self.id))
