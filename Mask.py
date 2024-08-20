@@ -369,6 +369,10 @@ class YNewLayerMask(bpy.types.Operator):
                 self.color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
                 if not is_colorid_already_being_used(yp, self.color_id): break
 
+        # Make sure decal is off when adding non mappable mask
+        if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
+            self.texcoord_type = 'UV'
+
         if obj.type != 'MESH':
             self.texcoord_type = 'Generated'
         elif len(obj.data.uv_layers) > 0:

@@ -470,7 +470,7 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
 
     # Create texcoord node if decal is used
     texcoord = tree.nodes.get(mask.texcoord)
-    if get_mask_enabled(mask) and mask.texcoord_type == 'Decal':
+    if get_mask_enabled(mask) and mask.texcoord_type == 'Decal' and is_mapping_possible(mask.type):
 
         # Set image extension type to clip
         image = None
@@ -537,7 +537,7 @@ def check_layer_texcoord_nodes(layer, tree=None):
 
     # Create texcoord node if decal is used
     texcoord = tree.nodes.get(layer.texcoord)
-    if get_layer_enabled(layer) and layer.texcoord_type == 'Decal':
+    if get_layer_enabled(layer) and layer.texcoord_type == 'Decal' and is_mapping_possible(layer.type):
 
         # Set image extension type to clip
         image = None

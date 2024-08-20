@@ -912,6 +912,10 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             self.name = get_unique_name(self.name, yp.layers)
 
+        # Make sure decal is off when adding non mappable layer
+        if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
+            self.texcoord_type = 'UV'
+
         # Check if color id already being used
         while True:
             # Use color id tolerance value as lowest value to avoid pure black color
@@ -919,7 +923,6 @@ class YNewLayer(bpy.types.Operator):
             if not is_colorid_already_being_used(yp, self.mask_color_id): break
 
         if obj.type != 'MESH':
-            #self.texcoord_type = 'Object'
             self.texcoord_type = 'Generated'
         else:
             if obj.type == 'MESH':
