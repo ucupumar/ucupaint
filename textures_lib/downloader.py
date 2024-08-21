@@ -377,7 +377,7 @@ def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str)->AssetItem:
 		return None
 	
 	retval = AssetItem()
-	retval.source_type = SourceType.SOURCE_TEXTUREHAVEN
+	retval.source_type = SourceType.SOURCE_POLYHAVEN
 	retval.id = id
 	retval.name = asset_name
 	retval.thumbnail = thumb_url

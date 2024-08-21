@@ -100,6 +100,8 @@ def searching_material(keyword:str, context:Context):
     list_polyhaven = retrieve_polyhaven(keyword)
     search_results.update(list_polyhaven)
 
+    assets_library.update(search_results)
+
     save_library_to_file(search_results, "last-search.json")
 
     txlib.search_items.clear()
@@ -171,8 +173,9 @@ def update_input_search(self, context):
     
     self.input_last = self.input_search
 
-    txlib = context.scene.texlib
+    txlib:TexLibProps = context.scene.texlib
     txlib.material_items.clear()
+    txlib.search_items.clear()
 
     if self.input_search == '':
         last_search.clear()

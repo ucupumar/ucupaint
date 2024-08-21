@@ -3,7 +3,7 @@ from typing import Any
 
 class SourceType:
 	SOURCE_AMBIENTCG = "ambientcg"
-	SOURCE_TEXTUREHAVEN = "texturehaven"
+	SOURCE_POLYHAVEN = "polyhaven"
 
 class AssetItem:
 	def __init__(self):
@@ -51,8 +51,8 @@ class AssetItem:
 class AssetAttribute:
 	def __init__(self):
 		self.attribute = ""
-		self.link = "" # zip file for ambientcg, blend file for texturehaven
-		self.textures = [] # texture files for texturehaven
+		self.link = "" # zip file for ambientcg, blend file for 
+		self.textures = [] # texture files for 
 
 	def add_texture(self, texture:str):
 		self.textures.append(texture)

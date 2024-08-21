@@ -4,7 +4,7 @@ from bpy.types import Panel, UIList
 
 from .. import lib
 
-from .properties import assets_lib
+from .properties import assets_library
 from .properties import TexLibProps, MaterialItem, DownloadQueue
 
 from .operators import TexLibAddToUcupaint, TexLibCancelDownload, TexLibDownload, TexLibRemoveTextureAttribute
@@ -79,7 +79,7 @@ class TexLibBrowser(Panel):
                 selected_mat.alignment = "CENTER"
                 selected_mat.template_icon(icon_value=thumb, scale=5.0)
                 selected_mat.label(text=mat_id)
-                # downloads = assets_lib[mat_id]["downloads"]
+                downloads = assets_library[mat_id]
 
                 layout.separator()
                 layout.label(text="Attributes:")
