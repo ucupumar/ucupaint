@@ -1964,9 +1964,7 @@ class YBakeToLayer(bpy.types.Operator):
         # Remove temporary objects
         if temp_objs:
             for o in temp_objs:
-                m = o.data
-                remove_datablock(bpy.data.objects, o)
-                remove_datablock(bpy.data.meshes, m)
+                remove_mesh_obj(o)
 
         #return {'FINISHED'}
 

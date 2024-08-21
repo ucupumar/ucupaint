@@ -719,6 +719,13 @@ def remove_datablock(blocks, block, user=None, user_prop=''):
     else:
         if user and user_prop != '':
             setattr(user, user_prop, None)
+
+        if blocks == bpy.data.objects:
+            # Need to remove object from scene first
+            objs = get_scene_objects()
+            if block.name in objs:
+                objs.unlink(block)
+
         block.user_clear()
         blocks.remove(block)
 
@@ -755,8 +762,8 @@ def get_scene_objects():
 
 def remove_mesh_obj(obj):
     data = obj.data
-    bpy.data.objects.remove(obj, do_unlink=True)
-    bpy.data.meshes.remove(data)  
+    remove_datablock(bpy.data.objects, obj)
+    remove_datablock(bpy.data.meshes, data)
 
 def get_viewport_shade():
     if is_greater_than_280():
