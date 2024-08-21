@@ -134,6 +134,61 @@ def monitor_downloads():
 
 	return 1.0
 
+from .data import AssetItem
+
+def download_asset_previews(overwrite_existing:bool, search_results:dict[str, AssetItem], search_items):
+	from .properties import get_preview_dir, load_per_material
+
+	directory = get_preview_dir()
+
+	if not os.path.exists(directory):
+		os.mkdir(directory)
+	
+	thread_search = threads[THREAD_SEARCHING]
+	
+	progress_initial = thread_search.progress
+	progress_max = 90
+	span = progress_max - progress_initial
+	item_count = len(search_results)
+
+	for index,ast in enumerate(search_results.keys()):
+		if thread_search.cancel:
+			break
+
+		link = search_results[ast].thumbnail
+		file_name = bpy.path.basename(link)
+		# remove parameters
+		file_name = file_name.split("?")[0]
+		file_name = os.path.join(directory, file_name)
+		
+		if not overwrite_existing and os.path.exists(file_name):
+			continue
+		
+		with open(file_name, "wb") as f:
+			try:
+				print("download "+link+" to "+file_name)
+				response = requests.get(link, stream=True)
+				total_length = response.headers.get('content-length')
+				if not total_length:
+					print('Error #1 while downloading', link, ':', "Empty Response.")
+					return
+				dl = 0
+				total_length = int(total_length)
+				for data in response.iter_content(chunk_size = 4096):
+					if thread_search is not None and thread_search.cancel:
+						response.close()
+						return
+					dl += len(data)
+					f.write(data)                    
+			except Exception as e:
+				print('Error #2 while downloading', link, ':', e)
+		prog = (index + 1) / item_count
+		# print("url = ",prog, ' | ',link,' | ', file_name)
+		# refresh list
+		load_per_material(file_name, search_items[index])
+
+		thread_search.progress = (int) (progress_initial + prog * span)
+
 def download_previews(overwrite_existing:bool, material_items):
 	from .properties import get_preview_dir, load_per_material
 	from .properties import last_search
@@ -313,7 +368,7 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 	return retval
 
-def retrieve_polyhaven_asset(id:str, thumb_url:str)->AssetItem:
+def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str)->AssetItem:
 	base_link = "https://api.polyhaven.com/files/"+id
 	response = requests.get(base_link, verify=False)
  	
@@ -324,7 +379,7 @@ def retrieve_polyhaven_asset(id:str, thumb_url:str)->AssetItem:
 	retval = AssetItem()
 	retval.source_type = SourceType.SOURCE_TEXTUREHAVEN
 	retval.id = id
-	retval.name = id
+	retval.name = asset_name
 	retval.thumbnail = thumb_url
 
 	obj = response.json()
@@ -335,9 +390,7 @@ def retrieve_polyhaven_asset(id:str, thumb_url:str)->AssetItem:
 		includes = blend_attr["include"]
 
 		new_attr = retval.add_attribute(k, blnd_url)
-
-		print("k ", k, " content ", includes)
-
+		# print("k ", k, " content ", includes)
 		for ic in includes.keys():
 			inc_itm = includes[ic]
 			# print("ic ", ic, " content ", inc_itm)
@@ -377,7 +430,7 @@ def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 		it = obj_assets[id]
 		# print("index ", i, "id ", id, "name ", it["name"], "thumb ", it["thumbnail_url"])
-		new_item = retrieve_polyhaven_asset(id, it["thumbnail_url"])
+		new_item = retrieve_polyhaven_asset(id, it["name"], it["thumbnail_url"])
 		retval[new_item.id] = new_item
 
 	return retval

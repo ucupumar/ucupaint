@@ -31,8 +31,8 @@ class TexLibBrowser(Panel):
         #     sel_index = texlib.downloaded_material_index
         #     my_list = texlib.downloaded_material_items
         # else:
-        sel_index = texlib.material_index
-        my_list = texlib.material_items
+        sel_index = texlib.search_index
+        my_list = texlib.search_items
 
         layout.prop(texlib, "input_search")
         source_search = layout.row()
@@ -63,11 +63,11 @@ class TexLibBrowser(Panel):
             layout.label(text="Textures:")
             col_lay = layout.row()
            
-            col_lay.template_list("TEXLIB_UL_Material", "material_list", texlib, "material_items", texlib, "material_index")
+            col_lay.template_list("TEXLIB_UL_Material", "material_list", texlib, "search_items", texlib, "search_index")
 
             if sel_index < len(my_list):
                 sel_mat:MaterialItem = my_list[sel_index]
-                mat_id:str = sel_mat.name
+                mat_id:str = sel_mat.asset_id
                 
                 thumb = _get_asset_preview(mat_id)
 
@@ -79,54 +79,54 @@ class TexLibBrowser(Panel):
                 selected_mat.alignment = "CENTER"
                 selected_mat.template_icon(icon_value=thumb, scale=5.0)
                 selected_mat.label(text=mat_id)
-                downloads = assets_lib[mat_id]["downloads"]
+                # downloads = assets_lib[mat_id]["downloads"]
 
                 layout.separator()
                 layout.label(text="Attributes:")
-                for d in downloads:
-                    dwn = downloads[d]
-                    # row.alignment = "LEFT"
-                    ukuran = round(dwn["size"] / 1000000,2)
-                    lokasi = dwn["location"]
+                # for d in downloads:
+                #     dwn = downloads[d]
+                #     # row.alignment = "LEFT"
+                #     ukuran = round(dwn["size"] / 1000000,2)
+                #     lokasi = dwn["location"]
                     
-                    check_exist:bool = texture_exist(mat_id, lokasi)
+                #     check_exist:bool = texture_exist(mat_id, lokasi)
 
-                    # if local_files_mode and not check_exist:
-                    #     continue
+                #     # if local_files_mode and not check_exist:
+                #     #     continue
 
-                    ui_attr = layout.split(factor=0.7)
+                #     ui_attr = layout.split(factor=0.7)
 
-                    row = ui_attr.row()
+                #     row = ui_attr.row()
 
-                    row.label(text=d, )
-                    # rr.label(text=d, )
-                    row.label(text=str(ukuran)+ "MB")
+                #     row.label(text=d, )
+                #     # rr.label(text=d, )
+                #     row.label(text=str(ukuran)+ "MB")
 
-                    thread_id = get_thread_id(mat_id, d)
-                    dwn_thread = get_thread(thread_id)
+                #     thread_id = get_thread_id(mat_id, d)
+                #     dwn_thread = get_thread(thread_id)
 
-                    btn_row = ui_attr.row()
-                    btn_row.alignment = "RIGHT"
+                #     btn_row = ui_attr.row()
+                #     btn_row.alignment = "RIGHT"
 
-                    if dwn_thread != None:
-                        btn_row.label(text=str(dwn_thread.progress)+"%")
-                        op:TexLibCancelDownload = btn_row.operator("texlib.cancel", icon="X")
-                        op.attribute = d
-                        op.id = mat_id
-                    else:
-                        if check_exist:
-                            op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
-                            op.attribute = d
-                            op.id = sel_mat.name
+                #     if dwn_thread != None:
+                #         btn_row.label(text=str(dwn_thread.progress)+"%")
+                #         op:TexLibCancelDownload = btn_row.operator("texlib.cancel", icon="X")
+                #         op.attribute = d
+                #         op.id = mat_id
+                #     else:
+                #         if check_exist:
+                #             op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
+                #             op.attribute = d
+                #             op.id = sel_mat.name
 
-                            op_remove:TexLibRemoveTextureAttribute = btn_row.operator("texlib.remove_attribute", icon="REMOVE")
-                            op_remove.attribute = d
-                            op_remove.id = sel_mat.name
+                #             op_remove:TexLibRemoveTextureAttribute = btn_row.operator("texlib.remove_attribute", icon="REMOVE")
+                #             op_remove.attribute = d
+                #             op_remove.id = sel_mat.name
 
-                        op:TexLibDownload = btn_row.operator("texlib.download", icon="IMPORT")
-                        op.attribute = d
-                        op.id = sel_mat.name
-                        op.file_exist = check_exist
+                #         op:TexLibDownload = btn_row.operator("texlib.download", icon="IMPORT")
+                #         op.attribute = d
+                #         op.id = sel_mat.name
+                #         op.file_exist = check_exist
 
             if len(texlib.downloads):
                 layout.separator()
@@ -152,12 +152,13 @@ class TEXLIB_UL_Material(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         """Demo UIList."""
 
-        thumb = _get_asset_preview(item.name)
+        thumb = _get_asset_preview(item.asset_id)
 
         row = layout.row(align=True)
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row.template_icon(icon_value = thumb, scale = 1.0)
             row.label(text=item.name)
+            row.label(text="("+item.source_type+")")
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'

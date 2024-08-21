@@ -6,7 +6,7 @@ from bpy.types import PropertyGroup, Context, Scene
 from ..preferences import * 
 from .. import lib
 
-from .downloader import get_searching_thread, set_searching_thread, retrieve_ambientcg, retrieve_assets_info, download_previews, retrieve_polyhaven
+from .downloader import get_searching_thread, set_searching_thread, retrieve_ambientcg, retrieve_assets_info, download_previews, retrieve_polyhaven, download_asset_previews
 from .data import AssetItem
 
 assets_lib = {} 
@@ -95,17 +95,27 @@ def searching_material(keyword:str, context:Context):
     if not len(assets_lib):
         read_asset_info()
 
-    list_ambient = retrieve_ambientcg(keyword)
-    assets_library.update(list_ambient)
+    search_results:dict[str, AssetItem] 
+    search_results = retrieve_ambientcg(keyword)
     list_polyhaven = retrieve_polyhaven(keyword)
-    assets_library.update(list_polyhaven)
+    search_results.update(list_polyhaven)
 
+    save_library_to_file(search_results, "last-search.json")
 
-    save_library_to_file()
+    txlib.search_items.clear()
+    for key in search_results:
+        new_item:MaterialItem = txlib.search_items.add()
+        asst_item = search_results[key]
+        new_item.name = asst_item.name
+        new_item.asset_id = asst_item.id
+        new_item.source_type = asst_item.source_type
+
+    download_asset_previews(False, search_results, txlib.search_items)
 
     retrieve_assets_info(keyword)
     thread_search.progress = 10
     load_material_items(txlib.material_items, last_search)
+    
 
     download_previews(False, txlib.material_items)
     thread_search.progress = 90
@@ -115,15 +125,15 @@ def searching_material(keyword:str, context:Context):
     load_material_items(txlib.material_items, last_search)
     thread_search.progress = 100
 
-def save_library_to_file():
+def save_library_to_file(list:dict[str, AssetItem], file_name:str):
     dir_name = get_lib_dir()
-    file_name = os.path.join(dir_name, "assets.json")
+    file_name = os.path.join(dir_name, file_name)
 
     file = open(file_name, 'w')
 
     to_write = {}
-    for key in assets_library:
-        to_write[key] = assets_library[key].to_dict()
+    for key in list:
+        to_write[key] = list[key].to_dict()
 
     file.write(json.dumps(to_write))
     file.close()
@@ -213,7 +223,9 @@ class TextureItem (PropertyGroup):
 	blend_file: StringProperty(name="Blend File", subtype="FILE_PATH")
 
 class MaterialItem(PropertyGroup): 
+    asset_id: StringProperty(name="Asset ID")
     name: StringProperty( name="Name", description="Material name", default="Untitled") 
+    source_type: StringProperty( name="Source Type", description="Source type", default="")
     # thumb: IntProperty( name="thumbnail", description="", default=0)
 
 class DownloadQueue(PropertyGroup):
@@ -244,6 +256,9 @@ class TexLibProps(PropertyGroup):
     downloaded_material_items:CollectionProperty(type= MaterialItem)
     downloaded_material_index:IntProperty(default=0, name="Material index")
 
+
+    search_items:CollectionProperty(type= MaterialItem)
+    search_index:IntProperty(default=0, name="Search index")
     # mode_asset:EnumProperty(
     #         items =  (('ONLINE', 'Online', ''), ('DOWNLOADED', 'Downloaded', '')),
     #         name = 'Location',
