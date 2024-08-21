@@ -8,8 +8,8 @@ from .properties import assets_lib
 from .properties import TexLibProps, MaterialItem, DownloadQueue
 
 from .operators import TexLibAddToUcupaint, TexLibCancelDownload, TexLibDownload, TexLibRemoveTextureAttribute
-from .operators import get_thread, get_thread_id
-from .downloader import texture_exist
+
+from .downloader import texture_exist, get_thread, get_thread_id
 
 class TexLibBrowser(Panel):
     bl_label = "Texlib Browser"
@@ -69,14 +69,15 @@ class TexLibBrowser(Panel):
                 sel_mat:MaterialItem = my_list[sel_index]
                 mat_id:str = sel_mat.name
                 
-               
+                thumb = _get_asset_preview(mat_id)
+
 
                 layout.separator()
                 layout.label(text="Preview:")
                 prev_box = layout.box()
                 selected_mat = prev_box.column(align=True)
                 selected_mat.alignment = "CENTER"
-                selected_mat.template_icon(icon_value=sel_mat.thumb, scale=5.0)
+                selected_mat.template_icon(icon_value=thumb, scale=5.0)
                 selected_mat.label(text=mat_id)
                 downloads = assets_lib[mat_id]["downloads"]
 
@@ -151,13 +152,7 @@ class TEXLIB_UL_Material(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         """Demo UIList."""
 
-        from .properties import previews_collection
-         
-        item_id = item.name
-        if hasattr(previews_collection, "preview_items") and item_id in previews_collection.preview_items:
-            thumb = previews_collection.preview_items[item_id][3]
-        else:
-            thumb = lib.custom_icons["input"].icon_id
+        thumb = _get_asset_preview(item.name)
 
         row = layout.row(align=True)
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -174,6 +169,15 @@ classes = [
     TEXLIB_UL_Material,
     TEXLIB_UL_Downloads
 ]
+
+def _get_asset_preview(item_id:str):
+    from .properties import previews_collection
+         
+    if hasattr(previews_collection, "preview_items") and item_id in previews_collection.preview_items:
+        thumb = previews_collection.preview_items[item_id][3]
+    else:
+        thumb = lib.custom_icons["input"].icon_id
+    return thumb
 
 def register():
     for cls in classes:

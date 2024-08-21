@@ -6,13 +6,12 @@ from bpy.types import PropertyGroup, Context, Scene
 from ..preferences import * 
 from .. import lib
 
-from .downloader import get_searching_thread, set_searching_thread, retrieve_assets_info, download_previews
+from .downloader import get_searching_thread, set_searching_thread, retrieve_ambientcg, retrieve_assets_info, download_previews, retrieve_polyhaven
+from .data import AssetItem
 
+assets_lib = {} 
 
-# thread_search:threading.Thread # progress:int
-# previews_collection:bpy.utils.previews
-# preview_items = []
-assets_lib = {}
+assets_library:dict[str, AssetItem] = {}
 last_search = {}
 
 def load_material_items(material_items, list_tex):
@@ -96,6 +95,14 @@ def searching_material(keyword:str, context:Context):
     if not len(assets_lib):
         read_asset_info()
 
+    list_ambient = retrieve_ambientcg(keyword)
+    assets_library.update(list_ambient)
+    list_polyhaven = retrieve_polyhaven(keyword)
+    assets_library.update(list_polyhaven)
+
+
+    save_library_to_file()
+
     retrieve_assets_info(keyword)
     thread_search.progress = 10
     load_material_items(txlib.material_items, last_search)
@@ -107,6 +114,21 @@ def searching_material(keyword:str, context:Context):
 
     load_material_items(txlib.material_items, last_search)
     thread_search.progress = 100
+
+def save_library_to_file():
+    dir_name = get_lib_dir()
+    file_name = os.path.join(dir_name, "assets.json")
+
+    file = open(file_name, 'w')
+
+    to_write = {}
+    for key in assets_library:
+        to_write[key] = assets_library[key].to_dict()
+
+    file.write(json.dumps(to_write))
+    file.close()
+    print("stored to ", file_name)
+
 
 def load_previews():
     print(">>>>>>>>>>>>>>>>>>>>>>> INIT TexLIB")
@@ -192,7 +214,7 @@ class TextureItem (PropertyGroup):
 
 class MaterialItem(PropertyGroup): 
     name: StringProperty( name="Name", description="Material name", default="Untitled") 
-    thumb: IntProperty( name="thumbnail", description="", default=0)
+    # thumb: IntProperty( name="thumbnail", description="", default=0)
 
 class DownloadQueue(PropertyGroup):
     asset_id : StringProperty()

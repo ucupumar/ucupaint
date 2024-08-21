@@ -252,6 +252,137 @@ def retrieve_assets_info(keyword:str = '', save_ori:bool = False, page:int = 0, 
 		file_ori.write(json.dumps({"foundAssets":assets}))
 		file_ori.close()
 
+from .data import AssetItem, SourceType
+def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[str, AssetItem]:
+	from .properties import get_lib_dir, get_textures_dir
+
+	base_link = "https://ambientCG.com/api/v2/full_json"
+	params = {
+		'type': 'Material',
+		'include':'imageData,downloadData',
+		'limit': str(limit),
+		'offset': str(limit * page) 
+	}
+
+	if keyword != '':
+		params['q'] = keyword
+
+	response = requests.get(base_link, params=params, verify=False)
+	if not response.status_code == 200:
+		print("Can't download, Code: " + str(response.status_code))
+		return None
+	
+	assets = response.json()["foundAssets"]
+
+	print("Found ",len(assets), "textures")
+	
+
+	tex_directory = get_textures_dir()
+
+	retval:dict[str, AssetItem] = {}
+	
+	for asst in assets:
+		asset_id = asst["assetId"]
+		thumbnail = asst["previewImage"]["256-PNG"]
+
+		zip_assets = asst["downloadFolders"]["default"]["downloadFiletypeCategories"]["zip"]["downloads"]
+
+		downloads = {}
+
+		new_item = AssetItem()
+		new_item.id = asset_id
+		new_item.name = asset_id
+		new_item.thumbnail = thumbnail
+		new_item.source_type = SourceType.SOURCE_AMBIENTCG
+
+		for k in zip_assets:
+			attr = k["attribute"]
+			location = os.path.join(asset_id, attr)
+			directory = os.path.join(tex_directory, location)
+
+			downloads[attr] = {
+				"link" : k["downloadLink"],
+				"fileName" : k["fileName"],
+				"location" : directory+os.sep,
+				"size" : k["size"]
+			}
+
+			new_item.add_attribute(attr, k["downloadLink"])
+
+			retval[new_item.id] = new_item
+
+	return retval
+
+def retrieve_polyhaven_asset(id:str, thumb_url:str)->AssetItem:
+	base_link = "https://api.polyhaven.com/files/"+id
+	response = requests.get(base_link, verify=False)
+ 	
+	if not response.status_code == 200:
+		print("Can't download, Code: " + str(response.status_code))
+		return None
+	
+	retval = AssetItem()
+	retval.source_type = SourceType.SOURCE_TEXTUREHAVEN
+	retval.id = id
+	retval.name = id
+	retval.thumbnail = thumb_url
+
+	obj = response.json()
+	blend_obj = obj["blend"]
+	for k in blend_obj.keys():
+		blend_attr = blend_obj[k]["blend"]
+		blnd_url = blend_attr["url"]
+		includes = blend_attr["include"]
+
+		new_attr = retval.add_attribute(k, blnd_url)
+
+		print("k ", k, " content ", includes)
+
+		for ic in includes.keys():
+			inc_itm = includes[ic]
+			# print("ic ", ic, " content ", inc_itm)
+			new_attr.add_texture(inc_itm["url"])
+
+	return retval
+	
+
+def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[str, AssetItem]:
+
+	base_link = "https://api.polyhaven.com/assets"
+	params = {
+		'type': 'textures',
+		# 'limit': str(limit),
+		# 'offset': str(limit * page) 
+	}
+
+	if keyword != '':
+		params['c'] = keyword
+	
+	print("retrieve_polyhaven", base_link, params)
+	response = requests.get(base_link, params=params, verify=False)
+	if not response.status_code == 200:
+		print("Can't download, Code: " + str(response.status_code))
+		return None
+	
+
+	retval:dict[str, AssetItem] = {}
+	
+	obj_assets = response.json()
+	# print("response ", json.dumps(obj_assets))
+
+	for i, id in enumerate(obj_assets.keys()):
+		# print("index ", i, "id ", id)
+		if i >= limit:
+			break
+
+		it = obj_assets[id]
+		# print("index ", i, "id ", id, "name ", it["name"], "thumb ", it["thumbnail_url"])
+		new_item = retrieve_polyhaven_asset(id, it["thumbnail_url"])
+		retval[new_item.id] = new_item
+
+	return retval
+
+
 def texture_exist(asset_id:str, location:str) -> bool:
 	if os.path.exists(location):
 		files = os.listdir(location)
@@ -282,7 +413,6 @@ def delete_zip(file_path):
 		os.remove(file_path)
 	except Exception as e:
 		print('Error while deleting zip file:', e)
-
 
 def register():
 	bpy.app.timers.register(monitor_downloads, first_interval=1, persistent=True)    
