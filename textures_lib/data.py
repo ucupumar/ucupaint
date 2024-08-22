@@ -4,6 +4,7 @@ from typing import Any
 class SourceType:
 	SOURCE_AMBIENTCG = "ambientcg"
 	SOURCE_POLYHAVEN = "polyhaven"
+	SOURCE_POLYHAVEN_TEXTURE = "polyhaven-texture"
 
 class AssetItem:
 	def __init__(self):
@@ -54,8 +55,7 @@ class AssetAttribute:
 		self.asset:AssetDownload = None
 		self.textures:list[AssetDownload] = [] # texture files for 
 
-	def add_texture(self, texture:str, size:int) -> None:
-		file_name:str = texture.split("/")[-1]
+	def add_texture(self, texture:str, file_name:str, size:int) -> None:
 		self.textures.append(AssetDownload(texture, file_name, size))
 
 	def to_dict(self) -> dict[str, Any]:
@@ -69,7 +69,7 @@ class AssetAttribute:
 	def from_dict(cls, data: dict[str, Any]) -> 'AssetAttribute':
 		instance = cls()
 		instance.attribute = data.get("attribute", "")
-		instance.link = data.get("link", "") 
+		instance.asset = AssetDownload.from_dict(data.get("asset", {}))
 		instance.textures = data.get("textures", [])
 		return instance
 

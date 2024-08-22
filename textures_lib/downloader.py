@@ -5,8 +5,11 @@ from ..preferences import *
 THREAD_SEARCHING = "thread_searching"
 threads = {} # progress:int,
 
-def get_thread_id(asset_id:str, asset_attribute:str):
-	return asset_id+"_"+asset_attribute
+def get_thread_id(asset_id:str, asset_attribute:str, texture_index:int = -1):
+	if texture_index >= 0:
+		return asset_id+"_"+asset_attribute+"_"+str(texture_index)
+	else:
+		return asset_id+"_"+asset_attribute
 
 def get_thread(id:str):
 	if id in threads: 
@@ -98,15 +101,21 @@ def monitor_downloads():
 		to_remove = []
 		dwn:DownloadQueue
 		for index, dwn in enumerate(downloads):
-			
-			thread_id = get_thread_id(dwn.asset_id, dwn.asset_attribute)
+			if dwn.source_type == SourceType.SOURCE_POLYHAVEN_TEXTURE:
+				txt_idx = dwn.texture_index
+				thread_id = get_thread_id(dwn.asset_id, dwn.asset_attribute, txt_idx)
+			else:
+				thread_id = get_thread_id(dwn.asset_id, dwn.asset_attribute)
+
 			thread = get_thread(thread_id)
 			if thread == None:
 				print("thread id", thread_id, ">",dwn.asset_id,">", dwn.asset_attribute)
-				extract_file(dwn.file_path)
-				delete_zip(dwn.file_path)
+				if dwn.source_type == SourceType.SOURCE_AMBIENTCG:					
+					extract_file(dwn.file_path)
+					delete_zip(dwn.file_path)
+				elif dwn.source_type == SourceType.SOURCE_POLYHAVEN_TEXTURE:
+					pass
 				to_remove.append(index)
-
 			else:
 				prog =  thread.progress
 
@@ -381,7 +390,7 @@ def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str)->AssetItem:
 			inc_itm = includes[ic]
 			url = inc_itm["url"]
 			# get file name from url
-			new_attr.add_texture(url, inc_itm["size"])
+			new_attr.add_texture(url, ic, inc_itm["size"])
 
 	return retval
 	

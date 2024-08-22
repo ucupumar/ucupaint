@@ -234,7 +234,9 @@ class MaterialItem(PropertyGroup):
 class DownloadQueue(PropertyGroup):
     asset_id : StringProperty()
     asset_attribute: StringProperty()
+    texture_index: IntProperty(default=-1)
     file_path : StringProperty()
+    source_type: StringProperty()
     alive : BoolProperty(default = False)
     file_size:IntProperty()
     progress : IntProperty(
