@@ -1534,12 +1534,12 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         if ch.enable_alpha:
             create_link(tree, alpha, end.inputs[io_alpha_name])
         if ch.type == 'NORMAL' and not ch.enable_bake_to_vcol:
-            if io_height_name in end.inputs: create_link(tree, height, end.inputs[io_height_name])
-            if io_max_height_name in end.inputs: create_link(tree, max_height, end.inputs[io_max_height_name])
+            if height and io_height_name in end.inputs: create_link(tree, height, end.inputs[io_height_name])
+            if max_height and io_max_height_name in end.inputs: create_link(tree, max_height, end.inputs[io_max_height_name])
             if io_vdisp_name in end.inputs: 
                 if yp.sculpt_mode:
                     create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], end.inputs[io_vdisp_name])
-                else: create_link(tree, vdisp, end.inputs[io_vdisp_name])
+                elif vdisp: create_link(tree, vdisp, end.inputs[io_vdisp_name])
 
     # Bake target image nodes
     for bt in yp.bake_targets:
