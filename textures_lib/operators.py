@@ -10,7 +10,7 @@ from ..common import *
 from .downloader import download_stream, get_thread_id, get_thread
 from .downloader import threads
 
-from .properties import assets_lib, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching
+from .properties import assets_library, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching
 
 class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
     """Open Multiple Textures to Layer Ucupaint"""
@@ -36,9 +36,7 @@ class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
         self.draw_operator(context)
     
     def execute(self, context):
-        lib = assets_lib[self.id]
-        attr_dwn = lib["downloads"][self.attribute]
-        directory = attr_dwn["location"]
+        directory = os.path.join(get_textures_dir(), self.id, self.attribute)
         import_list = os.listdir(directory)
 
         if not self.open_images_to_single_layer(context, directory, import_list):
@@ -114,8 +112,8 @@ class TexLibDownload(Operator):
     bl_idname = "texlib.download"
     
     attribute:StringProperty()
+    path_download:StringProperty()
     id:StringProperty()
-    file_size:IntProperty
     file_exist:BoolProperty(default=False)
 
     def invoke(self, context, event):
@@ -129,11 +127,11 @@ class TexLibDownload(Operator):
         layout.label(text="Already downloaded. Overwrite?", icon="QUESTION")
 
     def execute(self, context):
-        lib = assets_lib[self.id]
-        attr_dwn = lib["downloads"][self.attribute]
-        link = attr_dwn["link"]
-        directory = attr_dwn["location"]
-        file_name = os.path.join(directory, attr_dwn["fileName"])
+        asset_item = assets_library[self.id]
+        attribute_item = asset_item.attributes[self.attribute]
+        link = attribute_item.asset.link
+        directory = os.path.join( get_textures_dir(), self.id, self.attribute)
+        file_name = os.path.join(directory, attribute_item.asset.file_name)
 
         if not os.path.exists(directory):
             # print("make dir "+directory)
@@ -153,7 +151,7 @@ class TexLibDownload(Operator):
         new_dwn.file_path = file_name
         new_dwn.asset_attribute = self.attribute
         new_dwn.alive = True
-        new_dwn.file_size = attr_dwn["size"]
+        new_dwn.file_size = attribute_item.asset.size
         new_dwn.progress = 0
 
         return {'FINISHED'}

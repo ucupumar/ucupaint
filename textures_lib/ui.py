@@ -79,54 +79,55 @@ class TexLibBrowser(Panel):
                 selected_mat.alignment = "CENTER"
                 selected_mat.template_icon(icon_value=thumb, scale=5.0)
                 selected_mat.label(text=mat_id)
-                downloads = assets_library[mat_id]
+                download = assets_library[mat_id]
 
                 layout.separator()
                 layout.label(text="Attributes:")
-                # for d in downloads:
-                #     dwn = downloads[d]
-                #     # row.alignment = "LEFT"
-                #     ukuran = round(dwn["size"] / 1000000,2)
-                #     lokasi = dwn["location"]
+                for d in download.attributes:
+                    attribute = download.attributes[d]
+                    current_asset = attribute.asset
+                    # row.alignment = "LEFT"
+                    total_size = current_asset.size
+                    for t in attribute.textures:
+                        total_size += t.size
+
+                    ukuran = round(total_size / 1000000,2)
                     
-                #     check_exist:bool = texture_exist(mat_id, lokasi)
+                    check_exist:bool = texture_exist(mat_id, d)
 
-                #     # if local_files_mode and not check_exist:
-                #     #     continue
+                    ui_attr = layout.split(factor=0.7)
 
-                #     ui_attr = layout.split(factor=0.7)
+                    row = ui_attr.row()
 
-                #     row = ui_attr.row()
+                    row.label(text=d, )
+                    # rr.label(text=d, )
+                    row.label(text=str(ukuran)+ "MB")
 
-                #     row.label(text=d, )
-                #     # rr.label(text=d, )
-                #     row.label(text=str(ukuran)+ "MB")
+                    thread_id = get_thread_id(mat_id, d)
+                    dwn_thread = get_thread(thread_id)
 
-                #     thread_id = get_thread_id(mat_id, d)
-                #     dwn_thread = get_thread(thread_id)
+                    btn_row = ui_attr.row()
+                    btn_row.alignment = "RIGHT"
 
-                #     btn_row = ui_attr.row()
-                #     btn_row.alignment = "RIGHT"
+                    if dwn_thread != None:
+                        btn_row.label(text=str(dwn_thread.progress)+"%")
+                        op:TexLibCancelDownload = btn_row.operator("texlib.cancel", icon="X")
+                        op.attribute = d
+                        op.id = mat_id
+                    else:
+                        if check_exist:
+                            op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
+                            op.attribute = d
+                            op.id = sel_mat.name
 
-                #     if dwn_thread != None:
-                #         btn_row.label(text=str(dwn_thread.progress)+"%")
-                #         op:TexLibCancelDownload = btn_row.operator("texlib.cancel", icon="X")
-                #         op.attribute = d
-                #         op.id = mat_id
-                #     else:
-                #         if check_exist:
-                #             op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
-                #             op.attribute = d
-                #             op.id = sel_mat.name
+                            op_remove:TexLibRemoveTextureAttribute = btn_row.operator("texlib.remove_attribute", icon="REMOVE")
+                            op_remove.attribute = d
+                            op_remove.id = sel_mat.name
 
-                #             op_remove:TexLibRemoveTextureAttribute = btn_row.operator("texlib.remove_attribute", icon="REMOVE")
-                #             op_remove.attribute = d
-                #             op_remove.id = sel_mat.name
-
-                #         op:TexLibDownload = btn_row.operator("texlib.download", icon="IMPORT")
-                #         op.attribute = d
-                #         op.id = sel_mat.name
-                #         op.file_exist = check_exist
+                        op:TexLibDownload = btn_row.operator("texlib.download", icon="IMPORT")
+                        op.id = sel_mat.asset_id
+                        op.attribute = d
+                        op.file_exist = check_exist
 
             if len(texlib.downloads):
                 layout.separator()
@@ -158,7 +159,7 @@ class TEXLIB_UL_Material(UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row.template_icon(icon_value = thumb, scale = 1.0)
             row.label(text=item.name)
-            row.label(text="("+item.source_type+")")
+            row.label(text=item.source_type)
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'

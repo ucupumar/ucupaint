@@ -14,10 +14,10 @@ class AssetItem:
 
 		self.attributes:dict[str, AssetAttribute] = {}
 
-	def add_attribute(self, attribute:str, link:str) -> 'AssetAttribute':
+	def add_attribute(self, attribute:str, link:str, file_name:str, size:int) -> 'AssetAttribute':
 		new_attribute = AssetAttribute()
 		new_attribute.attribute = attribute
-		new_attribute.link = link
+		new_attribute.asset = AssetDownload(link, file_name, size)
 
 		self.attributes[attribute] = new_attribute
 		return new_attribute
@@ -51,19 +51,20 @@ class AssetItem:
 class AssetAttribute:
 	def __init__(self):
 		self.attribute = ""
-		self.link = "" # zip file for ambientcg, blend file for 
-		self.textures = [] # texture files for 
+		self.asset:AssetDownload = None
+		self.textures:list[AssetDownload] = [] # texture files for 
 
-	def add_texture(self, texture:str):
-		self.textures.append(texture)
+	def add_texture(self, texture:str, size:int) -> None:
+		file_name:str = texture.split("/")[-1]
+		self.textures.append(AssetDownload(texture, file_name, size))
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
 			"attribute": self.attribute,
-			"link": self.link,
-			"textures": self.textures
+			"asset": self.asset.to_dict() if self.asset else None,
+			"textures": [t.to_dict() for t in self.textures]
 		}
-
+	
 	@classmethod
 	def from_dict(cls, data: dict[str, Any]) -> 'AssetAttribute':
 		instance = cls()
@@ -77,6 +78,32 @@ class AssetAttribute:
 
 	@classmethod
 	def from_json(cls, json_str: str) -> 'AssetAttribute':
+		data = json.loads(json_str)
+		return cls.from_dict(data)
+	
+class AssetDownload:
+	def __init__(self, link:str, file_name:str, size:int):
+		self.size = size
+		self.link = link
+		self.file_name = file_name
+
+	def to_dict(self) -> dict[str, Any]:
+		return {
+			"size": self.size,
+			"link": self.link,
+			"file_name": self.file_name
+		}
+	
+	@classmethod
+	def from_dict(cls, data: dict[str, Any]) -> 'AssetDownload':
+		instance = cls(data.get("link", ""), data.get("file_name", ""), data.get("size", 0))
+		return instance
+	
+	def to_json(self) -> str:
+		return json.dumps(self.to_dict())
+	
+	@classmethod
+	def from_json(cls, json_str: str) -> 'AssetDownload':
 		data = json.loads(json_str)
 		return cls.from_dict(data)
 	

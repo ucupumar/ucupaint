@@ -331,9 +331,6 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 	print("Found ",len(assets), "textures")
 	
-
-	tex_directory = get_textures_dir()
-
 	retval:dict[str, AssetItem] = {}
 	
 	for asst in assets:
@@ -342,7 +339,6 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 		zip_assets = asst["downloadFolders"]["default"]["downloadFiletypeCategories"]["zip"]["downloads"]
 
-		downloads = {}
 
 		new_item = AssetItem()
 		new_item.id = asset_id
@@ -352,18 +348,7 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 		for k in zip_assets:
 			attr = k["attribute"]
-			location = os.path.join(asset_id, attr)
-			directory = os.path.join(tex_directory, location)
-
-			downloads[attr] = {
-				"link" : k["downloadLink"],
-				"fileName" : k["fileName"],
-				"location" : directory+os.sep,
-				"size" : k["size"]
-			}
-
-			new_item.add_attribute(attr, k["downloadLink"])
-
+			new_item.add_attribute(attr, k["downloadLink"], k["fileName"], k["size"])
 			retval[new_item.id] = new_item
 
 	return retval
@@ -388,13 +373,15 @@ def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str)->AssetItem:
 		blend_attr = blend_obj[k]["blend"]
 		blnd_url = blend_attr["url"]
 		includes = blend_attr["include"]
+		file_name = blnd_url.split("/")[-1]
 
-		new_attr = retval.add_attribute(k, blnd_url)
+		new_attr = retval.add_attribute(k, blnd_url, file_name, blend_attr["size"])
 		# print("k ", k, " content ", includes)
 		for ic in includes.keys():
 			inc_itm = includes[ic]
-			# print("ic ", ic, " content ", inc_itm)
-			new_attr.add_texture(inc_itm["url"])
+			url = inc_itm["url"]
+			# get file name from url
+			new_attr.add_texture(url, inc_itm["size"])
 
 	return retval
 	
@@ -436,7 +423,9 @@ def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 	return retval
 
 
-def texture_exist(asset_id:str, location:str) -> bool:
+from .properties import get_textures_dir
+def texture_exist(asset_id:str, attribute:str) -> bool:
+	location = os.path.join(get_textures_dir(), asset_id, attribute)
 	if os.path.exists(location):
 		files = os.listdir(location)
 		for f in files:
