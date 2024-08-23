@@ -36,7 +36,7 @@ class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
         self.draw_operator(context)
     
     def execute(self, context):
-        directory = os.path.join(get_textures_dir(), self.id, self.attribute)
+        directory = os.path.join(get_textures_dir(context), self.id, self.attribute)
         import_list = os.listdir(directory)
 
         if not self.open_images_to_single_layer(context, directory, import_list):
@@ -85,7 +85,7 @@ class TexLibRemoveTextureAttribute(Operator):
         layout.label(text="Are you sure to remove this texture?")
  
     def execute(self, context:bpy.context):
-        dir_up = get_textures_dir() + self.id
+        dir_up = get_textures_dir(context) + self.id
         dir = dir_up + os.sep + self.attribute
         # print("item", self.id," | attr", self.attribute, " | file ", dir)
         # remove folder
@@ -130,7 +130,7 @@ class TexLibDownload(Operator):
         asset_item = assets_library[self.id]
         attribute_item = asset_item.attributes[self.attribute]
         link = attribute_item.asset.link
-        directory = os.path.join( get_textures_dir(), self.id, self.attribute)
+        directory = os.path.join( get_textures_dir(context), self.id, self.attribute)
         file_name = os.path.join(directory, attribute_item.asset.file_name)
 
         if not os.path.exists(directory):
@@ -203,8 +203,8 @@ class TexLibRemoveTextureAllAttributes(Operator):
         layout = self.layout
         layout.label(text="Are you sure to remove this textures?")
  
-    def execute(self, context:bpy.context):
-        dir = get_textures_dir() + self.id 
+    def execute(self, context):
+        dir = get_textures_dir(context) + self.id 
         print("item", self.id, " | file ", dir)
         my_list = context.scene.texlib.downloaded_material_items
         my_list.remove(my_list.find(self.id))
@@ -220,6 +220,14 @@ class TexLibRemoveTextureAllAttributes(Operator):
         
         return {'CANCELLED'}
 
+class ShowFilePathPreference(Operator):
+    bl_idname = "texlib.show_pref"
+    bl_label = "Show Preference"
+    
+    def execute(self, context):
+        bpy.ops.screen.userpref_show('INVOKE_DEFAULT')
+        bpy.context.preferences.active_section = 'FILE_PATHS'
+        return{'FINISHED'}
 
 classes = [
     TexLibAddToUcupaint,
@@ -227,7 +235,8 @@ classes = [
 	TexLibRemoveTextureAttribute,
 	TexLibDownload,
 	TexLibCancelSearch,
-	TexLibRemoveTextureAllAttributes
+	TexLibRemoveTextureAllAttributes,
+    ShowFilePathPreference
 ]
 
 def register():

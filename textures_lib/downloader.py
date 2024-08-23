@@ -113,6 +113,8 @@ def monitor_downloads():
 				if dwn.source_type == SourceType.SOURCE_AMBIENTCG:					
 					extract_file(dwn.file_path)
 					delete_zip(dwn.file_path)
+					dir_file = os.path.dirname(dwn.file_path)
+					convert_ambientcg_asset(dir_file)
 				elif dwn.source_type == SourceType.SOURCE_POLYHAVEN_TEXTURE:
 					pass
 				to_remove.append(index)
@@ -144,11 +146,10 @@ def monitor_downloads():
 	return 1.0
 
 from .data import AssetItem
-
-def download_asset_previews(overwrite_existing:bool, search_results:dict[str, AssetItem], search_items):
+def download_asset_previews(context, overwrite_existing:bool, search_results:dict[str, AssetItem], search_items):
 	from .properties import get_preview_dir, load_per_material
 
-	directory = get_preview_dir()
+	directory = get_preview_dir(context)
 
 	if not os.path.exists(directory):
 		os.mkdir(directory)
@@ -198,11 +199,11 @@ def download_asset_previews(overwrite_existing:bool, search_results:dict[str, As
 
 		thread_search.progress = (int) (progress_initial + prog * span)
 
-def download_previews(overwrite_existing:bool, material_items):
+def download_previews(context, overwrite_existing:bool, material_items):
 	from .properties import get_preview_dir, load_per_material
 	from .properties import last_search
 
-	directory = get_preview_dir()
+	directory = get_preview_dir(context)
 
 	if not os.path.exists(directory):
 		os.mkdir(directory)
@@ -247,7 +248,7 @@ def download_previews(overwrite_existing:bool, material_items):
 
 		thread_search.progress = (int) (progress_initial + prog * span)
 
-def retrieve_assets_info(keyword:str = '', save_ori:bool = False, page:int = 0, limit:int = 20):
+def retrieve_assets_info(context, keyword:str = '', save_ori:bool = False, page:int = 0, limit:int = 20):
 	from .properties import assets_lib, last_search
 	from .properties import get_lib_dir, get_textures_dir
 
@@ -262,7 +263,7 @@ def retrieve_assets_info(keyword:str = '', save_ori:bool = False, page:int = 0, 
 	if keyword != '':
 		params['q'] = keyword
 	
-	dir_name = get_lib_dir()
+	dir_name = get_lib_dir(context)
 	file_name = os.path.join(dir_name, "lib.json")
 
 	response = requests.get(base_link, params=params, verify=False)
@@ -279,7 +280,7 @@ def retrieve_assets_info(keyword:str = '', save_ori:bool = False, page:int = 0, 
 	# assets_lib = {}
 	last_search.clear()
 
-	tex_directory = get_textures_dir()
+	tex_directory = get_textures_dir(context)
 	
 	
 	for asst in assets:
@@ -318,8 +319,6 @@ def retrieve_assets_info(keyword:str = '', save_ori:bool = False, page:int = 0, 
 
 from .data import AssetItem, SourceType
 def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[str, AssetItem]:
-	from .properties import get_lib_dir, get_textures_dir
-
 	base_link = "https://ambientCG.com/api/v2/full_json"
 	params = {
 		'type': 'Material',
@@ -394,7 +393,6 @@ def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str)->AssetItem:
 
 	return retval
 	
-
 def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[str, AssetItem]:
 
 	base_link = "https://api.polyhaven.com/assets"
@@ -431,10 +429,9 @@ def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 	return retval
 
-
 from .properties import get_textures_dir
-def texture_exist(asset_id:str, attribute:str) -> bool:
-	location = os.path.join(get_textures_dir(), asset_id, attribute)
+def texture_exist(context, asset_id:str, attribute:str) -> bool:
+	location = os.path.join(get_textures_dir(context), asset_id, attribute)
 	if os.path.exists(location):
 		files = os.listdir(location)
 		for f in files:
@@ -464,6 +461,9 @@ def delete_zip(file_path):
 		os.remove(file_path)
 	except Exception as e:
 		print('Error while deleting zip file:', e)
+
+def convert_ambientcg_asset(ambient_dir:str):
+	pass
 
 def register():
 	bpy.app.timers.register(monitor_downloads, first_interval=1, persistent=True)    

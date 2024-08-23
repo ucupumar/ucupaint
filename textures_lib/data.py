@@ -38,7 +38,9 @@ class AssetItem:
 		instance.id = data.get("id", "")
 		instance.name = data.get("name", "")
 		instance.thumbnail = data.get("thumbnail", "")
+		instance.source_type = data.get("source_type", "")
 		instance.attributes = {k: AssetAttribute.from_dict(v) for k, v in data.get("attributes", {}).items()}
+
 		return instance
 
 	def to_json(self) -> str:
@@ -60,9 +62,12 @@ class AssetAttribute:
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
+			# "attribute": self.attribute,
+			# "asset": self.asset.to_dict() if self.asset else None,
+			# "textures": [t.to_dict() for t in self.textures]
 			"attribute": self.attribute,
-			"asset": self.asset.to_dict() if self.asset else None,
-			"textures": [t.to_dict() for t in self.textures]
+			"asset": self.asset.to_dict(),
+			"textures": [t.to_dict() for t in self.textures]	
 		}
 	
 	@classmethod
@@ -70,7 +75,7 @@ class AssetAttribute:
 		instance = cls()
 		instance.attribute = data.get("attribute", "")
 		instance.asset = AssetDownload.from_dict(data.get("asset", {}))
-		instance.textures = data.get("textures", [])
+		instance.textures = [AssetDownload.from_dict(t) for t in data.get("textures", [])]
 		return instance
 
 	def to_json(self) -> str:

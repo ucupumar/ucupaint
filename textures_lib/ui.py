@@ -5,7 +5,7 @@ from bpy.types import Panel, UIList
 from .. import lib
 
 from .properties import assets_library
-from .properties import TexLibProps, MaterialItem, DownloadQueue
+from .properties import TexLibProps, MaterialItem, DownloadQueue, get_asset_lib
 
 from .operators import TexLibAddToUcupaint, TexLibCancelDownload, TexLibDownload, TexLibRemoveTextureAttribute
 
@@ -33,6 +33,13 @@ class TexLibBrowser(Panel):
         # else:
         sel_index = texlib.search_index
         my_list = texlib.search_items
+
+        lib_name = "TextureLibrary"
+        ass_lib = get_asset_lib(context,lib_name)
+        if ass_lib == None:
+            layout.label(text="Warning! Create an asset library named {}".format(lib_name))
+            layout.operator("texlib.show_pref")
+            return
 
         layout.prop(texlib, "input_search")
         source_search = layout.row()
@@ -78,7 +85,9 @@ class TexLibBrowser(Panel):
                 selected_mat = prev_box.column(align=True)
                 selected_mat.alignment = "CENTER"
                 selected_mat.template_icon(icon_value=thumb, scale=5.0)
-                selected_mat.label(text=mat_id)
+                selected_mat.label(text=sel_mat.name)
+
+                # print("len ", len(assets_library.keys()))
                 download = assets_library[mat_id]
 
                 layout.separator()
@@ -93,7 +102,7 @@ class TexLibBrowser(Panel):
 
                     ukuran = round(total_size / 1000000,2)
                     
-                    check_exist:bool = texture_exist(mat_id, d)
+                    check_exist:bool = texture_exist(context, mat_id, d)
 
                     ui_attr = layout.split(factor=0.7)
 
