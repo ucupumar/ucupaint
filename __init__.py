@@ -10,7 +10,6 @@ bl_info = {
     "doc_url": "https://ucupumar.github.io/ucupaint-wiki/",
     "category": "Node",
 }
-
 if "bpy" in locals():
     import imp
     imp.reload(Localization)
@@ -55,7 +54,7 @@ import bpy
 
 def register():
     Localization.register_module(ui)
-
+    
     image_ops.register()
     preferences.register()
     lib.register()
