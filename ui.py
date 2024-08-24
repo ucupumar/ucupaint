@@ -4458,15 +4458,6 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        # c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer')
-        # # c.make_image_packed = False
-        # c.make_image_blank = False
-        # # c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer Packed')
-        # # c.make_image_packed = True
-        # c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Blank Layer')
-        # # c.make_image_packed = False
-        # c.make_image_blank = True
-        
         c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer').mode = 'COPY_DATA'
         c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Blank)').mode = 'BLANK_DATA'
         c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Link)').mode = 'LINK_DATA'

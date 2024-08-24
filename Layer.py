@@ -4150,7 +4150,6 @@ class YDuplicateLayer(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     make_image_blank : BoolProperty(default=False)
-    # make_image_packed : BoolProperty(default=False)
     mode : EnumProperty(
             name = 'Duplicate Mode',
             items = (

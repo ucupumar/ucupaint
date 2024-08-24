@@ -1204,46 +1204,7 @@ def get_unique_name(name, items, surname = ''):
 
     return unique_name
 
-def get_name_with_counter(name, items, surname = ''):
-    extenstion = ""
-
-    # Check if items is list of strings
-    if len(items) > 0 and type(items[0]) == str:
-        item_names = items
-    else: item_names = [item.name for item in items]
-
-    if surname != '':
-        unique_name = name + ' ' + surname
-    else: unique_name = name
-
-    name_found = [item for item in item_names if item == unique_name]
-    name_arr = name.split(".")
-    extension = name_arr[-1]
-    
-    if name_found:
-
-        m = re.match(r'^(.+)[(](\d)[)]$', name_arr[0])
-        if m:
-            name = m.group(1)
-            i = int(m.group(2))
-        else:
-            i = 1
-            name = name_arr[0]
-
-        while True:
-
-            if surname != '':
-                new_name = name[j] + surname
-            else: new_name = name + "(" + str(i) + ")." + extension
-
-            name_found = [item for item in item_names if item == new_name]
-            if not name_found:
-                unique_name = new_name
-                break
-            i += 1
             
-    return unique_name
-
 def get_name_with_counter(name, items, surname = ''):
 
     # Check if items is list of strings
@@ -6471,13 +6432,6 @@ def duplicate_image(image, make_image_packed= False):
 
     if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
 
-
-        # NOTE: Duplicated image will always be packed for now
-        # if not image.packed_file:
-        #     if is_greater_than_280():
-        #         new_image.pack()
-        #     else: new_image.pack(as_png=True)
-
         directory = os.path.dirname(bpy.path.abspath(image.filepath))
         filename = bpy.path.basename(new_image.filepath)
 
@@ -6497,15 +6451,6 @@ def duplicate_image(image, make_image_packed= False):
             basename = m.group(1)
             counter = int(m.group(2))
         else: counter = 1
-
-        # Try to set the image filepath with added counter
-        # while True:
-        #     new_name = basename
-        #     new_path = os.path.join(directory, new_name + infix)
-        #     #new_image.filepath = new_path
-        #     if is_image_filepath_unique(new_image):
-        #         break
-        #     counter += 1
 
         # Trying to set the filepath to relative
         try: new_image.filepath = bpy.path.relpath(new_image.filepath)
