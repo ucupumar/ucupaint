@@ -1,4 +1,4 @@
-import bpy, os, sys, re, time, numpy, math
+import bpy, os, sys, re, time, numpy, math, shutil
 from mathutils import *
 from bpy.app.handlers import persistent
 from bpy_types import bpy_types
@@ -1184,7 +1184,6 @@ def get_unique_name(name, items, surname = ''):
     return unique_name
 
 def get_name_with_counter(name, items, surname = ''):
-    extenstion = ""
 
     # Check if items is list of strings
     if len(items) > 0 and type(items[0]) == str:
@@ -6381,66 +6380,67 @@ def is_image_filepath_unique(image):
             return False
     return True
 
-def duplicate_image(image, make_image_packed= False):
+def duplicate_image(image):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
             image.pack()
         else: image.save()
 
-        
+    
     # Get new name
-    new_name = get_name_with_counter(image.name, bpy.data.images)
+    if image.filepath_from_user() == '':
+        new_name = get_unique_name(image.name, bpy.data.images)
+    else:
+        new_name = get_name_with_counter(image.name, bpy.data.images)
     new_image_name = get_name_with_counter(image.name, bpy.data.images)
-    old_image_name = bpy.data.images[image.name].filepath_from_user()
-    new_image_name = old_image_name.replace(image.name, new_image_name)
+    old_image_path = bpy.data.images[image.name].filepath_from_user()
+    new_image_path = old_image_path.replace(image.name, new_image_name)
 
     # Copy image
     new_image = image.copy()
     new_image.name = new_name
 
-    if not make_image_packed :
-        new_image.name = new_name
-        new_image.filepath = new_image_name
-        os.system('copy \"%s\" \"%s\"' %(old_image_name, new_image_name))
+    new_image.filepath = new_image_path
+    if  image.filepath_from_user()!= '' :
+        shutil.copyfile(old_image_path, new_image_path)
     
-    if image.source == 'TILED'  or (not image.packed_file and image.filepath != '' and make_image_packed == True):
+    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
 
         # NOTE: Duplicated image will always be packed for now
-        if not image.packed_file:
-            if is_greater_than_280():
-                new_image.pack()
-            else: new_image.pack(as_png=True)
+        # if not image.packed_file:
+        #     if is_greater_than_280():
+        #         new_image.pack()
+        #     else: new_image.pack(as_png=True)
 
-        directory = os.path.dirname(bpy.path.abspath(image.filepath))
-        filename = bpy.path.basename(new_image.filepath)
+        # directory = os.path.dirname(bpy.path.abspath(image.filepath))
+        # filename = bpy.path.basename(new_image.filepath)
 
         # Get base name
-        if image.source == 'TILED':
-            splits = filename.split('.<UDIM>.')
-            infix = '.<UDIM>.'
-        else: 
-            splits = os.path.splitext(filename)
-            infix = ''
+        # if image.source == 'TILED':
+        #     splits = filename.split('.<UDIM>.')
+        #     infix = '.<UDIM>.'
+        # else: 
+        #     splits = os.path.splitext(filename)
+        #     infix = ''
 
-        basename = new_name
-        extension = splits[1]
+        # basename = new_name
 
         # Try to get the counter
-        m = re.match(r'^(.+)\s(\d*)$', basename)
-        if m:
-            basename = m.group(1)
-            counter = int(m.group(2))
-        else: counter = 1
+        # m = re.match(r'^(.+)\s(\d*)$', basename)
+        # if m:
+        #     basename = m.group(1)
+        #     counter = int(m.group(2))
+        # else: counter = 1
 
         # Try to set the image filepath with added counter
-        while True:
-            new_name = basename + ' ' + str(counter)
-            new_path = os.path.join(directory, new_name + infix + extension)
-            new_image.filepath = new_path
-            if is_image_filepath_unique(new_image):
-                break
-            counter += 1
+        # while True:
+        #     new_name = basename
+        #     # new_path = os.path.join(directory, new_name + infix)
+        #     #new_image.filepath = new_path
+        #     if is_image_filepath_unique(new_image):
+        #         break
+        #     counter += 1
 
         # Trying to set the filepath to relative
         try: new_image.filepath = bpy.path.relpath(new_image.filepath)
@@ -6448,8 +6448,8 @@ def duplicate_image(image, make_image_packed= False):
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels
-    if new_image.source != 'TILED':
-        new_image.pixels = list(image.pixels)
+    # if new_image.source != 'TILED':
+    #     new_image.pixels = list(image.pixels)
 
     return new_image
 

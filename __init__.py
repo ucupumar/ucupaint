@@ -10,7 +10,6 @@ bl_info = {
     "doc_url": "https://ucupumar.github.io/ucupaint-wiki/",
     "category": "Node",
 }
-
 if "bpy" in locals():
     import imp
     imp.reload(Localization)
@@ -51,11 +50,14 @@ else:
     from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates
     from . import addon_updater_ops
 
+# files = [image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections,
+#          preferences, vector_displacement, vector_displacement_lib, vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, Mask, MaskModifier,
+#          Modifier, NormalMapModifier, Layer, Bake, Root, load_blend_updates, addon_updater_ops]
 import bpy 
 
 def register():
     Localization.register_module(ui)
-
+    
     image_ops.register()
     preferences.register()
     lib.register()
