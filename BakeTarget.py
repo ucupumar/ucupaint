@@ -12,7 +12,8 @@ rgba_items = (
 normal_type_items = (
         ('COMBINED', 'Combined Normal', ''),
         ('DISPLACEMENT', 'Displacement', ''),
-        ('OVERLAY_ONLY', 'Normal Overlay Only', ''),
+        ('OVERLAY_ONLY', 'Normal Without Bump', ''),
+        ('VECTOR_DISPLACEMENT', 'Vector Displacement', ''),
         )
 
 def update_active_bake_target_index(self, context):

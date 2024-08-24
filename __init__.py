@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Ucupaint",
-    "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, morirain, Patrick W. Crawford, neomonkeus",
-    "version": (2, 0, 1),
+    "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, morirain, Patrick W. Crawford, neomonkeus, Kareem Haddad",
+    "version": (2, 1, 0),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
     "warning": "",
@@ -10,7 +10,6 @@ bl_info = {
     "doc_url": "https://ucupumar.github.io/ucupaint-wiki/",
     "category": "Node",
 }
-
 if "bpy" in locals():
     import imp
     imp.reload(Localization)
@@ -42,20 +41,20 @@ if "bpy" in locals():
     imp.reload(Bake)
     imp.reload(BakeToLayer)
     imp.reload(Root)
-    imp.reload(load_blend_updates)
+    imp.reload(versioning)
     imp.reload(addon_updater_ops)
 else:
     from . import Localization
     from . import image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
     from . import vector_displacement_lib, vector_displacement
-    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates
+    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, versioning
     from . import addon_updater_ops
 
 import bpy 
 
 def register():
     Localization.register_module(ui)
-
+    
     image_ops.register()
     preferences.register()
     lib.register()
@@ -75,7 +74,7 @@ def register():
     Bake.register()
     BakeToLayer.register()
     Root.register()
-    load_blend_updates.register()
+    versioning.register()
     addon_updater_ops.register()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is registered!')
@@ -102,7 +101,7 @@ def unregister():
     Bake.unregister()
     BakeToLayer.unregister()
     Root.unregister()
-    load_blend_updates.unregister()
+    versioning.unregister()
     addon_updater_ops.unregister()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is unregistered!')

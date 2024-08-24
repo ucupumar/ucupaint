@@ -258,6 +258,10 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
             bpy.ops.object.modifier_remove(modifier=mod.name)
             break
 
+    # Disable use simplify before apply modifier
+    ori_use_simplify = scene.render.use_simplify
+    scene.render.use_simplify = False
+
     # Apply subsurf
     tsubsurf = get_subsurf_modifier(temp0)
     if not tsubsurf:
@@ -326,6 +330,9 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
 
     # Pack image
     #image.pack()
+
+    # Recover use simplify
+    if ori_use_simplify: scene.render.use_simplify = True
 
     # Recover bake settings
     _recover_bake_settings(book, True) 
@@ -770,8 +777,15 @@ class YSculptImage(bpy.types.Operator):
         multires.sculpt_levels = multires.total_levels
         multires.render_levels = multires.total_levels
 
+        # Disable use simplify before reshape
+        ori_use_simplify = scene.render.use_simplify
+        scene.render.use_simplify = False
+
         # Reshape multires
         bpy.ops.object.multires_reshape(modifier=multires.name)
+
+        # Recover use simplify
+        if ori_use_simplify: scene.render.use_simplify = True
 
         # Remove temp data
         remove_mesh_obj(temp) 

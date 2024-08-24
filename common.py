@@ -1,4 +1,4 @@
-import bpy, os, sys, re, time, numpy, math
+import bpy, os, sys, re, time, numpy, math, shutil
 from mathutils import *
 from bpy.app.handlers import persistent
 from bpy_types import bpy_types
@@ -351,6 +351,19 @@ texcoord_type_items = (
         ('Camera', 'Camera', ''),
         ('Window', 'Window', ''),
         ('Reflection', 'Reflection', ''),
+        ('Decal', 'Decal', ''),
+        )
+
+mask_texcoord_type_items = (
+        ('Generated', 'Generated', ''),
+        ('Normal', 'Normal', ''),
+        ('UV', 'UV', ''),
+        ('Object', 'Object', ''),
+        ('Camera', 'Camera', ''),
+        ('Window', 'Window', ''),
+        ('Reflection', 'Reflection', ''),
+        ('Decal', 'Decal', ''),
+        ('Layer', 'Use Layer Vector', ''),
         )
 
 interpolation_type_items = (
@@ -445,6 +458,7 @@ io_names = {
         'Camera' : 'Texcoord Camera',
         'Window' : 'Texcoord Window',
         'Reflection' : 'Texcoord Reflection',
+        'Decal' : 'Texcoord Object',
         }
 
 math_method_items = (
@@ -501,10 +515,10 @@ def version_tuple(version_string):
     return tuple(version_string.split('.'))
 
 def get_manifest():
-    import toml
+    import tomllib
     # Load manifest file
-    with open(get_addon_filepath() + 'blender_manifest.toml', 'r') as f:
-        manifest = toml.load(f)
+    with open(get_addon_filepath() + 'blender_manifest.toml', 'rb') as f:
+        manifest = tomllib.load(f)
     return manifest
 
 def get_addon_name():
@@ -705,6 +719,13 @@ def remove_datablock(blocks, block, user=None, user_prop=''):
     else:
         if user and user_prop != '':
             setattr(user, user_prop, None)
+
+        if blocks == bpy.data.objects:
+            # Need to remove object from scene first
+            objs = get_scene_objects()
+            if block.name in objs:
+                objs.unlink(block)
+
         block.user_clear()
         blocks.remove(block)
 
@@ -741,8 +762,8 @@ def get_scene_objects():
 
 def remove_mesh_obj(obj):
     data = obj.data
-    bpy.data.objects.remove(obj, do_unlink=True)
-    bpy.data.meshes.remove(data)  
+    remove_datablock(bpy.data.objects, obj)
+    remove_datablock(bpy.data.meshes, data)
 
 def get_viewport_shade():
     if is_greater_than_280():
@@ -955,7 +976,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 dest_subval = dest_val.add()
                 copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif attr_type == bpy_types.bpy_prop_collection:
+        elif hasattr(bpy_types, 'bpy_prop_collection') and attr_type == bpy_types.bpy_prop_collection:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_subval = None
@@ -1181,6 +1202,46 @@ def get_unique_name(name, items, surname = ''):
                 break
             i += 1
 
+    return unique_name
+
+            
+def get_name_with_counter(name, items, surname = ''):
+
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
+
+    if surname != '':
+        unique_name = name + ' ' + surname
+    else: unique_name = name
+
+    name_found = [item for item in item_names if item == unique_name]
+    name_arr = name.split(".")
+    extension = name_arr[-1]
+    
+    if name_found:
+
+        m = re.match(r'^(.+)[(](\d)[)]$', name_arr[0])
+        if m:
+            name = m.group(1)
+            i = int(m.group(2))
+        else:
+            i = 1
+            name = name_arr[0]
+
+        while True:
+
+            if surname != '':
+                new_name = name[j] + surname
+            else: new_name = name + "(" + str(i) + ")." + extension
+
+            name_found = [item for item in item_names if item == new_name]
+            if not name_found:
+                unique_name = new_name
+                break
+            i += 1
+            
     return unique_name
 
 def get_active_node():
@@ -5402,7 +5463,11 @@ def is_layer_using_vector(layer):
         return True
 
     for ch in layer.channels:
-        if ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+        if ch.enable and ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+            return True
+
+    for mask in layer.masks:
+        if mask.enable and mask.texcoord_type == 'Layer':
             return True
 
     return False
@@ -6349,19 +6414,23 @@ def duplicate_image(image):
         else: image.save()
 
     # Get new name
-    new_name = get_unique_name(image.name, bpy.data.images)
+    if image.filepath_from_user() == '':
+        new_name = get_unique_name(image.name, bpy.data.images)
+    else:
+        new_name = get_name_with_counter(image.name, bpy.data.images)
+    new_image_name = get_name_with_counter(image.name, bpy.data.images)
+    old_image_path = bpy.data.images[image.name].filepath_from_user()
+    new_image_path = old_image_path.replace(image.name, new_image_name)
 
     # Copy image
     new_image = image.copy()
     new_image.name = new_name
 
-    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
+    new_image.filepath = new_image_path
+    if  image.filepath_from_user()!= '' :
+        shutil.copyfile(old_image_path, new_image_path)
 
-        # NOTE: Duplicated image will always be packed for now
-        if not image.packed_file:
-            if is_greater_than_280():
-                new_image.pack()
-            else: new_image.pack(as_png=True)
+    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
 
         directory = os.path.dirname(bpy.path.abspath(image.filepath))
         filename = bpy.path.basename(new_image.filepath)
@@ -6375,7 +6444,6 @@ def duplicate_image(image):
             infix = ''
 
         basename = new_name
-        extension = splits[1]
 
         # Try to get the counter
         m = re.match(r'^(.+)\s(\d*)$', basename)
@@ -6384,23 +6452,14 @@ def duplicate_image(image):
             counter = int(m.group(2))
         else: counter = 1
 
-        # Try to set the image filepath with added counter
-        while True:
-            new_name = basename + ' ' + str(counter)
-            new_path = os.path.join(directory, new_name + infix + extension)
-            new_image.filepath = new_path
-            if is_image_filepath_unique(new_image):
-                break
-            counter += 1
-
         # Trying to set the filepath to relative
         try: new_image.filepath = bpy.path.relpath(new_image.filepath)
         except: pass
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels
-    if new_image.source != 'TILED':
-        new_image.pixels = list(image.pixels)
+    # if new_image.source != 'TILED':
+    #     new_image.pixels = list(image.pixels)
 
     return new_image
 
@@ -6575,3 +6634,12 @@ def get_mesh_hash(obj):
     h = hash(vertices_np.tobytes())
     return str(h)
 
+def remove_decal_object(tree, entity):
+    # NOTE: This will remove the texcoord object even if the entity is not using decal
+    #if entity.texcoord_type == 'Decal':
+    texcoord = tree.nodes.get(entity.texcoord)
+    if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+        decal_obj = texcoord.object
+        if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
+            texcoord.object = None
+            remove_datablock(bpy.data.objects, decal_obj)

@@ -1246,6 +1246,11 @@ class YBakeChannels(bpy.types.Operator):
             description='Use UDIM Tiles',
             default=False)
 
+    use_float_for_displacement : BoolProperty(
+            name = 'Use Float for Displacement',
+            description='Use float image for baked displacement',
+            default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1322,6 +1327,10 @@ class YBakeChannels(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        height_root_ch = get_root_height_channel(yp)
+        
         obj = context.object
         mat = obj.active_material
 
@@ -1401,6 +1410,9 @@ class YBakeChannels(bpy.types.Operator):
         if is_greater_than_281():
             ccol.prop(self, 'denoise', text='Use Denoise')
         ccol.prop(self, 'force_bake_all_polygons')
+
+        if height_root_ch:
+            ccol.prop(self, 'use_float_for_displacement')
 
     def execute(self, context):
 
@@ -1541,7 +1553,8 @@ class YBakeChannels(bpy.types.Operator):
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 use_hdr = not ch.use_clamp
-                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, tilenums=tilenums, interpolation=self.interpolation)
+                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
+                             tilenums=tilenums, interpolation=self.interpolation, use_float_for_displacement=self.use_float_for_displacement)
 
         # Process baked images
         baked_images = []
@@ -1551,7 +1564,7 @@ class YBakeChannels(bpy.types.Operator):
             if baked and baked.image:
 
                 # Denoise
-                if self.denoise and is_greater_than_281():
+                if self.denoise and is_greater_than_281() and ch.type != 'NORMAL':
                     denoise_image(baked.image)
 
                 # AA process
@@ -1580,17 +1593,13 @@ class YBakeChannels(bpy.types.Operator):
                                 baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
 
                     # FXAA
-                    if self.fxaa:
+                    if self.fxaa and not baked_disp.image.is_float:
                         fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=self.bake_device)
 
                     baked_images.append(baked_disp.image)
 
                 baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image:
-
-                    # Denoise
-                    if self.denoise and is_greater_than_281():
-                        denoise_image(baked_normal_overlay.image)
 
                     # AA process
                     if self.aa_level > 1:
@@ -1602,10 +1611,19 @@ class YBakeChannels(bpy.types.Operator):
 
                     baked_images.append(baked_normal_overlay.image)
 
+                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image:
+
+                    # AA process
+                    if self.aa_level > 1:
+                        resize_image(baked_vdisp.image, self.width, self.height, 
+                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+
+                    baked_images.append(baked_vdisp.image)
+
         # Set bake info to baked images
         for img in baked_images:
             bi = img.y_bake_info
-            bi.is_baked = True
             for attr in dir(bi):
                 #if attr in dir(self):
                 if attr.startswith('__'): continue
@@ -1613,6 +1631,8 @@ class YBakeChannels(bpy.types.Operator):
                 if attr in {'rna_type'}: continue
                 try: setattr(bi, attr, getattr(self, attr))
                 except: pass
+            bi.is_baked = True
+            bi.is_baked_channel = True
 
         # Process custom bake target images
         # Can only happen when only active channel is off since require all baked images to have the same resolution
@@ -1659,6 +1679,7 @@ class YBakeChannels(bpy.types.Operator):
                     if len(tilenums) > 1:
                         btimg = bpy.data.images.new(name=bt.name, width=self.width, height=self.height, 
                                 alpha=True, tiled=True) #float_buffer=hdr)
+                        btimg.colorspace_settings.name = 'Non-Color'
                         btimg.filepath = filepath
 
                         # Fill tiles
@@ -1669,6 +1690,7 @@ class YBakeChannels(bpy.types.Operator):
                     else:
                         btimg = bpy.data.images.new(name=bt.name,
                             width=self.width, height=self.height, alpha=True, float_buffer=False)
+                        btimg.colorspace_settings.name = 'Non-Color'
                         btimg.filepath = filepath
                         btimg.generated_color = color
                 else:
@@ -1704,6 +1726,8 @@ class YBakeChannels(bpy.types.Operator):
                         elif ch.type == 'NORMAL' and btc.normal_type == 'DISPLACEMENT':
                             baked = tree.nodes.get(ch.baked_disp)
                             subidx = 0
+                        elif ch.type == 'NORMAL' and btc.normal_type == 'VECTOR_DISPLACEMENT':
+                            baked = tree.nodes.get(ch.baked_vdisp)
                         else: baked = tree.nodes.get(ch.baked)
 
                         if baked and baked.image:

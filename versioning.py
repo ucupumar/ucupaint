@@ -653,6 +653,31 @@ def update_yp_tree(tree):
                 # Remove original fcurve
                 fcs.remove(fc)
 
+    # Version 2.1 has new flag for bake info
+    if version_tuple(yp.version) < version_tuple('2.1.0'):
+
+        for root_ch in yp.channels:
+            baked = tree.nodes.get(root_ch.baked)
+            if baked and baked.image:
+                bi = baked.image.y_bake_info
+                bi.is_baked_channel = True
+
+            if root_ch.type == 'NORMAL':
+                baked_disp = tree.nodes.get(root_ch.baked_disp)
+                if baked_disp and baked_disp.image:
+                    bi = baked_disp.image.y_bake_info
+                    bi.is_baked_channel = True
+
+                baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
+                if baked_normal_overlay and baked_normal_overlay.image:
+                    bi = baked_normal_overlay.image.y_bake_info
+                    bi.is_baked_channel = True
+
+                baked_vdisp = tree.nodes.get(root_ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image:
+                    bi = baked_vdisp.image.y_bake_info
+                    bi.is_baked_channel = True
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
