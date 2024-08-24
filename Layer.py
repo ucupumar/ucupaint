@@ -3693,7 +3693,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False, make_image_packed=False):
+def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False):
 
     yp = tree.yp
     ypup = get_user_preferences()
@@ -4011,7 +4011,7 @@ class YDuplicateLayer(bpy.types.Operator):
             new_group_node.node_tree = group_node.node_tree
 
             # Duplicate images and some nodes inside
-            duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank, self.make_image_packed)
+            duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank)
 
             # Rename masks
             mask_names = [m.name for m in l.masks]

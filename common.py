@@ -6453,30 +6453,30 @@ def duplicate_image(image, make_image_packed= False):
         #         new_image.pack()
         #     else: new_image.pack(as_png=True)
 
-        # directory = os.path.dirname(bpy.path.abspath(image.filepath))
-        # filename = bpy.path.basename(new_image.filepath)
+        directory = os.path.dirname(bpy.path.abspath(image.filepath))
+        filename = bpy.path.basename(new_image.filepath)
 
         # Get base name
-        # if image.source == 'TILED':
-        #     splits = filename.split('.<UDIM>.')
-        #     infix = '.<UDIM>.'
-        # else: 
-        #     splits = os.path.splitext(filename)
-        #     infix = ''
+        if image.source == 'TILED':
+            splits = filename.split('.<UDIM>.')
+            infix = '.<UDIM>.'
+        else: 
+            splits = os.path.splitext(filename)
+            infix = ''
 
-        # basename = new_name
+        basename = new_name
 
         # Try to get the counter
-        # m = re.match(r'^(.+)\s(\d*)$', basename)
-        # if m:
-        #     basename = m.group(1)
-        #     counter = int(m.group(2))
-        # else: counter = 1
+        m = re.match(r'^(.+)\s(\d*)$', basename)
+        if m:
+            basename = m.group(1)
+            counter = int(m.group(2))
+        else: counter = 1
 
         # Try to set the image filepath with added counter
         # while True:
         #     new_name = basename
-        #     # new_path = os.path.join(directory, new_name + infix)
+        #     new_path = os.path.join(directory, new_name + infix)
         #     #new_image.filepath = new_path
         #     if is_image_filepath_unique(new_image):
         #         break
