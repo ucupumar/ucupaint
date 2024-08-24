@@ -4131,6 +4131,9 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
 
                     img_nodes[i].image.colorspace_settings.name = img.colorspace_settings.name
 
+                # elif make_image_packed:
+                #     img_nodes[i].image = duplicate_image(img, make_image_packed= True)
+
                 else:
                     img_nodes[i].image = duplicate_image(img)
 
@@ -4146,6 +4149,7 @@ class YDuplicateLayer(bpy.types.Operator):
     bl_description = "Duplicate Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
+    make_image_blank : BoolProperty(default=False)
     mode : EnumProperty(
             name = 'Duplicate Mode',
             items = (
@@ -4154,6 +4158,7 @@ class YDuplicateLayer(bpy.types.Operator):
                 ('LINK_DATA', 'Link Data', 'Use the same data for newly duplicated layer'),
                 ),
             default = 'COPY_DATA')
+    
 
     @classmethod
     def poll(cls, context):
