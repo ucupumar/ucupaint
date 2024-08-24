@@ -351,6 +351,19 @@ texcoord_type_items = (
         ('Camera', 'Camera', ''),
         ('Window', 'Window', ''),
         ('Reflection', 'Reflection', ''),
+        ('Decal', 'Decal', ''),
+        )
+
+mask_texcoord_type_items = (
+        ('Generated', 'Generated', ''),
+        ('Normal', 'Normal', ''),
+        ('UV', 'UV', ''),
+        ('Object', 'Object', ''),
+        ('Camera', 'Camera', ''),
+        ('Window', 'Window', ''),
+        ('Reflection', 'Reflection', ''),
+        ('Decal', 'Decal', ''),
+        ('Layer', 'Use Layer Vector', ''),
         )
 
 interpolation_type_items = (
@@ -445,6 +458,7 @@ io_names = {
         'Camera' : 'Texcoord Camera',
         'Window' : 'Texcoord Window',
         'Reflection' : 'Texcoord Reflection',
+        'Decal' : 'Texcoord Object',
         }
 
 math_method_items = (
@@ -501,10 +515,10 @@ def version_tuple(version_string):
     return tuple(version_string.split('.'))
 
 def get_manifest():
-    import toml
+    import tomllib
     # Load manifest file
-    with open(get_addon_filepath() + 'blender_manifest.toml', 'r') as f:
-        manifest = toml.load(f)
+    with open(get_addon_filepath() + 'blender_manifest.toml', 'rb') as f:
+        manifest = tomllib.load(f)
     return manifest
 
 def get_addon_name():
@@ -705,6 +719,13 @@ def remove_datablock(blocks, block, user=None, user_prop=''):
     else:
         if user and user_prop != '':
             setattr(user, user_prop, None)
+
+        if blocks == bpy.data.objects:
+            # Need to remove object from scene first
+            objs = get_scene_objects()
+            if block.name in objs:
+                objs.unlink(block)
+
         block.user_clear()
         blocks.remove(block)
 
@@ -741,8 +762,8 @@ def get_scene_objects():
 
 def remove_mesh_obj(obj):
     data = obj.data
-    bpy.data.objects.remove(obj, do_unlink=True)
-    bpy.data.meshes.remove(data)  
+    remove_datablock(bpy.data.objects, obj)
+    remove_datablock(bpy.data.meshes, data)
 
 def get_viewport_shade():
     if is_greater_than_280():
@@ -955,7 +976,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 dest_subval = dest_val.add()
                 copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif attr_type == bpy_types.bpy_prop_collection:
+        elif hasattr(bpy_types, 'bpy_prop_collection') and attr_type == bpy_types.bpy_prop_collection:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_subval = None
@@ -5481,7 +5502,11 @@ def is_layer_using_vector(layer):
         return True
 
     for ch in layer.channels:
-        if ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+        if ch.enable and ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+            return True
+
+    for mask in layer.masks:
+        if mask.enable and mask.texcoord_type == 'Layer':
             return True
 
     return False
@@ -6664,3 +6689,12 @@ def get_mesh_hash(obj):
     h = hash(vertices_np.tobytes())
     return str(h)
 
+def remove_decal_object(tree, entity):
+    # NOTE: This will remove the texcoord object even if the entity is not using decal
+    #if entity.texcoord_type == 'Decal':
+    texcoord = tree.nodes.get(entity.texcoord)
+    if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+        decal_obj = texcoord.object
+        if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
+            texcoord.object = None
+            remove_datablock(bpy.data.objects, decal_obj)

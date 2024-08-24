@@ -357,7 +357,8 @@ def check_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
     chain = get_bump_chain(layer)
 
     if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and get_mask_enabled(mask) and (
-        (write_height_ch or mask_idx < chain) and (mask.use_baked or mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'MODIFIER', 'EDGE_DETECT', 'HEMI', 'VCOL'})
+        (write_height_ch or mask_idx < chain) and 
+        (mask.use_baked or (mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'MODIFIER', 'EDGE_DETECT', 'HEMI', 'VCOL'} and mask.texcoord_type != 'Layer'))
         ):
 
         #if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
@@ -1809,9 +1810,13 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         # Max Height calculation node
         if ch.enable_transition_bump:
             if ch.transition_bump_crease and not ch.transition_bump_flip:
-                lib_name = lib.CH_MAX_HEIGHT_TBC_CALC
+                if ch.normal_blend_type == 'OVERLAY':
+                    lib_name = lib.CH_MAX_HEIGHT_TBC_ADD_CALC
+                else: lib_name = lib.CH_MAX_HEIGHT_TBC_CALC
             else:
-                lib_name = lib.CH_MAX_HEIGHT_TB_CALC
+                if ch.normal_blend_type == 'OVERLAY':
+                    lib_name = lib.CH_MAX_HEIGHT_TB_ADD_CALC
+                else: lib_name = lib.CH_MAX_HEIGHT_TB_CALC
         else:
             lib_name = lib.CH_MAX_HEIGHT_CALC
 
@@ -2237,7 +2242,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if channel_enabled:
         layer_intensity = tree.nodes.get(ch.layer_intensity)
         if not layer_intensity:
-            layer_intensity = new_node(tree, ch, 'layer_intensity', 'ShaderNodeMath', 'Layer Intensity')
+            layer_intensity = new_node(tree, ch, 'layer_intensity', 'ShaderNodeMath', 'Layer Opacity')
             layer_intensity.operation = 'MULTIPLY'
     else:
         if remove_node(tree, ch, 'layer_intensity'): need_reconnect = True
@@ -2290,7 +2295,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
             # Intensity nodes
             intensity = tree.nodes.get(ch.intensity)
             if not intensity:
-                intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
+                intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Channel Opacity')
                 intensity.operation = 'MULTIPLY'
 
             # Channel intensity
