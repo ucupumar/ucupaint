@@ -6406,7 +6406,7 @@ def is_image_filepath_unique(image):
             return False
     return True
 
-def duplicate_image(image, make_image_packed= False):
+def duplicate_image(image):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
