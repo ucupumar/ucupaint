@@ -54,7 +54,6 @@ import bpy
 
 def register():
     Localization.register_module(ui)
-    
     image_ops.register()
     preferences.register()
     lib.register()
@@ -81,7 +80,6 @@ def register():
 
 def unregister():
     Localization.unregister_module(ui)
-
     image_ops.unregister()
     preferences.unregister()
     lib.unregister()
