@@ -1184,6 +1184,46 @@ def get_unique_name(name, items, surname = ''):
     return unique_name
 
 def get_name_with_counter(name, items, surname = ''):
+    extenstion = ""
+
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
+
+    if surname != '':
+        unique_name = name + ' ' + surname
+    else: unique_name = name
+
+    name_found = [item for item in item_names if item == unique_name]
+    name_arr = name.split(".")
+    extension = name_arr[-1]
+    
+    if name_found:
+
+        m = re.match(r'^(.+)[(](\d)[)]$', name_arr[0])
+        if m:
+            name = m.group(1)
+            i = int(m.group(2))
+        else:
+            i = 1
+            name = name_arr[0]
+
+        while True:
+
+            if surname != '':
+                new_name = name[j] + surname
+            else: new_name = name + "(" + str(i) + ")." + extension
+
+            name_found = [item for item in item_names if item == new_name]
+            if not name_found:
+                unique_name = new_name
+                break
+            i += 1
+            
+    return unique_name
+
+def get_name_with_counter(name, items, surname = ''):
 
     # Check if items is list of strings
     if len(items) > 0 and type(items[0]) == str:
@@ -6380,14 +6420,13 @@ def is_image_filepath_unique(image):
             return False
     return True
 
-def duplicate_image(image):
+def duplicate_image(image, make_image_packed= False):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
             image.pack()
         else: image.save()
 
-    
     # Get new name
     if image.filepath_from_user() == '':
         new_name = get_unique_name(image.name, bpy.data.images)
@@ -6404,8 +6443,9 @@ def duplicate_image(image):
     new_image.filepath = new_image_path
     if  image.filepath_from_user()!= '' :
         shutil.copyfile(old_image_path, new_image_path)
-    
+
     if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
+
 
         # NOTE: Duplicated image will always be packed for now
         # if not image.packed_file:
