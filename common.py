@@ -1,4 +1,4 @@
-import bpy, os, sys, re, time, numpy, math
+import bpy, os, sys, re, time, numpy, math, shutil
 from mathutils import *
 from bpy.app.handlers import persistent
 from bpy_types import bpy_types
@@ -1202,6 +1202,203 @@ def get_unique_name(name, items, surname = ''):
                 break
             i += 1
 
+    return unique_name
+
+            
+def get_name_with_counter(name, items, surname = ''):
+
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
+
+    if surname != '':
+        unique_name = name + ' ' + surname
+    else: unique_name = name
+
+    name_found = [item for item in item_names if item == unique_name]
+    name_arr = name.split(".")
+    extension = name_arr[-1]
+    
+    if name_found:
+
+        m = re.match(r'^(.+)[(](\d)[)]$', name_arr[0])
+        if m:
+            name = m.group(1)
+            i = int(m.group(2))
+        else:
+            i = 1
+            name = name_arr[0]
+
+        while True:
+
+            if surname != '':
+                new_name = name[j] + surname
+            else: new_name = name + "(" + str(i) + ")." + extension
+
+            name_found = [item for item in item_names if item == new_name]
+            if not name_found:
+                unique_name = new_name
+                break
+            i += 1
+            
+    return unique_name
+
+def get_name_with_counter(name, items, surname = ''):
+
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
+
+    if surname != '':
+        unique_name = name + ' ' + surname
+    else: unique_name = name
+
+    name_found = [item for item in item_names if item == unique_name]
+    name_arr = name.split(".")
+    extension = name_arr[-1]
+    
+    if name_found:
+
+        m = re.match(r'^(.+)[(](\d)[)]$', name_arr[0])
+        if m:
+            name = m.group(1)
+            i = int(m.group(2))
+        else:
+            i = 1
+            name = name_arr[0]
+
+        while True:
+
+            if surname != '':
+                new_name = name[j] + surname
+            else: new_name = name + "(" + str(i) + ")." + extension
+
+            name_found = [item for item in item_names if item == new_name]
+            if not name_found:
+                unique_name = new_name
+                break
+            i += 1
+            
+    return unique_name
+
+def get_name_with_counter(name, items, surname = ''):
+
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
+
+    if surname != '':
+        unique_name = name + ' ' + surname
+    else: unique_name = name
+
+    name_found = [item for item in item_names if item == unique_name]
+    name_arr = name.split(".")
+    extension = name_arr[-1]
+    
+    if name_found:
+
+        m = re.match(r'^(.+)[(](\d)[)]$', name_arr[0])
+        if m:
+            name = m.group(1)
+            i = int(m.group(2))
+        else:
+            i = 1
+            name = name_arr[0]
+
+        while True:
+
+            if surname != '':
+                new_name = name[j] + surname
+            else: new_name = name + "(" + str(i) + ")." + extension
+
+            name_found = [item for item in item_names if item == new_name]
+            if not name_found:
+                unique_name = new_name
+                break
+            i += 1
+            
+    return unique_name
+
+def get_name_with_counter(name, items, surname = ''):
+
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
+
+    if surname != '':
+        unique_name = name + ' ' + surname
+    else: unique_name = name
+
+    name_found = [item for item in item_names if item == unique_name]
+    name_arr = name.split(".")
+    extension = name_arr[-1]
+    
+    if name_found:
+
+        m = re.match(r'^(.+)[(](\d)[)]$', name_arr[0])
+        if m:
+            name = m.group(1)
+            i = int(m.group(2))
+        else:
+            i = 1
+            name = name_arr[0]
+
+        while True:
+
+            if surname != '':
+                new_name = name[j] + surname
+            else: new_name = name + "(" + str(i) + ")." + extension
+
+            name_found = [item for item in item_names if item == new_name]
+            if not name_found:
+                unique_name = new_name
+                break
+            i += 1
+            
+    return unique_name
+
+def get_name_with_counter(name, items, surname = ''):
+    extenstion = ""
+
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
+
+    if surname != '':
+        unique_name = name + ' ' + surname
+    else: unique_name = name
+
+    name_found = [item for item in item_names if item == unique_name]
+    name_arr = name.split(".")
+    extension = name_arr[-1]
+    
+    if name_found:
+
+        m = re.match(r'^(.+)[(](\d)[)]$', name_arr[0])
+        if m:
+            name = m.group(1)
+            i = int(m.group(2))
+        else:
+            i = 1
+            name = name_arr[0]
+
+        while True:
+
+            if surname != '':
+                new_name = name[j] + surname
+            else: new_name = name + "(" + str(i) + ")." + extension
+
+            name_found = [item for item in item_names if item == new_name]
+            if not name_found:
+                unique_name = new_name
+                break
+            i += 1
+            
     return unique_name
 
 def get_active_node():
@@ -6366,27 +6563,32 @@ def is_image_filepath_unique(image):
             return False
     return True
 
-def duplicate_image(image):
+def duplicate_image(image, make_image_packed= False):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
             image.pack()
         else: image.save()
 
+        
     # Get new name
-    new_name = get_unique_name(image.name, bpy.data.images)
+    if image.filepath_from_user() == '':
+        new_name = get_unique_name(image.name, bpy.data.images)
+    else:
+        new_name = get_name_with_counter(image.name, bpy.data.images)
+    new_image_name = get_name_with_counter(image.name, bpy.data.images)
+    old_image_path = bpy.data.images[image.name].filepath_from_user()
+    new_image_path = old_image_path.replace(image.name, new_image_name)
 
     # Copy image
     new_image = image.copy()
     new_image.name = new_name
 
-    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
+    new_image.filepath = new_image_path
+    if  image.filepath_from_user()!= '' :
+        shutil.copyfile(old_image_path, new_image_path)
 
-        # NOTE: Duplicated image will always be packed for now
-        if not image.packed_file:
-            if is_greater_than_280():
-                new_image.pack()
-            else: new_image.pack(as_png=True)
+    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
 
         directory = os.path.dirname(bpy.path.abspath(image.filepath))
         filename = bpy.path.basename(new_image.filepath)
@@ -6400,7 +6602,6 @@ def duplicate_image(image):
             infix = ''
 
         basename = new_name
-        extension = splits[1]
 
         # Try to get the counter
         m = re.match(r'^(.+)\s(\d*)$', basename)
@@ -6409,23 +6610,14 @@ def duplicate_image(image):
             counter = int(m.group(2))
         else: counter = 1
 
-        # Try to set the image filepath with added counter
-        while True:
-            new_name = basename + ' ' + str(counter)
-            new_path = os.path.join(directory, new_name + infix + extension)
-            new_image.filepath = new_path
-            if is_image_filepath_unique(new_image):
-                break
-            counter += 1
-
         # Trying to set the filepath to relative
         try: new_image.filepath = bpy.path.relpath(new_image.filepath)
         except: pass
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels
-    if new_image.source != 'TILED':
-        new_image.pixels = list(image.pixels)
+    # if new_image.source != 'TILED':
+    #     new_image.pixels = list(image.pixels)
 
     return new_image
 

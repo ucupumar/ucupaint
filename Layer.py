@@ -3874,7 +3874,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False):
+def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False, make_image_packed=False):
 
     yp = tree.yp
     ypup = get_user_preferences()
@@ -4146,6 +4146,7 @@ class YDuplicateLayer(bpy.types.Operator):
     bl_description = "Duplicate Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
+    make_image_blank : BoolProperty(default=False)
     mode : EnumProperty(
             name = 'Duplicate Mode',
             items = (
@@ -4154,6 +4155,7 @@ class YDuplicateLayer(bpy.types.Operator):
                 ('LINK_DATA', 'Link Data', 'Use the same data for newly duplicated layer'),
                 ),
             default = 'COPY_DATA')
+    
 
     @classmethod
     def poll(cls, context):
@@ -4212,12 +4214,7 @@ class YDuplicateLayer(bpy.types.Operator):
             new_group_node.node_tree = group_node.node_tree
 
             # Duplicate images and some nodes inside
-            if self.mode == 'COPY_DATA':
-                duplicate_layer_nodes_and_images(tree, new_layer, True, False)
-            elif self.mode == 'BLANK_DATA':
-                duplicate_layer_nodes_and_images(tree, new_layer, True, True)
-            elif self.mode == 'LINK_DATA':
-                duplicate_layer_nodes_and_images(tree, new_layer, False)
+            duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank)
 
             # Rename masks
             mask_names = [m.name for m in l.masks]
