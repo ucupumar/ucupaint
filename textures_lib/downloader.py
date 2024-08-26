@@ -114,7 +114,7 @@ def monitor_downloads():
 					extract_file(dwn.file_path)
 					delete_zip(dwn.file_path)
 					dir_file = os.path.dirname(dwn.file_path)
-					convert_ambientcg_asset(dir_file)
+					convert_ambientcg_asset(dir_file, dwn.asset_id)
 				elif dwn.source_type == SourceType.SOURCE_POLYHAVEN_TEXTURE:
 					pass
 				to_remove.append(index)
@@ -462,8 +462,45 @@ def delete_zip(file_path):
 	except Exception as e:
 		print('Error while deleting zip file:', e)
 
-def convert_ambientcg_asset(ambient_dir:str):
-	pass
+def convert_ambientcg_asset(ambient_dir:str, id:str):
+	import subprocess
+	print("current directory: ", os.getcwd())
+	print("data: ", ambient_dir, " | ", id)
+
+	subprocess.call(
+        [
+            bpy.app.binary_path,
+            "--background",
+            "--factory-startup",
+            "--python",
+            "textures_lib/create_blend.py",
+            "--",
+            "--target",
+			ambient_dir,
+			"--id",
+			id
+        ]
+    )
+
+# def mark_polyhaven_asset(ambient_dir:str, id:str):
+# 	import subprocess
+# 	print("current directory: ", os.getcwd())
+# 	print("data: ", ambient_dir, " | ", id)
+
+# 	subprocess.call(
+#         [
+#             bpy.app.binary_path,
+#             "--background",
+#             "--factory-startup",
+#             "--python",
+#             "textures_lib/mark_blend.py",
+#             "--",
+#             "--target",
+# 			ambient_dir,
+# 			"--id",
+# 			id
+#         ]
+#     )
 
 def register():
 	bpy.app.timers.register(monitor_downloads, first_interval=1, persistent=True)    
