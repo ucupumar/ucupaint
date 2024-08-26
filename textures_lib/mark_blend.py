@@ -24,7 +24,8 @@ id = arg_dict["id"]
 
 # file path
 blend_file = bpy.data.filepath
-os.chdir(os.path.dirname(blend_file))
+blend_dir = os.path.dirname(blend_file)
+os.chdir(blend_dir)
 
 # print("current directory: ", os.getcwd())
 # for m in bpy.data.materials.keys():
@@ -43,7 +44,10 @@ asset.asset_mark()
 override = bpy.context.copy()
 override["id"] = asset
 
-thumbnail_file = arg_dict["id"]+".png"
+# thumbnail_file = arg_dict["id"]+".png"
+thumbnail_file = os.path.join(blend_dir, arg_dict["id"]+".png")
+print("thumbfile: ", thumbnail_file)
+
 with bpy.context.temp_override(**override):
     bpy.ops.ed.lib_id_load_custom_preview(filepath=thumbnail_file)
 

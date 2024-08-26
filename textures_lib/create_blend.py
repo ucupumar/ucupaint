@@ -60,6 +60,8 @@ bpy.ops.wm.save_as_mainfile(filepath=target_path)
 # Load image textures and create materials
 image_paths = []
 for f in os.listdir(dir_target):
+	if f.endswith(".blend"):
+		continue
 	image_paths.append(f)
 print("image paths: ", image_paths)
 
@@ -69,6 +71,7 @@ print("image paths: ", image_paths)
 print("current directory: ", os.getcwd())
 # change active directory
 os.chdir(dir_target)
+print("current directory next: ", os.getcwd())
 
 new_material = bpy.data.materials.new(name=arg_dict["id"])
 # Create material
@@ -102,11 +105,12 @@ for image_path in image_paths:
 		tex_image.image = image
 		new_material.node_tree.links.new(bsdf.inputs['Roughness'], tex_image.outputs['Color'])
 
-thumbnail_file = arg_dict["id"]+".png"
+thumbnail_file = os.path.join(dir_target, arg_dict["id"]+".png")
 new_material.asset_mark()
 
 override = bpy.context.copy()
 override["id"] = new_material
+print("thumbfile: ", thumbnail_file)
 with bpy.context.temp_override(**override):
     bpy.ops.ed.lib_id_load_custom_preview(filepath=thumbnail_file)
 
