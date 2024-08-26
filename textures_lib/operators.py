@@ -1,5 +1,5 @@
 
-import bpy, threading, os
+import bpy, threading, os, shutil
 
 from bpy.types import Operator
 from bpy.props import StringProperty, IntProperty, BoolProperty
@@ -10,7 +10,7 @@ from ..common import *
 from .downloader import download_stream, get_thread_id, get_thread
 from .downloader import threads
 
-from .properties import assets_library, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching
+from .properties import assets_library, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching, get_preview_dir
 
 class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
     """Open Multiple Textures to Layer Ucupaint"""
@@ -136,6 +136,14 @@ class TexLibDownload(Operator):
         if not os.path.exists(directory):
             # print("make dir "+directory)
             os.makedirs(directory)
+
+        prev_dir = get_preview_dir(context)
+        thumb_file = os.path.join(prev_dir, self.id+".png")
+        # copy preview file
+        if os.path.exists(thumb_file):
+            dest_thumb = os.path.join(directory, self.id+".png")
+            print("copy file ", thumb_file, " to ", dest_thumb)
+            shutil.copyfile(thumb_file, dest_thumb)
 
         links = [link]
         file_names = [file_name]

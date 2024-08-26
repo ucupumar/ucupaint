@@ -102,12 +102,11 @@ def monitor_downloads():
 		to_remove = []
 		dwn:DownloadQueue
 		for index, dwn in enumerate(downloads):
-			if dwn.source_type == SourceType.SOURCE_POLYHAVEN_TEXTURE:
-				txt_idx = dwn.texture_index
-				thread_id = get_thread_id(dwn.asset_id, dwn.asset_attribute, txt_idx)
-			else:
-				thread_id = get_thread_id(dwn.asset_id, dwn.asset_attribute)
-
+			# if dwn.source_type == SourceType.SOURCE_POLYHAVEN_TEXTURE:
+			# 	txt_idx = dwn.texture_index
+			# 	thread_id = get_thread_id(dwn.asset_id, dwn.asset_attribute, txt_idx)
+			# else:
+			thread_id = get_thread_id(dwn.asset_id, dwn.asset_attribute)
 			thread = get_thread(thread_id)
 			if thread == None:
 				print("thread id", thread_id, ">",dwn.asset_id,">", dwn.asset_attribute)
@@ -116,8 +115,12 @@ def monitor_downloads():
 					delete_zip(dwn.file_path)
 					dir_file = os.path.dirname(dwn.file_path)
 					convert_ambientcg_asset(dir_file, dwn.asset_id)
-				elif dwn.source_type == SourceType.SOURCE_POLYHAVEN_TEXTURE:
-					pass
+				else:
+					print("finishhh ", dwn.asset_id, " | ", dwn.asset_attribute)
+					dir_file = os.path.dirname(dwn.file_path)
+					# up 
+					# dir_file = os.path.dirname(dir_file)
+					mark_polyhaven_asset(dir_file, dwn.asset_id)
 				to_remove.append(index)
 			else:
 				prog =  thread.progress
@@ -467,6 +470,9 @@ def convert_ambientcg_asset(ambient_dir:str, id:str):
 	import subprocess
 	print("current directory: ", os.getcwd())
 	print("data: ", ambient_dir, " | ", id)
+	addon_dir = get_addon_dir()
+	os.chdir(addon_dir)
+	print("current directory next: ", os.getcwd())
 
 	subprocess.call(
         [
@@ -474,7 +480,7 @@ def convert_ambientcg_asset(ambient_dir:str, id:str):
             "--background",
             "--factory-startup",
             "--python",
-            "textures_lib/create_blend.py",
+			os.path.join(addon_dir, "create_blend.py"),
             "--",
             "--target",
 			ambient_dir,
@@ -483,25 +489,43 @@ def convert_ambientcg_asset(ambient_dir:str, id:str):
         ]
     )
 
-# def mark_polyhaven_asset(ambient_dir:str, id:str):
-# 	import subprocess
-# 	print("current directory: ", os.getcwd())
-# 	print("data: ", ambient_dir, " | ", id)
+def mark_polyhaven_asset(dir:str, id:str):
+	import subprocess
 
-# 	subprocess.call(
-#         [
-#             bpy.app.binary_path,
-#             "--background",
-#             "--factory-startup",
-#             "--python",
-#             "textures_lib/mark_blend.py",
-#             "--",
-#             "--target",
-# 			ambient_dir,
-# 			"--id",
-# 			id
-#         ]
-#     )
+	file_blend = ""
+	for i in os.listdir(dir):
+		# get blend file
+		if i.endswith(".blend"):
+			file_blend = os.path.join(dir, i)
+			break
+		print("file ", i)
+	print("current directory: ", os.getcwd())
+	print("data: ", dir, " | ", id, " | ", file_blend)
+	addon_dir = get_addon_dir()
+	os.chdir(addon_dir)
+	print("current directory next: ", os.getcwd())
+
+	if file_blend == "":
+		print("failed")
+		return
+	
+	subprocess.call(
+        [
+            bpy.app.binary_path,
+            "--background",
+            "--factory-startup",
+			file_blend,
+            "--python",
+            os.path.join(addon_dir, "mark_blend.py"),
+            "--",
+			"--id",
+			id
+        ]
+    )
+
+def get_addon_dir() -> str:
+	return os.path.dirname(os.path.realpath(__file__))
+
 
 def register():
 	bpy.app.timers.register(monitor_downloads, first_interval=1, persistent=True)    
