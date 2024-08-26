@@ -84,6 +84,9 @@ def get_lib_dir(context) -> str:
 
 def read_asset_info(context) -> bool:
 	dir_name = get_lib_dir(context)
+	if dir_name == None:
+		return False
+	
 	file_name = os.path.join(dir_name, "last-search.json")
 
 	if os.path.exists(file_name):

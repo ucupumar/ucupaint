@@ -137,8 +137,20 @@ class TexLibDownload(Operator):
             # print("make dir "+directory)
             os.makedirs(directory)
 
+        links = [link]
+        file_names = [file_name]
+
+        for idx, attr in enumerate(attribute_item.textures):  
+            txt_file = os.path.join(directory, attr.file_name)
+            txr_dir = os.path.dirname(txt_file)
+            if not os.path.exists(txr_dir):
+                os.makedirs(txr_dir)
+
+            links.append(attr.link)
+            file_names.append(txt_file)
+
         thread_id = get_thread_id(self.id, self.attribute)
-        new_thread = threading.Thread(target=download_stream, args=(link,file_name,thread_id,))
+        new_thread = threading.Thread(target=download_stream, args=(links,file_names,thread_id,))
         new_thread.progress = 0
         new_thread.cancel = False
         threads[thread_id] = new_thread
@@ -154,32 +166,6 @@ class TexLibDownload(Operator):
         new_dwn.alive = True
         new_dwn.file_size = attribute_item.asset.size
         new_dwn.progress = 0
-
-        from .data import SourceType
-        for idx, attr in enumerate(attribute_item.textures):
-            
-            txt_file = os.path.join(directory, attr.file_name)
-            txr_dir = os.path.dirname(txt_file)
-            if not os.path.exists(txr_dir):
-                os.makedirs(txr_dir)
-
-            thread_txt_id = get_thread_id(self.id, self.attribute, idx)
-            new_thread_txt = threading.Thread(target=download_stream, args=(attr.link, txt_file, thread_txt_id,))
-            new_thread_txt.progress = 0
-            new_thread_txt.cancel = False
-            threads[thread_txt_id] = new_thread_txt
-
-            new_thread_txt.start()
-
-            new_dwn_txt:DownloadQueue = texlib.downloads.add()
-            new_dwn_txt.asset_id = self.id
-            new_dwn_txt.file_path = txt_file
-            new_dwn_txt.source_type = SourceType.SOURCE_POLYHAVEN_TEXTURE
-            new_dwn_txt.asset_attribute = self.attribute
-            new_dwn_txt.texture_index = idx
-            new_dwn_txt.alive = True
-            new_dwn_txt.file_size = attr.size
-            new_dwn_txt.progress = 0
 
         return {'FINISHED'}
 

@@ -3,64 +3,65 @@ import bpy, threading, os, json, zipfile, requests
 from ..preferences import *
 
 THREAD_SEARCHING = "thread_searching"
-threads = {} # progress:int,
+threads:dict[str, threading.Thread] = {} # progress:int,
 
 def get_thread_id(asset_id:str, asset_attribute:str, texture_index:int = -1):
 	if texture_index >= 0:
 		return asset_id+"_"+asset_attribute+"_"+str(texture_index)
 	else:
 		return asset_id+"_"+asset_attribute
-
-def get_thread(id:str):
+	
+def get_thread(id:str) -> threading.Thread:
 	if id in threads: 
 		return threads[id]
 	return None
 
-def get_searching_thread():
+def get_searching_thread() -> threading.Thread:
 	if THREAD_SEARCHING in threads:
 		return threads[THREAD_SEARCHING]
 	return None
 
 def set_searching_thread(thread:threading.Thread):
 	threads[THREAD_SEARCHING] = thread
-	
-def download_stream(link:str, file_name:str, thread_id:str,
-					timeout:int = 10,skipExisting:bool = False):
-	# print("url = ",link, "filename", file_name)
 
+def download_stream(links:list[str], file_names:list[str], thread_id:str, 
+							  timeout:int = 10,skipExisting:bool = False):
 	thread = get_thread(thread_id)
-	
-	prog = 0
-	with open(file_name, "wb") as f:
-		try:
-			response = requests.get(link, stream=True, timeout = timeout)
-			# session seems to be a little bit faster
-			#session = requests.Session()
-			#response = session.get(link, stream=True, timeout = timeout)
-			total_length = response.headers.get('content-length')
-			print("total size = "+total_length)
-			if not total_length:
-				print('Error #1 while downloading', link, ':', "Empty Response.")
-				return
-			
-			dl = 0
-			total_length = int(total_length)
-			# TODO a way for calculating the chunk size
-			for data in response.iter_content(chunk_size = 4096):
-				if thread is not None and thread.cancel:
-					response.close()
-					break
+	file_num = len(file_names)
+	# percent_per_file = 100/file_num
 
-				dl += len(data)
-				f.write(data)
+	prog_total = 0
+	for idx, file_name in enumerate(file_names):
+		link = links[idx]
+		prog = 0
+		with open(file_name, "wb") as f:
+			try:
+				response = requests.get(link, stream=True, timeout = timeout)
+				total_length = response.headers.get('content-length')
+				print("total size = "+total_length)
+				if not total_length:
+					print('Error #1 while downloading', link, ':', "Empty Response.")
+					return
 				
-				prog = int(100 * dl / total_length)
-				# dl_threads[0].progress = prog
-				thread.progress = prog
-				# print("proggg "+str(prog)+"%  "+str(dl)+"/"+str(total_length))
-			# dl_threads.pop(0)
-		except Exception as e:
-			print('Error #2 while downloading', link, ':', e)
+				dl = 0
+				total_length = int(total_length)
+				# TODO a way for calculating the chunk size
+				for data in response.iter_content(chunk_size = 4096):
+					if thread is not None and thread.cancel:
+						response.close()
+						break
+
+					dl += len(data)
+					f.write(data)
+					
+					prog = int((100 * dl) / (total_length * file_num))
+					# dl_threads[0].progress = prog
+					thread.progress = prog_total + prog
+					# print("proggg "+str(prog)+"%  "+str(dl)+"/"+str(total_length))
+				# dl_threads.pop(0)
+			except Exception as e:
+				print('Error #2 while downloading', link, ':', e)
+		prog_total += prog
 
 def monitor_downloads():
 		
