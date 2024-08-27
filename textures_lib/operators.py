@@ -85,9 +85,11 @@ class TexLibRemoveTextureAttribute(Operator):
         layout.label(text="Are you sure to remove this texture?")
  
     def execute(self, context:bpy.context):
-        dir_up = get_textures_dir(context) + self.id
-        dir = dir_up + os.sep + self.attribute
+        dir_up = os.path.join(get_textures_dir(context), self.id)
+        dir = os.path.join(dir_up, self.attribute)
         # print("item", self.id," | attr", self.attribute, " | file ", dir)
+        print("remove dir: ", dir)  
+        print("remove parent: ", dir_up)  
         # remove folder
         if os.path.exists(dir):
             for root, dirs, files in os.walk(dir, topdown=False):

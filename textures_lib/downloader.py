@@ -114,13 +114,13 @@ def monitor_downloads():
 					extract_file(dwn.file_path)
 					delete_zip(dwn.file_path)
 					dir_file = os.path.dirname(dwn.file_path)
-					convert_ambientcg_asset(dir_file, dwn.asset_id)
+					convert_ambientcg_asset(dir_file, dwn.asset_id, dwn.asset_attribute)
 				else:
 					print("finishhh ", dwn.asset_id, " | ", dwn.asset_attribute)
 					dir_file = os.path.dirname(dwn.file_path)
 					# up 
 					# dir_file = os.path.dirname(dir_file)
-					mark_polyhaven_asset(dir_file, dwn.asset_id)
+					mark_polyhaven_asset(dir_file, dwn.asset_id, dwn.asset_attribute)
 				to_remove.append(index)
 			else:
 				prog =  thread.progress
@@ -466,7 +466,7 @@ def delete_zip(file_path):
 	except Exception as e:
 		print('Error while deleting zip file:', e)
 
-def convert_ambientcg_asset(ambient_dir:str, id:str):
+def convert_ambientcg_asset(ambient_dir:str, id:str, attribute:str):
 	import subprocess
 	print("current directory: ", os.getcwd())
 	print("data: ", ambient_dir, " | ", id)
@@ -485,11 +485,13 @@ def convert_ambientcg_asset(ambient_dir:str, id:str):
             "--target",
 			ambient_dir,
 			"--id",
-			id
+			id,
+			"--attribute",
+			attribute
         ]
     )
 
-def mark_polyhaven_asset(dir:str, id:str):
+def mark_polyhaven_asset(dir:str, id:str, attribute:str):
 	import subprocess
 
 	file_blend = ""
@@ -519,7 +521,9 @@ def mark_polyhaven_asset(dir:str, id:str):
             os.path.join(addon_dir, "mark_blend.py"),
             "--",
 			"--id",
-			id
+			id,
+			"--attribute",
+			attribute
         ]
     )
 

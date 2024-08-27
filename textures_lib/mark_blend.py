@@ -38,7 +38,8 @@ except KeyError as e:
 		asset = bpy.data.materials[0]
 	else:
 		raise e
-	
+
+asset.name = id + "_" + arg_dict["attribute"]	
 asset.asset_mark()
 
 override = bpy.context.copy()

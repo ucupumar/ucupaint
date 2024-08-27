@@ -34,10 +34,9 @@ class TexLibBrowser(Panel):
         sel_index = texlib.search_index
         my_list = texlib.search_items
 
-        lib_name = "TextureLibrary"
-        ass_lib = get_asset_lib(context,lib_name)
+        ass_lib = get_asset_lib(context)
         if ass_lib == None:
-            layout.label(text="Warning! Create an asset library named {}".format(lib_name))
+            layout.label(text="Warning! Create an asset library")
             layout.operator("texlib.show_pref")
             return
 
@@ -128,11 +127,11 @@ class TexLibBrowser(Panel):
                         if check_exist:
                             op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
                             op.attribute = d
-                            op.id = sel_mat.name
+                            op.id = sel_mat.asset_id
 
                             op_remove:TexLibRemoveTextureAttribute = btn_row.operator("texlib.remove_attribute", icon="REMOVE")
                             op_remove.attribute = d
-                            op_remove.id = sel_mat.name
+                            op_remove.id = sel_mat.asset_id
 
                         op:TexLibDownload = btn_row.operator("texlib.download", icon="IMPORT")
                         op.id = sel_mat.asset_id

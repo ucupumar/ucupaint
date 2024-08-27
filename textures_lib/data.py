@@ -4,7 +4,6 @@ from typing import Any
 class SourceType:
 	SOURCE_AMBIENTCG = "ambientcg"
 	SOURCE_POLYHAVEN = "polyhaven"
-	SOURCE_POLYHAVEN_TEXTURE = "polyhaven-texture"
 
 class AssetItem:
 	def __init__(self):

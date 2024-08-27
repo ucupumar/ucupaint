@@ -73,7 +73,7 @@ print("current directory: ", os.getcwd())
 os.chdir(dir_target)
 print("current directory next: ", os.getcwd())
 
-new_material = bpy.data.materials.new(name=arg_dict["id"])
+new_material = bpy.data.materials.new(name=arg_dict["id"]+"_"+arg_dict["attribute"])
 # Create material
 new_material.use_nodes = True
 bsdf = new_material.node_tree.nodes["Principled BSDF"]

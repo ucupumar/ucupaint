@@ -64,20 +64,21 @@ def get_preview_dir(context) -> str:
 		os.mkdir(retval)
 	return retval
 
-def get_asset_lib(context, lib_name) -> bpy.types.UserAssetLibrary:
-	for l in context.preferences.filepaths.asset_libraries:
-		# print("find lib", l.name)
-		if l.name == lib_name:
-			return l
-	return None
+def get_asset_lib(context) -> bpy.types.UserAssetLibrary:
+	num_lib = len(context.preferences.filepaths.asset_libraries)
+	if num_lib == 0:
+		return None
+	
+	return context.preferences.filepaths.asset_libraries[0]
 	
 def get_lib_dir(context) -> str:
 	# ypup:YPaintPreferences = get_user_preferences()
-	asset_lib = get_asset_lib(context, "TextureLibrary")
+	asset_lib = get_asset_lib(context)
 	if asset_lib == None:
 		return None
 	
-	retval = asset_lib.path
+	retval = os.path.join(asset_lib.path, "Materials")
+
 	if not os.path.exists(retval):
 		os.mkdir(retval)
 	return retval
