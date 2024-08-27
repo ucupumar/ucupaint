@@ -223,6 +223,42 @@ class ShowFilePathPreference(Operator):
         bpy.context.preferences.active_section = 'FILE_PATHS'
         return{'FINISHED'}
 
+class ShowLibrary(Operator):
+    bl_idname = "texlib.show_lib"
+    bl_label = "Show Library"
+
+    area_type = "FILE_BROWSER"
+    area_ui_type = "ASSETS"
+    
+    @classmethod
+    def poll(cls, context):
+        existing_lib = False
+        for area in context.screen.areas:
+            if area.type == ShowLibrary.area_type and area.ui_type == ShowLibrary.area_ui_type: # 'VIEW_3D', 'CONSOLE', 'INFO' etc. 
+                existing_lib = True
+                break
+        return not existing_lib
+    
+    def execute(self, context):
+        existing_lib = False
+        for area in context.screen.areas:
+            if area.type == self.area_type and area.ui_type == self.area_ui_type: # 'VIEW_3D', 'CONSOLE', 'INFO' etc. 
+                existing_lib = True
+                break
+
+        # for area in context.screen.areas:
+        #     print(area.type, " >> ", area.ui_type)
+        if not existing_lib:
+            # with context.temp_override(area=area):
+            bpy.ops.screen.area_split(direction='HORIZONTAL', factor=0.3)
+            # Get the new area
+            new_area = bpy.context.screen.areas[-1]
+
+            # Change the type of the new area to FILE_BROWSER
+            new_area.type = self.area_type
+            new_area.ui_type = self.area_ui_type
+
+        return{'FINISHED'}
 classes = [
     TexLibAddToUcupaint,
 	TexLibCancelDownload,
@@ -230,7 +266,8 @@ classes = [
 	TexLibDownload,
 	TexLibCancelSearch,
 	TexLibRemoveTextureAllAttributes,
-    ShowFilePathPreference
+    ShowFilePathPreference,
+    ShowLibrary
 ]
 
 def register():

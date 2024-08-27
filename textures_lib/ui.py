@@ -47,6 +47,7 @@ class TexLibBrowser(Panel):
         source_search.prop(texlib, "check_local")
         source_search.prop(texlib, "check_ambiencg")
         source_search.prop(texlib, "check_polyhaven")
+        layout.operator("texlib.show_lib")
 
         searching_dwn = texlib.searching_download
     
