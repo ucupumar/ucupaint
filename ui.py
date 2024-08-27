@@ -999,7 +999,7 @@ def draw_root_channels_ui(context, layout, node):
                             brow = bbcol.row(align=True)
                             brow.label(text='Render Method:')
                             brow.prop(mat, 'surface_render_method', text='')
-                        else:
+                        elif engine != 'HYDRA_STORM':
                             brow = bbcol.row(align=True)
                             brow.label(text='Blend Mode:')
                             brow.prop(channel, 'alpha_blend_mode', text='')
@@ -3490,7 +3490,7 @@ class NODE_PT_YPaint(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (context.object and context.object.type in possible_object_types 
-                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'} and context.space_data.tree_type == 'ShaderNodeTree')
+                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
 
     def draw(self, context):
         main_draw(self, context)
@@ -3504,7 +3504,7 @@ class NODE_PT_YPaintUI(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (context.object and context.object.type in possible_object_types 
-                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'} and context.space_data.tree_type == 'ShaderNodeTree')
+                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
 
     def draw(self, context):
         main_draw(self, context)
@@ -3517,7 +3517,7 @@ class VIEW3D_PT_YPaint_tools(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'}
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
     def draw(self, context):
         main_draw(self, context)
@@ -3532,7 +3532,7 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'}
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
     def draw(self, context):
         main_draw(self, context)
@@ -5716,7 +5716,7 @@ class YPaintUI(bpy.types.PropertyGroup):
     #random_prop : BoolProperty(default=False)
 
 def add_new_ypaint_node_menu(self, context):
-    if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'}: return
+    if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}: return
     l = self.layout
     l.operator_context = 'INVOKE_REGION_WIN'
     l.separator()
