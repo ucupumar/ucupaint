@@ -3356,12 +3356,12 @@ def check_subdiv_setup(height_ch):
 
         # Set displacement mode
         if hasattr(mat, 'displacement_method'):
-            mat.displacement_method = 'BOTH'
-            #mat.displacement_method = 'DISPLACEMENT'
+            #mat.displacement_method = 'BOTH'
+            mat.displacement_method = 'DISPLACEMENT'
 
         if is_greater_than_280():
-            mat.cycles.displacement_method = 'BOTH'
-            #mat.cycles.displacement_method = 'DISPLACEMENT'
+            #mat.cycles.displacement_method = 'BOTH'
+            mat.cycles.displacement_method = 'DISPLACEMENT'
         else: mat.cycles.displacement_method = 'TRUE'
 
         if not yp.enable_baked_outside:
