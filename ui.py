@@ -1173,14 +1173,15 @@ def draw_root_channels_ui(context, layout, node):
                     brow.label(text='Max Polygons:')
                     brow.prop(channel, 'subdiv_on_max_polys', text='')
 
-                    brow = bbcol.row(align=True)
-                    brow.label(text='Adaptive (Cycles Only):')
-                    brow.prop(channel, 'subdiv_adaptive', text='')
-
-                    if channel.subdiv_adaptive:
+                    if is_greater_than_278():
                         brow = bbcol.row(align=True)
-                        brow.label(text='Global Dicing:')
-                        brow.prop(channel, 'subdiv_global_dicing', text='')
+                        brow.label(text='Adaptive (Cycles Only):')
+                        brow.prop(channel, 'subdiv_adaptive', text='')
+
+                        if channel.subdiv_adaptive:
+                            brow = bbcol.row(align=True)
+                            brow.label(text='Global Dicing:')
+                            brow.prop(channel, 'subdiv_global_dicing', text='')
 
                     # Only show subsurf only option when object has multires
                     multires = get_multires_modifier(obj, include_hidden=True)
