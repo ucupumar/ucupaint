@@ -1,4 +1,4 @@
-import bpy, threading, os,  json
+import bpy, threading, os, json, pathlib
 
 from bpy.props import StringProperty, IntProperty, BoolProperty, CollectionProperty, PointerProperty
 from bpy.types import PropertyGroup, Context, Scene
@@ -9,11 +9,8 @@ from .. import lib
 from .downloader import get_searching_thread, set_searching_thread, retrieve_ambientcg, retrieve_polyhaven, download_asset_previews
 from .data import AssetItem
 
-assets_lib = {} 
-
 assets_library:dict[str, AssetItem] = {}
 last_search = {}
-
 
 
 def load_per_material(file_name:str, material_item):
@@ -103,6 +100,34 @@ def read_asset_info(context) -> bool:
 		file.close()
 		return True
 	return False
+
+def retrieve_asset_library(context:Context):
+	asset_path = get_lib_dir(context)
+	if asset_path == None:
+		return None
+
+	scene = context.scene
+	txlib:TexLibProps = scene.texlib
+
+	print("asset_lib=", asset_path)
+	txlib.library_items.clear()
+
+	library_path = pathlib.Path(asset_path)
+	blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
+	for blend_file in blend_files:
+		with bpy.data.libraries.load(str(blend_file), assets_only=True) as (data_from, data_to):
+			for mat in data_from.materials:
+				print("mat=", mat)
+				new_item:MaterialItem = txlib.library_items.add()
+				new_item.name = mat
+				new_item.source_type = ""
+
+				nama = mat
+				# split string and remove last index
+				split_name = nama.split("_")[:-1]
+				# combine array string into one string
+				new_id = "_".join(split_name)
+				new_item.asset_id = new_id
 
 def searching_material(context:Context, keyword:str, search_ambientcg:bool = True, search_polyhaven:bool = True):
 
@@ -219,28 +244,9 @@ def update_input_search(self, context):
 	self.searching_download.alive = True
 
 def change_mode_asset(self, context):
-	if not len(assets_lib):
-		read_asset_info()
-		load_previews()
 
-	# if self.mode_asset == "ONLINE":
-	#     pass
-	# else:
-	#     textures_dir = _get_textures_dir()
-	#     tex_lis = os.listdir(textures_dir)
+	retrieve_asset_library(context)
 
-	#     _offline_files = {}
-	#     for tx in tex_lis:
-	#         tx_dir = os.path.join(textures_dir, tx)
-	#         attr_lis = os.listdir(tx_dir)
-
-	#         for att in attr_lis:
-	#             attr_dir = os.path.join(tx_dir, att)
-	#             if _texture_exist(tx, attr_dir):
-	#                 _offline_files[tx] = assets_lib[tx] 
-	#                 break       
-
-	#     load_material_items(self.downloaded_material_items, _offline_files)
 
 class TextureItem (PropertyGroup):
 	texture_id: StringProperty(name="Texture ID")
@@ -278,6 +284,15 @@ class TexLibProps(PropertyGroup):
 	check_local:BoolProperty(name="Local", default=True)
 	check_ambiencg:BoolProperty(name="AmbientCG", default=True)
 	check_polyhaven:BoolProperty(name="Polyhaven", default=True)
+	mode_asset:EnumProperty(
+		items =  (('SEARCH', 'Search', ''), ('LIBRARY', 'Library', '')),
+		name = 'Location',
+		default = 'SEARCH',
+		# description = 'Location of the PBR Texture.\n'
+		# 	'  Local: the assets that you have already downloaded.\n'
+		# 	'  Online: available for download on AmbientCG.com.\n',
+		update=change_mode_asset
+	)
 
 	input_last:StringProperty()
 	material_items:CollectionProperty(type= MaterialItem)
@@ -288,15 +303,9 @@ class TexLibProps(PropertyGroup):
 
 	search_items:CollectionProperty(type= MaterialItem)
 	search_index:IntProperty(default=0, name="Search index")
-	# mode_asset:EnumProperty(
-	#         items =  (('ONLINE', 'Online', ''), ('DOWNLOADED', 'Downloaded', '')),
-	#         name = 'Location',
-	#         default = 'ONLINE',
-	#         description = 'Location of the PBR Texture.\n'
-	#             '  Local: the assets that you have already downloaded.\n'
-	#             '  Online: available for download on AmbientCG.com.\n',
-	#         update=change_mode_asset
-	#     )
+
+	library_items:CollectionProperty(type= MaterialItem)
+	library_index:IntProperty(default=0, name="Search index")
 
 	downloads:CollectionProperty(type=DownloadQueue)
 	searching_download:PointerProperty(type=DownloadQueue)
@@ -318,6 +327,8 @@ def register():
 
 	if read_asset_info(bpy.context):
 		load_previews(bpy.context)
+	
+	# retrieve_asset_library(bpy.context)
 
 	# from .data import SourceType
 	# for idx, lb in enumerate(assets_library):

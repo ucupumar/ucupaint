@@ -10,7 +10,7 @@ from ..common import *
 from .downloader import download_stream, get_thread_id, get_thread, get_addon_dir
 from .downloader import threads
 
-from .properties import assets_library, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching, get_cat_asset_lib, get_preview_dir
+from .properties import assets_library, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching, get_cat_asset_lib, get_preview_dir, retrieve_asset_library
 
 class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
     """Open Multiple Textures to Layer Ucupaint"""
@@ -287,6 +287,8 @@ class DebugOp(Operator):
         
         content = get_cat_id(lib_dir)
         print("lib dir: ", lib_dir, "=", content)
+
+        retrieve_asset_library(context)
         return{'FINISHED'}
     
 def get_cat_id(file_path:str, category:str = "Materials") -> str:

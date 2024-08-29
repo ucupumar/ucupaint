@@ -24,13 +24,17 @@ class TexLibBrowser(Panel):
         scene = context.scene
         texlib:TexLibProps = scene.texlib
 
-        # layout.prop(texlib, "mode_asset", expand=True)
-        # local_files_mode = texlib.mode_asset == "DOWNLOADED"
+        layout.prop(texlib, "mode_asset", expand=True)
+        search_mode = texlib.mode_asset == "SEARCH"
 
-        # if local_files_mode:
-        #     sel_index = texlib.downloaded_material_index
-        #     my_list = texlib.downloaded_material_items
-        # else:
+        if search_mode:
+            self.draw_search(context, texlib)
+        else:
+            self.draw_library(context, texlib)
+        
+    def draw_search(self, context, texlib:TexLibProps):
+        layout = self.layout
+
         sel_index = texlib.search_index
         my_list = texlib.search_items
 
@@ -39,6 +43,7 @@ class TexLibBrowser(Panel):
             layout.label(text="Warning! Create an asset library")
             layout.operator("texlib.show_pref")
             return
+        # layout.operator("texlib.debug")
 
         layout.prop(texlib, "input_search")
         source_search = layout.row()
@@ -143,6 +148,12 @@ class TexLibBrowser(Panel):
                 layout.label(text="Downloads:")
                 layout.template_list("TEXLIB_UL_Downloads", "download_list", texlib, "downloads", texlib, "selected_download_item")
 
+    def draw_library(self, context, texlib:TexLibProps):
+        layout = self.layout
+        layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "library_items", texlib, "library_index")
+        # todo : add preview
+        # todo : add to ucupaint
+
 class TEXLIB_UL_Downloads(UIList):
 
     def draw_item(self, context, layout, data, item:DownloadQueue, icon, active_data, active_propname, index):
@@ -168,7 +179,8 @@ class TEXLIB_UL_Material(UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row.template_icon(icon_value = thumb, scale = 1.0)
             row.label(text=item.name)
-            row.label(text=item.source_type)
+            if item.source_type != "":
+                row.label(text=item.source_type)
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
