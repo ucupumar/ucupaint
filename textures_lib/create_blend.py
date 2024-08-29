@@ -1,5 +1,4 @@
 import sys, bpy, os
-import shutil
 
 
 argv = sys.argv
@@ -28,24 +27,7 @@ dir_target = arg_dict["target"] #os.path.join(arg_dict["target"], arg_dict["id"]
 if not os.path.exists(dir_target):
 	os.makedirs(dir_target)
 
-# remove existing directory files
-# for filename in os.listdir(dir_target):
-# 	file_path = os.path.join(dir_target, filename)
-# 	try:
-# 		if os.path.isfile(file_path) or os.path.islink(file_path):
-# 			os.unlink(file_path)
-# 		elif os.path.isdir(file_path):
-# 			shutil.rmtree(file_path)
-# 	except Exception as e:
-# 		print('Failed to delete %s. Reason: %s' % (file_path, e))
-
-# # copy files or directories
-# for filename in os.listdir(dir_source):
-# 	file_path = os.path.join(dir_source, filename)
-# 	if os.path.isfile(file_path) or os.path.islink(file_path):
-# 		shutil.copy(file_path, dir_target)
-# 	elif os.path.isdir(file_path):
-# 		shutil.copytree(file_path, os.path.join(dir_target, filename))
+cat_id = arg_dict["category_id"]
 
 # create blend file
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -107,6 +89,8 @@ for image_path in image_paths:
 
 thumbnail_file = os.path.join(dir_target, arg_dict["id"]+".png")
 new_material.asset_mark()
+if cat_id:
+    new_material.asset_data.catalog_id = cat_id
 
 override = bpy.context.copy()
 override["id"] = new_material
@@ -122,14 +106,6 @@ if obj.data.materials:
 else:
 	obj.data.materials.append(new_material)
 
-# Create objects and assign materials
-# for i, material in enumerate(materials):
-#     bpy.ops.mesh.primitive_plane_add(size=2, location=(i * 3, 0, 0))
-#     obj = bpy.context.active_object
-#     if obj.data.materials:
-#         obj.data.materials[0] = material
-#     else:
-#         obj.data.materials.append(material)
 
 bpy.context.preferences.filepaths.save_version = 0  # Avoid .blend1
 bpy.ops.wm.save_mainfile(relative_remap=True)

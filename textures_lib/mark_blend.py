@@ -1,6 +1,4 @@
 import sys, bpy, os
-import shutil
-
 
 argv = sys.argv
 argv = argv[argv.index("--") + 1 :]  # get all args after "--"
@@ -21,15 +19,12 @@ for i in range(0, len(argv), 2):
 print(arg_dict)
 
 id = arg_dict["id"]
+cat_id = arg_dict["category_id"]
 
 # file path
 blend_file = bpy.data.filepath
 blend_dir = os.path.dirname(blend_file)
 os.chdir(blend_dir)
-
-# print("current directory: ", os.getcwd())
-# for m in bpy.data.materials.keys():
-# 	print("material: ", m)
 
 try:
 	asset = bpy.data.materials[id]
@@ -42,10 +37,12 @@ except KeyError as e:
 asset.name = id + "_" + arg_dict["attribute"]	
 asset.asset_mark()
 
+if cat_id:
+    asset.asset_data.catalog_id = cat_id
+
 override = bpy.context.copy()
 override["id"] = asset
 
-# thumbnail_file = arg_dict["id"]+".png"
 thumbnail_file = os.path.join(blend_dir, arg_dict["id"]+".png")
 print("thumbfile: ", thumbnail_file)
 

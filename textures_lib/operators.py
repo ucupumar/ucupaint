@@ -7,10 +7,10 @@ from bpy.props import StringProperty, IntProperty, BoolProperty
 from .. import Layer
 from ..common import * 
 
-from .downloader import download_stream, get_thread_id, get_thread
+from .downloader import download_stream, get_thread_id, get_thread, get_addon_dir
 from .downloader import threads
 
-from .properties import assets_library, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching, get_preview_dir
+from .properties import assets_library, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching, get_cat_asset_lib, get_preview_dir
 
 class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
     """Open Multiple Textures to Layer Ucupaint"""
@@ -135,6 +135,21 @@ class TexLibDownload(Operator):
         directory = os.path.join( get_textures_dir(context), self.id, self.attribute)
         file_name = os.path.join(directory, attribute_item.asset.file_name)
 
+        asset_cats_file = get_cat_asset_lib(context)
+        print("asset cat file: ", asset_cats_file)
+        has_cat_id = False
+
+        if os.path.exists(asset_cats_file):
+            cat_id = get_cat_id(asset_cats_file)
+            has_cat_id = cat_id != "" # replace existing with template cat
+        
+        if not has_cat_id:
+            template_asst = os.path.join(get_addon_dir(), "blender_assets.cats.txt")
+            shutil.copy(template_asst, asset_cats_file)
+            
+        cat_id = get_cat_id(asset_cats_file)
+        print("cat id: ", cat_id)
+
         if not os.path.exists(directory):
             # print("make dir "+directory)
             os.makedirs(directory)
@@ -169,6 +184,7 @@ class TexLibDownload(Operator):
 
         texlib:TexLibProps = context.scene.texlib
         new_dwn:DownloadQueue = texlib.downloads.add()
+        new_dwn.asset_cat_id = cat_id
         new_dwn.asset_id = self.id
         new_dwn.file_path = file_name
         new_dwn.source_type = asset_item.source_type
@@ -261,6 +277,58 @@ class ShowLibrary(Operator):
             new_area.ui_type = self.area_ui_type
 
         return{'FINISHED'}
+
+class DebugOp(Operator):
+    bl_idname = "texlib.debug"
+    bl_label = "Check Debug"
+
+    def execute(self, context):
+        lib_dir = get_cat_asset_lib(context) 
+        
+        content = get_cat_id(lib_dir)
+        print("lib dir: ", lib_dir, "=", content)
+        return{'FINISHED'}
+    
+def get_cat_id(file_path:str, category:str = "Materials") -> str:
+    retval = ""
+    print("read file: ", file_path)
+
+    # read file
+    with open(file_path, "r") as file:
+        lines = file.readlines()
+        for line in lines:
+            # print(line)
+            line = line.strip()
+            if not line:
+                continue  # Empty lines
+            if line.startswith("#"):
+                continue
+            if line.startswith("VERSION"):
+                continue
+
+            parts = line.split(":")
+            uuid, path = parts[:2]
+            crumbs = path.split("/")
+            
+            retval = uuid  # In case the asset is not in any categories, revert to top level type catalog
+
+            if len(crumbs) == 1:
+                # Ignore top level type catalog from here on
+                continue
+
+            # Match catalog only if asset has all categories in its tree
+            match = True
+            for cat in crumbs[1:]:
+                if cat.lower() != category.lower():
+                    match = False
+
+            if not match:
+                continue
+
+            return uuid
+
+    return retval
+
 classes = [
     TexLibAddToUcupaint,
 	TexLibCancelDownload,
@@ -269,7 +337,8 @@ classes = [
 	TexLibCancelSearch,
 	TexLibRemoveTextureAllAttributes,
     ShowFilePathPreference,
-    ShowLibrary
+    ShowLibrary,
+    DebugOp
 ]
 
 def register():

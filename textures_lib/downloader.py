@@ -114,13 +114,13 @@ def monitor_downloads():
 					extract_file(dwn.file_path)
 					delete_zip(dwn.file_path)
 					dir_file = os.path.dirname(dwn.file_path)
-					convert_ambientcg_asset(dir_file, dwn.asset_id, dwn.asset_attribute)
+					convert_ambientcg_asset(dir_file, dwn.asset_id, dwn.asset_attribute, dwn.asset_cat_id)
 				else:
 					print("finishhh ", dwn.asset_id, " | ", dwn.asset_attribute)
 					dir_file = os.path.dirname(dwn.file_path)
 					# up 
 					# dir_file = os.path.dirname(dir_file)
-					mark_polyhaven_asset(dir_file, dwn.asset_id, dwn.asset_attribute)
+					mark_polyhaven_asset(dir_file, dwn.asset_id, dwn.asset_attribute, dwn.asset_cat_id)
 				to_remove.append(index)
 			else:
 				prog =  thread.progress
@@ -466,7 +466,7 @@ def delete_zip(file_path):
 	except Exception as e:
 		print('Error while deleting zip file:', e)
 
-def convert_ambientcg_asset(ambient_dir:str, id:str, attribute:str):
+def convert_ambientcg_asset(ambient_dir:str, id:str, attribute:str, cat_id:str):
 	import subprocess
 	print("current directory: ", os.getcwd())
 	print("data: ", ambient_dir, " | ", id)
@@ -487,11 +487,13 @@ def convert_ambientcg_asset(ambient_dir:str, id:str, attribute:str):
 			"--id",
 			id,
 			"--attribute",
-			attribute
+			attribute,
+			"--category_id",
+			cat_id
         ]
     )
 
-def mark_polyhaven_asset(dir:str, id:str, attribute:str):
+def mark_polyhaven_asset(dir:str, id:str, attribute:str, cat_id:str):
 	import subprocess
 
 	file_blend = ""
@@ -523,7 +525,9 @@ def mark_polyhaven_asset(dir:str, id:str, attribute:str):
 			"--id",
 			id,
 			"--attribute",
-			attribute
+			attribute,
+			"--category_id",
+			cat_id
         ]
     )
 

@@ -71,6 +71,15 @@ def get_asset_lib(context) -> bpy.types.UserAssetLibrary:
 	
 	return context.preferences.filepaths.asset_libraries[0]
 	
+def get_cat_asset_lib(context) -> str:
+	asset_lib = get_asset_lib(context)
+	if asset_lib == None:
+		return None
+	
+	retval = os.path.join(asset_lib.path, "blender_assets.cats.txt")
+	
+	return retval
+
 def get_lib_dir(context) -> str:
 	# ypup:YPaintPreferences = get_user_preferences()
 	asset_lib = get_asset_lib(context)
@@ -253,6 +262,7 @@ class MaterialItem(PropertyGroup):
 class DownloadQueue(PropertyGroup):
 	asset_id : StringProperty()
 	asset_attribute: StringProperty()
+	asset_cat_id: StringProperty()
 	texture_index: IntProperty(default=-1)
 	file_path : StringProperty()
 	source_type: StringProperty()
