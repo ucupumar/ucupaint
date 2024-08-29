@@ -470,7 +470,16 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
 
     # Create texcoord node if decal is used
     texcoord = tree.nodes.get(mask.texcoord)
-    if get_mask_enabled(mask) and mask.texcoord_type == 'Decal':
+    if get_mask_enabled(mask) and mask.texcoord_type == 'Decal' and is_mapping_possible(mask.type):
+
+        # Set image extension type to clip
+        image = None
+        if mask.type == 'IMAGE':
+            source = get_mask_source(mask)
+            if source:
+                mask.original_image_extension = source.extension
+                source.extension = 'CLIP'
+                image = source.image
 
         # Create new empty object if there's no texcoord yet
         if not texcoord:
@@ -482,6 +491,12 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
         if not decal_process:
             decal_process = new_node(tree, mask, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
             decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+
+        # Set decal aspect ratio
+        if image:
+            if image.size[0] > image.size[1]:
+                decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
+            else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
 
         decal_alpha = check_new_node(tree, mask, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
         if decal_alpha.operation != 'MULTIPLY':
@@ -496,10 +511,6 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
             for letter in nsew_letters:
                 remove_node(tree, mask, 'decal_alpha_' + letter)
 
-        if mask.type == 'IMAGE':
-            source = get_mask_source(mask)
-            if source:
-                source.extension = 'CLIP'
     else:
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
             remove_node(tree, mask, 'texcoord')
@@ -510,13 +521,32 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
             for letter in nsew_letters:
                 remove_node(tree, mask, 'decal_alpha_' + letter)
 
+        # Recover image extension type
+        if mask.type == 'IMAGE' and mask.original_texcoord == 'Decal' and mask.original_image_extension != '':
+            source = get_mask_source(mask)
+            if source:
+                source.extension = mask.original_image_extension
+                mask.original_image_extension = ''
+
+    # Save original texcoord type
+    mask.original_texcoord = mask.texcoord_type
+
 def check_layer_texcoord_nodes(layer, tree=None):
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
 
     # Create texcoord node if decal is used
     texcoord = tree.nodes.get(layer.texcoord)
-    if get_layer_enabled(layer) and layer.texcoord_type == 'Decal':
+    if get_layer_enabled(layer) and layer.texcoord_type == 'Decal' and is_mapping_possible(layer.type):
+
+        # Set image extension type to clip
+        image = None
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source:
+                layer.original_image_extension = source.extension
+                source.extension = 'CLIP'
+                image = source.image
 
         # Create new empty object if there's no texcoord yet
         if not texcoord:
@@ -528,6 +558,12 @@ def check_layer_texcoord_nodes(layer, tree=None):
         if not decal_process:
             decal_process = new_node(tree, layer, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
             decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+
+        # Set decal aspect ratio
+        if image:
+            if image.size[0] > image.size[1]:
+                decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
+            else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
 
         # Create decal alpha nodes
         for i, ch in enumerate(layer.channels):
@@ -550,10 +586,6 @@ def check_layer_texcoord_nodes(layer, tree=None):
                     for letter in nsew_letters:
                         remove_node(tree, ch, 'decal_alpha_' + letter)
 
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if source:
-                source.extension = 'CLIP'
     else:
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
             remove_node(tree, layer, 'texcoord')
@@ -566,6 +598,16 @@ def check_layer_texcoord_nodes(layer, tree=None):
             if root_ch.type == 'NORMAL':
                 for letter in nsew_letters:
                     remove_node(tree, ch, 'decal_alpha_' + letter)
+
+        # Recover image extension type
+        if layer.type == 'IMAGE' and layer.original_texcoord == 'Decal' and layer.original_image_extension != '':
+            source = get_layer_source(layer)
+            if source:
+                source.extension = layer.original_image_extension
+                layer.original_image_extension = ''
+
+    # Save original texcoord type
+    layer.original_texcoord = layer.texcoord_type
 
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 
@@ -1099,7 +1141,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         texcoords.append(layer.texcoord_type)
 
     for mask in layer.masks:
-        if get_mask_enabled(mask, layer) and mask.texcoord_type not in {'UV', 'Decal'} and mask.type not in {'VCOL', 'COLOR_ID', 'OBJECT_INDEX', 'HEMI'} and mask.texcoord_type not in texcoords:
+        if get_mask_enabled(mask, layer) and mask.texcoord_type not in {'UV', 'Decal', 'Layer'} and mask.type not in {'VCOL', 'COLOR_ID', 'OBJECT_INDEX', 'HEMI'} and mask.texcoord_type not in texcoords:
             texcoords.append(mask.texcoord_type)
 
     for texcoord in texcoords:

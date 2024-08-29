@@ -180,6 +180,7 @@ def remove_mask(layer, mask, obj):
     remove_node(tree, mask, 'baked_source')
     remove_node(tree, mask, 'blur_vector')
     remove_node(tree, mask, 'mapping')
+    remove_node(tree, mask, 'texcoord')
     remove_node(tree, mask, 'baked_mapping')
     remove_node(tree, mask, 'linear')
     remove_node(tree, mask, 'uv_map')
@@ -279,7 +280,7 @@ class YNewLayerMask(bpy.types.Operator):
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
             description = 'Mask Coordinate Type',
-            items = texcoord_type_items,
+            items = mask_texcoord_type_items,
             default = 'UV')
 
     uv_name : StringProperty(default='', update=update_new_mask_uv_map)
@@ -367,6 +368,10 @@ class YNewLayerMask(bpy.types.Operator):
                 # Use color id tolerance value as lowest value to avoid pure black color
                 self.color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
                 if not is_colorid_already_being_used(yp, self.color_id): break
+
+        # Make sure decal is off when adding non mappable mask
+        if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
+            self.texcoord_type = 'UV'
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Generated'
@@ -676,7 +681,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
             description = 'Mask Coordinate Type',
-            items = texcoord_type_items,
+            items = mask_texcoord_type_items,
             default = 'UV')
 
     uv_map : StringProperty(default='')
@@ -879,7 +884,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
             description = 'Mask Coordinate Type',
-            items = texcoord_type_items,
+            items = mask_texcoord_type_items,
             default = 'UV')
 
     source_input : EnumProperty(
@@ -1725,9 +1730,20 @@ class YLayerMask(bpy.types.PropertyGroup):
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
             description = 'Mask Coordinate Type',
-            items = texcoord_type_items,
+            items = mask_texcoord_type_items,
             default = 'UV',
             update=update_mask_texcoord_type)
+
+    original_texcoord : EnumProperty(
+            name = 'Original Layer Coordinate Type',
+            items = mask_texcoord_type_items,
+            default = 'UV'
+            )
+
+    original_image_extension : StringProperty(
+            name = 'Original Image Extension Type',
+            default = ''
+            )
 
     modifier_type : EnumProperty(
             name = 'Mask Modifier Type',
