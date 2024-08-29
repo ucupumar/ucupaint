@@ -3974,7 +3974,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     break
 
         # Mask visibility
-        if len(layer.masks) > 0:
+        if len([m for m in layer.masks if m.enable]) > 0:
             row = master.row()
             #row.active = is_hidden
             row.active = layer.enable_masks
