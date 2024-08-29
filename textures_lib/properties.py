@@ -6,7 +6,7 @@ from bpy.types import PropertyGroup, Context, Scene
 from ..preferences import * 
 from .. import lib
 
-from .downloader import get_searching_thread, set_searching_thread, retrieve_ambientcg, retrieve_assets_info, download_previews, retrieve_polyhaven, download_asset_previews
+from .downloader import get_searching_thread, set_searching_thread, retrieve_ambientcg, retrieve_polyhaven, download_asset_previews
 from .data import AssetItem
 
 assets_lib = {} 
@@ -14,16 +14,7 @@ assets_lib = {}
 assets_library:dict[str, AssetItem] = {}
 last_search = {}
 
-def load_material_items(material_items, list_tex):
-	material_items.clear()
-	for i in list_tex:
-		new_item:MaterialItem = material_items.add()
-		item_id =  list_tex[i]["id"]
-		new_item.name = item_id
-		if hasattr(previews_collection, "preview_items") and item_id in previews_collection.preview_items:
-			new_item.thumb = previews_collection.preview_items[item_id][3]
-		else:
-			new_item.thumb = lib.custom_icons["input"].icon_id
+
 
 def load_per_material(file_name:str, material_item):
 	item = os.path.basename(file_name)
@@ -97,7 +88,7 @@ def read_asset_info(context) -> bool:
 	if dir_name == None:
 		return False
 	
-	file_name = os.path.join(dir_name, "last-search.json")
+	file_name = os.path.join(dir_name, "assets.json")
 
 	if os.path.exists(file_name):
 		file = open(file_name, 'r')
@@ -113,7 +104,7 @@ def read_asset_info(context) -> bool:
 		return True
 	return False
 
-def searching_material(keyword:str, context:Context):
+def searching_material(context:Context, keyword:str, search_ambientcg:bool = True, search_polyhaven:bool = True):
 
 	scene = context.scene
 	txlib:TexLibProps = scene.texlib
@@ -123,14 +114,25 @@ def searching_material(keyword:str, context:Context):
 	if not len(assets_library):
 		read_asset_info(context)
 
-	search_results:dict[str, AssetItem] 
-	search_results = retrieve_ambientcg(keyword)
-	list_polyhaven = retrieve_polyhaven(keyword)
-	search_results.update(list_polyhaven)
+	thread_search.progress = 10
+
+	search_results:dict[str, AssetItem] = {}
+	if search_ambientcg:
+		search_results = retrieve_ambientcg(keyword)
+	thread_search.progress = 30
+
+	if search_polyhaven:
+		list_polyhaven = retrieve_polyhaven(keyword)
+		search_results.update(list_polyhaven)
+	thread_search.progress = 60
+
 
 	assets_library.update(search_results)
 
 	save_library_to_file(context, search_results, "last-search.json")
+	save_library_to_file(context, assets_library, "assets.json")
+
+	thread_search.progress = 80
 
 	txlib.search_items.clear()
 	for key in search_results:
@@ -142,18 +144,11 @@ def searching_material(keyword:str, context:Context):
 
 	download_asset_previews(context, False, search_results, txlib.search_items)
 
-	retrieve_assets_info(context, keyword)
-	thread_search.progress = 10
-	load_material_items(txlib.material_items, last_search)
+	# retrieve_assets_info(context, keyword)
 	
-
-	download_previews(context, False, txlib.material_items)
-	thread_search.progress = 90
 	load_previews(context)
-	thread_search.progress = 95
-
-	load_material_items(txlib.material_items, last_search)
 	thread_search.progress = 100
+
 
 def save_library_to_file(context, list:dict[str, AssetItem], file_name:str):
 	dir_name = get_lib_dir(context)
@@ -213,7 +208,7 @@ def update_input_search(self, context):
 	if get_searching_thread() != None:
 		cancel_searching(context)
 
-	thread_search = threading.Thread(target=searching_material, args=(self.input_search,context))
+	thread_search = threading.Thread(target=searching_material, args=(context, self.input_search, self.check_ambiencg, self.check_polyhaven))
 	thread_search.progress = 0
 	thread_search.cancel = False
 	set_searching_thread(thread_search)
