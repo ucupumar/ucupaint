@@ -264,6 +264,7 @@ class DownloadQueue(PropertyGroup):
 	asset_id : StringProperty()
 	asset_attribute: StringProperty()
 	asset_cat_id: StringProperty()
+	tags: StringProperty()
 	texture_index: IntProperty(default=-1)
 	file_path : StringProperty()
 	source_type: StringProperty()

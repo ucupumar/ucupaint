@@ -185,6 +185,11 @@ class TexLibDownload(Operator):
         texlib:TexLibProps = context.scene.texlib
         new_dwn:DownloadQueue = texlib.downloads.add()
         new_dwn.asset_cat_id = cat_id
+        if len(asset_item.tags) > 0:
+            new_dwn.tags = ";".join(asset_item.tags) 
+        else:
+            new_dwn.tags = ""
+            
         new_dwn.asset_id = self.id
         new_dwn.file_path = file_name
         new_dwn.source_type = asset_item.source_type

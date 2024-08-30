@@ -22,6 +22,7 @@ print(arg_dict)
 
 dir_target = arg_dict["target"] #os.path.join(arg_dict["target"], arg_dict["id"]) 
 # dir_source = arg_dict["source"]
+tags = arg_dict["tags"].split(";")
 
 # check dir exist or make dir
 if not os.path.exists(dir_target):
@@ -91,6 +92,11 @@ thumbnail_file = os.path.join(dir_target, arg_dict["id"]+".png")
 new_material.asset_mark()
 if cat_id:
     new_material.asset_data.catalog_id = cat_id
+
+if tags:
+	for t in tags:
+		new_material.asset_data.tags.new(t, skip_if_exists=True)
+new_material.asset_data.description = "Material by ambientcg.com"
 
 override = bpy.context.copy()
 override["id"] = new_material

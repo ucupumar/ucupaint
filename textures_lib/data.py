@@ -10,6 +10,7 @@ class AssetItem:
 		self.id = ""
 		self.name = ""
 		self.thumbnail = ""
+		self.tags:list[str] = []
 		self.source_type = ""
 
 		self.attributes:dict[str, AssetAttribute] = {}
@@ -28,6 +29,7 @@ class AssetItem:
 			"name": self.name,
 			"thumbnail": self.thumbnail,
 			"source_type": self.source_type,
+			"tags": self.tags,
 			"attributes": {k: v.to_dict() for k, v in self.attributes.items()}
 		}
 
@@ -38,6 +40,7 @@ class AssetItem:
 		instance.name = data.get("name", "")
 		instance.thumbnail = data.get("thumbnail", "")
 		instance.source_type = data.get("source_type", "")
+		instance.tags = data.get("tags", [])
 		instance.attributes = {k: AssetAttribute.from_dict(v) for k, v in data.get("attributes", {}).items()}
 
 		return instance

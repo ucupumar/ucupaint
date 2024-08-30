@@ -40,6 +40,13 @@ asset.asset_mark()
 if cat_id:
     asset.asset_data.catalog_id = cat_id
 
+tags = arg_dict["tags"].split(";")
+
+if tags:
+	for t in tags:
+		asset.asset_data.tags.new(t, skip_if_exists=True)
+asset.asset_data.description = "Material by polyhaven.com"
+
 override = bpy.context.copy()
 override["id"] = asset
 

@@ -114,13 +114,13 @@ def monitor_downloads():
 					extract_file(dwn.file_path)
 					delete_zip(dwn.file_path)
 					dir_file = os.path.dirname(dwn.file_path)
-					convert_ambientcg_asset(dir_file, dwn.asset_id, dwn.asset_attribute, dwn.asset_cat_id)
+					convert_ambientcg_asset(dir_file, dwn.asset_id, dwn.asset_attribute, dwn.asset_cat_id, dwn.tags)
 				else:
 					print("finishhh ", dwn.asset_id, " | ", dwn.asset_attribute)
 					dir_file = os.path.dirname(dwn.file_path)
 					# up 
 					# dir_file = os.path.dirname(dir_file)
-					mark_polyhaven_asset(dir_file, dwn.asset_id, dwn.asset_attribute, dwn.asset_cat_id)
+					mark_polyhaven_asset(dir_file, dwn.asset_id, dwn.asset_attribute, dwn.asset_cat_id, dwn.tags)
 				to_remove.append(index)
 			else:
 				prog =  thread.progress
@@ -257,7 +257,7 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 	base_link = "https://ambientCG.com/api/v2/full_json"
 	params = {
 		'type': 'Material',
-		'include':'imageData,downloadData',
+		'include':'imageData,downloadData,tagData,displayData',
 		'limit': str(limit),
 		'offset': str(limit * page) 
 	}
@@ -277,17 +277,18 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 	retval:dict[str, AssetItem] = {}
 	
 	for asst in assets:
+		# print(json.dumps(asst, indent=4))
 		asset_id = asst["assetId"]
 		thumbnail = asst["previewImage"]["256-PNG"]
 
 		zip_assets = asst["downloadFolders"]["default"]["downloadFiletypeCategories"]["zip"]["downloads"]
 
-
 		new_item = AssetItem()
 		new_item.id = asset_id
-		new_item.name = asset_id
+		new_item.name = asst["displayName"]
 		new_item.thumbnail = thumbnail
 		new_item.source_type = SourceType.SOURCE_AMBIENTCG
+		new_item.tags = asst["tags"]
 
 		for k in zip_assets:
 			attr = k["attribute"]
@@ -296,7 +297,7 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 	return retval
 
-def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str)->AssetItem:
+def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str, tags:list[str])->AssetItem:
 	base_link = "https://api.polyhaven.com/files/"+id
 	response = requests.get(base_link, verify=False)
  	
@@ -309,6 +310,7 @@ def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str)->AssetItem:
 	retval.id = id
 	retval.name = asset_name
 	retval.thumbnail = thumb_url
+	retval.tags = tags
 
 	obj = response.json()
 	blend_obj = obj["blend"]
@@ -359,7 +361,7 @@ def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 		it = obj_assets[id]
 		# print("index ", i, "id ", id, "name ", it["name"], "thumb ", it["thumbnail_url"])
-		new_item = retrieve_polyhaven_asset(id, it["name"], it["thumbnail_url"])
+		new_item = retrieve_polyhaven_asset(id, it["name"], it["thumbnail_url"], it["tags"])
 		retval[new_item.id] = new_item
 
 	return retval
@@ -397,7 +399,7 @@ def delete_zip(file_path):
 	except Exception as e:
 		print('Error while deleting zip file:', e)
 
-def convert_ambientcg_asset(ambient_dir:str, id:str, attribute:str, cat_id:str):
+def convert_ambientcg_asset(ambient_dir:str, id:str, attribute:str, cat_id:str, tags:str):
 	import subprocess
 	print("current directory: ", os.getcwd())
 	print("data: ", ambient_dir, " | ", id)
@@ -420,11 +422,13 @@ def convert_ambientcg_asset(ambient_dir:str, id:str, attribute:str, cat_id:str):
 			"--attribute",
 			attribute,
 			"--category_id",
-			cat_id
+			cat_id,
+			"--tags",
+			tags
         ]
     )
 
-def mark_polyhaven_asset(dir:str, id:str, attribute:str, cat_id:str):
+def mark_polyhaven_asset(dir:str, id:str, attribute:str, cat_id:str, tags:str):
 	import subprocess
 
 	file_blend = ""
@@ -458,7 +462,9 @@ def mark_polyhaven_asset(dir:str, id:str, attribute:str, cat_id:str):
 			"--attribute",
 			attribute,
 			"--category_id",
-			cat_id
+			cat_id,
+			"--tags",
+			tags
         ]
     )
 

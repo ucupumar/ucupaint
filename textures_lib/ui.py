@@ -151,9 +151,13 @@ class TexLibBrowser(Panel):
     def draw_library(self, context, texlib:TexLibProps):
         sel_index = texlib.library_index
         my_list = texlib.library_items
+        layout = self.layout
+
+        if sel_index >= len(my_list):
+            layout.operator("texlib.show_lib")
+            return
         selected:MaterialItem = my_list[sel_index]
     
-        layout = self.layout
         layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "library_items", texlib, "library_index")
         layout.operator("texlib.show_lib")
 
