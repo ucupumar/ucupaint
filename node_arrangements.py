@@ -1144,7 +1144,7 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y = 0
 
         if mask.group_node == '' and len(mask.modifiers) > 0:
-            loc.x += 180
+            loc.x += 270
             arrange_mask_modifier_nodes(tree, mask, loc)
             loc.x += 20
         else:

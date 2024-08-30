@@ -19,7 +19,8 @@ class YBakeInfoSelectedObject(bpy.types.PropertyGroup):
 
 class YBakeInfoProps(bpy.types.PropertyGroup):
 
-    is_baked : BoolProperty(default=False)
+    is_baked : BoolProperty(default=False) # Flag to mark if the image is from baking or not
+    is_baked_channel : BoolProperty(default=False) # Flag to mark if the image baked from main channel
 
     bake_type : EnumProperty(
             name = 'Bake Type',
@@ -130,6 +131,11 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             description = 'Image interpolation type',
             items = interpolation_type_items,
             default = 'Linear')
+
+    use_float_for_displacement : BoolProperty(
+            name = 'Use Float for Displacement',
+            description='Use float image for baked displacement',
+            default=False)
 
     # To store other objects info
     other_objects : CollectionProperty(type=YBakeInfoOtherObject)

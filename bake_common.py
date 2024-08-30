@@ -1310,7 +1310,8 @@ def get_valid_filepath(img, use_hdr):
 
     return img.filepath
 
-def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear'):
+def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
+                 aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', use_float_for_displacement=False):
 
     print('BAKE CHANNEL: Baking', root_ch.name + ' channel...')
 
@@ -1798,8 +1799,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
             disp_img = img.copy()
             disp_img.name = disp_img_name
-            # NOTE: Enable subdivision setup will bake displacement to float image
-            disp_img.use_generated_float = root_ch.enable_subdiv_setup
+            disp_img.use_generated_float = use_float_for_displacement
             disp_img.colorspace_settings.name = 'Non-Color'
             color = (0.5, 0.5, 0.5, 1.0)
 

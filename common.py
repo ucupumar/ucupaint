@@ -354,6 +354,18 @@ texcoord_type_items = (
         ('Decal', 'Decal', ''),
         )
 
+mask_texcoord_type_items = (
+        ('Generated', 'Generated', ''),
+        ('Normal', 'Normal', ''),
+        ('UV', 'UV', ''),
+        ('Object', 'Object', ''),
+        ('Camera', 'Camera', ''),
+        ('Window', 'Window', ''),
+        ('Reflection', 'Reflection', ''),
+        ('Decal', 'Decal', ''),
+        ('Layer', 'Use Layer Vector', ''),
+        )
+
 interpolation_type_items = (
         ('Linear', 'Linear', 'Linear interpolation.'),
         ('Closest', 'Closest', 'No interpolation (sample closest texel).'),
@@ -707,6 +719,13 @@ def remove_datablock(blocks, block, user=None, user_prop=''):
     else:
         if user and user_prop != '':
             setattr(user, user_prop, None)
+
+        if blocks == bpy.data.objects:
+            # Need to remove object from scene first
+            objs = get_scene_objects()
+            if block.name in objs:
+                objs.unlink(block)
+
         block.user_clear()
         blocks.remove(block)
 
@@ -743,8 +762,8 @@ def get_scene_objects():
 
 def remove_mesh_obj(obj):
     data = obj.data
-    bpy.data.objects.remove(obj, do_unlink=True)
-    bpy.data.meshes.remove(data)  
+    remove_datablock(bpy.data.objects, obj)
+    remove_datablock(bpy.data.meshes, data)
 
 def get_viewport_shade():
     if is_greater_than_280():
@@ -2434,19 +2453,19 @@ def get_tree_inputs(tree):
     if not is_greater_than_400():
         return tree.inputs
 
-    return [ui for ui in tree.interface.items_tree if ui.in_out in {'INPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'INPUT', 'BOTH'}]
 
 def get_tree_outputs(tree):
     if not is_greater_than_400():
         return tree.outputs
 
-    return [ui for ui in tree.interface.items_tree if ui.in_out in {'OUTPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
 
 def get_tree_input_by_name(tree, name):
     if not is_greater_than_400():
         return tree.inputs.get(name)
 
-    inp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'INPUT', 'BOTH'}]
+    inp = [ui for ui in tree.interface.items_tree if ui.name == name and hasattr(ui, 'in_out') and ui.in_out in {'INPUT', 'BOTH'}]
     if inp: return inp[0]
 
     return None
@@ -2455,7 +2474,7 @@ def get_tree_output_by_name(tree, name):
     if not is_greater_than_400():
         return tree.outputs.get(name)
 
-    outp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'OUTPUT', 'BOTH'}]
+    outp = [ui for ui in tree.interface.items_tree if ui.name == name and hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
     if outp: return outp[0]
 
     return None
@@ -2476,7 +2495,7 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
     # Keep the code just in case it will work again someday
     if use_both and False:
         # Check if output with same name already exists
-        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
+        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and hasattr(ui, 'in_out') and it.in_out == 'OUTPUT']
         if items:
             inp = items[0]
             inp.in_out = 'BOTH'
@@ -5404,7 +5423,11 @@ def is_layer_using_vector(layer):
         return True
 
     for ch in layer.channels:
-        if ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+        if ch.enable and ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+            return True
+
+    for mask in layer.masks:
+        if mask.enable and mask.texcoord_type == 'Layer':
             return True
 
     return False

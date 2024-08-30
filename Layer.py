@@ -729,7 +729,7 @@ class YNewLayer(bpy.types.Operator):
     channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items, #set=set_channel_idx, get=get_channel_idx)
+            items = channel_items,
             update=update_channel_idx_new_layer)
 
     blend_type : EnumProperty(
@@ -915,6 +915,10 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             self.name = get_unique_name(self.name, yp.layers)
 
+        # Make sure decal is off when adding non mappable layer
+        if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
+            self.texcoord_type = 'UV'
+
         # Check if color id already being used
         while True:
             # Use color id tolerance value as lowest value to avoid pure black color
@@ -922,7 +926,6 @@ class YNewLayer(bpy.types.Operator):
             if not is_colorid_already_being_used(yp, self.mask_color_id): break
 
         if obj.type != 'MESH':
-            #self.texcoord_type = 'Object'
             self.texcoord_type = 'Generated'
         else:
             if obj.type == 'MESH':
@@ -1707,19 +1710,24 @@ class BaseMultipleImagesLayer():
 
         # Check if initial of synonym is in the end of image name
         # Avoid initial a because it's too common
-        initial = syname[0]
-        if initial != 'a' and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
+        initial = syname[0] if syname not in {'displacement', 'base color'} else ''
+        if initial not in {'a', ''} and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
             return True
 
         return False
     
-    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, images=[]) -> bool:
+    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, non_import_images=[]) -> bool:
     
         T = time.time()
+        
+        images = []
+        images.extend(non_import_images)
 
         # Load images from directory
         if import_list:
-            images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
+            if is_greater_than_277():
+                images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
+            else: images.extend(list(load_image(path, directory) for path in import_list))
 
         valid_channels = []
         valid_images = []
@@ -1733,9 +1741,9 @@ class BaseMultipleImagesLayer():
             # Get filename without extension
             name = os.path.splitext(os.path.basename(image.filepath))[0]
             lname = name.lower()
-            if 'normaldx' in lname or 'nor_gl' in lname:
+            if 'normaldx' in lname or 'nor_dx' in lname:
                 dx_image = image
-            if 'normalgl' in lname or 'nor_dx' in lname:
+            if 'normalgl' in lname or 'nor_gl' in lname:
                 gl_image = image
 
         synonym_libs = {
@@ -1772,9 +1780,6 @@ class BaseMultipleImagesLayer():
                 #if ch in valid_channels: break
                 if main_image_found: break
             
-                # Get channel name possible variation
-                initial = syname[0]
-
                 for image in images:
 
                     # One image will only use one channel
@@ -1812,7 +1817,10 @@ class BaseMultipleImagesLayer():
         # Check if found more than 1 images for normal channel
         
         if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
-            normal_map_type = 'BUMP_NORMAL_MAP'
+            # NOTE: Most PBR textures are optimized to use 'displacement only without bump' in conjunction with normal map
+            # Since this addon already produce normal map with the displacement, it's better to not use assigned normal map
+            #normal_map_type = 'BUMP_NORMAL_MAP'
+            normal_map_type = 'BUMP_MAP'
         elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] == 'normal']):
             normal_map_type = 'NORMAL_MAP'
         else: normal_map_type = 'BUMP_MAP'
@@ -1828,8 +1836,11 @@ class BaseMultipleImagesLayer():
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            m = re.match(r'^yp\.channels\[(\d+)\].*', root_ch.path_from_id())
-            ch_idx = int(m.group(1))
+            ch_idx = get_channel_index(root_ch)
+
+            # Use non-color for non-color channel
+            if root_ch.colorspace == 'LINEAR' and not image.is_dirty:
+                image.colorspace_settings.name = 'Non-Color'
 
             # Use image directly to layer for the first index
             if i == 0:
@@ -1891,7 +1902,7 @@ class BaseMultipleImagesLayer():
     def invoke_operator(self, context:bpy.context):
         obj = context.object
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        yp = node.node_tree.yp if node else None
         ypup = get_user_preferences()
 
         # Use user preference default image size if input uses default image size
@@ -1918,12 +1929,8 @@ class BaseMultipleImagesLayer():
 
         #return context.window_manager.invoke_props_dialog(self)
     def draw_operator(self, context, display_relative_toggle=True):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
         obj = context.object
 
-        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
-        
         row = split_layout(self.layout, 0.325)
 
         col = row.column()
@@ -1997,9 +2004,9 @@ class BaseMultipleImagesLayer():
         return True
 
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
-    """Open all images inside material node tree to single layer"""
     bl_idname = "node.y_open_images_from_material_to_single_layer"
-    bl_label = "Open Images from Material to Single Layer"
+    bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
+    bl_description = "Open images inside material node tree to single " + get_addon_title() + " layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     mat_name : StringProperty(default='')
@@ -2007,7 +2014,8 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
     @classmethod
     def poll(cls, context):
-        return get_active_ypaint_node()
+        #return get_active_ypaint_node()
+        return context.object
 
     def invoke(self, context, event):
         self.invoke_operator(context)
@@ -2023,24 +2031,6 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         for mat in bpy.data.materials:
             if mat.name not in {'Dots Stroke'} and mat.name not in cur_mats:
                 self.mat_coll.add().name = mat.name
-
-        # Get material lists from asset library
-        if is_greater_than_300():
-
-            prefs = bpy.context.preferences
-            filepaths = prefs.filepaths
-            asset_libraries = filepaths.asset_libraries
-        
-            for asset_library in asset_libraries:
-                library_name = asset_library.name
-                library_path = pathlib.Path(asset_library.path)
-                blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
-                print("Checking the content of library '" + library_name + "'")
-                for blend_file in blend_files:
-                    with bpy.data.libraries.load(str(blend_file), assets_only=True) as (file_contents, _):
-                        for mat in file_contents.materials:
-                            if mat not in self.mat_coll:
-                                self.mat_coll.add().name = mat
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -2153,8 +2143,15 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             # Use filtered images
             images = filtered_images
 
+        # Use quick setup if yp node is not found
+        node = get_active_ypaint_node()
+        quick_setup_happen = False
+        if not node:
+            bpy.ops.node.y_quick_ypaint_node_setup()
+            quick_setup_happen = True
+
         failed = False
-        if not self.open_images_to_single_layer(context, directory='', import_list=[], images=images):
+        if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images):
             self.report({'ERROR'}, "Images should have channel name as suffix!")
             failed = True
 
@@ -2163,14 +2160,16 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             remove_datablock(bpy.data.materials, mat)
 
         if failed:
+            if quick_setup_happen:
+                bpy.ops.node.y_remove_yp_node()
             return {'CANCELLED'}
 
         return {'FINISHED'}
 
 class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
-    """Open images to single layer"""
     bl_idname = "node.y_open_images_to_single_layer"
-    bl_label = "Open Images to Single Layer"
+    bl_label = "Open Images to single Layer"
+    bl_description = "Open images to single layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -4216,6 +4215,12 @@ class YDuplicateLayer(bpy.types.Operator):
             new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', group_node.label)
             new_group_node.node_tree = group_node.node_tree
 
+            # Duplicate group inputs
+            source_node = tree.nodes.get(l.group_node)
+            for inp in new_group_node.inputs:
+                source_inp = source_node.inputs.get(inp.name)
+                if source_inp: inp.default_value = source_inp.default_value
+
             # Duplicate images and some nodes inside
             if self.mode == 'COPY_DATA':
                 duplicate_layer_nodes_and_images(tree, new_layer, True, False)
@@ -5611,6 +5616,17 @@ class YLayer(bpy.types.PropertyGroup):
             items = texcoord_type_items,
             default = 'UV',
             update=update_texcoord_type)
+
+    original_texcoord : EnumProperty(
+            name = 'Original Layer Coordinate Type',
+            items = texcoord_type_items,
+            default = 'UV'
+            )
+
+    original_image_extension : StringProperty(
+            name = 'Original Image Extension Type',
+            default = ''
+            )
 
     projection_blend : FloatProperty(
             name = 'Box Projection Blend',

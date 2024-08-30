@@ -243,7 +243,7 @@ class ShowFilePathPreference(Operator):
 
 class ShowLibrary(Operator):
     bl_idname = "texlib.show_lib"
-    bl_label = "Show Library"
+    bl_label = "Show Asset Browser"
 
     area_type = "FILE_BROWSER"
     area_ui_type = "ASSETS"
