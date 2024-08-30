@@ -27,6 +27,12 @@ class TexLibBrowser(Panel):
         layout.prop(texlib, "mode_asset", expand=True)
         search_mode = texlib.mode_asset == "SEARCH"
 
+        ass_lib = get_asset_lib(context)
+        if ass_lib == None:
+            layout.label(text="Warning! Create an asset library")
+            layout.operator("texlib.show_pref")
+            return
+
         if search_mode:
             self.draw_search(context, texlib)
         else:
@@ -38,11 +44,6 @@ class TexLibBrowser(Panel):
         sel_index = texlib.search_index
         my_list = texlib.search_items
 
-        ass_lib = get_asset_lib(context)
-        if ass_lib == None:
-            layout.label(text="Warning! Create an asset library")
-            layout.operator("texlib.show_pref")
-            return
         # layout.operator("texlib.debug")
 
         layout.prop(texlib, "input_search")
@@ -51,7 +52,6 @@ class TexLibBrowser(Panel):
         # source_search.prop(texlib, "check_local")
         source_search.prop(texlib, "check_ambiencg")
         source_search.prop(texlib, "check_polyhaven")
-        layout.operator("texlib.show_lib")
 
         searching_dwn = texlib.searching_download
     
@@ -149,10 +149,31 @@ class TexLibBrowser(Panel):
                 layout.template_list("TEXLIB_UL_Downloads", "download_list", texlib, "downloads", texlib, "selected_download_item")
 
     def draw_library(self, context, texlib:TexLibProps):
+        sel_index = texlib.library_index
+        my_list = texlib.library_items
+        selected:MaterialItem = my_list[sel_index]
+    
         layout = self.layout
         layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "library_items", texlib, "library_index")
-        # todo : add preview
-        # todo : add to ucupaint
+        layout.operator("texlib.show_lib")
+
+        layout.separator()
+        layout.label(text="Preview:")   
+        mat_name = selected.name
+        prev_box = layout.box()
+        selected_mat = prev_box.column(align=True)
+        selected_mat.alignment = "CENTER"
+        thumb = _get_asset_preview(selected.asset_id)
+        selected_mat.template_icon(icon_value=thumb, scale=5.0)
+        selected_mat.label(text=mat_name)
+
+        split_names = mat_name.split("_")
+        if len(split_names) > 1:
+            attr = split_names[-1]
+
+        op:TexLibAddToUcupaint = layout.operator("texlib.add_to_ucupaint", icon="ADD")
+        op.attribute = attr
+        op.id = selected.asset_id
 
 class TEXLIB_UL_Downloads(UIList):
 

@@ -15,7 +15,7 @@ from .properties import assets_library, TexLibProps, DownloadQueue,  get_texture
 class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
     """Open Multiple Textures to Layer Ucupaint"""
 
-    bl_label = ""
+    bl_label = "Add to Ucupaint"
     bl_idname = "texlib.add_to_ucupaint"
 
     attribute:StringProperty()
