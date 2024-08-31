@@ -27,8 +27,10 @@ def load_per_material(file_name:str, material_item):
 def cancel_searching(context):
 
 	thread_search = get_searching_thread()
-	thread_search.cancel = True
-	texlib = context.scene.texlib
+	if thread_search != None:
+		thread_search.cancel = True
+		
+	texlib:TexLibProps = context.scene.texlib
 	
 	searching_dwn = texlib.searching_download
 	searching_dwn.alive = False
@@ -151,13 +153,14 @@ def searching_material(context:Context, keyword:str, search_ambientcg:bool = Tru
 		search_results.update(list_polyhaven)
 	thread_search.progress = 60
 
-
 	assets_library.update(search_results)
 
 	save_library_to_file(context, search_results, "last-search.json")
+	thread_search.progress = 65
+
 	save_library_to_file(context, assets_library, "assets.json")
 
-	thread_search.progress = 80
+	thread_search.progress = 70
 
 	txlib.search_items.clear()
 	for key in search_results:

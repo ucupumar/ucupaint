@@ -341,18 +341,26 @@ def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 	if keyword != '':
 		params['c'] = keyword
+
+	thread_search = get_searching_thread()
 	
 	print("retrieve_polyhaven", base_link, params)
 	response = requests.get(base_link, params=params, verify=False)
 	if not response.status_code == 200:
 		print("Can't download, Code: " + str(response.status_code))
 		return None
+	thread_search.progress = 35
 	
+	progress_initial = thread_search.progress
+	progress_max = 60
+	span = progress_max - progress_initial
 
 	retval:dict[str, AssetItem] = {}
 	
 	obj_assets = response.json()
 	# print("response ", json.dumps(obj_assets))
+
+	item_count = len(obj_assets.keys())
 
 	for i, id in enumerate(obj_assets.keys()):
 		# print("index ", i, "id ", id)
@@ -363,6 +371,10 @@ def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 		# print("index ", i, "id ", id, "name ", it["name"], "thumb ", it["thumbnail_url"])
 		new_item = retrieve_polyhaven_asset(id, it["name"], it["thumbnail_url"], it["tags"])
 		retval[new_item.id] = new_item
+	
+		prog = (i + 1) / item_count
+
+		thread_search.progress = (int) (progress_initial + prog * span)
 
 	return retval
 
