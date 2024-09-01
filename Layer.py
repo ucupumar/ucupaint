@@ -3874,7 +3874,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False):
+def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False, make_image_packed=False):
 
     yp = tree.yp
     ypup = get_user_preferences()

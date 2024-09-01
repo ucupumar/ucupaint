@@ -6406,13 +6406,14 @@ def is_image_filepath_unique(image):
             return False
     return True
 
-def duplicate_image(image):
+def duplicate_image(image, make_image_packed= False):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
             image.pack()
         else: image.save()
 
+        
     # Get new name
     if image.filepath_from_user() == '':
         new_name = get_unique_name(image.name, bpy.data.images)
