@@ -2650,19 +2650,19 @@ def get_tree_inputs(tree):
     if not is_greater_than_400():
         return tree.inputs
 
-    return [ui for ui in tree.interface.items_tree if ui.in_out in {'INPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'INPUT', 'BOTH'}]
 
 def get_tree_outputs(tree):
     if not is_greater_than_400():
         return tree.outputs
 
-    return [ui for ui in tree.interface.items_tree if ui.in_out in {'OUTPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
 
 def get_tree_input_by_name(tree, name):
     if not is_greater_than_400():
         return tree.inputs.get(name)
 
-    inp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'INPUT', 'BOTH'}]
+    inp = [ui for ui in tree.interface.items_tree if ui.name == name and hasattr(ui, 'in_out') and ui.in_out in {'INPUT', 'BOTH'}]
     if inp: return inp[0]
 
     return None
@@ -2671,7 +2671,7 @@ def get_tree_output_by_name(tree, name):
     if not is_greater_than_400():
         return tree.outputs.get(name)
 
-    outp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'OUTPUT', 'BOTH'}]
+    outp = [ui for ui in tree.interface.items_tree if ui.name == name and hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
     if outp: return outp[0]
 
     return None
@@ -2692,7 +2692,7 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
     # Keep the code just in case it will work again someday
     if use_both and False:
         # Check if output with same name already exists
-        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
+        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and hasattr(ui, 'in_out') and it.in_out == 'OUTPUT']
         if items:
             inp = items[0]
             inp.in_out = 'BOTH'

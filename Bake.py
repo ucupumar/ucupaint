@@ -3332,6 +3332,7 @@ def check_subdiv_setup(height_ch):
     if not height_ch: return
     mat = get_active_material()
     scene = bpy.context.scene
+    objs = get_all_objects_with_same_materials(mat, True)
 
     mtree = mat.node_tree
 
@@ -3356,13 +3357,19 @@ def check_subdiv_setup(height_ch):
 
         # Set displacement mode
         if hasattr(mat, 'displacement_method'):
-            mat.displacement_method = 'BOTH'
-            #mat.displacement_method = 'DISPLACEMENT'
+            #mat.displacement_method = 'BOTH'
+            mat.displacement_method = 'DISPLACEMENT'
 
         if is_greater_than_280():
-            mat.cycles.displacement_method = 'BOTH'
-            #mat.cycles.displacement_method = 'DISPLACEMENT'
+            #mat.cycles.displacement_method = 'BOTH'
+            mat.cycles.displacement_method = 'DISPLACEMENT'
         else: mat.cycles.displacement_method = 'TRUE'
+        
+        # Displacement method is inside object data for Blender 2.77 and below 
+        if not is_greater_than_278():
+            for obj in objs:
+                if obj.data and hasattr(obj.data, 'cycles'):
+                    obj.data.cycles.displacement_method = 'TRUE'
 
         if not yp.enable_baked_outside:
             check_displacement_node(mat, node, set_one=True)
@@ -3399,7 +3406,6 @@ def check_subdiv_setup(height_ch):
     ori_active_obj = bpy.context.object
 
     # Iterate all objects with same materials
-    objs = get_all_objects_with_same_materials(mat, True)
     proportions = get_objs_size_proportions(objs)
     for obj in objs:
 

@@ -4213,6 +4213,12 @@ class YDuplicateLayer(bpy.types.Operator):
             new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', group_node.label)
             new_group_node.node_tree = group_node.node_tree
 
+            # Duplicate group inputs
+            source_node = tree.nodes.get(l.group_node)
+            for inp in new_group_node.inputs:
+                source_inp = source_node.inputs.get(inp.name)
+                if source_inp: inp.default_value = source_inp.default_value
+
             # Duplicate images and some nodes inside
             duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank)
 
