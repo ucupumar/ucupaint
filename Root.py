@@ -443,6 +443,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             description = 'Switch to material view so the node setup is automatically visible',
             default = True)
 
+    target_bsdf_name : StringProperty(default = '')
+    not_muted_paint_opacity : BoolProperty(default = False)
+    not_on_material_view : BoolProperty(default = True)
+
     @classmethod
     def poll(cls, context):
         return context.object
@@ -1844,8 +1848,6 @@ class YDuplicateYPNodes(bpy.types.Operator):
         yp = tree.yp
 
         # Make all layers single(dual) user
-        #for layer in yp.layers:
-        #Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=ypui.make_image_single_user)
         Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=True)
 
         # Duplicate uv nodes
@@ -1991,8 +1993,8 @@ class YFixMissingData(bpy.types.Operator):
             for ch in layer.channels:
                 ch_src = get_channel_source(ch, layer)
                 if not ch_src:
-                    if ch.override: ch.override = False
-                    if ch.override_1: ch.override_1 = False
+                    if ch.override and ch.override_type != 'DEFAULT': ch.override = False
+                    if ch.override_1 and ch.override_1_type != 'DEFAULT': ch.override_1 = False
 
         if yp.active_layer_index > len(yp.layers):
             yp.active_layer_index = len(yp.layers)-1
@@ -2068,6 +2070,11 @@ class YFixMissingData(bpy.types.Operator):
             if height_root_ch:
                 for uv in yp.uvs:
                     refresh_tangent_sign_vcol(obj, uv.name)
+
+        # Reconnect layer nodes sometimes are necessary
+        for layer in yp.layers:
+            reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
 
         return {'FINISHED'}
 
@@ -3213,7 +3220,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     use_clamp : BoolProperty(
             name = 'Use Clamp',
-            description = 'Clamp result to 0..1 range',
+            description = 'Clamp result to 0..1 range.\nDisabling this will make the baked channel uses float image',
             default = True,
             update=update_channel_use_clamp)
 
@@ -3348,7 +3355,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Real displacement using height map
     enable_subdiv_setup : BoolProperty(
             name = 'Enable Displacement Setup',
-            description = 'Enable displacement setup. Only works with Cycles or Eevee Next',
+            description = 'Enable displacement setup. Only works with Cycles or Eevee Next.',
             default=False, update=Bake.update_enable_subdiv_setup)
 
     #subdiv_standard_type : EnumProperty(

@@ -152,6 +152,12 @@ class YBakeToLayer(bpy.types.Operator):
 
     uv_map_1 : StringProperty(default='')
 
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'Image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     # For choosing overwrite entity from list
     overwrite_choice : BoolProperty(
             name='Overwrite available layer',
@@ -410,6 +416,9 @@ class YBakeToLayer(bpy.types.Operator):
         elif self.type == 'OTHER_OBJECT_EMISSION':
             self.subsurf_influence = False
 
+            self.margin = 0
+            self.ssaa = True
+
         elif self.type == 'OTHER_OBJECT_NORMAL':
             self.subsurf_influence = False
 
@@ -418,9 +427,14 @@ class YBakeToLayer(bpy.types.Operator):
                 self.normal_map_type = 'NORMAL_MAP'
                 self.normal_blend_type = 'OVERLAY'
 
+            self.margin = 0
+            self.ssaa = True
+
         elif self.type == 'OTHER_OBJECT_CHANNELS':
             self.subsurf_influence = False
             self.use_image_atlas = False
+            self.margin = 0
+            self.ssaa = True
 
         elif self.type == 'SELECTED_VERTICES':
             self.subsurf_influence = False
@@ -640,6 +654,7 @@ class YBakeToLayer(bpy.types.Operator):
         if is_greater_than_280():
             col.separator()
             col.label(text='Bake Device:')
+        col.label(text='Interpolation:')
         col.separator()
         col.label(text='')
         #col.label(text='')
@@ -716,6 +731,7 @@ class YBakeToLayer(bpy.types.Operator):
         if is_greater_than_280():
             col.separator()
             col.prop(self, 'bake_device', text='')
+        col.prop(self, 'interpolation', text='')
 
         col.separator()
         if self.type.startswith('OTHER_OBJECT_'):
@@ -1695,7 +1711,8 @@ class YBakeToLayer(bpy.types.Operator):
 
                     yp.halt_update = True
                     layer = Layer.add_new_layer(node.node_tree, layer_name, 'IMAGE', channel_idx, self.blend_type, 
-                            self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, None, segment
+                            self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, None, segment,
+                            interpolation=self.interpolation
                             )
                     yp.halt_update = False
                     active_id = yp.active_layer_index
@@ -1765,6 +1782,7 @@ class YBakeToLayer(bpy.types.Operator):
                     
                 # Set image to source
                 source.image = image
+                source.interpolation = self.interpolation
 
                 # Remove image if it's not used anymore
                 if old_image: safe_remove_image(old_image)
@@ -1946,9 +1964,7 @@ class YBakeToLayer(bpy.types.Operator):
         # Remove temporary objects
         if temp_objs:
             for o in temp_objs:
-                m = o.data
-                bpy.data.objects.remove(o)
-                remove_datablock(bpy.data.meshes, m)
+                remove_mesh_obj(o)
 
         #return {'FINISHED'}
 

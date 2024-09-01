@@ -154,6 +154,9 @@ def remove_mask(layer, mask, obj):
     # Get mask index
     mask_index = [i for i, m in enumerate(layer.masks) if m == mask][0]
 
+    # Dealing with decal object
+    remove_decal_object(tree, mask)
+
     # Remove mask fcurves first
     remove_entity_fcurves(mask)
     shift_mask_fcurves_up(layer, mask_index)
@@ -177,6 +180,7 @@ def remove_mask(layer, mask, obj):
     remove_node(tree, mask, 'baked_source')
     remove_node(tree, mask, 'blur_vector')
     remove_node(tree, mask, 'mapping')
+    remove_node(tree, mask, 'texcoord')
     remove_node(tree, mask, 'baked_mapping')
     remove_node(tree, mask, 'linear')
     remove_node(tree, mask, 'uv_map')
@@ -276,7 +280,7 @@ class YNewLayerMask(bpy.types.Operator):
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
             description = 'Mask Coordinate Type',
-            items = texcoord_type_items,
+            items = mask_texcoord_type_items,
             default = 'UV')
 
     uv_name : StringProperty(default='', update=update_new_mask_uv_map)
@@ -364,6 +368,10 @@ class YNewLayerMask(bpy.types.Operator):
                 # Use color id tolerance value as lowest value to avoid pure black color
                 self.color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
                 if not is_colorid_already_being_used(yp, self.color_id): break
+
+        # Make sure decal is off when adding non mappable mask
+        if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
+            self.texcoord_type = 'UV'
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Generated'
@@ -619,7 +627,8 @@ class YNewLayerMask(bpy.types.Operator):
 
         # Add new mask
         mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
-                self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, modifier_type=self.modifier_type, interpolation=self.interpolation)
+                self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, edge_detect_radius=self.edge_detect_radius,
+                modifier_type=self.modifier_type, interpolation=self.interpolation)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}:
@@ -672,7 +681,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
             description = 'Mask Coordinate Type',
-            items = texcoord_type_items,
+            items = mask_texcoord_type_items,
             default = 'UV')
 
     uv_map : StringProperty(default='')
@@ -690,6 +699,11 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             items = (('RGB', 'Color', ''),
                 ('ALPHA', 'Alpha', '')),
             default = 'RGB')
+
+    use_udim_detecting : BoolProperty(
+            name = 'Detect UDIMs',
+            description = 'Detect selected UDIM files and load all matching tiles.',
+            default = True)
 
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
@@ -767,6 +781,9 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         self.layout.prop(self, 'relative')
 
+        if UDIM.is_udim_supported():
+            self.layout.prop(self, 'use_udim_detecting')
+
     def execute(self, context):
         T = time.time()
         if not hasattr(self, 'layer'): return {'CANCELLED'}
@@ -778,7 +795,19 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         obj = context.object
 
         import_list, directory = self.generate_paths()
-        images = tuple(load_image(path, directory) for path in import_list)
+        if not UDIM.is_udim_supported():
+            images = tuple(load_image(path, directory) for path in import_list)
+        else:
+            ori_ui_type = bpy.context.area.ui_type
+            bpy.context.area.ui_type = 'IMAGE_EDITOR'
+            images = []
+            for path in import_list:
+                bpy.ops.image.open(filepath=directory+os.sep+path, directory=directory, 
+                        relative_path=self.relative, use_udim_detecting=self.use_udim_detecting)
+                image = bpy.context.space_data.image
+                if image not in images:
+                    images.append(image)
+            bpy.context.area.ui_type = ori_ui_type
 
         for image in images:
             if self.relative:
@@ -802,6 +831,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         # Update UI
         wm.ypui.need_update = True
+        if self.texcoord_type == 'Decal':
+            mask.expand_content = True
+            mask.expand_vector = True
+
         print('INFO: Image(s) is opened as mask(s) at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
@@ -851,7 +884,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
             description = 'Mask Coordinate Type',
-            items = texcoord_type_items,
+            items = mask_texcoord_type_items,
             default = 'UV')
 
     source_input : EnumProperty(
@@ -1084,6 +1117,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         ypui.layer_ui.expand_masks = True
         ypui.need_update = True
+        if self.texcoord_type == 'Decal':
+            mask.expand_content = True
+            mask.expand_vector = True
 
         return {'FINISHED'}
 
@@ -1694,9 +1730,20 @@ class YLayerMask(bpy.types.PropertyGroup):
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
             description = 'Mask Coordinate Type',
-            items = texcoord_type_items,
+            items = mask_texcoord_type_items,
             default = 'UV',
             update=update_mask_texcoord_type)
+
+    original_texcoord : EnumProperty(
+            name = 'Original Layer Coordinate Type',
+            items = mask_texcoord_type_items,
+            default = 'UV'
+            )
+
+    original_image_extension : StringProperty(
+            name = 'Original Image Extension Type',
+            default = ''
+            )
 
     modifier_type : EnumProperty(
             name = 'Mask Modifier Type',
@@ -1737,8 +1784,8 @@ class YLayerMask(bpy.types.PropertyGroup):
         update = update_mask_blend_type)
 
     intensity_value : FloatProperty(
-            name = 'Mask Intensity Factor', 
-            description = 'Mask Intensity Factor',
+            name = 'Mask Opacity', 
+            description = 'Mask opacity',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     # Transform
@@ -1769,6 +1816,11 @@ class YLayerMask(bpy.types.PropertyGroup):
             name = 'Blur Vector Factor', 
             description = 'Mask Intensity Factor',
             default=1.0, min=0.0, max=100.0, precision=3)
+
+    decal_distance_value : FloatProperty(
+            name = 'Decal Distance',
+            description = 'Distance between surface and the decal object',
+            min=0.0, max=100.0, default=0.5, precision=3)
 
     color_id : FloatVectorProperty(
             name='Color ID', size=3,
@@ -1845,6 +1897,14 @@ class YLayerMask(bpy.types.PropertyGroup):
     mapping : StringProperty(default='')
     baked_mapping : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    decal_process : StringProperty(default='')
+    texcoord : StringProperty(default='')
+    decal_alpha : StringProperty(default='')
+    decal_alpha_n : StringProperty(default='')
+    decal_alpha_s : StringProperty(default='')
+    decal_alpha_e : StringProperty(default='')
+    decal_alpha_w : StringProperty(default='')
 
     linear : StringProperty(default='')
 
