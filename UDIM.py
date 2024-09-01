@@ -7,7 +7,7 @@ UDIM_DIR = 'UDIM__'
 UV_TOLERANCE = 0.1
 
 def is_udim_supported():
-    return is_greater_than_340()
+    return is_greater_than_330()
 
 def fill_tiles(image, color=None, width=0, height=0, empty_only=False):
     if image.source != 'TILED': return
@@ -214,14 +214,14 @@ def remove_udim_files_from_disk(image, directory, remove_dir=False, tilenum=-1):
         try: os.rmdir(directory)
         except Exception as e: print(e)
 
-def set_udim_filepath(image, filename, directory):
+def get_udim_filepath(filename, directory):
     filepath = os.path.join(directory, filename + '.<UDIM>.png')
     if directory != tempfile.gettempdir():
         try: filepath = bpy.path.relpath(filepath)
         except: pass
     #if not os.path.exists(directory):
     #    os.makedirs(directory)
-    image.filepath = filepath
+    return filepath
 
 # UDIM need filepath to work, 
 # So there's need to initialize filepath for every udim image created
@@ -238,12 +238,17 @@ def initial_pack_udim(image, base_color=None, filename='', force_temp_dir=False)
     use_temp_dir = is_using_temp_dir(image)
 
     # Set temporary filepath
+    filepath = image.filepath
     if (image.filepath == '' or # Set image filepath if it's still empty
         not is_image_filepath_unique(image) # Force set new filepath when image filepath is not unique
         ):
         use_temp_dir = True
         filename = filename if filename != '' else image.name
-        set_udim_filepath(image, filename, temp_dir)
+
+        # Set image filepath will make image disappear on Blender 3.3
+        filepath = get_udim_filepath(filename, temp_dir)
+        if is_greater_than_340():
+            image.filepath = filepath
 
     # When blend file is copied to another PC, there's a chance directory is missing
     directory = os.path.dirname(bpy.path.abspath(image.filepath))
@@ -263,7 +268,13 @@ def initial_pack_udim(image, base_color=None, filename='', force_temp_dir=False)
         use_temp_dir = True
     else:
         # Save then pack
-        image.save()
+        if is_greater_than_340():
+            image.save()
+        else:
+            # Blender 3.3 need image ops to save the image
+            override = bpy.context.copy()
+            override['edit_image'] = image
+            bpy.ops.image.save_as(override, filepath=bpy.path.abspath(filepath), relative_path=True)
 
     if use_packed or use_temp_dir:
         image.pack()
@@ -594,10 +605,12 @@ def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0,0,0,0
             width=width, height=height, alpha=True, float_buffer=hdr, tiled=True)
     image.yua.is_udim_atlas = True
     image.yui.base_color = color
-    if colorspace != '': image.colorspace_settings.name = colorspace
 
     # Pack image
     initial_pack_udim(image)
+
+    # Set colorspace
+    if colorspace != '' and image.colorspace_settings.name != colorspace: image.colorspace_settings.name = colorspace
 
     return image
 

@@ -1217,11 +1217,11 @@ class YNewLayer(bpy.types.Operator):
                     img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
                             alpha=alpha, float_buffer=self.hdr)
 
-                #img.generated_type = self.generated_type
-                img.generated_type = 'BLANK'
-                img.generated_color = color
-                if hasattr(img, 'use_alpha'):
-                    img.use_alpha = True
+                    #img.generated_type = self.generated_type
+                    img.generated_type = 'BLANK'
+                    img.generated_color = color
+                    if hasattr(img, 'use_alpha'):
+                        img.use_alpha = True
 
             #if img.colorspace_settings.name != 'Non-Color':
             #    img.colorspace_settings.name = 'Non-Color'
