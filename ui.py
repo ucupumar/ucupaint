@@ -999,7 +999,7 @@ def draw_root_channels_ui(context, layout, node):
                             brow = bbcol.row(align=True)
                             brow.label(text='Render Method:')
                             brow.prop(mat, 'surface_render_method', text='')
-                        else:
+                        elif engine != 'HYDRA_STORM':
                             brow = bbcol.row(align=True)
                             brow.label(text='Blend Mode:')
                             brow.prop(channel, 'alpha_blend_mode', text='')
@@ -1173,14 +1173,15 @@ def draw_root_channels_ui(context, layout, node):
                     brow.label(text='Max Polygons:')
                     brow.prop(channel, 'subdiv_on_max_polys', text='')
 
-                    brow = bbcol.row(align=True)
-                    brow.label(text='Adaptive (Cycles Only):')
-                    brow.prop(channel, 'subdiv_adaptive', text='')
-
-                    if channel.subdiv_adaptive:
+                    if is_greater_than_278():
                         brow = bbcol.row(align=True)
-                        brow.label(text='Global Dicing:')
-                        brow.prop(channel, 'subdiv_global_dicing', text='')
+                        brow.label(text='Adaptive (Cycles Only):')
+                        brow.prop(channel, 'subdiv_adaptive', text='')
+
+                        if channel.subdiv_adaptive:
+                            brow = bbcol.row(align=True)
+                            brow.label(text='Global Dicing:')
+                            brow.prop(channel, 'subdiv_global_dicing', text='')
 
                     # Only show subsurf only option when object has multires
                     multires = get_multires_modifier(obj, include_hidden=True)
@@ -3490,7 +3491,7 @@ class NODE_PT_YPaint(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (context.object and context.object.type in possible_object_types 
-                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'} and context.space_data.tree_type == 'ShaderNodeTree')
+                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
 
     def draw(self, context):
         main_draw(self, context)
@@ -3504,7 +3505,7 @@ class NODE_PT_YPaintUI(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (context.object and context.object.type in possible_object_types 
-                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'} and context.space_data.tree_type == 'ShaderNodeTree')
+                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
 
     def draw(self, context):
         main_draw(self, context)
@@ -3517,7 +3518,7 @@ class VIEW3D_PT_YPaint_tools(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'}
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
     def draw(self, context):
         main_draw(self, context)
@@ -3532,7 +3533,7 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'}
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
     def draw(self, context):
         main_draw(self, context)
@@ -3973,7 +3974,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     break
 
         # Mask visibility
-        if len(layer.masks) > 0:
+        if len([m for m in layer.masks if m.enable]) > 0:
             row = master.row()
             #row.active = is_hidden
             row.active = layer.enable_masks
@@ -5716,7 +5717,7 @@ class YPaintUI(bpy.types.PropertyGroup):
     #random_prop : BoolProperty(default=False)
 
 def add_new_ypaint_node_menu(self, context):
-    if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'}: return
+    if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}: return
     l = self.layout
     l.operator_context = 'INVOKE_REGION_WIN'
     l.separator()

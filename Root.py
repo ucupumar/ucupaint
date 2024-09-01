@@ -2071,6 +2071,11 @@ class YFixMissingData(bpy.types.Operator):
                 for uv in yp.uvs:
                     refresh_tangent_sign_vcol(obj, uv.name)
 
+        # Reconnect layer nodes sometimes are necessary
+        for layer in yp.layers:
+            reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
+
         return {'FINISHED'}
 
 class YRefreshTangentSignVcol(bpy.types.Operator):

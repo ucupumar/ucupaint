@@ -1204,7 +1204,6 @@ def get_unique_name(name, items, surname = ''):
 
     return unique_name
 
-            
 def get_name_with_counter(name, items, surname = ''):
 
     # Check if items is list of strings
@@ -6406,7 +6405,7 @@ def is_image_filepath_unique(image):
             return False
     return True
 
-def duplicate_image(image, make_image_packed= False):
+def duplicate_image(image):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
@@ -6433,34 +6432,14 @@ def duplicate_image(image, make_image_packed= False):
 
     if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
 
-        directory = os.path.dirname(bpy.path.abspath(image.filepath))
-        filename = bpy.path.basename(new_image.filepath)
-
-        # Get base name
-        if image.source == 'TILED':
-            splits = filename.split('.<UDIM>.')
-            infix = '.<UDIM>.'
-        else: 
-            splits = os.path.splitext(filename)
-            infix = ''
-
-        basename = new_name
-
-        # Try to get the counter
-        m = re.match(r'^(.+)\s(\d*)$', basename)
-        if m:
-            basename = m.group(1)
-            counter = int(m.group(2))
-        else: counter = 1
-
         # Trying to set the filepath to relative
         try: new_image.filepath = bpy.path.relpath(new_image.filepath)
         except: pass
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels
-    # if new_image.source != 'TILED':
-    #     new_image.pixels = list(image.pixels)
+    if new_image.source != 'TILED' and image.is_dirty:
+        new_image.pixels = list(image.pixels)
 
     return new_image
 
