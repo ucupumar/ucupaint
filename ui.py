@@ -3053,14 +3053,20 @@ def draw_layers_ui(context, layout, node):
                 row = bbox.row(align=True)
                 row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
-        if obj.type == 'MESH' and obj.mode == 'TEXTURE_PAINT' and ((layer.type == 'IMAGE' and not mask_image) or (mask_image and mask.source_input == 'ALPHA')) and not override_image:
+        in_texture_paint_mode = obj.mode == 'TEXTURE_PAINT' or (
+                is_greater_than_430() and obj.mode == 'SCULPT' and 
+                # Assuming sculpt texture paint is already stable or enabled in experimental feature
+                (not hasattr(context.preferences.experimental, 'use_sculpt_texture_paint') or context.preferences.experimental.use_sculpt_texture_paint)
+                )
+
+        if obj.type == 'MESH' and in_texture_paint_mode and ((layer.type == 'IMAGE' and not mask_image) or (mask_image and mask.source_input == 'ALPHA')) and not override_image:
             bbox = col.box()
             row = bbox.row(align=True)
             row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
         ve = context.scene.ve_edit
-        if obj.mode == 'TEXTURE_PAINT':
-            brush = context.tool_settings.image_paint.brush
+        if in_texture_paint_mode:
+            brush = context.tool_settings.image_paint.brush if obj.mode == 'TEXTURE_PAINT' else context.tool_settings.sculpt.brush
             if ((mask_image and mask.source_input == 'RGB') or override_image) and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
