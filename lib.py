@@ -216,6 +216,9 @@ MOD_INTENSITY_HARDNESS = '~yPL Mod Intensity Hardness'
 MOD_MATH = '~yPL Mod Math'
 MOD_MATH_VALUE = '~yPL Mod Math Value'
 
+# GLTF related
+GLTF_MATERIAL_OUTPUT = 'glTF Material Output'
+
 
 channel_custom_icon_dict = {
         'RGB' : 'rgb_channel',

@@ -2975,6 +2975,19 @@ def update_enable_baked_outside(self, context):
                         mtree.links.new(vcol.outputs['Color'], l.to_socket)
                 loc_y -= 300
 
+                # Create GLTF material output node so AO can be included in Blender's automated ORM texture
+                if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO'}:
+                    gltf_outp = mtree.nodes.get(lib.GLTF_MATERIAL_OUTPUT)
+                    if not gltf_outp:
+                        gltf_outp = mtree.nodes.new('ShaderNodeGroup')
+                        gltf_outp.node_tree = get_node_tree_lib(lib.GLTF_MATERIAL_OUTPUT)
+                        gltf_outp.name = lib.GLTF_MATERIAL_OUTPUT
+                        gltf_outp.location.x = output_mat.location.x
+                        gltf_outp.location.y = output_mat.location.y + 150
+                        shift_nodes.append(gltf_outp)
+                    if 'Occlusion' in gltf_outp.inputs:
+                        mtree.links.new(tex.outputs[0], gltf_outp.inputs['Occlusion'])
+
             else:
 
                 # Copy yp default value to connected nodes
