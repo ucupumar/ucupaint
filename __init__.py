@@ -43,14 +43,13 @@ if "bpy" in locals():
     imp.reload(BakeToLayer)
     imp.reload(Root)
     imp.reload(textures_lib)
-    imp.reload(Godot)
     imp.reload(versioning)
     imp.reload(addon_updater_ops)
 else:
     from . import Localization
     from . import image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
     from . import vector_displacement_lib, vector_displacement
-    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, Godot, textures_lib, versioning
+    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, textures_lib, versioning
     from . import addon_updater_ops
 
 import bpy 
@@ -78,7 +77,6 @@ def register():
     BakeToLayer.register()
     Root.register()
     textures_lib.register()
-    Godot.register()
     versioning.register()
     addon_updater_ops.register()
 
@@ -107,7 +105,6 @@ def unregister():
     BakeToLayer.unregister()
     Root.unregister()
     textures_lib.unregister()
-    Godot.unregister()
     versioning.unregister()
     addon_updater_ops.unregister()
 
