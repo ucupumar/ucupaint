@@ -129,6 +129,7 @@ def create_new_group_tree(mat):
     group_tree = bpy.data.node_groups.new(group_name, 'ShaderNodeTree')
     group_tree.yp.is_ypaint_node = True
     group_tree.yp.version = get_current_version_str()
+    group_tree.yp.blender_version = get_current_blender_version_str()
 
     # Create IO nodes
     create_essential_nodes(group_tree, True, True, True)
