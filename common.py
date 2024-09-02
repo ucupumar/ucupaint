@@ -1193,7 +1193,6 @@ def get_unique_name(name, items, surname = ''):
     return unique_name
 
 def get_name_with_counter(name, items, surname = ''):
-    extenstion = ""
 
     # Check if items is list of strings
     if len(items) > 0 and type(items[0]) == str:
@@ -2481,19 +2480,19 @@ def get_tree_inputs(tree):
     if not is_greater_than_400():
         return tree.inputs
 
-    return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'INPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if ui.in_out in {'INPUT', 'BOTH'}]
 
 def get_tree_outputs(tree):
     if not is_greater_than_400():
         return tree.outputs
 
-    return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if ui.in_out in {'OUTPUT', 'BOTH'}]
 
 def get_tree_input_by_name(tree, name):
     if not is_greater_than_400():
         return tree.inputs.get(name)
 
-    inp = [ui for ui in tree.interface.items_tree if ui.name == name and hasattr(ui, 'in_out') and ui.in_out in {'INPUT', 'BOTH'}]
+    inp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'INPUT', 'BOTH'}]
     if inp: return inp[0]
 
     return None
@@ -2502,7 +2501,7 @@ def get_tree_output_by_name(tree, name):
     if not is_greater_than_400():
         return tree.outputs.get(name)
 
-    outp = [ui for ui in tree.interface.items_tree if ui.name == name and hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
+    outp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'OUTPUT', 'BOTH'}]
     if outp: return outp[0]
 
     return None
@@ -2523,7 +2522,7 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
     # Keep the code just in case it will work again someday
     if use_both and False:
         # Check if output with same name already exists
-        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and hasattr(ui, 'in_out') and it.in_out == 'OUTPUT']
+        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
         if items:
             inp = items[0]
             inp.in_out = 'BOTH'
@@ -6394,7 +6393,7 @@ def is_image_filepath_unique(image):
             return False
     return True
 
-def duplicate_image(image, make_image_packed= False):
+def duplicate_image(image):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
@@ -6403,47 +6402,23 @@ def duplicate_image(image, make_image_packed= False):
 
         
     # Get new name
-    new_name = get_name_with_counter(image.name, bpy.data.images)
+    if image.filepath_from_user() == '':
+        new_name = get_unique_name(image.name, bpy.data.images)
+    else:
+        new_name = get_name_with_counter(image.name, bpy.data.images)
     new_image_name = get_name_with_counter(image.name, bpy.data.images)
-    old_image_name = bpy.data.images[image.name].filepath_from_user()
-    new_image_name = old_image_name.replace(image.name, new_image_name)
+    old_image_path = bpy.data.images[image.name].filepath_from_user()
+    new_image_path = old_image_path.replace(image.name, new_image_name)
 
     # Copy image
     new_image = image.copy()
     new_image.name = new_name
 
-    if not make_image_packed :
-        new_image.name = new_name
-        new_image.filepath = new_image_name
-        os.system('copy \"%s\" \"%s\"' %(old_image_name, new_image_name))
-    
-    if image.source == 'TILED'  or (not image.packed_file and image.filepath != '' and make_image_packed == True):
+    new_image.filepath = new_image_path
+    if  image.filepath_from_user()!= '' :
+        shutil.copyfile(old_image_path, new_image_path)
 
-        # NOTE: Duplicated image will always be packed for now
-        if not image.packed_file:
-            if is_greater_than_280():
-                new_image.pack()
-            else: new_image.pack(as_png=True)
-
-        directory = os.path.dirname(bpy.path.abspath(image.filepath))
-        filename = bpy.path.basename(new_image.filepath)
-
-        # Get base name
-        if image.source == 'TILED':
-            splits = filename.split('.<UDIM>.')
-            infix = '.<UDIM>.'
-        else: 
-            splits = os.path.splitext(filename)
-            infix = ''
-
-        basename = new_name
-
-        # Try to get the counter
-        m = re.match(r'^(.+)\s(\d*)$', basename)
-        if m:
-            basename = m.group(1)
-            counter = int(m.group(2))
-        else: counter = 1
+    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
 
         # Trying to set the filepath to relative
         try: new_image.filepath = bpy.path.relpath(new_image.filepath)
@@ -6451,8 +6426,8 @@ def duplicate_image(image, make_image_packed= False):
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels
-    # if new_image.source != 'TILED':
-    #     new_image.pixels = list(image.pixels)
+    if new_image.source != 'TILED' and image.is_dirty:
+        new_image.pixels = list(image.pixels)
 
     return new_image
 
