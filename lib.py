@@ -218,6 +218,7 @@ MOD_MATH_VALUE = '~yPL Mod Math Value'
 
 # GLTF related
 GLTF_MATERIAL_OUTPUT = 'glTF Material Output'
+GLTF_SETTINGS = 'glTF Settings'
 
 
 channel_custom_icon_dict = {

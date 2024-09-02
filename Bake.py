@@ -2976,17 +2976,32 @@ def update_enable_baked_outside(self, context):
                 loc_y -= 300
 
                 # Create GLTF material output node so AO can be included in Blender's automated ORM texture
-                if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO'}:
-                    gltf_outp = mtree.nodes.get(lib.GLTF_MATERIAL_OUTPUT)
+                if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO', 'Specular', 'Specular Color', 'Thickness'}:
+                    node_name = lib.GLTF_MATERIAL_OUTPUT if is_greater_than_340() else lib.GLTF_SETTINGS
+                    gltf_outp = mtree.nodes.get(node_name)
                     if not gltf_outp:
                         gltf_outp = mtree.nodes.new('ShaderNodeGroup')
-                        gltf_outp.node_tree = get_node_tree_lib(lib.GLTF_MATERIAL_OUTPUT)
-                        gltf_outp.name = lib.GLTF_MATERIAL_OUTPUT
+                        gltf_outp.node_tree = get_node_tree_lib(node_name)
+                        gltf_outp.name = node_name
+                        gltf_outp.label = node_name
                         gltf_outp.location.x = output_mat.location.x
-                        gltf_outp.location.y = output_mat.location.y + 150
+                        gltf_outp.location.y = output_mat.location.y + 200
                         shift_nodes.append(gltf_outp)
-                    if 'Occlusion' in gltf_outp.inputs:
+
+                    if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO'} and 'Occlusion' in gltf_outp.inputs:
                         mtree.links.new(tex.outputs[0], gltf_outp.inputs['Occlusion'])
+                    elif ch.name == 'Thickness' and 'Thickness' in gltf_outp.inputs:
+                        mtree.links.new(tex.outputs[0], gltf_outp.inputs['Thickness'])
+                    elif ch.name == 'Specular':
+                        if 'Specular' in gltf_outp.inputs:
+                            mtree.links.new(tex.outputs[0], gltf_outp.inputs['Specular'])
+                        elif 'specular glTF' in gltf_outp.inputs:
+                            mtree.links.new(tex.outputs[0], gltf_outp.inputs['specular glTF'])
+                    elif ch.name == 'Specular Color':
+                        if 'Specular Color' in gltf_outp.inputs:
+                            mtree.links.new(tex.outputs[0], gltf_outp.inputs['Specular Color'])
+                        elif 'specularColor glTF' in gltf_outp.inputs:
+                            mtree.links.new(tex.outputs[0], gltf_outp.inputs['specularColor glTF'])
 
             else:
 
