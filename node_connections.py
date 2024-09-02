@@ -2085,20 +2085,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         layer_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_distance_value'))
                         mask_vector = create_link(tree, mask_vector, mask_decal_process.inputs[0])[0]
                         if layer_decal_distance: create_link(tree, layer_decal_distance, mask_decal_process.inputs[1])
-            elif mask.texcoord_type == 'Layer':
-                mask_vector = vector
             else: 
                 mask_vector = get_essential_node(tree, TREE_START).get(io_names[mask.texcoord_type])
 
             if mask_vector:
 
-                if mask.use_baked:
-                    mask_baked_mapping = nodes.get(mask.baked_mapping)
-                    if mask_baked_mapping:
-                        mask_vector = create_link(tree, mask_vector, mask_baked_mapping.inputs[0])[0]
-
-                elif mask.texcoord_type != 'Layer':
-
+                if not mask.use_baked:
                     mask_blur_factor = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'blur_vector_factor'))
                     if mask_blur_factor: create_link(tree, mask_blur_factor, mask_blur_vector.inputs[0])
 
@@ -2151,15 +2143,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         mask_val_w = create_link(tree, mask_val_w, mask_decal_alpha_w.inputs[0])[0]
                         create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha_w.inputs[1])
 
-            if mask.texcoord_type != 'Layer':
-
                 # UV Neighbor multiplier
                 if bump_smooth_multiplier_value and 'Multiplier' in mask_uv_neighbor.inputs:
                     create_link(tree, bump_smooth_multiplier_value, mask_uv_neighbor.inputs['Multiplier'])
 
-                # Mask tangent
-                mask_tangent = get_essential_node(tree, TREE_START).get(mask_uv_name + io_suffix['TANGENT'])
-                mask_bitangent = get_essential_node(tree, TREE_START).get(mask_uv_name + io_suffix['BITANGENT'])
+            # Mask tangent
+            mask_tangent = get_essential_node(tree, TREE_START).get(mask_uv_name + io_suffix['TANGENT'])
+            mask_bitangent = get_essential_node(tree, TREE_START).get(mask_uv_name + io_suffix['BITANGENT'])
 
                 if 'Tangent' in mask_uv_neighbor.inputs:
                     if tangent: create_link(tree, tangent, mask_uv_neighbor.inputs['Tangent'])

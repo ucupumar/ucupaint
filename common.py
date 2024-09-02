@@ -354,18 +354,6 @@ texcoord_type_items = (
         ('Decal', 'Decal', ''),
         )
 
-mask_texcoord_type_items = (
-        ('Generated', 'Generated', ''),
-        ('Normal', 'Normal', ''),
-        ('UV', 'UV', ''),
-        ('Object', 'Object', ''),
-        ('Camera', 'Camera', ''),
-        ('Window', 'Window', ''),
-        ('Reflection', 'Reflection', ''),
-        ('Decal', 'Decal', ''),
-        ('Layer', 'Use Layer Vector', ''),
-        )
-
 interpolation_type_items = (
         ('Linear', 'Linear', 'Linear interpolation.'),
         ('Closest', 'Closest', 'No interpolation (sample closest texel).'),
@@ -1204,8 +1192,8 @@ def get_unique_name(name, items, surname = ''):
 
     return unique_name
 
-            
 def get_name_with_counter(name, items, surname = ''):
+    extenstion = ""
 
     # Check if items is list of strings
     if len(items) > 0 and type(items[0]) == str:
@@ -6406,7 +6394,7 @@ def is_image_filepath_unique(image):
             return False
     return True
 
-def duplicate_image(image):
+def duplicate_image(image, make_image_packed= False):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
@@ -6415,23 +6403,27 @@ def duplicate_image(image):
 
         
     # Get new name
-    if image.filepath_from_user() == '':
-        new_name = get_unique_name(image.name, bpy.data.images)
-    else:
-        new_name = get_name_with_counter(image.name, bpy.data.images)
+    new_name = get_name_with_counter(image.name, bpy.data.images)
     new_image_name = get_name_with_counter(image.name, bpy.data.images)
-    old_image_path = bpy.data.images[image.name].filepath_from_user()
-    new_image_path = old_image_path.replace(image.name, new_image_name)
+    old_image_name = bpy.data.images[image.name].filepath_from_user()
+    new_image_name = old_image_name.replace(image.name, new_image_name)
 
     # Copy image
     new_image = image.copy()
     new_image.name = new_name
 
-    new_image.filepath = new_image_path
-    if  image.filepath_from_user()!= '' :
-        shutil.copyfile(old_image_path, new_image_path)
+    if not make_image_packed :
+        new_image.name = new_name
+        new_image.filepath = new_image_name
+        os.system('copy \"%s\" \"%s\"' %(old_image_name, new_image_name))
+    
+    if image.source == 'TILED'  or (not image.packed_file and image.filepath != '' and make_image_packed == True):
 
-    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
+        # NOTE: Duplicated image will always be packed for now
+        if not image.packed_file:
+            if is_greater_than_280():
+                new_image.pack()
+            else: new_image.pack(as_png=True)
 
         directory = os.path.dirname(bpy.path.abspath(image.filepath))
         filename = bpy.path.basename(new_image.filepath)

@@ -1667,63 +1667,24 @@ class BaseMultipleImagesLayer():
 
     #def is_mask_using_image_atlas(self):
     #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
-
-    def is_synonym_in_image_name(self, syname, img_name):
-
-        # Check entire name of synonym if it's on image name
-        if (img_name.endswith(syname) or # Example: 'rocks_normalgl'
-            '_' + syname in img_name or # Example: 'rocks_normalgl_4k'
-            ' ' + syname in img_name # Example: 'rocks normalgl 4k'
-            ):
-            return True
-
-        if ' ' in syname:
-            # Check if synonym without whitespace is on image name
-            no_whitespace = syname.replace(' ', '')
-            if (img_name.endswith(no_whitespace) or # Example: 'rocks_ambientocclusion'
-                '_' + no_whitespace + '_' in img_name or # Example: 'rocks_ambientocclusion_4k'
-                ' ' + no_whitespace + ' ' in img_name # Example: 'rocks ambientocclusion 4k'
-                ):
-                return True
-
-            # Check if synonym with underscore is on image name
-            underscore = syname.replace(' ', '_')
-            if (img_name.endswith(underscore) or # Example: 'rocks_ambient_occlusion'
-                '_' + underscore + '_' in img_name or # Example: 'rocks_ambient_occlusion_4k'
-                ' ' + underscore + ' ' in img_name # Example: 'rocks ambient_occlusion 4k'
-                ):
-                return True
-
-        # Check parts of synonym if it's on image name
-        for i in range(3, 6):
-            if len(syname) > i:
-                part = syname[:i]
-                if (img_name.endswith(('_' + part, '.' + part)) or  # Example: 'rocks_diff' / 'rocks.diff'
-                    '_' + part + '_' in img_name or # Example: 'rocks_diff_4k'
-                    ' ' + part + ' ' in img_name # Example: 'rocks diff 4k'
-                    ):
-                    return True
-
-        # Check if initial of synonym is in the end of image name
-        # Avoid initial a because it's too common
-        initial = syname[0] if syname not in {'displacement', 'base color'} else ''
-        if initial not in {'a', ''} and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
-            return True
-
-        return False
     
     def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, non_import_images=[]) -> bool:
     
         T = time.time()
-        
+
         images = []
         images.extend(non_import_images)
 
-        # Load images from directory
         if import_list:
-            if is_greater_than_277():
-                images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
-            else: images.extend(list(load_image(path, directory) for path in import_list))
+            images.extend(list(load_image(path, directory) for path in import_list))
+
+        # Check existing images
+        #exist_images = []
+        #for i, new_img in enumerate(images):
+        #    for old_img in bpy.data.images:
+        #        if old_img.filepath == new_img.filepath:
+        #            exist_images.append(old_img)
+        #            break
 
         valid_channels = []
         valid_images = []
@@ -1790,6 +1751,14 @@ class BaseMultipleImagesLayer():
                         img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
                     else: img_name = image.name.lower()
 
+                    if (
+                            ## Check image name suffix and match it with channel name
+                            #(img_name.endswith(syname)) or
+
+                            #(img_name.endswith(no_whitespace)) or
+
+                            #(img_name.endswith(underscore)) or
+
                     # Check if synonym is in image name
                     if self.is_synonym_in_image_name(syname, img_name):
                         valid_images.append(image)
@@ -1805,7 +1774,7 @@ class BaseMultipleImagesLayer():
         if not valid_images:
             # Remove loaded images
             for image in images:
-                #if image not in existing_images:
+                #if image not in exist_images:
                 if image in non_import_images: continue
                 remove_datablock(bpy.data.images, image)
             return False
@@ -1925,8 +1894,12 @@ class BaseMultipleImagesLayer():
 
         #return context.window_manager.invoke_props_dialog(self)
     def draw_operator(self, context, display_relative_toggle=True):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
         obj = context.object
 
+        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        
         row = split_layout(self.layout, 0.325)
 
         col = row.column()
@@ -2000,9 +1973,9 @@ class BaseMultipleImagesLayer():
         return True
 
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
+    """Open all images inside material node tree to single layer"""
     bl_idname = "node.y_open_images_from_material_to_single_layer"
-    bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
-    bl_description = "Open images inside material node tree to single " + get_addon_title() + " layer"
+    bl_label = "Open Images from Material to Single Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     mat_name : StringProperty(default='')
@@ -2010,8 +1983,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
     @classmethod
     def poll(cls, context):
-        #return get_active_ypaint_node()
-        return context.object
+        return get_active_ypaint_node()
 
     def invoke(self, context, event):
         self.invoke_operator(context)
@@ -2027,6 +1999,24 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         for mat in bpy.data.materials:
             if mat.name not in {'Dots Stroke'} and mat.name not in cur_mats:
                 self.mat_coll.add().name = mat.name
+
+        # Get material lists from asset library
+        if is_greater_than_300():
+
+            prefs = bpy.context.preferences
+            filepaths = prefs.filepaths
+            asset_libraries = filepaths.asset_libraries
+        
+            for asset_library in asset_libraries:
+                library_name = asset_library.name
+                library_path = pathlib.Path(asset_library.path)
+                blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
+                print("Checking the content of library '" + library_name + "'")
+                for blend_file in blend_files:
+                    with bpy.data.libraries.load(str(blend_file), assets_only=True) as (file_contents, _):
+                        for mat in file_contents.materials:
+                            if mat not in self.mat_coll:
+                                self.mat_coll.add().name = mat
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -2109,43 +2099,6 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             self.report({'ERROR'}, "Cannot found images inside the material!")
             return {'CANCELLED'}
 
-        # Check for existing images if the image source is from asset library
-        if from_asset_library:
-            filtered_images = []
-            existing_images = []
-            duplicated_images = []
-            for new_img in images:
-                for old_img in bpy.data.images:
-                    if old_img in images: continue
-                    if old_img.filepath == new_img.filepath:
-                        existing_images.append(old_img)
-                        duplicated_images.append(new_img)
-                        break
-
-            # Add existing images to list
-            for img in existing_images:
-                if img not in filtered_images:
-                    filtered_images.append(img)
-
-            # Add imported images to list
-            for img in images:
-                if img not in filtered_images and img not in duplicated_images:
-                    filtered_images.append(img)
-
-            # Remove duplicated images
-            for img in duplicated_images:
-                remove_datablock(bpy.data.images, img)
-
-            # Use filtered images
-            images = filtered_images
-
-        # Use quick setup if yp node is not found
-        node = get_active_ypaint_node()
-        quick_setup_happen = False
-        if not node:
-            bpy.ops.node.y_quick_ypaint_node_setup()
-            quick_setup_happen = True
-
         failed = False
         if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images):
             self.report({'ERROR'}, "Images should have channel name as suffix!")
@@ -2156,16 +2109,14 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             remove_datablock(bpy.data.materials, mat)
 
         if failed:
-            if quick_setup_happen:
-                bpy.ops.node.y_remove_yp_node()
             return {'CANCELLED'}
 
         return {'FINISHED'}
 
 class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
+    """Open images to single layer"""
     bl_idname = "node.y_open_images_to_single_layer"
-    bl_label = "Open Images to single Layer"
-    bl_description = "Open images to single layer"
+    bl_label = "Open Images to Single Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -3874,7 +3825,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False):
+def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False, make_image_packed=False):
 
     yp = tree.yp
     ypup = get_user_preferences()
@@ -4131,6 +4082,9 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
 
                     img_nodes[i].image.colorspace_settings.name = img.colorspace_settings.name
 
+                elif make_image_packed:
+                    img_nodes[i].image = duplicate_image(img, make_image_packed= True)
+
                 else:
                     img_nodes[i].image = duplicate_image(img)
 
@@ -4147,15 +4101,7 @@ class YDuplicateLayer(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     make_image_blank : BoolProperty(default=False)
-    mode : EnumProperty(
-            name = 'Duplicate Mode',
-            items = (
-                ('COPY_DATA', 'Copy Data', 'Use copied data for the newly duplicated layer'),
-                ('BLANK_DATA', 'Blank Data', 'Use blank images and vertex colors for the newly duplicated layer'),
-                ('LINK_DATA', 'Link Data', 'Use the same data for newly duplicated layer'),
-                ),
-            default = 'COPY_DATA')
-    
+    make_image_packed : BoolProperty(default=False)
 
     @classmethod
     def poll(cls, context):
@@ -4220,7 +4166,7 @@ class YDuplicateLayer(bpy.types.Operator):
                 if source_inp: inp.default_value = source_inp.default_value
 
             # Duplicate images and some nodes inside
-            duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank)
+            duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank, self.make_image_packed)
 
             # Rename masks
             mask_names = [m.name for m in l.masks]
