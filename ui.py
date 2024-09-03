@@ -1455,7 +1455,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                             mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
                         else:
                             mcol = rrow.column()
-                            mcol.prop(mapping, 'translation', text='')
+                            mcol.prop(mapping, 'translation')
                             mcol = rrow.column()
                             mcol.prop(mapping, 'rotation')
                             mcol = rrow.column()
@@ -2424,7 +2424,7 @@ def draw_layer_masks(context, layout, layer):
                             mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
                         else:
                             mcol = rrow.column()
-                            mcol.prop(mapping, 'translation', text='')
+                            mcol.prop(mapping, 'translation')
                             mcol = rrow.column()
                             mcol.prop(mapping, 'rotation')
                             mcol = rrow.column()
