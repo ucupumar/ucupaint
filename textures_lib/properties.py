@@ -54,13 +54,17 @@ def get_preview_dir(context) -> str:
 		os.mkdir(retval)
 	return retval
 
+def get_library_name():
+	from ..common import get_addon_title
+
+	return get_addon_title()+"Assets"
+	
 def get_asset_lib(context) -> bpy.types.UserAssetLibrary:
-	num_lib = len(context.preferences.filepaths.asset_libraries)
-	if num_lib == 0:
-		return None
-	
-	return context.preferences.filepaths.asset_libraries[0]
-	
+	for l in context.preferences.filepaths.asset_libraries:
+		if l.name == get_library_name():
+			return l
+	return None
+
 def get_cat_asset_lib(context) -> str:
 	asset_lib = get_asset_lib(context)
 	if asset_lib == None:

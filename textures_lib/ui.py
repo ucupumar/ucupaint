@@ -5,7 +5,7 @@ from bpy.types import Panel, UIList
 from .. import lib
 
 from .properties import assets_library
-from .properties import TexLibProps, MaterialItem, DownloadQueue, get_asset_lib
+from .properties import TexLibProps, MaterialItem, DownloadQueue, get_asset_lib, get_library_name
 
 from .operators import TexLibAddToUcupaint, TexLibCancelDownload, TexLibDownload, TexLibRemoveTextureAttribute
 
@@ -29,7 +29,7 @@ class TexLibBrowser(Panel):
 
         ass_lib = get_asset_lib(context)
         if ass_lib == None:
-            layout.label(text="Warning! Create an asset library")
+            layout.label(text="Create an asset library named "+get_library_name())
             layout.operator("texlib.show_pref")
             return
 
