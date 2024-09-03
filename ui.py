@@ -4014,6 +4014,28 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             else: eye_icon = 'HIDE_ON'
         row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
 
+class YPAssetBrowserMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_ypaint_asset_browser_menu"
+    bl_label = get_addon_title() + " Asset Browser Menu"
+    bl_description = get_addon_title() + " asset browser menu"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        obj = context.object
+        op = self.layout.operator("node.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Material Images to Layer')
+        op.from_asset_browser = True
+        op.mat_name = context.mat_asset.name if hasattr(context, 'mat_asset') else ''
+
+        if obj.type == 'MESH':
+            op.texcoord_type = 'UV'
+            active_uv_name = get_active_render_uv(obj)
+            op.uv_map = active_uv_name
+        else:
+            op.texcoord_type = 'Generated'
+
 def draw_yp_asset_browser_menu(self, context):
 
     assets = context.selected_assets if is_greater_than_400() else context.selected_asset_files
@@ -4028,15 +4050,8 @@ def draw_yp_asset_browser_menu(self, context):
 
     if mat_asset and obj:
         self.layout.separator()
-        op = self.layout.operator("node.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Images from Material to ' + get_addon_title() + ' layer')
-        op.mat_name = mat_asset.name
-
-        if obj.type == 'MESH':
-            op.texcoord_type = 'UV'
-            active_uv_name = get_active_render_uv(obj)
-            op.uv_map = active_uv_name
-        else:
-            op.texcoord_type = 'Generated'
+        self.layout.context_pointer_set('mat_asset', mat_asset)
+        self.layout.menu("NODE_MT_ypaint_asset_browser_menu", text=get_addon_title(), icon='NODETREE')
 
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
@@ -4242,7 +4257,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
 
         col.operator("node.y_open_images_to_single_layer", text='Open Images to Single Layer')
-        col.operator("node.y_open_images_from_material_to_single_layer", text='Open Images from Material')
+        col.operator("node.y_open_images_from_material_to_single_layer", text='Open Images from Material').from_asset_browser = False
 
         # NOTE: Dedicated menu for opening images to single layer is kinda hard to see, so it's probably better be hidden for now
         #col.menu("NODE_MT_y_open_images_to_single_layer_menu", text='Open Images to Single Layer')
@@ -4543,7 +4558,7 @@ class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
         col = self.layout.column()
 
         col.operator("node.y_open_images_to_single_layer", icon='FILE_FOLDER', text='From Directory')
-        col.operator("node.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material')
+        col.operator("node.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material').from_asset_browser = False
 
 class YImageConvertToMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_image_convert_menu"
@@ -5809,6 +5824,7 @@ def register():
     bpy.utils.register_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.register_class(NODE_UL_YPaint_channels)
     bpy.utils.register_class(NODE_UL_YPaint_layers)
+    bpy.utils.register_class(YPAssetBrowserMenu)
 
     if not is_greater_than_280():
         bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
@@ -5871,6 +5887,7 @@ def unregister():
     bpy.utils.unregister_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.unregister_class(NODE_UL_YPaint_channels)
     bpy.utils.unregister_class(NODE_UL_YPaint_layers)
+    bpy.utils.unregister_class(YPAssetBrowserMenu)
 
     if not is_greater_than_280():
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)

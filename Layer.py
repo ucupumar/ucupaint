@@ -2008,6 +2008,8 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
     mat_name : StringProperty(default='')
     mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
+    from_asset_browser : BoolProperty(default=False)
+
     @classmethod
     def poll(cls, context):
         #return get_active_ypaint_node()
@@ -2024,9 +2026,16 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             cur_mats = obj.data.materials
 
         # Get material lists from current file
+        mat_found = False
         for mat in bpy.data.materials:
             if mat.name not in {'Dots Stroke'} and mat.name not in cur_mats:
                 self.mat_coll.add().name = mat.name
+                if self.mat_name == mat.name: 
+                    mat_found = True
+
+        if not self.from_asset_browser:
+            if not mat_found:
+                self.mat_name = ''
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -2036,7 +2045,9 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
     def draw(self, context):
         row = split_layout(self.layout, 0.325, align=True)
         row.label(text='Material')
-        row.prop_search(self, "mat_name", self, "mat_coll", text='', icon='MATERIAL_DATA')
+        if not self.from_asset_browser:
+            row.prop_search(self, "mat_name", self, "mat_coll", text='', icon='MATERIAL_DATA')
+        else: row.label(text=self.mat_name, icon='MATERIAL_DATA')
         self.draw_operator(context, display_relative_toggle=False)
 
     def execute(self, context):
