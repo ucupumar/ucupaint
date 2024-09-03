@@ -1439,23 +1439,27 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                         else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
 
                     if layer.texcoord_type != 'Decal':
-                        rrow = boxcol.row()
                         mapping = get_layer_mapping(layer)
 
-                        rrow.label(text='Offset:')
+                        rrow = boxcol.row()
+                        rrow.label(text='Transform:')
                         rrow.prop(mapping, 'vector_type', text='')
-                        if is_greater_than_281():
-                            boxcol.prop(mapping.inputs[1], 'default_value', text='')
-                            boxcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                            boxcol.prop(mapping.inputs[3], 'default_value', text='Scale')
-                        else:
-                            boxcol.prop(mapping, 'translation', text='')
-                            boxcol.prop(mapping, 'rotation')
-                            boxcol.prop(mapping, 'scale')
 
-                        #boxcol.prop(layer, 'translation', text='')
-                        #boxcol.prop(layer, 'rotation')
-                        #boxcol.prop(layer, 'scale')
+                        rrow = boxcol.row()
+                        if is_greater_than_281():
+                            mcol = rrow.column()
+                            mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
+                            mcol = rrow.column()
+                            mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
+                            mcol = rrow.column()
+                            mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                        else:
+                            mcol = rrow.column()
+                            mcol.prop(mapping, 'translation', text='')
+                            mcol = rrow.column()
+                            mcol.prop(mapping, 'rotation')
+                            mcol = rrow.column()
+                            mcol.prop(mapping, 'scale')
 
                         if yp.need_temp_uv_refresh:
                             rrow = boxcol.row(align=True)
@@ -2404,22 +2408,27 @@ def draw_layer_masks(context, layout, layer):
                         else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
 
                     if mask.texcoord_type != 'Decal':
-                        rrow = boxcol.row()
                         mapping = get_mask_mapping(mask)
-                        rrow.label(text='Offset:')
-                        rrow.prop(mapping, 'vector_type', text='')
-                        if is_greater_than_281():
-                            boxcol.prop(mapping.inputs[1], 'default_value', text='')
-                            boxcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                            boxcol.prop(mapping.inputs[3], 'default_value', text='Scale')
-                        else:
-                            boxcol.prop(mapping, 'translation', text='')
-                            boxcol.prop(mapping, 'rotation')
-                            boxcol.prop(mapping, 'scale')
 
-                        #boxcol.prop(mask, 'translation', text='Offset')
-                        #boxcol.prop(mask, 'rotation')
-                        #boxcol.prop(mask, 'scale')
+                        rrow = boxcol.row()
+                        rrow.label(text='Transform:')
+                        rrow.prop(mapping, 'vector_type', text='')
+
+                        rrow = boxcol.row()
+                        if is_greater_than_281():
+                            mcol = rrow.column()
+                            mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
+                            mcol = rrow.column()
+                            mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
+                            mcol = rrow.column()
+                            mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                        else:
+                            mcol = rrow.column()
+                            mcol.prop(mapping, 'translation', text='')
+                            mcol = rrow.column()
+                            mcol.prop(mapping, 'rotation')
+                            mcol = rrow.column()
+                            mcol.prop(mapping, 'scale')
 
                         if mask.type == 'IMAGE' and mask.active_edit and (
                                 yp.need_temp_uv_refresh
