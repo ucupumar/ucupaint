@@ -2056,6 +2056,11 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             self.report({'ERROR'}, "Source material cannot be empty!")
             return {'CANCELLED'}
 
+        obj = context.object
+        if not obj.data or not hasattr(obj.data, 'materials'):
+            self.report({'ERROR'}, "Cannot use "+get_addon_title()+" with object '"+obj.name+"'!")
+            return {'CANCELLED'}
+
         # Get material from local first
         mat = bpy.data.materials.get(self.mat_name)
 

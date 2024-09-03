@@ -525,11 +525,16 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
     def execute(self, context):
 
+        obj = context.object
+
         if not is_greater_than_279() and self.type == 'BSDF_PRINCIPLED':
             self.report({'ERROR'}, "There's no Principled BSDF in this blender version!")
             return {'CANCELLED'}
 
-        obj = context.object
+        if not obj.data or not hasattr(obj.data, 'materials'):
+            self.report({'ERROR'}, "Cannot use "+get_addon_title()+" with object '"+obj.name+"'!")
+            return {'CANCELLED'}
+
         mat = get_active_material()
 
         if not mat:
