@@ -76,7 +76,7 @@ def get_lib_dir(context) -> str:
 	if asset_lib == None:
 		return None
 	
-	retval = os.path.join(asset_lib.path, "Materials")
+	retval = asset_lib.path
 
 	if not os.path.exists(retval):
 		os.mkdir(retval)
