@@ -1143,7 +1143,9 @@ class YBakeToLayer(bpy.types.Operator):
                     # Apply shape keys and modifiers
                     if any(need_to_be_applied_modifiers):
                         if obj.data.shape_keys:
-                            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+                            if is_greater_than_330():
+                                bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+                            else: bpy.ops.object.shape_key_remove(all=True)
 
                         for m in need_to_be_applied_modifiers:
                             bpy.ops.object.modifier_apply(modifier=m.name)
