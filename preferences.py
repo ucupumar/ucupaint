@@ -44,11 +44,6 @@ class YPaintPreferences(AddonPreferences):
             description = 'Show unfinished experimental features',
             default = False)
 
-    #eevee_next_displacement : BoolProperty(
-    #        name = 'Enable EEVEE-Next Displacement (Experimental)',
-    #        description = 'Enable EEVEE-Next realtime Displacement (Experimental and requires Blender 4.1 or above)',
-    #        default = False)
-
     use_image_preview : BoolProperty(
             name = 'Use Image Preview/Thumbnail',
             description = 'Use image preview or thumbnail on the layers list',

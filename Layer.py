@@ -1665,6 +1665,16 @@ class BaseMultipleImagesLayer():
             description='Use Image Atlas for Mask',
             default=False)
 
+    # NOTE: Most PBR textures are optimized to use 'displacement only without bump' in conjunction with normal map
+    # Since this addon already produce normal map with the displacement, it's better to use only bump map by default
+    normal_map_priority : EnumProperty(
+            name = 'Normal Map Priority',
+            description = 'Normal map mode when bump and normal map are both found',
+            items = (('BUMP_MAP', 'Prioritize Bump Map', ''),
+                ('NORMAL_MAP', 'Prioritize Normal Map', ''),
+                ('BUMP_NORMAL_MAP', 'Use both Bump and Normal Map', '')),
+            default = 'BUMP_MAP')
+
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
@@ -1819,10 +1829,7 @@ class BaseMultipleImagesLayer():
         # Check if found more than 1 images for normal channel
         
         if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
-            # NOTE: Most PBR textures are optimized to use 'displacement only without bump' in conjunction with normal map
-            # Since this addon already produce normal map with the displacement, it's better to not use assigned normal map
-            #normal_map_type = 'BUMP_NORMAL_MAP'
-            normal_map_type = 'BUMP_MAP'
+            normal_map_type = self.normal_map_priority
         elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] == 'normal']):
             normal_map_type = 'NORMAL_MAP'
         else: normal_map_type = 'BUMP_MAP'
@@ -1932,11 +1939,17 @@ class BaseMultipleImagesLayer():
         #return context.window_manager.invoke_props_dialog(self)
     def draw_operator(self, context, display_relative_toggle=True):
         obj = context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
 
         row = split_layout(self.layout, 0.325)
 
         col = row.column()
         col.label(text='Vector:')
+
+        height_root_ch = get_root_height_channel(yp) if yp else None
+        if not yp or height_root_ch:
+            col.label(text='Normal Map:')
 
         col.label(text='')
         if self.add_mask:
@@ -1955,6 +1968,9 @@ class BaseMultipleImagesLayer():
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
             #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        if not yp or height_root_ch:
+            col.prop(self, 'normal_map_priority', text='')
 
         col.prop(self, 'add_mask', text='Add Mask')
         if self.add_mask:
