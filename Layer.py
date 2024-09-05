@@ -1279,11 +1279,17 @@ class YNewLayer(bpy.types.Operator):
         if self.type not in {'IMAGE', 'VCOL', 'COLOR', 'BACKGROUND'}:
             ypui.layer_ui.expand_content = True
             ypui.layer_ui.expand_source = True
+        else:
+            ypui.layer_ui.expand_content = False
+            ypui.layer_ui.expand_source = False
+
         if self.channel_idx != '-1':
             ypui.layer_ui.expand_channels = False
             if yp.channels[channel_idx].type == 'NORMAL':
-                #ypui.layer_ui.channels[channel_idx].expand_content = True
                 layer.channels[channel_idx].expand_content = True
+        else:
+            ypui.layer_ui.expand_channels = True
+
         ypui.need_update = True
 
         print('INFO: Layer', layer.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -3237,6 +3243,7 @@ def remove_layer(yp, index):
     layer = yp.layers[index]
     layer_tree = get_tree(layer)
     mat = obj.active_material
+    wm = bpy.context.window_manager
 
     # Dealing with decal object
     remove_decal_object(layer_tree, layer)
@@ -3293,6 +3300,16 @@ def remove_layer(yp, index):
     if parallax:
         depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
         depth_source_0.node_tree.nodes.remove(depth_source_0.node_tree.nodes.get(layer.depth_group_node))
+
+    # Reset UI
+    wm.ypui.layer_ui.expand_content = False
+    wm.ypui.layer_ui.expand_source = False
+    wm.ypui.layer_ui.expand_channels = False
+    wm.ypui.layer_ui.expand_masks = False
+    wm.ypui.layer_ui.expand_vector = False
+    for i, ch in enumerate(layer.channels):
+        wm.ypui.layer_ui.channels[i].expand_content = False
+    wm.ypui.need_update = True
 
     # Delete the layer
     yp.layers.remove(index)
