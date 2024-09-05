@@ -544,7 +544,7 @@ def draw_edge_detect_props(layer, source, layout):
     col = layout.column()
     row = col.row()
     row.label(text='Radius:')
-    row.prop(layer, 'edge_detect_radius', text='')
+    draw_input_prop(row, layer, 'edge_detect_radius')
 
 def draw_inbetween_modifier_mask_props(layer, source, layout):
     col = layout.column()
@@ -4282,10 +4282,10 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_open_available_data_to_layer", text='Open Available Vertex Color').type = 'VCOL'
         col.separator()
 
-        #col.label(text='Solid Color:')
+        #col.menu("NODE_MT_y_new_solid_color_layer_menu", text='Solid Color', icon_value=lib.custom_icons['color'].icon_id)
+
         icon_value = lib.custom_icons["color"].icon_id
         c = col.operator("node.y_new_layer", icon_value=icon_value, text='Solid Color')
-        #c = col.operator("node.y_new_layer", icon='COLOR', text='Solid Color')
         c.type = 'COLOR'
         c.add_mask = False
 
@@ -4294,9 +4294,6 @@ class YNewLayerMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        #if is_greater_than_280():
-        #    c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
-        #else: c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
         c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
         c.type = 'COLOR'
         c.add_mask = True
@@ -4306,6 +4303,12 @@ class YNewLayerMenu(bpy.types.Menu):
         c.type = 'COLOR'
         c.add_mask = True
         c.mask_type = 'COLOR_ID'
+
+        if is_greater_than_293():
+            c = col.operator("node.y_new_layer", text='Solid Color w/ Edge Detect Mask')
+            c.type = 'COLOR'
+            c.add_mask = True
+            c.mask_type = 'EDGE_DETECT'
 
         col.separator()
 
@@ -4568,6 +4571,44 @@ class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
 
         col.operator("node.y_open_images_to_single_layer", icon='FILE_FOLDER', text='From Directory')
         col.operator("node.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material').from_asset_browser = False
+
+class YNewSolidColorLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_solid_color_layer_menu"
+    bl_label = "New Solid Color Layer Menu"
+    bl_description = "New Solid Color layer menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        col = self.layout.column()
+
+        icon_value = lib.custom_icons["color"].icon_id
+        c = col.operator("node.y_new_layer", icon_value=icon_value, text='Solid Color')
+        c.type = 'COLOR'
+        c.add_mask = False
+
+        c = col.operator("node.y_new_layer", text='Solid Color w/ Image Mask')
+        c.type = 'COLOR'
+        c.add_mask = True
+        c.mask_type = 'IMAGE'
+
+        c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
+        c.type = 'COLOR'
+        c.add_mask = True
+        c.mask_type = 'VCOL'
+
+        c = col.operator("node.y_new_layer", text='Solid Color w/ Color ID Mask')
+        c.type = 'COLOR'
+        c.add_mask = True
+        c.mask_type = 'COLOR_ID'
+
+        if is_greater_than_293():
+            c = col.operator("node.y_new_layer", text='Solid Color w/ Edge Detect Mask')
+            c.type = 'COLOR'
+            c.add_mask = True
+            c.mask_type = 'EDGE_DETECT'
 
 class YImageConvertToMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_image_convert_menu"
@@ -5808,6 +5849,7 @@ def register():
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YImageConvertToMenu)
     bpy.utils.register_class(YOpenImagesToSingleLayerMenu)
+    bpy.utils.register_class(YNewSolidColorLayerMenu)
     bpy.utils.register_class(YUVSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
     bpy.utils.register_class(YModifier1Menu)
@@ -5871,6 +5913,7 @@ def unregister():
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YImageConvertToMenu)
     bpy.utils.unregister_class(YOpenImagesToSingleLayerMenu)
+    bpy.utils.unregister_class(YNewSolidColorLayerMenu)
     bpy.utils.unregister_class(YUVSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
     bpy.utils.unregister_class(YModifier1Menu)

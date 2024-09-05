@@ -1871,6 +1871,8 @@ class YLayerMask(bpy.types.PropertyGroup):
 
     # For edge detection
     edge_detect_radius : FloatProperty(
+            name = 'Edge Detect Radius',
+            description = 'Edge detect radius',
             default=0.05, min=0.0, max=10.0,
             update=update_mask_edge_detect_radius)
 

@@ -950,6 +950,11 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 dirty = create_prop_input(mask, 'color_id', valid_inputs, input_index, dirty)
                 input_index += 1
 
+            # Edge Detect
+            elif mask.type == 'EDGE_DETECT':
+                dirty = create_prop_input(mask, 'edge_detect_radius', valid_inputs, input_index, dirty)
+                input_index += 1
+
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]

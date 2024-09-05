@@ -67,7 +67,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         hemi_space = 'WORLD', hemi_use_prev_normal = True,
         mask_color_id=(1,0,1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha = False, use_udim_for_mask=False,
-        interpolation = 'Linear', mask_interpolation = 'Linear'
+        interpolation = 'Linear', mask_interpolation = 'Linear', mask_edge_detect_radius=0.05
         ):
 
     yp = group_tree.yp
@@ -277,7 +277,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 check_colorid_vcol(objs)
 
         mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
-                mask_uv_name, mask_image, mask_vcol, mask_segment, interpolation=mask_interpolation, color_id=mask_color_id)
+                mask_uv_name, mask_image, mask_vcol, mask_segment, interpolation=mask_interpolation, color_id=mask_color_id,
+                edge_detect_radius=mask_edge_detect_radius)
         mask.active_edit = True
 
     # Fill channel layer props
@@ -754,7 +755,8 @@ class YNewLayer(bpy.types.Operator):
             items = (
                 ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
                 ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1),
-                ('COLOR_ID', 'Color ID', '', 'COLOR', 2)
+                ('COLOR_ID', 'Color ID', '', 'COLOR', 2),
+                ('EDGE_DETECT', 'Edge Detect', '', 'MESH_CUBE', 3)
                 ),
             default = 'IMAGE')
 
@@ -853,6 +855,12 @@ class YNewLayer(bpy.types.Operator):
             name = 'Spread Fix',
             description='Use spread fix (very recommended for vertex color or image layer)',
             default=False)
+
+    # For edge detection
+    mask_edge_detect_radius : FloatProperty(
+            name = 'Edge Detect Mask Radius',
+            description = 'Edge detect mask radius',
+            default=0.05, min=0.0, max=10.0)
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
@@ -1041,6 +1049,8 @@ class YNewLayer(bpy.types.Operator):
                 col.label(text='Mask Type:')
                 if self.mask_type == 'COLOR_ID':
                     col.label(text='Mask Color ID:')
+                elif self.mask_type == 'EDGE_DETECT':
+                    col.label(text='Edge Detect Radius:')
                 else:
                     col.label(text='Mask Color:')
                     if self.mask_type == 'IMAGE':
@@ -1110,6 +1120,8 @@ class YNewLayer(bpy.types.Operator):
                 col.prop(self, 'mask_type', text='')
                 if self.mask_type == 'COLOR_ID':
                     col.prop(self, 'mask_color_id', text='')
+                elif self.mask_type == 'EDGE_DETECT':
+                    col.prop(self, 'mask_edge_detect_radius', text='')
                 else:
                     col.prop(self, 'mask_color', text='')
                     if self.mask_type == 'IMAGE':
@@ -1178,6 +1190,11 @@ class YNewLayer(bpy.types.Operator):
                 self.report({'ERROR'}, "Vertex Color named '" + self.name +"' is already available!")
             else:
                 self.report({'ERROR'}, "Layer named '" + self.name +"' is already available!")
+            return {'CANCELLED'}
+
+        # Edge Detect mask is only possible on Blender 2.93 or above
+        if not is_greater_than_293() and self.add_mask and self.mask_type == 'EDGE_DETECT':
+            self.report({'ERROR'}, "Edge detect mask is only supported on Blender 2.93 or above!")
             return {'CANCELLED'}
 
         # Clearing unused image atlas segments
@@ -1263,7 +1280,9 @@ class YNewLayer(bpy.types.Operator):
                 self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id,
                 self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha,
                 self.use_udim_for_mask,
-                self.interpolation, self.mask_interpolation)
+                self.interpolation, self.mask_interpolation,
+                self.mask_edge_detect_radius
+                )
 
         if segment:
             ImageAtlas.set_segment_mapping(layer, segment, img)
@@ -1289,6 +1308,16 @@ class YNewLayer(bpy.types.Operator):
                 layer.channels[channel_idx].expand_content = True
         else:
             ypui.layer_ui.expand_channels = True
+
+        if self.add_mask and self.mask_type == 'EDGE_DETECT':
+            ypui.layer_ui.expand_masks = True
+            layer.masks[0].expand_content = True
+            layer.masks[0].expand_source = True
+        else:
+            ypui.layer_ui.expand_masks = False
+            for i, mask in enumerate(layer.masks):
+                mask.expand_content = False
+                mask.expand_source = False
 
         ypui.need_update = True
 
