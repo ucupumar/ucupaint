@@ -338,26 +338,12 @@ class YInvertImage(bpy.types.Operator):
             self.report({'ERROR'}, 'Cannot invert image atlas!')
             return {'CANCELLED'}
 
-        if not is_greater_than_282():
-            # Copy context
-            override = bpy.context.copy()
-            override['edit_image'] = context.image
-
-            # Invert image
-            #context.image.reload()
-            # For some reason this no longer works since Blender 2.82
-            bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
-
-        else:
-            ori_area_type = context.area.type
-            context.area.type = 'IMAGE_EDITOR'
-
-            space = context.area.spaces[0]
-            space.image = context.image
-                
-            bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
-
-            context.area.type = ori_area_type
+        override = bpy.context.copy()
+        override['edit_image'] = context.image
+        if is_greater_than_400():
+            with bpy.context.temp_override(**override):
+                bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
+        else: bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
 
         return {'FINISHED'}
 
@@ -1063,11 +1049,12 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         # Save image
         if image.source == 'TILED':
-            ori_ui_type = bpy.context.area.ui_type
-            bpy.context.area.ui_type = 'IMAGE_EDITOR'
-            bpy.context.space_data.image = image
-            bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
-            bpy.context.area.ui_type = ori_ui_type
+            override = bpy.context.copy()
+            override['edit_image'] = image
+            if is_greater_than_400():
+                with bpy.context.temp_override(**override):
+                    bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
+            else: bpy.ops.image.save_as(override, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
         else:
             image.save_render(self.filepath, scene=tmpscene)
 

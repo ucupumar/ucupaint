@@ -252,17 +252,12 @@ def initial_pack_udim(image, base_color=None, filename='', force_temp_dir=False)
 
         path = temp_dir + os.sep + image.name + '.<UDIM>.png'
 
+        override = bpy.context.copy()
+        override['edit_image'] = image
         if is_greater_than_400():
-            override = bpy.context.copy()
-            override['edit_image'] = image
             with bpy.context.temp_override(**override):
                 bpy.ops.image.save_as(filepath=path, relative_path=True)
-        else:
-            ori_ui_type = bpy.context.area.ui_type
-            bpy.context.area.ui_type = 'IMAGE_EDITOR'
-            bpy.context.space_data.image = image
-            bpy.ops.image.save_as(filepath=path, relative_path=True)
-            bpy.context.area.ui_type = ori_ui_type
+        else: bpy.ops.image.save_as(override, filepath=path, relative_path=True)
 
         # HACK: For some reason, there's a need to set the filepath manually after save as
         relpath = bpy.path.relpath(path)
