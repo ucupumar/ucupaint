@@ -338,12 +338,24 @@ class YInvertImage(bpy.types.Operator):
             self.report({'ERROR'}, 'Cannot invert image atlas!')
             return {'CANCELLED'}
 
-        override = bpy.context.copy()
-        override['edit_image'] = context.image
-        if is_greater_than_400():
-            with bpy.context.temp_override(**override):
-                bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
-        else: bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
+        # For some reason this no longer works since Blender 2.82, but worked again in Blender 4.2
+        if not is_greater_than_282() or is_greater_than_420():
+            override = bpy.context.copy()
+            override['edit_image'] = context.image
+            if is_greater_than_400():
+                with bpy.context.temp_override(**override):
+                    bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
+            else: bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
+        else:
+            ori_area_type = context.area.type
+            context.area.type = 'IMAGE_EDITOR'
+
+            space = context.area.spaces[0]
+            space.image = context.image
+                
+            bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
+
+            context.area.type = ori_area_type
 
         return {'FINISHED'}
 
