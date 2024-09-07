@@ -736,7 +736,8 @@ def remove_datablock(blocks, block, user=None, user_prop=''):
 
 def set_active_object(obj):
     if is_greater_than_280():
-        bpy.context.view_layer.objects.active = obj
+        try: bpy.context.view_layer.objects.active = obj
+        except: print('EXCEPTIION: Cannot set active object!')
     else: bpy.context.scene.objects.active = obj
 
 def link_object(scene, obj):
@@ -3301,14 +3302,18 @@ def remove_temp_uv(obj, entity):
             (entity.segment_name == '' and obj.mode == 'TEXTURE_PAINT')
             ):
         if mirror.use_mirror_u:
-            mirror.mirror_offset_u = obj.yp.ori_mirror_offset_u
+            try: mirror.mirror_offset_u = obj.yp.ori_mirror_offset_u
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
         if mirror.use_mirror_v:
-            mirror.mirror_offset_v = obj.yp.ori_mirror_offset_v
+            try: mirror.mirror_offset_v = obj.yp.ori_mirror_offset_v
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
         if is_greater_than_280():
-            mirror.offset_u = obj.yp.ori_offset_u
-            mirror.offset_v = obj.yp.ori_offset_v
+            try: mirror.offset_u = obj.yp.ori_offset_u
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
+            try: mirror.offset_v = obj.yp.ori_offset_v
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
 def refresh_temp_uv(obj, entity): 
     if obj.type != 'MESH':
@@ -3422,7 +3427,8 @@ def refresh_temp_uv(obj, entity):
 
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
-    uv_layers.active = temp_uv_layer
+    try: uv_layers.active = temp_uv_layer
+    except: print('EXCEPTIION: Cannot set temporary UV!')
     # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
     if not is_greater_than_291():
         temp_uv_layer.active_render = True
@@ -3538,7 +3544,8 @@ def refresh_temp_uv(obj, entity):
 
     # Set UV mirror offset
     if ori_mode != 'EDIT':
-        set_uv_mirror_offsets(obj, m)
+        try: set_uv_mirror_offsets(obj, m)
+        except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
     # Back to edit mode if originally from there
     if ori_mode == 'EDIT':

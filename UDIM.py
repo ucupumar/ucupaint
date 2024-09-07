@@ -41,10 +41,13 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
     if width == 0: width = 1024
     if height == 0: height = 1024
 
-    # NOTE: Override operator won't work on Blender 4.0
-    #override = bpy.context.copy()
-    #override['edit_image'] = image
-    #bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=image.is_float, alpha=True)
+    # Fill tile
+    override = bpy.context.copy()
+    override['edit_image'] = image
+    if is_greater_than_400():
+        with bpy.context.temp_override(**override):
+            bpy.ops.image.tile_fill(color=color, width=width, height=height, float=image.is_float, alpha=True)
+    else: bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=image.is_float, alpha=True)
 
     color_str = '('
     color_str += str(color[0]) + ', '
@@ -53,13 +56,6 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
     color_str += str(color[3]) + ')'
 
     print('UDIM: Filling tile ' + str(tilenum) + ' with color ' + color_str)
-
-    # Fill tile
-    ori_ui_type = bpy.context.area.ui_type
-    bpy.context.area.ui_type = 'IMAGE_EDITOR'
-    bpy.context.space_data.image = image
-    bpy.ops.image.tile_fill(color=color, width=width, height=height, float=image.is_float, alpha=True)
-    bpy.context.area.ui_type = ori_ui_type
 
     return True
 
@@ -253,18 +249,26 @@ def initial_pack_udim(image, base_color=None, filename='', force_temp_dir=False)
     # When blend file is copied to another PC, there's a chance directory is missing
     directory = os.path.dirname(bpy.path.abspath(image.filepath))
     if (force_temp_dir and bpy.data.filepath != '') or (not use_temp_dir and not os.path.isdir(directory)):
-        ori_ui_type = bpy.context.area.ui_type
-        bpy.context.area.ui_type = 'IMAGE_EDITOR'
-        bpy.context.space_data.image = image
+
         path = temp_dir + os.sep + image.name + '.<UDIM>.png'
-        bpy.ops.image.save_as(filepath=path, relative_path=True)
+
+        if is_greater_than_400():
+            override = bpy.context.copy()
+            override['edit_image'] = image
+            with bpy.context.temp_override(**override):
+                bpy.ops.image.save_as(filepath=path, relative_path=True)
+        else:
+            ori_ui_type = bpy.context.area.ui_type
+            bpy.context.area.ui_type = 'IMAGE_EDITOR'
+            bpy.context.space_data.image = image
+            bpy.ops.image.save_as(filepath=path, relative_path=True)
+            bpy.context.area.ui_type = ori_ui_type
 
         # HACK: For some reason, there's a need to set the filepath manually after save as
         relpath = bpy.path.relpath(path)
         try: image.filepath = relpath
         except Exception as e: print(e)
 
-        bpy.context.area.ui_type = ori_ui_type
         use_temp_dir = True
     else:
         # Save then pack
