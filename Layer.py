@@ -4234,7 +4234,7 @@ class YDuplicateLayer(bpy.types.Operator):
     mode : EnumProperty(
             name = 'Duplicate Mode',
             items = (
-                ('COPY_DATA', 'Copy Data', 'Use copied data for the newly duplicated layer'),
+                ('COPY_DATA', 'Duplicate Data', 'Use copied data for the newly duplicated layer'),
                 ('BLANK_DATA', 'Blank Data', 'Use blank images and vertex colors for the newly duplicated layer'),
                 ('LINK_DATA', 'Link Data', 'Use the same data for newly duplicated layer'),
                 ),
@@ -4244,6 +4244,28 @@ class YDuplicateLayer(bpy.types.Operator):
     def poll(cls, context):
         group_node = get_active_ypaint_node()
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = yp.layers[yp.active_layer_index]
+
+        # Use link data by default when there's override images
+        override_found = False
+        for ch in layer.channels:
+            if (ch.override and ch.override_type == 'IMAGE') or (ch.override_1 and ch.override_1_type == 'IMAGE'):
+                override_found = True
+                break
+
+        self.mode = 'LINK_DATA' if override_found else 'COPY_DATA'
+
+        return context.window_manager.invoke_props_dialog(self, width=200)
+
+    def draw(self, context):
+        row = split_layout(self.layout, 0.3)
+        row.label(text='Mode:')
+        col = row.column(align=True)
+        col.prop(self, 'mode', expand=True)
 
     def execute(self, context):
         T = time.time()
@@ -4390,11 +4412,47 @@ class YPasteLayer(bpy.types.Operator):
     bl_label = "Paste Layer"
     bl_description = "Paste Layer"
     bl_options = {'REGISTER', 'UNDO'}
+
+    mode : EnumProperty(
+            name = 'Duplicate Mode',
+            items = (
+                ('COPY_DATA', 'Duplicate Data', 'Use copied data for the newly duplicated layer'),
+                ('LINK_DATA', 'Link Data', 'Use the same data for newly duplicated layer'),
+                ),
+            default = 'COPY_DATA')
     
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
         return context.object and group_node
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        wmp = wm.ypprops
+
+        override_found = False
+
+        tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
+        if tree_source:
+            yp_source = tree_source.yp
+            layer_source = yp_source.layers.get(wmp.clipboard_layer)
+
+            if layer_source:
+                # Use link data by default when there's override images
+                for ch in layer_source.channels:
+                    if (ch.override and ch.override_type == 'IMAGE') or (ch.override_1 and ch.override_1_type == 'IMAGE'):
+                        override_found = True
+                        break
+
+        self.mode = 'LINK_DATA' if override_found else 'COPY_DATA'
+
+        return context.window_manager.invoke_props_dialog(self, width=200)
+
+    def draw(self, context):
+        row = split_layout(self.layout, 0.3)
+        row.label(text='Mode:')
+        col = row.column(align=True)
+        col.prop(self, 'mode', expand=True)
 
     def execute(self, context):
         T = time.time()
@@ -4496,7 +4554,10 @@ class YPasteLayer(bpy.types.Operator):
             new_group_node.node_tree = get_tree(ls)
 
             # Duplicate images and some nodes inside
-            duplicate_layer_nodes_and_images(tree, new_layer, True, False)
+            if self.mode == 'COPY_DATA':
+                duplicate_layer_nodes_and_images(tree, new_layer, True, False)
+            elif self.mode == 'LINK_DATA':
+                duplicate_layer_nodes_and_images(tree, new_layer, False)
 
             pasted_layer_names.append(new_layer.name)
 

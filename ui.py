@@ -4492,9 +4492,9 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer').mode = 'COPY_DATA'
-        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Blank)').mode = 'BLANK_DATA'
-        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Link)').mode = 'LINK_DATA'
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer') #.mode = 'COPY_DATA'
+        #c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Blank)').mode = 'BLANK_DATA'
+        #c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer (Link)').mode = 'LINK_DATA'
 
         col.separator()
 
