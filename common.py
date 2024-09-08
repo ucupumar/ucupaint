@@ -1,7 +1,6 @@
 import bpy, os, sys, re, time, numpy, math
 from mathutils import *
 from bpy.app.handlers import persistent
-from bpy_types import bpy_types
 
 BLENDER_28_GROUP_INPUT_HACK = False
 
@@ -716,6 +715,12 @@ def is_created_before_410():
         return True
     return False
 
+def get_bpytypes():
+    if not is_greater_than_277():
+        import bpy_types
+        return bpy_types.bpy_types
+    return bpy.types
+
 def remove_datablock(blocks, block, user=None, user_prop=''):
     if is_greater_than_279():
         blocks.remove(block)
@@ -960,6 +965,8 @@ def blend_color_mix_byte(src1, src2, intensity1=1.0, intensity2=1.0):
     return dst
 
 def copy_id_props(source, dest, extras = [], reverse=False):
+
+    bpytypes = get_bpytypes()
     props = dir(source)
     filters = ['bl_rna', 'rna_type']
     filters.extend(extras)
@@ -982,7 +989,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 dest_subval = dest_val.add()
                 copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif hasattr(bpy_types, 'bpy_prop_collection') and attr_type == bpy_types.bpy_prop_collection:
+        elif hasattr(bpytypes, 'bpy_prop_collection') and attr_type == bpytypes.bpy_prop_collection:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_subval = None
@@ -997,7 +1004,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 if dest_subval:
                     copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif hasattr(bpy_types, 'bpy_prop_array') and attr_type == bpy_types.bpy_prop_array:
+        elif hasattr(bpytypes, 'bpy_prop_array') and attr_type == bpytypes.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_val[i] = subval
@@ -1006,11 +1013,12 @@ def copy_id_props(source, dest, extras = [], reverse=False):
             except: print('Error set prop:', prop)
 
 def copy_node_props_(source, dest, extras = []):
-    #print()
+
+    bpytypes = get_bpytypes()
     props = dir(source)
     filters = ['rna_type', 'name', 'location', 'parent']
     filters.extend(extras)
-    #print()
+
     for prop in props:
         if prop.startswith('__'): continue
         if prop.startswith('bl_'): continue
@@ -1028,7 +1036,7 @@ def copy_node_props_(source, dest, extras = []):
         #        dest_subval = dest_val.add()
         #        copy_id_props(subval, dest_subval)
 
-        if hasattr(bpy_types, 'bpy_prop_array') and attr_type == bpy_types.bpy_prop_array:
+        if hasattr(bpytypes, 'bpy_prop_array') and attr_type == bpytypes.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 try: 
@@ -5868,6 +5876,7 @@ def get_mix_color_indices(mix):
     return idx0, idx1, outidx
 
 def copy_fcurves(src_fc, dest, subdest, attr):
+    bpytypes = get_bpytypes()
     dest_path = subdest.path_from_id() + '.' + attr
 
     # Get prop value
@@ -5875,8 +5884,8 @@ def copy_fcurves(src_fc, dest, subdest, attr):
 
     # Check array index
     array_index = -1
-    if hasattr(bpy_types, 'bpy_prop_array'):
-        array_index = src_fc.array_index if type(prop_value) == bpy_types.bpy_prop_array else -1
+    if hasattr(bpytypes, 'bpy_prop_array'):
+        array_index = src_fc.array_index if type(prop_value) == bpytypes.bpy_prop_array else -1
 
     # New fcurve
     nfc = None
