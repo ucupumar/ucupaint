@@ -1,4 +1,4 @@
-import bpy, os, sys, re, time, numpy, math
+import bpy, os, sys, re, time, numpy, math, pathlib
 from mathutils import *
 from bpy.app.handlers import persistent
 
@@ -6380,10 +6380,11 @@ def set_image_pixels(image, color, segment=None):
 
         image.pixels = pxs
 
-def is_image_filepath_unique(image):
-    abspath = bpy.path.abspath(image.filepath)
+def is_image_filepath_unique(filepath, check_disk=True):
+    abspath = bpy.path.abspath(filepath)
     for img in bpy.data.images:
-        if img != image and bpy.path.abspath(img.filepath) == abspath:
+        # NOTE: 'Check disk' will also check the actual image existing in disk
+        if bpy.path.abspath(img.filepath) == abspath or (check_disk and pathlib.Path(abspath).is_file()):
             return False
     return True
 
@@ -6401,13 +6402,7 @@ def duplicate_image(image):
     new_image = image.copy()
     new_image.name = new_name
 
-    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
-
-        # NOTE: Duplicated image will always be packed for now
-        if not image.packed_file:
-            if is_greater_than_280():
-                new_image.pack()
-            else: new_image.pack(as_png=True)
+    if image.source == 'TILED' or (not image.packed_file and image.filepath != ''):
 
         directory = os.path.dirname(bpy.path.abspath(image.filepath))
         filename = bpy.path.basename(new_image.filepath)
@@ -6430,22 +6425,37 @@ def duplicate_image(image):
             counter = int(m.group(2))
         else: counter = 1
 
-        # Try to set the image filepath with added counter
+        # Try to get unique image filepath with added counter
         while True:
             new_name = basename + ' ' + str(counter)
             new_path = os.path.join(directory, new_name + infix + extension)
-            new_image.filepath = new_path
-            if is_image_filepath_unique(new_image):
+            if is_image_filepath_unique(new_path):
                 break
             counter += 1
 
-        # Trying to set the filepath to relative
-        try: new_image.filepath = bpy.path.relpath(new_image.filepath)
-        except: pass
+        # Save the image to disk if image is not packed
+        if not image.packed_file:
+            override = bpy.context.copy()
+            override['edit_image'] = new_image
+            if is_greater_than_400():
+                with bpy.context.temp_override(**override):
+                    bpy.ops.image.save_as(filepath=new_path, relative_path=True)
+            else: bpy.ops.image.save_as(override, filepath=new_path, relative_path=True)
+        else:
+            new_image.filepath = new_path
+
+            # Trying to set the filepath to relative
+            try: new_image.filepath = bpy.path.relpath(new_image.filepath)
+            except: pass
+
+        # Set image name based on new filepath
+        filename = bpy.path.basename(os.path.splitext(new_path)[0])
+        filename = filename.replace('.<UDIM>.', '')
+        new_image.name = filename
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels
-    if new_image.source != 'TILED':
+    if image.is_dirty and new_image.source != 'TILED':
         new_image.pixels = list(image.pixels)
 
     return new_image
