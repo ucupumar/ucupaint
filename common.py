@@ -1348,9 +1348,15 @@ def safe_remove_image(image, remove_on_disk=False):
 
     if is_image_single_user(image):
 
-        if remove_on_disk:
-            try: os.remove(os.path.abspath(bpy.path.abspath(image.filepath)))
-            except Exception as e: print(e)
+        if remove_on_disk and not image.packed_file and image.filepath != '':
+            if image.source == 'TILED':
+                for tile in image.tiles:
+                    filepath = image.filepath.replace('<UDIM>', str(tile.number))
+                    try: os.remove(os.path.abspath(bpy.path.abspath(filepath)))
+                    except Exception as e: print(e)
+            else:
+                try: os.remove(os.path.abspath(bpy.path.abspath(image.filepath)))
+                except Exception as e: print(e)
 
         remove_datablock(bpy.data.images, image)
 
@@ -6457,7 +6463,7 @@ def duplicate_image(image):
         if not image.name.endswith(extension):
             filename = bpy.path.basename(os.path.splitext(new_path)[0])
         else: filename = bpy.path.basename(new_path)
-        filename = filename.replace('.<UDIM>.', '')
+        filename = filename.replace('.<UDIM>', '')
         new_image.name = filename
     else:
 
