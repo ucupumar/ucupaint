@@ -1337,15 +1337,24 @@ def get_nodes_using_yp(mat, yp):
 #    if tree.users == 0:
 #        bpy.data.node_groups.remove(tree)
 
-def safe_remove_image(image):
+def is_image_single_user(image):
     scene = bpy.context.scene
 
-    if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
+    return ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
         (scene.tool_settings.image_paint.canvas != image and image.users == 1) or
-        image.users == 0):
+        image.users == 0)
+
+def safe_remove_image(image, remove_on_disk=False):
+
+    if is_image_single_user(image):
+
+        if remove_on_disk:
+            try: os.remove(os.path.abspath(bpy.path.abspath(image.filepath)))
+            except Exception as e: print(e)
+
         remove_datablock(bpy.data.images, image)
 
-def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
+def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False):
     #if not node: return
     scene = bpy.context.scene
 
@@ -1361,7 +1370,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
             image = node.image
-            if image: safe_remove_image(image)
+            if image: safe_remove_image(image, remove_on_disk)
 
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
@@ -1388,7 +1397,7 @@ def is_vcol_being_used(tree, vcol_name, exception_node=None):
 
     return False
 
-def remove_node(tree, entity, prop, remove_data=True, parent=None):
+def remove_node(tree, entity, prop, remove_data=True, parent=None, remove_on_disk=False):
 
     dirty = False
 
@@ -1415,7 +1424,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
             if node.bl_idname == 'ShaderNodeTexImage':
 
                 image = node.image
-                if image: safe_remove_image(image)
+                if image: safe_remove_image(image, remove_on_disk)
 
             elif node.bl_idname == 'ShaderNodeGroup':
 

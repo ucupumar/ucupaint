@@ -3282,7 +3282,7 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
                 wm.popup_menu(draw_move_down_in_layer_group, title="Options")
         return {'FINISHED'}
 
-def remove_layer(yp, index):
+def remove_layer(yp, index, remove_on_disk=False):
     group_tree = yp.id_data
     obj = bpy.context.object
     layer = yp.layers[index]
@@ -3307,7 +3307,18 @@ def remove_layer(yp, index):
 
     # Remove the source first to remove image
     source_tree = get_source_tree(layer) #, layer_tree)
-    remove_node(source_tree, layer, 'source')
+    remove_node(source_tree, layer, 'source', remove_on_disk=remove_on_disk)
+
+    # Remove channel source
+    for ch in layer.channels:
+        src = get_channel_source(ch)
+        if src and src.type == 'TEX_IMAGE' and src.image:
+            ch_tree = get_channel_source_tree(ch, layer)
+            remove_node(ch_tree, ch, 'source', remove_on_disk=remove_on_disk)
+
+        src = get_channel_source_1(ch)
+        if src and src.type == 'TEX_IMAGE' and src.image:
+            remove_node(layer_tree, ch, 'source_1', remove_on_disk=remove_on_disk)
 
     # Remove Mask source
     for mask in layer.masks:
@@ -3328,7 +3339,7 @@ def remove_layer(yp, index):
                 UDIM.remove_udim_atlas_segment_by_name(src.image, mask.segment_name, yp=yp)
 
         mask_tree = get_mask_tree(mask)
-        remove_node(mask_tree, mask, 'source')
+        remove_node(mask_tree, mask, 'source', remove_on_disk=remove_on_disk)
 
     # Remove node group and layer tree
     if layer_tree: 
@@ -3359,14 +3370,65 @@ def remove_layer(yp, index):
     # Delete the layer
     yp.layers.remove(index)
 
+def any_external_images_inside_layer(layer):
+
+    source = get_layer_source(layer)
+    if source and source.type == 'TEX_IMAGE':
+        image = source.image
+        if image and not image.packed_file and image.filepath != '' and is_image_single_user(image):
+            return True
+
+    for ch in layer.channels:
+        source = get_channel_source(ch)
+        if source and source.type == 'TEX_IMAGE':
+            image = source.image
+
+            if image and not image.packed_file and image.filepath != '' and is_image_single_user(image):
+                return True
+
+        source_1 = get_channel_source_1(ch)
+        if source_1 and source_1.type == 'TEX_IMAGE':
+            image = source_1.image
+
+            if image and not image.packed_file and image.filepath != '' and is_image_single_user(image):
+                return True
+
+    for mask in layer.masks:
+        if mask.type != 'IMAGE': continue
+        source = get_mask_source(mask)
+        image = source.image
+
+        if image and not image.packed_file and image.filepath != '' and is_image_single_user(image):
+            return True
+
+    return False
+
+def any_external_images_inside_group(group):
+    childs, child_ids = get_list_of_all_childs_and_child_ids(group)
+    for child in childs:
+        if any_external_images_inside_layer(child):
+            return True
+
+    return False
+
 def draw_remove_group(self, context):
     col = self.layout.column()
 
     c = col.operator("node.y_remove_layer", text='Remove parent only', icon='PANEL_CLOSE')
     c.remove_childs = False
+    c.remove_on_disk = False
 
     c = col.operator("node.y_remove_layer", text='Remove parent with all its childrens', icon='PANEL_CLOSE')
     c.remove_childs = True
+    c.remove_on_disk = False
+
+    if hasattr(context, 'layer') and any_external_images_inside_group(context.layer):
+        col.separator()
+        col.alert = True
+        col.label(text='Danger Zone', icon='ERROR')
+        c = col.operator("node.y_remove_layer", text='Remove parent with all its childrens and files on disk (WARNING: NO UNDO!)', icon='PANEL_CLOSE')
+        c.remove_childs = True
+        c.remove_on_disk = True
 
 class YRemoveLayerMenu(bpy.types.Operator):
     bl_idname = "node.y_remove_layer_menu"
@@ -3391,6 +3453,7 @@ class YRemoveLayer(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     remove_childs : BoolProperty(name='Remove Childs', description='Remove layer childrens', default=False)
+    remove_on_disk : BoolProperty(name='Remove Image on disk', description='Remove image file on disk', default=False)
 
     @classmethod
     def poll(cls, context):
@@ -3398,11 +3461,16 @@ class YRemoveLayer(bpy.types.Operator):
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
     def invoke(self, context, event):
+
+        # Remove on disk is dangerous so it's always disabled by default
+        self.remove_on_disk = False
+
         # Removing UDIM atlas segment is can't be undoed
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         layer = yp.layers[yp.active_layer_index]
         self.using_udim_atlas = False
+
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image and source.image.yua.is_udim_atlas:
@@ -3414,21 +3482,34 @@ class YRemoveLayer(bpy.types.Operator):
                 if source and source.image and source.image.yua.is_udim_atlas:
                     self.using_udim_atlas = True
                     return context.window_manager.invoke_props_dialog(self, width=300)
+        
+        self.any_images_on_disk = any_external_images_inside_layer(layer)
 
         obj = context.object
-        if obj.mode != 'OBJECT':
+        if obj.mode != 'OBJECT' or self.any_images_on_disk:
             return context.window_manager.invoke_props_dialog(self, width=400)
         return self.execute(context)
 
     def draw(self, context):
+
+        col = self.layout.column(align=True)
+
         obj = context.object
         if obj.mode != 'OBJECT':
-            self.layout.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
+            col.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
         elif hasattr(self, 'using_udim_atlas') and self.using_udim_atlas:
-            col = self.layout.column(align=True)
             col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
             col.label(text='You cannot UNDO after removal', icon='BLANK1')
             col.label(text='Are you sure want to continue?', icon='BLANK1')
+
+        if self.any_images_on_disk:
+            col.prop(self, 'remove_on_disk')
+
+            if self.remove_on_disk:
+                col.label(text="You cannot UNDO and the file will be gone forever", icon='ERROR')
+
+    def check(self, context):
+        return True
 
     def execute(self, context):
         T = time.time()
@@ -3455,7 +3536,7 @@ class YRemoveLayer(bpy.types.Operator):
 
             last_idx = get_last_child_idx(layer)
             for i in reversed(range(layer_idx, last_idx+1)):
-                remove_layer(yp, i)
+                remove_layer(yp, i, remove_on_disk=self.remove_on_disk)
                 
             # The childs are all gone
             child_ids = []
@@ -3467,7 +3548,7 @@ class YRemoveLayer(bpy.types.Operator):
                 parent_dict[yp.layers[i].name] = parent_dict[layer.name]
 
             # Remove layer
-            remove_layer(yp, layer_idx)
+            remove_layer(yp, layer_idx, remove_on_disk=self.remove_on_disk)
 
         # Remove temp uv layer
         uv_layers = get_uv_layers(obj)

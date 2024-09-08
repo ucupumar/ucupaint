@@ -2902,7 +2902,7 @@ def draw_layers_ui(context, layout, node):
 
     if layer:
 
-        if has_childrens(layer):
+        if has_childrens(layer): # or (image and not image.packed_file):
 
             if is_greater_than_280():
                 rcol.operator("node.y_remove_layer_menu", icon='REMOVE', text='')
