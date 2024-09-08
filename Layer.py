@@ -4022,8 +4022,15 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
         # Duplicate override channel
         for ch in layer.channels:
             if ch.override and ch.override_type == 'IMAGE':
-                #ch_source = ttree.nodes.get(ch.source)
                 ch_source = get_channel_source(ch, layer)
+                img = ch_source.image
+                if img:
+                    img_users.append(ch)
+                    img_nodes.append(ch_source)
+                    imgs.append(img)
+
+            if ch.override_1 and ch.override_1_type == 'IMAGE':
+                ch_source = get_channel_source_1(ch, layer)
                 img = ch_source.image
                 if img:
                     img_users.append(ch)

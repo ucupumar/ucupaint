@@ -6395,12 +6395,8 @@ def duplicate_image(image):
             image.pack()
         else: image.save()
 
-    # Get new name
-    new_name = get_unique_name(image.name, bpy.data.images)
-
     # Copy image
     new_image = image.copy()
-    new_image.name = new_name
 
     if image.source == 'TILED' or (not image.packed_file and image.filepath != ''):
 
@@ -6415,7 +6411,7 @@ def duplicate_image(image):
             splits = os.path.splitext(filename)
             infix = ''
 
-        basename = new_name
+        basename = splits[0]
         extension = splits[1]
 
         # Try to get the counter
@@ -6449,9 +6445,15 @@ def duplicate_image(image):
             except: pass
 
         # Set image name based on new filepath
-        filename = bpy.path.basename(os.path.splitext(new_path)[0])
+        if not image.name.endswith(extension):
+            filename = bpy.path.basename(os.path.splitext(new_path)[0])
+        else: filename = bpy.path.basename(new_path)
         filename = filename.replace('.<UDIM>.', '')
         new_image.name = filename
+    else:
+
+        # Set new name
+        new_image.name = get_unique_name(image.name, bpy.data.images)
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels
