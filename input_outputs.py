@@ -445,6 +445,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         rearrange_yp_nodes(group_tree)
 
 def create_decal_empty():
+    obj = bpy.context.object
     scene = bpy.context.scene
     empty_name = get_unique_name('Decal', bpy.data.objects)
     empty = bpy.data.objects.new(empty_name, None)
@@ -457,6 +458,10 @@ def create_decal_empty():
         empty.rotation_euler = scene.cursor.rotation_euler.copy()
     else: 
         empty.location = scene.cursor_location.copy()
+
+    # Parent empty to active object
+    empty.parent = obj
+    empty.matrix_parent_inverse = obj.matrix_world.inverted()
 
     return empty
 
