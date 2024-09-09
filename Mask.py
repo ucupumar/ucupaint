@@ -705,17 +705,25 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             description = 'Detect selected UDIM files and load all matching tiles.',
             default = True)
 
+    file_browser_filepath : StringProperty(default='')
+
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
     @classmethod
     def poll(cls, context):
-        return True
+        node = get_active_ypaint_node()
+        return node and len(node.node_tree.yp.layers) > 0
 
     def invoke(self, context, event):
         obj = context.object
-        self.layer = context.layer
-        yp = self.layer.id_data.yp
+        if hasattr(context, 'layer'):
+            self.layer = context.layer
+            yp = self.layer.id_data.yp
+        else:
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
+            self.layer = yp.layers[yp.active_layer_index]
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -746,6 +754,9 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             source = get_layer_source(self.layer)
             if source and source.image: self.interpolation = source.interpolation
 
+        if self.file_browser_filepath != '':
+            return context.window_manager.invoke_props_dialog(self)
+
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -758,6 +769,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         row = self.layout.row()
 
         col = row.column()
+        if self.file_browser_filepath != '':
+            col.label(text='Image:')
         col.label(text='Interpolation:')
         col.label(text='Vector:')
         if len(self.layer.masks) > 0:
@@ -766,6 +779,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         col.label(text='Image Channel:')
 
         col = row.column()
+        if self.file_browser_filepath != '':
+            col.label(text=os.path.basename(self.file_browser_filepath), icon='IMAGE_DATA')
         col.prop(self, 'interpolation', text='')
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
@@ -779,10 +794,12 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         crow = col.row(align=True)
         crow.prop(self, 'source_input', expand=True)
 
-        self.layout.prop(self, 'relative')
+        layout = col if self.file_browser_filepath != '' else self.layout
+
+        layout.prop(self, 'relative')
 
         if UDIM.is_udim_supported():
-            self.layout.prop(self, 'use_udim_detecting')
+            layout.prop(self, 'use_udim_detecting')
 
     def execute(self, context):
         T = time.time()
@@ -794,7 +811,15 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         ypui = wm.ypui
         obj = context.object
 
-        import_list, directory = self.generate_paths()
+        if self.file_browser_filepath == '':
+            import_list, directory = self.generate_paths()
+        else:
+            if not os.path.isfile(self.file_browser_filepath):
+                self.report({'ERROR'}, "There's no image with address '" + self.file_browser_filepath + "'!")
+                return {'CANCELLED'}
+            import_list = [os.path.basename(self.file_browser_filepath)]
+            directory = os.path.dirname(self.file_browser_filepath)
+
         if not UDIM.is_udim_supported():
             images = tuple(load_image(path, directory) for path in import_list)
         else:

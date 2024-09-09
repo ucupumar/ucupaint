@@ -2325,6 +2325,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
+    file_browser_filepath : StringProperty(default='')
+
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
@@ -2354,7 +2356,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         # Normal map is the default
         #self.normal_map_type = 'NORMAL_MAP'
 
-        #return context.window_manager.invoke_props_dialog(self)
+        if self.file_browser_filepath != '':
+            return context.window_manager.invoke_props_dialog(self)
+        
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -2371,6 +2375,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         row = self.layout.row()
 
         col = row.column()
+        if self.file_browser_filepath != '':
+            col.label(text='Image:')
         col.label(text='Interpolation:')
         col.label(text='Vector:')
         col.label(text='Channel:')
@@ -2378,6 +2384,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             col.label(text='Type:')
 
         col = row.column()
+        if self.file_browser_filepath != '':
+            col.label(text=os.path.basename(self.file_browser_filepath), icon='IMAGE_DATA')
         col.prop(self, 'interpolation', text='')
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
@@ -2393,10 +2401,12 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
-        self.layout.prop(self, 'relative')
+        layout = col if self.file_browser_filepath != '' else self.layout
+
+        layout.prop(self, 'relative')
 
         if UDIM.is_udim_supported():
-            self.layout.prop(self, 'use_udim_detecting')
+            layout.prop(self, 'use_udim_detecting')
 
     def execute(self, context):
         T = time.time()
@@ -2404,7 +2414,15 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         wm = context.window_manager
         node = get_active_ypaint_node()
 
-        import_list, directory = self.generate_paths()
+        if self.file_browser_filepath == '':
+            import_list, directory = self.generate_paths()
+        else:
+            if not os.path.isfile(self.file_browser_filepath):
+                self.report({'ERROR'}, "There's no image with address '" + self.file_browser_filepath + "'!")
+                return {'CANCELLED'}
+            import_list = [os.path.basename(self.file_browser_filepath)]
+            directory = os.path.dirname(self.file_browser_filepath)
+
         if not UDIM.is_udim_supported():
             images = tuple(load_image(path, directory) for path in import_list)
         else:

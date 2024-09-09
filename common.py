@@ -510,6 +510,8 @@ CACHE_BITANGENT_IMAGE_SUFFIX = '_YP_CACHE_BITANGENT'
 
 GAMMA = 2.2
 
+valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
+
 def version_tuple(version_string):
     return tuple(version_string.split('.'))
 

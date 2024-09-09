@@ -1,4 +1,4 @@
-import bpy, re, time
+import bpy, re, time, os
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
@@ -4060,7 +4060,48 @@ def draw_yp_asset_browser_menu(self, context):
     if mat_asset and obj:
         self.layout.separator()
         self.layout.context_pointer_set('mat_asset', mat_asset)
-        self.layout.menu("NODE_MT_ypaint_asset_browser_menu", text=get_addon_title(), icon='NODETREE')
+        self.layout.menu("NODE_MT_ypaint_asset_browser_menu", text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
+
+class YPFileBrowserMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_ypaint_file_browser_menu"
+    bl_label = get_addon_title() + " File Browser Menu"
+    bl_description = get_addon_title() + " file browser menu"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        if not node:
+            self.layout.label(text="You need to select object that uses "+get_addon_title()+" node!", icon='ERROR')
+        else:
+            params = context.params
+            filename = params.filename
+            directory = params.directory.decode('utf-8')
+
+            filepath = os.path.join(directory, filename)
+
+            self.layout.label(text='Image: ' + filename)
+            op = self.layout.operator("node.y_open_image_to_layer", icon_value=lib.get_icon('image'), text="Open Image as Layer")
+            op.file_browser_filepath = filepath
+            op = self.layout.operator("node.y_open_image_as_mask", icon_value=lib.get_icon('image'), text="Open Image as Mask")
+            op.file_browser_filepath = filepath
+
+
+def draw_yp_file_browser_menu(self, context):
+    params = context.space_data.params
+    extension = os.path.splitext(params.filename)[1]
+    if extension in valid_image_extensions:
+
+        filename = params.filename
+        directory = params.directory.decode('utf-8')
+        filepath = os.path.join(directory, filename)
+
+        if os.path.isfile(filepath):
+            self.layout.separator()
+            self.layout.context_pointer_set('params', params)
+            self.layout.menu("NODE_MT_ypaint_file_browser_menu", text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
 
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
@@ -4262,7 +4303,7 @@ class YNewLayerMenu(bpy.types.Menu):
 
         #col.separator()
 
-        col.operator("node.y_open_image_to_layer", text='Open Image')
+        col.operator("node.y_open_image_to_layer", text='Open Image').file_browser_filepath = ''
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
 
         col.operator("node.y_open_images_to_single_layer", text='Open Images to Single Layer')
@@ -4861,7 +4902,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.label(text='Image Mask:')
         new_mask_button(col, 'node.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE')
-        new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask', lib_icon='open_image')
+        new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask', lib_icon='open_image').file_browser_filepath = ''
         new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Image as Mask', lib_icon='open_image', otype='IMAGE')
         col.separator()
 
@@ -5876,6 +5917,7 @@ def register():
     bpy.utils.register_class(NODE_UL_YPaint_channels)
     bpy.utils.register_class(NODE_UL_YPaint_layers)
     bpy.utils.register_class(YPAssetBrowserMenu)
+    bpy.utils.register_class(YPFileBrowserMenu)
 
     if not is_greater_than_280():
         bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
@@ -5894,6 +5936,9 @@ def register():
 
     if is_greater_than_300():
         bpy.types.ASSETBROWSER_MT_context_menu.append(draw_yp_asset_browser_menu)
+
+    if is_greater_than_281():
+        bpy.types.FILEBROWSER_MT_context_menu.append(draw_yp_file_browser_menu)
 
     # Handlers
     bpy.app.handlers.load_post.append(yp_load_ui_settings)
@@ -5940,6 +5985,7 @@ def unregister():
     bpy.utils.unregister_class(NODE_UL_YPaint_channels)
     bpy.utils.unregister_class(NODE_UL_YPaint_layers)
     bpy.utils.unregister_class(YPAssetBrowserMenu)
+    bpy.utils.unregister_class(YPFileBrowserMenu)
 
     if not is_greater_than_280():
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
