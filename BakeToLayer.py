@@ -303,7 +303,7 @@ class YBakeToLayer(bpy.types.Operator):
             description='Device to use for baking',
             items = (('GPU', 'GPU Compute', ''),
                      ('CPU', 'CPU', '')),
-            default='CPU'
+            default='GPU'
             )
 
     use_image_atlas : BoolProperty(
@@ -1550,12 +1550,29 @@ class YBakeToLayer(bpy.types.Operator):
             mat.node_tree.nodes.active = tex
 
             # Bake!
-            if self.type.startswith('MULTIRES_'):
-                bpy.ops.object.bake_image()
-            else:
-                if bake_type != 'EMIT':
-                    bpy.ops.object.bake(type=bake_type)
-                else: bpy.ops.object.bake()
+            try:
+                if self.type.startswith('MULTIRES_'):
+                    bpy.ops.object.bake_image()
+                else:
+                    if bake_type != 'EMIT':
+                        bpy.ops.object.bake(type=bake_type)
+                    else: bpy.ops.object.bake()
+            except Exception as e:
+
+                # Try to use CPU if GPU baking is failed
+                if self.bake_device == 'GPU':
+                    print('EXCEPTIION: GPU baking failed! Trying to use CPU...')
+                    self.bake_device = 'CPU'
+                    scene.cycles.device = 'CPU'
+
+                    if self.type.startswith('MULTIRES_'):
+                        bpy.ops.object.bake_image()
+                    else:
+                        if bake_type != 'EMIT':
+                            bpy.ops.object.bake(type=bake_type)
+                        else: bpy.ops.object.bake()
+                else:
+                    print('EXCEPTIION:', e)
 
             if use_fxaa: fxaa_image(image, False, bake_device=self.bake_device)
 

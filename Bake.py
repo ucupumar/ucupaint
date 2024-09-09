@@ -184,7 +184,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
     mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
     # Bake!
-    bpy.ops.object.bake()
+    bake_object_op()
 
     # Bake alpha if using alpha
     if use_alpha:
@@ -203,7 +203,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         temp_image1.colorspace_settings.name = 'Non-Color'
 
         # Bake again!
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Set tile pixels
         for tilenum in tilenums:
@@ -495,7 +495,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         # Prepare bake settings
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU', margin_type=self.margin_type
+                uv_map=self.uv_map, bake_type='EMIT', bake_device='GPU', margin_type=self.margin_type
                 )
         
         # Get entites to transfer
@@ -644,7 +644,7 @@ class YTransferLayerUV(bpy.types.Operator):
         # Prepare bake settings
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU', margin_type=self.margin_type
+                uv_map=self.uv_map, bake_type='EMIT', bake_device='GPU', margin_type=self.margin_type
                 )
 
         if self.entity.type == 'IMAGE':
@@ -828,7 +828,7 @@ class YResizeImage(bpy.types.Operator):
             bpy.context.area.ui_type = ori_ui_type
 
         else:
-            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, bake_device='CPU', yp=yp)
+            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, bake_device='GPU', yp=yp)
 
             if new_segment:
                 entity.segment_name = new_segment.name
@@ -1036,7 +1036,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
                             p.material_index = active_mat_id
 
                 # Prepare bake settings
-                prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device='CPU', bake_target='VERTEX_COLORS')
+                prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device='GPU', bake_target='VERTEX_COLORS')
 
                 # Get extra channel
                 extra_channel = None
@@ -1224,7 +1224,7 @@ class YBakeChannels(bpy.types.Operator):
             description='Device to use for baking',
             items = (('GPU', 'GPU Compute', ''),
                      ('CPU', 'CPU', '')),
-            default='CPU'
+            default='GPU'
             )
     
     enable_bake_as_vcol : BoolProperty(name='Enable Bake As VCol',
@@ -2506,7 +2506,7 @@ class YMergeMask(bpy.types.Operator):
         #return {'FINISHED'}
 
         # Bake
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Copy results to original image
         copy_image_pixels(img, source.image, segment)

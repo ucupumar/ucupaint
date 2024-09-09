@@ -78,6 +78,19 @@ def is_join_objects_problematic(yp, mat=None):
 
     return False
 
+def bake_object_op():
+    try:
+        bpy.ops.object.bake()
+    except Exception as e:
+        scene = bpy.context.scene
+        if scene.cycles.device == 'GPU':
+            print('EXCEPTIION: GPU baking failed! Trying to use CPU...')
+            scene.cycles.device = 'CPU'
+
+            bpy.ops.object.bake()
+        else:
+            print('EXCEPTIION:', e)
+
 def remember_before_bake(yp=None, mat=None):
     book = {}
     book['scene'] = scene = bpy.context.scene
@@ -994,7 +1007,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
         mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
 
         print('BLUR: Baking blur on', image.name + '...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Run alpha pass
         if alpha_aware:
@@ -1129,7 +1142,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
 
             # Bake
             print('FXAA: Baking straight over on', image.name + '...')
-            bpy.ops.object.bake()
+            bake_object_op()
 
             pixels_1 = list(image.pixels)
             image_copy.pixels = pixels_1
@@ -1154,7 +1167,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
         mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
 
         print('FXAA: Baking FXAA on', image.name + '...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Copy original alpha to baked image
         if alpha_aware:
@@ -1247,7 +1260,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
             # Creates temp vertex color for baking alpha
             temp_vcol = new_vertex_color(obj, temp_vcol_alpha_name)
             set_active_vertex_color(obj, temp_vcol)
-        bpy.ops.object.bake()
+        bake_object_op()
         for obj in objs:
             vcols = get_vertex_colors(obj)
             temp_vcol = vcols.get(temp_vcol_alpha_name)
@@ -1277,7 +1290,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
         bake_alpha_to_vcol()
     else:
         # Bake without alpha channel
-        bpy.ops.object.bake()
+        bake_object_op()
     
     # If bake_alpha is True and the channel type is 'RGB', Bake twice to merge Alpha channel
     if bake_alpha and root_ch.type == 'RGB' and root_ch.enable_alpha:
@@ -1564,7 +1577,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         # Bake!
         print('BAKE CHANNEL: Baking main image of ' + root_ch.name + ' channel...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
     # Bake displacement
     if root_ch.type == 'NORMAL':
@@ -1637,7 +1650,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
                 # Bake
                 print('BAKE CHANNEL: Baking normal overlay image of ' + root_ch.name + ' channel...')
-                bpy.ops.object.bake()
+                bake_object_op()
 
                 #return
 
@@ -1712,7 +1725,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
                 # Bake
                 print('BAKE CHANNEL: Baking vector displacement image of ' + root_ch.name + ' channel...')
-                bpy.ops.object.bake()
+                bake_object_op()
 
                 # Set baked vector displacement image
                 if baked_vdisp.image:
@@ -1760,7 +1773,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
             # Bake
             print('BAKE CHANNEL: Baking max height of ' + root_ch.name + ' channel...')
-            bpy.ops.object.bake()
+            bake_object_op()
 
             # Recover margin
             bpy.context.scene.render.bake.margin = ori_margin
@@ -1843,7 +1856,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
             # Bake
             print('BAKE CHANNEL: Baking displacement image of ' + root_ch.name + ' channel...')
-            bpy.ops.object.bake()
+            bake_object_op()
 
             if not target_layer:
 
@@ -1880,7 +1893,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         # Bake
         print('BAKE CHANNEL: Baking alpha of ' + root_ch.name + ' channel...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Set tile pixels
         for tilenum in tilenums:
@@ -1991,7 +2004,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
         mat.node_tree.nodes.active = tex
 
         # Bake
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Recover link
         mat.node_tree.links.new(ori_bsdf, output.inputs[0])
@@ -2275,7 +2288,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
         # Bake
         print('RESIZE IMAGE: Baking resized image on', image_name + '...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
         if alpha_aware:
 
@@ -2306,7 +2319,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
             # Bake again!
             print('RESIZE IMAGE: Baking resized alpha on', image_name + '...')
-            bpy.ops.object.bake()
+            bake_object_op()
 
             if new_segment:
                 copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, new_segment)
