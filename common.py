@@ -723,6 +723,22 @@ def get_bpytypes():
         return bpy_types.bpy_types
     return bpy.types
 
+def get_srgb_name():
+    names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
+    if 'sRGB' not in names:
+        for name in names:
+            if name.lower().startswith('srgb'):
+                return name
+    return 'sRGB'
+
+def get_noncolor_name():
+    names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
+    if 'Non-Color' not in names:
+        for name in names:
+            if name.lower() == 'raw':
+                return name
+    return 'Non-Color'
+
 def remove_datablock(blocks, block, user=None, user_prop=''):
     if is_greater_than_279():
         blocks.remove(block)
@@ -5629,10 +5645,10 @@ def is_image_source_srgb(image, source, root_ch=None):
         return True
 
     # Float images is behaving like srgb for some reason in blender
-    if root_ch and root_ch.colorspace == 'SRGB' and image.is_float and image.colorspace_settings.name != 'sRGB':
+    if root_ch and root_ch.colorspace == 'SRGB' and image.is_float and image.colorspace_settings.name != get_srgb_name():
         return True
 
-    return image.colorspace_settings.name == 'sRGB'
+    return image.colorspace_settings.name == get_srgb_name()
 
 def any_linear_images_problem(yp):
     for layer in yp.layers:

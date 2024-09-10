@@ -570,7 +570,7 @@ class YNewLayerMask(bpy.types.Operator):
 
             if self.use_image_atlas:
                 if self.use_udim:
-                    segment = UDIM.get_set_udim_atlas_segment(tilenums, self.width, self.height, color, 'Non-Color', self.hdr, yp)
+                    segment = UDIM.get_set_udim_atlas_segment(tilenums, self.width, self.height, color, get_noncolor_name(), self.hdr, yp)
                 else:
                     segment = ImageAtlas.get_set_image_atlas_segment(
                             self.width, self.height, self.color_option, self.hdr, yp=yp) #, ypup.image_atlas_size)
@@ -594,8 +594,8 @@ class YNewLayerMask(bpy.types.Operator):
                 if hasattr(img, 'use_alpha'):
                     img.use_alpha = False
 
-            if img.colorspace_settings.name != 'Non-Color' and not img.is_dirty:
-                img.colorspace_settings.name = 'Non-Color'
+            if img.colorspace_settings.name != get_noncolor_name() and not img.is_dirty:
+                img.colorspace_settings.name = get_noncolor_name()
 
         # New vertex color
         elif self.type in {'VCOL', 'COLOR_ID'}:
@@ -839,8 +839,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            if image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
-                image.colorspace_settings.name = 'Non-Color'
+            if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
+                image.colorspace_settings.name = get_noncolor_name()
 
             # Add new mask
             mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, 
@@ -1100,8 +1100,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             image = bpy.data.images.get(self.image_name)
             name = image.name
 
-            if self.source_input == 'RGB' and image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
-                image.colorspace_settings.name = 'Non-Color'
+            if self.source_input == 'RGB' and image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
+                image.colorspace_settings.name = get_noncolor_name()
         elif self.type == 'VCOL':
             name = self.vcol_name
 

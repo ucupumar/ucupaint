@@ -2324,13 +2324,18 @@ def set_srgb_view_transform():
 
     # Set view transform to srgb
     if scene.yp.ori_view_transform == '' and ypup.make_preview_mode_srgb:
+
         scene.yp.ori_view_transform = scene.view_settings.view_transform
         if is_greater_than_280():
-            scene.view_settings.view_transform = 'Standard'
-        else: scene.view_settings.view_transform = 'Default'
+            try: scene.view_settings.view_transform = 'Standard'
+            except Exception as e: print(e)
+        else: 
+            try: scene.view_settings.view_transform = 'Default'
+            except Exception as e: print(e)
 
         scene.yp.ori_display_device = scene.display_settings.display_device
-        scene.display_settings.display_device = 'sRGB'
+        try: scene.display_settings.display_device = 'sRGB'
+        except Exception as e: print(e)
 
         scene.yp.ori_look = scene.view_settings.look
         scene.view_settings.look = 'None'

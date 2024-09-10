@@ -60,17 +60,17 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False, name=''):
 
     if color == 'BLACK':
         img.generated_color = (0,0,0,1)
-        img.colorspace_settings.name = 'Non-Color'
+        img.colorspace_settings.name = get_noncolor_name()
     elif color == 'WHITE':
         img.generated_color = (1,1,1,1)
-        img.colorspace_settings.name = 'Non-Color'
+        img.colorspace_settings.name = get_noncolor_name()
     else: img.generated_color = (0,0,0,0)
 
     img.yia.is_image_atlas = True
     img.yia.color = color
     #img.yia.float_buffer = hdr
     #if hdr:
-    #img.colorspace_settings.name = 'Non-Color'
+    #img.colorspace_settings.name = get_noncolor_name()
 
     return img
 
@@ -538,7 +538,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
             # Image used by masks will use black image atlas instead of transparent so it will use linear color by default
             color = 'BLACK' if used_by_masks else 'TRANSPARENT'
-            colorspace = 'Non-Color' if used_by_masks else 'sRGB'
+            colorspace = get_noncolor_name() if used_by_masks else get_srgb_name()
 
             # Get segment
             if image.source == 'TILED':

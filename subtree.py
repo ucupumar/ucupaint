@@ -2437,7 +2437,7 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
             and root_ch.colorspace == 'SRGB' 
             and (
                 (not ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
-                or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name != 'sRGB') # Float images need to converted to linear for some reason in Blender
+                or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name != get_srgb_name()) # Float images need to converted to linear for some reason in Blender
                 )
         ) or (
             yp.use_linear_blending
@@ -2459,7 +2459,7 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
             and root_ch.colorspace == 'SRGB' 
             and (
                 (ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
-                #or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name == 'sRGB') 
+                #or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name == get_srgb_name()) 
                 )
         ):
         if root_ch.type == 'VALUE':

@@ -112,7 +112,6 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         temp_image = bpy.data.images.new(name='__TEMP',
                 width=width, height=height, alpha=True, float_buffer=image.is_float)
 
-    #temp_image.colorspace_settings.name = 'Non-Color'
     temp_image.colorspace_settings.name = image.colorspace_settings.name
     temp_image.generated_color = col
 
@@ -200,7 +199,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         mat.node_tree.links.new(src.outputs[1], emit.inputs[0])
 
         # Temp image should use linear to properly bake alpha
-        temp_image1.colorspace_settings.name = 'Non-Color'
+        temp_image1.colorspace_settings.name = get_noncolor_name()
 
         # Bake again!
         bake_object_op()
@@ -1679,7 +1678,7 @@ class YBakeChannels(bpy.types.Operator):
                     if len(tilenums) > 1:
                         btimg = bpy.data.images.new(name=bt.name, width=self.width, height=self.height, 
                                 alpha=True, tiled=True) #float_buffer=hdr)
-                        btimg.colorspace_settings.name = 'Non-Color'
+                        btimg.colorspace_settings.name = get_noncolor_name()
                         btimg.filepath = filepath
 
                         # Fill tiles
@@ -1690,7 +1689,7 @@ class YBakeChannels(bpy.types.Operator):
                     else:
                         btimg = bpy.data.images.new(name=bt.name,
                             width=self.width, height=self.height, alpha=True, float_buffer=False)
-                        btimg.colorspace_settings.name = 'Non-Color'
+                        btimg.colorspace_settings.name = get_noncolor_name()
                         btimg.filepath = filepath
                         btimg.generated_color = color
                 else:
@@ -2442,7 +2441,7 @@ class YMergeMask(bpy.types.Operator):
                 img.generated_color = (0.0, 0.0, 0.0, 1.0)
             else: img.generated_color = (0.0, 0.0, 0.0, 0.0)
 
-            img.colorspace_settings.name = 'Non-Color'
+            img.colorspace_settings.name = get_noncolor_name()
         else:
             img = source.image.copy()
             width = img.size[0]
@@ -2814,7 +2813,7 @@ def update_enable_baked_outside(self, context):
                     max_x = loc_x
                     loc_x -= 280
 
-                if not is_greater_than_280() and baked.image.colorspace_settings.name != 'sRGB':
+                if not is_greater_than_280() and baked.image.colorspace_settings.name != get_srgb_name():
                     tex.color_space = 'NONE'
 
                 if outp_alpha:
@@ -2860,7 +2859,7 @@ def update_enable_baked_outside(self, context):
                             tex_normal_overlay.parent = frame
                             mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
 
-                            if not is_greater_than_280() and baked_normal_overlay.image.colorspace_settings.name != 'sRGB':
+                            if not is_greater_than_280() and baked_normal_overlay.image.colorspace_settings.name != get_srgb_name():
                                 tex_normal_overlay.color_space = 'NONE'
 
                             if ch.enable_subdiv_setup:
@@ -2897,7 +2896,7 @@ def update_enable_baked_outside(self, context):
                         tex_disp.interpolation = 'Cubic'
                         mtree.links.new(uv.outputs[0], tex_disp.inputs[0])
 
-                        if not is_greater_than_280() and baked_disp.image.colorspace_settings.name != 'sRGB':
+                        if not is_greater_than_280() and baked_disp.image.colorspace_settings.name != get_srgb_name():
                             tex_disp.color_space = 'NONE'
 
                         loc_x += 280
@@ -2946,7 +2945,7 @@ def update_enable_baked_outside(self, context):
                         tex_vdisp.interpolation = 'Cubic'
                         mtree.links.new(uv.outputs[0], tex_vdisp.inputs[0])
 
-                        if not is_greater_than_280() and baked_vdisp.image.colorspace_settings.name != 'sRGB':
+                        if not is_greater_than_280() and baked_vdisp.image.colorspace_settings.name != get_srgb_name():
                             tex_vdisp.color_space = 'NONE'
 
                         loc_x += 280

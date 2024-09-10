@@ -1434,7 +1434,7 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Image name and colorspace
             image_name = self.name
-            colorspace = 'sRGB'
+            colorspace = get_srgb_name()
 
             if self.type == 'OTHER_OBJECT_CHANNELS':
 
@@ -1482,10 +1482,10 @@ class YBakeToLayer(bpy.types.Operator):
                         elif socket:
                             m.node_tree.links.new(socket, temp_emi.inputs[0])
 
-                colorspace = 'Non-Color' if root_ch.colorspace == 'LINEAR' else 'sRGB'
+                colorspace = get_noncolor_name() if root_ch.colorspace == 'LINEAR' else get_srgb_name()
 
             elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
-                colorspace = 'Non-Color'
+                colorspace = get_noncolor_name()
 
             # Base color of baked image
             if self.type == 'AO':
@@ -1580,7 +1580,7 @@ class YBakeToLayer(bpy.types.Operator):
             #if self.type.startswith('OTHER_OBJECT_'):
             if self.type == 'OTHER_OBJECT_NORMAL':
                 temp_img = image.copy()
-                temp_img.colorspace_settings.name = 'Non-Color'
+                temp_img.colorspace_settings.name = get_noncolor_name()
                 tex.image = temp_img
 
                 # Set temp filepath
@@ -1645,7 +1645,7 @@ class YBakeToLayer(bpy.types.Operator):
 
                     if self.use_udim:
                         segment = UDIM.get_set_udim_atlas_segment(tilenums, color=(0,0,0,0), 
-                                colorspace='sRGB', hdr=self.hdr, yp=yp)
+                                colorspace=get_srgb_name(), hdr=self.hdr, yp=yp)
                     else:
                         # Clearing unused image atlas segments
                         img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
@@ -2110,11 +2110,11 @@ def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, s
     if mask:
         color = (0,0,0,1)
         color_str = 'BLACK'
-        colorspace = 'Non-Color'
+        colorspace = get_noncolor_name()
     else: 
         color = (0,0,0,0)
         color_str = 'TRANSPARENT'
-        colorspace = 'sRGB'
+        colorspace = get_srgb_name()
 
     # Create image
     if use_udim:
@@ -2472,7 +2472,7 @@ class YBakeEntityToImage(bpy.types.Operator):
 
             if self.use_udim:
                 segment = UDIM.get_set_udim_atlas_segment(self.tilenums, color=(0,0,0,1), 
-                        colorspace='Non-Color', hdr=self.hdr, yp=yp)
+                        colorspace=get_noncolor_name(), hdr=self.hdr, yp=yp)
             else:
                 # Clearing unused image atlas segments
                 img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)

@@ -226,7 +226,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
             if use_image_atlas_for_mask:
                 if use_udim_for_mask:
                     mask_segment = UDIM.get_set_udim_atlas_segment(tilenums,
-                            mask_width, mask_height, color, colorspace='Non-Color', hdr=mask_use_hdr, yp=yp)
+                            mask_width, mask_height, color, colorspace=get_noncolor_name(), hdr=mask_use_hdr, yp=yp)
                 else:
                     mask_segment = ImageAtlas.get_set_image_atlas_segment(
                             mask_width, mask_height, mask_color, mask_use_hdr, yp=yp)
@@ -249,8 +249,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 if hasattr(mask_image, 'use_alpha'):
                     mask_image.use_alpha = False
 
-            if mask_image.colorspace_settings.name != 'Non-Color' and not mask_image.is_dirty:
-                mask_image.colorspace_settings.name = 'Non-Color'
+            if mask_image.colorspace_settings.name != get_noncolor_name() and not mask_image.is_dirty:
+                mask_image.colorspace_settings.name = get_noncolor_name()
 
         # New vertex color
         elif mask_type in {'VCOL', 'COLOR_ID'}:
@@ -1214,7 +1214,7 @@ class YNewLayer(bpy.types.Operator):
 
             if self.use_image_atlas:
                 if self.use_udim:
-                    segment = UDIM.get_set_udim_atlas_segment(tilenums, self.width, self.height, color, 'sRGB', self.hdr, yp)
+                    segment = UDIM.get_set_udim_atlas_segment(tilenums, self.width, self.height, color, get_srgb_name(), self.hdr, yp)
                 else:
                     segment = ImageAtlas.get_set_image_atlas_segment(
                             self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
@@ -1240,8 +1240,8 @@ class YNewLayer(bpy.types.Operator):
                     if hasattr(img, 'use_alpha'):
                         img.use_alpha = True
 
-            #if img.colorspace_settings.name != 'Non-Color':
-            #    img.colorspace_settings.name = 'Non-Color'
+            #if img.colorspace_settings.name != get_noncolor_name():
+            #    img.colorspace_settings.name = get_noncolor_name()
 
             update_image_editor_image(context, img)
 
@@ -1878,7 +1878,7 @@ class BaseMultipleImagesLayer():
 
             # Use non-color for non-color channel
             if root_ch.colorspace == 'LINEAR' and not image.is_dirty:
-                image.colorspace_settings.name = 'Non-Color'
+                image.colorspace_settings.name = get_noncolor_name()
 
             # Use image directly to layer for the first index
             if i == 0:
@@ -2563,8 +2563,8 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
             else: image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
 
         image_node.image = image
-        #if image.colorspace_settings.name != 'Non-Color':
-        #    image.colorspace_settings.name = 'Non-Color'
+        #if image.colorspace_settings.name != get_noncolor_name():
+        #    image.colorspace_settings.name = get_noncolor_name()
 
         if should_be_bump:
             ch.override_type = 'IMAGE'
@@ -2694,8 +2694,8 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
 
             image_node.image = image
             if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
-            #if image.colorspace_settings.name != 'Non-Color':
-            #    image.colorspace_settings.name = 'Non-Color'
+            #if image.colorspace_settings.name != get_noncolor_name():
+            #    image.colorspace_settings.name = get_noncolor_name()
 
         elif self.type == 'VCOL':
 
@@ -3698,8 +3698,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             source.image = image
             if hasattr(source, 'color_space'):
                 source.color_space = 'NONE'
-            #if image.colorspace_settings.name != 'Non-Color':
-            #    image.colorspace_settings.name = 'Non-Color'
+            #if image.colorspace_settings.name != get_noncolor_name():
+            #    image.colorspace_settings.name = get_noncolor_name()
         elif new_type == 'VCOL':
             set_source_vcol_name(source, item_name)
         elif new_type == 'HEMI':
@@ -3846,8 +3846,8 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
         source.image = image
         if hasattr(source, 'color_space'):
             source.color_space = 'NONE'
-        if image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
-            image.colorspace_settings.name = 'Non-Color'
+        if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
+            image.colorspace_settings.name = get_noncolor_name()
     elif new_type == 'VCOL':
         set_source_vcol_name(source, item_name)
     elif new_type == 'HEMI':

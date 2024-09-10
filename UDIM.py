@@ -1003,7 +1003,7 @@ class YNewUDIMAtlasSegmentTest(bpy.types.Operator):
         objs = get_all_objects_with_same_materials(mat, True, uv_name)
         tilenums = get_tile_numbers(objs, uv_name)
 
-        new_segment = get_set_udim_atlas_segment(tilenums, 1024, 1024, color=(0,0,0,0), colorspace='sRGB', hdr=False)
+        new_segment = get_set_udim_atlas_segment(tilenums, 1024, 1024, color=(0,0,0,0), colorspace=get_srgb_name(), hdr=False)
 
         image = new_segment.id_data
 

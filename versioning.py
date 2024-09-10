@@ -322,8 +322,8 @@ def update_yp_tree(tree):
 
                 source = get_layer_source(layer)
                 if source and source.image and not source.image.is_float: 
-                    if source.image.colorspace_settings.name != 'sRGB':
-                        source.image.colorspace_settings.name = 'sRGB'
+                    if source.image.colorspace_settings.name != get_srgb_name():
+                        source.image.colorspace_settings.name = get_srgb_name()
                         print('INFO:', source.image.name, 'image is now using sRGB!')
                     check_layer_image_linear_node(layer)
                 image_found = True
@@ -335,8 +335,8 @@ def update_yp_tree(tree):
 
                     source = get_channel_source(ch)
                     if source and source.image and not source.image.is_float:
-                        if source.image.colorspace_settings.name != 'sRGB':
-                            source.image.colorspace_settings.name = 'sRGB'
+                        if source.image.colorspace_settings.name != get_srgb_name():
+                            source.image.colorspace_settings.name = get_srgb_name()
                             print('INFO:', source.image.name, 'image is now using sRGB!')
                         check_layer_channel_linear_node(ch)
                     image_found = True
@@ -347,8 +347,8 @@ def update_yp_tree(tree):
                 if mask.type == 'IMAGE':
                     source = get_mask_source(mask)
                     if source and source.image and not source.image.is_float:
-                        if source.image.colorspace_settings.name != 'sRGB':
-                            source.image.colorspace_settings.name = 'sRGB'
+                        if source.image.colorspace_settings.name != get_srgb_name():
+                            source.image.colorspace_settings.name = get_srgb_name()
                             print('INFO:', source.image.name, 'image is now using sRGB!')
                         check_mask_image_linear_node(mask)
                     image_found = True

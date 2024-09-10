@@ -74,8 +74,8 @@ def pack_float_image(image):
     image.source = 'FILE'
     image.filepath = temp_filepath
     if image.file_format == 'PNG':
-        image.colorspace_settings.name = 'sRGB'
-    else: image.colorspace_settings.name = 'Non-Color'
+        image.colorspace_settings.name = get_srgb_name()
+    else: image.colorspace_settings.name = get_noncolor_name()
 
     # Delete temporary scene
     remove_datablock(bpy.data.scenes, tmpscene)
@@ -260,14 +260,14 @@ def save_pack_all(yp):
                 save_float_image(image)
             else:
                 # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
-                if is_greater_than_330() and image.colorspace_settings.name in {'Linear', 'Non-Color'}:
+                if is_greater_than_330() and image.colorspace_settings.name in {'Linear', get_noncolor_name()}:
 
                     # Get image path
                     path = bpy.path.abspath(image.filepath)
 
                     # Pack image first
                     image.pack()
-                    image.colorspace_settings.name = 'sRGB'
+                    image.colorspace_settings.name = get_srgb_name()
 
                     # Remove old files to avoid caching (?)
                     try: os.remove(path)
@@ -284,7 +284,7 @@ def save_pack_all(yp):
                     except: image.filepath = path
 
                     # Bring back linear
-                    image.colorspace_settings.name = 'Non-Color'
+                    image.colorspace_settings.name = get_noncolor_name()
 
                     # Remove unpacked images on Blender 3.3 
                     remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
@@ -701,7 +701,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
             # Some image need to set to srgb when saving
             ori_colorspace = image.colorspace_settings.name
             if not image.is_float:
-                image.colorspace_settings.name = 'sRGB'
+                image.colorspace_settings.name = get_srgb_name()
             
             #settings.file_format = file_format
 
@@ -1039,7 +1039,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         # Some image need to set to srgb when saving
         ori_colorspace = image.colorspace_settings.name
         if not image.is_float and not image.is_dirty:
-            image.colorspace_settings.name = 'sRGB'
+            image.colorspace_settings.name = get_srgb_name()
 
         # Set settings
         settings = tmpscene.render.image_settings

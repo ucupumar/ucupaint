@@ -875,7 +875,7 @@ def denoise_image(image):
     image_node.image = image
 
     gamma = None
-    if image.colorspace_settings.name != 'sRGB' and not image.is_float:
+    if image.colorspace_settings.name != get_srgb_name() and not image.is_float:
         gamma = tree.nodes.new('CompositorNodeGamma')
         gamma.inputs[1].default_value = 2.2
 
@@ -998,7 +998,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
         # Blender 2.79 need to set these parameter to correct the gamma
         if not is_greater_than_280() :
-            if image.colorspace_settings.name == 'sRGB':
+            if image.colorspace_settings.name == get_srgb_name():
                 source_tex.color_space = 'COLOR'
             else: source_tex.color_space = 'NONE' 
 
@@ -1158,7 +1158,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
         res_y.outputs[0].default_value = height
         tex.image = image_copy
         if not is_greater_than_280() :
-            if image.colorspace_settings.name == 'sRGB':
+            if image.colorspace_settings.name == get_srgb_name():
                 tex.color_space = 'COLOR'
             else: tex.color_space = 'NONE'
 
@@ -1549,12 +1549,11 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         # Use hdr if not baking normal
         if root_ch.type != 'NORMAL' and use_hdr:
             img.use_generated_float = True
-            #img.colorspace_settings.name = 'Non-Color'
 
         # Set colorspace to linear
         if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL' or (root_ch.type != 'NORMAL' and use_hdr):
-            img.colorspace_settings.name = 'Non-Color'
-        else: img.colorspace_settings.name = 'sRGB'
+            img.colorspace_settings.name = get_noncolor_name()
+        else: img.colorspace_settings.name = get_srgb_name()
 
     # Bake main image
     if (
@@ -1623,7 +1622,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 # Create target image
                 norm_img = img.copy()
                 norm_img.name = norm_img_name
-                norm_img.colorspace_settings.name = 'Non-Color'
+                norm_img.colorspace_settings.name = get_noncolor_name()
                 color = (0.5, 0.5, 1.0, 1.0)
 
                 if img.source == 'TILED':
@@ -1703,7 +1702,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 vdisp_img = img.copy()
                 vdisp_img.name = vdisp_img_name
                 vdisp_img.use_generated_float = True
-                vdisp_img.colorspace_settings.name = 'Non-Color'
+                vdisp_img.colorspace_settings.name = get_noncolor_name()
                 color = (0.0, 0.0, 0.0, 1.0)
 
                 if img.source == 'TILED':
@@ -1747,7 +1746,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 mh_img = bpy.data.images.new(name='____MAXHEIGHT_TEMP', width=100, height=100, 
                         alpha=False, float_buffer=True)
 
-            mh_img.colorspace_settings.name = 'Non-Color'
+            mh_img.colorspace_settings.name = get_noncolor_name()
             tex.image = mh_img
 
             # Bake setup (doing little bit doing hacky reconnection here)
@@ -1813,7 +1812,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             disp_img = img.copy()
             disp_img.name = disp_img_name
             disp_img.use_generated_float = use_float_for_displacement
-            disp_img.colorspace_settings.name = 'Non-Color'
+            disp_img.colorspace_settings.name = get_noncolor_name()
             color = (0.5, 0.5, 0.5, 1.0)
 
             if img.source == 'TILED':
@@ -1882,7 +1881,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         # Create temp image
         alpha_img = img.copy()
-        alpha_img.colorspace_settings.name = 'Non-Color'
+        alpha_img.colorspace_settings.name = get_noncolor_name()
         create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], emit.inputs[0])
         tex.image = alpha_img
 
@@ -1979,7 +1978,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
     # New target image
     image = bpy.data.images.new(name=name,
             width=width, height=height, alpha=True, float_buffer=hdr)
-    image.colorspace_settings.name = 'Non-Color'
+    image.colorspace_settings.name = get_noncolor_name()
 
     if entity.type == 'HEMI':
 
@@ -2204,7 +2203,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     source_tex.image = image
 
     if not is_greater_than_280() :
-        if image.colorspace_settings.name == 'sRGB':
+        if image.colorspace_settings.name == get_srgb_name():
             source_tex.color_space = 'COLOR'
         else: source_tex.color_space = 'NONE'
 
@@ -2295,7 +2294,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
             # Create alpha image as bake target
             alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
                     width=width, height=height, alpha=True, float_buffer=image.is_float)
-            alpha_img.colorspace_settings.name = 'Non-Color'
+            alpha_img.colorspace_settings.name = get_noncolor_name()
 
             # Retransform back uv
             if segment:
