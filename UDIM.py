@@ -211,12 +211,8 @@ def remove_udim_files_from_disk(image, directory, remove_dir=False, tilenum=-1):
         cur_dir = pathlib.Path(directory)
         while True:
 
-            # Get number of files of current directory
-            num_files = len(os.listdir(cur_dir))
-            #print(cur_dir, num_files)
-
             # Only remove when the directory is empty
-            if os.path.isdir(cur_dir) and num_files == 0:
+            if os.path.isdir(cur_dir) and len(os.listdir(cur_dir)) == 0:
                 try: os.rmdir(cur_dir)
                 except Exception as e: print(e)
 
@@ -465,14 +461,16 @@ def copy_tiles(image0, image1, copy_dict):
         if ori0_packed:
             pack_udim(image0)
 
-            # Remove file if they are using temporary directory
-            if is_using_temp_dir(image0):
-                remove_udim_files_from_disk(image0, directory0, True)
-
         # Repack image 1
         if ori1_packed:
             pack_udim(image1)
 
+        if ori0_packed:
+            # Remove file if they are using temporary directory
+            if is_using_temp_dir(image0):
+                remove_udim_files_from_disk(image0, directory0, True)
+
+        if ori1_packed:
             # Remove file if they are using temporary directory
             if is_using_temp_dir(image1):
                 remove_udim_files_from_disk(image1, directory1, True)
