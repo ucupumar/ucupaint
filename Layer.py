@@ -3489,6 +3489,8 @@ class YRemoveLayer(bpy.types.Operator):
         layer = yp.layers[yp.active_layer_index]
         self.using_udim_atlas = False
 
+        self.any_images_on_disk = any_external_images_inside_layer(layer)
+
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image and source.image.yua.is_udim_atlas:
@@ -3501,8 +3503,6 @@ class YRemoveLayer(bpy.types.Operator):
                     self.using_udim_atlas = True
                     return context.window_manager.invoke_props_dialog(self, width=300)
         
-        self.any_images_on_disk = any_external_images_inside_layer(layer)
-
         obj = context.object
         if obj.mode != 'OBJECT' or self.any_images_on_disk:
             return context.window_manager.invoke_props_dialog(self, width=400)
@@ -4381,6 +4381,7 @@ class YDuplicateLayer(bpy.types.Operator):
         # Get active layer
         layer_idx = yp.active_layer_index
         layer = yp.layers[layer_idx]
+        source_layer_name = layer.name
 
         # Get all childrens
         childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
@@ -4473,7 +4474,7 @@ class YDuplicateLayer(bpy.types.Operator):
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
 
-        print('INFO: Layer', layer.name, 'is duplicated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', source_layer_name, 'is duplicated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}

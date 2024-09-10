@@ -1,4 +1,4 @@
-import bpy, numpy, os, tempfile, shutil
+import bpy, numpy, os, tempfile, shutil, time, pathlib
 from bpy.props import *
 from .common import *
 from . import lib, BakeInfo
@@ -19,35 +19,36 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
     if image.source != 'TILED': return False
     if color == None: color = image.yui.base_color
     tile = image.tiles.get(tilenum)
-    new_tile = False
-    # HACK: For some reason 1001 tile is always exists when using get
-    # Check if it actually exists by comparing the returned tile number
-    if not tile or tile.number != tilenum:
-        tile = image.tiles.new(tile_number=tilenum)
-        new_tile = True
 
-    # If tile is still not created even after creating new one
-    if not tile: return False
-
-    if tile.size[0] == 0 or tile.size[1] == 0:
-        new_tile = True
-
-    image.tiles.active = tile
-
-    if not new_tile and empty_only: return False
-
-    if width == 0: width = tile.size[0]
-    if height == 0: height = tile.size[1]
+    if width == 0: width = image.size[0]
+    if height == 0: height = image.size[1]
     if width == 0: width = 1024
     if height == 0: height = 1024
 
-    # Fill tile
-    override = bpy.context.copy()
-    override['edit_image'] = image
-    if is_greater_than_400():
-        with bpy.context.temp_override(**override):
-            bpy.ops.image.tile_fill(color=color, width=width, height=height, float=image.is_float, alpha=True)
-    else: bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=image.is_float, alpha=True)
+    # HACK: For some reason 1001 tile is always exists when using get
+    # Check if it actually exists by comparing the returned tile number
+    if not tile or tile.number != tilenum:
+        # Create new tile
+        override = bpy.context.copy()
+        override['edit_image'] = image
+        if is_greater_than_400():
+            with bpy.context.temp_override(**override):
+                bpy.ops.image.tile_add(number=tilenum, count=1, label="", color=color, width=width, height=height, float=image.is_float, alpha=True)
+        else: bpy.ops.image.tile_add(override, number=tilenum, count=1, label="", color=color, width=width, height=height, float=image.is_float, alpha=True)
+
+    elif not empty_only:
+
+        image.tiles.active = tile
+
+        override = bpy.context.copy()
+        override['edit_image'] = image
+        if is_greater_than_400():
+            with bpy.context.temp_override(**override):
+                bpy.ops.image.tile_fill(color=color, width=width, height=height, float=image.is_float, alpha=True)
+        else: bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=image.is_float, alpha=True)
+
+    else:
+        return False
 
     color_str = '('
     color_str += str(color[0]) + ', '
@@ -184,7 +185,7 @@ def get_temp_udim_dir():
 
 def is_using_temp_dir(image):
     directory = os.path.dirname(bpy.path.abspath(image.filepath))
-    if directory == get_temp_udim_dir() or (bpy.data.filepath == '' and directory == tempfile.gettempdir()):
+    if directory == get_temp_udim_dir() or (bpy.data.filepath == '' and directory == tempfile.gettempdir()) or os.sep+UDIM_DIR+os.sep in image.filepath:
         return True
     return False
 
@@ -205,10 +206,29 @@ def remove_udim_files_from_disk(image, directory, remove_dir=False, tilenum=-1):
         try: os.remove(os.path.join(directory, f))
         except Exception as e: print(e)
 
-    # Remove directory
-    if remove_dir and os.path.isdir(directory) and directory != tempfile.gettempdir() and len(os.listdir(directory)) == 0:
-        try: os.rmdir(directory)
-        except Exception as e: print(e)
+    # Remove directory with all the empty parents
+    if remove_dir and directory != tempfile.gettempdir():
+        cur_dir = pathlib.Path(directory)
+        while True:
+
+            # Get number of files of current directory
+            num_files = len(os.listdir(cur_dir))
+            #print(cur_dir, num_files)
+
+            # Only remove when the directory is empty
+            if os.path.isdir(cur_dir) and num_files == 0:
+                try: os.rmdir(cur_dir)
+                except Exception as e: print(e)
+
+            # Get the parent
+            parent_dir = cur_dir.parent
+
+            # Break if parent is not empty
+            if parent_dir == cur_dir or (os.path.isdir(parent_dir) and len(os.listdir(parent_dir)) > 0):
+                break
+
+            # Set current path to parent path
+            cur_dir = parent_dir
 
 def get_udim_filepath(filename, directory):
     filepath = os.path.join(directory, filename + '.<UDIM>.png')
@@ -218,6 +238,54 @@ def get_udim_filepath(filename, directory):
     #if not os.path.exists(directory):
     #    os.makedirs(directory)
     return filepath
+
+def save_udim(image):
+    override = bpy.context.copy()
+    override['edit_image'] = image
+    if is_greater_than_400():
+        with bpy.context.temp_override(**override):
+            bpy.ops.image.save_as(filepath=bpy.path.abspath(image.filepath), relative_path=True)
+            #bpy.ops.image.save()
+    else: 
+        bpy.ops.image.save_as(override, filepath=bpy.path.abspath(image.filepath), relative_path=True)
+        #bpy.ops.image.save(override)
+
+def save_as_udim(image, filepath=''):
+    if filepath == '': filepath = image.filepath
+    override = bpy.context.copy()
+    override['edit_image'] = image
+    if is_greater_than_400():
+        with bpy.context.temp_override(**override):
+            bpy.ops.image.save_as(filepath=bpy.path.abspath(filepath), relative_path=True)
+    else: bpy.ops.image.save_as(override, filepath=bpy.path.abspath(filepath), relative_path=True)
+
+def pack_udim(image):
+    # NOTE: Empty tiles can cause error with packing, so there's a need to remove them
+
+    # Check if there's empty tiles
+    empty_numbers = []
+    for tile in image.tiles:
+        if tile.channels == 0:
+            empty_numbers.append(tile.number)
+
+    # Remove if there's empty tiles
+    if len(empty_numbers) > 0:
+
+        for number in empty_numbers:
+            tile = image.tiles.get(number)
+            if tile and tile.number == number:
+                image.tiles.active = tile
+                override = bpy.context.copy()
+                override['edit_image'] = image
+                if is_greater_than_400():
+                    with bpy.context.temp_override(**override):
+                        bpy.ops.image.tile_remove()
+                else: bpy.ops.image.tile_remove(override)
+
+        # Save udim first before packing the image
+        save_udim(image)
+
+    image.pack()
 
 # UDIM need filepath to work, 
 # So there's need to initialize filepath for every udim image created
@@ -235,48 +303,24 @@ def initial_pack_udim(image, base_color=None, filename='', force_temp_dir=False)
 
     # Set temporary filepath
     filepath = image.filepath
-    if (image.filepath == '' or # Set image filepath if it's still empty
-        not is_image_filepath_unique(image) # Force set new filepath when image filepath is not unique
+    directory = os.path.dirname(bpy.path.abspath(filepath))
+
+    if (filepath == '' or # Set image filepath if it's still empty
+        not is_image_filepath_unique(filepath) or # Force set new filepath when image filepath is not unique
+        (force_temp_dir and bpy.data.filepath != '') or # Force temporary directory
+        (not use_temp_dir and not os.path.isdir(directory)) # When blend file is copied to another PC, there's a chance directory is missing
         ):
-        use_temp_dir = True
         filename = filename if filename != '' else image.name
 
-        # Set image filepath will make image disappear on Blender 3.3
+        # Get temp filepath
         filepath = get_udim_filepath(filename, temp_dir)
-        if is_greater_than_340():
-            image.filepath = filepath
-
-    # When blend file is copied to another PC, there's a chance directory is missing
-    directory = os.path.dirname(bpy.path.abspath(image.filepath))
-    if (force_temp_dir and bpy.data.filepath != '') or (not use_temp_dir and not os.path.isdir(directory)):
-
-        path = temp_dir + os.sep + image.name + '.<UDIM>.png'
-
-        override = bpy.context.copy()
-        override['edit_image'] = image
-        if is_greater_than_400():
-            with bpy.context.temp_override(**override):
-                bpy.ops.image.save_as(filepath=path, relative_path=True)
-        else: bpy.ops.image.save_as(override, filepath=path, relative_path=True)
-
-        # HACK: For some reason, there's a need to set the filepath manually after save as
-        relpath = bpy.path.relpath(path)
-        try: image.filepath = relpath
-        except Exception as e: print(e)
-
         use_temp_dir = True
-    else:
-        # Save then pack
-        if is_greater_than_340():
-            image.save()
-        else:
-            # Blender 3.3 need image ops to save the image
-            override = bpy.context.copy()
-            override['edit_image'] = image
-            bpy.ops.image.save_as(override, filepath=bpy.path.abspath(filepath), relative_path=True)
+
+    # Save then pack
+    save_as_udim(image, filepath)
 
     if use_packed or use_temp_dir:
-        image.pack()
+        pack_udim(image)
 
     # Remove temporary files
     if use_temp_dir:
@@ -312,7 +356,7 @@ def swap_tiles(image, swap_dict, reverse=False):
 
         # Save the image first
         if not image_saved:
-            image.save()
+            save_udim(image)
             image_saved = True
 
         print('UDIM: Swapping tile', tilenum0, 'to', tilenum1)
@@ -341,11 +385,11 @@ def swap_tiles(image, swap_dict, reverse=False):
 
         # Reload to update image
         image.reload()
-        image.save()
+        save_udim(image)
 
         # Repack image
         if ori_packed:
-            image.pack()
+            pack_udim(image)
 
             # Remove file if they are using temporary directory
             if is_using_temp_dir(image):
@@ -398,8 +442,8 @@ def copy_tiles(image0, image1, copy_dict):
 
         # Save the image first
         if not image_saved:
-            image0.save()
-            image1.save()
+            save_udim(image0)
+            save_udim(image1)
             image_saved = True
 
         print('UDIM: Copying tile', tilenum0, '(' + image0.name + ') to', tilenum1, '(' + image1.name + ')')
@@ -414,12 +458,12 @@ def copy_tiles(image0, image1, copy_dict):
         # Reload to update image
         #image0.reload()
         image1.reload()
-        #image0.save()
-        image1.save()
+        #save_udim(image0)
+        save_udim(image1)
 
         # Repack image 0
         if ori0_packed:
-            image0.pack()
+            pack_udim(image0)
 
             # Remove file if they are using temporary directory
             if is_using_temp_dir(image0):
@@ -427,7 +471,7 @@ def copy_tiles(image0, image1, copy_dict):
 
         # Repack image 1
         if ori1_packed:
-            image1.pack()
+            pack_udim(image1)
 
             # Remove file if they are using temporary directory
             if is_using_temp_dir(image1):
@@ -453,7 +497,7 @@ def remove_tiles(image, tilenums):
 
         # Save the image first
         if not image_saved:
-            image.save()
+            save_udim(image)
             image_saved = True
 
         print('UDIM: Removing tile', tilenum)
@@ -464,7 +508,7 @@ def remove_tiles(image, tilenums):
     # Repack image
     if image_saved:
         if ori_packed:
-            image.pack()
+            pack_udim(image)
 
             # Remove file if they are using temporary directory
             if is_using_temp_dir(image):
@@ -487,6 +531,8 @@ class YRefillUDIMTiles(bpy.types.Operator):
         return get_active_ypaint_node()
 
     def execute(self, context):
+        T = time.time()
+
         yp = context.layer.id_data.yp
         entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp)
 
@@ -523,6 +569,8 @@ class YRefillUDIMTiles(bpy.types.Operator):
                     fill_tile(image, tilenum, color, width, height, empty_only=True)
 
                 initial_pack_udim(image)
+
+        print('INFO: Refilling UDIM is done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 
@@ -761,7 +809,7 @@ def rearrange_tiles(image, convert_dict):
 
         # Save the image first
         if not image_saved:
-            image.save()
+            save_udim(image)
             image_saved = True
 
         print('UDIM: Rename tile', tilenum0, 'to', tilenum1, '(' + image.name + ')')
@@ -797,11 +845,11 @@ def rearrange_tiles(image, convert_dict):
 
         # Reload to update image
         image.reload()
-        image.save()
+        save_udim(image)
 
         # Repack image
         if ori_packed:
-            image.pack()
+            pack_udim(image)
 
             # Remove file if they are using temporary directory
             if is_using_temp_dir(image):
@@ -929,6 +977,15 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
 
     # Rearrange tiles
     rearrange_tiles(image, convert_dict)
+
+    # Fill tiles again in case there's empty tiles
+    dirty = False
+    for tilenum in tilenums:
+        if fill_tile(image, tilenum, empty_only=True):
+            dirty = True
+
+    # Pack after fill again once more
+    if dirty or image.filepath == '' or not is_using_temp_dir(image): initial_pack_udim(image, force_temp_dir=True)
 
     # Remove unused tilenum
     unused_tilenums = [tile.number for tile in image.tiles if tile.number not in tilenums and tile.number != 1001]
