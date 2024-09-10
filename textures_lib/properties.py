@@ -222,9 +222,9 @@ def load_previews(context):
 	
 def update_input_search(self, context):
 
-	if self.input_last == self.input_search:
-		print("no search:"+self.input_search)
-		return
+	# if self.input_last == self.input_search:
+	# 	print("no search:"+self.input_search)
+	# 	return
 	
 	self.input_last = self.input_search
 
@@ -234,6 +234,8 @@ def update_input_search(self, context):
 
 	if self.input_search == '':
 		last_search.clear()
+		if get_searching_thread() != None:
+			cancel_searching(context)
 		return
 
 	# cancel previous search
