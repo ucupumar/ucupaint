@@ -4873,6 +4873,8 @@ def new_mask_button(layout, operator, text, lib_icon='', otype='', target_type='
     if overwrite_current != None: op.overwrite_current = overwrite_current
     if modifier_type != '': op.modifier_type = modifier_type
 
+    return op
+
 class YAddLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_add_layer_mask_menu"
     bl_description = 'Add Layer Mask'
