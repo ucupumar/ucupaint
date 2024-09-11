@@ -706,7 +706,7 @@ class YResizeImage(bpy.types.Operator):
             default=1, min=1)
 
     all_tiles : BoolProperty(name='Resize All Tiles',
-            description='Resize all tiles',
+            description='Resize all tiles (when using UDIM atlas, only segment tiles will be resized)',
             default=False)
 
     tile_number : EnumProperty(name='Tile Number',
@@ -767,7 +767,9 @@ class YResizeImage(bpy.types.Operator):
                 col.prop(self, 'samples', text='')
 
             if image.source == 'TILED':
-                col.prop(self, 'all_tiles')
+                if image.yua.is_udim_atlas:
+                    col.prop(self, 'all_tiles', text='Resize All Atlas Segment Tiles')
+                else: col.prop(self, 'all_tiles')
                 if not self.all_tiles:
                     col.prop(self, 'tile_number', text='')
 
