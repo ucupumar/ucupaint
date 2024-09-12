@@ -1340,18 +1340,18 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         tilenums = UDIM.get_tile_numbers(objs, uv_map)
 
     # Check if temp bake is necessary
-    #temp_baked = []
-    #if root_ch.type == 'NORMAL':
-    #    for lay in yp.layers:
-    #        if lay.type in {'HEMI'} and not lay.use_temp_bake:
-    #            print('BAKE CHANNEL: Fake lighting layer found! Baking temporary image of ' + lay.name + ' layer...')
-    #            temp_bake(bpy.context, lay, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
-    #            temp_baked.append(lay)
-    #        for mask in lay.masks:
-    #            if mask.type in {'HEMI'} and not mask.use_temp_bake:
-    #                print('BAKE CHANNEL: Fake lighting mask found! Baking temporary image of ' + mask.name + ' mask...')
-    #                temp_bake(bpy.context, mask, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
-    #                temp_baked.append(mask)
+    temp_baked = []
+    if root_ch.type == 'NORMAL':
+        for lay in yp.layers:
+            if lay.type in {'HEMI'} and not lay.use_temp_bake:
+                print('BAKE CHANNEL: Fake lighting layer found! Baking temporary image of ' + lay.name + ' layer...')
+                temp_bake(bpy.context, lay, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
+                temp_baked.append(lay)
+            for mask in lay.masks:
+                if mask.type in {'HEMI'} and not mask.use_temp_bake:
+                    print('BAKE CHANNEL: Fake lighting mask found! Baking temporary image of ' + mask.name + ' mask...')
+                    temp_bake(bpy.context, mask, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
+                    temp_baked.append(mask)
 
     ch = None
     img = None
@@ -1935,9 +1935,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
     # Recover baked temp
-    #for ent in temp_baked:
-    #    print('BAKE CHANNEL: Removing temporary baked ' + ent.name + '...')
-    #    disable_temp_bake(ent)
+    for ent in temp_baked:
+        print('BAKE CHANNEL: Removing temporary baked ' + ent.name + '...')
+        disable_temp_bake(ent)
 
     # Set image to target layer
     if target_layer:
@@ -1991,12 +1991,14 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
 
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
         emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+        geo = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
         output = get_active_mat_output_node(mat.node_tree)
         ori_bsdf = output.inputs[0].links[0].from_socket
 
         # Connect emit to output material
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
         mat.node_tree.links.new(source_copy.outputs[0], output.inputs[0])
+        mat.node_tree.links.new(geo.outputs['Normal'], source_copy.inputs['Normal'])
 
         # Set active texture
         tex.image = image
@@ -2012,6 +2014,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
         mat.node_tree.nodes.remove(tex)
         simple_remove_node(mat.node_tree, emit)
         simple_remove_node(mat.node_tree, source_copy)
+        simple_remove_node(mat.node_tree, geo)
 
         # Set entity original type
         entity.original_type = 'HEMI'
