@@ -5296,28 +5296,75 @@ def get_all_objects_with_same_materials(mat, mesh_only=False, uv_name='', select
 
     return objs
 
-def get_yp_images(yp, udim_only=False):
+def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=False):
+
+    layers = [layer]
+
+    if has_childrens(layer):
+        childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
+        layers.extend(childs)
 
     images = []
+    for lay in layers:
+        for mask in lay.masks:
+            baked_source = get_mask_source(mask, get_baked=True)
+            if baked_source and baked_source.image and baked_source.image not in images:
+                images.append(baked_source.image)
 
-    for layer in yp.layers:
-
-        for mask in layer.masks:
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
-                if not source or not source.image: continue
-                image = source.image
-                if udim_only and image.source != 'TILED': continue
-                if image not in images:
+                if source and source.image and source.image not in images:
                     images.append(source.image)
 
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if not source or not source.image: continue
-            image = source.image
-            if udim_only and image.source != 'TILED': continue
-            if image not in images:
+        for ch in lay.channels:
+            if ch.override and ch.override_type == 'IMAGE':
+                source = get_channel_source(ch, lay)
+                if source and source.image and source.image not in images:
+                    images.append(source.image)
+
+            if ch.override_1 and ch.override_1_type == 'IMAGE':
+                source = get_channel_source_1(ch, lay)
+                if source and source.image and source.image not in images:
+                    images.append(source.image)
+
+        baked_source = get_layer_source(lay, get_baked=True)
+        if baked_source and baked_source.image and baked_source.image not in images:
+            images.append(baked_source.image)
+
+        if lay.type == 'IMAGE':
+            source = get_layer_source(lay)
+            if source and source.image and source.image not in images:
                 images.append(source.image)
+
+    filtered_images = []
+    for image in images:
+        if udim_only and image.source != 'TILED': continue
+        if ondisk_only and (image.packed_file or image.filepath == ''): continue
+        if packed_only and not image.packed_file and image.filepath != '': continue
+        if image not in filtered_images:
+            filtered_images.append(image)
+
+    return filtered_images
+
+def any_single_user_ondisk_image_inside_layer(layer):
+    for image in get_layer_images(layer, ondisk_only=True):
+        if is_image_single_user(image):
+            return True
+
+    return False
+
+def any_single_user_ondisk_image_inside_group(group):
+    childs, child_ids = get_list_of_all_childs_and_child_ids(group)
+    for child in childs:
+        if any_single_user_ondisk_image_inside_layer(child):
+            return True
+
+    return False
+
+def get_yp_images(yp, udim_only=False):
+    images = []
+    for layer in yp.layers:
+        images.extend(get_layer_images(layer, udim_only))
 
     return images
 
