@@ -72,7 +72,7 @@ class TexLibCancelDownload(Operator):
 class TexLibRemoveTextureAttribute(Operator):
     """Remove existing textures"""
 
-    bl_label = ""
+    bl_label = "Remove Textures"
     bl_idname = "texlib.remove_attribute"
     attribute:StringProperty()
     id:StringProperty()
@@ -104,6 +104,9 @@ class TexLibRemoveTextureAttribute(Operator):
                 os.rmdir(dir_up)
                 my_list = context.scene.texlib.downloaded_material_items
                 my_list.remove(my_list.find(self.id))
+
+            retrieve_asset_library(context)
+            
             return {'FINISHED'}
         return {'CANCELLED'}
     

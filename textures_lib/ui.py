@@ -175,9 +175,15 @@ class TexLibBrowser(Panel):
         if len(split_names) > 1:
             attr = split_names[-1]
 
-        op:TexLibAddToUcupaint = layout.operator("texlib.add_to_ucupaint", icon="ADD")
+        btns = layout.row()
+
+        op:TexLibAddToUcupaint = btns.operator("texlib.add_to_ucupaint", icon="ADD")
         op.attribute = attr
         op.id = selected.asset_id
+
+        remove:TexLibRemoveTextureAttribute = btns.operator("texlib.remove_attribute", icon="REMOVE")
+        remove.attribute = attr
+        remove.id = selected.asset_id
 
 class TEXLIB_UL_Downloads(UIList):
 

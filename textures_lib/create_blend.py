@@ -87,6 +87,9 @@ for image_path in image_paths:
 		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
 		tex_image.image = image
 		new_material.node_tree.links.new(bsdf.inputs['Roughness'], tex_image.outputs['Color'])
+	else:
+		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
+		tex_image.image = image
 
 thumbnail_file = os.path.join(dir_target, arg_dict["id"]+".png")
 new_material.asset_mark()
