@@ -434,7 +434,7 @@ class SingletonUpdater:
             if "label" in tag.keys():
                 label = tag["label"]
                 if label == LEGACY_BRANCH:
-                    label = "Master (2.79)"
+                    label = "Master (Blender 2.7x)"
             else:
                 label = "Stable ("+nm+")"
             tag_names.append((nm, label, "Select to install " + nm))
@@ -833,7 +833,9 @@ class SingletonUpdater:
         self.print_verbose("Starting download update zip")
         try:
             request = urllib.request.Request(url)
-            context = ssl._create_unverified_context()
+            context = None
+            if is_greater_than_277():
+                context = ssl._create_unverified_context()
 
             # Setup private token if appropriate.
             if self._engine.token is not None:
@@ -847,8 +849,12 @@ class SingletonUpdater:
             request.add_header(
                 'User-Agent', "Python/" + str(platform.python_version()))
 
-            self.url_retrieve(urllib.request.urlopen(request, context=context),
-                              self._source_zip)
+            if context:
+                self.url_retrieve(urllib.request.urlopen(request, context=context),
+                                  self._source_zip)
+            else:
+                self.url_retrieve(urllib.request.urlopen(request),
+                                  self._source_zip)
             # Add additional checks on file size being non-zero.
             self.print_verbose("Successfully downloaded update zip")
             return True
