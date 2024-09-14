@@ -739,6 +739,7 @@ def get_srgb_name():
         for name in names:
             if name.lower().startswith('srgb'):
                 return name
+        return names[0]
     return 'sRGB'
 
 def get_noncolor_name():
@@ -747,6 +748,7 @@ def get_noncolor_name():
         for name in names:
             if name.lower() == 'raw':
                 return name
+        return names[0]
     return 'Non-Color'
 
 def remove_datablock(blocks, block, user=None, user_prop=''):
