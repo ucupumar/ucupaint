@@ -1937,7 +1937,7 @@ class BaseMultipleImagesLayer():
 
         return True
 
-    def invoke_operator(self, context:bpy.context):
+    def invoke_operator(self, context):
         obj = context.object
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None

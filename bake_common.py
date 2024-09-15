@@ -1,4 +1,5 @@
 import bpy, time, os, numpy, tempfile
+from bpy.props import *
 from .common import *
 from .input_outputs import *
 from .node_connections import *
@@ -369,7 +370,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
-        source_objs=[], bake_device='GPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name=''):
+        source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name=''):
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
@@ -930,7 +931,7 @@ def denoise_image(image):
     print('DENOISE:', image.name, 'denoise pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
     return image
 
-def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GPU'):
+def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CPU'):
     T = time.time()
     print('BLUR: Doing Blur pass on', image.name + '...')
     book = remember_before_bake()
@@ -1069,7 +1070,7 @@ def create_plane_on_object_mode():
 
     return bpy.context.view_layer.objects.active
 
-def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False):
+def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False):
     T = time.time()
     print('FXAA: Doing FXAA pass on', image.name + '...')
     book = remember_before_bake()
@@ -2157,7 +2158,7 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
     print('INFO: Merging mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
     return merged_obj
 
-def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='GPU', specific_tile=0):
+def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='CPU', specific_tile=0):
 
     T = time.time()
     image_name = image.name
@@ -2416,4 +2417,41 @@ def get_output_uv_names_from_geometry_nodes(obj):
                     if uv: uv_names.append(uv.name)
 
     return uv_names
+
+class BaseBakeOperator():
+    bake_device : EnumProperty(
+            name='Bake Device',
+            description='Device to use for baking',
+            items = (('GPU', 'GPU Compute', ''),
+                     ('CPU', 'CPU', '')),
+            default='CPU'
+            )
+    
+    samples : IntProperty(name='Bake Samples', 
+            description='Bake Samples, more means less jagged on generated textures', 
+            default=1, min=1)
+
+    margin : IntProperty(name='Bake Margin',
+            description = 'Bake margin in pixels',
+            default=5, subtype='PIXEL')
+
+    margin_type : EnumProperty(name = 'Margin Type',
+            description = '',
+            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
+            default = 'ADJACENT_FACES')
+
+    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+
+    def invoke_operator(self, context):
+        ypup = get_user_preferences()
+
+        # Set up default bake device
+        if ypup.default_bake_device != 'DEFAULT':
+            self.bake_device = ypup.default_bake_device
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
 

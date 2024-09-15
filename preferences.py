@@ -58,6 +58,15 @@ class YPaintPreferences(AddonPreferences):
             name = 'Parallax Without Use Baked',
             description = 'Make it possible to use parallax without using baked textures (currently VERY SLOW)',
             default = False)
+
+    default_bake_device : EnumProperty(
+            name = 'Default Bake Device',
+            description = 'Default bake device',
+            items = (('DEFAULT', 'Default', 'Use last selected bake device'),
+                     ('CPU', 'CPU', 'Use CPU by default'),
+                     ('GPU', 'GPU Compute', 'Use GPU by default')),
+            default='DEFAULT'
+            )
     
     # Addon updater preferences.
     auto_check_update : BoolProperty(
@@ -93,6 +102,9 @@ class YPaintPreferences(AddonPreferences):
         max=59)
 
     def draw(self, context):
+        if is_greater_than_280():
+            self.layout.prop(self, 'default_bake_device')
+
         self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
@@ -100,8 +112,6 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'make_preview_mode_srgb')
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'show_experimental')
-        #if is_greater_than_420():
-        #    self.layout.prop(self, 'eevee_next_displacement')
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')
 
