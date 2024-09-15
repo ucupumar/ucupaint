@@ -221,7 +221,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
                 UDIM.swap_tile(temp_image1, 1001, tilenum)
 
         # Remove temp image 1
-        bpy.data.images.remove(temp_image1)
+        remove_datablock(bpy.data.images, temp_image1)
 
     if segment and image.source == 'TILED':
 
@@ -239,7 +239,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
             source.image = new_segment.id_data
 
         # Remove temp image
-        bpy.data.images.remove(temp_image)
+        remove_datablock(bpy.data.images, temp_image)
 
     elif temp_image.source == 'TILED' or image.source == 'TILED':
         # Replace image if any of the images is using UDIM
@@ -249,7 +249,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         copy_image_pixels(temp_image, image, segment)
 
         # Remove temp image
-        bpy.data.images.remove(temp_image)
+        remove_datablock(bpy.data.images, temp_image)
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, tex)
@@ -277,9 +277,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
     # Remove temporary objects
     if temp_objs:
         for o in temp_objs:
-            m = o.data
-            bpy.data.objects.remove(o)
-            bpy.data.meshes.remove(m)
+            remove_mesh_obj(o)
 
 def set_entities_which_using_the_same_image_or_segment(entity, target_uv_name):
     yp = entity.id_data.yp
@@ -1845,9 +1843,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         # Remove temporary objects
         if temp_objs:
             for o in temp_objs:
-                m = o.data
-                bpy.data.objects.remove(o)
-                bpy.data.meshes.remove(m)
+                remove_mesh_obj(o)
 
         print('INFO:', tree.name, 'channels is baked at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
@@ -2198,9 +2194,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             # Remove temporary objects
             if temp_objs:
                 for o in temp_objs:
-                    m = o.data
-                    bpy.data.objects.remove(o)
-                    bpy.data.meshes.remove(m)
+                    remove_mesh_obj(o)
 
             # Recover bake settings
             recover_bake_settings(book, yp)
@@ -2467,7 +2461,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         copy_image_pixels(img, source.image, segment)
 
         # Remove temp image
-        bpy.data.images.remove(img)
+        remove_datablock(bpy.data.images, img)
 
         # Remove mask mix nodes
         for m in [mask, neighbor_mask]:
@@ -2497,9 +2491,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         # Remove temporary objects
         if temp_objs:
             for o in temp_objs:
-                m = o.data
-                bpy.data.objects.remove(o)
-                bpy.data.meshes.remove(m)
+                remove_mesh_obj(o)
 
         # Recover bake settings
         recover_bake_settings(book, yp)

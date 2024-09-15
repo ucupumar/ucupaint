@@ -302,7 +302,8 @@ def check_transition_bump_falloff(layer, tree):
                         if n.type == 'GROUP' and n != ori:
                             prev_tree = n.node_tree
                             n.node_tree = ori.node_tree
-                            if prev_tree and prev_tree.users == 0: bpy.data.node_groups.remove(prev_tree)
+                            if prev_tree and prev_tree.users == 0: 
+                                remove_datablock(bpy.data.node_groups, prev_tree)
 
                     # Check cached curve
                     cache = tree.nodes.get(ch.cache_falloff_curve)

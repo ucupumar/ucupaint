@@ -404,7 +404,7 @@ def get_smooth_mix_node(blend_type, layer_type=''):
 def clean_unused_libraries():
     for ng in bpy.data.node_groups:
         if ng.name.startswith('~yPL ') and ng.users == 0:
-            bpy.data.node_groups.remove(ng)
+            remove_datablock(bpy.data.node_groups, ng)
 
 def register():
     load_custom_icons()

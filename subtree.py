@@ -918,9 +918,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                     m.show_render = ori_show_render_mods[i]
 
             # Delete temp object
-            temp_me = temp_ob.data
-            bpy.data.objects.remove(temp_ob)
-            bpy.data.meshes.remove(temp_me)
+            remove_mesh_obj(temp_ob)
 
             # Set back original select
             for o in ori_select:
@@ -935,7 +933,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                 for o in related_objs:
                     o.data = obj.data
 
-                bpy.data.meshes.remove(ori_mesh)
+                remove_datablock(bpy.data.meshes, ori_mesh)
                 o.data.name = ori_name
 
         # Recover active uv
@@ -1283,15 +1281,15 @@ def clear_parallax_node_data(yp, parallax, baked=False):
         it = parallax_loop.node_tree.nodes.get('_iterate_depth_' + str(counter))
 
         if it and it.node_tree:
-            bpy.data.node_groups.remove(it.node_tree)
+            remove_datablock(bpy.data.node_groups, it.node_tree, user=it, user_prop='node_tree')
         else: break
 
         counter += 1
 
     # Remove node trees
-    bpy.data.node_groups.remove(iterate.node_tree)
-    bpy.data.node_groups.remove(parallax_loop.node_tree)
-    bpy.data.node_groups.remove(depth_source_0.node_tree)
+    remove_datablock(bpy.data.node_groups, iterate.node_tree, user=iterate, user_prop='node_tree')
+    remove_datablock(bpy.data.node_groups, parallax_loop.node_tree, user=parallax_loop, user_prop='node_tree')
+    remove_datablock(bpy.data.node_groups, depth_source_0.node_tree, user=depth_source_0, user_prop='node_tree')
 
     # Clear parallax uv node names
     for uv in yp.uvs:

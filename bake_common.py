@@ -832,8 +832,8 @@ def recover_composite_settings(book):
         cam_obj = bpy.data.objects.get(book['temp_camera_name'])
         if cam_obj:
             cam = cam_obj.data
-            bpy.data.objects.remove(cam_obj)
-            bpy.data.cameras.remove(cam)
+            remove_datablock(bpy.data.objects, cam_obj)
+            remove_datablock(bpy.data.cameras, cam)
 
     # Remove temp scene
     remove_datablock(bpy.data.scenes, scene)
@@ -1456,8 +1456,6 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 filepath = baked.image.filepath
             else: filepath = get_valid_filepath(baked.image, use_hdr)
             baked.image.name = '____TEMP'
-            #if baked.image.users == 1:
-            #    bpy.data.images.remove(baked.image)
 
     if not img:
 
