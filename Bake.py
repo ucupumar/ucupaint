@@ -2467,6 +2467,13 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         # Copy results to original image
         copy_image_pixels(img, source.image, segment)
 
+        # HACK: Pack and refresh to update image on Blender 2.77 and lower
+        if not is_greater_than_278() and (source.image.packed_file or source.image.filepath == ''):
+            if source.image.is_float:
+                image_ops.pack_float_image(source.image)
+            else: source.image.pack(as_png=True)
+            source.image.reload()
+
         # Remove temp image
         remove_datablock(bpy.data.images, img, user=tex, user_prop='image')
 
