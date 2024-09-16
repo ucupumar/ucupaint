@@ -483,16 +483,20 @@ format_extensions = {
         'OPEN_EXR' : '.exr',
         'HDR' : '.hdr',
         'TIFF' : '.tif',
+        'WEBP' : '.webp',
         }
 
 def color_mode_items(self, context):
-    if self.file_format in {'BMP', 'JPEG', 'CINEON', 'HDR'}:
-        items = (('BW', 'BW', ''),
-                ('RGB', 'RGB', ''))
-    else:
-        items = (('BW', 'BW', ''),
-                ('RGB', 'RGB', ''),
-                ('RGBA', 'RGBA', ''))
+    items = []
+
+    if self.file_format in {'BMP', 'IRIS', 'PNG', 'JPEG', 'TARGA', 'TARGA_RAW', 'TIFF'}:
+        items.append(('BW', 'BW', ''))
+
+    items.append(('RGB', 'RGB', ''))
+
+    if self.file_format not in {'BMP', 'JPEG', 'CINEON', 'HDR'}:
+        items.append(('RGBA', 'RGBA', ''))
+
     return items
 
 def color_depth_items(self, context):
@@ -525,7 +529,7 @@ def update_save_as_file_format(self, context):
         self.color_mode = 'RGB'
     else: self.color_mode = 'RGBA'
 
-    if self.file_format in {'BMP', 'IRIS', 'PNG', 'JPEG', 'JPEG2000', 'TARGA', 'TARGA_RAW' }:
+    if self.file_format in {'BMP', 'IRIS', 'PNG', 'JPEG', 'JPEG2000', 'TARGA', 'TARGA_RAW', 'WEBP'}:
         self.color_depth = '8'
     elif self.file_format in {'CINEON', 'DPX'}:
         self.color_depth = '10'
@@ -734,35 +738,37 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def get_file_format_items():
+    items = [
+            ('BMP', 'BMP', '', 'IMAGE_DATA', 0),
+            ('IRIS', 'Iris', '', 'IMAGE_DATA', 1),
+            ('PNG', 'PNG', '', 'IMAGE_DATA', 2),
+            ('JPEG', 'JPEG', '', 'IMAGE_DATA', 3),
+            ('JPEG2000', 'JPEG 2000', '', 'IMAGE_DATA', 4),
+            ('TARGA', 'Targa', '', 'IMAGE_DATA', 5),
+            ('TARGA_RAW', 'Targa Raw', '', 'IMAGE_DATA', 6),
+            ('CINEON', 'Cineon', '', 'IMAGE_DATA', 7),
+            ('DPX', 'DPX', '', 'IMAGE_DATA', 8),
+            ('OPEN_EXR_MULTILAYER', 'OpenEXR Multilayer', '', 'IMAGE_DATA', 9),
+            ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 10),
+            ('HDR', 'Radiance HDR', '', 'IMAGE_DATA', 11),
+            ('TIFF', 'TIFF', '', 'IMAGE_DATA', 12)
+            ]
+
+    if is_greater_than_320():
+        items.append(('WEBP', 'WebP', '', 'IMAGE_DATA', 13))
+
+    return items
+
 class YSaveAsImage(bpy.types.Operator, ExportHelper):
     """Save As Image"""
     bl_idname = "node.y_save_as_image"
     bl_label = "Save As Image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    filter_glob : StringProperty(
-            default="*.bmp;*.rgb;*.png;*.jpg;*.jp2;*.tga;*.cin;*.dpx;*.exr;*.hdr;*.tif",
-            options={'HIDDEN'},
-            maxlen=255,  # Max internal buffer length, longer would be clamped.
-            )
-
     file_format : EnumProperty(
             name = 'File Format',
-            items = (
-                    ('BMP', 'BMP', '', 'IMAGE_DATA', 0),
-                    ('IRIS', 'Iris', '', 'IMAGE_DATA', 1),
-                    ('PNG', 'PNG', '', 'IMAGE_DATA', 2),
-                    ('JPEG', 'JPEG', '', 'IMAGE_DATA', 3),
-                    ('JPEG2000', 'JPEG 2000', '', 'IMAGE_DATA', 4),
-                    ('TARGA', 'Targa', '', 'IMAGE_DATA', 5),
-                    ('TARGA_RAW', 'Targa Raw', '', 'IMAGE_DATA', 6),
-                    ('CINEON', 'Cineon', '', 'IMAGE_DATA', 7),
-                    ('DPX', 'DPX', '', 'IMAGE_DATA', 8),
-                    ('OPEN_EXR_MULTILAYER', 'OpenEXR Multilayer', '', 'IMAGE_DATA', 9),
-                    ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 10),
-                    ('HDR', 'Radiance HDR', '', 'IMAGE_DATA', 11),
-                    ('TIFF', 'TIFF', '', 'IMAGE_DATA', 12),
-                    ),
+            items = get_file_format_items(),
             default = 'PNG',
             update = update_save_as_file_format
             )
@@ -862,7 +868,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if self.file_format == 'PNG':
             self.layout.prop(self, 'compression')
 
-        if self.file_format in {'JPEG', 'JPEG2000'}:
+        if self.file_format in {'JPEG', 'JPEG2000', 'WEBP'}:
             self.layout.prop(self, 'quality')
 
         if self.file_format == 'TIFF':
@@ -892,6 +898,8 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             self.layout.prop(self, 'relative')
 
     def invoke(self, context, event):
+        self.use_filter_image = True
+
         file_ext = format_extensions[self.file_format]
 
         # Set filepath
@@ -922,8 +930,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         if self.image.is_float:
             self.is_float = True
-            self.file_format = 'OPEN_EXR'
-            if self.file_format in {'PNG', 'JPEG2000'}:
+            #self.file_format = 'OPEN_EXR'
+            #if self.file_format in {'PNG', 'JPEG2000'}:
+            if self.color_depth == '8':
                 self.color_depth = '16'
         else:
             self.is_float = False
@@ -1048,7 +1057,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         settings.color_depth = self.color_depth
         settings.compression = self.compression
         settings.quality = self.quality
-        settings.tiff_codec = self.tiff_codec
+        if hasattr(settings, 'tiff_codec'): settings.tiff_codec = self.tiff_codec
         settings.exr_codec = self.exr_codec
         settings.jpeg2k_codec = self.jpeg2k_codec
         settings.use_jpeg2k_cinema_48 = self.use_jpeg2k_cinema_48

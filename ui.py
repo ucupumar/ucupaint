@@ -4250,7 +4250,7 @@ class YBakeTargetMenu(bpy.types.Menu):
         if context.image:
             if context.image.packed_file:
                 col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
-            else: col.operator('node.y_save_as_image', text='Save As Image')
+            else: col.operator('node.y_save_as_image', text='Save As Image').unpack = False
 
 class YNewChannelMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_channel_menu"
@@ -4493,7 +4493,7 @@ class YBakedImageMenu(bpy.types.Menu):
 
         if context.image.packed_file:
             col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
-        else: col.operator('node.y_save_as_image', text='Save As Image')
+        else: col.operator('node.y_save_as_image', text='Save As Image').unpack = False
 
         col.separator()
 
@@ -4571,10 +4571,10 @@ class YLayerListSpecialMenu(bpy.types.Menu):
             col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
         else:
             if is_greater_than_280():
-                col.operator('node.y_save_as_image', text='Save As Image')
+                col.operator('node.y_save_as_image', text='Save As Image').unpack = False
                 col.operator('node.y_save_pack_all', text='Save/Pack All')
             else: 
-                col.operator('node.y_save_as_image', text='Save As Image', icon='SAVE_AS')
+                col.operator('node.y_save_as_image', text='Save As Image', icon='SAVE_AS').unpack = False
                 col.operator('node.y_save_pack_all', text='Save/Pack All', icon='FILE_TICK')
 
         col.separator()
