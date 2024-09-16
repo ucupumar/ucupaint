@@ -271,7 +271,14 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 	req_headers = {
 		'User-Agent': agent
 	}
-	response = requests.get(base_link, params=params, verify=False, headers=req_headers)
+	max_try = 3
+	for _ in range(max_try):
+		try:
+			response = requests.get(base_link, params=params, verify=False, headers=req_headers, timeout=10)
+			break
+		except requests.exceptions.ReadTimeout:
+			continue
+
 	if not response.status_code == 200:
 		print("Can't download, Code: " + str(response.status_code))
 		return None
@@ -311,7 +318,14 @@ def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str, tags:list[st
 	req_headers = {
 		'User-Agent': agent
 	}
-	response = requests.get(base_link, verify=False, headers=req_headers)
+	max_try = 3
+
+	for _ in range(max_try):
+		try:
+			response = requests.get(base_link, verify=False, headers=req_headers, timeout=10)
+			break
+		except requests.exceptions.ReadTimeout:
+			continue
  	
 	if not response.status_code == 200:
 		print("Can't download, Code: " + str(response.status_code))
@@ -365,7 +379,7 @@ def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 		'User-Agent': agent
 	}
 
-	response = requests.get(base_link, params=params, verify=False, headers=req_headers)
+	response = requests.get(base_link, params=params, verify=False, headers=req_headers, timeout=10)
 	if not response.status_code == 200:
 		print("Can't download, Code: " + str(response.status_code))
 		return None
