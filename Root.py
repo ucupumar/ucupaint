@@ -1499,7 +1499,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             #if ch.mod_tree:
             if ch.mod_group != '':
                 mod_group = ttree.nodes.get(ch.mod_group)
-                remove_datablock(bpy.data.node_groups, mod_group.node_tree)
+                remove_datablock(bpy.data.node_groups, mod_group.node_tree, user=mod_group, user_prop='node_tree')
                 ttree.nodes.remove(mod_group)
             else:
                 for mod in ch.modifiers:

@@ -1587,7 +1587,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                         UDIM.swap_tile(temp_img, 1001, tilenum)
 
                 # Remove temp image
-                remove_datablock(bpy.data.images, temp_img)
+                remove_datablock(bpy.data.images, temp_img, user=tex, user_prop='image')
 
             # Back to original size if using SSA
             if use_ssaa:

@@ -1028,21 +1028,19 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CP
             UDIM.swap_tile(image, 1001, tilenum)
 
         # Remove temp images
-        remove_datablock(bpy.data.images, image_copy)
+        remove_datablock(bpy.data.images, image_copy, user=source_tex, user_prop='image')
 
     # Remove temp datas
     print('BLUR: Removing temporary data of blur pass')
     if alpha_aware:
         if straight_over.node_tree.users == 1:
-            remove_datablock(bpy.data.node_groups, straight_over.node_tree)
+            remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
 
     if blur.node_tree.users == 1:
-        remove_datablock(bpy.data.node_groups, blur.node_tree)
+        remove_datablock(bpy.data.node_groups, blur.node_tree, user=blur, user_prop='node_tree')
 
     remove_datablock(bpy.data.materials, mat)
-    plane = plane_obj.data
-    bpy.ops.object.delete()
-    remove_datablock(bpy.data.meshes, plane)
+    remove_mesh_obj(plane_obj)
 
     # Recover settings
     recover_bake_settings(book)
@@ -1180,7 +1178,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
             UDIM.swap_tile(image, 1001, tilenum)
 
         # Remove temp images
-        remove_datablock(bpy.data.images, image_copy)
+        remove_datablock(bpy.data.images, image_copy, user=tex, user_prop='image')
         if image_ori : 
             remove_datablock(bpy.data.images, image_ori)
 
@@ -1188,11 +1186,11 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
     print('FXAA: Removing temporary data of FXAA pass')
     if alpha_aware:
         if straight_over.node_tree.users == 1:
-            remove_datablock(bpy.data.node_groups, straight_over.node_tree)
+            remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
 
     if fxaa.node_tree.users == 1:
-        remove_datablock(bpy.data.node_groups, tex_node.node_tree)
-        remove_datablock(bpy.data.node_groups, fxaa.node_tree)
+        remove_datablock(bpy.data.node_groups, tex_node.node_tree, user=tex_node, user_prop='node_tree')
+        remove_datablock(bpy.data.node_groups, fxaa.node_tree, user=fxaa, user_prop='node_tree')
 
     remove_datablock(bpy.data.materials, mat)
     plane = plane_obj.data
@@ -1785,7 +1783,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             end_max_height.outputs[0].default_value = max_height_value
 
             # Remove max height image
-            remove_datablock(bpy.data.images, mh_img)
+            remove_datablock(bpy.data.images, mh_img, user=tex, user_prop='image')
 
             ### Displacement
 
@@ -2349,7 +2347,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
     # Remove temp datas
     if straight_over.node_tree.users == 1:
-        remove_datablock(bpy.data.node_groups, straight_over.node_tree)
+        remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
     remove_datablock(bpy.data.materials, mat)
     plane = plane_obj.data
     bpy.ops.object.delete()

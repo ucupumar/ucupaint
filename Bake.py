@@ -221,7 +221,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
                 UDIM.swap_tile(temp_image1, 1001, tilenum)
 
         # Remove temp image 1
-        remove_datablock(bpy.data.images, temp_image1)
+        remove_datablock(bpy.data.images, temp_image1, user=tex, user_prop='image')
 
     if segment and image.source == 'TILED':
 
@@ -239,7 +239,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
             source.image = new_segment.id_data
 
         # Remove temp image
-        remove_datablock(bpy.data.images, temp_image)
+        remove_datablock(bpy.data.images, temp_image, user=tex, user_prop='image')
 
     elif temp_image.source == 'TILED' or image.source == 'TILED':
         # Replace image if any of the images is using UDIM
@@ -249,7 +249,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         copy_image_pixels(temp_image, image, segment)
 
         # Remove temp image
-        remove_datablock(bpy.data.images, temp_image)
+        remove_datablock(bpy.data.images, temp_image, user=tex, user_prop='image')
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, tex)
@@ -2461,7 +2461,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         copy_image_pixels(img, source.image, segment)
 
         # Remove temp image
-        remove_datablock(bpy.data.images, img)
+        remove_datablock(bpy.data.images, img, user=tex, user_prop='image')
 
         # Remove mask mix nodes
         for m in [mask, neighbor_mask]:
