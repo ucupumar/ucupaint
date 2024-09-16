@@ -123,7 +123,6 @@ def retrieve_asset_library(context:Context):
 	for blend_file in blend_files:
 		with bpy.data.libraries.load(str(blend_file), assets_only=True) as (data_from, data_to):
 			for mat in data_from.materials:
-				print("mat=", mat)
 				new_item:MaterialItem = txlib.library_items.add()
 				new_item.name = mat
 				new_item.source_type = ""
@@ -176,7 +175,7 @@ def searching_material(context:Context, keyword:str, search_ambientcg:bool = Tru
 
 	download_asset_previews(context, False, search_results, txlib.search_items)
 
-	# retrieve_assets_info(context, keyword)
+	read_asset_info(context)
 	
 	load_previews(context)
 	thread_search.progress = 100

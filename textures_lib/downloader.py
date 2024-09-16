@@ -265,7 +265,13 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 	if keyword != '':
 		params['q'] = keyword
 
-	response = requests.get(base_link, params=params, verify=False)
+	agent = get_addon_name() + '/' + get_current_version_str()
+	print("user-agent ", agent)
+	# add user-agent 
+	req_headers = {
+		'User-Agent': agent
+	}
+	response = requests.get(base_link, params=params, verify=False, headers=req_headers)
 	if not response.status_code == 200:
 		print("Can't download, Code: " + str(response.status_code))
 		return None
@@ -299,7 +305,13 @@ def retrieve_ambientcg(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 
 def retrieve_polyhaven_asset(id:str, asset_name:str, thumb_url:str, tags:list[str])->AssetItem:
 	base_link = "https://api.polyhaven.com/files/"+id
-	response = requests.get(base_link, verify=False)
+	agent = get_addon_name() + '/' + get_current_version_str()
+	print("user-agent ", agent)
+	# add user-agent 
+	req_headers = {
+		'User-Agent': agent
+	}
+	response = requests.get(base_link, verify=False, headers=req_headers)
  	
 	if not response.status_code == 200:
 		print("Can't download, Code: " + str(response.status_code))
@@ -345,7 +357,15 @@ def retrieve_polyhaven(keyword:str = '', page:int = 0, limit:int = 20) -> dict[s
 	thread_search = get_searching_thread()
 	
 	print("retrieve_polyhaven", base_link, params)
-	response = requests.get(base_link, params=params, verify=False)
+
+	agent = get_addon_name() + '/' + get_current_version_str()
+	print("user-agent ", agent)
+	# add user-agent 
+	req_headers = {
+		'User-Agent': agent
+	}
+
+	response = requests.get(base_link, params=params, verify=False, headers=req_headers)
 	if not response.status_code == 200:
 		print("Can't download, Code: " + str(response.status_code))
 		return None
