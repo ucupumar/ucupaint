@@ -3361,7 +3361,8 @@ def remove_layer(yp, index, remove_on_disk=False):
 
     # Remove node group and layer tree
     if layer_tree: 
-        remove_datablock(bpy.data.node_groups, layer_tree)
+        layer_node = group_tree.nodes.get(layer.group_node)
+        remove_datablock(bpy.data.node_groups, layer_tree, user=layer_node, user_prop='node_tree')
     if layer.trash_group_node != '':
         trash = group_tree.nodes.get(yp.trash)
         if trash: trash.node_tree.nodes.remove(trash.node_tree.nodes.get(layer.trash_group_node))
