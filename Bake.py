@@ -7,7 +7,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier
+from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, image_ops
 
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
@@ -250,6 +250,13 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
         # Remove temp image
         remove_datablock(bpy.data.images, temp_image, user=tex, user_prop='image')
+
+    # HACK: Pack and refresh to update image on Blender 2.77 and lower
+    if not is_greater_than_278() and (image.packed_file or image.filepath == ''):
+        if image.is_float:
+            image_ops.pack_float_image(image)
+        else: image.pack(as_png=True)
+        image.reload()
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, tex)
