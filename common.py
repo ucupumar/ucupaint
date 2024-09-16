@@ -1374,7 +1374,7 @@ def is_image_single_user(image):
         (scene.tool_settings.image_paint.canvas != image and image.users == 1) or
         image.users == 0)
 
-def safe_remove_image(image, remove_on_disk=False):
+def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
 
     if is_image_single_user(image):
 
@@ -1388,7 +1388,7 @@ def safe_remove_image(image, remove_on_disk=False):
                 try: os.remove(os.path.abspath(bpy.path.abspath(image.filepath)))
                 except Exception as e: print(e)
 
-        remove_datablock(bpy.data.images, image)
+        remove_datablock(bpy.data.images, image, user=user, user_prop=user_prop)
 
 def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False):
     #if not node: return
@@ -1406,7 +1406,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, re
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
             image = node.image
-            if image: safe_remove_image(image, remove_on_disk)
+            if image: safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
 
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
@@ -1460,7 +1460,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None, remove_on_dis
             if node.bl_idname == 'ShaderNodeTexImage':
 
                 image = node.image
-                if image: safe_remove_image(image, remove_on_disk)
+                if image: safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
 
             elif node.bl_idname == 'ShaderNodeGroup':
 
