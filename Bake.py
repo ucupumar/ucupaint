@@ -1202,6 +1202,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             description='Use UDIM Tiles',
             default=False)
 
+    use_float_for_normal : BoolProperty(
+            name = 'Use Float for Normal',
+            description='Use float image for baked normal',
+            default=False)
+
     use_float_for_displacement : BoolProperty(
             name = 'Use Float for Displacement',
             description='Use float image for baked displacement',
@@ -1294,6 +1299,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ccol = col.column(align=True)
         ccol.label(text='Width:')
         ccol.label(text='Height:')
+
         ccol.separator()
         ccol.label(text='Samples:')
         ccol.label(text='AA Level:')
@@ -1301,6 +1307,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if is_greater_than_310():
             ccol.separator()
         ccol.label(text='Margin:')
+
+        if height_root_ch:
+            ccol.separator()
+            ccol.label(text='Use 32 bit Float:')
 
         col.separator()
 
@@ -1327,6 +1337,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ccol = col.column(align=True)
         ccol.prop(self, 'width', text='')
         ccol.prop(self, 'height', text='')
+
         ccol.separator()
         ccol.prop(self, 'samples', text='')
         ccol.prop(self, 'aa_level', text='')
@@ -1338,6 +1349,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             split.prop(self, 'margin_type', text='')
         else:
             ccol.prop(self, 'margin', text='')
+
+        if height_root_ch:
+            ccol.separator()
+            rrow = ccol.row(align=True)
+            rrow.prop(self, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
+            rrow.prop(self, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
 
         col.separator()
 
@@ -1364,9 +1381,6 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if is_greater_than_281():
             ccol.prop(self, 'denoise', text='Use Denoise')
         ccol.prop(self, 'force_bake_all_polygons')
-
-        if height_root_ch:
-            ccol.prop(self, 'use_float_for_displacement')
 
     def execute(self, context):
 
@@ -1508,7 +1522,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             if not ch.no_layer_using:
                 use_hdr = not ch.use_clamp
                 bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
-                             tilenums=tilenums, interpolation=self.interpolation, use_float_for_displacement=self.use_float_for_displacement)
+                             tilenums=tilenums, interpolation=self.interpolation, 
+                             use_float_for_displacement=self.use_float_for_displacement, 
+                             use_float_for_normal=self.use_float_for_normal)
 
         # Process baked images
         baked_images = []

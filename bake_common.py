@@ -1323,7 +1323,8 @@ def get_valid_filepath(img, use_hdr):
     return img.filepath
 
 def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
-                 aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', use_float_for_displacement=False):
+                 aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
+                 use_float_for_displacement=False, use_float_for_normal=False):
 
     print('BAKE CHANNEL: Baking', root_ch.name + ' channel...')
 
@@ -1543,8 +1544,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             ):
             img.filepath = filepath
 
-        # Use hdr if not baking normal
-        if root_ch.type != 'NORMAL' and use_hdr:
+        # Use hdr
+        if (root_ch.type == 'NORMAL' and use_float_for_normal) or use_hdr:
             img.use_generated_float = True
 
         # Set colorspace to linear
