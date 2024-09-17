@@ -165,7 +165,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
     else:
-        # NOTE: Smooth bump is no longer on by default on Blender 2.80+
+        # NOTE: Smooth bump is no longer enabled by default on Blender 2.80+
         if is_greater_than_280(): channel.enable_smooth_bump = False
 
     yp.halt_reconnect = False
@@ -686,7 +686,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
 
         # Update io
-        check_all_channel_ios(group_tree.yp)
+        check_all_channel_ios(group_tree.yp, yp_node=node)
 
         # Update linear blending
         if self.use_linear_blending:
@@ -1195,7 +1195,7 @@ class YNewYPaintChannel(bpy.types.Operator):
                 non_color=self.colorspace == 'LINEAR')
 
         # Update io
-        check_all_channel_ios(yp)
+        check_all_channel_ios(yp, yp_node=node)
 
         # Connect to other inputs
         item = self.input_coll.get(self.connect_to)
@@ -1694,6 +1694,12 @@ class YFixMissingUV(bpy.types.Operator):
             uv_layers.active = uvl
 
         if self.need_remap:
+            # Check height channel uv
+            height_ch = get_root_height_channel(yp)
+            if height_ch and height_ch.main_uv == self.source_uv_name:
+                height_ch.main_uv = target_uv_name
+                #height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
+
             # Check baked images uv
             if yp.baked_uv_name == self.source_uv_name:
                 yp.baked_uv_name = target_uv_name
@@ -1712,12 +1718,6 @@ class YFixMissingUV(bpy.types.Operator):
                 for mask in layer.masks:
                     if mask.uv_name == self.source_uv_name:
                         mask.uv_name = target_uv_name
-
-            # Check height channel uv
-            height_ch = get_root_height_channel(yp)
-            if height_ch and height_ch.main_uv == self.source_uv_name:
-                height_ch.main_uv = target_uv_name
-                #height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
 
         return {'FINISHED'}
 
@@ -3111,13 +3111,12 @@ def update_backface_mode(self, context):
 def update_channel_main_uv(self, context):
     yp = self.id_data.yp
 
-    if self.main_uv in {TEMP_UV, ''}:
-        if len(yp.uvs) > 0:
-            for uv in yp.uvs:
-                self.main_uv = uv.name
-                break
+    if self.main_uv in {TEMP_UV, ''} and len(yp.uvs) > 0:
+        for uv in yp.uvs:
+            self.main_uv = uv.name
+            break
 
-    if self.type == 'NORMAL':
+    if self.type == 'NORMAL' and self.enable_smooth_bump:
         self.enable_smooth_bump = self.enable_smooth_bump
 
 def update_enable_height_tweak(self, context):
