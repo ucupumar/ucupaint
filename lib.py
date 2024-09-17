@@ -220,6 +220,8 @@ MOD_MATH_VALUE = '~yPL Mod Math Value'
 GLTF_MATERIAL_OUTPUT = 'glTF Material Output'
 GLTF_SETTINGS = 'glTF Settings'
 
+# Manual BSDFs
+BL278_BSDF = 'bsdf278'
 
 channel_custom_icon_dict = {
         'RGB' : 'rgb_channel',

@@ -1905,7 +1905,7 @@ def check_duplicated_node_group(node_group, duplicated_trees = []):
             check_duplicated_node_group(node.node_tree, duplicated_trees)
 
     # Create info frame if not found
-    if not info_frame_found:
+    if not info_frame_found and node_group.name.startswith('~yPL '):
         create_info_nodes(node_group)
 
 def load_from_lib_blend(tree_name, filename):
@@ -1945,13 +1945,9 @@ def get_node_tree_lib(name):
         duplicated_trees = []
         check_duplicated_node_group(node_tree, duplicated_trees)
 
-        #print('dub', duplicated_trees)
-
         # Remove duplicated trees
         for t in duplicated_trees:
             remove_datablock(bpy.data.node_groups, t)
-        #print(duplicated_trees)
-        #print(node_tree.name + ' is loaded!')
 
     return node_tree
 
@@ -6554,9 +6550,12 @@ def duplicate_image(image):
 
     return new_image
 
+def is_first_socket_bsdf(node):
+    return len(node.outputs) > 0 and node.outputs[0].type == 'SHADER'
+
 def is_valid_bsdf_node(node, valid_types=[]):
     if not valid_types:
-        return node.type == 'EMISSION' or node.type.startswith('BSDF_') or node.type.endswith('_SHADER')
+        return node.type == 'EMISSION' or node.type.startswith('BSDF_') or node.type.endswith('_SHADER') or is_first_socket_bsdf(node)
     
     return node.type in valid_types
 

@@ -468,9 +468,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 self.type = bsdf_node.type
                 self.target_bsdf_name = bsdf_node.name
 
-        if not is_greater_than_279() and self.type == 'BSDF_PRINCIPLED':
-            self.type = 'BSDF_DIFFUSE'
-
         # Normal channel does not works to non mesh object
         if obj.type != 'MESH':
             self.normal = False
@@ -526,10 +523,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     def execute(self, context):
 
         obj = context.object
-
-        if not is_greater_than_279() and self.type == 'BSDF_PRINCIPLED':
-            self.report({'ERROR'}, "There's no Principled BSDF in this blender version!")
-            return {'CANCELLED'}
 
         if not obj.data or not hasattr(obj.data, 'materials'):
             self.report({'ERROR'}, "Cannot use "+get_addon_title()+" with object '"+obj.name+"'!")
@@ -590,11 +583,15 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # BSDF node
         if not main_bsdf:
             if self.type == 'BSDF_PRINCIPLED':
-                main_bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-                if 'Subsurface Radius' in main_bsdf.inputs:
-                    main_bsdf.inputs['Subsurface Radius'].default_value = (1.0, 0.2, 0.1) # Use eevee default value
-                if 'Subsurface Color' in main_bsdf.inputs:
-                    main_bsdf.inputs['Subsurface Color'].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
+                if not is_greater_than_279():
+                    main_bsdf = nodes.new('ShaderNodeGroup')
+                    main_bsdf.node_tree = get_node_tree_lib(lib.BL278_BSDF)
+                else:
+                    main_bsdf = nodes.new('ShaderNodeBsdfPrincipled')
+                    if 'Subsurface Radius' in main_bsdf.inputs:
+                        main_bsdf.inputs['Subsurface Radius'].default_value = (1.0, 0.2, 0.1) # Use eevee default value
+                    if 'Subsurface Color' in main_bsdf.inputs:
+                        main_bsdf.inputs['Subsurface Color'].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
             elif self.type == 'BSDF_DIFFUSE':
                 main_bsdf = nodes.new('ShaderNodeBsdfDiffuse')
             elif self.type == 'EMISSION':
