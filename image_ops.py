@@ -612,6 +612,16 @@ class YSaveAllBakedImages(bpy.types.Operator):
             default=False
             )
 
+    file_format : EnumProperty(
+            name = 'File Format',
+            items = (
+                    ('PNG', 'PNG', '', 'IMAGE_DATA', 0),
+                    ('TIFF', 'TIFF', '', 'IMAGE_DATA', 1),
+                    ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 2)
+                    ),
+            default = 'PNG',
+            )
+
     def invoke(self, context, event):
         # Open browser, take reference to 'self' read the path to selected
         # file, put path in predetermined self fields.
@@ -619,6 +629,13 @@ class YSaveAllBakedImages(bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         # Tells Blender to hang on for the slow user input
         return {'RUNNING_MODAL'}
+
+    def draw(self, context):
+        split = split_layout(self.layout, 0.4)
+        col = split.column()
+        col.label(text='Image Format:')
+        col = split.column()
+        col.prop(self, 'file_format', text='')
 
     def execute(self, context):
 
@@ -668,9 +685,11 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         for image in images:
 
-            settings.file_format = 'PNG'
+            settings.file_format = self.file_format
+            settings.color_depth = '8' if settings.file_format != 'OPEN_EXR' else '16'
             if image.is_float:
-                settings.file_format = 'OPEN_EXR'
+                settings.color_depth = '16' if settings.file_format != 'OPEN_EXR' else '32'
+            if settings.file_format == 'OPEN_EXR':
                 settings.exr_codec = 'ZIP'
 
             if image.filepath == '':
@@ -681,12 +700,10 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 filename = image_name + format_extensions[settings.file_format]
             else:
                 filename = bpy.path.basename(image.filepath)
+                ext = os.path.splitext(filename)[1]
 
-                # Check current extensions
-                for form, ext in format_extensions.items():
-                    if filename.endswith(ext):
-                        settings.file_format = form
-                        break
+                if ext != format_extensions[settings.file_format]:
+                    filename = filename.replace(ext, format_extensions[settings.file_format])
 
             if self.remove_whitespaces:
                 filename = filename.replace(' ', '')
@@ -704,11 +721,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
             # Some image need to set to srgb when saving
             ori_colorspace = image.colorspace_settings.name
-            if not image.is_float:
+            if not image.is_float and image.colorspace_settings.name != get_srgb_name():
                 image.colorspace_settings.name = get_srgb_name()
             
-            #settings.file_format = file_format
-
             # Check if image is packed
             unpack = False
             if image.packed_file:
@@ -723,7 +738,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
             except: image.filepath = path
 
             # Set back colorspace settings
-            image.colorspace_settings.name = ori_colorspace
+            if image.colorspace_settings.name != ori_colorspace:
+                image.colorspace_settings.name = ori_colorspace
 
             # Remove temporarily unpacked image
             if unpack:
