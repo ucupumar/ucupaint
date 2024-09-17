@@ -2447,7 +2447,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if ch_source_1: 
                     normal = ch_source_1.outputs[0]
 
-                    if 'Vector' in ch_source_1.inputs:
+                    if vector and 'Vector' in ch_source_1.inputs:
                         create_link(tree, vector, ch_source_1.inputs['Vector'])
 
             ch_linear_1 = nodes.get(ch.linear_1)
