@@ -1979,25 +1979,35 @@ class YFixMissingData(bpy.types.Operator):
 
         # Fix missing sources
         for i, layer in reversed(list(enumerate(yp.layers))):
-            src = get_layer_source(layer)
 
             # Delete layer if source is not found
+            src = get_layer_source(layer)
             if not src:
                 Layer.remove_layer(yp, i)
                 continue
 
             # Delete mask if mask source is not found
             for j, mask in reversed(list(enumerate(layer.masks))):
-                mask_src = get_mask_source(mask)
-                if not mask_src:
+                src = get_mask_source(mask)
+                if not src:
                     Mask.remove_mask(layer, mask, obj)
 
-            # Disable override if channel source is not found
+            # Use default override if channel source is not found
             for ch in layer.channels:
-                ch_src = get_channel_source(ch, layer)
-                if not ch_src:
-                    if ch.override and ch.override_type != 'DEFAULT': ch.override = False
-                    if ch.override_1 and ch.override_1_type != 'DEFAULT': ch.override_1 = False
+
+                src = get_channel_source(ch, layer)
+                if ch.override and ch.override_type != 'DEFAULT': 
+                    if not src or (ch.override_type == 'IMAGE' and not src.image):
+                        ltree = get_tree(layer)
+                        remove_node(ltree, ch, 'source')
+                        ch.override_type = 'DEFAULT'
+
+                src = get_channel_source_1(ch, layer)
+                if ch.override_1 and ch.override_1_type != 'DEFAULT': 
+                    if not src or (ch.override_1_type == 'IMAGE' and not src.image):
+                        ltree = get_tree(layer)
+                        remove_node(ltree, ch, 'source_1')
+                        ch.override_1_type = 'DEFAULT'
 
         if yp.active_layer_index > len(yp.layers):
             yp.active_layer_index = len(yp.layers)-1
@@ -2013,18 +2023,10 @@ class YFixMissingData(bpy.types.Operator):
 
             for mask in layer.masks:
                 if mask.type in {'IMAGE' , 'VCOL'}:
-                    mask_src = get_mask_source(mask)
+                    src = get_mask_source(mask)
 
-                    if mask.type == 'IMAGE' and not mask_src.image:
-                        fix_missing_img(mask.name, mask_src, True)
-
-            for i, ch in enumerate(layer.channels):
-                root_ch = yp.channels[i]
-                if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
-                    ch_src = get_channel_source(ch, layer)
-
-                    if ch.override_type == 'IMAGE' and not ch_src.image:
-                        fix_missing_img(layer.name + ' ' + root_ch.name + ' Override', ch_src, False)
+                    if mask.type == 'IMAGE' and not src.image:
+                        fix_missing_img(mask.name, src, True)
 
         # Get relevant objects
         objs = [obj]
@@ -2036,30 +2038,32 @@ class YFixMissingData(bpy.types.Operator):
 
         # Fix missing vcols
         need_color_id_vcol = False
-        ref_vcol = None
 
         for obj in objs:
+            if obj.type != 'MESH': continue
+
             for layer in yp.layers:
-                src = get_layer_source(layer)
-                if (layer.type == 'VCOL' and obj.type == 'MESH' 
-                        and not get_vcol_from_source(obj, src)):
-                    fix_missing_vcol(obj, layer.name, src)
+                if layer.type == 'VCOL':
+                    src = get_layer_source(layer)
+                    if not get_vcol_from_source(obj, src):
+                        fix_missing_vcol(obj, src.attribute_name, src)
 
                 for mask in layer.masks:
-                    mask_src = get_mask_source(mask)
-                    if (mask.type == 'VCOL' and obj.type == 'MESH' 
-                            and not get_vcol_from_source(obj, mask_src)):
-                        fix_missing_vcol(obj, mask.name, mask_src)
+                    if mask.type == 'VCOL': 
+                        src = get_mask_source(mask)
+                        if not get_vcol_from_source(obj, src):
+                            fix_missing_vcol(obj, src.attribute_name, src)
 
                     if mask.type == 'COLOR_ID':
-                        need_color_id_vcol = True
+                        vcols = get_vertex_colors(obj)
+                        if COLOR_ID_VCOL_NAME not in vcols:
+                            need_color_id_vcol = True
 
-                for i, ch in enumerate(layer.channels):
-                    root_ch = yp.channels[i]
-                    ch_src = get_channel_source(ch, layer)
-                    if (ch.override and ch.override_type == 'VCOL' and obj.type == 'MESH' 
-                            and not get_vcol_from_source(obj, ch_src)):
-                        fix_missing_vcol(obj, layer.name + ' ' + root_ch.name, ch_src)
+                for ch in layer.channels:
+                    if ch.override and ch.override_type == 'VCOL':
+                        src = get_channel_source(ch, layer)
+                        if not get_vcol_from_source(obj, src):
+                            fix_missing_vcol(obj, src.attribute_name, src)
 
         # Fix missing color id missing vcol
         if need_color_id_vcol: check_colorid_vcol(objs)

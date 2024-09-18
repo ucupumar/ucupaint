@@ -2748,14 +2748,18 @@ def draw_layers_ui(context, layout, node):
 
         for ch in layer.channels:
             if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
-                #layer_tree = get_tree(layer)
-                #src = layer_tree.nodes.get(ch.source)
                 src = get_channel_source(ch, layer)
                 if (
                     not src or
                     (ch.override_type == 'IMAGE' and not src.image) or 
                     (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
                     ):
+                    missing_data = True
+                    break
+
+            if ch.override_1 and ch.override_1_type == 'IMAGE':
+                src = get_channel_source_1(ch, layer)
+                if not src or not src.image:
                     missing_data = True
                     break
 
