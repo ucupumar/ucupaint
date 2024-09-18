@@ -8,6 +8,7 @@ import time
 from . import UDIM
 
 def save_float_image(image):
+    print('Float Saving:', image.name)
     original_path = image.filepath
 
     # Create temporary scene
@@ -24,6 +25,9 @@ def save_float_image(image):
     
     if settings.file_format in {'OPEN_EXR', 'OPEN_EXR_MULTILAYER'}:
         settings.exr_codec = 'ZIP'
+        settings.color_depth = '32'
+    elif settings.file_format in {'PNG', 'TIFF'}:
+        settings.color_depth = '16'
 
     #ori_colorspace = image.colorspace_settings.name
     full_path = bpy.path.abspath(image.filepath)
