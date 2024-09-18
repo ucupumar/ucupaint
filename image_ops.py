@@ -921,9 +921,10 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         self.use_filter_image = True
 
         file_ext = format_extensions[self.file_format]
+        filename = bpy.path.basename(context.image.filepath)
 
         # Set filepath
-        if context.image.filepath == '':
+        if context.image.filepath == '' or filename == '':
             yp = get_active_ypaint_node().node_tree.yp
 
             name = context.image.name
