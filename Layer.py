@@ -3930,6 +3930,46 @@ class YReplaceLayerChannelOverride1(bpy.types.Operator):
         ch.override_1 = True
         return {'FINISHED'}
 
+class YRemoveLayerChannelOverrideSource(bpy.types.Operator):
+    bl_idname = "node.y_remove_channel_override_source"
+    bl_label = "Replace Layer Channel Override Source"
+    bl_description = "Replace Layer Channel Override Source"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'channel') and hasattr(context, 'layer')
+
+    def execute(self, context):
+        layer = context.layer
+        ch = context.channel
+        tree = get_tree(layer)
+        if ch.override:
+            remove_node(tree, ch, 'source')
+        else: remove_node(tree, ch, 'cache_image')
+        ch.override_type = 'DEFAULT'
+        return {'FINISHED'}
+
+class YRemoveLayerChannelOverride1Source(bpy.types.Operator):
+    bl_idname = "node.y_remove_channel_override_1_source"
+    bl_label = "Replace Layer Channel Normal Override Source"
+    bl_description = "Replace Layer Channel Normal Override Source"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'channel') and hasattr(context, 'layer')
+
+    def execute(self, context):
+        layer = context.layer
+        ch = context.channel
+        tree = get_tree(layer)
+        if ch.override_1:
+            remove_node(tree, ch, 'source_1')
+        else: remove_node(tree, ch, 'cache_1_image')
+        ch.override_1_type = 'DEFAULT'
+        return {'FINISHED'}
+
 class YReplaceLayerType(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_type"
     bl_label = "Replace Layer Type"
@@ -6077,6 +6117,8 @@ def register():
     bpy.utils.register_class(YReplaceLayerType)
     bpy.utils.register_class(YReplaceLayerChannelOverride)
     bpy.utils.register_class(YReplaceLayerChannelOverride1)
+    bpy.utils.register_class(YRemoveLayerChannelOverrideSource)
+    bpy.utils.register_class(YRemoveLayerChannelOverride1Source)
     bpy.utils.register_class(YDuplicateLayer)
     bpy.utils.register_class(YCopyLayer)
     bpy.utils.register_class(YPasteLayer)
@@ -6106,6 +6148,8 @@ def unregister():
     bpy.utils.unregister_class(YReplaceLayerType)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride1)
+    bpy.utils.unregister_class(YRemoveLayerChannelOverrideSource)
+    bpy.utils.unregister_class(YRemoveLayerChannelOverride1Source)
     bpy.utils.unregister_class(YDuplicateLayer)
     bpy.utils.unregister_class(YCopyLayer)
     bpy.utils.unregister_class(YPasteLayer)

@@ -160,11 +160,29 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
 
     col = layout.column()
 
+    unlink_op = 'node.y_remove_layer'
+    if entity:
+        yp = entity.id_data.yp
+        m1 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity.path_from_id())
+        if m1: 
+            layer = yp.layers[int(m1.group(1))]
+            col.context_pointer_set('layer', layer)
+            col.context_pointer_set('mask', entity)
+            unlink_op = 'node.y_remove_layer_mask'
+        elif m2: 
+            layer = yp.layers[int(m2.group(1))]
+            col.context_pointer_set('layer', layer)
+            col.context_pointer_set('channel', entity)
+            if show_flip_y:
+                unlink_op = 'node.y_remove_channel_override_1_source'
+            else: unlink_op = 'node.y_remove_channel_override_source'
+
     if image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel:
         bi = image.y_bake_info
         if image.yia.is_image_atlas or image.yua.is_udim_atlas:
             col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
-        else: col.template_ID(source, "image", unlink='node.y_remove_layer')
+        else: col.template_ID(source, "image", unlink=unlink_op)
         col.label(text='Type: ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
 
         draw_bake_info(bi, col, entity)
@@ -208,7 +226,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
 
         return
 
-    col.template_ID(source, "image", unlink='node.y_remove_layer')
+    col.template_ID(source, "image", unlink=unlink_op)
     if image.source == 'GENERATED':
         col.label(text='Generated image settings:')
         row = col.row()
