@@ -8,7 +8,6 @@ import time
 from . import UDIM
 
 def save_float_image(image):
-    print('Float Saving:', image.name)
     original_path = image.filepath
 
     # Create temporary scene
@@ -32,6 +31,8 @@ def save_float_image(image):
     #ori_colorspace = image.colorspace_settings.name
     full_path = bpy.path.abspath(image.filepath)
     image.save_render(full_path, scene=tmpscene)
+    # HACK: If image still dirty after saving, save using standard save method
+    if image.is_dirty: image.save()
     image.source = 'FILE'
 
     # Delete temporary scene

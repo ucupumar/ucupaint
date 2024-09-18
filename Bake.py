@@ -1310,7 +1310,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         if height_root_ch:
             ccol.separator()
-            ccol.label(text='Use 32 bit Float:')
+            ccol.label(text='Use 32-bit Float:')
 
         col.separator()
 
@@ -1352,9 +1352,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         if height_root_ch:
             ccol.separator()
-            rrow = ccol.row(align=True)
-            rrow.prop(self, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
-            rrow.prop(self, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
+            splits = split_layout(ccol, 0.4)
+            splits.prop(self, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
+            splits.prop(self, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
 
         col.separator()
 
@@ -1648,7 +1648,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     # Set new bake target image
                     if len(tilenums) > 1:
                         btimg = bpy.data.images.new(name=bt.name, width=self.width, height=self.height, 
-                                alpha=True, tiled=True) #float_buffer=hdr)
+                                alpha=True, tiled=True, float_buffer=bt.use_float)
                         btimg.colorspace_settings.name = get_noncolor_name()
                         btimg.filepath = filepath
 
@@ -1659,7 +1659,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         UDIM.initial_pack_udim(btimg, color)
                     else:
                         btimg = bpy.data.images.new(name=bt.name,
-                            width=self.width, height=self.height, alpha=True, float_buffer=False)
+                            width=self.width, height=self.height, alpha=True, float_buffer=bt.use_float)
                         btimg.colorspace_settings.name = get_noncolor_name()
                         btimg.filepath = filepath
                         btimg.generated_color = color

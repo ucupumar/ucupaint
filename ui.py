@@ -817,8 +817,14 @@ def draw_bake_targets_ui(context, layout, node):
         row = col.row(align=True)
 
         row.prop(btui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        if image: row.label(text=image.name)
-        else: row.label(text=bt.name)
+        if image: 
+            bt_label = image.name
+            if image.is_float: bt_label += ' (Float)'
+        else: 
+            bt_label = bt.name
+            if bt.use_float: bt_label += ' (Float)'
+
+        row.label(text=bt_label)
 
         if btui.expand_content:
             row = col.row(align=True)
