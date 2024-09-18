@@ -2233,13 +2233,19 @@ def update_channel_name(self, context):
         get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['ALPHA']
         shift += 1
 
-    if self.type == 'NORMAL':
+    if self.type == 'NORMAL' and self.enable_subdiv_setup:
         get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['HEIGHT']
         get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['HEIGHT']
 
         shift += 1
 
+        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['MAX_HEIGHT']
         get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['MAX_HEIGHT']
+
+        shift += 1
+
+        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['VDISP']
+        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['VDISP']
 
     for layer in yp.layers:
         tree = get_tree(layer)
