@@ -48,7 +48,6 @@ class TexLibBrowser(Panel):
 
         layout.prop(texlib, "input_search")
         source_search = layout.row()
-        source_search.prop(texlib, "check_all")
         # source_search.prop(texlib, "check_local")
         source_search.prop(texlib, "check_ambiencg")
         source_search.prop(texlib, "check_polyhaven")

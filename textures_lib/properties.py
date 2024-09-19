@@ -35,11 +35,6 @@ def cancel_searching(context):
 	searching_dwn = texlib.searching_download
 	searching_dwn.alive = False
 
-def update_check_all(self, context):
-	self.check_local = self.check_all
-	self.check_ambiencg = self.check_all
-	self.check_polyhaven = self.check_all
-
 def get_textures_dir(context) -> str:
 	file_path = get_lib_dir(context)
 	retval = os.path.join(file_path, "textures") + os.sep
@@ -289,7 +284,6 @@ class DownloadQueue(PropertyGroup):
 class TexLibProps(PropertyGroup):
 	page: IntProperty(name="page", default= 0)
 	input_search:StringProperty(name="Search", update=update_input_search)
-	check_all:BoolProperty(name="Check All", default=True, update=update_check_all)
 	check_local:BoolProperty(name="Local", default=True)
 	check_ambiencg:BoolProperty(name="AmbientCG", default=True)
 	check_polyhaven:BoolProperty(name="Polyhaven", default=True)
