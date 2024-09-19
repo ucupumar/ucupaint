@@ -3580,11 +3580,17 @@ class YPaint(bpy.types.PropertyGroup):
 
     # Bake Targets
     bake_targets : CollectionProperty(type=BakeTarget.YBakeTarget)
-    active_bake_target_index : IntProperty(default=0, update=BakeTarget.update_active_bake_target_index)
+    active_bake_target_index : IntProperty(
+            name = 'Active Bake Target Index',
+            description = 'Active bake target index',
+            default=0, update=BakeTarget.update_active_bake_target_index)
 
     # Temp channels to remember last channel selected when adding new layer
     #temp_channels = CollectionProperty(type=YChannelUI)
-    preview_mode : BoolProperty(default=False, update=update_preview_mode)
+    preview_mode : BoolProperty(
+            name= 'Enable Channel Preview Mode',
+            description= 'Enable channel preview mode',
+            default=False, update=update_preview_mode)
 
     # Disable all vector displacement layers when sculpt mode is on
     sculpt_mode : BoolProperty(default=False, update=update_sculpt_mode)
