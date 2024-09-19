@@ -2060,6 +2060,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if color_id_val and 'Color ID' in mask_source.inputs:
                 create_link(tree, color_id_val, mask_source.inputs['Color ID'])
 
+        # Edge Detect related
+        elif mask.type == 'EDGE_DETECT':
+            edge_detect_radius_val = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'edge_detect_radius'))
+            if edge_detect_radius_val and 'Radius' in mask_source.inputs:
+                create_link(tree, edge_detect_radius_val, mask_source.inputs['Radius'])
+
         # Hemi related
         if mask.type == 'HEMI' and not mask.use_baked: #and 'Normal' in mask_source.inputs:
             if mask.hemi_use_prev_normal and bump_process:
@@ -2441,7 +2447,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if ch_source_1: 
                     normal = ch_source_1.outputs[0]
 
-                    if 'Vector' in ch_source_1.inputs:
+                    if vector and 'Vector' in ch_source_1.inputs:
                         create_link(tree, vector, ch_source_1.inputs['Vector'])
 
             ch_linear_1 = nodes.get(ch.linear_1)

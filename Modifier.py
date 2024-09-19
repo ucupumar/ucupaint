@@ -6,7 +6,6 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from . import lib
-from bpy_types import bpy_types
 
 modifier_type_items = (
         ('INVERT', 'Invert', 

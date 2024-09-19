@@ -352,7 +352,7 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
 
 
 class AddonUpdaterUpdateTarget(bpy.types.Operator):
-    bl_label = updater.addon + " version target"
+    bl_label = get_addon_title() + " Version Target"
     bl_idname = updater.addon + ".updater_update_target"
     bl_description = "Install a targeted version of the {x} addon".format(
         x=updater.addon)

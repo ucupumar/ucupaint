@@ -73,6 +73,11 @@ class YBakeTarget(bpy.types.PropertyGroup):
                 ),
             default='IMAGE')
 
+    use_float : BoolProperty(
+            name = '32-bit Image',
+            description = 'Use 32-bit float image',
+            default=False)
+
     r : PointerProperty(type=YBakeTargetChannel)
     g : PointerProperty(type=YBakeTargetChannel)
     b : PointerProperty(type=YBakeTargetChannel)
@@ -126,6 +131,11 @@ class YNewBakeTarget(bpy.types.Operator):
                 ),
             default='BLANK', update=update_new_bake_target_preset)
 
+    use_float : BoolProperty(
+            name = '32-bit Float',
+            description = 'Use 32-bit float image',
+            default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -151,6 +161,7 @@ class YNewBakeTarget(bpy.types.Operator):
         col = row.column(align=False)
         col.prop(self, 'name', text='')
         col.prop(self, 'preset', text='')
+        col.prop(self, 'use_float')
 
     def execute(self, context):
         wm = context.window_manager
@@ -160,6 +171,7 @@ class YNewBakeTarget(bpy.types.Operator):
 
         bt = yp.bake_targets.add()
         bt.name = self.name
+        bt.use_float = self.use_float
         bt.a.default_value = 1.0
 
         if self.preset == 'ORM':

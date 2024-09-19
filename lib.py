@@ -216,6 +216,12 @@ MOD_INTENSITY_HARDNESS = '~yPL Mod Intensity Hardness'
 MOD_MATH = '~yPL Mod Math'
 MOD_MATH_VALUE = '~yPL Mod Math Value'
 
+# GLTF related
+GLTF_MATERIAL_OUTPUT = 'glTF Material Output'
+GLTF_SETTINGS = 'glTF Settings'
+
+# Manual BSDFs
+BL278_BSDF = 'bsdf278'
 
 channel_custom_icon_dict = {
         'RGB' : 'rgb_channel',
@@ -400,7 +406,7 @@ def get_smooth_mix_node(blend_type, layer_type=''):
 def clean_unused_libraries():
     for ng in bpy.data.node_groups:
         if ng.name.startswith('~yPL ') and ng.users == 0:
-            bpy.data.node_groups.remove(ng)
+            remove_datablock(bpy.data.node_groups, ng)
 
 def register():
     load_custom_icons()

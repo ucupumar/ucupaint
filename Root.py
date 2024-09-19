@@ -129,6 +129,7 @@ def create_new_group_tree(mat):
     group_tree = bpy.data.node_groups.new(group_name, 'ShaderNodeTree')
     group_tree.yp.is_ypaint_node = True
     group_tree.yp.version = get_current_version_str()
+    group_tree.yp.blender_version = get_current_blender_version_str()
 
     # Create IO nodes
     create_essential_nodes(group_tree, True, True, True)
@@ -164,7 +165,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
     else:
-        # NOTE: Smooth bump is no longer on by default on Blender 2.80+
+        # NOTE: Smooth bump is no longer enabled by default on Blender 2.80+
         if is_greater_than_280(): channel.enable_smooth_bump = False
 
     yp.halt_reconnect = False
@@ -467,9 +468,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 self.type = bsdf_node.type
                 self.target_bsdf_name = bsdf_node.name
 
-        if not is_greater_than_279() and self.type == 'BSDF_PRINCIPLED':
-            self.type = 'BSDF_DIFFUSE'
-
         # Normal channel does not works to non mesh object
         if obj.type != 'MESH':
             self.normal = False
@@ -524,11 +522,12 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
     def execute(self, context):
 
-        if not is_greater_than_279() and self.type == 'BSDF_PRINCIPLED':
-            self.report({'ERROR'}, "There's no Principled BSDF in this blender version!")
+        obj = context.object
+
+        if not obj.data or not hasattr(obj.data, 'materials'):
+            self.report({'ERROR'}, "Cannot use "+get_addon_title()+" with object '"+obj.name+"'!")
             return {'CANCELLED'}
 
-        obj = context.object
         mat = get_active_material()
 
         if not mat:
@@ -584,11 +583,15 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # BSDF node
         if not main_bsdf:
             if self.type == 'BSDF_PRINCIPLED':
-                main_bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-                if 'Subsurface Radius' in main_bsdf.inputs:
-                    main_bsdf.inputs['Subsurface Radius'].default_value = (1.0, 0.2, 0.1) # Use eevee default value
-                if 'Subsurface Color' in main_bsdf.inputs:
-                    main_bsdf.inputs['Subsurface Color'].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
+                if not is_greater_than_279():
+                    main_bsdf = nodes.new('ShaderNodeGroup')
+                    main_bsdf.node_tree = get_node_tree_lib(lib.BL278_BSDF)
+                else:
+                    main_bsdf = nodes.new('ShaderNodeBsdfPrincipled')
+                    if 'Subsurface Radius' in main_bsdf.inputs:
+                        main_bsdf.inputs['Subsurface Radius'].default_value = (1.0, 0.2, 0.1) # Use eevee default value
+                    if 'Subsurface Color' in main_bsdf.inputs:
+                        main_bsdf.inputs['Subsurface Color'].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
             elif self.type == 'BSDF_DIFFUSE':
                 main_bsdf = nodes.new('ShaderNodeBsdfDiffuse')
             elif self.type == 'EMISSION':
@@ -683,7 +686,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
 
         # Update io
-        check_all_channel_ios(group_tree.yp)
+        check_all_channel_ios(group_tree.yp, yp_node=node)
 
         # Update linear blending
         if self.use_linear_blending:
@@ -1192,7 +1195,7 @@ class YNewYPaintChannel(bpy.types.Operator):
                 non_color=self.colorspace == 'LINEAR')
 
         # Update io
-        check_all_channel_ios(yp)
+        check_all_channel_ios(yp, yp_node=node)
 
         # Connect to other inputs
         item = self.input_coll.get(self.connect_to)
@@ -1493,7 +1496,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             #if ch.mod_tree:
             if ch.mod_group != '':
                 mod_group = ttree.nodes.get(ch.mod_group)
-                remove_datablock(bpy.data.node_groups, mod_group.node_tree)
+                remove_datablock(bpy.data.node_groups, mod_group.node_tree, user=mod_group, user_prop='node_tree')
                 ttree.nodes.remove(mod_group)
             else:
                 for mod in ch.modifiers:
@@ -1691,6 +1694,12 @@ class YFixMissingUV(bpy.types.Operator):
             uv_layers.active = uvl
 
         if self.need_remap:
+            # Check height channel uv
+            height_ch = get_root_height_channel(yp)
+            if height_ch and height_ch.main_uv == self.source_uv_name:
+                height_ch.main_uv = target_uv_name
+                #height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
+
             # Check baked images uv
             if yp.baked_uv_name == self.source_uv_name:
                 yp.baked_uv_name = target_uv_name
@@ -1709,12 +1718,6 @@ class YFixMissingUV(bpy.types.Operator):
                 for mask in layer.masks:
                     if mask.uv_name == self.source_uv_name:
                         mask.uv_name = target_uv_name
-
-            # Check height channel uv
-            height_ch = get_root_height_channel(yp)
-            if height_ch and height_ch.main_uv == self.source_uv_name:
-                height_ch.main_uv = target_uv_name
-                #height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
 
         return {'FINISHED'}
 
@@ -1976,25 +1979,35 @@ class YFixMissingData(bpy.types.Operator):
 
         # Fix missing sources
         for i, layer in reversed(list(enumerate(yp.layers))):
-            src = get_layer_source(layer)
 
             # Delete layer if source is not found
+            src = get_layer_source(layer)
             if not src:
                 Layer.remove_layer(yp, i)
                 continue
 
             # Delete mask if mask source is not found
             for j, mask in reversed(list(enumerate(layer.masks))):
-                mask_src = get_mask_source(mask)
-                if not mask_src:
+                src = get_mask_source(mask)
+                if not src:
                     Mask.remove_mask(layer, mask, obj)
 
-            # Disable override if channel source is not found
+            # Use default override if channel source is not found
             for ch in layer.channels:
-                ch_src = get_channel_source(ch, layer)
-                if not ch_src:
-                    if ch.override and ch.override_type != 'DEFAULT': ch.override = False
-                    if ch.override_1 and ch.override_1_type != 'DEFAULT': ch.override_1 = False
+
+                src = get_channel_source(ch, layer)
+                if ch.override and ch.override_type != 'DEFAULT': 
+                    if not src or (ch.override_type == 'IMAGE' and not src.image):
+                        ltree = get_tree(layer)
+                        remove_node(ltree, ch, 'source')
+                        ch.override_type = 'DEFAULT'
+
+                src = get_channel_source_1(ch, layer)
+                if ch.override_1 and ch.override_1_type != 'DEFAULT': 
+                    if not src or (ch.override_1_type == 'IMAGE' and not src.image):
+                        ltree = get_tree(layer)
+                        remove_node(ltree, ch, 'source_1')
+                        ch.override_1_type = 'DEFAULT'
 
         if yp.active_layer_index > len(yp.layers):
             yp.active_layer_index = len(yp.layers)-1
@@ -2010,18 +2023,10 @@ class YFixMissingData(bpy.types.Operator):
 
             for mask in layer.masks:
                 if mask.type in {'IMAGE' , 'VCOL'}:
-                    mask_src = get_mask_source(mask)
+                    src = get_mask_source(mask)
 
-                    if mask.type == 'IMAGE' and not mask_src.image:
-                        fix_missing_img(mask.name, mask_src, True)
-
-            for i, ch in enumerate(layer.channels):
-                root_ch = yp.channels[i]
-                if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
-                    ch_src = get_channel_source(ch, layer)
-
-                    if ch.override_type == 'IMAGE' and not ch_src.image:
-                        fix_missing_img(layer.name + ' ' + root_ch.name + ' Override', ch_src, False)
+                    if mask.type == 'IMAGE' and not src.image:
+                        fix_missing_img(mask.name, src, True)
 
         # Get relevant objects
         objs = [obj]
@@ -2033,30 +2038,32 @@ class YFixMissingData(bpy.types.Operator):
 
         # Fix missing vcols
         need_color_id_vcol = False
-        ref_vcol = None
 
         for obj in objs:
+            if obj.type != 'MESH': continue
+
             for layer in yp.layers:
-                src = get_layer_source(layer)
-                if (layer.type == 'VCOL' and obj.type == 'MESH' 
-                        and not get_vcol_from_source(obj, src)):
-                    fix_missing_vcol(obj, layer.name, src)
+                if layer.type == 'VCOL':
+                    src = get_layer_source(layer)
+                    if not get_vcol_from_source(obj, src):
+                        fix_missing_vcol(obj, src.attribute_name, src)
 
                 for mask in layer.masks:
-                    mask_src = get_mask_source(mask)
-                    if (mask.type == 'VCOL' and obj.type == 'MESH' 
-                            and not get_vcol_from_source(obj, mask_src)):
-                        fix_missing_vcol(obj, mask.name, mask_src)
+                    if mask.type == 'VCOL': 
+                        src = get_mask_source(mask)
+                        if not get_vcol_from_source(obj, src):
+                            fix_missing_vcol(obj, src.attribute_name, src)
 
                     if mask.type == 'COLOR_ID':
-                        need_color_id_vcol = True
+                        vcols = get_vertex_colors(obj)
+                        if COLOR_ID_VCOL_NAME not in vcols:
+                            need_color_id_vcol = True
 
-                for i, ch in enumerate(layer.channels):
-                    root_ch = yp.channels[i]
-                    ch_src = get_channel_source(ch, layer)
-                    if (ch.override and ch.override_type == 'VCOL' and obj.type == 'MESH' 
-                            and not get_vcol_from_source(obj, ch_src)):
-                        fix_missing_vcol(obj, layer.name + ' ' + root_ch.name, ch_src)
+                for ch in layer.channels:
+                    if ch.override and ch.override_type == 'VCOL':
+                        src = get_channel_source(ch, layer)
+                        if not get_vcol_from_source(obj, src):
+                            fix_missing_vcol(obj, src.attribute_name, src)
 
         # Fix missing color id missing vcol
         if need_color_id_vcol: check_colorid_vcol(objs)
@@ -2230,13 +2237,19 @@ def update_channel_name(self, context):
         get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['ALPHA']
         shift += 1
 
-    if self.type == 'NORMAL':
+    if self.type == 'NORMAL' and self.enable_subdiv_setup:
         get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['HEIGHT']
         get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['HEIGHT']
 
         shift += 1
 
+        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['MAX_HEIGHT']
         get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['MAX_HEIGHT']
+
+        shift += 1
+
+        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['VDISP']
+        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['VDISP']
 
     for layer in yp.layers:
         tree = get_tree(layer)
@@ -2318,13 +2331,18 @@ def set_srgb_view_transform():
 
     # Set view transform to srgb
     if scene.yp.ori_view_transform == '' and ypup.make_preview_mode_srgb:
+
         scene.yp.ori_view_transform = scene.view_settings.view_transform
         if is_greater_than_280():
-            scene.view_settings.view_transform = 'Standard'
-        else: scene.view_settings.view_transform = 'Default'
+            try: scene.view_settings.view_transform = 'Standard'
+            except Exception as e: print(e)
+        else: 
+            try: scene.view_settings.view_transform = 'Default'
+            except Exception as e: print(e)
 
         scene.yp.ori_display_device = scene.display_settings.display_device
-        scene.display_settings.display_device = 'sRGB'
+        try: scene.display_settings.display_device = 'sRGB'
+        except Exception as e: print(e)
 
         scene.yp.ori_look = scene.view_settings.look
         scene.view_settings.look = 'None'
@@ -3103,13 +3121,12 @@ def update_backface_mode(self, context):
 def update_channel_main_uv(self, context):
     yp = self.id_data.yp
 
-    if self.main_uv in {TEMP_UV, ''}:
-        if len(yp.uvs) > 0:
-            for uv in yp.uvs:
-                self.main_uv = uv.name
-                break
+    if self.main_uv in {TEMP_UV, ''} and len(yp.uvs) > 0:
+        for uv in yp.uvs:
+            self.main_uv = uv.name
+            break
 
-    if self.type == 'NORMAL':
+    if self.type == 'NORMAL' and self.enable_smooth_bump:
         self.enable_smooth_bump = self.enable_smooth_bump
 
 def update_enable_height_tweak(self, context):
@@ -3563,11 +3580,17 @@ class YPaint(bpy.types.PropertyGroup):
 
     # Bake Targets
     bake_targets : CollectionProperty(type=BakeTarget.YBakeTarget)
-    active_bake_target_index : IntProperty(default=0, update=BakeTarget.update_active_bake_target_index)
+    active_bake_target_index : IntProperty(
+            name = 'Active Bake Target Index',
+            description = 'Active bake target index',
+            default=0, update=BakeTarget.update_active_bake_target_index)
 
     # Temp channels to remember last channel selected when adding new layer
     #temp_channels = CollectionProperty(type=YChannelUI)
-    preview_mode : BoolProperty(default=False, update=update_preview_mode)
+    preview_mode : BoolProperty(
+            name= 'Enable Channel Preview Mode',
+            description= 'Enable channel preview mode',
+            default=False, update=update_preview_mode)
 
     # Disable all vector displacement layers when sculpt mode is on
     sculpt_mode : BoolProperty(default=False, update=update_sculpt_mode)

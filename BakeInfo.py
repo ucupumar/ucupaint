@@ -132,6 +132,11 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             items = interpolation_type_items,
             default = 'Linear')
 
+    use_float_for_normal : BoolProperty(
+            name = 'Use Float for Normal',
+            description='Use float image for baked normal',
+            default=False)
+
     use_float_for_displacement : BoolProperty(
             name = 'Use Float for Displacement',
             description='Use float image for baked displacement',

@@ -1,7 +1,6 @@
-import bpy, os, sys, re, time, numpy, math
+import bpy, os, sys, re, time, numpy, math, pathlib
 from mathutils import *
 from bpy.app.handlers import persistent
-from bpy_types import bpy_types
 
 BLENDER_28_GROUP_INPUT_HACK = False
 
@@ -511,6 +510,8 @@ CACHE_BITANGENT_IMAGE_SUFFIX = '_YP_CACHE_BITANGENT'
 
 GAMMA = 2.2
 
+valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
+
 def version_tuple(version_string):
     return tuple(version_string.split('.'))
 
@@ -676,8 +677,23 @@ def is_greater_than_420():
         return True
     return False
 
+def is_greater_than_430():
+    if bpy.app.version >= (4, 3, 0):
+        return True
+    return False
+
+def is_created_before_279():
+    if bpy.data.version[:2] < (2, 79):
+        return True
+    return False
+
 def is_created_using_279():
     if bpy.data.version[:2] == (2, 79):
+        return True
+    return False
+
+def is_created_before_280():
+    if bpy.data.version[:2] < (2, 80):
         return True
     return False
 
@@ -711,6 +727,30 @@ def is_created_before_410():
         return True
     return False
 
+def get_bpytypes():
+    if not is_greater_than_277():
+        import bpy_types
+        return bpy_types.bpy_types
+    return bpy.types
+
+def get_srgb_name():
+    names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
+    if 'sRGB' not in names:
+        for name in names:
+            if name.lower().startswith('srgb'):
+                return name
+        return names[0]
+    return 'sRGB'
+
+def get_noncolor_name():
+    names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
+    if 'Non-Color' not in names:
+        for name in names:
+            if name.lower() == 'raw':
+                return name
+        return names[0]
+    return 'Non-Color'
+
 def remove_datablock(blocks, block, user=None, user_prop=''):
     if is_greater_than_279():
         blocks.remove(block)
@@ -731,7 +771,8 @@ def remove_datablock(blocks, block, user=None, user_prop=''):
 
 def set_active_object(obj):
     if is_greater_than_280():
-        bpy.context.view_layer.objects.active = obj
+        try: bpy.context.view_layer.objects.active = obj
+        except: print('EXCEPTIION: Cannot set active object!')
     else: bpy.context.scene.objects.active = obj
 
 def link_object(scene, obj):
@@ -954,6 +995,8 @@ def blend_color_mix_byte(src1, src2, intensity1=1.0, intensity2=1.0):
     return dst
 
 def copy_id_props(source, dest, extras = [], reverse=False):
+
+    bpytypes = get_bpytypes()
     props = dir(source)
     filters = ['bl_rna', 'rna_type']
     filters.extend(extras)
@@ -976,7 +1019,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 dest_subval = dest_val.add()
                 copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif hasattr(bpy_types, 'bpy_prop_collection') and attr_type == bpy_types.bpy_prop_collection:
+        elif hasattr(bpytypes, 'bpy_prop_collection') and attr_type == bpytypes.bpy_prop_collection:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_subval = None
@@ -991,7 +1034,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 if dest_subval:
                     copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif hasattr(bpy_types, 'bpy_prop_array') and attr_type == bpy_types.bpy_prop_array:
+        elif hasattr(bpytypes, 'bpy_prop_array') and attr_type == bpytypes.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_val[i] = subval
@@ -1000,11 +1043,12 @@ def copy_id_props(source, dest, extras = [], reverse=False):
             except: print('Error set prop:', prop)
 
 def copy_node_props_(source, dest, extras = []):
-    #print()
+
+    bpytypes = get_bpytypes()
     props = dir(source)
     filters = ['rna_type', 'name', 'location', 'parent']
     filters.extend(extras)
-    #print()
+
     for prop in props:
         if prop.startswith('__'): continue
         if prop.startswith('bl_'): continue
@@ -1022,7 +1066,7 @@ def copy_node_props_(source, dest, extras = []):
         #        dest_subval = dest_val.add()
         #        copy_id_props(subval, dest_subval)
 
-        if hasattr(bpy_types, 'bpy_prop_array') and attr_type == bpy_types.bpy_prop_array:
+        if hasattr(bpytypes, 'bpy_prop_array') and attr_type == bpytypes.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 try: 
@@ -1323,15 +1367,30 @@ def get_nodes_using_yp(mat, yp):
 #    if tree.users == 0:
 #        bpy.data.node_groups.remove(tree)
 
-def safe_remove_image(image):
+def is_image_single_user(image):
     scene = bpy.context.scene
 
-    if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
+    return ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
         (scene.tool_settings.image_paint.canvas != image and image.users == 1) or
-        image.users == 0):
-        remove_datablock(bpy.data.images, image)
+        image.users == 0)
 
-def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
+def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
+
+    if is_image_single_user(image):
+
+        if remove_on_disk and not image.packed_file and image.filepath != '':
+            if image.source == 'TILED':
+                for tile in image.tiles:
+                    filepath = image.filepath.replace('<UDIM>', str(tile.number))
+                    try: os.remove(os.path.abspath(bpy.path.abspath(filepath)))
+                    except Exception as e: print(e)
+            else:
+                try: os.remove(os.path.abspath(bpy.path.abspath(image.filepath)))
+                except Exception as e: print(e)
+
+        remove_datablock(bpy.data.images, image, user=user, user_prop=user_prop)
+
+def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False):
     #if not node: return
     scene = bpy.context.scene
 
@@ -1347,7 +1406,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
             image = node.image
-            if image: safe_remove_image(image)
+            if image: safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
 
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
@@ -1374,7 +1433,7 @@ def is_vcol_being_used(tree, vcol_name, exception_node=None):
 
     return False
 
-def remove_node(tree, entity, prop, remove_data=True, parent=None):
+def remove_node(tree, entity, prop, remove_data=True, parent=None, remove_on_disk=False):
 
     dirty = False
 
@@ -1401,7 +1460,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
             if node.bl_idname == 'ShaderNodeTexImage':
 
                 image = node.image
-                if image: safe_remove_image(image)
+                if image: safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
 
             elif node.bl_idname == 'ShaderNodeGroup':
 
@@ -1846,7 +1905,7 @@ def check_duplicated_node_group(node_group, duplicated_trees = []):
             check_duplicated_node_group(node.node_tree, duplicated_trees)
 
     # Create info frame if not found
-    if not info_frame_found:
+    if not info_frame_found and node_group.name.startswith('~yPL '):
         create_info_nodes(node_group)
 
 def load_from_lib_blend(tree_name, filename):
@@ -1886,13 +1945,9 @@ def get_node_tree_lib(name):
         duplicated_trees = []
         check_duplicated_node_group(node_tree, duplicated_trees)
 
-        #print('dub', duplicated_trees)
-
         # Remove duplicated trees
         for t in duplicated_trees:
             remove_datablock(bpy.data.node_groups, t)
-        #print(duplicated_trees)
-        #print(node_tree.name + ' is loaded!')
 
     return node_tree
 
@@ -3296,14 +3351,18 @@ def remove_temp_uv(obj, entity):
             (entity.segment_name == '' and obj.mode == 'TEXTURE_PAINT')
             ):
         if mirror.use_mirror_u:
-            mirror.mirror_offset_u = obj.yp.ori_mirror_offset_u
+            try: mirror.mirror_offset_u = obj.yp.ori_mirror_offset_u
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
         if mirror.use_mirror_v:
-            mirror.mirror_offset_v = obj.yp.ori_mirror_offset_v
+            try: mirror.mirror_offset_v = obj.yp.ori_mirror_offset_v
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
         if is_greater_than_280():
-            mirror.offset_u = obj.yp.ori_offset_u
-            mirror.offset_v = obj.yp.ori_offset_v
+            try: mirror.offset_u = obj.yp.ori_offset_u
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
+            try: mirror.offset_v = obj.yp.ori_offset_v
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
 def refresh_temp_uv(obj, entity): 
     if obj.type != 'MESH':
@@ -3417,7 +3476,8 @@ def refresh_temp_uv(obj, entity):
 
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
-    uv_layers.active = temp_uv_layer
+    try: uv_layers.active = temp_uv_layer
+    except: print('EXCEPTIION: Cannot set temporary UV!')
     # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
     if not is_greater_than_291():
         temp_uv_layer.active_render = True
@@ -3533,7 +3593,8 @@ def refresh_temp_uv(obj, entity):
 
     # Set UV mirror offset
     if ori_mode != 'EDIT':
-        set_uv_mirror_offsets(obj, m)
+        try: set_uv_mirror_offsets(obj, m)
+        except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
     # Back to edit mode if originally from there
     if ori_mode == 'EDIT':
@@ -4907,9 +4968,9 @@ def is_tangent_process_needed(yp, uv_name):
     if height_root_ch:
 
         if height_root_ch.main_uv == uv_name and (
-                #(height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch)) or
+                (height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch)) or
                 #(not height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch) and any_layers_using_normal_map(height_root_ch))
-                any_layers_using_bump_map(height_root_ch) or
+                #any_layers_using_bump_map(height_root_ch) or
                 (is_normal_height_input_connected(height_root_ch) and height_root_ch.enable_smooth_bump)
                 ):
             return True
@@ -5243,28 +5304,75 @@ def get_all_objects_with_same_materials(mat, mesh_only=False, uv_name='', select
 
     return objs
 
-def get_yp_images(yp, udim_only=False):
+def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=False):
+
+    layers = [layer]
+
+    if has_childrens(layer):
+        childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
+        layers.extend(childs)
 
     images = []
+    for lay in layers:
+        for mask in lay.masks:
+            baked_source = get_mask_source(mask, get_baked=True)
+            if baked_source and baked_source.image and baked_source.image not in images:
+                images.append(baked_source.image)
 
-    for layer in yp.layers:
-
-        for mask in layer.masks:
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
-                if not source or not source.image: continue
-                image = source.image
-                if udim_only and image.source != 'TILED': continue
-                if image not in images:
+                if source and source.image and source.image not in images:
                     images.append(source.image)
 
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if not source or not source.image: continue
-            image = source.image
-            if udim_only and image.source != 'TILED': continue
-            if image not in images:
+        for ch in lay.channels:
+            if ch.override and ch.override_type == 'IMAGE':
+                source = get_channel_source(ch, lay)
+                if source and source.image and source.image not in images:
+                    images.append(source.image)
+
+            if ch.override_1 and ch.override_1_type == 'IMAGE':
+                source = get_channel_source_1(ch, lay)
+                if source and source.image and source.image not in images:
+                    images.append(source.image)
+
+        baked_source = get_layer_source(lay, get_baked=True)
+        if baked_source and baked_source.image and baked_source.image not in images:
+            images.append(baked_source.image)
+
+        if lay.type == 'IMAGE':
+            source = get_layer_source(lay)
+            if source and source.image and source.image not in images:
                 images.append(source.image)
+
+    filtered_images = []
+    for image in images:
+        if udim_only and image.source != 'TILED': continue
+        if ondisk_only and (image.packed_file or image.filepath == ''): continue
+        if packed_only and not image.packed_file and image.filepath != '': continue
+        if image not in filtered_images:
+            filtered_images.append(image)
+
+    return filtered_images
+
+def any_single_user_ondisk_image_inside_layer(layer):
+    for image in get_layer_images(layer, ondisk_only=True):
+        if is_image_single_user(image):
+            return True
+
+    return False
+
+def any_single_user_ondisk_image_inside_group(group):
+    childs, child_ids = get_list_of_all_childs_and_child_ids(group)
+    for child in childs:
+        if any_single_user_ondisk_image_inside_layer(child):
+            return True
+
+    return False
+
+def get_yp_images(yp, udim_only=False):
+    images = []
+    for layer in yp.layers:
+        images.extend(get_layer_images(layer, udim_only))
 
     return images
 
@@ -5592,10 +5700,10 @@ def is_image_source_srgb(image, source, root_ch=None):
         return True
 
     # Float images is behaving like srgb for some reason in blender
-    if root_ch and root_ch.colorspace == 'SRGB' and image.is_float and image.colorspace_settings.name != 'sRGB':
+    if root_ch and root_ch.colorspace == 'SRGB' and image.is_float and image.colorspace_settings.name != get_srgb_name():
         return True
 
-    return image.colorspace_settings.name == 'sRGB'
+    return image.colorspace_settings.name == get_srgb_name()
 
 def any_linear_images_problem(yp):
     for layer in yp.layers:
@@ -5856,6 +5964,7 @@ def get_mix_color_indices(mix):
     return idx0, idx1, outidx
 
 def copy_fcurves(src_fc, dest, subdest, attr):
+    bpytypes = get_bpytypes()
     dest_path = subdest.path_from_id() + '.' + attr
 
     # Get prop value
@@ -5863,8 +5972,8 @@ def copy_fcurves(src_fc, dest, subdest, attr):
 
     # Check array index
     array_index = -1
-    if hasattr(bpy_types, 'bpy_prop_array'):
-        array_index = src_fc.array_index if type(prop_value) == bpy_types.bpy_prop_array else -1
+    if hasattr(bpytypes, 'bpy_prop_array'):
+        array_index = src_fc.array_index if type(prop_value) == bpytypes.bpy_prop_array else -1
 
     # New fcurve
     nfc = None
@@ -6359,10 +6468,11 @@ def set_image_pixels(image, color, segment=None):
 
         image.pixels = pxs
 
-def is_image_filepath_unique(image):
-    abspath = bpy.path.abspath(image.filepath)
+def is_image_filepath_unique(filepath, check_disk=True):
+    abspath = bpy.path.abspath(filepath)
     for img in bpy.data.images:
-        if img != image and bpy.path.abspath(img.filepath) == abspath:
+        # NOTE: 'Check disk' will also check the actual image existing in disk
+        if bpy.path.abspath(img.filepath) == abspath or (check_disk and pathlib.Path(abspath).is_file()):
             return False
     return True
 
@@ -6373,20 +6483,10 @@ def duplicate_image(image):
             image.pack()
         else: image.save()
 
-    # Get new name
-    new_name = get_unique_name(image.name, bpy.data.images)
-
     # Copy image
     new_image = image.copy()
-    new_image.name = new_name
 
-    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
-
-        # NOTE: Duplicated image will always be packed for now
-        if not image.packed_file:
-            if is_greater_than_280():
-                new_image.pack()
-            else: new_image.pack(as_png=True)
+    if image.source == 'TILED' or (not image.packed_file and image.filepath != ''):
 
         directory = os.path.dirname(bpy.path.abspath(image.filepath))
         filename = bpy.path.basename(new_image.filepath)
@@ -6399,7 +6499,7 @@ def duplicate_image(image):
             splits = os.path.splitext(filename)
             infix = ''
 
-        basename = new_name
+        basename = splits[0]
         extension = splits[1]
 
         # Try to get the counter
@@ -6409,29 +6509,53 @@ def duplicate_image(image):
             counter = int(m.group(2))
         else: counter = 1
 
-        # Try to set the image filepath with added counter
+        # Try to get unique image filepath with added counter
         while True:
             new_name = basename + ' ' + str(counter)
             new_path = os.path.join(directory, new_name + infix + extension)
-            new_image.filepath = new_path
-            if is_image_filepath_unique(new_image):
+            if is_image_filepath_unique(new_path):
                 break
             counter += 1
 
-        # Trying to set the filepath to relative
-        try: new_image.filepath = bpy.path.relpath(new_image.filepath)
-        except: pass
+        # Save the image to disk if image is not packed
+        if not image.packed_file:
+            override = bpy.context.copy()
+            override['edit_image'] = new_image
+            if is_greater_than_400():
+                with bpy.context.temp_override(**override):
+                    bpy.ops.image.save_as(filepath=new_path, relative_path=True)
+            else: bpy.ops.image.save_as(override, filepath=new_path, relative_path=True)
+        else:
+            new_image.filepath = new_path
+
+            # Trying to set the filepath to relative
+            try: new_image.filepath = bpy.path.relpath(new_image.filepath)
+            except: pass
+
+        # Set image name based on new filepath
+        if not image.name.endswith(extension):
+            filename = bpy.path.basename(os.path.splitext(new_path)[0])
+        else: filename = bpy.path.basename(new_path)
+        filename = filename.replace('.<UDIM>', '')
+        new_image.name = filename
+    else:
+
+        # Set new name
+        new_image.name = get_unique_name(image.name, bpy.data.images)
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels
-    if new_image.source != 'TILED':
+    if image.is_dirty and new_image.source != 'TILED':
         new_image.pixels = list(image.pixels)
 
     return new_image
 
+def is_first_socket_bsdf(node):
+    return len(node.outputs) > 0 and node.outputs[0].type == 'SHADER'
+
 def is_valid_bsdf_node(node, valid_types=[]):
     if not valid_types:
-        return node.type == 'EMISSION' or node.type.startswith('BSDF_') or node.type.endswith('_SHADER')
+        return node.type == 'EMISSION' or node.type.startswith('BSDF_') or node.type.endswith('_SHADER') or is_first_socket_bsdf(node)
     
     return node.type in valid_types
 

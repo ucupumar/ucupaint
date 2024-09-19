@@ -322,8 +322,8 @@ def update_yp_tree(tree):
 
                 source = get_layer_source(layer)
                 if source and source.image and not source.image.is_float: 
-                    if source.image.colorspace_settings.name != 'sRGB':
-                        source.image.colorspace_settings.name = 'sRGB'
+                    if source.image.colorspace_settings.name != get_srgb_name():
+                        source.image.colorspace_settings.name = get_srgb_name()
                         print('INFO:', source.image.name, 'image is now using sRGB!')
                     check_layer_image_linear_node(layer)
                 image_found = True
@@ -335,8 +335,8 @@ def update_yp_tree(tree):
 
                     source = get_channel_source(ch)
                     if source and source.image and not source.image.is_float:
-                        if source.image.colorspace_settings.name != 'sRGB':
-                            source.image.colorspace_settings.name = 'sRGB'
+                        if source.image.colorspace_settings.name != get_srgb_name():
+                            source.image.colorspace_settings.name = get_srgb_name()
                             print('INFO:', source.image.name, 'image is now using sRGB!')
                         check_layer_channel_linear_node(ch)
                     image_found = True
@@ -347,8 +347,8 @@ def update_yp_tree(tree):
                 if mask.type == 'IMAGE':
                     source = get_mask_source(mask)
                     if source and source.image and not source.image.is_float:
-                        if source.image.colorspace_settings.name != 'sRGB':
-                            source.image.colorspace_settings.name = 'sRGB'
+                        if source.image.colorspace_settings.name != get_srgb_name():
+                            source.image.colorspace_settings.name = get_srgb_name()
                             print('INFO:', source.image.name, 'image is now using sRGB!')
                         check_mask_image_linear_node(mask)
                     image_found = True
@@ -741,7 +741,7 @@ def update_yp_tree(tree):
         updated_to_tangent_process_300 = True
 
     # Update tangent process from Blender 2.79 to 2.8x and 2.9x
-    if not is_greater_than_300() and is_greater_than_280() and (is_created_using_279() or version_tuple(yp.blender_version) < version_tuple('2.80.0')):
+    if not is_greater_than_300() and is_greater_than_280() and (is_created_before_280() or version_tuple(yp.blender_version) < version_tuple('2.80.0')):
         update_tangent_process(tree, TANGENT_PROCESS)
 
     # Update blender version
@@ -784,9 +784,9 @@ def update_routine(name):
                     set_active_object(obj)
                     bpy.ops.object.modifier_remove(modifier=mod.name)
 
-    # Special update for opening Blender 2.79 file
+    # Special update for opening Blender 2.7x file
     filepath = get_addon_filepath() + "lib.blend"
-    if is_created_using_279() and is_greater_than_280() and bpy.data.filepath != filepath:
+    if is_created_before_280() and is_greater_than_280() and bpy.data.filepath != filepath:
 
         legacy_groups = []
         newer_groups = []
@@ -898,6 +898,33 @@ def update_routine(name):
         # Remove already copied groups
         for ng in copied_groups:
             remove_datablock(bpy.data.node_groups, ng)
+
+    # Update bake infos for Blender 2.78 or lower
+    if is_created_before_279() and is_greater_than_279():
+
+        for image in bpy.data.images:
+            bi = image.y_bake_info
+
+            for so in bi.selected_objects:
+                o = bpy.data.objects.get(so.object_name)
+                if o: so.object = o
+
+            for oo in bi.other_objects:
+                o = bpy.data.objects.get(oo.object_name)
+                if o: oo.object = o
+
+            for segment in image.yia.segments:
+                bi = segment.bake_info
+
+                for so in bi.selected_objects:
+                    o = bpy.data.objects.get(so.object_name)
+                    if o: so.object = o
+
+                for oo in bi.other_objects:
+                    o = bpy.data.objects.get(oo.object_name)
+                    if o: oo.object = o
+
+        print('INFO: Bake Info is updated to be able to point directly to object since Blender 2.79')
 
     print('INFO: ' + get_addon_title() + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

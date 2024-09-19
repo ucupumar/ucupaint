@@ -19,12 +19,12 @@ jobs:
         with:
           ref: blender_279
       - name: zip blender_279
-        run:  mkdir ucupaint && rsync -av --exclude='.git/' --exclude='.github/' --exclude='ucupaint/' . ucupaint/ && zip -r ${{ github.event.repository.name }}-blender_279-legacy-${{ env.RELEASE_VERSION }}.zip ucupaint/
+        run:  mkdir ucupaint && rsync -av --exclude='.git/' --exclude='.github/' --exclude='ucupaint/' . ucupaint/ && zip -r ${{ github.event.repository.name }}-blender_27x-legacy-${{ env.RELEASE_VERSION }}.zip ucupaint/
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          files: ${{ github.event.repository.name }}-blender_279-legacy-${{ env.RELEASE_VERSION }}.zip
+          files: ${{ github.event.repository.name }}-blender_27x-legacy-${{ env.RELEASE_VERSION }}.zip
       - name: Checkout
         uses: actions/checkout@v3
       - name: zip

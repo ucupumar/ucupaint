@@ -139,7 +139,7 @@ def update_bake_to_layer_uv_map(self, context):
     objs = get_all_objects_with_same_materials(mat)
     self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
-class YBakeToLayer(bpy.types.Operator):
+class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_bake_to_layer"
     bl_label = "Bake To Layer"
     bl_description = "Bake something as layer/mask"
@@ -173,20 +173,6 @@ class YBakeToLayer(bpy.types.Operator):
 
     overwrite_image_name : StringProperty(default='')
     overwrite_segment_name : StringProperty(default='')
-
-    samples : IntProperty(name='Bake Samples', 
-            description='Bake Samples, more means less jagged on generated textures', 
-            default=1, min=1)
-
-    margin : IntProperty(name='Bake Margin',
-            description = 'Bake margin in pixels',
-            default=5, min=0, subtype='PIXEL')
-
-    margin_type : EnumProperty(name = 'Margin Type',
-            description = '',
-            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
-                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
-            default = 'ADJACENT_FACES')
 
     type : EnumProperty(
             name = 'Bake Type',
@@ -242,9 +228,6 @@ class YBakeToLayer(bpy.types.Operator):
             description = "Use Denoise on baked image",
             default=True)
 
-    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
-
     channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
@@ -298,14 +281,6 @@ class YBakeToLayer(bpy.types.Operator):
             description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
             default=False)
 
-    bake_device : EnumProperty(
-            name='Bake Device',
-            description='Device to use for baking',
-            items = (('GPU', 'GPU Compute', ''),
-                     ('CPU', 'CPU', '')),
-            default='CPU'
-            )
-
     use_image_atlas : BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
@@ -321,6 +296,7 @@ class YBakeToLayer(bpy.types.Operator):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def invoke(self, context, event):
+        self.invoke_operator(context)
 
         if hasattr(context, 'entity'):
             self.entity = context.entity
@@ -334,10 +310,6 @@ class YBakeToLayer(bpy.types.Operator):
 
         # UDIM is turned off by default
         #self.use_udim = False
-
-        # Use user preference default image size if input uses default image size
-        if self.width == 1234 and self.height == 1234:
-            self.width = self.height = ypup.default_new_image_size
 
         # Default normal map type is bump
         self.normal_map_type = 'BUMP_MAP'
@@ -1143,7 +1115,9 @@ class YBakeToLayer(bpy.types.Operator):
                     # Apply shape keys and modifiers
                     if any(need_to_be_applied_modifiers):
                         if obj.data.shape_keys:
-                            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+                            if is_greater_than_330():
+                                bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+                            else: bpy.ops.object.shape_key_remove(all=True)
 
                         for m in need_to_be_applied_modifiers:
                             bpy.ops.object.modifier_apply(modifier=m.name)
@@ -1432,7 +1406,7 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Image name and colorspace
             image_name = self.name
-            colorspace = 'sRGB'
+            colorspace = get_srgb_name()
 
             if self.type == 'OTHER_OBJECT_CHANNELS':
 
@@ -1480,10 +1454,10 @@ class YBakeToLayer(bpy.types.Operator):
                         elif socket:
                             m.node_tree.links.new(socket, temp_emi.inputs[0])
 
-                colorspace = 'Non-Color' if root_ch.colorspace == 'LINEAR' else 'sRGB'
+                colorspace = get_noncolor_name() if root_ch.colorspace == 'LINEAR' else get_srgb_name()
 
             elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
-                colorspace = 'Non-Color'
+                colorspace = get_noncolor_name()
 
             # Base color of baked image
             if self.type == 'AO':
@@ -1548,12 +1522,29 @@ class YBakeToLayer(bpy.types.Operator):
             mat.node_tree.nodes.active = tex
 
             # Bake!
-            if self.type.startswith('MULTIRES_'):
-                bpy.ops.object.bake_image()
-            else:
-                if bake_type != 'EMIT':
-                    bpy.ops.object.bake(type=bake_type)
-                else: bpy.ops.object.bake()
+            try:
+                if self.type.startswith('MULTIRES_'):
+                    bpy.ops.object.bake_image()
+                else:
+                    if bake_type != 'EMIT':
+                        bpy.ops.object.bake(type=bake_type)
+                    else: bpy.ops.object.bake()
+            except Exception as e:
+
+                # Try to use CPU if GPU baking is failed
+                if self.bake_device == 'GPU':
+                    print('EXCEPTIION: GPU baking failed! Trying to use CPU...')
+                    self.bake_device = 'CPU'
+                    scene.cycles.device = 'CPU'
+
+                    if self.type.startswith('MULTIRES_'):
+                        bpy.ops.object.bake_image()
+                    else:
+                        if bake_type != 'EMIT':
+                            bpy.ops.object.bake(type=bake_type)
+                        else: bpy.ops.object.bake()
+                else:
+                    print('EXCEPTIION:', e)
 
             if use_fxaa: fxaa_image(image, False, bake_device=self.bake_device)
 
@@ -1561,7 +1552,7 @@ class YBakeToLayer(bpy.types.Operator):
             #if self.type.startswith('OTHER_OBJECT_'):
             if self.type == 'OTHER_OBJECT_NORMAL':
                 temp_img = image.copy()
-                temp_img.colorspace_settings.name = 'Non-Color'
+                temp_img.colorspace_settings.name = get_noncolor_name()
                 tex.image = temp_img
 
                 # Set temp filepath
@@ -1596,7 +1587,7 @@ class YBakeToLayer(bpy.types.Operator):
                         UDIM.swap_tile(temp_img, 1001, tilenum)
 
                 # Remove temp image
-                remove_datablock(bpy.data.images, temp_img)
+                remove_datablock(bpy.data.images, temp_img, user=tex, user_prop='image')
 
             # Back to original size if using SSA
             if use_ssaa:
@@ -1626,7 +1617,7 @@ class YBakeToLayer(bpy.types.Operator):
 
                     if self.use_udim:
                         segment = UDIM.get_set_udim_atlas_segment(tilenums, color=(0,0,0,0), 
-                                colorspace='sRGB', hdr=self.hdr, yp=yp)
+                                colorspace=get_srgb_name(), hdr=self.hdr, yp=yp)
                     else:
                         # Clearing unused image atlas segments
                         img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
@@ -2091,11 +2082,11 @@ def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, s
     if mask:
         color = (0,0,0,1)
         color_str = 'BLACK'
-        colorspace = 'Non-Color'
+        colorspace = get_noncolor_name()
     else: 
         color = (0,0,0,0)
         color_str = 'TRANSPARENT'
-        colorspace = 'sRGB'
+        colorspace = get_srgb_name()
 
     # Create image
     if use_udim:
@@ -2169,7 +2160,7 @@ def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, s
 
     return image
 
-class YBakeEntityToImage(bpy.types.Operator):
+class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_bake_entity_to_image"
     bl_label = "Bake Layer/Mask To Image"
     bl_description = "Bake Layer/Mask to an image"
@@ -2181,31 +2172,6 @@ class YBakeEntityToImage(bpy.types.Operator):
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     hdr : BoolProperty(name='32 bit Float', default=False)
-
-    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
-
-    margin : IntProperty(name='Bake Margin',
-            description = 'Bake margin in pixels',
-            default=5, min=0, subtype='PIXEL')
-
-    margin_type : EnumProperty(name = 'Margin Type',
-            description = '',
-            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
-                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
-            default = 'ADJACENT_FACES')
-
-    samples : IntProperty(name='Bake Samples', 
-            description='Bake Samples, more means less jagged on generated textures', 
-            default=1, min=1)
-
-    bake_device : EnumProperty(
-            name='Bake Device',
-            description='Device to use for baking',
-            items = (('GPU', 'GPU Compute', ''),
-                     ('CPU', 'CPU', '')),
-            default='CPU'
-            )
 
     fxaa : BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked image (doesn't work with float images)",
@@ -2249,6 +2215,7 @@ class YBakeEntityToImage(bpy.types.Operator):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def invoke(self, context, event):
+        self.invoke_operator(context)
 
         obj = context.object
         ypup = get_user_preferences()
@@ -2347,10 +2314,6 @@ class YBakeEntityToImage(bpy.types.Operator):
         else:
             if len(self.uv_map_coll) > 0:
                 self.uv_map = self.uv_map_coll[0].name
-
-            # Use user preference default image size if input uses default image size
-            if self.width == 1234 and self.height == 1234:
-                self.width = self.height = ypup.default_new_image_size
 
             # Auto set some props for some types
             if self.entity.type == 'EDGE_DETECT':
@@ -2453,7 +2416,7 @@ class YBakeEntityToImage(bpy.types.Operator):
 
             if self.use_udim:
                 segment = UDIM.get_set_udim_atlas_segment(self.tilenums, color=(0,0,0,1), 
-                        colorspace='Non-Color', hdr=self.hdr, yp=yp)
+                        colorspace=get_noncolor_name(), hdr=self.hdr, yp=yp)
             else:
                 # Clearing unused image atlas segments
                 img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)
@@ -2750,14 +2713,14 @@ class YRemoveBakedEntity(bpy.types.Operator):
 
 def register():
     bpy.utils.register_class(YBakeToLayer)
+    bpy.utils.register_class(YBakeEntityToImage)
     bpy.utils.register_class(YRemoveBakeInfoOtherObject)
     bpy.utils.register_class(YTryToSelectBakedVertexSelect)
-    bpy.utils.register_class(YBakeEntityToImage)
     bpy.utils.register_class(YRemoveBakedEntity)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
+    bpy.utils.unregister_class(YBakeEntityToImage)
     bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
     bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
-    bpy.utils.unregister_class(YBakeEntityToImage)
     bpy.utils.unregister_class(YRemoveBakedEntity)

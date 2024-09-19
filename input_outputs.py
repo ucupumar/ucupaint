@@ -78,7 +78,7 @@ def fix_tree_output_index(tree, item, correct_index):
     fix_tree_output_index_400(tree.interface, item, correct_index)
 
 def create_input(tree, name, socket_type, valid_inputs, index, 
-        dirty = False, min_value=None, max_value=None, default_value=None, hide_value=False, description=''):
+        dirty = False, min_value=None, max_value=None, default_value=None, hide_value=False, description='', node=None):
 
     inp = get_tree_input_by_name(tree, name)
     if not inp:
@@ -87,7 +87,18 @@ def create_input(tree, name, socket_type, valid_inputs, index,
         if min_value != None and hasattr(inp, 'min_value'): inp.min_value = min_value
         if max_value != None and hasattr(inp, 'max_value'): inp.max_value = max_value
         if default_value != None: inp.default_value = default_value
-        if hasattr(inp, 'hide_value'): inp.hide_value = hide_value
+        if hasattr(inp, 'hide_value'): 
+            inp.hide_value = hide_value
+        else:
+            # NOTE: On some blender versions, hide_value is a node input prop
+            if not node:
+                n = get_active_ypaint_node()
+                if n and n.node_tree == tree:
+                    node = n
+            if node:
+                inpp = node.inputs.get(name)
+                if inpp and hasattr(inpp, 'hide_value'):
+                    inpp.hide_value = hide_value
 
     valid_inputs.append(inp)
     fix_tree_input_index(tree, inp, index)
@@ -305,7 +316,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                     # Set normal tweak value to 1.0 if it's disabled
                     end_linear.inputs['Normal Tweak'].default_value = 1.0
 
-def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_io=False, hard_reset=False):
+def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_io=False, hard_reset=False, yp_node=None):
 
     #print("Checking YP IO. Specific Layer: " + str(specific_layer))
 
@@ -327,7 +338,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         elif ch.type == 'NORMAL':
             # Use 999 as normal z value so it will fallback to use geometry normal at checking process
             create_input(group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
-                    valid_inputs, input_index, default_value=(999,999,999), hide_value=True)
+                    valid_inputs, input_index, default_value=(999,999,999), hide_value=True, node=yp_node)
 
         create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
                 valid_outputs, output_index)
@@ -445,6 +456,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         rearrange_yp_nodes(group_tree)
 
 def create_decal_empty():
+    obj = bpy.context.object
     scene = bpy.context.scene
     empty_name = get_unique_name('Decal', bpy.data.objects)
     empty = bpy.data.objects.new(empty_name, None)
@@ -457,6 +469,10 @@ def create_decal_empty():
         empty.rotation_euler = scene.cursor.rotation_euler.copy()
     else: 
         empty.location = scene.cursor_location.copy()
+
+    # Parent empty to active object
+    empty.parent = obj
+    empty.matrix_parent_inverse = obj.matrix_world.inverted()
 
     return empty
 
@@ -948,6 +964,11 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             # Color ID
             if mask.type == 'COLOR_ID':
                 dirty = create_prop_input(mask, 'color_id', valid_inputs, input_index, dirty)
+                input_index += 1
+
+            # Edge Detect
+            elif mask.type == 'EDGE_DETECT':
+                dirty = create_prop_input(mask, 'edge_detect_radius', valid_inputs, input_index, dirty)
                 input_index += 1
 
     # Tree input and outputs
