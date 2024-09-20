@@ -736,19 +736,43 @@ def get_bpytypes():
 def get_srgb_name():
     names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
     if 'sRGB' not in names:
+
+        # Try 'srgb' prefix
         for name in names:
             if name.lower().startswith('srgb'):
                 return name
-        return names[0]
+
+        # Check srgb name by creating new 8-bit image
+        ypprops = bpy.context.window_manager.ypprops
+
+        if ypprops.custom_srgb_name == '':
+            temp_image = bpy.data.images.new('temmmmp', width=1, height=1, alpha=False, float_buffer=False)
+            ypprops.custom_srgb_name = temp_image.colorspace_settings.name
+            remove_datablock(bpy.data.images, temp_image)
+
+        return ypprops.custom_srgb_name
+
     return 'sRGB'
 
 def get_noncolor_name():
     names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
     if 'Non-Color' not in names:
+
+        # Try 'raw' name
         for name in names:
             if name.lower() == 'raw':
                 return name
-        return names[0]
+
+        # Check non-color name by creating new float image
+        ypprops = bpy.context.window_manager.ypprops
+
+        if ypprops.custom_noncolor_name == '':
+            temp_image = bpy.data.images.new('temmmmp', width=1, height=1, alpha=False, float_buffer=True)
+            ypprops.custom_noncolor_name = temp_image.colorspace_settings.name
+            remove_datablock(bpy.data.images, temp_image)
+
+        return ypprops.custom_noncolor_name
+
     return 'Non-Color'
 
 def remove_datablock(blocks, block, user=None, user_prop=''):

@@ -3753,6 +3753,9 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 
     edit_image_editor_area_index : IntProperty(default=-1)
 
+    custom_srgb_name : StringProperty(default='')
+    custom_noncolor_name : StringProperty(default='')
+
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
