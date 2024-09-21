@@ -4058,8 +4058,8 @@ class YPAssetBrowserMenu(bpy.types.Menu):
     def draw(self, context):
         obj = context.object
         op = self.layout.operator("node.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Material Images to Layer')
-        op.from_asset_browser = True
         op.mat_name = context.mat_asset.name if hasattr(context, 'mat_asset') else ''
+        op.asset_library_path = context.mat_asset.full_library_path if hasattr(context, 'mat_asset') else ''
 
         if obj.type == 'MESH':
             op.texcoord_type = 'UV'
@@ -4330,7 +4330,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
 
         col.operator("node.y_open_images_to_single_layer", text='Open Images to Single Layer')
-        col.operator("node.y_open_images_from_material_to_single_layer", text='Open Images from Material').from_asset_browser = False
+        col.operator("node.y_open_images_from_material_to_single_layer", text='Open Images from Material').asset_library_path = ''
 
         # NOTE: Dedicated menu for opening images to single layer is kinda hard to see, so it's probably better be hidden for now
         #col.menu("NODE_MT_y_open_images_to_single_layer_menu", text='Open Images to Single Layer')
@@ -4633,7 +4633,7 @@ class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
         col = self.layout.column()
 
         col.operator("node.y_open_images_to_single_layer", icon='FILE_FOLDER', text='From Directory')
-        col.operator("node.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material').from_asset_browser = False
+        col.operator("node.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material').asset_library_path = ''
 
 class YNewSolidColorLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_solid_color_layer_menu"
