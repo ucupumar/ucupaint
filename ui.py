@@ -4135,6 +4135,7 @@ def draw_ypaint_about(self, context):
     col.operator('wm.url_open', text='rifai', icon='ARMATURE_DATA').url = 'https://github.com/rifai'
     col.operator('wm.url_open', text='morirain', icon='ARMATURE_DATA').url = 'https://github.com/morirain'
     col.operator('wm.url_open', text='kareemov03', icon='ARMATURE_DATA').url = 'https://www.artstation.com/kareem'
+    col.operator('wm.url_open', text='passivestar', icon='ARMATURE_DATA').url = 'https://github.com/passivestar'
     col.separator()
 
     col.label(text='Documentation:')
