@@ -4108,9 +4108,19 @@ class YPFileBrowserMenu(bpy.types.Menu):
             self.layout.label(text='Image: ' + filename)
             op = self.layout.operator("node.y_open_image_to_layer", icon_value=lib.get_icon('image'), text="Open Image as Layer")
             op.file_browser_filepath = filepath
+            op.texcoord_type = 'UV'
             op = self.layout.operator("node.y_open_image_as_mask", icon_value=lib.get_icon('image'), text="Open Image as Mask")
             op.file_browser_filepath = filepath
+            op.texcoord_type = 'UV'
 
+            self.layout.separator()
+
+            op = self.layout.operator("node.y_open_image_to_layer", icon_value=lib.get_icon('image'), text="Open Image as Decal Layer")
+            op.file_browser_filepath = filepath
+            op.texcoord_type = 'Decal'
+            op = self.layout.operator("node.y_open_image_as_mask", icon_value=lib.get_icon('image'), text="Open Image as Decal Mask")
+            op.file_browser_filepath = filepath
+            op.texcoord_type = 'Decal'
 
 def draw_yp_file_browser_menu(self, context):
     params = context.space_data.params
@@ -4327,7 +4337,9 @@ class YNewLayerMenu(bpy.types.Menu):
 
         #col.separator()
 
-        col.operator("node.y_open_image_to_layer", text='Open Image').file_browser_filepath = ''
+        op = col.operator("node.y_open_image_to_layer", text='Open Image')
+        op.texcoord_type = 'UV'
+        op.file_browser_filepath = ''
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
 
         col.operator("node.y_open_images_to_single_layer", text='Open Images to Single Layer')
@@ -4927,7 +4939,9 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.label(text='Image Mask:')
         new_mask_button(col, 'node.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE')
-        new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask', lib_icon='open_image').file_browser_filepath = ''
+        op = new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask', lib_icon='open_image')
+        op.texcoord_type = 'UV'
+        op.file_browser_filepath = ''
         new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Image as Mask', lib_icon='open_image', otype='IMAGE')
         col.separator()
 
