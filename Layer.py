@@ -367,7 +367,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
     bl_idname = "node.y_new_vcol_to_override_channel"
     bl_label = "New Vertex Color To Override Channel Layer"
     bl_description = "New Vertex Color To Override Channel Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     name : StringProperty(default='')
 
@@ -387,6 +387,10 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
     def poll(cls, context):
         return get_active_ypaint_node()
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         self.ch = context.parent
 
@@ -398,6 +402,9 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         self.tree = get_tree(layer)
 
         self.name = layer.name + ' ' + root_ch.name +  ' Override'
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -518,7 +525,7 @@ class YNewVDMLayer(bpy.types.Operator):
     bl_idname = "node.y_new_vdm_layer"
     bl_label = "New VDM Layer"
     bl_description = "New Vector Displacement Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     name : StringProperty(default='')
 
@@ -548,6 +555,10 @@ class YNewVDMLayer(bpy.types.Operator):
     def poll(cls, context):
         return context.object and context.object.type == 'MESH' and get_active_ypaint_node()
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         ypup = get_user_preferences()
         obj = context.object
@@ -572,6 +583,9 @@ class YNewVDMLayer(bpy.types.Operator):
         for uv in get_uv_layers(obj):
             if not uv.name.startswith(TEMP_UV):
                 self.uv_map_coll.add().name = uv.name
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -869,6 +883,10 @@ class YNewLayer(bpy.types.Operator):
         return get_active_ypaint_node()
         #return hasattr(context, 'group_node') and context.group_node
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
 
         ypup = get_user_preferences()
@@ -943,6 +961,9 @@ class YNewLayer(bpy.types.Operator):
                 for uv in get_uv_layers(obj):
                     if not uv.name.startswith(TEMP_UV):
                         self.uv_map_coll.add().name = uv.name
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -2065,6 +2086,10 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         #return get_active_ypaint_node()
         return context.object
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         self.invoke_operator(context)
 
@@ -2086,6 +2111,10 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         if self.asset_library_path == '':
             if not mat_found:
                 self.mat_name = ''
+        
+        # Only allow skipping the popup when opening through the asset library
+        if self.asset_library_path != '' and get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -2322,6 +2351,10 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         #return hasattr(context, 'group_node') and context.group_node
         return get_active_ypaint_node()
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         obj = context.object
         node = get_active_ypaint_node()
@@ -2344,6 +2377,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         #self.normal_map_type = 'NORMAL_MAP'
 
         if self.file_browser_filepath != '':
+            if get_user_preferences().skip_property_popups and not event.shift:
+                return self.execute(context)
             return context.window_manager.invoke_props_dialog(self)
         
         context.window_manager.fileselect_add(self)
@@ -3415,7 +3450,7 @@ class YRemoveLayer(bpy.types.Operator):
     bl_idname = "node.y_remove_layer"
     bl_label = "Remove Layer"
     bl_description = "Remove Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     remove_childs : BoolProperty(name='Remove Childs', description='Remove layer childrens', default=False)
     remove_on_disk : BoolProperty(name='Remove Image on disk', description='Remove image file on disk', default=False)
@@ -3425,10 +3460,18 @@ class YRemoveLayer(bpy.types.Operator):
         group_node = get_active_ypaint_node()
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
 
         # Remove on disk is dangerous so it's always disabled by default
         self.remove_on_disk = False
+
+        # Only allow to remove files on disk with a confirmation popup
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         # Removing UDIM atlas segment is can't be undoed
         node = get_active_ypaint_node()
@@ -4338,7 +4381,7 @@ class YDuplicateLayer(bpy.types.Operator):
     bl_idname = "node.y_duplicate_layer"
     bl_label = "Duplicate layer"
     bl_description = "Duplicate Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     packed_duplicate : BoolProperty(
             name = 'Duplicate Packed Images',
@@ -4363,6 +4406,10 @@ class YDuplicateLayer(bpy.types.Operator):
         group_node = get_active_ypaint_node()
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -4374,6 +4421,9 @@ class YDuplicateLayer(bpy.types.Operator):
         if not self.duplicate_blank:
             self.any_packed_image = any(get_layer_images(layer, packed_only=True))
             self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
+
+            if get_user_preferences().skip_property_popups and not event.shift:
+                return self.execute(context)
 
             if self.any_packed_image or self.any_ondisk_image:
                 return context.window_manager.invoke_props_dialog(self, width=200)
@@ -4529,7 +4579,7 @@ class YPasteLayer(bpy.types.Operator):
     bl_idname = "node.y_paste_layer"
     bl_label = "Paste Layer"
     bl_description = "Paste Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     packed_duplicate : BoolProperty(
             name = 'Duplicate Packed Images',
@@ -4548,6 +4598,10 @@ class YPasteLayer(bpy.types.Operator):
         group_node = get_active_ypaint_node()
         return context.object and group_node
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         wm = context.window_manager
         wmp = wm.ypprops
@@ -4565,9 +4619,12 @@ class YPasteLayer(bpy.types.Operator):
                 self.any_ondisk_image = any(get_layer_images(layer_source, ondisk_only=True))
 
         if self.any_packed_image or self.any_ondisk_image:
+            if get_user_preferences().skip_property_popups and not event.shift:
+                return self.execute(context)
+
             return context.window_manager.invoke_props_dialog(self, width=200)
 
-        return context.window_manager.invoke_props_dialog(self, width=200)
+        return self.execute(context)
 
     def draw(self, context):
         if self.any_packed_image:

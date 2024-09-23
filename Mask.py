@@ -334,6 +334,10 @@ class YNewLayerMask(bpy.types.Operator):
     def poll(cls, context):
         return True
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def get_to_be_cleared_image_atlas(self, context, yp):
         if self.type == 'IMAGE' and self.use_image_atlas:
             return ImageAtlas.check_need_of_erasing_segments(yp, self.color_option, self.width, self.height, self.hdr)
@@ -400,6 +404,9 @@ class YNewLayerMask(bpy.types.Operator):
         elif layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image: self.interpolation = source.interpolation
+        
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -715,6 +722,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         node = get_active_ypaint_node()
         return node and len(node.node_tree.yp.layers) > 0
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         obj = context.object
         if hasattr(context, 'layer'):
@@ -755,6 +766,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             if source and source.image: self.interpolation = source.interpolation
 
         if self.file_browser_filepath != '':
+            if get_user_preferences().skip_property_popups and not event.shift:
+                return self.execute(context)
             return context.window_manager.invoke_props_dialog(self)
 
         context.window_manager.fileselect_add(self)
@@ -938,6 +951,10 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     def poll(cls, context):
         return True
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         obj = context.object
         node = get_active_ypaint_node()
@@ -1027,6 +1044,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         # The default blend type for mask is multiply
         if len(layer.masks) == 0:
             self.blend_type = 'MULTIPLY'
+    
+        if self.image_name != '' and get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
 

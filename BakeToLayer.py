@@ -295,6 +295,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         self.invoke_operator(context)
 
@@ -550,6 +554,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         for ob in get_scene_objects():
             if ob != obj and ob not in bpy.context.selected_objects and ob.type == 'MESH':
                 self.cage_object_coll.add().name = ob.name
+ 
+        requires_popup = self.type in {'OTHER_OBJECT_NORMAL', 'OTHER_OBJECT_EMISSION', 'OTHER_OBJECT_CHANNELS', 'FLOW'}
+        if not requires_popup and get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -2164,7 +2172,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_bake_entity_to_image"
     bl_label = "Bake Layer/Mask To Image"
     bl_description = "Bake Layer/Mask to an image"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     name : StringProperty(default='')
 
@@ -2213,6 +2221,10 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
 
     def invoke(self, context, event):
         self.invoke_operator(context)
@@ -2326,6 +2338,9 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                 self.hdr = False
                 self.fxaa = True
                 self.denoise = False
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 

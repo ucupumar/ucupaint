@@ -204,6 +204,10 @@ class YSelectMaterialPolygons(bpy.types.Operator):
     def poll(cls, context):
         return context.object
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         if not is_greater_than_280():
             self.execute(context)
@@ -225,6 +229,9 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         for uv in get_uv_layers(obj):
             if not uv.name.startswith(TEMP_UV):
                 self.uv_map_coll.add().name = uv.name
+        
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=400)
 
@@ -452,6 +459,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     def poll(cls, context):
         return context.object
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         space = context.space_data
         obj = context.object
@@ -480,6 +491,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                     break
 
         self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_greater_than_280() and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_greater_than_280() and space.shading.type not in {'MATERIAL', 'RENDERED'}))
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -1814,6 +1828,10 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         return True
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         group_node = get_active_ypaint_node()
         yp = group_node.node_tree.yp
@@ -1824,6 +1842,9 @@ class YDuplicateYPNodes(bpy.types.Operator):
             self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
             if self.any_ondisk_image:
                 break
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
 
