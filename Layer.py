@@ -2062,8 +2062,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
     mat_name : StringProperty(default='')
     mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
-
-    from_asset_browser : BoolProperty(default=False)
+    asset_library_path: StringProperty(default='')
 
     @classmethod
     def poll(cls, context):
@@ -2088,7 +2087,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
                 if self.mat_name == mat.name: 
                     mat_found = True
 
-        if not self.from_asset_browser:
+        if self.asset_library_path == '':
             if not mat_found:
                 self.mat_name = ''
 
@@ -2100,7 +2099,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
     def draw(self, context):
         row = split_layout(self.layout, 0.325, align=True)
         row.label(text='Material')
-        if not self.from_asset_browser:
+        if self.asset_library_path == '':
             row.prop_search(self, "mat_name", self, "mat_coll", text='', icon='MATERIAL_DATA')
         else: row.label(text=self.mat_name, icon='MATERIAL_DATA')
         self.draw_operator(context, display_relative_toggle=False)
@@ -2119,26 +2118,14 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         # Get material from local first
         mat = bpy.data.materials.get(self.mat_name)
 
-        # Get material from asset library if not found
-        from_asset_library = False
-        if not mat and is_greater_than_300():
-            prefs = bpy.context.preferences
-            filepaths = prefs.filepaths
-            asset_libraries = filepaths.asset_libraries
-            
-            for asset_library in asset_libraries:
-                library_name = asset_library.name
-                library_path = pathlib.Path(asset_library.path)
-                blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
-                print("Checking the content of library '" + library_name + "'")
-                for blend_file in blend_files:
-                    with bpy.data.libraries.load(str(blend_file), assets_only=True) as (data_from, data_to):
-                        for mat in data_from.materials:
-                            if mat == self.mat_name:
-                                data_to.materials.append(mat)
-
+        # If not found get from the asset library
+        from_asset_library = self.asset_library_path != ''
+        if not mat and from_asset_library and is_greater_than_300():
+            with bpy.data.libraries.load(str(self.asset_library_path), assets_only=True) as (data_from, data_to):
+                for mat in data_from.materials:
+                    if mat == self.mat_name:
+                        data_to.materials.append(mat)
             mat = bpy.data.materials.get(self.mat_name)
-            from_asset_library = True
 
         if not mat:
             self.report({'ERROR'}, "Source material cannot be found!")

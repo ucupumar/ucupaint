@@ -1800,6 +1800,12 @@ class YDuplicateYPNodes(bpy.types.Operator):
             description = 'Only duplicate on active object, rather than all accessible objects using the same material',
             default=True)
 
+    ondisk_duplicate : BoolProperty(
+            name = 'Duplicate Images on disk',
+            description = 'Duplicate images on disk, this will create copy of images sourced from external files',
+            default = False
+            )
+
     @classmethod
     def poll(cls, context):
         mat = get_active_material()
@@ -1809,10 +1815,22 @@ class YDuplicateYPNodes(bpy.types.Operator):
         return True
 
     def invoke(self, context, event):
+        group_node = get_active_ypaint_node()
+        yp = group_node.node_tree.yp
+
+        self.any_ondisk_image = False
+
+        for layer in yp.layers:
+            self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
+            if self.any_ondisk_image:
+                break
+
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
         self.layout.prop(self, 'only_active', text='Only Active Object')
+        if self.any_ondisk_image:
+            self.layout.prop(self, 'ondisk_duplicate')
 
     def execute(self, context):
 
@@ -1850,8 +1868,8 @@ class YDuplicateYPNodes(bpy.types.Operator):
         tree = group_node.node_tree
         yp = tree.yp
 
-        # Make all layers single(dual) user
-        Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=True)
+        # Duplicate all layers
+        Layer.duplicate_layer_nodes_and_images(tree, packed_duplicate=True, ondisk_duplicate=self.ondisk_duplicate)
 
         # Duplicate uv nodes
         for uv in yp.uvs:
@@ -3734,6 +3752,9 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     all_icons_loaded : BoolProperty(default=False)
 
     edit_image_editor_area_index : IntProperty(default=-1)
+
+    custom_srgb_name : StringProperty(default='')
+    custom_noncolor_name : StringProperty(default='')
 
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')

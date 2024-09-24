@@ -4058,8 +4058,8 @@ class YPAssetBrowserMenu(bpy.types.Menu):
     def draw(self, context):
         obj = context.object
         op = self.layout.operator("node.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Material Images to Layer')
-        op.from_asset_browser = True
         op.mat_name = context.mat_asset.name if hasattr(context, 'mat_asset') else ''
+        op.asset_library_path = context.mat_asset.full_library_path if hasattr(context, 'mat_asset') else ''
 
         if obj.type == 'MESH':
             op.texcoord_type = 'UV'
@@ -4108,9 +4108,19 @@ class YPFileBrowserMenu(bpy.types.Menu):
             self.layout.label(text='Image: ' + filename)
             op = self.layout.operator("node.y_open_image_to_layer", icon_value=lib.get_icon('image'), text="Open Image as Layer")
             op.file_browser_filepath = filepath
+            op.texcoord_type = 'UV'
             op = self.layout.operator("node.y_open_image_as_mask", icon_value=lib.get_icon('image'), text="Open Image as Mask")
             op.file_browser_filepath = filepath
+            op.texcoord_type = 'UV'
 
+            self.layout.separator()
+
+            op = self.layout.operator("node.y_open_image_to_layer", icon_value=lib.get_icon('image'), text="Open Image as Decal Layer")
+            op.file_browser_filepath = filepath
+            op.texcoord_type = 'Decal'
+            op = self.layout.operator("node.y_open_image_as_mask", icon_value=lib.get_icon('image'), text="Open Image as Decal Mask")
+            op.file_browser_filepath = filepath
+            op.texcoord_type = 'Decal'
 
 def draw_yp_file_browser_menu(self, context):
     params = context.space_data.params
@@ -4135,6 +4145,7 @@ def draw_ypaint_about(self, context):
     col.operator('wm.url_open', text='rifai', icon='ARMATURE_DATA').url = 'https://github.com/rifai'
     col.operator('wm.url_open', text='morirain', icon='ARMATURE_DATA').url = 'https://github.com/morirain'
     col.operator('wm.url_open', text='kareemov03', icon='ARMATURE_DATA').url = 'https://www.artstation.com/kareem'
+    col.operator('wm.url_open', text='passivestar', icon='ARMATURE_DATA').url = 'https://github.com/passivestar'
     col.separator()
 
     col.label(text='Documentation:')
@@ -4326,11 +4337,13 @@ class YNewLayerMenu(bpy.types.Menu):
 
         #col.separator()
 
-        col.operator("node.y_open_image_to_layer", text='Open Image').file_browser_filepath = ''
+        op = col.operator("node.y_open_image_to_layer", text='Open Image')
+        op.texcoord_type = 'UV'
+        op.file_browser_filepath = ''
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
 
         col.operator("node.y_open_images_to_single_layer", text='Open Images to Single Layer')
-        col.operator("node.y_open_images_from_material_to_single_layer", text='Open Images from Material').from_asset_browser = False
+        col.operator("node.y_open_images_from_material_to_single_layer", text='Open Images from Material').asset_library_path = ''
 
         # NOTE: Dedicated menu for opening images to single layer is kinda hard to see, so it's probably better be hidden for now
         #col.menu("NODE_MT_y_open_images_to_single_layer_menu", text='Open Images to Single Layer')
@@ -4633,7 +4646,7 @@ class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
         col = self.layout.column()
 
         col.operator("node.y_open_images_to_single_layer", icon='FILE_FOLDER', text='From Directory')
-        col.operator("node.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material').from_asset_browser = False
+        col.operator("node.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material').asset_library_path = ''
 
 class YNewSolidColorLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_solid_color_layer_menu"
@@ -4926,7 +4939,9 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.label(text='Image Mask:')
         new_mask_button(col, 'node.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE')
-        new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask', lib_icon='open_image').file_browser_filepath = ''
+        op = new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask', lib_icon='open_image')
+        op.texcoord_type = 'UV'
+        op.file_browser_filepath = ''
         new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Image as Mask', lib_icon='open_image', otype='IMAGE')
         col.separator()
 
