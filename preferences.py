@@ -5,6 +5,11 @@ from bpy.app.handlers import persistent
 from . import image_ops
 from .common import *
 from . import addon_updater_ops
+from .lib import *
+
+def update_icons(self, context):
+    unload_custom_icons()
+    load_custom_icons()
 
 class YPaintPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
@@ -53,6 +58,16 @@ class YPaintPreferences(AddonPreferences):
             name = 'Skip Property Popups (Hold Shift to Show)',
             description = 'Don\'t show property popups unless Shift key is pressed. Will use last invokation properties if skipped',
             default = False)
+
+    icons : EnumProperty(
+            name = 'Icons',
+            description = 'Icon set',
+            items=(('DEFAULT', 'Default', 'Choose automatically based on Blender version'),
+                   ('MODERN', 'Modern', 'Icon set from the current Blender version'),
+                   ('LEGACY', 'Legacy', 'Icon set from the old Blender version')),
+            default='DEFAULT',
+            update=update_icons
+            )
 
     make_preview_mode_srgb : BoolProperty(
             name = 'Make Preview Mode use sRGB',
@@ -109,6 +124,8 @@ class YPaintPreferences(AddonPreferences):
     def draw(self, context):
         if is_greater_than_280():
             self.layout.prop(self, 'default_bake_device')
+        
+        self.layout.prop(self, 'icons')
 
         self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')

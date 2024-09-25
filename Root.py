@@ -869,9 +869,9 @@ class YNewYPaintNode(bpy.types.Operator):
         return result
 
 def new_channel_items(self, context):
-    items = [('VALUE', 'Value', '', lib.custom_icons[lib.channel_custom_icon_dict['VALUE']].icon_id, 0),
-             ('RGB', 'RGB', '', lib.custom_icons[lib.channel_custom_icon_dict['RGB']].icon_id, 1),
-             ('NORMAL', 'Normal', '', lib.custom_icons[lib.channel_custom_icon_dict['NORMAL']].icon_id, 2)]
+    items = [('VALUE', 'Value', '', lib.get_icon(lib.channel_custom_icon_dict['VALUE']), 0),
+             ('RGB', 'RGB', '', lib.get_icon(lib.channel_custom_icon_dict['RGB']), 1),
+             ('NORMAL', 'Normal', '', lib.get_icon(lib.channel_custom_icon_dict['NORMAL']), 2)]
 
     return items
 
@@ -2443,9 +2443,9 @@ def layer_preview_mode_type_items(self, context):
     #yp = node.node_tree.yp
 
     items = (
-            ('LAYER', 'Layer', '',  lib.custom_icons['texture'].icon_id, 0),
-            ('MASK', 'Mask', '', lib.custom_icons['mask'].icon_id, 1),
-            ('SPECIFIC_MASK', 'Specific Mask', '', lib.custom_icons['mask'].icon_id, 2)
+            ('LAYER', 'Layer', '',  lib.get_icon('texture'), 0),
+            ('MASK', 'Mask', '', lib.get_icon('mask'), 1),
+            ('SPECIFIC_MASK', 'Specific Mask', '', lib.get_icon('mask'), 2)
             )
 
     #for i, ch in enumerate(yp.channels):
