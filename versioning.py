@@ -23,7 +23,7 @@ def flip_tangent_sign():
                         for idx in poly.loop_indices:
                             vert = obj.data.loops[idx]
                             col = vc.data[i].color
-                            if is_greater_than_280():
+                            if is_bl_newer_than(2, 80):
                                 vc.data[i].color = (1.0-col[0], 1.0-col[1], 1.0-col[2], 1.0)
                             else: vc.data[i].color = (1.0-col[0], 1.0-col[1], 1.0-col[2])
                             i += 1
@@ -133,7 +133,7 @@ def update_yp_tree(tree):
     # SECTION I: Update based on yp version
 
     # Version 0.9.1 and above will fix wrong bake type stored on images bake type
-    if version_tuple(yp.version) < version_tuple('0.9.1'):
+    if version_tuple(yp.version) < (0, 9, 1):
         #print(cur_version)
         for layer in yp.layers:
             if layer.type == 'IMAGE':
@@ -147,7 +147,7 @@ def update_yp_tree(tree):
                             print('INFO: Bake type of', source.image.name, 'is fixed by setting it to', label + '!')
 
     # Version 0.9.2 and above will move mapping outside source group
-    if version_tuple(yp.version) < version_tuple('0.9.2'):
+    if version_tuple(yp.version) < (0, 9, 2):
 
         for layer in yp.layers:
             ltree = get_tree(layer)
@@ -186,7 +186,7 @@ def update_yp_tree(tree):
                 rearrange_layer_nodes(layer)
 
     # Version 0.9.3 and above will replace override color modifier with newer override system
-    if version_tuple(yp.version) < version_tuple('0.9.3'):
+    if version_tuple(yp.version) < (0, 9, 3):
 
         for layer in yp.layers:
             for i, ch in enumerate(layer.channels):
@@ -216,7 +216,7 @@ def update_yp_tree(tree):
                 if mod_ids:
 
                     # Update input value for version 2.0+
-                    if version_tuple(cur_version) >= version_tuple('2.0.0'):
+                    if version_tuple(cur_version) >= (2, 0, 0):
                         if root_ch.type == 'VALUE':
                             set_entity_prop_value(ch, 'override_value', ch.override_value)
                         else: set_entity_prop_value(ch, 'override_color', ch.override_color)
@@ -225,7 +225,7 @@ def update_yp_tree(tree):
                     rearrange_layer_nodes(layer)
 
     # Version 0.9.4 and above will replace multipier modifier with math modifier
-    if version_tuple(yp.version) < version_tuple('0.9.4'):
+    if version_tuple(yp.version) < (0, 9, 4):
 
         mods = []
         parents = []
@@ -295,7 +295,7 @@ def update_yp_tree(tree):
             rearrange_yp_nodes(tree)
 
     # Version 0.9.5 and above have ability to use vertex color alpha on layer
-    if version_tuple(yp.version) < version_tuple('0.9.5'):
+    if version_tuple(yp.version) < (0, 9, 5):
 
         for layer in yp.layers:
             # Update vcol layer to use alpha by reconnection
@@ -312,7 +312,7 @@ def update_yp_tree(tree):
                 rearrange_layer_nodes(layer)
 
     # Version 0.9.8 and above will use sRGB images by default
-    if version_tuple(yp.version) < version_tuple('0.9.8'):
+    if version_tuple(yp.version) < (0, 9, 8):
 
         for layer in yp.layers:
             if not layer.enable: continue
@@ -358,7 +358,7 @@ def update_yp_tree(tree):
                 reconnect_layer_nodes(layer)
 
     # Version 0.9.9 have separate normal and bump override
-    if version_tuple(yp.version) < version_tuple('0.9.9'):
+    if version_tuple(yp.version) < (0, 9, 9):
         for layer in yp.layers:
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
@@ -386,14 +386,14 @@ def update_yp_tree(tree):
                     print('INFO:', layer.name, root_ch.name, 'now has separate override properties!')
 
     # Version 1.0.11 will make sure divider alpha node is connected correctly
-    if version_tuple(yp.version) < version_tuple('1.0.11'):
+    if version_tuple(yp.version) < (1, 0, 11):
         for layer in yp.layers:
             if layer.type == 'VCOL':
                 # Refresh divider alpha by setting the prop
                 layer.divide_rgb_by_alpha = layer.divide_rgb_by_alpha
 
     # Version 1.2 will have mask inputs
-    if version_tuple(yp.version) < version_tuple('1.2.0'):
+    if version_tuple(yp.version) < (1, 2, 0):
         for layer in yp.layers:
             for mask in layer.masks:
                 # Voronoi and noise default is using alpha/value input
@@ -401,7 +401,7 @@ def update_yp_tree(tree):
                     mask.source_input = 'ALPHA'
 
     # Version 1.2.4 has voronoi feature prop
-    if version_tuple(yp.version) < version_tuple('1.2.4'):
+    if version_tuple(yp.version) < (1, 2, 4):
         for layer in yp.layers:
             if layer.type == 'VORONOI':
                 source = get_layer_source(layer)
@@ -432,7 +432,7 @@ def update_yp_tree(tree):
                     yp.halt_update = False
 
     # Version 1.2.5 fix end normal process
-    if version_tuple(yp.version) < version_tuple('1.2.5'):
+    if version_tuple(yp.version) < (1, 2, 5):
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch:
             check_start_end_root_ch_nodes(tree, height_root_ch)
@@ -446,7 +446,7 @@ def update_yp_tree(tree):
                     rearrange_layer_nodes(layer)
 
     # Version 1.2.9 will use cubic interpolation for bump map
-    if version_tuple(yp.version) < version_tuple('1.2.9'):
+    if version_tuple(yp.version) < (1, 2, 9):
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch:
             for layer in yp.layers:
@@ -455,7 +455,7 @@ def update_yp_tree(tree):
                     update_layer_images_interpolation(layer, 'Cubic')
 
     # Version 2.0 won't use custom prop for mapping and intensity
-    if version_tuple(yp.version) < version_tuple('2.0.0'):
+    if version_tuple(yp.version) < (2, 0, 0):
 
         # Previous versions have a possibility to have duplicate layer names
         layer_name_ids = {}
@@ -503,7 +503,7 @@ def update_yp_tree(tree):
                     if hasattr(mat, 'displacement_method'):
                         mat.displacement_method = 'BOTH'
 
-                    if is_greater_than_280():
+                    if is_bl_newer_than(2, 80):
                         mat.cycles.displacement_method = 'BOTH'
                     else: mat.cycles.displacement_method = 'TRUE'
 
@@ -589,19 +589,19 @@ def update_yp_tree(tree):
 
                     # Translation
                     if m1 or m4:
-                        if is_greater_than_281():
+                        if is_bl_newer_than(2, 81):
                             new_data_path = 'nodes["' + mapping.name + '"].inputs[1].default_value'
                         else: new_data_path = 'nodes["' + mapping.name + '"].translation'
 
                     # Rotation
                     elif m2 or m5:
-                        if is_greater_than_281():
+                        if is_bl_newer_than(2, 81):
                             new_data_path = 'nodes["' + mapping.name + '"].inputs[2].default_value'
                         else: new_data_path = 'nodes["' + mapping.name + '"].rotation'
 
                     # Scale
                     else: #elif m3 or m6:
-                        if is_greater_than_281():
+                        if is_bl_newer_than(2, 81):
                             new_data_path = 'nodes["' + mapping.name + '"].inputs[3].default_value'
                         else: new_data_path = 'nodes["' + mapping.name + '"].scale'
 
@@ -654,7 +654,7 @@ def update_yp_tree(tree):
                 fcs.remove(fc)
 
     # Version 2.1 has new flag for bake info
-    if version_tuple(yp.version) < version_tuple('2.1.0'):
+    if version_tuple(yp.version) < (2, 1, 0):
 
         for root_ch in yp.channels:
             baked = tree.nodes.get(root_ch.baked)
@@ -681,7 +681,7 @@ def update_yp_tree(tree):
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
-    if is_greater_than_292() and (is_created_before_292() or version_tuple(yp.blender_version) < version_tuple('2.9.2')):
+    if is_bl_newer_than(2, 92) and (is_created_before(2, 92, 0) or version_tuple(yp.blender_version) < (2, 92, 0)):
         show_message = False
         for layer in yp.layers:
             # Update vcol layer to use alpha by reconnection
@@ -694,7 +694,7 @@ def update_yp_tree(tree):
             print("INFO: Now " + get_addon_title() + " is capable to use vertex paint alpha since Blender 2.92, Enjoy!")
 
     # Blender 4.1 no longer has musgrave node
-    if is_greater_than_410() and (is_created_before_410() or version_tuple(yp.blender_version) < version_tuple('4.1.0')):
+    if is_bl_newer_than(4, 1) and (is_created_before(4, 1) or version_tuple(yp.blender_version) < (4, 1, 0)):
         show_message = False
             
         for layer in yp.layers:
@@ -717,9 +717,9 @@ def update_yp_tree(tree):
     # SECTION III: Updates based on the blender version and yp version
 
     # Version 1.1.0 and Blender 2.90 can hide default normal input
-    if is_greater_than_290() and (is_created_before_290() or 
-                                  version_tuple(yp.blender_version) < version_tuple('2.9.0') or 
-                                  version_tuple(yp.version) < version_tuple('1.1.0')
+    if is_bl_newer_than(2, 90) and (is_created_before(2, 90) or 
+                                  version_tuple(yp.blender_version) < (2, 90, 0) or 
+                                  version_tuple(yp.version) < (1, 1, 0)
                                   ):
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch:
@@ -729,19 +729,19 @@ def update_yp_tree(tree):
                 print("INFO: " + tree.name + " Normal input is hidden since Blender 2.90!")
 
     # Blender 3.4 and version 1.0.9 will make sure all mix node using the newest type
-    if version_tuple(yp.version) < version_tuple('1.0.9') and is_greater_than_340():
+    if version_tuple(yp.version) < (1, 0, 9) and is_bl_newer_than(3, 4):
         print('INFO:', 'Converting old mix rgb nodes to newer ones...')
         convert_mix_nodes(tree)
 
     # Version 1.0.12 will use newer tangent process nodes on Blender 3.0 or above
-    if is_greater_than_300() and (
-            version_tuple(yp.version) < version_tuple('1.0.12') or is_created_before_300() or version_tuple(yp.blender_version) < version_tuple('3.0.0')
+    if is_bl_newer_than(3) and (
+            version_tuple(yp.version) < (1, 0, 12) or is_created_before(3) or version_tuple(yp.blender_version) < (3, 0, 0)
         ):
         update_tangent_process(tree, TANGENT_PROCESS_300)
         updated_to_tangent_process_300 = True
 
     # Update tangent process from Blender 2.79 to 2.8x and 2.9x
-    if not is_greater_than_300() and is_greater_than_280() and (is_created_before_280() or version_tuple(yp.blender_version) < version_tuple('2.80.0')):
+    if not is_bl_newer_than(3) and is_bl_newer_than(2, 80) and (is_created_before(2, 80) or version_tuple(yp.blender_version) < (2, 80, 0)):
         update_tangent_process(tree, TANGENT_PROCESS)
 
     # Update blender version
@@ -786,7 +786,7 @@ def update_routine(name):
 
     # Special update for opening Blender 2.7x file
     filepath = get_addon_filepath() + "lib.blend"
-    if is_created_before_280() and is_greater_than_280() and bpy.data.filepath != filepath:
+    if is_created_before(2, 80) and is_bl_newer_than(2, 80) and bpy.data.filepath != filepath:
 
         legacy_groups = []
         newer_groups = []
@@ -799,7 +799,7 @@ def update_routine(name):
                 legacy_groups.append(ng)
                 new_group_name = m.group(1)
                 # Tangent process has its own tangent process for blender 3.0 and above
-                if new_group_name == TANGENT_PROCESS and is_greater_than_300():
+                if new_group_name == TANGENT_PROCESS and is_bl_newer_than(3):
                     newer_group_name = TANGENT_PROCESS_300
                 newer_group_names.append(new_group_name)
 
@@ -900,7 +900,7 @@ def update_routine(name):
             remove_datablock(bpy.data.node_groups, ng)
 
     # Update bake infos for Blender 2.78 or lower
-    if is_created_before_279() and is_greater_than_279():
+    if is_created_before(2, 79) and is_bl_newer_than(2, 79):
 
         for image in bpy.data.images:
             bi = image.y_bake_info
@@ -1064,7 +1064,7 @@ def copy_lib_tree_contents(tree, lib_tree, lib_trees):
     # TODO: What if socket has different type but same name
 
     # Reorder inputs and outputs
-    if is_greater_than_400():
+    if is_bl_newer_than(4):
         for i, item in enumerate(lib_tree.interface.items_tree):
             cur_i = [ci for ci, citem in enumerate(tree.interface.items_tree) if citem.name == item.name and citem.in_out == item.in_out][0]
             if i != cur_i:
@@ -1132,8 +1132,8 @@ def update_node_tree_libs(name):
 
     filepaths = []
     filepaths.append(get_addon_filepath() + "lib.blend")
-    if is_greater_than_281(): filepaths.append(get_addon_filepath() + "lib_281.blend")
-    if is_greater_than_282(): filepaths.append(get_addon_filepath() + "lib_282.blend")
+    if is_bl_newer_than(2, 81): filepaths.append(get_addon_filepath() + "lib_281.blend")
+    if is_bl_newer_than(2, 82): filepaths.append(get_addon_filepath() + "lib_282.blend")
 
     for fp in filepaths:
         if bpy.data.filepath == fp: return
@@ -1278,7 +1278,7 @@ def update_node_tree_libs(name):
         remove_datablock(bpy.data.node_groups, lib_tree)
 
     # Remove temporary libraries (Doesn't work with Blender 2.79)
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         for l in reversed(bpy.data.libraries):
             if l.filepath in filepaths:
                 bpy.data.batch_remove(ids=(l,))

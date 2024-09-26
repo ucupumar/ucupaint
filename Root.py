@@ -166,7 +166,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         else: channel.colorspace = 'SRGB'
     else:
         # NOTE: Smooth bump is no longer enabled by default on Blender 2.80+
-        if is_greater_than_280(): channel.enable_smooth_bump = False
+        if is_bl_newer_than(2, 80): channel.enable_smooth_bump = False
 
     yp.halt_reconnect = False
 
@@ -209,7 +209,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         return get_operator_description(self)
 
     def invoke(self, context, event):
-        if not is_greater_than_280():
+        if not is_bl_newer_than(2, 80):
             self.execute(context)
 
         obj = context.object
@@ -247,7 +247,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         self.layout.prop(self, "set_canvas_to_empty")
 
     def execute(self, context):
-        if not is_greater_than_280():
+        if not is_bl_newer_than(2, 80):
             self.report({'ERROR'}, "This feature only works on Blender 2.8+")
             return {'CANCELLED'}
 
@@ -484,13 +484,13 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             self.normal = False
 
         self.not_muted_paint_opacity = False
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             for area in context.screen.areas:
                 if area.type == 'VIEW_3D':
                     self.not_muted_paint_opacity = area.spaces[0].overlay.texture_paint_mode_opacity > 0.0
                     break
 
-        self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_greater_than_280() and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_greater_than_280() and space.shading.type not in {'MATERIAL', 'RENDERED'}))
+        self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_bl_newer_than(2, 80) and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_bl_newer_than(2, 80) and space.shading.type not in {'MATERIAL', 'RENDERED'}))
 
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
@@ -528,7 +528,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         col.prop(self, 'use_linear_blending')
 
-        if is_greater_than_280() and self.not_muted_paint_opacity:
+        if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity:
             col.prop(self, 'mute_texture_paint_overlay')
 
         if self.not_on_material_view:
@@ -597,7 +597,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # BSDF node
         if not main_bsdf:
             if self.type == 'BSDF_PRINCIPLED':
-                if not is_greater_than_279():
+                if not is_bl_newer_than(2, 79):
                     main_bsdf = nodes.new('ShaderNodeGroup')
                     main_bsdf.node_tree = get_node_tree_lib(lib.BL278_BSDF)
                 else:
@@ -653,7 +653,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             loc.x += 200
 
         main_bsdf.location = loc.copy()
-        if main_bsdf.type == 'BSDF_PRINCIPLED' and is_greater_than_280():
+        if main_bsdf.type == 'BSDF_PRINCIPLED' and is_bl_newer_than(2, 80):
             loc.x += 270
         else: loc.x += 200
 
@@ -767,11 +767,11 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # Disable overlay on Blender 2.8
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
-                if is_greater_than_280() and self.not_muted_paint_opacity and self.mute_texture_paint_overlay:
+                if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity and self.mute_texture_paint_overlay:
                     area.spaces[0].overlay.texture_paint_mode_opacity = 0.0
 
                 if self.not_on_material_view and self.switch_to_material_view:
-                    if not is_greater_than_280():
+                    if not is_bl_newer_than(2, 80):
                         area.spaces[0].viewport_shade = 'MATERIAL'
                     else: area.spaces[0].shading.type = 'MATERIAL'
 
@@ -1169,7 +1169,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         if self.type != 'NORMAL': col.prop(self, 'use_clamp')
 
         # Blender 4.0 and above has some default weight and strength set to 0.0
-        if is_greater_than_400():
+        if is_bl_newer_than(4):
             item = self.input_coll.get(self.connect_to)
             if item:
                 mat = get_active_material()
@@ -1223,7 +1223,7 @@ class YNewYPaintChannel(bpy.types.Operator):
             mat.node_tree.links.new(node.outputs[channel.name], inp)
 
             # Blender 4.0 and above has some default weight and strength set to 0.0
-            if is_greater_than_400() and target_node.type == 'BSDF_PRINCIPLED':
+            if is_bl_newer_than(4) and target_node.type == 'BSDF_PRINCIPLED':
                 if item.input_name == 'Emission Color':
                     strength_inp = target_node.inputs.get('Emission Strength')
                 elif item.input_name == 'Subsurface Scale':
@@ -1946,7 +1946,7 @@ def fix_missing_vcol(obj, name, src):
 
     ref_vcol = None
 
-    if is_greater_than_320():
+    if is_bl_newer_than(3, 2):
         # Try to get reference vcol
         mat = get_active_material()
         objs = get_all_objects_with_same_materials(mat)
@@ -2330,7 +2330,7 @@ def get_preview(mat, output=None, advanced=False, normal_viewer=False):
             duplicate_lib_node_tree(preview)
             #preview.node_tree = preview.node_tree.copy()
             # Set blend method to alpha
-            #if is_greater_than_280():
+            #if is_bl_newer_than(2, 80):
             #    blend_method = mat.blend_method
             #    mat.blend_method = 'HASHED'
             #else:
@@ -2372,7 +2372,7 @@ def set_srgb_view_transform():
     if scene.yp.ori_view_transform == '' and ypup.make_preview_mode_srgb:
 
         scene.yp.ori_view_transform = scene.view_settings.view_transform
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             try: scene.view_settings.view_transform = 'Standard'
             except Exception as e: print(e)
         else: 
@@ -2450,13 +2450,13 @@ def layer_preview_mode_type_items(self, context):
 
     #for i, ch in enumerate(yp.channels):
     #    #if hasattr(lib, 'custom_icons'):
-    #    if not is_greater_than_280():
+    #    if not is_bl_newer_than(2, 80):
     #        icon_name = lib.channel_custom_icon_dict[ch.type]
     #        items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
     #    else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], i))
 
     ##if hasattr(lib, 'custom_icons'):
-    #if not is_greater_than_280():
+    #if not is_bl_newer_than(2, 80):
     #    items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
     #else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
 
@@ -2621,14 +2621,14 @@ def update_active_yp_channel(self, context):
             if baked_uv_map: 
                 uv_layers.active = baked_uv_map
                 # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
-                if not is_greater_than_291():
+                if not is_bl_newer_than(2, 91):
                     baked_uv_map.active_render = True
 
 def update_layer_index(self, context):
     #T = time.time()
     scene = context.scene
     if hasattr(bpy.context, 'object'): obj = bpy.context.object
-    elif is_greater_than_280(): obj = bpy.context.view_layer.objects.active
+    elif is_bl_newer_than(2, 80): obj = bpy.context.view_layer.objects.active
     if not obj: return
     group_tree = self.id_data
     nodes = group_tree.nodes
@@ -2976,7 +2976,7 @@ def update_channel_alpha(self, context):
 
         if not any(alpha_chs):
             # Set material to use opaque
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 mat.blend_method = 'OPAQUE'
                 mat.shadow_method = 'OPAQUE'
             else:
@@ -3024,11 +3024,11 @@ def update_channel_alpha(self, context):
 
         if any(alpha_chs):
 
-            if is_greater_than_420():
+            if is_bl_newer_than(4, 2):
                 # Settings for eevee next
                 mat.use_transparent_shadow = True
 
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 # Settings for eevee legacy
                 mat.blend_method = self.alpha_blend_mode
                 mat.shadow_method = self.alpha_shadow_mode
@@ -3083,7 +3083,7 @@ def update_channel_alpha_blend_mode(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
 
-    if not self.enable_alpha or not is_greater_than_280(): return
+    if not self.enable_alpha or not is_bl_newer_than(2, 80): return
 
     # Set material alpha blend
     mat.blend_method = self.alpha_blend_mode
@@ -3877,7 +3877,7 @@ def ypaint_last_object_update(scene):
                         try: 
                             obj.yp.ori_mirror_offset_u = mirror.mirror_offset_u
                             obj.yp.ori_mirror_offset_v = mirror.mirror_offset_v
-                            if is_greater_than_280():
+                            if is_bl_newer_than(2, 80):
                                 obj.yp.ori_offset_u = mirror.offset_u
                                 obj.yp.ori_offset_v = mirror.offset_v
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
@@ -4015,7 +4015,7 @@ def register():
     #bpy.types.Mesh.yp = PointerProperty(type=YPaintMeshProps)
 
     # Handlers
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.append(ypaint_last_object_update)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
@@ -4057,7 +4057,7 @@ def unregister():
     #bpy.utils.unregister_class(YPaintMeshProps)
 
     # Remove handlers
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.remove(ypaint_last_object_update)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)

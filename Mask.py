@@ -64,7 +64,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.inputs[0].default_value = object_index
 
     if mask_type == 'COLOR_ID':
-        if is_greater_than_282():
+        if is_bl_newer_than(2, 82):
             source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL_282)
         else: source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL)
         mask.color_id = color_id
@@ -443,7 +443,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'COLOR_ID':
             col.label(text='Color ID:')
 
-        if is_greater_than_320() and self.type == 'VCOL':
+        if is_bl_newer_than(3, 2) and self.type == 'VCOL':
             col.label(text='Domain:')
             col.label(text='Data Type:')
 
@@ -490,7 +490,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'EDGE_DETECT':
             col.prop(self, 'edge_detect_radius', text='')
 
-        if is_greater_than_320() and self.type == 'VCOL':
+        if is_bl_newer_than(3, 2) and self.type == 'VCOL':
             crow = col.row(align=True)
             crow.prop(self, 'vcol_domain', expand=True)
             crow = col.row(align=True)
@@ -536,7 +536,7 @@ class YNewLayerMask(bpy.types.Operator):
             self.report({'ERROR'}, "Vertex color mask only works with mesh object!")
             return {'CANCELLED'}
 
-        if not is_greater_than_330() and self.type == 'VCOL' and len(get_vertex_color_names(obj)) >= 8:
+        if not is_bl_newer_than(3, 3) and self.type == 'VCOL' and len(get_vertex_color_names(obj)) >= 8:
             self.report({'ERROR'}, "Mesh can only use 8 vertex colors!")
             return {'CANCELLED'}
 
@@ -618,7 +618,7 @@ class YNewLayerMask(bpy.types.Operator):
 
                 for o in objs:
                     if self.name not in get_vertex_colors(o):
-                        if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                        if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                         vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
                         if self.color_option == 'WHITE':
                             set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
@@ -891,7 +891,7 @@ def update_available_data_name_as_mask(self, context):
                     self.source_input = 'ALPHA'
                     return
 
-    elif self.type == 'VCOL' and is_greater_than_292():
+    elif self.type == 'VCOL' and is_bl_newer_than(2, 92):
         for layer in yp.layers:
             if layer.type == 'VCOL':
                 source = get_layer_source(layer)
@@ -1076,7 +1076,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         if self.type == 'IMAGE':
             col.label(text='Image Channel:')
-        elif self.type == 'VCOL' and is_greater_than_292():
+        elif self.type == 'VCOL' and is_bl_newer_than(2, 92):
             col.label(text='Vertex Color Data:')
 
         col = row.column()
@@ -1092,7 +1092,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if len(layer.masks) > 0:
             col.prop(self, 'blend_type', text='')
 
-        if is_greater_than_292() or self.type != 'VCOL':
+        if is_bl_newer_than(2, 92) or self.type != 'VCOL':
             crow = col.row(align=True)
             crow.prop(self, 'source_input', expand=True)
 
@@ -1134,7 +1134,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
             for o in objs:
                 if self.vcol_name not in get_vertex_colors(o):
-                    if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                    if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                     data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
                     other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
                     set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 1.0))

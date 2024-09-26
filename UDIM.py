@@ -7,7 +7,7 @@ UDIM_DIR = 'UDIM__'
 UV_TOLERANCE = 0.1
 
 def is_udim_supported():
-    return is_greater_than_330()
+    return is_bl_newer_than(3, 3)
 
 def fill_tiles(image, color=None, width=0, height=0, empty_only=False):
     if image.source != 'TILED': return
@@ -31,7 +31,7 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
         # Create new tile
         override = bpy.context.copy()
         override['edit_image'] = image
-        if is_greater_than_400():
+        if is_bl_newer_than(4):
             with bpy.context.temp_override(**override):
                 bpy.ops.image.tile_add(number=tilenum, count=1, label="", color=color, width=width, height=height, float=image.is_float, alpha=True)
         else: bpy.ops.image.tile_add(override, number=tilenum, count=1, label="", color=color, width=width, height=height, float=image.is_float, alpha=True)
@@ -42,7 +42,7 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
 
         override = bpy.context.copy()
         override['edit_image'] = image
-        if is_greater_than_400():
+        if is_bl_newer_than(4):
             with bpy.context.temp_override(**override):
                 bpy.ops.image.tile_fill(color=color, width=width, height=height, float=image.is_float, alpha=True)
         else: bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=image.is_float, alpha=True)
@@ -238,7 +238,7 @@ def get_udim_filepath(filename, directory):
 def save_udim(image):
     override = bpy.context.copy()
     override['edit_image'] = image
-    if is_greater_than_400():
+    if is_bl_newer_than(4):
         with bpy.context.temp_override(**override):
             bpy.ops.image.save_as(filepath=bpy.path.abspath(image.filepath), relative_path=True)
             #bpy.ops.image.save()
@@ -250,7 +250,7 @@ def save_as_udim(image, filepath=''):
     if filepath == '': filepath = image.filepath
     override = bpy.context.copy()
     override['edit_image'] = image
-    if is_greater_than_400():
+    if is_bl_newer_than(4):
         with bpy.context.temp_override(**override):
             bpy.ops.image.save_as(filepath=bpy.path.abspath(filepath), relative_path=True)
     else: bpy.ops.image.save_as(override, filepath=bpy.path.abspath(filepath), relative_path=True)
@@ -273,7 +273,7 @@ def pack_udim(image):
                 image.tiles.active = tile
                 override = bpy.context.copy()
                 override['edit_image'] = image
-                if is_greater_than_400():
+                if is_bl_newer_than(4):
                     with bpy.context.temp_override(**override):
                         bpy.ops.image.tile_remove()
                 else: bpy.ops.image.tile_remove(override)
