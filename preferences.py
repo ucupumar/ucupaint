@@ -62,8 +62,7 @@ class YPaintPreferences(AddonPreferences):
     icons : EnumProperty(
             name = 'Icons',
             description = 'Icon set',
-            items=(('DEFAULT', 'Default', 'Choose automatically based on Blender version'),
-                   ('MODERN', 'Modern', 'Icon set from the current Blender version'),
+            items=(('DEFAULT', 'Default', 'Icon set from the current Blender version'),
                    ('LEGACY', 'Legacy', 'Icon set from the old Blender version')),
             default='DEFAULT',
             update=update_icons
