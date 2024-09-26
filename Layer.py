@@ -26,12 +26,12 @@ def channel_items(self, context):
         text_ch_name = ch.name + '  '
         if not is_greater_than_280():
             icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i))
+            items.append((str(i), text_ch_name, '', lib.get_icon(icon_name), i))
         else: items.append((str(i), text_ch_name, '', lib.channel_icon_dict[ch.type], i))
 
     #if hasattr(lib, 'custom_icons'):
     if not is_greater_than_280():
-        items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
+        items.append(('-1', 'All Channels', '', lib.get_icon('channels'), len(items)))
     else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
 
     return items
