@@ -257,7 +257,7 @@ def load_custom_icons():
     else:
         icon_set = 'legacy'
 
-    folder = f"{get_addon_filepath()}icons{os.sep}{icon_set.lower()}{os.sep}"
+    folder = get_addon_filepath() + 'icons' + os.sep + icon_set.lower() + os.sep
 
     for f in os.listdir(folder):
         icon_name = f.replace('_icon.png', '')
