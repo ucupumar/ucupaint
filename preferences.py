@@ -80,7 +80,7 @@ class YPaintPreferences(AddonPreferences):
             default = False)
 
     default_bake_device : EnumProperty(
-            name = 'Default Bake Device',
+            name = 'Bake Device',
             description = 'Default bake device',
             items = (('DEFAULT', 'Default', 'Use last selected bake device'),
                      ('CPU', 'CPU', 'Use CPU by default'),
@@ -124,8 +124,7 @@ class YPaintPreferences(AddonPreferences):
     def draw(self, context):
         if is_greater_than_280():
             self.layout.prop(self, 'default_bake_device')
-        
-        self.layout.prop(self, 'icons')
+            self.layout.prop(self, 'icons')
 
         self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')

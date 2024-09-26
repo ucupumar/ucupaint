@@ -242,20 +242,23 @@ def load_custom_icons():
     global custom_icons
     custom_icons = bpy.utils.previews.new()
 
-    icons = get_user_preferences().icons 
+    if not is_greater_than_280():
+        icon_set = 'legacy'
+    else:
+        icons = get_user_preferences().icons 
 
-    bg_color = bpy.context.preferences.themes[0].preferences.space.back
-    is_dark_theme = bg_color[0] + bg_color[1] + bg_color[2] < 1.5
+        bg_color = bpy.context.preferences.themes[0].preferences.space.back
+        is_dark_theme = bg_color[0] + bg_color[1] + bg_color[2] < 1.5
 
-    if icons == 'DEFAULT':
-        if is_greater_than_280():
+        if icons == 'DEFAULT':
+            if is_greater_than_280():
+                icon_set = 'light' if is_dark_theme else 'dark'
+            else:
+                icon_set = 'legacy'
+        elif icons == 'MODERN':
             icon_set = 'light' if is_dark_theme else 'dark'
         else:
             icon_set = 'legacy'
-    elif icons == 'MODERN':
-        icon_set = 'light' if is_dark_theme else 'dark'
-    else:
-        icon_set = 'legacy'
 
     folder = get_addon_filepath() + 'icons' + os.sep + icon_set.lower() + os.sep
 
