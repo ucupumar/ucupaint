@@ -49,7 +49,7 @@ class YPaintPreferences(AddonPreferences):
             description = 'Use image preview or thumbnail on the layers list',
             default = False)
 
-    skip_property_popups: BoolProperty(
+    skip_property_popups : BoolProperty(
             name = 'Skip Property Popups (Hold Shift to Show)',
             description = 'Don\'t show property popups unless Shift key is pressed. Will use last invokation properties if skipped',
             default = False)

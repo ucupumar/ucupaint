@@ -2079,7 +2079,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
     mat_name : StringProperty(default='')
     mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
-    asset_library_path: StringProperty(default='')
+    asset_library_path : StringProperty(default='')
 
     @classmethod
     def poll(cls, context):
