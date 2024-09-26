@@ -840,6 +840,10 @@ def get_user_preferences():
         return bpy.context.preferences.addons[__package__].preferences
     return bpy.context.user_preferences.addons[__package__].preferences
 
+def get_operator_description(operator):
+    description = operator.bl_description or operator.bl_label
+    return description + ". Hold Shift for options" if get_user_preferences().skip_property_popups else ""
+
 def get_all_layer_collections(arr, col):
     if col not in arr:
         arr.append(col)

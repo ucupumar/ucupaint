@@ -868,6 +868,10 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
+    
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
 
     def invoke(self, context, event):
         self.invoke_operator(context)
@@ -894,6 +898,9 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         self.show_bake_to_alpha_only_option = False
         if channel.type == 'VALUE':
             self.show_bake_to_alpha_only_option = True
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -1043,7 +1050,7 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
     bl_idname = "node.y_delete_baked_channel_images"
     bl_label = "Delete All Baked Channel Images"
     bl_description = "Delete all baked channel images"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     also_del_vcol : BoolProperty(
         name="Also delete the vertex color",
@@ -1053,6 +1060,10 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
         node = get_active_ypaint_node()
         tree = node.node_tree
@@ -1060,12 +1071,13 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 
         self.any_channel_use_baked_vcol = False
 
-        for ch in yp.channels:
-            baked_vcol_node = tree.nodes.get(ch.baked_vcol)
-            self.baked_vcol_name = baked_vcol_node.attribute_name if baked_vcol_node else ''
-            if self.baked_vcol_name != '':
-                self.any_channel_use_baked_vcol = True
-                return context.window_manager.invoke_props_dialog(self, width=320)
+        if not get_user_preferences().skip_property_popups or event.shift:
+            for ch in yp.channels:
+                baked_vcol_node = tree.nodes.get(ch.baked_vcol)
+                self.baked_vcol_name = baked_vcol_node.attribute_name if baked_vcol_node else ''
+                if self.baked_vcol_name != '':
+                    self.any_channel_use_baked_vcol = True
+                    return context.window_manager.invoke_props_dialog(self, width=320)
 
         self.also_del_vcol = False
         return self.execute(context)
@@ -1279,6 +1291,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         if self.vcol_force_first_ch_idx == '':
             self.vcol_force_first_ch_idx = 'Do Nothing'
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -2582,6 +2597,9 @@ class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
 
         if len(self.uv_map_coll) > 0:
             self.uv_map = self.uv_map_coll[0].name
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 

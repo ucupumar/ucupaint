@@ -49,6 +49,11 @@ class YPaintPreferences(AddonPreferences):
             description = 'Use image preview or thumbnail on the layers list',
             default = False)
 
+    skip_property_popups: BoolProperty(
+            name = 'Skip Property Popups (Hold Shift to Show)',
+            description = 'Don\'t show property popups unless Shift key is pressed. Will use last invokation properties if skipped',
+            default = False)
+
     make_preview_mode_srgb : BoolProperty(
             name = 'Make Preview Mode use sRGB',
             description = 'Make sure preview mode use sRGB color',
@@ -111,6 +116,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'unique_image_atlas_per_yp')
         self.layout.prop(self, 'make_preview_mode_srgb')
         self.layout.prop(self, 'use_image_preview')
+        self.layout.prop(self, 'skip_property_popups')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')
