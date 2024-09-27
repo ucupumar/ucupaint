@@ -116,7 +116,7 @@ def clean_object_references(image):
                 for i in reversed(indices):
                     segment.bake_info.selected_objects.remove(i)
 
-                # Check if other objects data are still accessible on any view layers
+                # Check if other object's data is still accessible on any view layers
                 indices = []
                 for i, o in enumerate(segment.bake_info.other_objects):
                     if o.object:
@@ -151,7 +151,7 @@ def clean_object_references(image):
             for i in reversed(indices):
                 image.y_bake_info.selected_objects.remove(i)
 
-            # Check if other objects data are still accessible on any view layers
+            # Check if other object's data is still accessible on any view layers
             indices = []
             for i, o in enumerate(image.y_bake_info.other_objects):
                 if o.object:
@@ -259,7 +259,7 @@ def save_pack_all(yp):
                 else: 
                     image.pack(as_png=True)
 
-            print('INFO:', image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+            print('INFO:', image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         else:
             if image.is_float:
                 save_float_image(image)
@@ -291,10 +291,10 @@ def save_pack_all(yp):
                     # Bring back linear
                     image.colorspace_settings.name = get_noncolor_name()
 
-                    # Remove unpacked images on Blender 3.3 
+                    # Remove unpacked images in Blender 3.3 
                     remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
 
-                    print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+                    print('INFO:', image.name, 'image is saved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
                 else:
                     try:
@@ -302,7 +302,7 @@ def save_pack_all(yp):
                         image.save()
                         image.colorspace_settings.name = ori_colorspace
 
-                        print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+                        print('INFO:', image.name, 'image is saved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
                     except Exception as e:
                         print(e)
 
@@ -311,7 +311,7 @@ def save_pack_all(yp):
         remove_datablock(bpy.data.scenes, tmpscene)
 
     # HACK: For some reason active float image will glitch after auto save
-    # This is only happen if active object is on texture paint mode
+    # This is only happen if active object is in texture paint mode
     obj = bpy.context.object
     if len(yp.layers) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
         layer = yp.layers[yp.active_layer_index]
@@ -451,7 +451,7 @@ class YPackImage(bpy.types.Operator):
 
                     baked_normal_overlay.image.filepath = ''
 
-        print('INFO:', context.image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO:', context.image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 
@@ -724,7 +724,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
                         pack_float_image(image)
                     else: image.pack(as_png=True)
 
-            # Some image need to set to srgb when saving
+            # Some images need to set to srgb when saving
             ori_colorspace = image.colorspace_settings.name
             if not image.is_float and image.colorspace_settings.name != get_srgb_name():
                 image.colorspace_settings.name = get_srgb_name()
@@ -1140,7 +1140,7 @@ class YSavePackAll(bpy.types.Operator):
         #T = time.time()
         yp = get_active_ypaint_node().node_tree.yp
         save_pack_all(yp)
-        #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        #print('INFO:', 'All images are saved/packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         ypui.refresh_image_hack = False
         return {'FINISHED'}
 

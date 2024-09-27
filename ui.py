@@ -315,7 +315,7 @@ def draw_vcol_props(layout, vcol=None, entity=None):
     if hasattr(entity, 'divide_rgb_by_alpha'):
         layout.prop(entity, 'divide_rgb_by_alpha')
     else:
-        layout.label(text='You can also edit vertex color on edit mode')
+        layout.label(text='You can also edit vertex color in edit mode')
 
 def is_input_skipped(inp):
     if is_bl_newer_than(2, 81):
@@ -1197,7 +1197,7 @@ def draw_root_channels_ui(context, layout, node):
                     brow.label(text='Max Polygons:')
                     brow.prop(channel, 'subdiv_on_max_polys', text='')
 
-                    if is_bl_newer_than(2, 78, 0):
+                    if is_bl_newer_than(2, 78):
                         brow = bbcol.row(align=True)
                         brow.label(text='Adaptive (Cycles Only):')
                         brow.prop(channel, 'subdiv_adaptive', text='')
@@ -2930,7 +2930,7 @@ def draw_layers_ui(context, layout, node):
 
     if layer:
 
-        if has_childrens(layer): # or (image and not image.packed_file):
+        if has_children(layer): # or (image and not image.packed_file):
 
             if is_bl_newer_than(2, 80):
                 rcol.operator("node.y_remove_layer_menu", icon='REMOVE', text='')
@@ -2941,7 +2941,7 @@ def draw_layers_ui(context, layout, node):
                 c = rcol.operator("node.y_remove_layer", icon='REMOVE', text='')
             else: c = rcol.operator("node.y_remove_layer", icon='ZOOMOUT', text='')
 
-            c.remove_childs = False
+            c.remove_children = False
 
         if is_top_member(layer):
             c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_UP')
@@ -3182,7 +3182,7 @@ def main_draw(self, context):
 
     # Timer
     if wm.yptimer.time != '':
-        print('INFO: Scene is updated at', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
+        print('INFO: Scene is updated in', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
         wm.yptimer.time = ''
 
     # Update ui props first

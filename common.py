@@ -637,7 +637,7 @@ def get_noncolor_name():
 def remove_datablock(blocks, block, user=None, user_prop=''):
     if is_bl_newer_than(2, 79):
         blocks.remove(block)
-    elif is_bl_newer_than(2, 78, 0):
+    elif is_bl_newer_than(2, 78):
         blocks.remove(block, do_unlink=True)
     else:
         if user and user_prop != '':
@@ -1614,7 +1614,7 @@ def set_default_value(node, input_name_or_index, value):
 
     # HACK: Sometimes Blender bug will cause node with no inputs
     # So try to reload the group again
-    # Tested on Blender 3.6.2
+    # Tested in Blender 3.6.2
     counter = 0
     while node.type == 'GROUP' and len(node.inputs) == 0 and counter < 64:
         print("HACK: Trying to set group '" + node.node_tree.name + "' again!")
@@ -2438,7 +2438,7 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
 
     inp = None
 
-    # NOTE: Used to be working on Blender 4.0 Alpha, 'BOTH' in_out is no longer supported
+    # NOTE: Used to be working in Blender 4.0 Alpha, 'BOTH' in_out is no longer supported
     # Keep the code just in case it will work again someday
     if use_both and False:
         # Check if output with same name already exists
@@ -2462,7 +2462,7 @@ def new_tree_output(tree, name, socket_type, description='', use_both=False):
 
     outp = None
 
-    # NOTE: Used to be working on Blender 4.0 Alpha, 'BOTH' in_out is no longer supported
+    # NOTE: Used to be working in Blender 4.0 Alpha, 'BOTH' in_out is no longer supported
     # Keep the code just in case it will work again someday
     if use_both and False:
         # Check if input with same name already exists
@@ -2718,14 +2718,14 @@ def get_list_of_direct_child_ids(layer):
 
     layer_idx = get_layer_index(layer)
 
-    childs = []
+    children = []
     for i, t in enumerate(yp.layers):
         if t.parent_idx == layer_idx:
-            childs.append(i)
+            children.append(i)
 
-    return childs
+    return children
 
-def get_list_of_direct_childrens(layer):
+def get_list_of_direct_children(layer):
     yp = layer.id_data.yp
 
     if layer.type != 'GROUP':
@@ -2733,14 +2733,14 @@ def get_list_of_direct_childrens(layer):
 
     layer_idx = get_layer_index(layer)
 
-    childs = []
+    children = []
     for t in yp.layers:
         if t.parent_idx == layer_idx:
-            childs.append(t)
+            children.append(t)
 
-    return childs
+    return children
 
-def get_list_of_all_childs_and_child_ids(layer):
+def get_list_of_all_children_and_child_ids(layer):
     yp = layer.id_data.yp
 
     if layer.type != 'GROUP':
@@ -2748,14 +2748,14 @@ def get_list_of_all_childs_and_child_ids(layer):
 
     layer_idx = get_layer_index(layer)
 
-    childs = []
+    children = []
     child_ids = []
     for i, t in enumerate(yp.layers):
         if t.parent_idx == layer_idx or t.parent_idx in child_ids:
-            childs.append(t)
+            children.append(t)
             child_ids.append(i)
 
-    return childs, child_ids
+    return children, child_ids
 
 def get_list_of_parent_ids(layer):
 
@@ -2808,7 +2808,7 @@ def get_last_chained_up_layer_ids(layer, idx_limit):
 
     return parent_idx
 
-def has_childrens(layer):
+def has_children(layer):
 
     yp = layer.id_data.yp
 
@@ -2824,7 +2824,7 @@ def has_childrens(layer):
 
     return False
 
-def has_channel_childrens(layer, root_ch):
+def has_channel_children(layer, root_ch):
 
     yp = layer.id_data.yp
 
@@ -2832,9 +2832,9 @@ def has_channel_childrens(layer, root_ch):
         return False
 
     ch_idx = get_channel_index(root_ch)
-    childs = get_list_of_direct_childrens(layer)
+    children = get_list_of_direct_children(layer)
 
-    for child in childs:
+    for child in children:
         if not child.enable: continue
         for i, ch in enumerate(child.channels):
             if i == ch_idx and ch.enable:
@@ -3361,7 +3361,7 @@ def refresh_temp_uv(obj, entity):
 
     set_active_object(obj)
 
-    # Cannot do this on edit mode
+    # Cannot do this in edit mode
     ori_mode = obj.mode
     if ori_mode == 'EDIT':
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -3841,12 +3841,12 @@ def get_layer_channel_max_height(layer, ch, ch_idx=None):
     if layer.type == 'GROUP':
 
         if ch_idx == None: ch_idx = [i for i, c in enumerate(layer.channels) if c == ch][0]
-        childs = get_list_of_direct_childrens(layer)
-        if len(childs) == 0: return 0.0
+        children = get_list_of_direct_children(layer)
+        if len(children) == 0: return 0.0
 
-        # Check all of its childrens
+        # Check all of its children
         base_distance = None
-        for child in childs:
+        for child in children:
             for i, c in enumerate(child.channels):
                 if i != ch_idx: continue
 
@@ -3894,28 +3894,28 @@ def get_transition_bump_max_distance_with_crease(ch):
 
     return fac * tb
 
-def get_max_childs_heights(layer, ch_idx):
+def get_max_child_height(layer, ch_idx):
 
-    # Get childrens
-    childs = get_list_of_direct_childrens(layer)
+    # Get children
+    children = get_list_of_direct_children(layer)
 
-    if len(childs) == 0: return 0.0
+    if len(children) == 0: return 0.0
 
-    max_child_heights = None
-    for child in childs:
+    max_child_height = None
+    for child in children:
         for i, c in enumerate(child.channels):
             if i != ch_idx: continue
 
             # Do recursive the children is a group
             if child.type == 'GROUP':
-                h = get_max_childs_heights(child, ch_idx)
+                h = get_max_child_height(child, ch_idx)
             else: 
                 h = get_layer_channel_max_height(child, c, ch_idx)
 
-            if max_child_heights == None or h > max_child_heights:
-                max_child_heights = h
+            if max_child_height == None or h > max_child_height:
+                max_child_height = h
 
-    return max_child_heights
+    return max_child_height
 
 def get_transition_disp_delta(layer, ch):
     if layer.type == 'GROUP':
@@ -3923,8 +3923,8 @@ def get_transition_disp_delta(layer, ch):
         # Get channel index
         ch_idx = [i for i, c in enumerate(layer.channels) if c == ch][0]
 
-        max_child_heights = get_max_childs_heights(layer, ch_idx)
-        delta = get_transition_bump_max_distance(ch) - max_child_heights
+        max_child_height = get_max_child_height(layer, ch_idx)
+        delta = get_transition_bump_max_distance(ch) - max_child_height
 
     else:
         ##### REPLACED_BY_SHADERS
@@ -3977,7 +3977,7 @@ def get_displacement_max_height(root_ch, layer=None):
 
     #if layer and layer.parent_idx != -1:
     #    parent = get_parent(layer)
-    #    layers = get_list_of_direct_childrens(parent)
+    #    layers = get_list_of_direct_children(parent)
     #    max_height = get_max_height_from_list_of_layers(layers, ch_index, layer, top_layers_only=False)
     #else:
     #    max_height = get_max_height_from_list_of_layers(yp.layers, ch_index, layer, top_layers_only=True)
@@ -4962,7 +4962,7 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
             layer_idx = get_layer_index(layer)
             lays = [l for i, l in enumerate(yp.layers) if i > layer_idx and l.parent_idx == layer.parent_idx]
         else:
-            lays = get_list_of_direct_childrens(layer)
+            lays = get_list_of_direct_children(layer)
         
         for l in lays:
             if not l.enable: continue
@@ -5006,8 +5006,8 @@ def is_layer_using_bump_map(layer, root_ch=None):
     except: return False
     if get_channel_enabled(ch, layer, root_ch):
         if layer.type == 'GROUP':
-            childs = get_list_of_direct_childrens(layer)
-            for child in childs:
+            children = get_list_of_direct_children(layer)
+            for child in children:
                 if is_layer_using_bump_map(child):
                     return True
         elif ch.write_height and  (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or ch.enable_transition_bump):
@@ -5025,8 +5025,8 @@ def is_layer_using_normal_map(layer, root_ch=None):
     except: return False
     if get_channel_enabled(ch, layer, root_ch):
         if layer.type == 'GROUP':
-            childs = get_list_of_direct_childrens(layer)
-            for child in childs:
+            children = get_list_of_direct_children(layer)
+            for child in children:
                 if is_layer_using_normal_map(child) or (not ch.write_height and is_layer_using_bump_map(child)):
                     return True
         elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
@@ -5200,9 +5200,9 @@ def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=Fals
 
     layers = [layer]
 
-    if has_childrens(layer):
-        childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
-        layers.extend(childs)
+    if has_children(layer):
+        children, child_ids = get_list_of_all_children_and_child_ids(layer)
+        layers.extend(children)
 
     images = []
     for lay in layers:
@@ -5254,8 +5254,8 @@ def any_single_user_ondisk_image_inside_layer(layer):
     return False
 
 def any_single_user_ondisk_image_inside_group(group):
-    childs, child_ids = get_list_of_all_childs_and_child_ids(group)
-    for child in childs:
+    children, child_ids = get_list_of_all_children_and_child_ids(group)
+    for child in children:
         if any_single_user_ondisk_image_inside_layer(child):
             return True
 

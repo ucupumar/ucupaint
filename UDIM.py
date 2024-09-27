@@ -138,7 +138,7 @@ def get_tile_numbers(objs, uv_name):
     if ori_mode != 'OBJECT':
         bpy.ops.object.mode_set(mode=ori_mode)
 
-    print('INFO: Getting tile numbers are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Getting tile numbers is done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         
     return tiles
 
@@ -172,7 +172,7 @@ def is_uvmap_udim(objs, uv_name):
 
     is_udim = numpy.any(arr > 1.0 + UV_TOLERANCE/2)
 
-    print('INFO: UDIM checking is done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: UDIM checking is done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
     return is_udim
 
@@ -568,7 +568,7 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
                 initial_pack_udim(image)
 
-        print('INFO: Refilling UDIM is done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Refilling UDIM is done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 
@@ -1017,7 +1017,7 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
     for new_image in new_atlas_images:
         refresh_udim_atlas(new_image, yp=yp, check_uv=check_uv, remove_index=remove_index)
 
-    print('INFO: UDIM Atlas offsets are refreshed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: UDIM Atlas offsets are refreshed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
     return image
 
@@ -1032,7 +1032,7 @@ def remove_udim_atlas_segment_by_name(image, segment_name, yp=None):
 
     refresh_udim_atlas(image, yp, check_uv=False, remove_index=index)
 
-    print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: UDIM Atlas segment is removed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def remove_udim_atlas_segment_by_index(image, index, yp=None):
     if not yp: yp = get_active_ypaint_node().node_tree.yp

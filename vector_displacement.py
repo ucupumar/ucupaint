@@ -809,7 +809,7 @@ class YSculptImage(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='SCULPT')
 
-        print('INFO: Sculpt mode is entered at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Sculpt mode is entered in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 
@@ -872,7 +872,7 @@ class YApplySculptToImage(bpy.types.Operator):
         if space.type == 'VIEW_3D' and space.shading.type not in {'MATERIAL', 'RENDERED'}:
             space.shading.type = 'MATERIAL'
 
-        print('INFO: Applying sculpt to VDM is done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Applying sculpt to VDM is done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 

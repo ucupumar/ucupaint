@@ -165,7 +165,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
     else:
-        # NOTE: Smooth bump is no longer enabled by default on Blender 2.80+
+        # NOTE: Smooth bump is no longer enabled by default in Blender 2.80+
         if is_bl_newer_than(2, 80): channel.enable_smooth_bump = False
 
     yp.halt_reconnect = False
@@ -180,7 +180,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
     new_uv : BoolProperty(
             name = 'Create New UV',
-            description = 'Create new UV rather than use available one',
+            description = 'Create new UV rather than using available one',
             default = False)
 
     new_uv_name : StringProperty(
@@ -190,7 +190,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
     uv_map : StringProperty(
             name='Active UV Map', 
-            description="It will create one if other objects does not have it.\nIf empty, it will use whatever current active uv map for each objects", 
+            description="It will create one if other objects don't have it.\nIf empty, it will use the current active uv map for each object",
             default='')
 
     set_canvas_to_empty : BoolProperty(
@@ -248,7 +248,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
     def execute(self, context):
         if not is_bl_newer_than(2, 80):
-            self.report({'ERROR'}, "This feature only works on Blender 2.8+")
+            self.report({'ERROR'}, "This feature only works in Blender 2.8+")
             return {'CANCELLED'}
 
         if (self.new_uv and self.new_uv_name == '') or (not self.new_uv and self.uv_map == ''):
@@ -318,7 +318,7 @@ class YRenameUVMaterial(bpy.types.Operator):
 
     new_uv_name : StringProperty(
             name='New UV Name', 
-            description="New name of for the UV", 
+            description="New name for the UV", 
             default='UVMap')
 
     @classmethod
@@ -764,7 +764,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             #links.new(node.outputs[ch_normal.io_index], inp)
             links.new(node.outputs[ch_normal.name], inp)
 
-        # Disable overlay on Blender 2.8
+        # Disable overlay in Blender 2.8
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
                 if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity and self.mute_texture_paint_overlay:
@@ -1108,7 +1108,7 @@ class YNewYPaintChannel(bpy.types.Operator):
 
     colorspace : EnumProperty(
             name = 'Color Space',
-            description = "Non color won't converted to linear first before blending",
+            description = "Non-color won't be converted to linear first before blending",
             items = colorspace_items,
             default='LINEAR')
 
@@ -1252,7 +1252,7 @@ class YNewYPaintChannel(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Channel', channel.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Channel', channel.name, 'is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1336,7 +1336,7 @@ class YMoveYPaintChannel(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Channel', channel.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Channel', channel.name, 'is moved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1578,7 +1578,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Channel', channel_name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Channel', channel_name, 'is moved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1816,7 +1816,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
     ondisk_duplicate : BoolProperty(
             name = 'Duplicate Images on disk',
-            description = 'Duplicate images on disk, this will create copy of images sourced from external files',
+            description = 'Duplicate images on disk, this will create copies of images sourced from external files',
             default = False
             )
 
@@ -2127,7 +2127,7 @@ class YFixMissingData(bpy.types.Operator):
 class YRefreshTangentSignVcol(bpy.types.Operator):
     bl_idname = "node.y_refresh_tangent_sign_vcol"
     bl_label = "Refresh Tangent Sign Vertex Colors"
-    bl_description = "Refresh Tangent Sign Vertex Colors to make it works on Blender 2.8"
+    bl_description = "Refresh Tangent Sign Vertex Colors to make it work in Blender 2.8"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -2302,7 +2302,7 @@ def update_channel_name(self, context):
     reconnect_yp_nodes(group_tree)
     rearrange_yp_nodes(group_tree)
 
-    print('INFO: Channel renamed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Channel renamed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
 def get_preview(mat, output=None, advanced=False, normal_viewer=False):
@@ -3427,7 +3427,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     subdiv_adaptive : BoolProperty(
             name = 'Use Adaptive Subdivision',
-            description = 'Use Adaptive Subdivision (only works on Cycles)',
+            description = 'Use Adaptive Subdivision (only works with Cycles)',
             default=False, update=Bake.update_subdiv_setup
             )
     
@@ -3497,7 +3497,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     colorspace : EnumProperty(
             name = 'Color Space',
-            description = "Non color won't converted to linear first before blending",
+            description = "Non-color won't be converted to linear first before blending",
             items = colorspace_items,
             default='LINEAR',
             update=update_channel_colorspace)

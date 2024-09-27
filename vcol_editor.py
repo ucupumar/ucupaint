@@ -58,7 +58,7 @@ class YToggleEraser(bpy.types.Operator):
                     self.report({'ERROR'}, "Cannot find a paint brush!")
                     return {'CANCELLED'}
         else:
-            self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
+            self.report({'ERROR'}, "There's no need to use this operator in this blender version!")
             return {'CANCELLED'}
 
         # Get eraser brush
@@ -314,7 +314,7 @@ class YVcolFillFaceCustom(bpy.types.Operator):
 
             bpy.ops.object.mode_set(mode='EDIT')
 
-        print('VCOL: Fill Color ID is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print('VCOL: Fill Color ID is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
@@ -446,7 +446,7 @@ class YVcolFill(bpy.types.Operator):
 
             bpy.ops.object.mode_set(mode='EDIT')
 
-        print('VCOL: Fill vertex color is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print('VCOL: Fill vertex color is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 

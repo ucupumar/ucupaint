@@ -508,7 +508,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
                         scene.layers[i] = True
                         break
 
-            # Blender 2.76 need all objects to be UV unwrapped
+            # Blender 2.76 needs all objects to be UV unwrapped
             if not is_bl_newer_than(2, 77):
                 ori_active_object = scene.objects.active
                 uv_layers = get_uv_layers(obj)
@@ -928,7 +928,7 @@ def denoise_image(image):
     # Recover settings
     recover_composite_settings(book)
 
-    print('DENOISE:', image.name, 'denoise pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    print('DENOISE:', image.name, 'denoise pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
     return image
 
 def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CPU'):
@@ -998,7 +998,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CP
         source_tex.image = image_copy
 
         # Blender 2.79 need to set these parameter to correct the gamma
-        if not is_bl_newer_than(2, 80) :
+        if not is_bl_newer_than(2, 80):
             if image.colorspace_settings.name == get_srgb_name():
                 source_tex.color_space = 'COLOR'
             else: source_tex.color_space = 'NONE' 
@@ -1049,7 +1049,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CP
     if is_bl_newer_than(2, 80):
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
-    print('BLUR:', image.name, 'blur pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    print('BLUR:', image.name, 'blur pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
     return image
 
@@ -1204,7 +1204,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
     if is_bl_newer_than(2, 80):
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
-    print('FXAA:', image.name, 'FXAA pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    print('FXAA:', image.name, 'FXAA pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
     return image
 
@@ -1216,7 +1216,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
     if root_ch.type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        if is_greater_than_280 and not is_bl_newer_than(3):
+        if is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
             norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
         else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
 
@@ -1394,7 +1394,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     if root_ch.type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        if is_greater_than_280 and not is_bl_newer_than(3):
+        if is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
             norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
         else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
 
@@ -1444,7 +1444,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             if not baked_normal_prep:
                 baked_normal_prep = new_node(tree, root_ch, 'baked_normal_prep', 'ShaderNodeGroup', 
                         'Baked Normal Preparation')
-                if is_greater_than_280:
+                if is_bl_newer_than(2, 80):
                     baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
                 else: baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP_LEGACY)
 
@@ -2063,7 +2063,7 @@ def get_duplicated_mesh_objects(scene, objs, hide_original=False):
         if hide_original:
             obj.hide_render = True
 
-    print('INFO: Duplicating mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+    print('INFO: Duplicating mesh(es) is done in', '{:0.2f}'.format(time.time() - tt), 'seconds!')
     return new_objs
 
 def get_merged_mesh_objects(scene, objs, hide_original=False):
@@ -2129,7 +2129,7 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
             bpy.ops.object.modifier_remove(modifier=m.name)
 
         # HACK: Convert all geo uvs attribute to 2D vector 
-        # This is needed since it always produce 3D vector on Blender 3.5
+        # This is needed since it always produce 3D vector in Blender 3.5
         # 3D vector can't produce correct tangent so smooth bump can't be baked
         for guv in geo_uv_names:
             for i, attr in enumerate(obj.data.attributes):
@@ -2152,7 +2152,7 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
         if nm != merged_obj.data:
             remove_datablock(bpy.data.meshes, nm)
 
-    print('INFO: Merging mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+    print('INFO: Merging mesh(es) is done in', '{:0.2f}'.format(time.time() - tt), 'seconds!')
     return merged_obj
 
 def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='CPU', specific_tile=0):
@@ -2346,7 +2346,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
         if tilenum != 1001:
             UDIM.swap_tile(image, 1001, tilenum)
 
-    # Remove temp datas
+    # Remove temp data
     if straight_over.node_tree.users == 1:
         remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
     remove_datablock(bpy.data.materials, mat)
@@ -2361,7 +2361,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     if is_bl_newer_than(2, 80):
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
-    print('RESIZE IMAGE:', image_name, 'Resize image is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    print('RESIZE IMAGE:', image_name, 'Resize image is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
     return image, new_segment
 
@@ -2399,7 +2399,7 @@ def remove_temp_emit_white_mat():
         remove_datablock(bpy.data.materials, mat)
 
 def get_output_uv_names_from_geometry_nodes(obj):
-    if not is_greater_than_350: return []
+    if not is_bl_newer_than(3, 5): return []
 
     uv_layers = get_uv_layers(obj)
     uv_names = []
