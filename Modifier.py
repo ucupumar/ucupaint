@@ -1,6 +1,7 @@
 import bpy, re
 from bpy.props import *
 from .common import *
+from .modifier_common import *
 from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
@@ -74,319 +75,6 @@ def get_modifier_channel_type(mod, return_non_color=False):
 
     return channel_type
 
-def check_modifier_nodes(m, tree, ref_tree=None):
-
-    yp = m.id_data.yp
-    nodes = tree.nodes
-
-    # Get channel type and non color status
-    channel_type, non_color = get_modifier_channel_type(m, True)
-
-    # Check the nodes
-    if m.type == 'INVERT':
-
-        if not m.enable:
-            remove_node(tree, m, 'invert')
-        else:
-            if ref_tree:
-                invert_ref = ref_tree.nodes.get(m.invert)
-                if invert_ref: ref_tree.nodes.remove(invert_ref)
-
-                invert = new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert')
-                dirty = True
-            else:
-                invert, dirty = check_new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert', True)
-
-            if dirty:
-                if channel_type == 'VALUE':
-                    invert.node_tree = get_node_tree_lib(lib.MOD_INVERT_VALUE)
-                else: invert.node_tree = get_node_tree_lib(lib.MOD_INVERT)
-
-                invert.inputs[2].default_value = 1.0 if m.invert_r_enable else 0.0
-                if channel_type == 'VALUE':
-                    invert.inputs[3].default_value = 1.0 if m.invert_a_enable else 0.0
-                else:
-                    invert.inputs[3].default_value = 1.0 if m.invert_g_enable else 0.0
-                    invert.inputs[4].default_value = 1.0 if m.invert_b_enable else 0.0
-                    invert.inputs[5].default_value = 1.0 if m.invert_a_enable else 0.0
-
-    elif m.type == 'RGB_TO_INTENSITY':
-
-        if not m.enable:
-            remove_node(tree, m, 'rgb2i')
-        else:
-            if ref_tree:
-                rgb2i_ref = ref_tree.nodes.get(m.rgb2i)
-                if rgb2i_ref: ref_tree.nodes.remove(rgb2i_ref)
-
-                rgb2i = new_node(tree, m, 'rgb2i', 'ShaderNodeGroup', 'RGB to Intensity')
-                dirty = True
-            else:
-                rgb2i, dirty = check_new_node(tree, m, 'rgb2i', 'ShaderNodeGroup', 'RGB to Intensity', True)
-
-            if dirty:
-                rgb2i.node_tree = get_node_tree_lib(lib.MOD_RGB2INT)
-
-                rgb2i.inputs['RGB To Intensity Color'].default_value = m.rgb2i_col
-                if non_color:
-                    rgb2i.inputs['Gamma'].default_value = 1.0
-                else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
-
-    elif m.type == 'INTENSITY_TO_RGB':
-
-        if not m.enable:
-            remove_node(tree, m, 'i2rgb')
-        else:
-            if ref_tree:
-                i2rgb_ref = ref_tree.nodes.get(m.i2rgb)
-                if i2rgb_ref: ref_tree.nodes.remove(i2rgb_ref)
-
-                i2rgb = new_node(tree, m, 'i2rgb', 'ShaderNodeGroup', 'Intensity to RGB')
-                dirty = True
-            else:
-                i2rgb, dirty = check_new_node(tree, m, 'i2rgb', 'ShaderNodeGroup', 'Intensity to RGB', True)
-
-            if dirty:
-                i2rgb.node_tree = get_node_tree_lib(lib.MOD_INT2RGB)
-
-    elif m.type == 'OVERRIDE_COLOR':
-
-        if not m.enable:
-            remove_node(tree, m, 'oc')
-        else:
-            if ref_tree:
-                oc_ref = ref_tree.nodes.get(m.oc)
-                if oc_ref: ref_tree.nodes.remove(oc_ref)
-
-                oc = new_node(tree, m, 'oc', 'ShaderNodeGroup', 'Override Color')
-                dirty = True
-            else:
-                oc, dirty = check_new_node(tree, m, 'oc', 'ShaderNodeGroup', 'Override Color', True)
-
-            if dirty:
-                oc.node_tree = get_node_tree_lib(lib.MOD_OVERRIDE_COLOR)
-
-                if channel_type == 'VALUE':
-                    col = (m.oc_val, m.oc_val, m.oc_val, 1.0)
-                else: col = m.oc_col
-                oc.inputs['Override Color'].default_value = col
-
-                if non_color:
-                    oc.inputs['Gamma'].default_value = 1.0
-                else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
-
-    elif m.type == 'COLOR_RAMP':
-
-        if not m.enable:
-
-            if ref_tree:
-                color_ramp = new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp')
-                color_ramp_ref = ref_tree.nodes.get(m.color_ramp)
-                if color_ramp_ref:
-                    copy_node_props(color_ramp_ref, color_ramp)
-                    ref_tree.nodes.remove(color_ramp_ref)
-
-            remove_node(tree, m, 'color_ramp_linear_start')
-            remove_node(tree, m, 'color_ramp_linear')
-            remove_node(tree, m, 'color_ramp_alpha_multiply')
-            remove_node(tree, m, 'color_ramp_mix_rgb')
-            remove_node(tree, m, 'color_ramp_mix_alpha')
-        else:
-            if ref_tree:
-                color_ramp_alpha_multiply_ref = ref_tree.nodes.get(m.color_ramp_alpha_multiply)
-                color_ramp_linear_start_ref = ref_tree.nodes.get(m.color_ramp_linear_start)
-                color_ramp_ref = ref_tree.nodes.get(m.color_ramp)
-                color_ramp_linear_ref = ref_tree.nodes.get(m.color_ramp_linear)
-                color_ramp_mix_alpha_ref = ref_tree.nodes.get(m.color_ramp_mix_alpha)
-                color_ramp_mix_rgb_ref = ref_tree.nodes.get(m.color_ramp_mix_rgb)
-
-                # Create new nodes if reference is used
-                color_ramp_alpha_multiply = new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply')
-                color_ramp_linear_start = new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
-                color_ramp = new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp')
-                color_ramp_linear = new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
-                color_ramp_mix_alpha = new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
-                color_ramp_mix_rgb = new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
-                dirty = True
-                ramp_dirty = False
-            else:
-
-                color_ramp_alpha_multiply, dirty = check_new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply', True)
-                color_ramp_linear_start = check_new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
-                color_ramp, ramp_dirty = check_new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp', True)
-                color_ramp_linear = check_new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
-                color_ramp_mix_alpha = check_new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
-                color_ramp_mix_rgb = check_new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
-
-            if ref_tree:
-
-                if color_ramp_alpha_multiply_ref:
-                    copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
-                    ref_tree.nodes.remove(color_ramp_alpha_multiply_ref)
-
-                if color_ramp_linear_start_ref: 
-                    copy_node_props(color_ramp_linear_start_ref, color_ramp_linear_start)
-                    ref_tree.nodes.remove(color_ramp_linear_start_ref)
-
-                if color_ramp_ref:
-                    copy_node_props(color_ramp_ref, color_ramp)
-                    ref_tree.nodes.remove(color_ramp_ref)
-
-                if color_ramp_linear_ref:
-                    copy_node_props(color_ramp_linear_ref, color_ramp_linear)
-                    ref_tree.nodes.remove(color_ramp_linear_ref)
-
-                if color_ramp_mix_alpha_ref:
-                    copy_node_props(color_ramp_mix_alpha_ref, color_ramp_mix_alpha)
-                    ref_tree.nodes.remove(color_ramp_mix_alpha_ref)
-
-                if color_ramp_mix_rgb_ref:
-                    copy_node_props(color_ramp_mix_rgb_ref, color_ramp_mix_rgb)
-                    ref_tree.nodes.remove(color_ramp_mix_rgb_ref)
-
-            if dirty:
-
-                color_ramp_alpha_multiply.inputs[0].default_value = 1.0
-                color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
-                color_ramp_mix_alpha.inputs[0].default_value = 1.0
-                color_ramp_mix_rgb.inputs[0].default_value = 1.0
-
-            if non_color:
-                color_ramp_linear_start.inputs[1].default_value = 1.0
-                color_ramp_linear.inputs[1].default_value = 1.0
-            else: 
-                color_ramp_linear_start.inputs[1].default_value = GAMMA
-                color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
-
-            if ramp_dirty:
-                # Set default color if ramp just created
-                color_ramp.color_ramp.elements[0].color = (0,0,0,0) 
-
-    elif m.type == 'RGB_CURVE':
-
-        if ref_tree:
-            rgb_curve_ref = ref_tree.nodes.get(m.rgb_curve)
-            rgb_curve = new_node(tree, m, 'rgb_curve', 'ShaderNodeRGBCurve', 'RGB Curve')
-            if rgb_curve_ref:
-                # Copy from reference
-                copy_node_props(rgb_curve_ref, rgb_curve)
-                ref_tree.nodes.remove(rgb_curve_ref)
-        else:
-            rgb_curve = check_new_node(tree, m, 'rgb_curve', 'ShaderNodeRGBCurve', 'RGB Curve')
-
-    elif m.type == 'HUE_SATURATION':
-
-        if not m.enable:
-            remove_node(tree, m, 'huesat')
-        else:
-            if ref_tree:
-                # Remove previous nodes
-                huesat_ref = ref_tree.nodes.get(m.huesat)
-                if huesat_ref: ref_tree.nodes.remove(huesat_ref)
-
-                huesat = new_node(tree, m, 'huesat', 'ShaderNodeHueSaturation', 'Hue Saturation')
-                dirty = True
-            else:
-                huesat, dirty = check_new_node(tree, m, 'huesat', 'ShaderNodeHueSaturation', 'Hue Saturation', True)
-
-            if dirty:
-                huesat.inputs['Hue'].default_value = m.huesat_hue_val
-                huesat.inputs['Saturation'].default_value = m.huesat_saturation_val
-                huesat.inputs['Value'].default_value = m.huesat_value_val
-
-    elif m.type == 'BRIGHT_CONTRAST':
-
-        if not m.enable:
-            remove_node(tree, m, 'brightcon')
-        else:
-            if ref_tree:
-                # Remove previous nodes
-                brightcon_ref = ref_tree.nodes.get(m.brightcon)
-                if brightcon_ref: ref_tree.nodes.remove(brightcon_ref)
-
-                brightcon = new_node(tree, m, 'brightcon', 'ShaderNodeBrightContrast', 'Brightness Contrast')
-                dirty = True
-            else:
-                brightcon, dirty = check_new_node(tree, m, 'brightcon', 'ShaderNodeBrightContrast', 'Brightness Contrast', True)
-
-            if dirty:
-                brightcon.inputs['Bright'].default_value = m.brightness_value
-                brightcon.inputs['Contrast'].default_value = m.contrast_value
-
-    elif m.type == 'MULTIPLIER':
-
-        if not m.enable:
-            remove_node(tree, m, 'multiplier')
-        else:
-            if ref_tree:
-                # Remove previous nodes
-                multiplier_ref = ref_tree.nodes.get(m.multiplier)
-                if multiplier_ref: ref_tree.nodes.remove(multiplier_ref)
-
-                multiplier = new_node(tree, m, 'multiplier', 'ShaderNodeGroup', 'Multiplier')
-                dirty = True
-            else:
-                multiplier, dirty = check_new_node(tree, m, 'multiplier', 'ShaderNodeGroup', 'Multiplier', True)
-
-            if dirty:
-                if channel_type == 'VALUE':
-                    multiplier.node_tree = get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
-                else: multiplier.node_tree = get_node_tree_lib(lib.MOD_MULTIPLIER)
-
-                multiplier.inputs[2].default_value = 1.0 if m.use_clamp else 0.0
-                multiplier.inputs[3].default_value = m.multiplier_r_val
-                if channel_type == 'VALUE':
-                    multiplier.inputs[4].default_value = m.multiplier_a_val
-                else:
-                    multiplier.inputs[4].default_value = m.multiplier_g_val
-                    multiplier.inputs[5].default_value = m.multiplier_b_val
-                    multiplier.inputs[6].default_value = m.multiplier_a_val
-
-    elif m.type == 'MATH':
-
-        if not m.enable:
-            remove_node(tree, m, 'math')
-        else:
-            if ref_tree:
-                # Remove previous nodes
-                math_ref = ref_tree.nodes.get(m.math)
-                if math_ref: ref_tree.nodes.remove(math_ref)
-
-                math = new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math')
-                dirty = True
-            else:
-                math, dirty = check_new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math', True)
-
-            if dirty:
-                if channel_type == 'VALUE':
-                    math.node_tree = get_node_tree_lib(lib.MOD_MATH_VALUE)
-                else :
-                    math.node_tree = get_node_tree_lib(lib.MOD_MATH)
-
-                duplicate_lib_node_tree(math)
-                math.inputs[2].default_value = m.math_r_val
-
-                math.node_tree.nodes.get('Math.R').operation = m.math_meth
-                math.node_tree.nodes.get('Math.A').operation = m.math_meth
-
-                math.node_tree.nodes.get('Math.R').use_clamp = m.use_clamp
-                math.node_tree.nodes.get('Math.A').use_clamp = m.use_clamp
-
-                math.node_tree.nodes.get('Mix.A').mute = not m.affect_alpha
-
-                if channel_type == 'VALUE':
-                    math.inputs[3].default_value = m.math_a_val
-                else:
-                    math.inputs[3].default_value = m.math_g_val
-                    math.inputs[4].default_value = m.math_b_val
-                    math.inputs[5].default_value = m.math_a_val
-
-                    math.node_tree.nodes.get('Math.G').operation = m.math_meth
-                    math.node_tree.nodes.get('Math.B').operation = m.math_meth
-
-                    math.node_tree.nodes.get('Math.G').use_clamp = m.use_clamp
-                    math.node_tree.nodes.get('Math.B').use_clamp = m.use_clamp
-
 def add_new_modifier(parent, modifier_type):
 
     yp = parent.id_data.yp
@@ -423,46 +111,6 @@ def add_new_modifier(parent, modifier_type):
     check_modifiers_trees(parent)
 
     return m
-
-def delete_modifier_nodes(tree, mod):
-
-    # Delete the nodes
-    remove_node(tree, mod, 'frame')
-
-    if mod.type == 'RGB_TO_INTENSITY':
-        remove_node(tree, mod, 'rgb2i')
-
-    elif mod.type == 'INTENSITY_TO_RGB':
-        remove_node(tree, mod, 'i2rgb')
-
-    elif mod.type == 'OVERRIDE_COLOR':
-        remove_node(tree, mod, 'oc')
-
-    elif mod.type == 'INVERT':
-        remove_node(tree, mod, 'invert')
-
-    elif mod.type == 'COLOR_RAMP':
-        remove_node(tree, mod, 'color_ramp_linear_start')
-        remove_node(tree, mod, 'color_ramp')
-        remove_node(tree, mod, 'color_ramp_linear')
-        remove_node(tree, mod, 'color_ramp_alpha_multiply')
-        remove_node(tree, mod, 'color_ramp_mix_rgb')
-        remove_node(tree, mod, 'color_ramp_mix_alpha')
-
-    elif mod.type == 'RGB_CURVE':
-        remove_node(tree, mod, 'rgb_curve')
-
-    elif mod.type == 'HUE_SATURATION':
-        remove_node(tree, mod, 'huesat')
-
-    elif mod.type == 'BRIGHT_CONTRAST':
-        remove_node(tree, mod, 'brightcon')
-
-    elif mod.type == 'MULTIPLIER':
-        remove_node(tree, mod, 'multiplier')
-
-    elif mod.type == 'MATH':
-        remove_node(tree, mod, 'math')
 
 class YNewYPaintModifier(bpy.types.Operator):
     bl_idname = "node.y_new_ypaint_modifier"
@@ -514,11 +162,11 @@ class YNewYPaintModifier(bpy.types.Operator):
 
         # Reconnect and rearrange nodes
         if layer:
-            rearrange_layer_nodes(layer)
             reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
         else: 
-            rearrange_yp_nodes(group_tree)
             reconnect_yp_nodes(group_tree)
+            rearrange_yp_nodes(group_tree)
 
         # Update UI
         context.window_manager.ypui.need_update = True
@@ -665,7 +313,10 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         col = layout.column(align=True)
         row = col.row()
         row.label(text='Color:')
-        row.prop(modifier, 'rgb2i_col', text='')
+        rgb2i = nodes.get(modifier.rgb2i)
+        if rgb2i:
+            row.prop(rgb2i.inputs[3], 'default_value', text='')
+        else: row.prop(modifier, 'rgb2i_col', text='')
 
         # Shortcut only available on layer channel
         if is_layer_ch:
@@ -706,9 +357,15 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         col.label(text='Value:')
 
         col = row.column(align=True)
-        col.prop(modifier, 'huesat_hue_val', text='')
-        col.prop(modifier, 'huesat_saturation_val', text='')
-        col.prop(modifier, 'huesat_value_val', text='')
+        huesat = nodes.get(modifier.huesat)
+        if huesat:
+            col.prop(huesat.inputs[0], 'default_value', text='')
+            col.prop(huesat.inputs[1], 'default_value', text='')
+            col.prop(huesat.inputs[2], 'default_value', text='')
+        else:
+            col.prop(modifier, 'huesat_hue_val', text='')
+            col.prop(modifier, 'huesat_saturation_val', text='')
+            col.prop(modifier, 'huesat_value_val', text='')
 
     elif modifier.type == 'BRIGHT_CONTRAST':
         row = layout.row(align=True)
@@ -717,8 +374,13 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         col.label(text='Contrast:')
 
         col = row.column(align=True)
-        col.prop(modifier, 'brightness_value', text='')
-        col.prop(modifier, 'contrast_value', text='')
+        brightcon = nodes.get(modifier.brightcon)
+        if brightcon:
+            col.prop(brightcon.inputs[1], 'default_value', text='')
+            col.prop(brightcon.inputs[2], 'default_value', text='')
+        else:
+            col.prop(modifier, 'brightness_value', text='')
+            col.prop(modifier, 'contrast_value', text='')
 
     elif modifier.type == 'MULTIPLIER':
         col = layout.column(align=True)
@@ -742,18 +404,29 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         row = col.row()
         row.label(text='Clamp:')
         row.prop(modifier, 'use_clamp', text='')
+        math = nodes.get(modifier.math)
         if channel_type == 'VALUE':
-            col.prop(modifier, 'math_r_val', text='Value')
+            if math: col.prop(math.inputs[2], 'default_value', text='Value')
+            else: col.prop(modifier, 'math_r_val', text='Value')
         else :
-            col.prop(modifier, 'math_r_val', text='R')
-            col.prop(modifier, 'math_g_val', text='G')
-            col.prop(modifier, 'math_b_val', text='B')
+            if math:
+                col.prop(math.inputs[2], 'default_value', text='R')
+                col.prop(math.inputs[3], 'default_value', text='G')
+                col.prop(math.inputs[4], 'default_value', text='B')
+            else:
+                col.prop(modifier, 'math_r_val', text='R')
+                col.prop(modifier, 'math_g_val', text='G')
+                col.prop(modifier, 'math_b_val', text='B')
         col.separator()
         row = col.row()
         row.label(text='Affect Alpha:')
         row.prop(modifier, 'affect_alpha', text='')
         if modifier.affect_alpha :
-            col.prop(modifier, 'math_a_val', text='A')
+            if math: 
+                if channel_type == 'VALUE':
+                    col.prop(math.inputs[3], 'default_value', text='A')
+                else: col.prop(math.inputs[5], 'default_value', text='A')
+            else: col.prop(modifier, 'math_a_val', text='A')
 
 def update_modifier_enable(self, context):
 
@@ -771,13 +444,13 @@ def update_modifier_enable(self, context):
         if match1: layer = yp.layers[int(match1.group(1))]
         else: layer = yp.layers[int(match2.group(1))]
 
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
     elif match3:
         channel = yp.channels[int(match3.group(1))]
-        rearrange_yp_nodes(self.id_data)
         reconnect_yp_nodes(self.id_data)
+        rearrange_yp_nodes(self.id_data)
 
 def update_modifier_shortcut(self, context):
 
@@ -886,56 +559,6 @@ def update_multiplier_val_input(self, context):
             multiplier.inputs[5].default_value = self.multiplier_b_val if self.enable else 1.0
             multiplier.inputs[6].default_value = self.multiplier_a_val if self.enable else 1.0
 
-def update_math_val_input(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update or not self.enable: return
-    channel_type = get_modifier_channel_type(self)
-    tree = get_mod_tree(self)
-
-    if self.type == 'MATH':
-        math = tree.nodes.get(self.math)
-        math.inputs[2].default_value = self.math_r_val if self.enable else 0.0
-        if channel_type == 'VALUE':
-            math.inputs[3].default_value = self.math_a_val if self.enable else 0.0
-        else:
-            math.inputs[3].default_value = self.math_g_val if self.enable else 0.0
-            math.inputs[4].default_value = self.math_b_val if self.enable else 0.0
-            math.inputs[5].default_value = self.math_a_val if self.enable else 0.0
-
-def update_brightcon_value(self, context):
-
-    yp = self.id_data.yp
-    if yp.halt_update or not self.enable: return
-    channel_type = get_modifier_channel_type(self)
-    tree = get_mod_tree(self)
-
-    if self.type == 'BRIGHT_CONTRAST':
-        brightcon = tree.nodes.get(self.brightcon)
-        brightcon.inputs['Bright'].default_value = self.brightness_value if self.enable else 0.0
-        brightcon.inputs['Contrast'].default_value = self.contrast_value if self.enable else 0.0
-
-def update_huesat_value(self, context):
-
-    yp = self.id_data.yp
-    if yp.halt_update or not self.enable: return
-    channel_type = get_modifier_channel_type(self)
-    tree = get_mod_tree(self)
-
-    if self.type == 'HUE_SATURATION':
-        huesat = tree.nodes.get(self.huesat)
-        huesat.inputs['Hue'].default_value = self.huesat_hue_val if self.enable else 0.0
-        huesat.inputs['Saturation'].default_value = self.huesat_saturation_val if self.enable else 0.0
-        huesat.inputs['Value'].default_value = self.huesat_value_val if self.enable else 0.0
-
-def update_rgb2i_col(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update or not self.enable: return
-    tree = get_mod_tree(self)
-
-    if self.type == 'RGB_TO_INTENSITY':
-        rgb2i = tree.nodes.get(self.rgb2i)
-        rgb2i.inputs['RGB To Intensity Color'].default_value = self.rgb2i_col
-
 def update_oc_col(self, context):
 
     yp = self.id_data.yp
@@ -965,8 +588,7 @@ class YPaintModifier(bpy.types.PropertyGroup):
     rgb2i : StringProperty(default='')
 
     rgb2i_col : FloatVectorProperty(name='RGB to Intensity Color', size=4, subtype='COLOR', 
-            default=(1.0,0.0,1.0,1.0), min=0.0, max=1.0,
-            update=update_rgb2i_col)
+            default=(1.0,0.0,1.0,1.0), min=0.0, max=1.0)
 
     # Intensity to RGB nodes
     i2rgb : StringProperty(default='')
@@ -1006,16 +628,16 @@ class YPaintModifier(bpy.types.PropertyGroup):
     brightcon : StringProperty(default='')
 
     brightness_value : FloatProperty(name='Brightness', description='Brightness', 
-            default=0.0, min=-100.0, max=100.0, update=update_brightcon_value)
+            default=0.0, min=-100.0, max=100.0)
     contrast_value : FloatProperty(name='Contrast', description='Contrast', 
-            default=0.0, min=-100.0, max=100.0, update=update_brightcon_value)
+            default=0.0, min=-100.0, max=100.0)
 
     # Hue Saturation nodes
     huesat : StringProperty(default='')
 
-    huesat_hue_val : FloatProperty(default=0.5, min=0.0, max=1.0, description='Hue', update=update_huesat_value)
-    huesat_saturation_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Saturation', update=update_huesat_value)
-    huesat_value_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Value', update=update_huesat_value)
+    huesat_hue_val : FloatProperty(default=0.5, min=0.0, max=1.0, description='Hue')
+    huesat_saturation_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Saturation')
+    huesat_value_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Value')
 
     # Multiplier nodes (Deprecated)
     multiplier : StringProperty(default='')
@@ -1028,10 +650,10 @@ class YPaintModifier(bpy.types.PropertyGroup):
     # Math nodes
     math : StringProperty(default='')
 
-    math_r_val : FloatProperty(default=1.0, update=update_math_val_input)
-    math_g_val : FloatProperty(default=1.0, update=update_math_val_input)
-    math_b_val : FloatProperty(default=1.0, update=update_math_val_input)
-    math_a_val : FloatProperty(default=1.0, update=update_math_val_input)
+    math_r_val : FloatProperty(default=1.0)
+    math_g_val : FloatProperty(default=1.0)
+    math_b_val : FloatProperty(default=1.0)
+    math_a_val : FloatProperty(default=1.0)
 
     math_meth : EnumProperty(
         name = 'Method',
@@ -1054,6 +676,17 @@ class YPaintModifier(bpy.types.PropertyGroup):
             update=update_modifier_shortcut)
 
     expand_content : BoolProperty(default=True)
+
+def check_yp_modifier_linear_nodes(yp):
+    for ch in yp.channels:
+        check_modifiers_trees(ch)
+        
+    for layer in yp.layers:
+        check_modifiers_trees(layer)
+        for ch in layer.channels:
+            check_modifiers_trees(ch)
+        #for mask in layer.masks:
+        #    check_modifiers_trees(mask)
 
 def check_modifiers_trees(parent, rearrange=False):
     group_tree = parent.id_data
@@ -1113,8 +746,8 @@ def check_modifiers_trees(parent, rearrange=False):
             disable_modifiers_tree(parent, parent_tree)
 
     if rearrange:
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def enable_modifiers_tree(parent, parent_tree=None, name='', is_layer=False, rearrange = False):
     
@@ -1191,8 +824,8 @@ def enable_modifiers_tree(parent, parent_tree=None, name='', is_layer=False, rea
         check_modifier_nodes(mod, mod_tree, parent_tree)
 
     if rearrange:
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
     group_tree = parent.id_data
@@ -1208,7 +841,7 @@ def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
             root_ch = yp.channels[int(match1.group(2))]
 
             # Check if fine bump map is still used
-            if parent.enable and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+            if get_channel_enabled(parent, layer, root_ch) and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
                 if layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not parent.override:
                     return
                 if parent.override and parent.override_type != 'DEFAULT':

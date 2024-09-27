@@ -1,13 +1,14 @@
-import bpy, time
+import bpy, time, os
 from .common import *
-from .subtree import *
 from mathutils import *
-#from bpy.app.handlers import persistent
 
 # Node tree names
 OVERLAY_NORMAL = '~yPL Overlay Normal'
 OVERLAY_NORMAL_STRAIGHT_OVER = '~yPL Overlay Normal Straight Over'
 CHECK_INPUT_NORMAL = '~yPL Check Input Normal'
+CHECK_INPUT_NORMAL_GEOMETRY = '~yPL Check Input Normal Geometry'
+CHECK_INPUT_NORMAL_MIXED = '~yPL Check Input Normal Mixed'
+CHECK_INPUT_NORMAL_MIXED_BL27 = '~yPL Check Input Normal Mixed BL27'
 
 NORMAL_MAP = '~yPL Normal Map'
 NORMAL_MAP_PREP = '~yPL Normal Map Preparation'
@@ -64,6 +65,10 @@ RAMP_FLIP_STRAIGHT_OVER_BLEND = '~yPL Ramp Flip Straight Over Blend'
 VECTOR_MIX ='~yPL Vector Mix'
 #INVERTED_MULTIPLIER ='~yPL Inverted Multiplier'
 INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
+INTENSITY_MULTIPLIER_SHARPEN ='~yPL Intensity Multiplier Sharpen'
+INTENSITY_MULTIPLIER_SHARPEN_INVERT ='~yPL Intensity Multiplier Sharpen Invert'
+INTENSITY_MULTIPLIER_SHARPEN_NO_FACTOR ='~yPL Intensity Multiplier Sharpen No Factor'
+INTENSITY_MULTIPLIER_INVERT ='~yPL Intensity Multiplier Invert'
 GET_BITANGENT ='~yPL Get Bitangent'
 BITANGENT_FROM_NATIVE_TANGENT = '~yPL Bitangent from Native Tangent'
 
@@ -87,6 +92,7 @@ OBJECT_INDEX_GREATER_THAN = '~yPL Object Index Greater Than'
 OBJECT_INDEX_LESS_THAN = '~yPL Object Index Less Than'
 
 COLOR_ID_EQUAL = '~yPL Color ID Equal'
+COLOR_ID_EQUAL_282 = '~yPL Color ID Equal 2.82'
 
 HEMI = '~yPL Hemi'
 FXAA = '~yPL FXAA'
@@ -97,22 +103,13 @@ PAINT_BASE = '~yPL Paint Base'
 
 BLUR_VECTOR = '~yPL Blur Vector'
 
-# NEW ORDER
-
 HEIGHT_PROCESS = '~yPL Height Process'
-#HEIGHT_PROCESS_GROUP = '~yPL Height Process Group'
 HEIGHT_PROCESS_TRANSITION = '~yPL Height Process Transition'
-#HEIGHT_PROCESS_TRANSITION_GROUP = '~yPL Height Process Transition Group'
 HEIGHT_PROCESS_TRANSITION_CREASE = '~yPL Height Process Transition Crease'
-#HEIGHT_PROCESS_TRANSITION_CREASE_GROUP = '~yPL Height Process Transition Crease Group'
 HEIGHT_PROCESS_SMOOTH = '~yPL Height Process Smooth'
-#HEIGHT_PROCESS_SMOOTH_GROUP = '~yPL Height Process Smooth Group'
 HEIGHT_PROCESS_TRANSITION_SMOOTH = '~yPL Height Process Transition Smooth'
-#HEIGHT_PROCESS_TRANSITION_SMOOTH_GROUP = '~yPL Height Process Transition Smooth Group'
 HEIGHT_PROCESS_TRANSITION_SMOOTH_ZERO_CHAIN = '~yPL Height Process Transition Smooth Zero Chain'
-#HEIGHT_PROCESS_TRANSITION_SMOOTH_ZERO_CHAIN_GROUP = '~yPL Height Process Transition Smooth Zero Chain Group'
 HEIGHT_PROCESS_TRANSITION_SMOOTH_CREASE = '~yPL Height Process Transition Smooth Crease'
-#HEIGHT_PROCESS_TRANSITION_SMOOTH_CREASE_GROUP = '~yPL Height Process Transition Smooth Crease Group'
 
 HEIGHT_PROCESS_NORMAL_MAP = '~yPL Height Process Normal Map'
 HEIGHT_PROCESS_TRANSITION_NORMAL_MAP = '~yPL Height Process Transition Normal Map'
@@ -132,9 +129,9 @@ STRAIGHT_OVER_HEIGHT_COMPARE = '~yPL Straight Over Height Compare'
 STRAIGHT_OVER_HEIGHT_COMPARE_SMOOTH = '~yPL Straight Over Height Compare Smooth'
 
 NORMAL_PROCESS = '~yPL Normal Process'
-#NORMAL_PROCESS_GROUP = '~yPL Normal Process Group'
+NORMAL_PROCESS_GROUP = '~yPL Normal Process Group'
 NORMAL_PROCESS_SMOOTH = '~yPL Normal Process Smooth'
-#NORMAL_PROCESS_SMOOTH_GROUP = '~yPL Normal Process Smooth Group'
+NORMAL_PROCESS_SMOOTH_GROUP = '~yPL Normal Process Smooth Group'
 
 NORMAL_MAP_PROCESS = '~yPL Normal Map Process'
 NORMAL_MAP_PROCESS_TRANSITION = '~yPL Normal Map Process Transition'
@@ -146,15 +143,21 @@ ADVANCED_EMISSION_VIEWER = '~yPL Advanced Emission Viewer'
 ADVANCED_NORMAL_EMISSION_VIEWER = '~yPL Advanced Normal Emission Viewer'
 #GRID_EMISSION_VIEWER = '~yPL Grid Emission Viewer'
 
-
 ENGINE_FILTER = '~yPL Engine Filter'
 
 UNPACK_ONSEW = '~yPL Unpack ONSEW'
 PACK_ONSEW = '~yPL Pack ONSEW'
 
 BL27_DISP = '~yPL Blender 2.7 Displacement'
+COMBINED_VDM = '~yPL Combined VDM'
+
+DECAL_PROCESS = '~yPL Decal Process'
 
 SMOOTH_PREFIX = '~yPL Smooth '
+
+# Nodes that require Blender 2.81 at minimum
+EDGE_DETECT = '~yPL Edge Detect'
+EDGE_DETECT_CUSTOM_NORMAL = '~yPL Edge Detect Custom Normal'
 
 # Legacy nodes for Blender 2.79
 FLIP_BACKFACE_NORMAL_LEGACY = '~yPL Flip Backface Normal Legacy'
@@ -163,70 +166,31 @@ FLIP_BACKFACE_TANGENT_LEGACY = '~yPL Flip Backface Tangent Legacy'
 NORMAL_MAP_PREP_LEGACY = '~yPL Normal Map Preparation Legacy'
 ENGINE_FILTER_LEGACY = '~yPL Engine Filter Legacy'
 
-# END OF NEW ORDER
-
-#HEIGHT_PROCESS_BUMP_MIX = '~yPL Height Process Bump Mix'
-#HEIGHT_PROCESS_BUMP_ADD = '~yPL Height Process Bump Add'
-#
-#HEIGHT_PROCESS_TRANSITION_BUMP = '~yPL Height Process Transition Bump'
-#HEIGHT_PROCESS_TRANSITION_BUMP_MIX = '~yPL Height Process Transition Bump Mix'
-#HEIGHT_PROCESS_TRANSITION_BUMP_ADD = '~yPL Height Process Transition Bump Add'
-#
-#HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_MIX = '~yPL Height Process Transition Bump Crease Mix'
-#HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_ADD = '~yPL Height Process Transition Bump Crease Add'
-#
-#HEIGHT_PROCESS_NORMAL_MAP_MIX = '~yPL Height Process Normal Map Mix'
-#HEIGHT_PROCESS_NORMAL_MAP_ADD = '~yPL Height Process Normal Map Add'
-#
-#HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_MIX = '~yPL Height Process Transition Normal Map Mix'
-#HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_ADD = '~yPL Height Process Transition Normal Map Add'
-#
-#HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_MIX = '~yPL Height Process Transition Normal Map Crease Mix'
-#HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_ADD = '~yPL Height Process Transition Normal Map Crease Add'
-#
-#NORMAL_PROCESS_BUMP = '~yPL Normal Process Bump'
-#
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_MIX = '~yPL Normal Process Transition Smooth Bump Mix'
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Process Transition Smooth Bump Add'
-#
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_MIX = '~yPL Normal Process Transition Smooth Bump Zero Chain Mix'
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_ADD = '~yPL Normal Process Transition Smooth Bump Zero Chain Add'
-#
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX = '~yPL Normal Process Transition Smooth Bump Crease Mix'
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD = '~yPL Normal Process Transition Smooth Bump Crease Add'
-#
-#NORMAL_PROCESS_BUMP_MIX = '~yPL Normal Process Bump Mix'
-#NORMAL_PROCESS_BUMP_ADD = '~yPL Normal Process Bump Add'
-#
-#NORMAL_MAP_PROCESS_BUMP = '~yPL Normal Map Process Bump'
-#NORMAL_MAP_PROCESS_TRANSITION_BUMP = '~yPL Normal Map Process Transition Bump'
-#
-#NORMAL_MAP_PROCESS_SMOOTH_BUMP_MIX = '~yPL Normal Map Process Smooth Bump Mix'
-#NORMAL_MAP_PROCESS_SMOOTH_BUMP_ADD = '~yPL Normal Map Process Smooth Bump Add'
-#
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX = '~yPL Normal Map Process Transition Smooth Bump Mix'
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Map Process Transition Smooth Bump Add'
-#
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX = '~yPL Normal Map Process Transition Smooth Bump Mix'
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Map Process Transition Smooth Bump Add'
-#
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX = '~yPL Normal Map Process Transition Smooth Bump Mix'
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Map Process Transition Smooth Bump Add'
-#
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX = '~yPL Normal Map Process Transition Smooth Bump Crease Mix'
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD = '~yPL Normal Map Process Transition Smooth Bump Crease Add'
-
-#DISP_MIX = '~yPL Displacement Mix'
-#DISP_OVERLAY = '~yPL Displacement Overlay'
-#HEIGHT_PACK = '~yPL Height Pack'
+TB_DELTA_CALC = '~yPL Transition Bump Delta Calculation'
+CH_MAX_HEIGHT_CALC = '~yPL Layer Channel Max Height'
+CH_MAX_HEIGHT_TB_CALC = '~yPL Layer Channel Max Height with Transition Bump'
+CH_MAX_HEIGHT_TB_ADD_CALC = '~yPL Layer Channel Max Height with Transition Bump Add'
+CH_MAX_HEIGHT_TBC_CALC = '~yPL Layer Channel Max Height with Transition Bump Crease'
+CH_MAX_HEIGHT_TBC_ADD_CALC = '~yPL Layer Channel Max Height with Transition Bump Crease Add'
 
 EMULATED_CURVE = '~yPL Emulated Curve'
+EMULATED_CURVE_FLIP = '~yPL Emulated Curve Flip'
 EMULATED_CURVE_SMOOTH = '~yPL Emulated Curve Smooth'
+EMULATED_CURVE_SMOOTH_FLIP = '~yPL Emulated Curve Smooth Flip'
 FALLOFF_CURVE = '~yPL Falloff Curve'
 FALLOFF_CURVE_SMOOTH = '~yPL Falloff Curve Smooth'
 
+START_BUMP_PROCESS = '~yPL Start Bump Process'
+START_FINE_BUMP_PROCESS = '~yPL Start Fine Bump Process'
 FINE_BUMP_PROCESS = '~yPL Fine Bump Process'
+#FINE_BUMP_PROCESS = '~yPL Fine Bump Process Sophisticated'
+FINE_BUMP_PROCESS_START_BUMP = '~yPL Fine Bump Process with Start Bump'
+FINE_BUMP_PROCESS_START_BUMP_SUBDIV_ON = '~yPL Fine Bump Process with Start Bump Subdiv On'
 BUMP_PROCESS = '~yPL Bump Process'
+BUMP_PROCESS_SUBDIV_ON = '~yPL Bump Process Subdiv On'
+MAX_HEIGHT_TWEAK = '~yPL Max Height Tweak'
+MAX_HEIGHT_TWEAK_SMOOTH = '~yPL Max Height Tweak Smooth'
+SUBDIV_ON_NORMAL = '~yPL Subdiv On Normal'
 
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'
@@ -238,6 +202,7 @@ SRGB_2_LINEAR = '~yPL SRGB to Linear'
 LINEAR_2_SRGB = '~yPL Linear to SRGB'
 
 FLIP_Y = '~yPL Flip Y'
+FLIP_YZ = '~yPL Flip YZ'
 
 # Modifier tree names
 MOD_RGB2INT = '~yPL Mod RGB To Intensity'
@@ -251,6 +216,12 @@ MOD_INTENSITY_HARDNESS = '~yPL Mod Intensity Hardness'
 MOD_MATH = '~yPL Mod Math'
 MOD_MATH_VALUE = '~yPL Mod Math Value'
 
+# GLTF related
+GLTF_MATERIAL_OUTPUT = 'glTF Material Output'
+GLTF_SETTINGS = 'glTF Settings'
+
+# Manual BSDFs
+BL278_BSDF = 'bsdf278'
 
 channel_custom_icon_dict = {
         'RGB' : 'rgb_channel',
@@ -270,80 +241,11 @@ def load_custom_icons():
     if not hasattr(bpy.utils, 'previews'): return
     global custom_icons
     custom_icons = bpy.utils.previews.new()
-    filepath = get_addon_filepath() + 'icons' + os.sep
-    custom_icons.load('asterisk', filepath + 'asterisk_icon.png', 'IMAGE')
+    folder = get_addon_filepath() + 'icons' + os.sep
 
-    custom_icons.load('channels', filepath + 'channels_icon.png', 'IMAGE')
-    custom_icons.load('rgb_channel', filepath + 'rgb_channel_icon.png', 'IMAGE')
-    custom_icons.load('value_channel', filepath + 'value_channel_icon.png', 'IMAGE')
-    custom_icons.load('vector_channel', filepath + 'vector_channel_icon.png', 'IMAGE')
-
-    custom_icons.load('add_modifier', filepath + 'add_modifier_icon.png', 'IMAGE')
-    custom_icons.load('add_mask', filepath + 'add_mask_icon.png', 'IMAGE')
-
-    custom_icons.load('texture', filepath + 'texture_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_texture', filepath + 'collapsed_texture_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_texture', filepath + 'uncollapsed_texture_icon.png', 'IMAGE')
-
-    custom_icons.load('image', filepath + 'image_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_image', filepath + 'collapsed_image_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_image', filepath + 'uncollapsed_image_icon.png', 'IMAGE')
-
-    custom_icons.load('modifier', filepath + 'modifier_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_modifier', filepath + 'collapsed_modifier_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_modifier', filepath + 'uncollapsed_modifier_icon.png', 'IMAGE')
-
-    custom_icons.load('input', filepath + 'input_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_input', filepath + 'collapsed_input_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_input', filepath + 'uncollapsed_input_icon.png', 'IMAGE')
-
-    custom_icons.load('uv', filepath + 'uv_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_uv', filepath + 'collapsed_uv_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_uv', filepath + 'uncollapsed_uv_icon.png', 'IMAGE')
-
-    custom_icons.load('mask', filepath + 'mask_icon.png', 'IMAGE')
-    custom_icons.load('disabled_mask', filepath + 'disabled_mask_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_mask', filepath + 'collapsed_mask_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_mask', filepath + 'uncollapsed_mask_icon.png', 'IMAGE')
-
-    custom_icons.load('collapsed_vcol', filepath + 'collapsed_vertex_color_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_vcol', filepath + 'uncollapsed_vertex_color_icon.png', 'IMAGE')
-
-    custom_icons.load('close', filepath + 'close_icon.png', 'IMAGE')
-    custom_icons.load('clean', filepath + 'clean_icon.png', 'IMAGE')
-
-    custom_icons.load('vertex_color', filepath + 'vertex_color_icon.png', 'IMAGE')
-
-    custom_icons.load('bake', filepath + 'bake_icon.png', 'IMAGE')
-    custom_icons.load('group', filepath + 'group_icon.png', 'IMAGE')
-    custom_icons.load('background', filepath + 'background_icon.png', 'IMAGE')
-    custom_icons.load('blend', filepath + 'blend_icon.png', 'IMAGE')
-    custom_icons.load('open_image', filepath + 'open_image_icon.png', 'IMAGE')
-    custom_icons.load('nodetree', filepath + 'nodetree_icon.png', 'IMAGE')
-    custom_icons.load('rename', filepath + 'rename_icon.png', 'IMAGE')
-
-    custom_icons.load('object_index', filepath + 'object_index_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_object_index', filepath + 'collapsed_object_index_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_object_index', filepath + 'uncollapsed_object_index_icon.png', 'IMAGE')
-
-    custom_icons.load('hemi', filepath + 'hemi_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_hemi', filepath + 'collapsed_hemi_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_hemi', filepath + 'uncollapsed_hemi_icon.png', 'IMAGE')
-
-    custom_icons.load('color', filepath + 'color_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_color', filepath + 'collapsed_color_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_color', filepath + 'uncollapsed_color_icon.png', 'IMAGE')
-
-    custom_icons.load('collapsed_channels', filepath + 'collapsed_channels_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_channels', filepath + 'uncollapsed_channels_icon.png', 'IMAGE')
-
-    custom_icons.load('collapsed_rgb_channel', filepath + 'collapsed_rgb_channel_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_rgb_channel', filepath + 'uncollapsed_rgb_channel_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_value_channel', filepath + 'collapsed_value_channel_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_value_channel', filepath + 'uncollapsed_value_channel_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_channel_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_channel_icon.png', 'IMAGE')
-
+    for f in os.listdir(folder):
+        icon_name = f.replace('_icon.png', '')
+        custom_icons.load(icon_name, folder + f, 'IMAGE')
 
 def get_icon(custom_icon_name):
     return custom_icons[custom_icon_name].icon_id
@@ -352,18 +254,12 @@ def check_uv_difference_to_main_uv(entity):
     yp = entity.id_data.yp
     height_ch = get_root_height_channel(yp)
     if height_ch:
-
-        # Set height channel main uv if its still empty
-        #if height_ch.main_uv == '' and len(yp.uvs) > 0:
-        #    height_ch.main_uv = yp.uvs[0].name
-
         # Check if entity uv is different to main uv
         if height_ch.main_uv != '' and hasattr(entity, 'uv_name') and entity.uv_name != height_ch.main_uv:
             return True
 
     return False
 
-#def get_neighbor_uv_tree(texcoord_type, different_uv=False, entity=None):
 def get_neighbor_uv_tree(texcoord_type, entity):
 
     if texcoord_type == 'UV':
@@ -375,34 +271,15 @@ def get_neighbor_uv_tree(texcoord_type, entity):
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return get_node_tree_lib(NEIGHBOR_UV_CAMERA)
 
-#def get_neighbor_uv_tree_name(texcoord_type, different_uv=False, entity=None):
 def get_neighbor_uv_tree_name(texcoord_type, entity):
     if texcoord_type == 'UV':
         different_uv = check_uv_difference_to_main_uv(entity)
         if different_uv: return NEIGHBOR_UV_OTHER_UV
         return NEIGHBOR_UV_TANGENT
-    if texcoord_type in {'Generated', 'Normal', 'Object'}:
+    if texcoord_type in {'Generated', 'Normal', 'Object', 'Decal'}:
         return NEIGHBOR_UV_OBJECT
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return NEIGHBOR_UV_CAMERA
-
-def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
-    if label == '': label = 'Intensity Multiplier'
-    im = new_node(tree, obj, prop, 'ShaderNodeGroup', label)
-    im.node_tree = get_node_tree_lib(INTENSITY_MULTIPLIER)
-    set_default_value(im, 1, sharpness)
-    set_default_value(im, 'Sharpen', 1.0)
-
-    if BLENDER_28_GROUP_INPUT_HACK:
-        duplicate_lib_node_tree(im)
-
-    #m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', obj.path_from_id())
-    #if m:
-    #    yp = obj.id_data.yp
-    #    root_ch = yp.channels[int(m.group(2))]
-    #    print(root_ch.name, prop)
-
-    return im
 
 def get_smooth_mix_node(blend_type, layer_type=''):
 
@@ -529,27 +406,12 @@ def get_smooth_mix_node(blend_type, layer_type=''):
 def clean_unused_libraries():
     for ng in bpy.data.node_groups:
         if ng.name.startswith('~yPL ') and ng.users == 0:
-            bpy.data.node_groups.remove(ng)
-
-#@persistent
-#def load_libraries(scene):
-#    # Node groups necessary are in nodegroups_lib.blend
-#    filepath = get_addon_filepath() + "lib.blend"
-#
-#    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-#
-#        # Load node groups
-#        exist_groups = [ng.name for ng in bpy.data.node_groups]
-#        for ng in data_from.node_groups:
-#            if ng not in exist_groups:
-#                data_to.node_groups.append(ng)
+            remove_datablock(bpy.data.node_groups, ng)
 
 def register():
     load_custom_icons()
-    #bpy.app.handlers.load_post.append(load_libraries)
 
 def unregister():
     global custom_icons
     if hasattr(bpy.utils, 'previews'):
         bpy.utils.previews.remove(custom_icons)
-    #bpy.app.handlers.load_post.remove(load_libraries)

@@ -1,7 +1,6 @@
-import bpy, os, sys, re, time, numpy, math
+import bpy, os, sys, re, time, numpy, math, pathlib
 from mathutils import *
 from bpy.app.handlers import persistent
-#from .__init__ import bl_info
 
 BLENDER_28_GROUP_INPUT_HACK = False
 
@@ -63,7 +62,10 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("VALUE", "Value", ""),
 	             ("COLOR", "Color", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
-	             ("LINEAR_LIGHT", "Linear Light", ""))
+	             ("LINEAR_LIGHT", "Linear Light", ""),
+	             ("DODGE", "Dodge", ""),
+	             ("BURN", "Burn", ""))
+
 
 mask_blend_type_items = (("MIX", "Replace", ""),
 	             ("ADD", "Add", ""),
@@ -80,7 +82,45 @@ mask_blend_type_items = (("MIX", "Replace", ""),
 	             ("VALUE", "Value", ""),
 	             ("COLOR", "Color", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
-	             ("LINEAR_LIGHT", "Linear Light", ""))
+	             ("LINEAR_LIGHT", "Linear Light", ""),
+	             ("DODGE", "Dodge", ""),
+	             ("BURN", "Burn", ""))
+
+voronoi_feature_items = (("F1", "F1", "Compute and return the distance to the closest feature point as well as its position and color"),
+	             ("F2", "F2", "Compute and return the distance to the second closest feature point as well as its position and color."),
+	             ("SMOOTH_F1", "Smooth F1", "Compute and return a smooth version of F1."), 
+	             ("DISTANCE_TO_EDGE", "Distance to Edge", "Compute and return the distance to the edges of the Voronoi cells."), 
+	             ("N_SPHERE_RADIUS", "N-Sphere Radius", "Compute and return the radius of the n-sphere inscribed in the Voronoi cells. In other words, it is half the distance between the closest feature point and the feature point closest to it."))
+
+def entity_input_items(self, context):
+    yp = self.id_data.yp
+    entity = self
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', entity.path_from_id())
+    if m: entity = yp.layers[int(m.group(1))]
+
+    items = []
+
+    if entity.type not in layer_type_labels:
+        items.append(('RGB', 'RGB',  ''))
+        items.append(('ALPHA', 'Alpha',  ''))
+    else:
+        label = layer_type_labels[entity.type]
+
+        if is_greater_than_281() and entity.type == 'VORONOI':
+            items.append(('RGB', label + ' Color',  ''))
+            items.append(('ALPHA', label + ' Distance',  ''))
+        elif entity.type == 'VCOL':
+            items.append(('RGB', label,  ''))
+            items.append(('ALPHA', label + ' Alpha',  ''))
+        elif entity.type == 'IMAGE':
+            items.append(('RGB', label + ' Color',  ''))
+            items.append(('ALPHA', label + ' Alpha',  ''))
+        else:
+            items.append(('RGB', label + ' Color',  ''))
+            items.append(('ALPHA', label + ' Factor',  ''))
+        
+    return items
 
 COLORID_TOLERANCE = 0.003906 # 1/256
 
@@ -93,7 +133,7 @@ neighbor_directions = ['n', 's', 'e', 'w']
 normal_blend_items = (
         ('MIX', 'Mix', ''),
         #('VECTOR_MIX', 'Vector Mix', ''),
-        ('OVERLAY', 'Overlay', ''),
+        ('OVERLAY', 'Add', ''),
         ('COMPARE', 'Compare Height', '')
         )
 
@@ -139,7 +179,10 @@ mask_type_items = (
         ('VCOL', 'Vertex Color', ''),
         ('HEMI', 'Fake Lighting', ''),
         ('OBJECT_INDEX', 'Object Index', ''),
-        ('COLOR_ID', 'Color ID', '')
+        ('COLOR_ID', 'Color ID', ''),
+        ('BACKFACE', 'Backface', ''),
+        ('EDGE_DETECT', 'Edge Detect', ''),
+        ('MODIFIER', 'Modifier', ''),
         )
 
 channel_override_type_items = (
@@ -161,6 +204,19 @@ channel_override_type_items = (
         #('COLOR', 'Solid Color', ''),
         #('GROUP', 'Group', ''),
         #('HEMI', 'Fake Lighting', ''),
+        )
+
+channel_override_type_items_410 = (
+        ('DEFAULT', 'Default', ''),
+        ('IMAGE', 'Image', ''),
+        ('BRICK', 'Brick', ''),
+        ('CHECKER', 'Checker', ''),
+        ('GRADIENT', 'Gradient', ''),
+        ('MAGIC', 'Magic', ''),
+        ('NOISE', 'Noise', ''),
+        ('VORONOI', 'Voronoi', ''),
+        ('WAVE', 'Wave', ''),
+        ('VCOL', 'Vertex Color', ''),
         )
 
 # Override 1 will only use default value or image for now
@@ -294,6 +350,25 @@ texcoord_type_items = (
         ('Camera', 'Camera', ''),
         ('Window', 'Window', ''),
         ('Reflection', 'Reflection', ''),
+        ('Decal', 'Decal', ''),
+        )
+
+mask_texcoord_type_items = (
+        ('Generated', 'Generated', ''),
+        ('Normal', 'Normal', ''),
+        ('UV', 'UV', ''),
+        ('Object', 'Object', ''),
+        ('Camera', 'Camera', ''),
+        ('Window', 'Window', ''),
+        ('Reflection', 'Reflection', ''),
+        ('Decal', 'Decal', ''),
+        ('Layer', 'Use Layer Vector', ''),
+        )
+
+interpolation_type_items = (
+        ('Linear', 'Linear', 'Linear interpolation.'),
+        ('Closest', 'Closest', 'No interpolation (sample closest texel).'),
+        ('Cubic', 'Cubic', 'Cubic interpolation.'),
         )
 
 channel_socket_input_bl_idnames = {
@@ -352,6 +427,8 @@ layer_node_bl_idnames = {
         'HEMI' : 'ShaderNodeGroup',
         'OBJECT_INDEX' : 'ShaderNodeGroup',
         'COLOR_ID' : 'ShaderNodeGroup',
+        'BACKFACE' : 'ShaderNodeNewGeometry',
+        'EDGE_DETECT' : 'ShaderNodeGroup',
         }
 
 io_suffix = {
@@ -361,11 +438,16 @@ io_suffix = {
         'DISPLACEMENT' : ' Displacement',
         'HEIGHT' : ' Height',
         'MAX_HEIGHT' : ' Max Height',
+        'VDISP' : ' Vector Displacement',
         'HEIGHT_ONS' : ' Height ONS',
         'HEIGHT_EW' : ' Height EW',
         'UV' : ' UV',
         'TANGENT' : ' Tangent',
         'BITANGENT' : ' Bitangent',
+        'HEIGHT_N' : ' Height N',
+        'HEIGHT_S' : ' Height S',
+        'HEIGHT_E' : ' Height E',
+        'HEIGHT_W' : ' Height W',
         }
 
 io_names = {
@@ -375,6 +457,7 @@ io_names = {
         'Camera' : 'Texcoord Camera',
         'Window' : 'Texcoord Window',
         'Reflection' : 'Texcoord Reflection',
+        'Decal' : 'Texcoord Object',
         }
 
 math_method_items = (
@@ -407,39 +490,102 @@ limited_mask_blend_types = {
     'LINEAR_LIGHT',
     }
 
+eraser_names = {
+        'TEXTURE_PAINT' : 'Eraser Tex',
+        'VERTEX_PAINT' : 'Eraser Vcol',
+        'SCULPT' : 'Eraser Paint',
+        }
+
+rgba_letters = ['r', 'g', 'b', 'a']
+nsew_letters = ['n', 's', 'e', 'w']
+
 TEXCOORD_IO_PREFIX = 'Texcoord '
 PARALLAX_MIX_PREFIX = 'Parallax Mix '
 PARALLAX_DELTA_PREFIX = 'Parallax Delta '
 PARALLAX_CURRENT_PREFIX = 'Parallax Current '
 PARALLAX_CURRENT_MIX_PREFIX = 'Parallax Current Mix '
 
+CACHE_TANGENT_IMAGE_SUFFIX = '_YP_CACHE_TANGENT'
+CACHE_BITANGENT_IMAGE_SUFFIX = '_YP_CACHE_BITANGENT'
+
 GAMMA = 2.2
 
-def versiontuple(v):
-    return tuple(map(int, (v.split("."))))
+valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
+
+def version_tuple(version_string):
+    return tuple(version_string.split('.'))
+
+def get_manifest():
+    import tomllib
+    # Load manifest file
+    with open(get_addon_filepath() + 'blender_manifest.toml', 'rb') as f:
+        manifest = tomllib.load(f)
+    return manifest
 
 def get_addon_name():
     return os.path.basename(os.path.dirname(bpy.path.abspath(__file__)))
 
 def get_addon_title():
-    bl_info = sys.modules[get_addon_name()].bl_info
-    return bl_info['name']
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        return bl_info['name']
+
+    manifest = get_manifest()
+    return manifest['name']
 
 def get_addon_warning():
-    bl_info = sys.modules[get_addon_name()].bl_info
-    return bl_info['warning']
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        return bl_info['warning']
+
+    return ''
 
 def get_alpha_suffix():
-    bl_info = sys.modules[get_addon_name()].bl_info
-    if 'Alpha' in bl_info['warning']:
-        return ' Alpha'
-    elif 'Beta' in bl_info['warning']:
-        return ' Beta'
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        if 'Alpha' in bl_info['warning']:
+            return ' Alpha'
+        elif 'Beta' in bl_info['warning']:
+            return ' Beta'
+
     return ''
 
 def get_current_version_str():
-    bl_info = sys.modules[get_addon_name()].bl_info
-    return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
+
+    manifest = get_manifest()
+    return manifest['version']
+
+def get_current_blender_version_str():
+    return str(bpy.app.version).replace(', ', '.').replace('(','').replace(')','')
+
+def get_current_version():
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        return bl_info['version']
+
+    manifest = get_manifest()
+    return tuple(map(int, manifest['version'].split('.')))
+
+def is_online():
+    return not is_greater_than_420() or bpy.app.online_access
+
+def is_greater_than_277():
+    if bpy.app.version >= (2, 77, 0):
+        return True
+    return False
+
+def is_greater_than_278():
+    if bpy.app.version >= (2, 78, 0):
+        return True
+    return False
+
+def is_greater_than_279():
+    if bpy.app.version >= (2, 79, 0):
+        return True
+    return False
 
 def is_greater_than_280():
     if bpy.app.version >= (2, 80, 0):
@@ -461,13 +607,33 @@ def is_greater_than_283():
         return True
     return False
 
+def is_greater_than_290():
+    if bpy.app.version >= (2, 90, 0):
+        return True
+    return False
+
+def is_greater_than_291():
+    if bpy.app.version >= (2, 91, 0):
+        return True
+    return False
+
 def is_greater_than_292():
     if bpy.app.version >= (2, 92, 0):
         return True
     return False
 
+def is_greater_than_293():
+    if bpy.app.version >= (2, 93, 0):
+        return True
+    return False
+
 def is_greater_than_300():
-    if bpy.app.version >= (3, 00, 0):
+    if bpy.app.version >= (3, 0, 0):
+        return True
+    return False
+
+def is_greater_than_310():
+    if bpy.app.version >= (3, 1, 0):
         return True
     return False
 
@@ -501,8 +667,38 @@ def is_greater_than_400():
         return True
     return False
 
+def is_greater_than_410():
+    if bpy.app.version >= (4, 1, 0):
+        return True
+    return False
+
+def is_greater_than_420():
+    if bpy.app.version >= (4, 2, 0):
+        return True
+    return False
+
+def is_greater_than_430():
+    if bpy.app.version >= (4, 3, 0):
+        return True
+    return False
+
+def is_created_before_279():
+    if bpy.data.version[:2] < (2, 79):
+        return True
+    return False
+
 def is_created_using_279():
     if bpy.data.version[:2] == (2, 79):
+        return True
+    return False
+
+def is_created_before_280():
+    if bpy.data.version[:2] < (2, 80):
+        return True
+    return False
+
+def is_created_before_290():
+    if bpy.data.version[:2] < (2, 90):
         return True
     return False
 
@@ -526,9 +722,81 @@ def is_created_before_292():
         return True
     return False
 
+def is_created_before_410():
+    if bpy.data.version < (4, 1, 0):
+        return True
+    return False
+
+def get_bpytypes():
+    if not is_greater_than_277():
+        import bpy_types
+        return bpy_types.bpy_types
+    return bpy.types
+
+def get_srgb_name():
+    names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
+    if 'sRGB' not in names:
+
+        # Try 'srgb' prefix
+        for name in names:
+            if name.lower().startswith('srgb'):
+                return name
+
+        # Check srgb name by creating new 8-bit image
+        ypprops = bpy.context.window_manager.ypprops
+
+        if ypprops.custom_srgb_name == '':
+            temp_image = bpy.data.images.new('temmmmp', width=1, height=1, alpha=False, float_buffer=False)
+            ypprops.custom_srgb_name = temp_image.colorspace_settings.name
+            remove_datablock(bpy.data.images, temp_image)
+
+        return ypprops.custom_srgb_name
+
+    return 'sRGB'
+
+def get_noncolor_name():
+    names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
+    if 'Non-Color' not in names:
+
+        # Try 'raw' name
+        for name in names:
+            if name.lower() == 'raw':
+                return name
+
+        # Check non-color name by creating new float image
+        ypprops = bpy.context.window_manager.ypprops
+
+        if ypprops.custom_noncolor_name == '':
+            temp_image = bpy.data.images.new('temmmmp', width=1, height=1, alpha=False, float_buffer=True)
+            ypprops.custom_noncolor_name = temp_image.colorspace_settings.name
+            remove_datablock(bpy.data.images, temp_image)
+
+        return ypprops.custom_noncolor_name
+
+    return 'Non-Color'
+
+def remove_datablock(blocks, block, user=None, user_prop=''):
+    if is_greater_than_279():
+        blocks.remove(block)
+    elif is_greater_than_278():
+        blocks.remove(block, do_unlink=True)
+    else:
+        if user and user_prop != '':
+            setattr(user, user_prop, None)
+
+        if blocks == bpy.data.objects:
+            # Need to remove object from scene first
+            objs = get_scene_objects()
+            if block.name in objs:
+                objs.unlink(block)
+
+        block.user_clear()
+        blocks.remove(block)
+
 def set_active_object(obj):
     if is_greater_than_280():
-        bpy.context.view_layer.objects.active = obj
+        try: bpy.context.view_layer.objects.active = obj
+        except: print('EXCEPTIION: Cannot set active object!')
     else: bpy.context.scene.objects.active = obj
 
 def link_object(scene, obj):
@@ -556,6 +824,11 @@ def get_scene_objects():
     if is_greater_than_280():
         return bpy.context.view_layer.objects
     else: return bpy.context.scene.objects
+
+def remove_mesh_obj(obj):
+    data = obj.data
+    remove_datablock(bpy.data.objects, obj)
+    remove_datablock(bpy.data.meshes, data)
 
 def get_viewport_shade():
     if is_greater_than_280():
@@ -597,14 +870,15 @@ def get_node_input_index(node, inp):
 
     return index
 
-def get_active_material():
+def get_active_material(obj=None):
     scene = bpy.context.scene
     engine = scene.render.engine
-    obj = None
-    if hasattr(bpy.context, 'object'):
-        obj = bpy.context.object
-    elif is_greater_than_280():
-        obj = bpy.context.view_layer.objects.active
+
+    if not obj:
+        if hasattr(bpy.context, 'object'):
+            obj = bpy.context.object
+        elif is_greater_than_280():
+            obj = bpy.context.view_layer.objects.active
 
     if not obj: return None
 
@@ -614,6 +888,12 @@ def get_active_material():
         return None
 
     return mat
+
+def get_material_output(mat):
+    if mat != None and mat.node_tree:
+        output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+        if output: return output[0]
+    return None
 
 def get_list_of_ypaint_nodes(mat):
 
@@ -738,31 +1018,47 @@ def blend_color_mix_byte(src1, src2, intensity1=1.0, intensity2=1.0):
 
     return dst
 
-def copy_id_props(source, dest, extras = []):
+def copy_id_props(source, dest, extras = [], reverse=False):
+
+    bpytypes = get_bpytypes()
     props = dir(source)
-    #print()
-    #print(source)
     filters = ['bl_rna', 'rna_type']
     filters.extend(extras)
+
+    if reverse: props.reverse()
 
     for prop in props:
         if prop.startswith('__'): continue
         if prop in filters: continue
-        #print(prop)
+        #if hasattr(prop, 'is_readonly'): continue
         try: val = getattr(source, prop)
         except:
             print('Error prop:', prop)
             continue
-        attr_type = str(type(val))
-        #print(attr_type, prop)
+        attr_type = type(val)
 
-        if 'bpy_prop_collection_idprop' in attr_type:
+        if 'bpy_prop_collection_idprop' in str(attr_type):
             dest_val = getattr(dest, prop)
             for subval in val:
                 dest_subval = dest_val.add()
-                copy_id_props(subval, dest_subval)
+                copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif 'bpy_prop_array' in attr_type:
+        elif hasattr(bpytypes, 'bpy_prop_collection') and attr_type == bpytypes.bpy_prop_collection:
+            dest_val = getattr(dest, prop)
+            for i, subval in enumerate(val):
+                dest_subval = None
+
+                if hasattr(dest_val, 'new'):
+                    dest_subval = dest_val.new()
+
+                if not dest_subval:
+                    try: dest_subval = dest_val[i]
+                    except: print('Error bpy_prop_collection get by index:', prop)
+
+                if dest_subval:
+                    copy_id_props(subval, dest_subval, reverse=reverse)
+
+        elif hasattr(bpytypes, 'bpy_prop_array') and attr_type == bpytypes.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_val[i] = subval
@@ -771,29 +1067,30 @@ def copy_id_props(source, dest, extras = []):
             except: print('Error set prop:', prop)
 
 def copy_node_props_(source, dest, extras = []):
-    #print()
+
+    bpytypes = get_bpytypes()
     props = dir(source)
     filters = ['rna_type', 'name', 'location', 'parent']
     filters.extend(extras)
-    #print()
+
     for prop in props:
         if prop.startswith('__'): continue
         if prop.startswith('bl_'): continue
         if prop in filters: continue
         val = getattr(source, prop)
-        attr_type = str(type(val))
-        if 'bpy_func' in attr_type: continue
+        attr_type = type(val)
+        if 'bpy_func' in str(attr_type): continue
         #if 'bpy_prop' in attr_type: continue
         #print(prop, str(type(getattr(source, prop))))
         # Copy stuff here
 
-        #if 'bpy_prop_collection_idprop' in attr_type:
+        #if 'bpy_prop_collection_idprop' in str(attr_type):
         #    dest_val = getattr(dest, prop)
         #    for subval in val:
         #        dest_subval = dest_val.add()
         #        copy_id_props(subval, dest_subval)
 
-        if 'bpy_prop_array' in attr_type:
+        if hasattr(bpytypes, 'bpy_prop_array') and attr_type == bpytypes.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 try: 
@@ -810,7 +1107,9 @@ def copy_node_props_(source, dest, extras = []):
                 #print('FAILED:', prop, val)
                 pass
 
-def copy_node_props(source, dest, extras = []):
+def copy_node_props(source, dest, extras=[]):
+    if source.type != dest.type: return
+
     # Copy node props
     copy_node_props_(source, dest, extras)
 
@@ -860,13 +1159,17 @@ def copy_node_props(source, dest, extras = []):
 
     # Copy inputs default value
     for i, inp in enumerate(source.inputs):
+        if i >= len(dest.inputs) or dest.inputs[i].name != inp.name: continue
         socket_name = source.inputs[i].name
-        if socket_name in dest.inputs and dest.inputs[i].name == socket_name:
-            dest.inputs[i].default_value = inp.default_value
+        if socket_name in dest.inputs and dest.inputs[i].name == socket_name and dest.inputs[i].bl_idname not in {'NodeSocketVirtual'}:
+            try: dest.inputs[i].default_value = inp.default_value
+            except Exception as e: print(e)
 
     # Copy outputs default value
     for i, outp in enumerate(source.outputs):
-        dest.outputs[i].default_value = outp.default_value 
+        if i >= len(dest.outputs) or dest.outputs[i].bl_idname in {'NodeSocketVirtual'} or dest.outputs[i].name != outp.name: continue
+        try: dest.outputs[i].default_value = outp.default_value 
+        except Exception as e: print(e)
 
 def update_image_editor_image(context, image):
     obj = context.object
@@ -885,8 +1188,8 @@ def update_image_editor_image(context, image):
             space.use_image_pin = False
 
 def get_edit_image_editor_space(context):
-    scene = context.scene
-    area_index = scene.yp.edit_image_editor_area_index
+    ypwm = context.window_manager.ypprops
+    area_index = ypwm.edit_image_editor_area_index
     if area_index >= 0 and area_index < len(context.screen.areas):
         area = context.screen.areas[area_index]
         if area.type == 'IMAGE_EDITOR':
@@ -914,33 +1217,38 @@ def get_first_image_editor_image(context):
     if space: return space.image
     return None
 
-def update_tool_canvas_image(context, image):
-    # HACK: Remember unpinned images to avoid all image editor images being updated
-    unpinned_spaces = []
-    unpinned_images = []
-    for area in context.screen.areas:
-        if area.type == 'IMAGE_EDITOR' and not area.spaces[0].use_image_pin: #and area.spaces[0].image != image:
-            unpinned_spaces.append(area.spaces[0])
-            unpinned_images.append(area.spaces[0].image)
+def get_active_paint_slot_image():
+    scene = bpy.context.scene
+    image = None
+    if scene.tool_settings.image_paint.mode == 'IMAGE':
+        image = scene.tool_settings.image_paint.canvas
+    else:
+        mat = get_active_material()
+        if len(mat.texture_paint_images):
+            image = mat.texture_paint_images[mat.paint_active_slot]
 
-    # Update canvas image
-    context.scene.tool_settings.image_paint.canvas = image
+    return image
 
-    # Restore original images except for the first index
-    for i, space in enumerate(unpinned_spaces):
-        if i > 0:
-            space.image = unpinned_images[i]
-            # Hack for Blender 2.8 which keep pinning image automatically
-            space.use_image_pin = False
+def set_image_paint_canvas(image):
+    scene = bpy.context.scene
+    try:
+        scene.tool_settings.image_paint.mode = 'IMAGE'
+        scene.tool_settings.image_paint.canvas = image
+    except Exception as e: print(e)
 
 # Check if name already available on the list
 def get_unique_name(name, items, surname = ''):
+
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
 
     if surname != '':
         unique_name = name + ' ' + surname
     else: unique_name = name
 
-    name_found = [item for item in items if item.name == unique_name]
+    name_found = [item for item in item_names if item == unique_name]
     if name_found:
 
         m = re.match(r'^(.+)\s(\d*)$', name)
@@ -956,7 +1264,7 @@ def get_unique_name(name, items, surname = ''):
                 new_name = name + ' ' + str(i) + ' ' + surname
             else: new_name = name + ' ' + str(i)
 
-            name_found = [item for item in items if item.name == new_name]
+            name_found = [item for item in item_names if item == new_name]
             if not name_found:
                 unique_name = new_name
                 break
@@ -972,11 +1280,11 @@ def get_active_node():
 
 # Specific methods for this addon
 
-def get_active_ypaint_node():
+def get_active_ypaint_node(obj=None):
     ypui = bpy.context.window_manager.ypui
 
     # Get material UI prop
-    mat = get_active_material()
+    mat = get_active_material(obj)
     if not mat or not mat.node_tree: 
         ypui.active_mat = ''
         return None
@@ -1083,15 +1391,30 @@ def get_nodes_using_yp(mat, yp):
 #    if tree.users == 0:
 #        bpy.data.node_groups.remove(tree)
 
-def safe_remove_image(image):
+def is_image_single_user(image):
     scene = bpy.context.scene
 
-    if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
+    return ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
         (scene.tool_settings.image_paint.canvas != image and image.users == 1) or
-        image.users == 0):
-        bpy.data.images.remove(image)
+        image.users == 0)
 
-def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
+def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
+
+    if is_image_single_user(image):
+
+        if remove_on_disk and not image.packed_file and image.filepath != '':
+            if image.source == 'TILED':
+                for tile in image.tiles:
+                    filepath = image.filepath.replace('<UDIM>', str(tile.number))
+                    try: os.remove(os.path.abspath(bpy.path.abspath(filepath)))
+                    except Exception as e: print(e)
+            else:
+                try: os.remove(os.path.abspath(bpy.path.abspath(image.filepath)))
+                except Exception as e: print(e)
+
+        remove_datablock(bpy.data.images, image, user=user, user_prop=user_prop)
+
+def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False):
     #if not node: return
     scene = bpy.context.scene
 
@@ -1107,7 +1430,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
             image = node.image
-            if image: safe_remove_image(image)
+            if image: safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
 
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
@@ -1117,7 +1440,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
                     if n.bl_idname in {'ShaderNodeTexImage', 'ShaderNodeGroup'}:
                         simple_remove_node(node.node_tree, n, remove_data)
 
-                bpy.data.node_groups.remove(node.node_tree)
+                remove_datablock(bpy.data.node_groups, node.node_tree, user=node, user_prop='node_tree')
 
             #remove_tree_data_recursive(node)
 
@@ -1134,11 +1457,13 @@ def is_vcol_being_used(tree, vcol_name, exception_node=None):
 
     return False
 
-def remove_node(tree, entity, prop, remove_data=True, parent=None):
-    if not hasattr(entity, prop): return
-    if not tree: return
-    #if prop not in entity: return
+def remove_node(tree, entity, prop, remove_data=True, parent=None, remove_on_disk=False):
 
+    dirty = False
+
+    if not hasattr(entity, prop): return dirty
+    if not tree: return dirty
+    #if prop not in entity: return dirty
 
     scene = bpy.context.scene
     node = tree.nodes.get(getattr(entity, prop))
@@ -1146,22 +1471,26 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
 
     if node: 
 
+        dirty = True
+
+        yp_tree = entity.id_data
+
         if parent and node.parent != parent:
             setattr(entity, prop, '')
-            return
+            return dirty
 
         if remove_data:
             # Remove image data if the node is the only user
             if node.bl_idname == 'ShaderNodeTexImage':
 
                 image = node.image
-                if image: safe_remove_image(image)
+                if image: safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
 
             elif node.bl_idname == 'ShaderNodeGroup':
 
                 if node.node_tree and node.node_tree.users == 1:
                     remove_tree_inside_tree(node.node_tree)
-                    bpy.data.node_groups.remove(node.node_tree)
+                    remove_datablock(bpy.data.node_groups, node.node_tree, user=node, user_prop='node_tree')
 
             elif hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == get_vcol_bl_idname():
                 
@@ -1183,7 +1512,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
                         for o in obs:
                             other_users_found = False
                             for m in o.data.materials:
-                                if m.node_tree and is_vcol_being_used(m.node_tree, vcol_name, node):
+                                if m and m.node_tree and is_vcol_being_used(m.node_tree, vcol_name, node):
                                     other_users_found = True
                                     break
                             if not other_users_found:
@@ -1193,9 +1522,12 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
         # Remove the node itself
         #print('Node ' + prop + ' from ' + str(entity) + ' removed!')
         tree.nodes.remove(node)
+        dirty = True
 
     setattr(entity, prop, '')
     #entity[prop] = ''
+
+    return dirty
 
 def create_essential_nodes(tree, solid_value=False, texcoord=False, geometry=False):
 
@@ -1292,11 +1624,25 @@ def get_layer_ids_with_specific_segment(yp, segment):
     ids = []
 
     for i, layer in enumerate(yp.layers):
+        tree = get_tree(layer)
+        baked_source = tree.nodes.get(layer.baked_source)
+        if layer.use_baked and baked_source and baked_source.image:
+            image = baked_source.image
+            if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == layer.baked_segment_name) or
+                (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == layer.baked_segment_name)
+                ):
+                ids.append(i)
+                continue
+
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
-            if (source and source.image and source.image.yia.is_image_atlas and 
-                any([s for s in source.image.yia.segments if s == segment]) and segment.name == layer.segment_name):
+            if source and source.image:
+                image = source.image
+                if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == layer.segment_name) or
+                    (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == layer.segment_name)
+                    ):
                     ids.append(i)
+                    continue
 
     return ids
 
@@ -1315,11 +1661,26 @@ def get_masks_with_specific_segment(layer, segment):
     masks = []
 
     for m in layer.masks:
+
+        tree = get_mask_tree(m)
+        baked_source = tree.nodes.get(m.baked_source)
+        if m.use_baked and baked_source and baked_source.image:
+            image = baked_source.image
+            if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == m.baked_segment_name) or
+                (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == m.baked_segment_name)
+                ):
+                masks.append(m)
+                continue
+
         if m.type == 'IMAGE':
             source = get_mask_source(m)
-            if (source and source.image and source.image.yia.is_image_atlas and
-                any([s for s in source.image.yia.segments if s == segment]) and segment.name == m.segment_name):
+            if source and source.image:
+                image = source.image
+                if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == m.segment_name) or
+                    (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == m.segment_name)
+                    ):
                     masks.append(m)
+                    continue
 
     return masks
 
@@ -1365,7 +1726,7 @@ def replace_image(old_image, new_image, yp=None, uv_name = ''):
         #ypui.disable_auto_temp_uv_update = ori_disable_temp_uv
 
     # Remove old image
-    bpy.data.images.remove(old_image)
+    remove_datablock(bpy.data.images, old_image)
 
     return entities
 
@@ -1380,6 +1741,8 @@ def unmute_node(tree, entity, prop):
     if node: node.mute = False
 
 def set_default_value(node, input_name_or_index, value):
+
+    if node.type == 'GROUP' and not node.node_tree: return
 
     # HACK: Sometimes Blender bug will cause node with no inputs
     # So try to reload the group again
@@ -1460,26 +1823,17 @@ def create_info_nodes(tree):
 
     info = nodes.new('NodeFrame')
 
-    if tree_type == 'LAYER':
-        info.label = 'Part of ' + get_addon_title() + ' addon version ' + yp.version
-        info.width = 390.0
-    elif tree_type == 'ROOT':
-        info.label = 'Created using ' + get_addon_title() + ' addon version ' + yp.version
-        info.width = 460.0
+    addon_link = 'github.com/ucupumar/ucupaint'
+
+    if tree_type == 'ROOT':
+        info.label = 'Created using ' + get_addon_title() + ' ' + yp.version + ' (' + addon_link + ')'
+        info.width = 620.0
     else:
-        info.label = 'Part of ' + get_addon_title() + ' addon'
-        info.width = 250.0
+        info.label = 'Part of ' + get_addon_title() + ' addon (' + addon_link + ')'
+        info.width = 560.0
 
     info.use_custom_color = True
     info.color = (0.5, 0.5, 0.5)
-    info.height = 60.0
-    infos.append(info)
-
-    info = nodes.new('NodeFrame')
-    info.label = 'Get the addon from github.com/ucupumar/ucupaint'
-    info.use_custom_color = True
-    info.color = (0.5, 0.5, 0.5)
-    info.width = 520.0
     info.height = 60.0
     infos.append(info)
 
@@ -1488,15 +1842,6 @@ def create_info_nodes(tree):
     info.use_custom_color = True
     info.color = (1.0, 0.5, 0.5)
     info.width = 450.0
-    info.height = 60.0
-    infos.append(info)
-
-    info = nodes.new('NodeFrame')
-    info.label = 'Please use this panel: Node Editor > Properties > ' + get_addon_title()
-    #info.label = 'Please use this panel: Node Editor > Tools > Misc'
-    info.use_custom_color = True
-    info.color = (1.0, 0.5, 0.5)
-    info.width = 580.0
     info.height = 60.0
     infos.append(info)
 
@@ -1520,7 +1865,7 @@ def create_info_nodes(tree):
         for info in infos:
             info.name = INFO_PREFIX + info.name
 
-            loc.y -= 40
+            loc.y -= 80
             info.location = loc
 
 def check_duplicated_node_group(node_group, duplicated_trees = []):
@@ -1546,8 +1891,32 @@ def check_duplicated_node_group(node_group, duplicated_trees = []):
                     # Remember current tree
                     prev_tree = node.node_tree
 
+                    # HACK: Remember links because sometime tree sockets are unlinked
+                    from_nodes = []
+                    from_sockets = []
+                    to_sockets = []
+                    for inp in node.inputs:
+                        for l in inp.links:
+                            from_nodes.append(l.from_node.name)
+                            socket_index = [i for i, soc in enumerate(l.from_node.outputs) if soc == l.from_socket][0]
+                            from_sockets.append(socket_index)
+                            to_sockets.append(inp.name)
+
+                    #print('FROM:', node.node_tree.name, len(node.inputs))
+
                     # Replace new node
                     node.node_tree = ng
+
+                    #print('TO  :', node.node_tree.name, len(node.inputs))
+
+                    # HACK: Recover the unlinkeds
+                    for i, inp_name in enumerate(to_sockets):
+                        inp = node.inputs.get(inp_name)
+                        if not inp: continue
+                        from_node = node_group.nodes.get(from_nodes[i])
+                        if len(inp.links) == 0:
+                            try: node_group.links.new(from_node.outputs[from_sockets[i]], inp)
+                            except Exception as e: print(e)
 
                     if prev_tree not in duplicated_trees:
                         duplicated_trees.append(prev_tree)
@@ -1560,8 +1929,25 @@ def check_duplicated_node_group(node_group, duplicated_trees = []):
             check_duplicated_node_group(node.node_tree, duplicated_trees)
 
     # Create info frame if not found
-    if not info_frame_found:
+    if not info_frame_found and node_group.name.startswith('~yPL '):
         create_info_nodes(node_group)
+
+def load_from_lib_blend(tree_name, filename):
+    # Node groups necessary are in lib.blend
+    filepath = get_addon_filepath() + filename
+
+    # Load node groups
+    lib_found = False
+    with bpy.data.libraries.load(filepath) as (data_from, data_to):
+        from_ngs = data_from.node_groups
+        to_ngs = data_to.node_groups
+        for ng in from_ngs:
+            if ng == tree_name:
+                to_ngs.append(ng)
+                lib_found = True
+                break
+
+    return lib_found
 
 def get_node_tree_lib(name):
 
@@ -1569,21 +1955,12 @@ def get_node_tree_lib(name):
     node_tree = bpy.data.node_groups.get(name)
     if node_tree: return node_tree
 
-    # Node groups necessary are in nodegroups_lib.blend
-    filepath = get_addon_filepath() + "lib.blend"
-
-    #appended = False
-    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-
-        # Load node groups
-        exist_groups = [ng.name for ng in bpy.data.node_groups]
-        for ng in data_from.node_groups:
-            if ng == name: # and ng not in exist_groups:
-
-                data_to.node_groups.append(ng)
-                #appended = True
-
-                break
+    # Load from library blend files
+    lib_found = load_from_lib_blend(name, 'lib.blend')
+    if not lib_found:
+        lib_found = load_from_lib_blend(name, 'lib_281.blend')
+    if not lib_found:
+        lib_found = load_from_lib_blend(name, 'lib_282.blend')
 
     node_tree = bpy.data.node_groups.get(name)
 
@@ -1592,13 +1969,9 @@ def get_node_tree_lib(name):
         duplicated_trees = []
         check_duplicated_node_group(node_tree, duplicated_trees)
 
-        #print('dub', duplicated_trees)
-
         # Remove duplicated trees
         for t in duplicated_trees:
-            bpy.data.node_groups.remove(t)
-        #print(duplicated_trees)
-        #print(node_tree.name + ' is loaded!')
+            remove_datablock(bpy.data.node_groups, t)
 
     return node_tree
 
@@ -1607,7 +1980,7 @@ def remove_tree_inside_tree(tree):
         if node.type == 'GROUP':
             if node.node_tree and node.node_tree.users == 1:
                 remove_tree_inside_tree(node.node_tree)
-                bpy.data.node_groups.remove(node.node_tree)
+                remove_datablock(bpy.data.node_groups, node.node_tree, user=node, user_prop='node_tree')
             else: node.node_tree = None
 
 def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name='', return_status=False, hard_replace=False, dirty=False):
@@ -1669,7 +2042,7 @@ def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name=
                 # Remove previous tree if it has no user
                 if prev_tree.users == 0:
                     remove_tree_inside_tree(prev_tree)
-                    bpy.data.node_groups.remove(prev_tree)
+                    remove_datablock(bpy.data.node_groups, prev_tree)
 
     if return_status:
         return node, dirty
@@ -1734,7 +2107,7 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
                 # Remove previous tree if it has no user
                 if prev_tree.users == 0:
                     remove_tree_inside_tree(prev_tree)
-                    bpy.data.node_groups.remove(prev_tree)
+                    remove_datablock(bpy.data.node_groups, prev_tree)
 
     if return_status:
         return node, dirty
@@ -1820,15 +2193,17 @@ def get_mask_tree(mask, ignore_group=False):
     if not group_node or group_node.type != 'GROUP': return layer_tree
     return group_node.node_tree
 
-def get_mask_source(mask):
+def get_mask_source(mask, get_baked=False):
     tree = get_mask_tree(mask)
     if tree:
+        if get_baked:
+            return tree.nodes.get(mask.baked_source)
         return tree.nodes.get(mask.source)
     return None
 
-def get_mask_mapping(mask):
+def get_mask_mapping(mask, get_baked=False):
     tree = get_mask_tree(mask, True)
-    return tree.nodes.get(mask.mapping)
+    return tree.nodes.get(mask.mapping) if not get_baked else tree.nodes.get(mask.baked_mapping)
 
 def get_channel_source_tree(ch, layer=None, tree=None):
     yp = ch.id_data.yp
@@ -1887,37 +2262,38 @@ def get_source_tree(layer, tree=None):
 
     return tree
 
-def get_layer_source(layer, tree=None):
+def get_layer_source(layer, tree=None, get_baked=False):
     if not tree: tree = get_tree(layer)
 
+    prop_name = 'source' if not get_baked else 'baked_source'
+
     source_tree = get_source_tree(layer, tree)
-    if source_tree: return source_tree.nodes.get(layer.source)
-    if tree: return tree.nodes.get(layer.source)
+    if source_tree: return source_tree.nodes.get(getattr(layer, prop_name))
+    if tree: return tree.nodes.get(getattr(layer, prop_name))
 
     return None
 
-def get_layer_mapping(layer):
-    #tree = get_source_tree(layer)
+def get_layer_mapping(layer, get_baked=False):
     tree = get_tree(layer)
-    return tree.nodes.get(layer.mapping)
+    return tree.nodes.get(layer.mapping) if not get_baked else tree.nodes.get(layer.baked_mapping)
 
-def get_entity_source(entity):
+def get_entity_source(entity, get_baked=False):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: return get_layer_source(entity)
-    elif m2: return get_mask_source(entity)
+    if m1: return get_layer_source(entity, get_baked)
+    elif m2: return get_mask_source(entity, get_baked)
 
     return None
 
-def get_entity_mapping(entity):
+def get_entity_mapping(entity, get_baked=False):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: return get_layer_mapping(entity)
-    elif m2: return get_mask_mapping(entity)
+    if m1: return get_layer_mapping(entity, get_baked)
+    elif m2: return get_mask_mapping(entity, get_baked)
 
     return None
 
@@ -1987,6 +2363,20 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
                 if ori_name == vname:
                     set_source_vcol_name(csrc, new_name)
 
+    # HACK: Blender 3.2+ did not automatically update viewport after vertex color rename
+    if is_greater_than_320():
+        for o in objs:
+            set_active_object(o)
+            if o.mode == 'OBJECT':
+                bpy.ops.object.mode_set(mode='SCULPT')
+                bpy.ops.object.mode_set(mode='OBJECT')
+            else:
+                ori_mode = o.mode
+                bpy.ops.object.mode_set(mode='OBJECT')
+                bpy.ops.object.mode_set(mode=ori_mode)
+
+        set_active_object(obj)
+
 def change_layer_name(yp, obj, src, layer, texes):
     if yp.halt_update: return
 
@@ -2006,13 +2396,32 @@ def change_layer_name(yp, obj, src, layer, texes):
         layer.name = '___TEMP___'
         layer.name = get_unique_name(name, texes) 
 
-    # Update node group label
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', layer.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', layer.path_from_id())
     if m1:
         group_tree = yp.id_data
+
+        # Update node group label
         layer_group = group_tree.nodes.get(layer.group_node)
         layer_group.label = layer.name
+
+        # Also update mask name if it's in certain pattern
+        for mask in layer.masks:
+            m = re.match(r'^Mask\s.*\((.+)\)$', mask.name)
+            if m:
+                old_layer_name = m.group(1)
+                new_mask_name = mask.name.replace(old_layer_name, layer.name)
+                if mask.type == 'IMAGE':
+                    msrc = get_mask_source(mask)
+                    if msrc.image: 
+                        msrc.image.name = '___TEMP___'
+                        msrc.image.name = get_unique_name(new_mask_name, bpy.data.images) 
+                elif mask.type == 'VCOL':
+                    msrc = get_mask_source(mask)
+                    mask.name = '___TEMP___'
+                    change_vcol_name(yp, obj, msrc, new_mask_name, mask)
+                else:
+                    mask.name = new_mask_name
 
     yp.halt_update = False
 
@@ -2123,19 +2532,19 @@ def get_tree_inputs(tree):
     if not is_greater_than_400():
         return tree.inputs
 
-    return [ui for ui in tree.interface.items_tree if ui.in_out in {'INPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'INPUT', 'BOTH'}]
 
 def get_tree_outputs(tree):
     if not is_greater_than_400():
         return tree.outputs
 
-    return [ui for ui in tree.interface.items_tree if ui.in_out in {'OUTPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
 
 def get_tree_input_by_name(tree, name):
     if not is_greater_than_400():
         return tree.inputs.get(name)
 
-    inp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'INPUT', 'BOTH'}]
+    inp = [ui for ui in tree.interface.items_tree if ui.name == name and hasattr(ui, 'in_out') and ui.in_out in {'INPUT', 'BOTH'}]
     if inp: return inp[0]
 
     return None
@@ -2144,7 +2553,7 @@ def get_tree_output_by_name(tree, name):
     if not is_greater_than_400():
         return tree.outputs.get(name)
 
-    outp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'OUTPUT', 'BOTH'}]
+    outp = [ui for ui in tree.interface.items_tree if ui.name == name and hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
     if outp: return outp[0]
 
     return None
@@ -2165,7 +2574,7 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
     # Keep the code just in case it will work again someday
     if use_both and False:
         # Check if output with same name already exists
-        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
+        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and hasattr(ui, 'in_out') and it.in_out == 'OUTPUT']
         if items:
             inp = items[0]
             inp.in_out = 'BOTH'
@@ -2253,11 +2662,11 @@ def get_output_index(root_ch):
     output_index = root_ch.io_index
 
     # Check if there's normal channel above current channel because it has extra output
-    for ch in yp.channels:
-        if ch.type == 'NORMAL' and ch != root_ch:
-            output_index += 1
-        if ch == root_ch:
-            break
+    #for ch in yp.channels:
+    #    if ch.type == 'NORMAL' and ch != root_ch:
+    #        output_index += 1
+    #    if ch == root_ch:
+    #        break
 
     return output_index
 
@@ -2348,6 +2757,13 @@ def is_bottom_member(layer, enabled_only=False):
 #        cur = parent
 #
 #    return parent_idx
+
+def get_active_layer(yp):
+
+    if yp.active_layer_index >= 0 and yp.active_layer_index < len(yp.layers):
+        return yp.layers[yp.active_layer_index]
+
+    return None
 
 def get_layer_index(layer):
     yp = layer.id_data.yp
@@ -2570,7 +2986,7 @@ def has_previous_layer_channels(layer, root_ch):
     for i, t in reversed(list(enumerate(yp.layers))):
         if i > layer_idx and layer.parent_idx == t.parent_idx:
             for j, c in enumerate(t.channels):
-                if ch_idx == j and c.enable:
+                if ch_idx == j and get_channel_enabled(c, t, yp.channels[ch_idx]):
                     return True
 
     return False
@@ -2642,12 +3058,12 @@ def get_correct_uv_neighbor_resolution(ch, image=None):
     res_x = image.size[0] if image else 1000
     res_y = image.size[1] if image else 1000
 
-    res_x /= ch.bump_smooth_multiplier
-    res_y /= ch.bump_smooth_multiplier
+    #res_x /= ch.bump_smooth_multiplier
+    #res_y /= ch.bump_smooth_multiplier
 
     return res_x, res_y
 
-def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None):
+def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, use_baked=False):
 
     yp = entity.id_data.yp
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -2657,13 +3073,13 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None):
     if m1: 
         layer = yp.layers[int(m1.group(1))]
         tree = get_tree(entity)
-        if not source: source = get_layer_source(entity)
+        if not source: source = get_layer_source(entity, get_baked=use_baked)
         entity_type = entity.type
         scale = entity.scale
     elif m2: 
         layer = yp.layers[int(m2.group(1))]
         tree = get_tree(layer)
-        if not source: source = get_mask_source(entity)
+        if not source: source = get_mask_source(entity, get_baked=use_baked)
         entity_type = entity.type
         scale = entity.scale
     elif m3: 
@@ -2693,58 +3109,101 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None):
     uv_neighbor.inputs['ResX'].default_value = res_x
     uv_neighbor.inputs['ResY'].default_value = res_y
 
-def clear_mapping(entity):
+def get_tilenums_height(tilenums):
+    min_y = int(min(tilenums) / 10)
+    max_y = int(max(tilenums) / 10)
+
+    return max_y - min_y + 1
+
+def get_udim_segment_tiles_height(segment):
+    tilenums = [btile.number for btile in segment.base_tiles]
+    return get_tilenums_height(tilenums)
+
+def get_udim_segment_mapping_offset(segment):
+    image = segment.id_data
+
+    offset_y = 0 
+    for i, seg in enumerate(image.yua.segments):
+        if seg == segment:
+            return offset_y
+        tiles_height = get_udim_segment_tiles_height(seg)
+        offset_y += tiles_height + 1
+
+def is_mapping_possible(entity_type):
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} 
+
+def clear_mapping(entity, use_baked=False):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: mapping = get_layer_mapping(entity)
-    else: mapping = get_mask_mapping(entity)
+    if m1: mapping = get_layer_mapping(entity, use_baked)
+    else: mapping = get_mask_mapping(entity, use_baked)
 
-    if is_greater_than_281():
-        mapping.inputs[1].default_value = (0.0, 0.0, 0.0)
-        mapping.inputs[2].default_value = (0.0, 0.0, 0.0)
-        mapping.inputs[3].default_value = (1.0, 1.0, 1.0)
-    else:
-        mapping.translation = (0.0, 0.0, 0.0)
-        mapping.rotation = (0.0, 0.0, 0.0)
-        mapping.scale = (1.0, 1.0, 1.0)
+    if mapping:
+        if is_greater_than_281():
+            mapping.inputs[1].default_value = (0.0, 0.0, 0.0)
+            mapping.inputs[2].default_value = (0.0, 0.0, 0.0)
+            mapping.inputs[3].default_value = (1.0, 1.0, 1.0)
+        else:
+            mapping.translation = (0.0, 0.0, 0.0)
+            mapping.rotation = (0.0, 0.0, 0.0)
+            mapping.scale = (1.0, 1.0, 1.0)
 
-def update_mapping(entity):
+def update_mapping(entity, use_baked=False):
+
+    yp = entity.id_data.yp
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
+    layer = None
+    mask = None
     if m1: 
-        source = get_layer_source(entity)
-        mapping = get_layer_mapping(entity)
+        source = get_layer_source(entity, get_baked=use_baked)
+        mapping = get_layer_mapping(entity, get_baked=use_baked)
+        layer = entity
     elif m2: 
-        source = get_mask_source(entity)
-        mapping = get_mask_mapping(entity)
+        source = get_mask_source(entity, get_baked=use_baked)
+        mapping = get_mask_mapping(entity, get_baked=use_baked)
+        layer = yp.layers[int(m2.group(1))]
+        mask = entity
     else: return
 
     if not mapping: return
 
-    yp = entity.id_data.yp
+    segment_name = entity.segment_name if not use_baked else entity.baked_segment_name
 
-    offset_x = entity.translation[0]
-    offset_y = entity.translation[1]
-    offset_z = entity.translation[2]
+    if use_baked:
+        offset_x = offset_y = offset_z = 0.0
+        scale_x = scale_y = scale_z = 1.0
+    else:
+        offset_x = entity.translation[0]
+        offset_y = entity.translation[1]
+        offset_z = entity.translation[2]
 
-    scale_x = entity.scale[0]
-    scale_y = entity.scale[1]
-    scale_z = entity.scale[2]
+        scale_x = entity.scale[0]
+        scale_y = entity.scale[1]
+        scale_z = entity.scale[2]
 
-    if entity.type == 'IMAGE' and entity.segment_name != '':
+    if (entity.type == 'IMAGE' or use_baked) and segment_name != '':
+
+        # Atlas will only use point vector type for now
+        mapping.vector_type = 'POINT'
+
         image = source.image
-        segment = image.yia.segments.get(entity.segment_name)
+        if image.source == 'TILED':
+            segment = image.yua.segments.get(segment_name)
+            offset_y = get_udim_segment_mapping_offset(segment) 
+        else:
+            segment = image.yia.segments.get(segment_name)
 
-        scale_x = segment.width/image.size[0] * scale_x
-        scale_y = segment.height/image.size[1] * scale_y
+            scale_x = segment.width/image.size[0] * scale_x
+            scale_y = segment.height/image.size[1] * scale_y
 
-        offset_x = scale_x * segment.tile_x + offset_x * scale_x
-        offset_y = scale_y * segment.tile_y + offset_y * scale_y
+            offset_x = scale_x * segment.tile_x + offset_x * scale_x
+            offset_y = scale_y * segment.tile_y + offset_y * scale_y
 
     if is_greater_than_281():
         mapping.inputs[1].default_value = (offset_x, offset_y, offset_z)
@@ -2765,31 +3224,46 @@ def update_mapping(entity):
     #            set_uv_neighbor_resolution(ch, mapping=mapping)
 
     if entity.type == 'IMAGE' and entity.texcoord_type == 'UV':
-        if m1 or (m2 and entity.active_edit):
-            if bpy.context.object and bpy.context.object.mode == 'TEXTURE_PAINT':
+        if hasattr(bpy.context, 'object') and bpy.context.object and bpy.context.object.mode == 'TEXTURE_PAINT':
+
+            # Get active mask of layer
+            active_mask = None
+            for m in layer.masks:
+                if m.active_edit:
+                    active_mask = m
+
+            # Only need to refersh if entity is the active one
+            if not active_mask or (mask and active_mask == mask):
                 yp.need_temp_uv_refresh = True
 
-def is_active_uv_map_match_entity(obj, entity):
+def is_active_uv_map_missmatch_entity(obj, entity):
+
+    # Non image entity doesn't need matching UV
+    if not entity.use_baked and entity.type != 'IMAGE':
+        return False
 
     m = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
 
     #if entity.type != 'IMAGE' or entity.texcoord_type != 'UV': return False
     if (m and not is_layer_using_vector(entity)) or entity.texcoord_type != 'UV': return False
-    mapping = get_entity_mapping(entity)
+    mapping = get_entity_mapping(entity, get_baked=entity.use_baked)
 
     uv_layers = get_uv_layers(obj)
+    if not uv_layers: return False
     uv_layer = uv_layers.active
+
+    uv_name = entity.uv_name if not entity.use_baked or entity.baked_uv_name == '' else entity.baked_uv_name
 
     if mapping and is_transformed(mapping) and obj.mode == 'TEXTURE_PAINT':
         if uv_layer.name != TEMP_UV:
             return True
 
-    elif entity.uv_name in uv_layers and entity.uv_name != uv_layer.name:
+    elif uv_name in uv_layers and uv_name != uv_layer.name:
         return True
 
     return False
 
-def is_active_uv_map_match_active_entity(obj, layer):
+def is_active_uv_map_missmatch_active_entity(obj, layer):
 
     active_mask = None
     for mask in layer.masks:
@@ -2799,7 +3273,7 @@ def is_active_uv_map_match_active_entity(obj, layer):
     if active_mask: entity = active_mask
     else: entity = layer
 
-    return is_active_uv_map_match_entity(obj, entity)
+    return is_active_uv_map_missmatch_entity(obj, entity)
 
 def is_transformed(mapping):
     if is_greater_than_281():
@@ -2848,7 +3322,8 @@ def set_uv_mirror_offsets(obj, matrix):
 
     movec = Vector((mirror.mirror_offset_u/2, mirror.mirror_offset_v/2, 0.0))
     if is_greater_than_280():
-        movec = matrix @ movec
+        # NOTE: For compatibility to older blenders, put matrix multiplication under eval
+        movec = eval('matrix @ movec')
     else: movec = matrix * movec
 
     if mirror.use_mirror_u:
@@ -2872,10 +3347,15 @@ def remove_temp_uv(obj, entity):
     if uv_layers:
         for uv in uv_layers:
             if uv.name == TEMP_UV or uv.name.startswith(TEMP_UV):
-                uv_layers.remove(uv)
+                try: uv_layers.remove(uv)
+                except: print('EXCEPTIION: Cannot remove temp uv!')
                 #break
 
-    if not entity: return
+    if not entity: 
+        if uv_layers and len(uv_layers) > 0:
+            try: uv_layers.active = uv_layers[0]
+            except: print('EXCEPTIION: Cannot set active uv!')
+        return
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
@@ -2895,17 +3375,20 @@ def remove_temp_uv(obj, entity):
             (entity.segment_name == '' and obj.mode == 'TEXTURE_PAINT')
             ):
         if mirror.use_mirror_u:
-            mirror.mirror_offset_u = obj.yp.ori_mirror_offset_u
+            try: mirror.mirror_offset_u = obj.yp.ori_mirror_offset_u
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
         if mirror.use_mirror_v:
-            mirror.mirror_offset_v = obj.yp.ori_mirror_offset_v
+            try: mirror.mirror_offset_v = obj.yp.ori_mirror_offset_v
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
         if is_greater_than_280():
-            mirror.offset_u = obj.yp.ori_offset_u
-            mirror.offset_v = obj.yp.ori_offset_v
+            try: mirror.offset_u = obj.yp.ori_offset_u
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
+            try: mirror.offset_v = obj.yp.ori_offset_v
+            except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
 def refresh_temp_uv(obj, entity): 
-
     if obj.type != 'MESH':
         return False
 
@@ -2932,24 +3415,36 @@ def refresh_temp_uv(obj, entity):
     else: return False
 
     uv_layers = get_uv_layers(obj)
+    layer_uv_name = layer.baked_uv_name if layer.use_baked and layer.baked_uv_name != '' else layer.uv_name
+    layer_uv = uv_layers.get(layer_uv_name)
 
-    if m3:
-        layer_uv = uv_layers.get(layer.uv_name)
+    if m1 or m3:
+        entity_uv = layer_uv
     else:
-        layer_uv = uv_layers.get(entity.uv_name)
-        if not layer_uv: 
-            return False
+        uv_name = entity.baked_uv_name if entity.use_baked and entity.baked_uv_name != '' else entity.uv_name
+        entity_uv = uv_layers.get(uv_name)
+
+        if not entity_uv: 
+            entity_uv = layer_uv
+
+    if not entity_uv: 
+        return False
 
     # Set active uv
-    if uv_layers.active != layer_uv:
-        uv_layers.active = layer_uv
-        layer_uv.active_render = True
+    if uv_layers.active != entity_uv:
+        if uv_layers.active != entity_uv:
+            try: uv_layers.active = entity_uv
+            except: print('EXCEPTIION: Cannot set active uv!')
+        # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
+        if not is_greater_than_291() and not entity_uv.active_render:
+            try: entity_uv.active_render = True
+            except: print('EXCEPTIION: Cannot set active uv render!')
 
     if m3 and entity.override_type != 'IMAGE':
         remove_temp_uv(obj, entity)
         return False
 
-    if (m1 or m2) and entity.type != 'IMAGE':
+    if (m1 or m2) and (entity.type != 'IMAGE' and not entity.use_baked):
         remove_temp_uv(obj, entity)
         return False
 
@@ -2964,12 +3459,21 @@ def refresh_temp_uv(obj, entity):
 
     # Get source
     if m1: 
-        source = get_layer_source(entity)
-        mapping = get_layer_mapping(entity)
+        if entity.use_baked:
+            tree = get_tree(entity)
+            source = tree.nodes.get(entity.baked_source)
+        else:
+            source = get_layer_source(entity)
+        mapping = get_layer_mapping(entity, get_baked=entity.use_baked)
         #print('Layer!')
     elif m2: 
-        source = get_mask_source(entity)
-        mapping = get_mask_mapping(entity)
+        if entity.use_baked:
+            mask_tree = get_mask_tree(entity)
+            source = mask_tree.nodes.get(entity.baked_source)
+            layer_tree = get_mask_tree(entity, True)
+        else:
+            source = get_mask_source(entity)
+        mapping = get_mask_mapping(entity, get_baked=entity.use_baked)
         #print('Mask!')
     elif m3: 
         source = layer_tree.nodes.get(entity.source)
@@ -2977,10 +3481,14 @@ def refresh_temp_uv(obj, entity):
         #print('Channel!')
     else: return False
 
+    # Only point mapping are supported for now
+    if mapping and mapping.vector_type not in {'POINT', 'TEXTURE'}:
+        return False
+
     if not hasattr(source, 'image'): return False
 
     img = source.image
-    if not img or not is_transformed(mapping):
+    if not img or not mapping or not is_transformed(mapping):
         return False
 
     set_active_object(obj)
@@ -2992,73 +3500,125 @@ def refresh_temp_uv(obj, entity):
 
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
-    #temp_uv_layer = obj.data.uv_layers.new(name=TEMP_UV)
-    uv_layers.active = temp_uv_layer
-    temp_uv_layer.active_render = True
+    try: uv_layers.active = temp_uv_layer
+    except: print('EXCEPTIION: Cannot set temporary UV!')
+    # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
+    if not is_greater_than_291():
+        temp_uv_layer.active_render = True
 
     if not is_greater_than_280():
         temp_uv_layer = obj.data.uv_layers.get(TEMP_UV)
 
+    translation_x = mapping.inputs[1].default_value[0] if is_greater_than_281() else mapping.translation[0]
+    translation_y = mapping.inputs[1].default_value[1] if is_greater_than_281() else mapping.translation[1]
+    translation_z = mapping.inputs[1].default_value[2] if is_greater_than_281() else mapping.translation[2]
+
+    rotation_x = mapping.inputs[2].default_value[0] if is_greater_than_281() else mapping.rotation[0]
+    rotation_y = mapping.inputs[2].default_value[1] if is_greater_than_281() else mapping.rotation[1]
+    rotation_z = mapping.inputs[2].default_value[2] if is_greater_than_281() else mapping.rotation[2]
+
+    scale_x = mapping.inputs[3].default_value[0] if is_greater_than_281() else mapping.scale[0]
+    scale_y = mapping.inputs[3].default_value[1] if is_greater_than_281() else mapping.scale[1]
+    scale_z = mapping.inputs[3].default_value[2] if is_greater_than_281() else mapping.scale[2]
+
     # Create transformation matrix
-    # Scale
-    if not is_greater_than_281():
+    m1 = m2 = m3 = m4 = None
+    if mapping.vector_type == 'POINT':
+
+        # Scale
         m = Matrix((
-            (mapping.scale[0], 0, 0),
-            (0, mapping.scale[1], 0),
-            (0, 0, mapping.scale[2])
+            (scale_x, 0, 0),
+            (0, scale_y, 0),
+            (0, 0, scale_z)
             ))
 
         # Rotate
-        m.rotate(Euler((mapping.rotation[0], mapping.rotation[1], mapping.rotation[2])))
+        m.rotate(Euler((rotation_x, rotation_y, rotation_z)))
 
         # Translate
         m = m.to_4x4()
-        m[0][3] = mapping.translation[0]
-        m[1][3] = mapping.translation[1]
-        m[2][3] = mapping.translation[2]
-    else:
+        m[0][3] = translation_x
+        m[1][3] = translation_y
+        m[2][3] = translation_z
+
+    elif mapping.vector_type == 'TEXTURE': 
+        # Translate matrix
         m = Matrix((
-            (mapping.inputs[3].default_value[0], 0, 0),
-            (0, mapping.inputs[3].default_value[1], 0),
-            (0, 0, mapping.inputs[3].default_value[2])
+            (1, 0, 0, -translation_x),
+            (0, 1, 0, -translation_y),
+            (0, 0, 1, -translation_z),
+            (0, 0, 0, 1),
             ))
 
-        # Rotate
-        m.rotate(Euler((mapping.inputs[2].default_value[0], mapping.inputs[2].default_value[1], mapping.inputs[2].default_value[2])))
+        # Rotate z matrix
+        m1 = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
+        m1.rotate(Euler((0, 0, -rotation_z)))
 
-        # Translate
-        m = m.to_4x4()
-        m[0][3] = mapping.inputs[1].default_value[0]
-        m[1][3] = mapping.inputs[1].default_value[1]
-        m[2][3] = mapping.inputs[1].default_value[2]
+        # Rotate y matrix
+        m2 = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
+        m2.rotate(Euler((0, -rotation_y, 0)))
+
+        # Rotate x matrix
+        m3 = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
+        m3.rotate(Euler((-rotation_x, 0, 0)))
+
+        # Scale matrix
+        m4 = Matrix((
+            (1/scale_x, 0, 0),
+            (0, 1/scale_y, 0),
+            (0, 0, 1/scale_z)
+            ))
 
     # Create numpy array to store uv coordinates
     arr = numpy.zeros(len(obj.data.loops)*2, dtype=numpy.float32)
-    #obj.data.uv_layers.active.data.foreach_get('uv', arr)
     temp_uv_layer.data.foreach_get('uv', arr)
     arr.shape = (arr.shape[0]//2, 2)
 
     # Matrix transformation for each uv coordinates
     if is_greater_than_280():
-        for uv in arr:
-            vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-            vec = m @ vec
-            uv[0] = vec[0]
-            uv[1] = vec[1]
+        if mapping.vector_type == 'TEXTURE':
+            for uv in arr:
+                vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
+                vec = eval('m @ vec')
+                vec = eval('m1 @ vec')
+                vec = eval('m2 @ vec')
+                vec = eval('m3 @ vec')
+                vec = eval('m4 @ vec')
+                uv[0] = vec[0]
+                uv[1] = vec[1]
+        else:
+            for uv in arr:
+                vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
+                vec = eval('m @ vec')
+                uv[0] = vec[0]
+                uv[1] = vec[1]
     else:
-        for uv in arr:
-            vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-            vec = m * vec
-            uv[0] = vec[0]
-            uv[1] = vec[1]
+        if mapping.vector_type == 'TEXTURE':
+            for uv in arr:
+                vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+                vec = m * vec
+                vec = m1 * vec
+                vec = m2 * vec
+                vec = m3 * vec
+                vec = m4 * vec
+                uv[0] = vec[0]
+                uv[1] = vec[1]
+        else:
+            for uv in arr:
+                vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+                vec = m * vec
+                uv[0] = vec[0]
+                uv[1] = vec[1]
 
     # Set back uv coordinates
-    #obj.data.uv_layers.active.data.foreach_set('uv', arr.ravel())
     temp_uv_layer.data.foreach_set('uv', arr.ravel())
 
     # Set UV mirror offset
     if ori_mode != 'EDIT':
-        set_uv_mirror_offsets(obj, m)
+        try: set_uv_mirror_offsets(obj, m)
+        except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
     # Back to edit mode if originally from there
     if ori_mode == 'EDIT':
@@ -3248,7 +3808,7 @@ def create_delete_iterate_nodes__(tree, num_of_iteration):
 
         if ig and counter >= depth:
             if ig.node_tree:
-                bpy.data.node_groups.remove(ig.node_tree)
+                remove_datablock(bpy.data.node_groups, ig.node_tree, user=ig, user_prop='node_tree')
             tree.nodes.remove(ig)
 
         if not ig_found and counter >= depth:
@@ -3395,6 +3955,7 @@ def get_layer_channel_index(layer, ch):
     for i, c in enumerate(layer.channels):
         if c == ch:
             return i
+    return None
 
 def is_bump_distance_relevant(layer, ch):
     if layer.type in {'COLOR', 'BACKGROUND'} and ch.enable_transition_bump:
@@ -3431,7 +3992,6 @@ def get_layer_channel_max_height(layer, ch, ch_idx=None):
 
     if ch.enable_transition_bump:
         if ch.normal_map_type == 'NORMAL_MAP' and layer.type != 'GROUP':
-            #max_height = ch.transition_bump_distance
             max_height = abs(get_transition_bump_max_distance_with_crease(ch))
         else:
             if ch.transition_bump_flip:
@@ -3499,8 +4059,12 @@ def get_transition_disp_delta(layer, ch):
         delta = get_transition_bump_max_distance(ch) - max_child_heights
 
     else:
-        bump_distance = ch.normal_bump_distance if ch.normal_blend_type else get_layer_channel_bump_distance(layer, ch)
+        ##### REPLACED_BY_SHADERS
+
+        bump_distance = ch.normal_bump_distance if ch.normal_map_type == 'NORMAL_MAP' else get_layer_channel_bump_distance(layer, ch)
         delta = get_transition_bump_max_distance(ch) - abs(bump_distance)
+
+        #####
 
     return delta
 
@@ -3540,14 +4104,25 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
 
 def get_displacement_max_height(root_ch, layer=None):
     yp = root_ch.id_data.yp
+    tree = root_ch.id_data
     ch_index = get_channel_index(root_ch)
 
-    if layer and layer.parent_idx != -1:
-        parent = get_parent(layer)
-        layers = get_list_of_direct_childrens(parent)
-        max_height = get_max_height_from_list_of_layers(layers, ch_index, layer, top_layers_only=False)
-    else:
-        max_height = get_max_height_from_list_of_layers(yp.layers, ch_index, layer, top_layers_only=True)
+    #if layer and layer.parent_idx != -1:
+    #    parent = get_parent(layer)
+    #    layers = get_list_of_direct_childrens(parent)
+    #    max_height = get_max_height_from_list_of_layers(layers, ch_index, layer, top_layers_only=False)
+    #else:
+    #    max_height = get_max_height_from_list_of_layers(yp.layers, ch_index, layer, top_layers_only=True)
+
+    max_height = 1.0
+
+    end_max_height = tree.nodes.get(root_ch.end_max_height)
+    if end_max_height:
+        max_height = end_max_height.outputs[0].default_value
+
+    end_max_height_tweak = tree.nodes.get(root_ch.end_max_height_tweak)
+    if end_max_height_tweak and 'Height Tweak' in end_max_height_tweak.inputs: 
+        max_height *= end_max_height_tweak.inputs['Height Tweak'].default_value
 
     return max_height
 
@@ -3603,32 +4178,60 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+    layer_node = layer.id_data.nodes.get(layer.group_node)
 
     height_proc = tree.nodes.get(height_ch.height_proc)
     if height_proc and layer.type != 'GROUP':
 
+        #inp = layer_node.inputs.get(get_entity_input_name(height_ch, 'bump_distance'))
+        #if inp: inp.default_value = height_ch.bump_distance
+
+        #inp = layer_node.inputs.get(get_entity_input_name(height_ch, 'normal_bump_distance'))
+        #if inp: inp.default_value = height_ch.normal_bump_distance
+
+        #inp = layer_node.inputs.get(get_entity_input_name(height_ch, 'transition_bump_distance'))
+        #if inp: inp.default_value = height_ch.transition_bump_distance
+
         if height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+
+            ##### REPLACED_BY_SHADERS
+
             inp = height_proc.inputs.get('Value Max Height')
             if inp: inp.default_value = get_layer_channel_bump_distance(layer, height_ch)
+
             inp = height_proc.inputs.get('Transition Max Height')
             if inp: inp.default_value = get_transition_bump_max_distance(height_ch)
+
+            #####
+
+            ##### REPLACED_BY_SHADERS (PARTLY)
+
             inp = height_proc.inputs.get('Delta')
             if inp: inp.default_value = get_transition_disp_delta(layer, height_ch)
+
+            #####
+
         elif height_ch.normal_map_type == 'NORMAL_MAP':
-            inp = height_proc.inputs.get('Bump Height')
-            if inp:
-                if height_ch.enable_transition_bump:
-                    inp.default_value = get_transition_bump_max_distance(height_ch)
-                else: inp.default_value = height_ch.normal_bump_distance
+
+            ##### REPLACED_BY_SHADERS
+
+            #inp = height_proc.inputs.get('Bump Height')
+            #if inp:
+            #    if height_ch.enable_transition_bump:
+            #        inp.default_value = get_transition_bump_max_distance(height_ch)
+            #    else: inp.default_value = height_ch.normal_bump_distance
+            pass
+
+            #####
 
     normal_proc = tree.nodes.get(height_ch.normal_proc)
     if normal_proc:
 
         max_height = get_displacement_max_height(height_root_ch, layer)
 
-        if height_root_ch.enable_smooth_bump: 
-            inp = normal_proc.inputs.get('Bump Height Scale')
-            if inp: inp.default_value = get_fine_bump_distance(max_height)
+        #if height_root_ch.enable_smooth_bump: 
+        #    inp = normal_proc.inputs.get('Bump Height Scale')
+        #    if inp: inp.default_value = get_fine_bump_distance(max_height)
 
         if 'Max Height' in normal_proc.inputs:
             normal_proc.inputs['Max Height'].default_value = max_height
@@ -3649,11 +4252,12 @@ def update_layer_bump_process_max_height(height_root_ch, layer, tree=None):
         max_height = get_displacement_max_height(height_root_ch, prev_layer)
     else: max_height = 0.0
 
-    bump_process.inputs['Max Height'].default_value = max_height
+    if 'Max Height' in bump_process.inputs:
+        bump_process.inputs['Max Height'].default_value = max_height
 
-    if height_root_ch.enable_smooth_bump:
-        if 'Bump Height Scale' in bump_process.inputs:
-            bump_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+    #if height_root_ch.enable_smooth_bump:
+    #    if 'Bump Height Scale' in bump_process.inputs:
+    #        bump_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
     #else:
     #    bump_process.inputs['Tweak'].default_value = 5.0
 
@@ -3688,18 +4292,19 @@ def update_displacement_height_ratio(root_ch, max_height=None):
 
     end_linear = group_tree.nodes.get(root_ch.end_linear)
     if end_linear:
-        if max_height != 0.0:
-            end_linear.inputs['Max Height'].default_value = max_height
-        else: end_linear.inputs['Max Height'].default_value = 1.0
+        if 'Max Height' in end_linear.inputs:
+            if max_height != 0.0:
+                end_linear.inputs['Max Height'].default_value = max_height
+            else: end_linear.inputs['Max Height'].default_value = 1.0
 
-        if root_ch.enable_smooth_bump:
-            end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+        #if root_ch.enable_smooth_bump and 'Bump Height Scale' in end_linear.inputs:
+        #    end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
-    end_max_height = group_tree.nodes.get(root_ch.end_max_height)
-    if end_max_height:
-        if max_height != 0.0:
-            end_max_height.outputs[0].default_value = max_height
-        else: end_max_height.outputs[0].default_value = 1.0
+    #end_max_height = group_tree.nodes.get(root_ch.end_max_height)
+    #if end_max_height:
+    #    if max_height != 0.0:
+    #        end_max_height.outputs[0].default_value = max_height
+    #    else: end_max_height.outputs[0].default_value = 1.0
 
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
@@ -3752,12 +4357,6 @@ def get_bump_chain(layer, ch=None):
 
     return min(chain, len(layer.masks))
 
-def get_transition_bump_falloff_emulated_curve_value(ch):
-    if ch.transition_bump_flip:
-        return -ch.transition_bump_falloff_emulated_curve_fac * 0.5 + 0.5
-    else:
-        return ch.transition_bump_falloff_emulated_curve_fac * 0.5 + 0.5
-
 def check_if_node_is_duplicated_from_lib(node, lib_name):
     if not node or node.type != 'GROUP': return False
     m = re.match(r'^' + lib_name + '_Copy\.*\d{0,3}$', node.node_tree.name)
@@ -3780,13 +4379,44 @@ def get_displace_modifier(obj, keyword=''):
 
     return None
 
-def get_multires_modifier(obj, keyword=''):
+def get_multires_modifier(obj, keyword='', include_hidden=False):
     for mod in obj.modifiers:
-        if mod.type == 'MULTIRES' and mod.total_levels > 0 and mod.show_viewport:
+        if mod.type == 'MULTIRES' and mod.total_levels > 0 and (mod.show_viewport or include_hidden):
             if keyword != '' and keyword != mod.name: continue
             return mod
 
     return None
+
+def update_layer_images_interpolation(layer, interpolation='Linear', from_interpolation = ''):
+    if layer.type == 'IMAGE':
+        source = get_layer_source(layer)
+        if source and source.image: 
+            if from_interpolation == '' or source.interpolation == from_interpolation:
+                source.interpolation = interpolation
+
+        baked_source = get_layer_source(layer, get_baked=True)
+        if baked_source and baked_source.image: 
+            if from_interpolation == '' or baked_source.interpolation == from_interpolation:
+                baked_source.interpolation = interpolation
+
+    height_ch = get_height_channel(layer)
+    if height_ch:
+        source = get_channel_source(height_ch, layer)
+        if source and source.bl_idname == 'ShaderNodeTexImage' and source.image: 
+            if from_interpolation == '' or source.interpolation == from_interpolation:
+                source.interpolation = interpolation
+
+    for mask in layer.masks:
+        if mask.type == 'IMAGE':
+            source = get_mask_source(mask)
+            if source and source.image: 
+                if from_interpolation == '' or source.interpolation == from_interpolation:
+                    source.interpolation = interpolation
+
+        baked_source = get_mask_source(mask, get_baked=True)
+        if baked_source and baked_source.image: 
+            if from_interpolation == '' or baked_source.interpolation == from_interpolation:
+                baked_source.interpolation = interpolation
 
 def get_uv_layers(obj):
     if obj.type != 'MESH': return []
@@ -3906,6 +4536,39 @@ def get_vertex_colors(obj):
 
     return obj.data.color_attributes
 
+def get_vertex_color_names_from_geonodes(obj):
+    vcol_names = []
+
+    for mod in obj.modifiers:
+        if mod.type == 'NODES' and mod.node_group:
+            outputs = get_tree_outputs(mod.node_group)
+            for outp in outputs:
+                if ((is_greater_than_400() and outp.socket_type == 'NodeSocketColor') or
+                    (not is_greater_than_400() and outp.type == 'RGBA')):
+                    name = mod[outp.identifier + '_attribute_name']
+                    if name != '' and name not in vcol_names:
+                        vcol_names.append(name)
+
+    return vcol_names
+
+def get_vertex_color_names(obj):
+    if not obj: return []
+
+    vcol_names = []
+
+    # Check vertex colors / color attributes
+    if not is_greater_than_320():
+        if hasattr(obj.data, 'vertex_colors'):
+            vcol_names = [v.name for v in obj.data.vertex_colors]
+    else:
+        if hasattr(obj.data, 'color_attributes'):
+            vcol_names = [v.name for v in obj.data.color_attributes]
+
+    # Check geometry nodes outputs
+    vcol_names.extend(get_vertex_color_names_from_geonodes(obj))
+
+    return vcol_names
+
 def get_active_vertex_color(obj):
     if not obj or obj.type != 'MESH': return None
 
@@ -3921,8 +4584,11 @@ def set_active_vertex_color(obj, vcol):
             # HACK: Baking to vertex color still use active legacy vertex colors data
             if hasattr(obj.data, 'vertex_colors'):
                 v = obj.data.vertex_colors.get(vcol.name)
-                obj.data.vertex_colors.active = v
-        else: obj.data.vertex_colors.active = vcol
+                if obj.data.vertex_colors.active != v:
+                    obj.data.vertex_colors.active = v
+        else: 
+            if obj.data.vertex_colors.active != vcol:
+                obj.data.vertex_colors.active = vcol
     except Exception as e: print(e)
 
 def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER'):
@@ -3932,6 +4598,24 @@ def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER'):
         return obj.data.vertex_colors.new(name=name)
 
     return obj.data.color_attributes.new(name, data_type, domain)
+
+def get_active_render_uv(obj):
+    uv_layers = get_uv_layers(obj)
+    uv_name = ''
+
+    if obj.type == 'MESH' and len(uv_layers) > 0:
+        for uv_layer in uv_layers:
+            if uv_layer.active_render and uv_layer.name != TEMP_UV:
+                uv_name = uv_layer.name
+                break
+
+        if uv_name == '':
+            for uv_layer in uv_layers:
+                if uv_layer.name != TEMP_UV:
+                    uv_name = uv_layer.name
+                    break
+
+    return uv_name
 
 def get_default_uv_name(obj, yp=None):
     uv_layers = get_uv_layers(obj)
@@ -3952,17 +4636,162 @@ def get_default_uv_name(obj, yp=None):
 
 def get_relevant_uv(obj, yp):
     try: layer = yp.layers[yp.active_layer_index]
-    except: return None
+    except: return ''
 
-    uv_name = layer.uv_name
+    uv_name = layer.baked_uv_name if layer.use_baked and layer.baked_uv_name != '' else layer.uv_name
 
     for mask in layer.masks:
         if mask.active_edit:
-            if mask.type == 'IMAGE':
+            if is_mask_using_vector(mask):
                 active_mask = mask
-                uv_name = mask.uv_name
+                uv_name = mask.baked_uv_name if mask.use_baked and mask.baked_uv_name != '' else mask.uv_name
 
     return uv_name 
+
+def set_active_paint_slot_entity(yp):
+    image = None
+    mat = get_active_material()
+    node = get_active_ypaint_node()
+    obj = bpy.context.object
+    scene = bpy.context.scene
+    root_tree = yp.id_data
+
+    # Multiple materials will use single active image instead active material image
+    # since it's the only way texture paint mode won't mess with other material image
+    is_multiple_mats = obj.type == 'MESH' and len(obj.data.materials) > 1
+
+    # Set material active node 
+    if is_greater_than_281():
+        node.select = True
+        mat.node_tree.nodes.active = node
+
+    if yp.use_baked and len(yp.channels) > 0:
+
+        ch = yp.channels[yp.active_channel_index]
+        baked = root_tree.nodes.get(ch.baked)
+        if baked and baked.image:
+            if ch.type == 'NORMAL':
+                baked_disp = root_tree.nodes.get(ch.baked_disp)
+                baked_normal_overlay = root_tree.nodes.get(ch.baked_normal_overlay)
+
+                cur_image = get_active_paint_slot_image()
+
+                if cur_image == baked.image and baked_disp:
+                    baked_disp.select = True
+                    root_tree.nodes.active = baked_disp
+                    image = baked_disp.image
+                elif baked_disp and cur_image == baked_disp.image and baked_normal_overlay:
+                    baked_normal_overlay.select = True
+                    root_tree.nodes.active = baked_normal_overlay
+                    image = baked_normal_overlay.image
+                else:
+                    baked.select = True
+                    root_tree.nodes.active = baked
+                    image = baked.image
+
+            else:
+                baked.select = True
+                root_tree.nodes.active = baked
+                image = baked.image
+
+    elif len(yp.layers) > 0:
+        
+        # Get layer tree
+        layer = yp.layers[yp.active_layer_index]
+        tree = get_tree(layer)
+
+        # Set layer node tree as active
+        layer_node = root_tree.nodes.get(layer.group_node)
+        layer_node.select = True
+        root_tree.nodes.active = layer_node
+        layer_tree = layer_node.node_tree
+
+        for mask in layer.masks:
+            if mask.active_edit:
+                source = get_mask_source(mask)
+                baked_source = get_mask_source(mask, get_baked=True)
+
+                if mask.type == 'IMAGE' or (mask.use_baked and baked_source):
+
+                    if mask.use_baked and baked_source:
+                        source = baked_source 
+
+                    if mask.group_node != '':
+                        mask_node = layer_tree.nodes.get(mask.group_node)
+                        mask_node.select = True
+                        layer_tree.nodes.active = mask_node
+
+                        mask_tree = mask_node.node_tree
+                        source.select = True
+                        mask_tree.nodes.active = source
+                    else:
+                        source.select = True
+                        layer_tree.nodes.active = source
+
+                    image = source.image
+
+        for ch in layer.channels:
+            if ch.active_edit and ch.override and ch.override_type != 'DEFAULT' and ch.override_type == 'IMAGE':
+                source = get_channel_source(ch, layer)
+
+                if ch.source_group != '':
+                    source_group = layer_tree.nodes.get(ch.source_group)
+                    source_group.select = True
+                    layer_tree.nodes.active = source_group
+
+                    ch_tree = source_group.node_tree
+                    source.select = True
+                    ch_tree.nodes.active = source
+
+                else:
+                    source.select = True
+                    layer_tree.nodes.active = source
+
+                image = source.image
+
+            if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.override_1_type == 'IMAGE':
+                source = tree.nodes.get(ch.source_1)
+                source.select = True
+                layer_tree.nodes.active = source
+                image = source.image
+
+        if not image:
+            source = get_layer_source(layer, tree)
+            baked_source = get_layer_source(layer, get_baked=True)
+
+            if layer.type == 'IMAGE' or (layer.use_baked and baked_source):
+                if layer.use_baked and baked_source:
+                    source = baked_source 
+
+                if layer.source_group != '':
+                    source_group = layer_tree.nodes.get(layer.source_group)
+                    source_group.select = True
+                    layer_tree.nodes.active = source_group
+
+                    source_tree = source_group.node_tree
+                    source.select = True
+                    source_tree.nodes.active = source
+                else:
+                    source.select = True
+                    layer_tree.nodes.active = source
+
+                image = source.image
+
+    if not is_multiple_mats and image and is_greater_than_281():
+
+        scene.tool_settings.image_paint.mode = 'MATERIAL'
+
+        for idx, img in enumerate(mat.texture_paint_images):
+            if img == None: continue
+            if img.name == image.name:
+                mat.paint_active_slot = idx
+                break
+
+    else:
+        scene.tool_settings.image_paint.mode = 'IMAGE'
+        scene.tool_settings.image_paint.canvas = image
+
+    update_image_editor_image(bpy.context, image)
 
 def get_active_image_and_stuffs(obj, yp):
 
@@ -3970,6 +4799,7 @@ def get_active_image_and_stuffs(obj, yp):
     uv_name = ''
     vcol = None
     src_of_img = None
+    entity = None
     mapping = None
 
     vcols = get_vertex_colors(obj)
@@ -3980,12 +4810,19 @@ def get_active_image_and_stuffs(obj, yp):
     for mask in layer.masks:
         if mask.active_edit:
             source = get_mask_source(mask)
+            baked_source = get_mask_source(mask, get_baked=True)
 
-            if mask.type == 'IMAGE':
-                uv_name = mask.uv_name
+            uv_name = mask.uv_name if not mask.use_baked or mask.baked_uv_name == '' else mask.baked_uv_name
+            mapping = get_mask_mapping(mask, get_baked=mask.use_baked)
+            entity = mask
+
+            if mask.use_baked and baked_source:
+                if baked_source.image:
+                    image = baked_source.image
+                    src_of_img = mask
+            elif mask.type == 'IMAGE':
                 image = source.image
                 src_of_img = mask
-                mapping = get_mask_mapping(mask)
             elif mask.type == 'VCOL' and obj.type == 'MESH':
                 # If source is empty, still try to get vertex color
                 if get_source_vcol_name(source) == '':
@@ -3999,6 +4836,7 @@ def get_active_image_and_stuffs(obj, yp):
         if ch.active_edit and ch.override and ch.override_type != 'DEFAULT':
             #source = tree.nodes.get(ch.source)
             source = get_channel_source(ch, layer)
+            entity = ch
 
             if ch.override_type == 'IMAGE':
                 uv_name = layer.uv_name
@@ -4011,6 +4849,7 @@ def get_active_image_and_stuffs(obj, yp):
 
         if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT':
             source = tree.nodes.get(ch.source_1)
+            entity = ch
 
             if ch.override_1_type == 'IMAGE':
                 uv_name = layer.uv_name
@@ -4018,6 +4857,9 @@ def get_active_image_and_stuffs(obj, yp):
                 image = source_1.image
                 src_of_img = ch
                 mapping = get_layer_mapping(layer)
+
+    if not entity: 
+        entity = layer
 
     if not image and layer.type == 'IMAGE':
         uv_name = layer.uv_name
@@ -4030,7 +4872,7 @@ def get_active_image_and_stuffs(obj, yp):
         source = get_layer_source(layer, tree)
         vcol = vcols.get(get_source_vcol_name(source))
 
-    return image, uv_name, src_of_img, mapping, vcol
+    return image, uv_name, src_of_img, entity, mapping, vcol
 
 def set_active_uv_layer(obj, uv_name):
     uv_layers = get_uv_layers(obj)
@@ -4039,6 +4881,334 @@ def set_active_uv_layer(obj, uv_name):
         if uv.name == uv_name:
             if uv_layers.active_index != i:
                 uv_layers.active_index = i
+
+def is_uv_input_needed(layer, uv_name):
+    yp = layer.id_data.yp
+
+    if get_layer_enabled(layer):
+
+        if layer.baked_source != '' and layer.use_baked and layer.baked_uv_name == uv_name:
+            return True
+
+            if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
+                return True
+
+        if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
+            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
+                return True
+
+            for i, ch in enumerate(layer.channels):
+                if not ch.enable: continue
+                root_ch = yp.channels[i]
+                if root_ch.type != 'NORMAL':
+                    if ch.override and ch.override_type not in {'DEFAULT', 'VCOL'}:
+                        return True
+                else:
+                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override and ch.override_type not in {'DEFAULT', 'VCOL'}:
+                        return True
+
+                    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type != 'DEFAULT':
+                        return True
+        
+        for mask in layer.masks:
+            if not get_mask_enabled(mask): continue
+            if mask.use_baked and mask.baked_source != '' and mask.baked_uv_name == uv_name:
+                return True
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}: continue
+            if (not mask.use_baked or mask.baked_source == '') and mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
+                return True
+
+    return False
+
+def is_entity_need_tangent_input(entity, uv_name):
+    yp = entity.id_data.yp
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', entity.path_from_id())
+    if m: 
+        layer = yp.layers[int(m.group(1))]
+        entity_enabled = get_mask_enabled(entity)
+        is_mask = True
+    else: 
+        layer = entity
+        entity_enabled = get_layer_enabled(entity)
+        is_mask = False
+
+    if entity_enabled and (entity.use_baked or entity.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}):
+
+        height_root_ch = get_root_height_channel(yp)
+        height_ch = get_height_channel(layer)
+
+        # Previous normal is calculated using normal process
+        if height_root_ch and check_need_prev_normal(layer):
+            return True
+
+        if height_root_ch and height_ch and get_channel_enabled(height_ch, layer, height_root_ch):
+
+            if entity.type == 'GROUP':
+
+                if is_layer_using_normal_map(entity, height_root_ch):
+                    return True
+
+            elif uv_name == height_root_ch.main_uv:
+
+                # Main UV tangent is needed for normal process
+                if is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
+                    return True
+
+                # Overlay blend and transition bump need tangent
+                if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and (height_ch.normal_blend_type == 'OVERLAY' or height_ch.enable_transition_bump):
+                    return True
+
+                # Main UV Tangent is needed if smooth bump is on and entity is using non-uv texcoord or have different UV
+                if height_root_ch.enable_smooth_bump and (entity.texcoord_type != 'UV' or entity.uv_name != uv_name) and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    return True
+
+                # Fake neighbor need tangent
+                if height_root_ch.enable_smooth_bump and entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT'} and not entity.use_baked:
+                    return True
+
+            elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
+
+                # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
+                if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    return True
+
+    return False
+
+def is_tangent_input_needed(layer, uv_name):
+
+    if is_entity_need_tangent_input(layer, uv_name):
+        return True
+
+    for mask in layer.masks:
+        if is_entity_need_tangent_input(mask, uv_name):
+            return True
+
+    return False
+
+def is_tangent_process_needed(yp, uv_name):
+
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch:
+
+        if height_root_ch.main_uv == uv_name and (
+                (height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch)) or
+                #(not height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch) and any_layers_using_normal_map(height_root_ch))
+                #any_layers_using_bump_map(height_root_ch) or
+                (is_normal_height_input_connected(height_root_ch) and height_root_ch.enable_smooth_bump)
+                ):
+            return True
+
+        for layer in yp.layers:
+            if is_tangent_input_needed(layer, uv_name):
+                return True
+
+    return False
+
+def is_height_process_needed(layer):
+    yp = layer.id_data.yp
+    height_root_ch = get_root_height_channel(yp)
+    if not height_root_ch: return False
+
+    height_ch = get_height_channel(layer)
+    if not height_ch or not height_ch.enable: return False
+
+    if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+
+    if layer.type == 'GROUP': 
+        if is_layer_using_bump_map(layer, height_root_ch):
+            return True
+    elif height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
+        return True
+
+    return False
+
+def is_normal_process_needed(layer):
+    yp = layer.id_data.yp
+    height_root_ch = get_root_height_channel(yp)
+    if not height_root_ch: return False
+
+    height_ch = get_height_channel(layer)
+    if not height_ch or not height_ch.enable: return False
+
+    if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+
+    if layer.type == 'GROUP': 
+        if is_layer_using_bump_map(layer, height_root_ch) and not height_ch.write_height:
+            return True
+    elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
+        return True
+
+    return False
+
+''' Check if layer is practically enabled or not '''
+def get_layer_enabled(layer):
+    yp = layer.id_data.yp
+
+    # Check all parents enable
+    parent_enable = True
+    for parent_id in get_list_of_parent_ids(layer):
+        parent = yp.layers[parent_id]
+        if not parent.enable:
+            parent_enable = False
+            break
+
+    # Check if no channel is enabled
+    channel_enabled = False
+    for ch in layer.channels:
+        if ch.enable:
+            channel_enabled = True
+            break
+
+    return layer.enable and parent_enable and channel_enabled
+    #return (layer.enable and parent_enable) or yp.layer_preview_mode
+
+''' Check if mask is practically enabled or not '''
+def get_mask_enabled(mask, layer=None):
+    if not layer:
+        yp = mask.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        layer = yp.layers[int(m.group(1))]
+
+    return get_layer_enabled(layer) and layer.enable_masks and mask.enable
+    #return (get_layer_enabled(layer) and mask.enable) or yp.layer_preview_mode
+
+''' Check if channel is practically enabled or not '''
+def get_channel_enabled(ch, layer=None, root_ch=None):
+    #print('Checking', layer.name, root_ch.name, "if it's enabled or not...")
+    yp = ch.id_data.yp
+
+    if not layer or not root_ch:
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+
+    if not get_layer_enabled(layer) or not ch.enable:
+        return False
+
+    channel_idx = get_channel_index(root_ch)
+
+    if layer.type in {'BACKGROUND', 'GROUP'}:
+        
+        if layer.type == 'BACKGROUND':
+            layer_idx = get_layer_index(layer)
+            lays = [l for i, l in enumerate(yp.layers) if i > layer_idx and l.parent_idx == layer.parent_idx]
+        else:
+            lays = get_list_of_direct_childrens(layer)
+        
+        for l in lays:
+            if not l.enable: continue
+            if channel_idx >= len(l.channels): continue
+            c = l.channels[channel_idx]
+
+            if l.type not in {'GROUP', 'BACKGROUND'} and c.enable:
+                return True
+
+            if l.type == 'GROUP' and get_channel_enabled(l.channels[channel_idx], l, root_ch):
+                return True
+
+        return False
+
+    else:
+        for pid in get_list_of_parent_ids(layer):
+            parent = yp.layers[pid]
+            if len(parent.channels) > channel_idx and not parent.channels[channel_idx].enable:
+                return False
+
+    return True
+
+def is_any_entity_using_uv(yp, uv_name):
+
+    if yp.baked_uv_name != '' and yp.baked_uv_name == uv_name:
+        return True
+
+    for layer in yp.layers:
+        if is_uv_input_needed(layer, uv_name):
+            return True
+
+    return False
+
+def is_layer_using_bump_map(layer, root_ch=None):
+    yp = layer.id_data.yp
+    if not root_ch: root_ch = get_root_height_channel(yp)
+    if not root_ch: return False
+
+    channel_idx = get_channel_index(root_ch)
+    try: ch = layer.channels[channel_idx]
+    except: return False
+    if get_channel_enabled(ch, layer, root_ch):
+        if layer.type == 'GROUP':
+            childs = get_list_of_direct_childrens(layer)
+            for child in childs:
+                if is_layer_using_bump_map(child):
+                    return True
+        elif ch.write_height and  (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or ch.enable_transition_bump):
+            return True
+
+    return False
+
+def is_layer_using_normal_map(layer, root_ch=None):
+    yp = layer.id_data.yp
+    if not root_ch: root_ch = get_root_height_channel(yp)
+    if not root_ch: return False
+
+    channel_idx = get_channel_index(root_ch)
+    try: ch = layer.channels[channel_idx]
+    except: return False
+    if get_channel_enabled(ch, layer, root_ch):
+        if layer.type == 'GROUP':
+            childs = get_list_of_direct_childrens(layer)
+            for child in childs:
+                if is_layer_using_normal_map(child) or (not ch.write_height and is_layer_using_bump_map(child)):
+                    return True
+        elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+            return True
+
+    return False
+
+def any_layers_using_bump_map(root_ch):
+    if root_ch.type != 'NORMAL': return False
+    yp = root_ch.id_data.yp
+
+    for layer in yp.layers:
+        if is_layer_using_bump_map(layer, root_ch):
+            return True
+
+    return False
+
+def any_layers_using_displacement(root_ch):
+    if any_layers_using_bump_map(root_ch):
+        return True
+
+    yp = root_ch.id_data.yp
+    vdm_layer = get_first_vdm_layer(yp)
+    if vdm_layer: 
+        return True
+
+    return False
+
+def any_layers_using_normal_map(root_ch):
+    if root_ch.type != 'NORMAL': return False
+    yp = root_ch.id_data.yp
+    channel_idx = get_channel_index(root_ch)
+
+    for layer in yp.layers:
+        if is_layer_using_normal_map(layer, root_ch):
+            return True
+
+    return False
+
+def any_layers_using_channel(root_ch):
+    yp = root_ch.id_data.yp
+    channel_idx = get_channel_index(root_ch)
+
+    for layer in yp.layers:
+        try: ch = layer.channels[channel_idx]
+        except: continue
+        if get_channel_enabled(ch, layer, root_ch):
+            return True
+
+    return False
 
 def is_any_layer_using_channel(root_ch, node=None):
 
@@ -4091,6 +5261,7 @@ def get_scene_objects():
     else: return bpy.context.scene.objects
 
 def is_mesh_flat_shaded(mesh):
+    # NOTE: This is just approximate way to know if the mesh is flat shaded or not
 
     for i, f in enumerate(mesh.polygons):
         if not f.use_smooth:
@@ -4112,6 +5283,17 @@ def get_all_materials_with_yp_nodes(mesh_only=True):
             if any([n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree and n.node_tree.yp.is_ypaint_node]):
                 if mat not in mats:
                     mats.append(mat)
+
+    return mats
+
+def get_all_materials_with_tree(tree):
+    mats = []
+
+    for mat in bpy.data.materials:
+        if not mat.node_tree: continue
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and node.node_tree == tree and mat not in mats:
+                mats.append(mat)
 
     return mats
 
@@ -4146,74 +5328,184 @@ def get_all_objects_with_same_materials(mat, mesh_only=False, uv_name='', select
 
     return objs
 
-def get_yp_images(yp):
+def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=False):
+
+    layers = [layer]
+
+    if has_childrens(layer):
+        childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
+        layers.extend(childs)
 
     images = []
+    for lay in layers:
+        for mask in lay.masks:
+            baked_source = get_mask_source(mask, get_baked=True)
+            if baked_source and baked_source.image and baked_source.image not in images:
+                images.append(baked_source.image)
 
-    for layer in yp.layers:
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if source and source.image and source.image not in images:
-                images.append(source.image)
-        for mask in layer.masks:
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
                 if source and source.image and source.image not in images:
                     images.append(source.image)
 
+        for ch in lay.channels:
+            if ch.override and ch.override_type == 'IMAGE':
+                source = get_channel_source(ch, lay)
+                if source and source.image and source.image not in images:
+                    images.append(source.image)
+
+            if ch.override_1 and ch.override_1_type == 'IMAGE':
+                source = get_channel_source_1(ch, lay)
+                if source and source.image and source.image not in images:
+                    images.append(source.image)
+
+        baked_source = get_layer_source(lay, get_baked=True)
+        if baked_source and baked_source.image and baked_source.image not in images:
+            images.append(baked_source.image)
+
+        if lay.type == 'IMAGE':
+            source = get_layer_source(lay)
+            if source and source.image and source.image not in images:
+                images.append(source.image)
+
+    filtered_images = []
+    for image in images:
+        if udim_only and image.source != 'TILED': continue
+        if ondisk_only and (image.packed_file or image.filepath == ''): continue
+        if packed_only and not image.packed_file and image.filepath != '': continue
+        if image not in filtered_images:
+            filtered_images.append(image)
+
+    return filtered_images
+
+def any_single_user_ondisk_image_inside_layer(layer):
+    for image in get_layer_images(layer, ondisk_only=True):
+        if is_image_single_user(image):
+            return True
+
+    return False
+
+def any_single_user_ondisk_image_inside_group(group):
+    childs, child_ids = get_list_of_all_childs_and_child_ids(group)
+    for child in childs:
+        if any_single_user_ondisk_image_inside_layer(child):
+            return True
+
+    return False
+
+def get_yp_images(yp, udim_only=False):
+    images = []
+    for layer in yp.layers:
+        images.extend(get_layer_images(layer, udim_only))
+
     return images
+
+def get_yp_entites_using_same_image(yp, image):
+    entities = []
+
+    for layer in yp.layers:
+
+        for mask in layer.masks:
+            baked_source = get_mask_source(mask, get_baked=True)
+            if baked_source and baked_source.image == image:
+                entities.append(mask)
+                continue
+
+            if mask.type == 'IMAGE':
+                source = get_mask_source(mask)
+                if source and source.image == image:
+                    entities.append(mask)
+
+        for ch in layer.channels:
+            if ch.override and ch.override_type == 'IMAGE':
+                source = get_channel_source(ch, layer)
+                if source and source.image == image:
+                    entities.append(ch)
+            elif ch.override_1 and ch.override_1_type == 'IMAGE':
+                source = get_channel_source_1(ch, layer)
+                if source and source.image == image:
+                    entities.append(ch)
+
+        if layer.type == 'IMAGE':
+
+            baked_source = get_layer_source(layer, get_baked=True)
+            if baked_source and baked_source.image == image:
+                entities.append(layer)
+                continue
+
+            source = get_layer_source(layer)
+            if source and source.image == image:
+                entities.append(layer)
+
+    return entities 
+
+def check_yp_entities_images_segments_in_lists(entity, image, segment_name, segment_name_prop, entities=[], images=[], segment_names=[], segment_name_props=[]):
+
+    if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+        if image.yia.is_image_atlas:
+            segment = image.yia.segments.get(segment_name)
+        else: segment = image.yua.segments.get(segment_name)
+
+        similar_ids = [i for i, s in enumerate(segment_names) if s == segment.name and images[i] == image]
+        if len(similar_ids) > 0:
+            entities[similar_ids[0]].append(entity)
+            segment_name_props[similar_ids[0]].append(segment_name_prop)
+        else:
+            images.append(image)
+            segment_names.append(segment.name)
+            entities.append([entity])
+            segment_name_props.append([segment_name_prop])
+
+    else:
+        if image not in images:
+            images.append(image)
+            segment_names.append('')
+            entities.append([entity])
+            segment_name_props.append([segment_name_prop])
+        else:
+            idx = [i for i, img in enumerate(images) if img == image][0]
+            entities[idx].append(entity)
+            segment_name_props[idx].append(segment_name_prop)
+
+    return entities, images, segment_names, segment_name_props
 
 def get_yp_entities_images_and_segments(yp):
     entities = []
     images = []
-    segments = []
+    segment_names = []
+    segment_name_props = []
 
     for layer in yp.layers:
+
+        baked_source = get_layer_source(layer, get_baked=True)
+        if baked_source and baked_source.image:
+            image = baked_source.image
+            entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
+                    layer, image, layer.baked_segment_name, 'baked_segment_name', entities, images, segment_names, segment_name_props)
+
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image:
                 image = source.image
-                if image.yia.is_image_atlas:
-                    segment = image.yia.segments.get(layer.segment_name)
-                    if segment not in segments:
-                        images.append(image)
-                        segments.append(segment)
-                        entities.append([layer])
-                    else:
-                        idx = [i for i, s in enumerate(segments) if s == segment][0]
-                        entities[idx].append(layer)
-                else:
-                    if image not in images:
-                        images.append(image)
-                        segments.append(None)
-                        entities.append([layer])
-                    else:
-                        idx = [i for i, img in enumerate(images) if img == image][0]
-                        entities[idx].append(layer)
+                entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
+                        layer, image, layer.segment_name, 'segment_name', entities, images, segment_names, segment_name_props)
+
         for mask in layer.masks:
+
+            baked_source = get_mask_source(mask, get_baked=True)
+            if baked_source and baked_source.image:
+                image = baked_source.image
+                entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
+                        mask, image, mask.baked_segment_name, 'baked_segment_name', entities, images, segment_names, segment_name_props)
+
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
                 if source and source.image:
                     image = source.image
-                    if image.yia.is_image_atlas:
-                        segment = image.yia.segments.get(mask.segment_name)
-                        if segment not in segments:
-                            images.append(image)
-                            segments.append(segment)
-                            entities.append([mask])
-                        else:
-                            idx = [i for i, s in enumerate(segments) if s == segment][0]
-                            entities[idx].append(mask)
-                    else:
-                        if image not in images:
-                            images.append(image)
-                            segments.append(None)
-                            entities.append([mask])
-                        else:
-                            idx = [i for i, img in enumerate(images) if img == image][0]
-                            entities[idx].append(mask)
+                    entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
+                            mask, image, mask.segment_name, 'segment_name', entities, images, segment_names, segment_name_props)
 
-    return entities, images, segments
+    return entities, images, segment_names, segment_name_props
 
 def check_need_prev_normal(layer):
 
@@ -4259,12 +5551,22 @@ def get_all_baked_channel_images(tree):
     return images
 
 def is_layer_using_vector(layer):
-    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+    if layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
         return True
 
     for ch in layer.channels:
-        if ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+        if ch.enable and ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
             return True
+
+    for mask in layer.masks:
+        if mask.enable and mask.texcoord_type == 'Layer':
+            return True
+
+    return False
+
+def is_mask_using_vector(mask):
+    if mask.use_baked or mask.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+        return True
 
     return False
 
@@ -4276,15 +5578,46 @@ def get_node(tree, name, parent=None):
 
     return node
 
+def is_normal_height_input_connected(root_normal_ch):
+    # NOTE: Assuming that the active node is using the input tree
+    node = get_active_ypaint_node()
+    if not node: return False
+
+    io_height_name = root_normal_ch.name + io_suffix['HEIGHT']
+    height_inp = node.inputs.get(io_height_name)
+    return height_inp and len(height_inp.links) > 0
+
+def is_normal_input_connected(root_normal_ch):
+    # NOTE: Assuming that the active node is using the input tree
+    node = get_active_ypaint_node()
+    if not node: return False
+    
+    normal_inp = node.inputs.get(root_normal_ch.name)
+    return normal_inp and len(normal_inp.links) > 0
+
 def is_overlay_normal_empty(yp):
+
+    root_ch = get_root_height_channel(yp)
+    if root_ch and is_normal_input_connected(root_ch):
+        return False
 
     for l in yp.layers:
         c = get_height_channel(l)
-        if not l.enable or not c.enable: continue
+        if not c or not l.enable or not c.enable: continue
         if c.normal_map_type == 'NORMAL_MAP' or (c.normal_map_type == 'BUMP_MAP' and not c.write_height):
             return False
 
     return True
+
+def any_layers_using_vdisp(yp):
+
+    for l in yp.layers:
+        c = get_height_channel(l)
+        if not c or not l.enable or not c.enable: continue
+        if c.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+            return True
+
+    return False
 
 # ShaderNodeVertexColor can't use bump map, so ShaderNodeAttribute will be used for now
 def get_vcol_bl_idname():
@@ -4302,6 +5635,45 @@ def get_source_vcol_name(src):
     #if is_greater_than_281():
     #    return src.layer_name
     return src.attribute_name
+
+def get_vcol_data_type_and_domain_by_name(obj, vcol_name, objs=[]):
+
+    data_type = 'BYTE_COLOR'
+    domain = 'CORNER'
+
+    vcol = None
+    vcols = get_vertex_colors(obj)
+    if vcol_name in vcols:
+        vcol = vcols.get(vcol_name)
+        if is_greater_than_320():
+            data_type = vcol.data_type
+            domain = vcol.domain
+
+    if not vcol:
+
+        # Also check on other objects
+        if not any(objs): objs = [obj]
+
+        # Check geometry nodes outputs
+        outp_found = False
+        for o in objs:
+            for mod in o.modifiers:
+                if mod.type == 'NODES' and mod.node_group:
+                    outputs = get_tree_outputs(mod.node_group)
+                    for outp in outputs:
+                        if ((is_greater_than_400() and outp.socket_type == 'NodeSocketColor') or
+                            (not is_greater_than_400() and outp.type == 'RGBA')):
+                            if mod[outp.identifier + '_attribute_name'] == vcol_name:
+                                data_type = 'FLOAT_COLOR'
+                                domain = outp.attribute_domain
+                                outp_found = True
+                                break
+                if outp_found:
+                    break
+            if outp_found:
+                break
+
+    return data_type, domain
 
 def get_vcol_from_source(obj, src):
     name = get_source_vcol_name(src)
@@ -4325,7 +5697,8 @@ def check_colorid_vcol(objs):
 def is_colorid_already_being_used(yp, color_id):
     for l in yp.layers:
         for m in l.masks:
-            if abs(m.color_id[0]-color_id[0]) < COLORID_TOLERANCE and abs(m.color_id[1]-color_id[1]) < COLORID_TOLERANCE and abs(m.color_id[2]-color_id[2]) < COLORID_TOLERANCE:
+            mcol = get_mask_color_id_color(m)
+            if abs(mcol[0]-color_id[0]) < COLORID_TOLERANCE and abs(mcol[1]-color_id[1]) < COLORID_TOLERANCE and abs(mcol[2]-color_id[2]) < COLORID_TOLERANCE:
                 return True
     return False
 
@@ -4351,18 +5724,21 @@ def is_image_source_srgb(image, source, root_ch=None):
         return True
 
     # Float images is behaving like srgb for some reason in blender
-    if root_ch and root_ch.colorspace == 'SRGB' and image.is_float and image.colorspace_settings.name != 'sRGB':
+    if root_ch and root_ch.colorspace == 'SRGB' and image.is_float and image.colorspace_settings.name != get_srgb_name():
         return True
 
-    return image.colorspace_settings.name == 'sRGB'
+    return image.colorspace_settings.name == get_srgb_name()
 
 def any_linear_images_problem(yp):
     for layer in yp.layers:
+        if not get_layer_enabled(layer): continue
         layer_tree = get_tree(layer)
 
         for i, ch in enumerate(layer.channels):
             root_ch = yp.channels[i]
-            if ch.override_type == 'IMAGE':
+            if not get_channel_enabled(ch, layer, root_ch): continue
+
+            if not yp.use_linear_blending and ch.override and ch.override_type == 'IMAGE':
                 source_tree = get_channel_source_tree(ch)
                 linear = source_tree.nodes.get(ch.linear)
                 source = source_tree.nodes.get(ch.source)
@@ -4376,8 +5752,7 @@ def any_linear_images_problem(yp):
                     ):
                     return True
 
-        for ch in layer.channels:
-            if ch.override_1_type == 'IMAGE':
+            if ch.override_1 and ch.override_1_type == 'IMAGE':
                 linear_1 = layer_tree.nodes.get(ch.linear_1)
                 source_1 = layer_tree.nodes.get(ch.source_1)
                 if not source_1: continue
@@ -4391,6 +5766,7 @@ def any_linear_images_problem(yp):
                     return True
 
         for mask in layer.masks:
+            if not get_mask_enabled(mask, layer): continue
             if mask.type == 'IMAGE':
                 source_tree = get_mask_tree(mask)
                 linear = source_tree.nodes.get(mask.linear)
@@ -4411,22 +5787,41 @@ def any_linear_images_problem(yp):
             if not source: continue
             image = source.image
             if not image: continue
-            if (
-                (is_image_source_srgb(image, source) and not linear) or
-                (not is_image_source_srgb(image, source) and linear)
-                ):
-                return True
+
+            if yp.use_linear_blending:
+                normal_ch = get_height_channel(layer)
+                normal_root_ch = get_root_height_channel(yp)
+                if normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch) and not normal_ch.override_1 and normal_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    ch_linear = layer_tree.nodes.get(normal_ch.linear)
+                    #if ((is_image_source_srgb(image, source) and not ch_linear) or
+                    #    (not is_image_source_srgb(image, source) and ch_linear)
+                    #    ):
+                    # NOTE: Float image is pretended to be sRGB even if it's using linear colorspace
+                    if (image.is_float and ch_linear) or (not image.is_float and not ch_linear):
+                        return True
+
+                if not image.is_float and ((is_image_source_srgb(image, source) and linear) or
+                    (not is_image_source_srgb(image, source) and not linear)
+                    ):
+                    return True
+
+                if image.is_float and ((is_image_source_srgb(image, source) and not linear) or
+                    (not is_image_source_srgb(image, source) and linear)
+                    ):
+                    return True
+
+            else:
+                if ((is_image_source_srgb(image, source) and not linear) or
+                    (not is_image_source_srgb(image, source) and linear)
+                    ):
+                    return True
 
     return False
 
 def get_write_height(ch):
-    if ch.normal_map_type == 'NORMAL_MAP':
-        return ch.normal_write_height
-    #if ch.normal_map_type == 'BUMP_MAP':
+    #if ch.normal_map_type == 'NORMAL_MAP':
+    #    return ch.normal_write_height
     return ch.write_height
-
-    # BUMP_NORMAL_MAP currently always write height
-    #return True 
 
 def get_flow_vcol(obj, uv0, uv1):
 
@@ -4592,8 +5987,89 @@ def get_mix_color_indices(mix):
 
     return idx0, idx1, outidx
 
-def get_yp_fcurves(yp):
+def copy_fcurves(src_fc, dest, subdest, attr):
+    bpytypes = get_bpytypes()
+    dest_path = subdest.path_from_id() + '.' + attr
 
+    # Get prop value
+    prop_value = getattr(subdest, attr)
+
+    # Check array index
+    array_index = -1
+    if hasattr(bpytypes, 'bpy_prop_array'):
+        array_index = src_fc.array_index if type(prop_value) == bpytypes.bpy_prop_array else -1
+
+    # New fcurve
+    nfc = None
+
+    # Check if fcurve is from driver or not
+    is_driver = type(src_fc.id_data) != bpy.types.Action
+
+    if is_driver:
+        # Add new driver
+        nfc = dest.driver_add(dest_path)
+
+        # Copy driver props with reverse on because some of the props need to set first
+        copy_id_props(src_fc.driver, nfc.driver, reverse=True)
+
+    else:
+
+        # Remember current frame
+        frame_current = bpy.context.scene.frame_current
+
+        for i, kp in enumerate(src_fc.keyframe_points):
+            # Get frame
+            frame = int(kp.co[0])
+
+            # Set attribute based on fcurve keyframe
+            if array_index >= 0:
+                # Update scene frame
+                bpy.context.scene.frame_set(frame)
+
+                # Set attribute with index
+                att = getattr(subdest, attr)
+                att[array_index] = src_fc.evaluate(frame)
+            else: 
+                setattr(subdest, attr, src_fc.evaluate(frame))
+
+            # Insert keyframe
+            dest.keyframe_insert(data_path=dest_path, frame=frame)
+
+            # Get new fcurve
+            if not nfc:
+                if array_index >= 0:
+                    nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path and f.array_index == array_index][0]
+                else: nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path][0]
+
+            # Get new keyframe point
+            nkp = nfc.keyframe_points[i]
+
+            # Copy keyframe props
+            copy_id_props(kp, nkp)
+
+        # Set frame back
+        if bpy.context.scene.frame_current != frame_current:
+            bpy.context.scene.frame_current = frame_current
+
+def get_action_and_driver_fcurves(obj):
+    fcs = []
+    if obj.animation_data:
+
+        # Fcurves from action
+        if obj.animation_data.action:
+            fcs.append(obj.animation_data.action.fcurves)
+            #for fc in obj.animation_data.action.fcurves:
+            #    fcs.append(fc)
+
+        # Fcurves from drivers
+        for fc in obj.animation_data.drivers:
+            fcs.append(obj.animation_data.drivers)
+            #for fc in obj.animation_data.drivers:
+            #    fcs.append(fc)
+
+    return fcs
+
+def get_yp_fcurves(yp):
     tree = yp.id_data
 
     fcurves = []
@@ -4605,9 +6081,26 @@ def get_yp_fcurves(yp):
 
     return fcurves
 
+def get_yp_drivers(yp):
+    tree = yp.id_data
+
+    drivers = []
+
+    if tree.animation_data:
+        for dr in tree.animation_data.drivers:
+            if dr.data_path.startswith('yp.'):
+                drivers.append(dr)
+
+    return drivers
+
+def get_yp_fcurves_and_drivers(yp):
+    fcurves = get_yp_fcurves(yp)
+    fcurves.extend(get_yp_drivers(yp))
+    return fcurves
+
 def remap_layer_fcurves(yp, index_dict):
 
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
     swapped_fcurves = []
 
     for i, lay in enumerate(yp.layers):
@@ -4626,7 +6119,7 @@ def remap_layer_fcurves(yp, index_dict):
                     swapped_fcurves.append(fc)
 
 def swap_channel_fcurves(yp, idx0, idx1):
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         m = re.match(r'^yp\.channels\[(\d+)\].*', fc.data_path)
@@ -4641,7 +6134,7 @@ def swap_channel_fcurves(yp, idx0, idx1):
 
 def swap_layer_channel_fcurves(layer, idx0, idx1):
     yp = layer.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if layer.path_from_id() not in fc.data_path: continue
@@ -4657,7 +6150,7 @@ def swap_layer_channel_fcurves(layer, idx0, idx1):
 
 def swap_mask_fcurves(layer, idx0, idx1):
     yp = layer.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if layer.path_from_id() not in fc.data_path: continue
@@ -4673,7 +6166,7 @@ def swap_mask_fcurves(layer, idx0, idx1):
 
 def swap_mask_channel_fcurves(mask, idx0, idx1):
     yp = mask.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if mask.path_from_id() not in fc.data_path: continue
@@ -4689,7 +6182,7 @@ def swap_mask_channel_fcurves(mask, idx0, idx1):
 
 def swap_modifier_fcurves(parent, idx0, idx1):
     yp = parent.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if parent.path_from_id() not in fc.data_path: continue
@@ -4705,7 +6198,7 @@ def swap_modifier_fcurves(parent, idx0, idx1):
 
 def swap_normal_modifier_fcurves(modifier, idx0, idx1):
     yp = modifier.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if modifier.path_from_id() not in fc.data_path: continue
@@ -4724,15 +6217,21 @@ def remove_entity_fcurves(entity):
     tree = entity.id_data
     yp = tree.yp
     fcurves = get_yp_fcurves(yp)
+    drivers = get_yp_drivers(yp)
 
     for fc in reversed(fcurves):
         if entity.path_from_id() in fc.data_path:
             tree.animation_data.action.fcurves.remove(fc)
 
+    for dr in reversed(drivers):
+        if entity.path_from_id() in dr.data_path:
+            tree.animation_data.drivers.remove(dr)
+
 def remove_channel_fcurves(root_ch):
     tree = root_ch.id_data
     yp = tree.yp
     fcurves = get_yp_fcurves(yp)
+    drivers = get_yp_drivers(yp)
 
     index = get_channel_index(root_ch)
 
@@ -4741,9 +6240,14 @@ def remove_channel_fcurves(root_ch):
         if m and index == int(m.group(1)):
             tree.animation_data.action.fcurves.remove(fc)
 
+    for dr in reversed(drivers):
+        m = re.match(r'.*\.channels\[(\d+)\].*', dr.data_path)
+        if m and index == int(m.group(1)):
+            tree.animation_data.drivers.remove(dr)
+
 def shift_modifier_fcurves_down(parent):
     yp = parent.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mod in reversed(list(enumerate(parent.modifiers))):
         for fc in fcurves:
@@ -4754,7 +6258,7 @@ def shift_modifier_fcurves_down(parent):
 
 def shift_normal_modifier_fcurves_down(parent):
     yp = parent.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mod in reversed(list(enumerate(parent.modifiers_1))):
         for fc in fcurves:
@@ -4766,7 +6270,7 @@ def shift_normal_modifier_fcurves_down(parent):
 def shift_modifier_fcurves_up(parent, start_index=1):
     tree = parent.id_data
     yp = tree.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mod in enumerate(parent.modifiers):
         if i < start_index: continue
@@ -4779,7 +6283,7 @@ def shift_modifier_fcurves_up(parent, start_index=1):
 def shift_normal_modifier_fcurves_up(parent, start_index=1):
     tree = parent.id_data
     yp = tree.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mod in enumerate(parent.modifiers_1):
         if i < start_index: continue
@@ -4790,7 +6294,7 @@ def shift_normal_modifier_fcurves_up(parent, start_index=1):
                 fc.data_path = fc.data_path.replace('.modifiers_1[' + str(i) + ']', '.modifiers_1[' + str(i-1) + ']')
 
 def shift_channel_fcurves_up(yp, start_index=1):
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, root_ch in enumerate(yp.channels):
         if i < start_index: continue
@@ -4802,7 +6306,7 @@ def shift_channel_fcurves_up(yp, start_index=1):
 def shift_mask_fcurves_up(layer, start_index=1):
     tree = layer.id_data
     yp = tree.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mask in enumerate(layer.masks):
         if i < start_index: continue
@@ -4833,7 +6337,7 @@ def get_first_mirror_modifier(obj):
 
     return None
 
-def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0, segment=None, segment_src=None):
+def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0, segment=None, segment_src=None, invert_value=False):
 
     start_x = 0
     start_y = 0
@@ -4868,8 +6372,9 @@ def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0, segment=None, se
         src_pxs.shape = (-1, src.size[0], 4)
 
         # Copy to selected channel
-        #dest_pxs[dest_idx::4] = src_pxs[src_idx::4]
-        dest_pxs[start_y:start_y+height, start_x:start_x+width][::, ::, dest_idx] = src_pxs[src_start_y:src_start_y+height, src_start_x:src_start_x+width][::, ::, src_idx]
+        if invert_value:
+            dest_pxs[start_y:start_y+height, start_x:start_x+width][::, ::, dest_idx] = 1.0 - src_pxs[src_start_y:src_start_y+height, src_start_x:src_start_x+width][::, ::, src_idx]
+        else: dest_pxs[start_y:start_y+height, start_x:start_x+width][::, ::, dest_idx] = src_pxs[src_start_y:src_start_y+height, src_start_x:src_start_x+width][::, ::, src_idx]
         dest.pixels.foreach_set(dest_pxs.ravel())
 
     else:
@@ -4878,13 +6383,22 @@ def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0, segment=None, se
         dest_pxs = list(dest.pixels)
 
         # Copy to selected channel
-        for y in range(height):
-            source_offset_y = width * 4 * (y + src_start_y)
-            offset_y = dest.size[0] * 4 * (y + start_y)
-            for x in range(width):
-                source_offset_x = 4 * (x + src_start_x)
-                offset_x = 4 * (x + start_x)
-                dest_pxs[offset_y + offset_x + dest_idx] = src_pxs[source_offset_y + source_offset_x + src_idx]
+        if invert_value:
+            for y in range(height):
+                source_offset_y = width * 4 * (y + src_start_y)
+                offset_y = dest.size[0] * 4 * (y + start_y)
+                for x in range(width):
+                    source_offset_x = 4 * (x + src_start_x)
+                    offset_x = 4 * (x + start_x)
+                    dest_pxs[offset_y + offset_x + dest_idx] = 1.0 - src_pxs[source_offset_y + source_offset_x + src_idx]
+        else:
+            for y in range(height):
+                source_offset_y = width * 4 * (y + src_start_y)
+                offset_y = dest.size[0] * 4 * (y + start_y)
+                for x in range(width):
+                    source_offset_x = 4 * (x + src_start_x)
+                    offset_x = 4 * (x + start_x)
+                    dest_pxs[offset_y + offset_x + dest_idx] = src_pxs[source_offset_y + source_offset_x + src_idx]
 
         dest.pixels = dest_pxs
 
@@ -4900,8 +6414,8 @@ def copy_image_pixels(src, dest, segment=None, segment_src=None):
     height = src.size[1]
 
     if segment:
-        start_x = width * segment.tile_x
-        start_y = height * segment.tile_y
+        start_x = segment.width * segment.tile_x
+        start_y = segment.height * segment.tile_y
 
     if segment_src:
         width = segment_src.width
@@ -4978,28 +6492,94 @@ def set_image_pixels(image, color, segment=None):
 
         image.pixels = pxs
 
+def is_image_filepath_unique(filepath, check_disk=True):
+    abspath = bpy.path.abspath(filepath)
+    for img in bpy.data.images:
+        # NOTE: 'Check disk' will also check the actual image existing in disk
+        if bpy.path.abspath(img.filepath) == abspath or (check_disk and pathlib.Path(abspath).is_file()):
+            return False
+    return True
+
 def duplicate_image(image):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
-
-        # WARNING: This will cause a problem if UDIM image is originally from disk
-        # Since duplicated image will point to same source
         if image.packed_file:
             image.pack()
         else: image.save()
 
+    # Copy image
     new_image = image.copy()
+
+    if image.source == 'TILED' or (not image.packed_file and image.filepath != ''):
+
+        directory = os.path.dirname(bpy.path.abspath(image.filepath))
+        filename = bpy.path.basename(new_image.filepath)
+
+        # Get base name
+        if image.source == 'TILED':
+            splits = filename.split('.<UDIM>.')
+            infix = '.<UDIM>.'
+        else: 
+            splits = os.path.splitext(filename)
+            infix = ''
+
+        basename = splits[0]
+        extension = splits[1]
+
+        # Try to get the counter
+        m = re.match(r'^(.+)\s(\d*)$', basename)
+        if m:
+            basename = m.group(1)
+            counter = int(m.group(2))
+        else: counter = 1
+
+        # Try to get unique image filepath with added counter
+        while True:
+            new_name = basename + ' ' + str(counter)
+            new_path = os.path.join(directory, new_name + infix + extension)
+            if is_image_filepath_unique(new_path):
+                break
+            counter += 1
+
+        # Save the image to disk if image is not packed
+        if not image.packed_file:
+            override = bpy.context.copy()
+            override['edit_image'] = new_image
+            if is_greater_than_400():
+                with bpy.context.temp_override(**override):
+                    bpy.ops.image.save_as(filepath=new_path, relative_path=True)
+            else: bpy.ops.image.save_as(override, filepath=new_path, relative_path=True)
+        else:
+            new_image.filepath = new_path
+
+            # Trying to set the filepath to relative
+            try: new_image.filepath = bpy.path.relpath(new_image.filepath)
+            except: pass
+
+        # Set image name based on new filepath
+        if not image.name.endswith(extension):
+            filename = bpy.path.basename(os.path.splitext(new_path)[0])
+        else: filename = bpy.path.basename(new_path)
+        filename = filename.replace('.<UDIM>', '')
+        new_image.name = filename
+    else:
+
+        # Set new name
+        new_image.name = get_unique_name(image.name, bpy.data.images)
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels
-    if new_image.source != 'TILED':
+    if image.is_dirty and new_image.source != 'TILED':
         new_image.pixels = list(image.pixels)
 
     return new_image
 
+def is_first_socket_bsdf(node):
+    return len(node.outputs) > 0 and node.outputs[0].type == 'SHADER'
+
 def is_valid_bsdf_node(node, valid_types=[]):
     if not valid_types:
-        return node.type == 'EMISSION' or node.type.startswith('BSDF_') or node.type.endswith('_SHADER')
+        return node.type == 'EMISSION' or node.type.startswith('BSDF_') or node.type.endswith('_SHADER') or is_first_socket_bsdf(node)
     
     return node.type in valid_types
 
@@ -5037,3 +6617,143 @@ def get_closest_bsdf_forward(node, valid_types=[]):
 
     return None
 
+def get_entity_input_name(entity, prop_name):
+
+    yp = entity.id_data.yp
+
+    # Get property rna
+    #entity_rna = type(entity).bl_rna
+    #rna = entity_rna.properties[prop_name]
+
+    # Regex
+    m1 = re.match(r'^yp\.layers\[(\d+)\].*', entity.path_from_id())
+
+    if m1:
+        layer_index = int(m1.group(1))
+    else:
+        return ''
+
+    # Get path without layer
+    path = entity.path_from_id()
+    path = path.replace('yp.layers[' + str(layer_index) + ']', '')
+
+    return path + '.' + prop_name
+
+def get_entity_prop_input(entity, prop_name):
+    root_tree = entity.id_data
+    yp = root_tree.yp
+
+    # Regex
+    m1 = re.match(r'^yp\.layers\[(\d+)\].*', entity.path_from_id())
+    if m1:
+        layer_index = int(m1.group(1))
+        layer = yp.layers[layer_index]
+    else:
+        return None
+
+    # Get layer node
+    layer_node = root_tree.nodes.get(layer.group_node)
+
+    # Get path
+    path = entity.path_from_id()
+    path = path.replace('yp.layers[' + str(layer_index) + ']', '')
+    path += '.' + prop_name
+
+    return layer_node.inputs.get(path)
+
+def set_entity_prop_value(entity, prop_name, value):
+    inp = get_entity_prop_input(entity, prop_name)
+    if inp: 
+        if type(value) == Color:
+            inp.default_value = (value.r, value.g, value.b, 1.0)
+        else: inp.default_value = value
+    setattr(entity, prop_name, value)
+
+def get_entity_prop_value(entity, prop_name):
+    inp = get_entity_prop_input(entity, prop_name)
+    if inp: return inp.default_value
+    return getattr(entity, prop_name)
+
+def get_mask_color_id_color(mask):
+    val = get_entity_prop_value(mask, 'color_id')
+    return Color((val[0], val[1], val[2]))
+
+def split_layout(layout, factor, align=False):
+    if not is_greater_than_280():
+        return layout.split(percentage=factor, align=align)
+
+    return layout.split(factor=factor, align=align)
+
+def get_armature_modifier(obj, return_index=False):
+    for i, mod in enumerate(obj.modifiers):
+        if mod.type == 'ARMATURE' and mod.object:
+            if return_index:
+                return mod, i
+            return mod
+
+    if return_index:
+        return None, None
+
+    return None
+
+def remember_armature_index(obj):
+    ys_tree = get_ysculpt_tree(obj)
+    if not ys_tree: return
+    ys = ys_tree.ys
+    
+    mod, idx = get_armature_modifier(obj, return_index=True)
+    if mod:
+        ys.ori_armature_index = idx
+
+def restore_armature_order(obj):
+    ys_tree = get_ysculpt_tree(obj)
+    if not ys_tree: return
+    ys = ys_tree.ys
+
+    mod, idx = get_armature_modifier(obj, return_index=True)
+
+    if not mod: return
+
+    ori_obj = bpy.context.object
+    bpy.context.view_layer.objects.active = obj
+
+    bpy.ops.object.modifier_move_to_index(modifier=mod.name, 
+            index=min(ys.ori_armature_index, len(obj.modifiers)-1))
+
+    bpy.context.view_layer.objects.active = ori_obj    
+
+def is_layer_vdm(layer):
+
+    hch = get_height_channel(layer)
+    if not hch or not hch.enable or hch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': 
+        return False
+
+    return True
+
+def get_first_vdm_layer(yp):
+
+    # Check if there's another vdm layer
+    for l in yp.layers:
+        if not l.enable: continue
+        if is_layer_vdm(l):
+            return l
+
+    return None
+
+def get_mesh_hash(obj):
+    if obj.type != 'MESH': return ''
+    vertex_count = len(obj.data.vertices)
+    vertices_np = numpy.empty(vertex_count * 3, dtype=numpy.float32)
+    obj.data.vertices.foreach_get("co", vertices_np)
+    h = hash(vertices_np.tobytes())
+    return str(h)
+
+def remove_decal_object(tree, entity):
+    # NOTE: This will remove the texcoord object even if the entity is not using decal
+    #if entity.texcoord_type == 'Decal':
+    texcoord = tree.nodes.get(entity.texcoord)
+    if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+        decal_obj = texcoord.object
+        if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
+            texcoord.object = None
+            remove_datablock(bpy.data.objects, decal_obj)

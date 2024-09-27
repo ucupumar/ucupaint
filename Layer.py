@@ -1,4 +1,4 @@
-import bpy, time, re, os, random
+import bpy, time, re, os, random, pathlib
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
@@ -12,6 +12,7 @@ from .input_outputs import *
 
 DEFAULT_NEW_IMG_SUFFIX = ' Layer'
 DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
+DEFAULT_NEW_VDM_SUFFIX = ' VDM'
 
 def channel_items(self, context):
     node = get_active_ypaint_node()
@@ -21,49 +22,17 @@ def channel_items(self, context):
 
     for i, ch in enumerate(yp.channels):
         #if hasattr(lib, 'custom_icons'):
+        # Add two spaces to prevent text from being translated
+        text_ch_name = ch.name + '  '
         if not is_greater_than_280():
             icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
-        else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], i))
+            items.append((str(i), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i))
+        else: items.append((str(i), text_ch_name, '', lib.channel_icon_dict[ch.type], i))
 
     #if hasattr(lib, 'custom_icons'):
     if not is_greater_than_280():
         items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
     else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
-
-    return items
-
-def layer_input_items(self, context):
-    yp = self.id_data.yp
-
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    if not m: return []
-    layer = yp.layers[int(m.group(1))]
-    #root_ch = yp.channels[int(m.group(2))]
-
-    items = []
-
-    label = layer_type_labels[layer.type]
-
-    #if is_greater_than_281() and layer.type in {'NOISE'}:
-    #    items.append(('RGB', label + ' Color',  ''))
-    #    items.append(('ALPHA', label + ' Factor',  ''))
-    #else:
-    if is_greater_than_281() and layer.type == 'VORONOI':
-        items.append(('RGB', label + ' Color',  ''))
-        items.append(('ALPHA', label + ' Distance',  ''))
-    else:
-        items.append(('RGB', label + ' Color',  ''))
-        items.append(('ALPHA', label + ' Factor',  ''))
-        
-    #if layer.type == 'IMAGE':
-    #    items.append(('ALPHA', label + ' Alpha',  ''))
-    #else: items.append(('ALPHA', label + ' Factor',  ''))
-
-    #if root_ch.type in {'RGB', 'NORMAL'}:
-    #    items.append(('CUSTOM', 'Custom Color',  ''))
-    #elif root_ch.type == 'VALUE':
-    #    items.append(('CUSTOM', 'Custom Value',  ''))
 
     return items
 
@@ -74,10 +43,12 @@ def get_normal_map_type_items(self, context):
         items.append(('BUMP_MAP', 'Bump Map', ''))
         items.append(('NORMAL_MAP', 'Normal Map', ''))
         items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', ''))
+        items.append(('VECTOR_DISPLACEMENT_MAP', 'Vector Displacement Map', ''))
     else: 
         items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 0))
         items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 1))
-        items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', '', 'MATCAP_23', 1))
+        items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', '', 'MATCAP_23', 2))
+        items.append(('VECTOR_DISPLACEMENT_MAP', 'Vector Displacement Map', '', 'MATCAP_23', 3))
 
     return items
 
@@ -87,6 +58,9 @@ def load_hemi_props(layer, source):
     trans = source.node_tree.nodes.get('Vector Transform')
     if trans: trans.convert_from = layer.hemi_space
 
+
+
+
 def add_new_layer(group_tree, layer_name, layer_type, channel_idx, 
         blend_type, normal_blend_type, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, segment=None,
@@ -95,7 +69,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space = 'WORLD', hemi_use_prev_normal = True,
         mask_color_id=(1,0,1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
-        use_divider_alpha = False, use_udim_for_mask=False
+        use_divider_alpha = False, use_udim_for_mask=False,
+        interpolation = 'Linear', mask_interpolation = 'Linear', mask_edge_detect_radius=0.05
         ):
 
     yp = group_tree.yp
@@ -134,7 +109,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     # Add layer to group
     layer = yp.layers.add()
     layer.type = layer_type
-    layer.name = layer_name
+    layer.name = get_unique_name(layer_name, yp.layers)
     layer.uv_name = uv_name
     check_uvmap_on_other_objects_with_same_mat(mat, uv_name)
 
@@ -191,8 +166,12 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         # Add new image if it's image layer
         source.image = image
 
+        # Set interpolation
+        source.interpolation = interpolation
+
     elif layer_type == 'VCOL':
-        set_source_vcol_name(source, vcol.name)
+        if vcol: set_source_vcol_name(source, vcol.name)
+        else: set_source_vcol_name(source, layer_name)
 
     elif layer_type == 'COLOR':
         col = (solid_color[0], solid_color[1], solid_color[2], 1.0)
@@ -207,11 +186,12 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         layer.hemi_use_prev_normal = hemi_use_prev_normal
 
     # Add texcoord node
-    texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
+    #texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
 
     # Add mapping node
-    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+    if is_mapping_possible(layer.type):
         mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
+        mapping.vector_type = 'POINT' #if segment else 'TEXTURE'
 
     # Set layer coordinate type
     layer.texcoord_type = texcoord_type
@@ -235,24 +215,31 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         mask_segment = None
 
         if mask_type == 'IMAGE':
-            if use_image_atlas_for_mask and not use_udim_for_mask:
-                mask_segment = ImageAtlas.get_set_image_atlas_segment(
-                        mask_width, mask_height, mask_color, mask_use_hdr, yp=yp) #, ypup.image_atlas_size)
+
+            color = (0,0,0,0)
+            if mask_color == 'WHITE':
+                color = (1,1,1,1)
+            elif mask_color == 'BLACK':
+                color = (0,0,0,1)
+
+            if use_udim_for_mask:
+                objs = get_all_objects_with_same_materials(mat)
+                tilenums = UDIM.get_tile_numbers(objs, mask_uv_name)
+
+            if use_image_atlas_for_mask:
+                if use_udim_for_mask:
+                    mask_segment = UDIM.get_set_udim_atlas_segment(tilenums,
+                            mask_width, mask_height, color, colorspace=get_noncolor_name(), hdr=mask_use_hdr, yp=yp)
+                else:
+                    mask_segment = ImageAtlas.get_set_image_atlas_segment(
+                            mask_width, mask_height, mask_color, mask_use_hdr, yp=yp)
                 mask_image = mask_segment.id_data
             else:
-                color = (0,0,0,0)
-                if mask_color == 'WHITE':
-                    color = (1,1,1,1)
-                elif mask_color == 'BLACK':
-                    color = (0,0,0,1)
-
                 if use_udim_for_mask:
                     mask_image = bpy.data.images.new(mask_name, 
                             width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr, tiled=True)
 
                     # Fill tiles
-                    objs = get_all_objects_with_same_materials(mat)
-                    tilenums = UDIM.get_tile_numbers(objs, mask_uv_name)
                     for tilenum in tilenums:
                         UDIM.fill_tile(mask_image, tilenum, color, mask_width, mask_height)
                     UDIM.initial_pack_udim(mask_image, color)
@@ -265,12 +252,12 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 if hasattr(mask_image, 'use_alpha'):
                     mask_image.use_alpha = False
 
-            if mask_image.colorspace_settings.name != 'Non-Color' and not mask_image.is_dirty:
-                mask_image.colorspace_settings.name = 'Non-Color'
+            if mask_image.colorspace_settings.name != get_noncolor_name() and not mask_image.is_dirty:
+                mask_image.colorspace_settings.name = get_noncolor_name()
 
         # New vertex color
         elif mask_type in {'VCOL', 'COLOR_ID'}:
-            objs = [obj]
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
@@ -281,23 +268,21 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
                 for o in objs:
                     if mask_name not in get_vertex_colors(o):
-                        try:
-                            mask_vcol = new_vertex_color(o, mask_name, mask_vcol_data_type, mask_vcol_domain)
-                            if mask_color == 'WHITE':
-                                set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0, 1.0))
-                            elif mask_color == 'BLACK':
-                                set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0, 1.0))
-                            set_active_vertex_color(o, mask_vcol)
-                        except Exception as e: print (e)
+                        if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                        mask_vcol = new_vertex_color(o, mask_name, mask_vcol_data_type, mask_vcol_domain)
+                        if mask_color == 'WHITE':
+                            set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0, 1.0))
+                        elif mask_color == 'BLACK':
+                            set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0, 1.0))
+                        set_active_vertex_color(o, mask_vcol)
+
             elif mask_type == 'COLOR_ID':
                 check_colorid_vcol(objs)
 
         mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
-                mask_uv_name, mask_image, mask_vcol, mask_segment)
+                mask_uv_name, mask_image, mask_vcol, mask_segment, interpolation=mask_interpolation, color_id=mask_color_id,
+                edge_detect_radius=mask_edge_detect_radius)
         mask.active_edit = True
-
-        if mask_type == 'COLOR_ID':
-            mask.color_id = mask_color_id
 
     # Fill channel layer props
     shortcut_created = False
@@ -328,6 +313,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     # Check uv maps
     check_uv_nodes(yp)
 
+    # Check image projections
+    check_layer_projections(layer)
+
     # Check and create layer channel nodes
     check_all_layer_channel_io_and_nodes(layer, tree) #, has_parent=has_parent)
 
@@ -338,9 +326,13 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     yp.halt_reconnect = False
     #yp.halt_update = False
 
+    # Check layer IO
+    check_all_layer_channel_io_and_nodes(layer)
+    check_start_end_root_ch_nodes(group_tree)
+
     # Rearrange node inside layers
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     return layer
 
@@ -413,9 +405,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column()
         col.label(text='Name:')
@@ -456,7 +446,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         if not ch.override:
             ch.override = True
 
-        objs = [obj]
+        objs = [obj] if obj.type == 'MESH' else []
         if mat.users > 1:
             for o in get_scene_objects():
                 if o.type != 'MESH': continue
@@ -465,11 +455,10 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
         for o in objs:
             if self.name not in get_vertex_colors(o):
-                try:
-                    vcol = new_vertex_color(o, self.name, self.data_type, self.domain)
-                    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
-                    set_active_vertex_color(o, vcol)
-                except: pass
+                if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                vcol = new_vertex_color(o, self.name, self.data_type, self.domain)
+                set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                set_active_vertex_color(o, vcol)
 
         # Update vcol cache
         if ch.override_type == 'VCOL':
@@ -496,7 +485,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
 def update_new_layer_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
-    if self.type != 'IMAGE': 
+    if hasattr(self, 'type') and self.type != 'IMAGE': 
         self.use_udim = False
         return
 
@@ -514,6 +503,198 @@ def update_new_layer_mask_uv_map(self, context):
     objs = get_all_objects_with_same_materials(mat)
     self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
 
+def update_channel_idx_new_layer(self, context):
+
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+
+    # Bump map will use cubic interpolation
+    channel_idx = int(self.channel_idx)
+    if channel_idx != -1 and channel_idx < len(yp.channels):
+        channel = yp.channels[channel_idx]
+    else: channel = None
+
+    if channel and channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP':
+        self.interpolation = 'Cubic'
+
+class YNewVDMLayer(bpy.types.Operator):
+    bl_idname = "node.y_new_vdm_layer"
+    bl_label = "New VDM Layer"
+    bl_description = "New Vector Displacement Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name : StringProperty(default='')
+
+    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+
+    blend_type : EnumProperty(
+            name = 'Blend Type',
+            items = normal_blend_items,
+            default = 'OVERLAY')
+
+    use_udim : BoolProperty(
+            name = 'Use UDIM Tiles',
+            description='Use UDIM Tiles',
+            default=False)
+
+    enable_subdiv_setup : BoolProperty(
+            name = 'Enable Displacement Setup',
+            description='Enable Displacement Setup on Normal channel',
+            default=True)
+
+    # NOTE: UDIM is not supported yet, so no UDIM checking
+    uv_map : StringProperty(default='') #, update=update_new_layer_uv_map)
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH' and get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        ypup = get_user_preferences()
+        obj = context.object
+        node = self.node = get_active_ypaint_node()
+        yp = self.yp = node.node_tree.yp
+
+        # Set default name
+        name = obj.active_material.name + DEFAULT_NEW_VDM_SUFFIX
+        self.name = get_unique_name(name, bpy.data.images)
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
+
+        # Set default UV name
+        #uv_name = get_default_uv_name(obj, yp)
+        uv_name = get_active_render_uv(obj)
+        self.uv_map = uv_name
+
+        # UV Map collections update
+        self.uv_map_coll.clear()
+        for uv in get_uv_layers(obj):
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+
+        yp = self.yp
+        first_vdm = get_first_vdm_layer(yp)
+
+        row = split_layout(self.layout, 0.4)
+
+        col = row.column(align=False)
+
+        col.label(text='Name:')
+        col.label(text='Width:')
+        col.label(text='Height:')
+        col.label(text='Blend Type:')
+        col.label(text='UV Map:')
+
+        col = row.column(align=False)
+
+        col.prop(self, 'name', text='')
+        col.prop(self, 'width', text='')
+        col.prop(self, 'height', text='')
+        col.prop(self, 'blend_type', text='')
+        if not first_vdm:
+            col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        else:
+            col.label(text=self.uv_map + '*') # + ' (used by other VDM)')
+            self.layout.label(text='* Only one UV map is currently supported')
+
+        # NOTE: UDIM is not supported yet
+        if False:
+            col.prop(self, 'use_udim')
+
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and not height_root_ch.enable_subdiv_setup:
+            col = self.layout.column()
+            col.label(text='Displacement Setup is not enabled yet!', icon='ERROR')
+            col.prop(self, 'enable_subdiv_setup')
+
+    def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
+        node = self.node
+        yp = self.yp
+
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+
+        height_root_ch = get_root_height_channel(yp)
+        if not height_root_ch:
+            self.report({'ERROR'}, "There should be a normal channel!")
+            return {'CANCELLED'}
+        channel_idx = get_channel_index(height_root_ch)
+
+        alpha = True
+        color = (0,0,0,0)
+
+        if self.use_udim:
+            tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
+
+            img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
+                    alpha=alpha, float_buffer=True, tiled=True)
+
+            # Fill tiles
+            for tilenum in tilenums:
+                UDIM.fill_tile(img, tilenum, color, self.width, self.height)
+            UDIM.initial_pack_udim(img, color)
+
+        else:
+            img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
+                    alpha=alpha, float_buffer=True)
+
+        #img.generated_type = self.generated_type
+        img.generated_type = 'BLANK'
+        img.generated_color = color
+        if hasattr(img, 'use_alpha'):
+            img.use_alpha = True
+
+        update_image_editor_image(context, img)
+
+        yp.halt_update = True
+
+        layer = add_new_layer(node.node_tree, self.name, 'IMAGE', 
+                channel_idx, 'MIX', self.blend_type, 
+                'VECTOR_DISPLACEMENT_MAP', 'UV', self.uv_map, img,
+                interpolation = 'Cubic'
+                )
+
+        yp.halt_update = False
+
+        if not height_root_ch.enable_subdiv_setup and self.enable_subdiv_setup:
+            height_root_ch.enable_subdiv_setup = True
+
+        # Reconnect and rearrange nodes
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
+
+        # Update UI
+        ypui = context.window_manager.ypui
+        ypui.layer_ui.expand_channels = False
+        ypui.layer_ui.expand_content = False
+        ypui.layer_ui.expand_source = False
+        ch = layer.channels[channel_idx]
+        ch.expand_content = True
+        ypui.need_update = True
+
+        # Set uv map active render
+        for obj in objs:
+            uv_layers = get_uv_layers(obj)
+            uv = uv_layers.get(self.uv_map)
+            if uv and not uv.active_render:
+                uv.active_render = True
+
+        print('INFO: VDM Layer', layer.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
+
 class YNewLayer(bpy.types.Operator):
     bl_idname = "node.y_new_layer"
     bl_label = "New Layer"
@@ -528,22 +709,29 @@ class YNewLayer(bpy.types.Operator):
             default = 'IMAGE')
 
     # For image layer
-    width : IntProperty(name='Width', default = 1234, min=1, max=4096)
-    height : IntProperty(name='Height', default = 1234, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
     #color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
     #alpha : BoolProperty(name='Alpha', default=True)
     hdr : BoolProperty(name='32 bit Float', default=False)
 
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'Image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     texcoord_type : EnumProperty(
-            name = 'Texture Coordinate Type',
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
     channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items)
-            #update=update_channel_idx_new_layer)
+            items = channel_items,
+            update=update_channel_idx_new_layer)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -570,7 +758,8 @@ class YNewLayer(bpy.types.Operator):
             items = (
                 ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
                 ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1),
-                ('COLOR_ID', 'Color ID', '', 'COLOR', 2)
+                ('COLOR_ID', 'Color ID', '', 'COLOR', 2),
+                ('EDGE_DETECT', 'Edge Detect', '', 'MESH_CUBE', 3)
                 ),
             default = 'IMAGE')
 
@@ -585,6 +774,12 @@ class YNewLayer(bpy.types.Operator):
 
     mask_width : IntProperty(name='Mask Width', default = 1234, min=1, max=4096)
     mask_height : IntProperty(name='Mask Height', default = 1234, min=1, max=4096)
+
+    mask_interpolation : EnumProperty(
+            name = 'Mask Image Interpolation Type',
+            description = 'Mask image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
 
     mask_uv_name : StringProperty(default='', update=update_new_layer_mask_uv_map)
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
@@ -664,6 +859,12 @@ class YNewLayer(bpy.types.Operator):
             description='Use spread fix (very recommended for vertex color or image layer)',
             default=False)
 
+    # For edge detection
+    mask_edge_detect_radius : FloatProperty(
+            name = 'Edge Detect Mask Radius',
+            description = 'Edge detect mask radius',
+            default=0.05, min=0.0, max=10.0)
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -675,7 +876,7 @@ class YNewLayer(bpy.types.Operator):
 
         ypup = get_user_preferences()
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        yp = self.yp = node.node_tree.yp
         obj = context.object
 
         if self.type == 'IMAGE':
@@ -683,7 +884,7 @@ class YNewLayer(bpy.types.Operator):
             items = bpy.data.images
         elif self.type == 'VCOL' and obj.type == 'MESH':
             name = obj.active_material.name + DEFAULT_NEW_VCOL_SUFFIX
-            items = get_vertex_colors(obj)
+            items = get_vertex_color_names(obj)
         else:
             name = [i[1] for i in layer_type_items if i[0] == self.type][0]
             items = yp.layers
@@ -722,6 +923,10 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             self.name = get_unique_name(self.name, yp.layers)
 
+        # Make sure decal is off when adding non mappable layer
+        if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
+            self.texcoord_type = 'UV'
+
         # Check if color id already being used
         while True:
             # Use color id tolerance value as lowest value to avoid pure black color
@@ -729,7 +934,6 @@ class YNewLayer(bpy.types.Operator):
             if not is_colorid_already_being_used(yp, self.mask_color_id): break
 
         if obj.type != 'MESH':
-            #self.texcoord_type = 'Object'
             self.texcoord_type = 'Generated'
         else:
             if obj.type == 'MESH':
@@ -745,29 +949,23 @@ class YNewLayer(bpy.types.Operator):
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
-    def is_using_udim(self):
-        return self.use_udim and UDIM.is_udim_supported()
+    #def is_mask_using_udim(self):
+    #    return self.use_udim_for_mask and UDIM.is_udim_supported()
 
-    def is_using_image_atlas(self):
-        return self.use_image_atlas and not self.is_using_udim()
-
-    def is_mask_using_udim(self):
-        return self.use_udim_for_mask and UDIM.is_udim_supported()
-
-    def is_mask_using_image_atlas(self):
-        return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
+    #def is_mask_using_image_atlas(self):
+    #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
 
     def check(self, context):
         ypup = get_user_preferences()
 
         # New image cannot use more pixels than the image atlas
-        if self.is_using_image_atlas():
+        if self.use_image_atlas:
             if self.hdr: max_size = ypup.hdr_image_atlas_size
             else: max_size = ypup.image_atlas_size
             if self.width > max_size: self.width = max_size
             if self.height > max_size: self.height = max_size
 
-        if self.is_mask_using_image_atlas():
+        if self.use_image_atlas_for_mask:
             if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
             else: mask_max_size = ypup.image_atlas_size
             if self.mask_width > mask_max_size: self.mask_width = mask_max_size
@@ -776,19 +974,17 @@ class YNewLayer(bpy.types.Operator):
         # Init mask uv name
         if self.add_mask and self.mask_uv_name == '':
 
-            node = get_active_ypaint_node()
-            yp = node.node_tree.yp
             obj = context.object
 
-            uv_name = get_default_uv_name(obj, yp)
+            uv_name = get_default_uv_name(obj, self.yp)
             self.mask_uv_name = uv_name
 
         return True
 
     def get_to_be_cleared_image_atlas(self, context, yp):
-        if self.type == 'IMAGE' and not self.add_mask and self.is_using_image_atlas():
+        if self.type == 'IMAGE' and not self.add_mask and self.use_image_atlas:
             return ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
-        if self.add_mask and self.mask_type == 'IMAGE' and self.is_mask_using_image_atlas():
+        if self.add_mask and self.mask_type == 'IMAGE' and self.use_image_atlas_for_mask:
             return ImageAtlas.check_need_of_erasing_segments(yp, self.mask_color, self.mask_width, self.mask_height, self.hdr)
 
         return None
@@ -810,9 +1006,7 @@ class YNewLayer(bpy.types.Operator):
             else: channel = None
         except: channel = None
 
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
         col = row.column(align=False)
 
         col.label(text='Name:')
@@ -840,6 +1034,7 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='')
             col.label(text='Width:')
             col.label(text='Height:')
+            col.label(text='Interpolation:')
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
             col.label(text='Vector:')
@@ -857,12 +1052,15 @@ class YNewLayer(bpy.types.Operator):
                 col.label(text='Mask Type:')
                 if self.mask_type == 'COLOR_ID':
                     col.label(text='Mask Color ID:')
+                elif self.mask_type == 'EDGE_DETECT':
+                    col.label(text='Edge Detect Radius:')
                 else:
                     col.label(text='Mask Color:')
                     if self.mask_type == 'IMAGE':
                         col.label(text='')
                         col.label(text='Mask Width:')
                         col.label(text='Mask Height:')
+                        col.label(text='Mask Interpolation:')
                         col.label(text='Mask UV Map:')
                         if UDIM.is_udim_supported():
                             col.label(text='')
@@ -901,6 +1099,7 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'hdr')
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
+            col.prop(self, 'interpolation', text='')
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
             crow = col.row(align=True)
@@ -916,7 +1115,6 @@ class YNewLayer(bpy.types.Operator):
             if UDIM.is_udim_supported():
                 col.prop(self, 'use_udim')
             ccol = col.column()
-            ccol.active = not self.use_udim
             ccol.prop(self, 'use_image_atlas')
 
         if self.type != 'IMAGE':
@@ -925,18 +1123,20 @@ class YNewLayer(bpy.types.Operator):
                 col.prop(self, 'mask_type', text='')
                 if self.mask_type == 'COLOR_ID':
                     col.prop(self, 'mask_color_id', text='')
+                elif self.mask_type == 'EDGE_DETECT':
+                    col.prop(self, 'mask_edge_detect_radius', text='')
                 else:
                     col.prop(self, 'mask_color', text='')
                     if self.mask_type == 'IMAGE':
                         col.prop(self, 'mask_use_hdr')
                         col.prop(self, 'mask_width', text='')
                         col.prop(self, 'mask_height', text='')
+                        col.prop(self, 'mask_interpolation', text='')
                         #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                         col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
                         if UDIM.is_udim_supported():
                             col.prop(self, 'use_udim_for_mask')
                         ccol = col.column()
-                        ccol.active = not self.use_udim_for_mask
                         ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
                 if is_greater_than_320() and self.mask_type == 'VCOL':
                     crow = col.row(align=True)
@@ -961,7 +1161,7 @@ class YNewLayer(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         ypui = context.window_manager.ypui
-        vcols = get_vertex_colors(obj)
+        vcol_names = get_vertex_color_names(obj)
 
         # Check if object is not a mesh
         if (self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) and obj.type != 'MESH':
@@ -971,10 +1171,10 @@ class YNewLayer(bpy.types.Operator):
         if (not is_greater_than_330() and
                 (
                 ((self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) 
-                and len(vcols) >= 8) 
+                and len(vcol_names) >= 8) 
             or
                 ((self.type == 'VCOL' and (self.add_mask and self.mask_type == 'VCOL')) 
-                and len(vcols) >= 7)
+                and len(vcol_names) >= 7)
                 )
             ):
             self.report({'ERROR'}, "Mesh can only use 8 vertex colors!")
@@ -984,14 +1184,20 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             same_name = [i for i in bpy.data.images if i.name == self.name]
         elif self.type == 'VCOL':
-            same_name = [i for i in vcols if i.name == self.name]
+            same_name = [i for i in vcol_names if i == self.name]
         else: same_name = [lay for lay in yp.layers if lay.name == self.name]
         if same_name:
             if self.type == 'IMAGE':
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
             elif self.type == 'VCOL':
                 self.report({'ERROR'}, "Vertex Color named '" + self.name +"' is already available!")
-            self.report({'ERROR'}, "Layer named '" + self.name +"' is already available!")
+            else:
+                self.report({'ERROR'}, "Layer named '" + self.name +"' is already available!")
+            return {'CANCELLED'}
+
+        # Edge Detect mask is only possible on Blender 2.93 or above
+        if not is_greater_than_293() and self.add_mask and self.mask_type == 'EDGE_DETECT':
+            self.report({'ERROR'}, "Edge detect mask is only supported on Blender 2.93 or above!")
             return {'CANCELLED'}
 
         # Clearing unused image atlas segments
@@ -1002,22 +1208,27 @@ class YNewLayer(bpy.types.Operator):
         segment = None
         if self.type == 'IMAGE':
 
-            if self.is_using_image_atlas():
-                segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
+            alpha = True
+            color = (0,0,0,0)
+
+            if self.use_udim:
+                objs = get_all_objects_with_same_materials(mat)
+                tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
+
+            if self.use_image_atlas:
+                if self.use_udim:
+                    segment = UDIM.get_set_udim_atlas_segment(tilenums, self.width, self.height, color, get_srgb_name(), self.hdr, yp)
+                else:
+                    segment = ImageAtlas.get_set_image_atlas_segment(
+                            self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
                 img = segment.id_data
             else:
 
-                alpha = True
-                color = (0,0,0,0)
-
-                if self.is_using_udim():
+                if self.use_udim:
                     img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
                             alpha=alpha, float_buffer=self.hdr, tiled=True)
 
                     # Fill tiles
-                    objs = get_all_objects_with_same_materials(mat)
-                    tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
                     for tilenum in tilenums:
                         UDIM.fill_tile(img, tilenum, color, self.width, self.height)
                     UDIM.initial_pack_udim(img, color)
@@ -1026,21 +1237,21 @@ class YNewLayer(bpy.types.Operator):
                     img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
                             alpha=alpha, float_buffer=self.hdr)
 
-                #img.generated_type = self.generated_type
-                img.generated_type = 'BLANK'
-                img.generated_color = color
-                if hasattr(img, 'use_alpha'):
-                    img.use_alpha = True
+                    #img.generated_type = self.generated_type
+                    img.generated_type = 'BLANK'
+                    img.generated_color = color
+                    if hasattr(img, 'use_alpha'):
+                        img.use_alpha = True
 
-            #if img.colorspace_settings.name != 'Non-Color':
-            #    img.colorspace_settings.name = 'Non-Color'
+            #if img.colorspace_settings.name != get_noncolor_name():
+            #    img.colorspace_settings.name = get_noncolor_name()
 
             update_image_editor_image(context, img)
 
         vcol = None
         if self.type == 'VCOL':
 
-            objs = [obj]
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
@@ -1049,15 +1260,14 @@ class YNewLayer(bpy.types.Operator):
 
             for o in objs:
                 if self.name not in get_vertex_colors(o):
-                    try:
-                        vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
+                    if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                    vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
 
-                        if is_greater_than_292():
-                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
-                        else: set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                    if is_greater_than_292():
+                        set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
+                    else: set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
 
-                        set_active_vertex_color(o, vcol)
-                    except Exception as e: print(e)
+                    set_active_vertex_color(o, vcol)
 
         yp.halt_update = True
 
@@ -1072,7 +1282,10 @@ class YNewLayer(bpy.types.Operator):
                 self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
                 self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id,
                 self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha,
-                self.is_mask_using_udim())
+                self.use_udim_for_mask,
+                self.interpolation, self.mask_interpolation,
+                self.mask_edge_detect_radius
+                )
 
         if segment:
             ImageAtlas.set_segment_mapping(layer, segment, img)
@@ -1085,8 +1298,30 @@ class YNewLayer(bpy.types.Operator):
         rearrange_yp_nodes(node.node_tree)
 
         # Update UI
-        if self.type != 'IMAGE':
+        if self.type not in {'IMAGE', 'VCOL', 'COLOR', 'BACKGROUND'}:
             ypui.layer_ui.expand_content = True
+            ypui.layer_ui.expand_source = True
+        else:
+            ypui.layer_ui.expand_content = False
+            ypui.layer_ui.expand_source = False
+
+        if self.channel_idx != '-1':
+            ypui.layer_ui.expand_channels = False
+            if yp.channels[channel_idx].type == 'NORMAL':
+                layer.channels[channel_idx].expand_content = True
+        else:
+            ypui.layer_ui.expand_channels = True
+
+        if self.add_mask and self.mask_type == 'EDGE_DETECT':
+            ypui.layer_ui.expand_masks = True
+            layer.masks[0].expand_content = True
+            layer.masks[0].expand_source = True
+        else:
+            ypui.layer_ui.expand_masks = False
+            for i, mask in enumerate(layer.masks):
+                mask.expand_content = False
+                mask.expand_source = False
+
         ypui.need_update = True
 
         print('INFO: Layer', layer.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -1160,7 +1395,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
         # Remove already existing images
         for img in loaded_images:
             if img not in images:
-                bpy.data.images.remove(img)
+                remove_datablock(bpy.data.images, img)
 
         yp = ch.id_data.yp
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
@@ -1180,7 +1415,9 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
             for img in images:
                 img_name = os.path.splitext(os.path.basename(img.filepath))[0].lower()
                 # Image 1 will represents normal
-                if 'normal' in img_name or 'norm' in img_name or img_name.endswith(('_nor', '.nor', '_n', '.n')):
+                if (('normal' in img_name or 'norm' in img_name or img_name.endswith(('_nor', '.nor', '_n', '.n'))) 
+                    and 'displacement' not in img_name # Baked displacement from ucupaint can contains 'normal' word
+                    ):
                     image_1 = img
                 elif not image:
                     image = img
@@ -1204,6 +1441,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
                 image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
+            if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
             ch.override_type = 'IMAGE'
             ch.active_edit = True
 
@@ -1310,7 +1548,7 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         # Remove already existing images
         for img in loaded_images:
             if img not in images:
-                bpy.data.images.remove(img)
+                remove_datablock(bpy.data.images, img)
 
         yp = ch.id_data.yp
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
@@ -1329,7 +1567,9 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         for img in images:
             img_name = os.path.splitext(os.path.basename(img.filepath))[0].lower()
             # Image 1 will represents bump
-            if 'displacement' in img_name or 'bump' in img_name or img_name.endswith(('_disp', '.disp')):
+            if (('displacement' in img_name or 'bump' in img_name or img_name.endswith(('_disp', '.disp')))
+                and 'without bump' not in img_name # Baked normal from ucupaint can contains 'without bump' word
+                ):
                 image_1 = img
             elif not image:
                 image = img
@@ -1392,6 +1632,7 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
+    
 
 class BaseMultipleImagesLayer():
     # File related
@@ -1412,7 +1653,8 @@ class BaseMultipleImagesLayer():
     relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
     texcoord_type : EnumProperty(
-            name = 'Texture Coordinate Type',
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
@@ -1456,57 +1698,98 @@ class BaseMultipleImagesLayer():
             description='Use Image Atlas for Mask',
             default=False)
 
+    # NOTE: Most PBR textures are optimized to use 'displacement only without bump' in conjunction with normal map
+    # Since this addon already produce normal map with the displacement, it's better to use only bump map by default
+    normal_map_priority : EnumProperty(
+            name = 'Normal Map Priority',
+            description = 'Normal map mode when bump and normal map are both found',
+            items = (('BUMP_MAP', 'Prioritize Bump Map', ''),
+                ('NORMAL_MAP', 'Prioritize Normal Map', ''),
+                ('BUMP_NORMAL_MAP', 'Use both Bump and Normal Map', '')),
+            default = 'BUMP_MAP')
+
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
-    def is_mask_using_udim(self):
-        return self.use_udim_for_mask and UDIM.is_udim_supported()
+    #def is_mask_using_udim(self):
+    #    return self.use_udim_for_mask and UDIM.is_udim_supported()
 
-    def is_mask_using_image_atlas(self):
-        return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
+    #def is_mask_using_image_atlas(self):
+    #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
+
+    def is_synonym_in_image_name(self, syname, img_name):
+
+        # Check entire name of synonym if it's on image name
+        if (img_name.endswith(syname) or # Example: 'rocks_normalgl'
+            '_' + syname in img_name or # Example: 'rocks_normalgl_4k'
+            ' ' + syname in img_name # Example: 'rocks normalgl 4k'
+            ):
+            return True
+
+        if ' ' in syname:
+            # Check if synonym without whitespace is on image name
+            no_whitespace = syname.replace(' ', '')
+            if (img_name.endswith(no_whitespace) or # Example: 'rocks_ambientocclusion'
+                '_' + no_whitespace + '_' in img_name or # Example: 'rocks_ambientocclusion_4k'
+                ' ' + no_whitespace + ' ' in img_name # Example: 'rocks ambientocclusion 4k'
+                ):
+                return True
+
+            # Check if synonym with underscore is on image name
+            underscore = syname.replace(' ', '_')
+            if (img_name.endswith(underscore) or # Example: 'rocks_ambient_occlusion'
+                '_' + underscore + '_' in img_name or # Example: 'rocks_ambient_occlusion_4k'
+                ' ' + underscore + ' ' in img_name # Example: 'rocks ambient_occlusion 4k'
+                ):
+                return True
+
+        # Check parts of synonym if it's on image name
+        for i in range(3, 6):
+            if len(syname) > i:
+                part = syname[:i]
+                if (img_name.endswith(('_' + part, '.' + part)) or  # Example: 'rocks_diff' / 'rocks.diff'
+                    '_' + part + '_' in img_name or # Example: 'rocks_diff_4k'
+                    ' ' + part + ' ' in img_name # Example: 'rocks diff 4k'
+                    ):
+                    return True
+
+        # Check if initial of synonym is in the end of image name
+        # Avoid initial a because it's too common
+        initial = syname[0] if syname not in {'displacement', 'base color'} else ''
+        if initial not in {'a', ''} and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
+            return True
+
+        return False
     
-    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list) -> bool:
+    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, non_import_images=[]) -> bool:
     
         T = time.time()
+        
+        images = []
+        images.extend(non_import_images)
 
-        #images = tuple(load_image(path, directory) for path in import_list)
-        images = list(load_image(path, directory) for path in import_list)
-
-        # Check existing images
-        #exist_images = []
-        #for i, new_img in enumerate(images):
-        #    for old_img in bpy.data.images:
-        #        if old_img.filepath == new_img.filepath:
-        #            exist_images.append(old_img)
-        #            break
-
-        #print(images)
+        # Load images from directory
+        if import_list:
+            if is_greater_than_277():
+                images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
+            else: images.extend(list(load_image(path, directory) for path in import_list))
 
         valid_channels = []
         valid_images = []
         valid_synonyms = []
-        #channel_ids = []
 
-        # Dict
+        # Check for DirectX and OpenGL images
+        dx_image = None
+        gl_image = None
+        for image in images:
 
-        # Check image names
-        #for image in images:
-
-        #    # Get filename without extension
-        #    name = os.path.splitext(os.path.basename(image.filepath))[0]
-        #    #print(name)
-
-        #    for i, ch in enumerate(yp.channels):
-
-        #        # Check image name suffix and match it with channel name
-        #        if name.lower().endswith(ch.name.lower()):
-        #            valid_images.append(image)
-        #            channel_ids.append(i)
-
-        #        # Check displacement
-        #        elif name.lower().endswith('displacement') and ch.type == 'NORMAL':
-        #            valid_images.append(image)
-        #            channel_ids.append(i)
+            # Get filename without extension
+            name = os.path.splitext(os.path.basename(image.filepath))[0]
+            lname = name.lower()
+            if 'normaldx' in lname or 'nor_dx' in lname:
+                dx_image = image
+            if 'normalgl' in lname or 'nor_gl' in lname:
+                gl_image = image
 
         synonym_libs = {
                 'color' : ['albedo', 'diffuse', 'base color'], 
@@ -1542,47 +1825,22 @@ class BaseMultipleImagesLayer():
                 #if ch in valid_channels: break
                 if main_image_found: break
             
-                # Get channel name possible variation
-                initial = syname[0]
-
-                if len(ch.name) > 3:
-                    threes = syname[:3]
-                else: threes = ''
-
-                no_whitespace = syname.replace(' ', '')
-                underscore = syname.replace(' ', '_')
-
                 for image in images:
 
                     # One image will only use one channel
                     if image in valid_images: continue
 
+                    # DirectX image will be skipped if there's OpenGL image
+                    if ch.type == 'NORMAL' and dx_image and gl_image and image == dx_image:
+                        continue
+
                     # Get filename without extension
-                    img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
+                    if image.filepath != '':
+                        img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
+                    else: img_name = image.name.lower()
 
-                    if (
-                            ## Check image name suffix and match it with channel name
-                            #(img_name.endswith(syname)) or
-
-                            #(img_name.endswith(no_whitespace)) or
-
-                            #(img_name.endswith(underscore)) or
-
-                            # Check if synonym is in image name
-                            (syname in img_name) or
-
-                            (no_whitespace in img_name) or
-
-                            (underscore in img_name) or
-
-                            # Check image name suffix and match it with channel initial first threes
-                            (threes != '' and img_name.endswith(('_' + threes, '.' + threes))) or
-
-                            # Check image name suffix and match it with channel initial name
-                            # Avoid initial a because it's too common
-                            (initial != 'a' and img_name.endswith(('_' + initial, '.' + initial)))
-
-                            ):
+                    # Check if synonym is in image name
+                    if self.is_synonym_in_image_name(syname, img_name):
                         valid_images.append(image)
                         valid_channels.append(ch)
                         valid_synonyms.append(syname)
@@ -1593,21 +1851,18 @@ class BaseMultipleImagesLayer():
 
                         secondary_imgae_found = True
 
-        for i, image in enumerate(valid_images):
-            #print(image.name, yp.channels[channel_ids[i]].name)
-            print(image.name, valid_channels[i].name, valid_synonyms[i])
-
         if not valid_images:
             # Remove loaded images
             for image in images:
-                #if image not in exist_images:
-                bpy.data.images.remove(image)
+                #if image not in existing_images:
+                if image in non_import_images: continue
+                remove_datablock(bpy.data.images, image)
             return False
 
         # Check if found more than 1 images for normal channel
         
         if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
-            normal_map_type = 'BUMP_NORMAL_MAP'
+            normal_map_type = self.normal_map_priority
         elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] == 'normal']):
             normal_map_type = 'NORMAL_MAP'
         else: normal_map_type = 'BUMP_MAP'
@@ -1618,46 +1873,49 @@ class BaseMultipleImagesLayer():
             root_ch = valid_channels[i]
             syname = valid_synonyms[i]
 
-            # Set image to linear
-            #if image.colorspace_settings.name != 'Non-Color':
-            #    image.colorspace_settings.name = 'Non-Color'
+            # Set relative
+            if self.relative:
+                try: image.filepath = bpy.path.relpath(image.filepath)
+                except: pass
 
-            m = re.match(r'^yp\.channels\[(\d+)\].*', root_ch.path_from_id())
-            ch_idx = int(m.group(1))
+            ch_idx = get_channel_index(root_ch)
+
+            # Use non-color for non-color channel
+            if root_ch.colorspace == 'LINEAR' and not image.is_dirty:
+                image.colorspace_settings.name = get_noncolor_name()
 
             # Use image directly to layer for the first index
             if i == 0:
                 yp.halt_update = True
-                #layer = add_new_layer(node.node_tree, image.name, 'IMAGE', int(ch_idx), 'MIX', 
-                #        'MIX', normal_map_type, self.texcoord_type, self.uv_map,
-                #        image, None, None, 
-                #        )
-
                                                  
                 layer = add_new_layer(node.node_tree, image.name, 'IMAGE', 
                         int(ch_idx), 'MIX', 'MIX', 
                         normal_map_type, self.texcoord_type, self.uv_map, image, None, None,
                         (1,1,1),self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                         self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-                        use_udim_for_mask=self.is_mask_using_udim())
+                        use_udim_for_mask=self.use_udim_for_mask)
 
                 yp.halt_update = False
-                #reconnect_yp_nodes(node.node_tree)
-                #rearrange_yp_nodes(node.node_tree)
                 tree = get_tree(layer)
             else:
                 ch = layer.channels[ch_idx]
                 ch.enable = True
-                if root_ch.type == 'NORMAL' and syname == 'normal':
+                if root_ch.type == 'NORMAL' and (syname == 'normal' or 'normal without bump' in image.name.lower()):
                     image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
                     image_node.image = image
                     ch.override_1 = True
                     ch.override_1_type = 'IMAGE'
+                    if dx_image and dx_image == image:
+                        ch.image_flip_y = True
                 else:
                     image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
                     image_node.image = image
+                    if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
                     ch.override = True
                     ch.override_type = 'IMAGE'
+
+        # Check image projections
+        check_layer_projections(layer)
 
         ## Reconnect and rearrange nodes
         reconnect_yp_nodes(node.node_tree)
@@ -1665,21 +1923,28 @@ class BaseMultipleImagesLayer():
 
         # Remove unused images
         for image in images:
-            if image not in valid_images: # and image not in exist_images:
-                bpy.data.images.remove(image)
+            if image not in valid_images: # and image not in existing_images:
+                remove_datablock(bpy.data.images, image)
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.yptimer.time = str(time.time())
 
         # Make sure to expand channels so it can be obvious which channels are active
         wm.ypui.expand_channels = True
 
-    def invoke_operator(self, context:bpy.context):
+        # Expand vector transformation because it's highly likely user want to tweak this
+        wm.ypui.layer_ui.expand_content = True
+        wm.ypui.layer_ui.expand_vector = True
+
+        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return True
+
+    def invoke_operator(self, context):
         obj = context.object
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        yp = node.node_tree.yp if node else None
         ypup = get_user_preferences()
 
         # Use user preference default image size if input uses default image size
@@ -1705,17 +1970,19 @@ class BaseMultipleImagesLayer():
         #self.normal_map_type = 'NORMAL_MAP'
 
         #return context.window_manager.invoke_props_dialog(self)
-    def draw_operator(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+    def draw_operator(self, context, display_relative_toggle=True):
         obj = context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
 
-        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
-        
-        row = self.layout.row()
+        row = split_layout(self.layout, 0.325)
 
         col = row.column()
         col.label(text='Vector:')
+
+        height_root_ch = get_root_height_channel(yp) if yp else None
+        if not yp or height_root_ch:
+            col.label(text='Normal Map:')
 
         col.label(text='')
         if self.add_mask:
@@ -1735,6 +2002,9 @@ class BaseMultipleImagesLayer():
             #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
+        if not yp or height_root_ch:
+            col.prop(self, 'normal_map_priority', text='')
+
         col.prop(self, 'add_mask', text='Add Mask')
         if self.add_mask:
             col.prop(self, 'mask_type', text='')
@@ -1748,7 +2018,6 @@ class BaseMultipleImagesLayer():
                 if UDIM.is_udim_supported():
                     col.prop(self, 'use_udim_for_mask')
                 ccol = col.column()
-                ccol.active = not self.use_udim_for_mask
                 ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
 
         #col.label(text='')
@@ -1761,12 +2030,13 @@ class BaseMultipleImagesLayer():
         #    else: 
         #        rrow.prop(self, 'blend_type', text='')
 
-        self.layout.prop(self, 'relative')
+        if display_relative_toggle:
+            self.layout.prop(self, 'relative')
 
     def check_operator(self, context:bpy.context):
         ypup = get_user_preferences()
         # New image cannot use more pixels than the image atlas
-        if self.is_mask_using_image_atlas():
+        if self.use_image_atlas_for_mask:
             if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
             else: mask_max_size = ypup.image_atlas_size
             if self.mask_width > mask_max_size: self.mask_width = mask_max_size
@@ -1782,13 +2052,179 @@ class BaseMultipleImagesLayer():
             uv_name = get_default_uv_name(obj, yp)
             self.mask_uv_name = uv_name
 
+        return True
 
-class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
-    """Open Multiple Images to Single Layer"""
-    bl_idname = "node.y_open_multiple_images_to_single_layer"
-    bl_label = "Open Multiple Images to Single Layer"
+class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
+    bl_idname = "node.y_open_images_from_material_to_single_layer"
+    bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
+    bl_description = "Open images inside material node tree to single " + get_addon_title() + " layer"
     bl_options = {'REGISTER', 'UNDO'}
 
+    mat_name : StringProperty(default='')
+    mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    asset_library_path: StringProperty(default='')
+
+    @classmethod
+    def poll(cls, context):
+        #return get_active_ypaint_node()
+        return context.object
+
+    def invoke(self, context, event):
+        self.invoke_operator(context)
+
+        self.mat_coll.clear()
+
+        obj = context.object
+        cur_mats = []
+        if obj.data and hasattr(obj.data, 'materials'):
+            cur_mats = obj.data.materials
+
+        # Get material lists from current file
+        mat_found = False
+        for mat in bpy.data.materials:
+            if mat.name not in {'Dots Stroke'} and mat.name not in cur_mats:
+                self.mat_coll.add().name = mat.name
+                if self.mat_name == mat.name: 
+                    mat_found = True
+
+        if self.asset_library_path == '':
+            if not mat_found:
+                self.mat_name = ''
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def check(self, context):
+        return self.check_operator(context)
+
+    def draw(self, context):
+        row = split_layout(self.layout, 0.325, align=True)
+        row.label(text='Material')
+        if self.asset_library_path == '':
+            row.prop_search(self, "mat_name", self, "mat_coll", text='', icon='MATERIAL_DATA')
+        else: row.label(text=self.mat_name, icon='MATERIAL_DATA')
+        self.draw_operator(context, display_relative_toggle=False)
+
+    def execute(self, context):
+
+        if self.mat_name == '':
+            self.report({'ERROR'}, "Source material cannot be empty!")
+            return {'CANCELLED'}
+
+        obj = context.object
+        if not obj.data or not hasattr(obj.data, 'materials'):
+            self.report({'ERROR'}, "Cannot use "+get_addon_title()+" with object '"+obj.name+"'!")
+            return {'CANCELLED'}
+
+        # Get material from local first
+        mat = bpy.data.materials.get(self.mat_name)
+
+        # If not found get from the asset library
+        from_asset_library = self.asset_library_path != ''
+        if not mat and from_asset_library and is_greater_than_300():
+            with bpy.data.libraries.load(str(self.asset_library_path), assets_only=True) as (data_from, data_to):
+                for mat in data_from.materials:
+                    if mat == self.mat_name:
+                        data_to.materials.append(mat)
+            mat = bpy.data.materials.get(self.mat_name)
+
+        if not mat:
+            self.report({'ERROR'}, "Source material cannot be found!")
+            return {'CANCELLED'}
+
+        # Check material for images
+        images = []
+        if mat.node_tree:
+            for node in mat.node_tree.nodes:
+                if node.type == 'TEX_IMAGE':
+                    if node.image:
+                        images.append(node.image)
+
+        # Check for yp images
+        output = get_material_output(mat)
+        yp_node = get_closest_yp_node_backward(output)
+        if yp_node:
+            otree = yp_node.node_tree
+            oyp = otree.yp
+            for root_ch in oyp.channels:
+
+                baked_disp = None
+                baked_normal_overlay = None
+                if root_ch.type == 'NORMAL':
+                    baked_disp = otree.nodes.get(root_ch.baked_disp)
+                    if baked_disp and baked_disp.image:
+                        images.append(baked_disp.image)
+
+                    baked_normal_overlay = otree.nodes.get(root_ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image:
+                        images.append(baked_normal_overlay.image)
+
+                if root_ch.type != 'NORMAL' or not (baked_disp and baked_normal_overlay):
+                    baked = otree.nodes.get(root_ch.baked)
+                    if baked and baked.image:
+                        images.append(baked.image)
+
+        if not images:
+            self.report({'ERROR'}, "Cannot found images inside the material!")
+            return {'CANCELLED'}
+
+        # Check for existing images if the image source is from asset library
+        if from_asset_library:
+            filtered_images = []
+            existing_images = []
+            duplicated_images = []
+            for new_img in images:
+                for old_img in bpy.data.images:
+                    if old_img in images: continue
+                    if old_img.filepath == new_img.filepath:
+                        existing_images.append(old_img)
+                        duplicated_images.append(new_img)
+                        break
+
+            # Add existing images to list
+            for img in existing_images:
+                if img not in filtered_images:
+                    filtered_images.append(img)
+
+            # Add imported images to list
+            for img in images:
+                if img not in filtered_images and img not in duplicated_images:
+                    filtered_images.append(img)
+
+            # Remove duplicated images
+            for img in duplicated_images:
+                remove_datablock(bpy.data.images, img)
+
+            # Use filtered images
+            images = filtered_images
+
+        # Use quick setup if yp node is not found
+        node = get_active_ypaint_node()
+        quick_setup_happen = False
+        if not node:
+            bpy.ops.node.y_quick_ypaint_node_setup()
+            quick_setup_happen = True
+
+        failed = False
+        if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images):
+            self.report({'ERROR'}, "Images should have channel name as suffix!")
+            failed = True
+
+        # Remove material if it has only fake users
+        if from_asset_library and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
+            remove_datablock(bpy.data.materials, mat)
+
+        if failed:
+            if quick_setup_happen:
+                bpy.ops.node.y_remove_yp_node()
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
+    bl_idname = "node.y_open_images_to_single_layer"
+    bl_label = "Open Images to single Layer"
+    bl_description = "Open images to single layer"
+    bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
@@ -1837,8 +2273,15 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
     relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'Image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     texcoord_type : EnumProperty(
-            name = 'Texture Coordinate Type',
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
@@ -1847,8 +2290,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items)
-            #update=update_channel_idx_new_layer)
+            items = channel_items,
+            update=update_channel_idx_new_layer)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -1873,6 +2316,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
+    file_browser_filepath : StringProperty(default='')
+
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
@@ -1884,7 +2329,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     def invoke(self, context, event):
         obj = context.object
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        yp = self.yp = node.node_tree.yp
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -1902,7 +2347,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         # Normal map is the default
         #self.normal_map_type = 'NORMAL_MAP'
 
-        #return context.window_manager.invoke_props_dialog(self)
+        if self.file_browser_filepath != '':
+            return context.window_manager.invoke_props_dialog(self)
+        
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -1919,12 +2366,18 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         row = self.layout.row()
 
         col = row.column()
+        if self.file_browser_filepath != '':
+            col.label(text='Image:')
+        col.label(text='Interpolation:')
         col.label(text='Vector:')
         col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
             col.label(text='Type:')
 
         col = row.column()
+        if self.file_browser_filepath != '':
+            col.label(text=os.path.basename(self.file_browser_filepath), icon='IMAGE_DATA')
+        col.prop(self, 'interpolation', text='')
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -1939,10 +2392,12 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
-        self.layout.prop(self, 'relative')
+        layout = col if self.file_browser_filepath != '' else self.layout
+
+        layout.prop(self, 'relative')
 
         if UDIM.is_udim_supported():
-            self.layout.prop(self, 'use_udim_detecting')
+            layout.prop(self, 'use_udim_detecting')
 
     def execute(self, context):
         T = time.time()
@@ -1950,7 +2405,15 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         wm = context.window_manager
         node = get_active_ypaint_node()
 
-        import_list, directory = self.generate_paths()
+        if self.file_browser_filepath == '':
+            import_list, directory = self.generate_paths()
+        else:
+            if not os.path.isfile(self.file_browser_filepath):
+                self.report({'ERROR'}, "There's no image with address '" + self.file_browser_filepath + "'!")
+                return {'CANCELLED'}
+            import_list = [os.path.basename(self.file_browser_filepath)]
+            directory = os.path.dirname(self.file_browser_filepath)
+
         if not UDIM.is_udim_supported():
             images = tuple(load_image(path, directory) for path in import_list)
         else:
@@ -1974,7 +2437,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
             add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
-                    image, None, None, 
+                    image, None, None,
+                    interpolation=self.interpolation
                     )
 
         node.node_tree.yp.halt_update = False
@@ -1985,6 +2449,10 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
         # Update UI
         wm.ypui.need_update = True
+        if self.texcoord_type == 'Decal':
+            wm.ypui.layer_ui.expand_content = True
+            wm.ypui.layer_ui.expand_vector = True
+
         print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
@@ -2015,7 +2483,7 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
         imgs = bpy.data.images
         baked_channel_images = get_all_baked_channel_images(node.node_tree)
         for img in imgs:
-            if not img.yia.is_image_atlas and img not in baked_channel_images:
+            if not img.yia.is_image_atlas and img not in baked_channel_images and img.name not in {'Render Result', 'Viewer Node'}:
                 self.image_coll.add().name = img.name
 
         return context.window_manager.invoke_props_dialog(self)
@@ -2086,8 +2554,8 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
             else: image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
 
         image_node.image = image
-        #if image.colorspace_settings.name != 'Non-Color':
-        #    image.colorspace_settings.name = 'Non-Color'
+        #if image.colorspace_settings.name != get_noncolor_name():
+        #    image.colorspace_settings.name = get_noncolor_name()
 
         if should_be_bump:
             ch.override_type = 'IMAGE'
@@ -2139,12 +2607,12 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             imgs = bpy.data.images
             baked_channel_images = get_all_baked_channel_images(node.node_tree)
             for img in imgs:
-                if not img.yia.is_image_atlas and img not in baked_channel_images:
+                if not img.yia.is_image_atlas and img not in baked_channel_images and img.name not in {'Render Result', 'Viewer Node'}:
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
-            for vcol in get_vertex_colors(obj):
-                self.vcol_coll.add().name = vcol.name
+            for vcol_name in get_vertex_color_names(obj):
+                self.vcol_coll.add().name = vcol_name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -2216,8 +2684,9 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                 else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
-            #if image.colorspace_settings.name != 'Non-Color':
-            #    image.colorspace_settings.name = 'Non-Color'
+            if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
+            #if image.colorspace_settings.name != get_noncolor_name():
+            #    image.colorspace_settings.name = get_noncolor_name()
 
         elif self.type == 'VCOL':
 
@@ -2225,17 +2694,19 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                 self.report({'ERROR'}, "Vertex Color name cannot be empty!")
                 return {'CANCELLED'}
 
-            vcols = get_vertex_colors(obj)
-            vcol = vcols.get(self.vcol_name)
-            if not vcol:
+            if self.vcol_name not in get_vertex_color_names(obj):
                 self.report({'ERROR'}, "Vertex Color named " + self.vcol_name + " is not found!")
                 return {'CANCELLED'}
+
+            vcols = get_vertex_colors(obj)
+            if self.vcol_name in vcols:
+                vcol = vcols.get(self.vcol_name)
 
             # Make sure override is on
             if not ch.override:
                 ch.override = True
 
-            objs = [obj]
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
@@ -2243,19 +2714,12 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                         objs.append(o)
 
             for o in objs:
-
                 if self.vcol_name not in get_vertex_colors(o):
-                    try:
-                        if is_greater_than_320():
-                            other_v = new_vertex_color(o, self.vcol_name, vcol.data_type, vcol.domain)
-                        else: other_v = new_vertex_color(o, self.vcol_name)
-                        #if vcol_color == 'WHITE':
-                        #    set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 1.0))
-                        #elif vcol_color == 'BLACK':
-                        #    set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
-                        set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
-                        set_active_vertex_color(o, other_v)
-                    except Exception as e: pass
+                    if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                    data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
+                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
+                    set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
+                    set_active_vertex_color(o, other_v)
 
             # Update vcol cache
             if ch.override_type == 'VCOL':
@@ -2297,8 +2761,15 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                 ('VCOL', 'Vertex Color', '')),
             default = 'IMAGE')
 
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'Image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     texcoord_type : EnumProperty(
-            name = 'Texture Coordinate Type',
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
@@ -2307,8 +2778,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
     channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items)
-            #update=update_channel_idx_new_layer)
+            items = channel_items,
+            update=update_channel_idx_new_layer)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -2363,12 +2834,12 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             imgs = bpy.data.images
             baked_channel_images = get_all_baked_channel_images(node.node_tree)
             for img in imgs:
-                if not img.yia.is_image_atlas and img not in baked_channel_images:
+                if not img.yia.is_image_atlas and img not in baked_channel_images and img.name not in {'Render Result', 'Viewer Node'}:
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
-            for vcol in get_vertex_colors(obj):
-                self.vcol_coll.add().name = vcol.name
+            for vcol_name in get_vertex_color_names(obj):
+                self.vcol_coll.add().name = vcol_name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -2391,6 +2862,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         col = row.column()
         if self.type == 'IMAGE':
+            col.label(text='Interpolation:')
             col.label(text='Vector:')
         col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
@@ -2399,6 +2871,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         col = row.column()
 
         if self.type == 'IMAGE':
+            col.prop(self, 'interpolation', text='')
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -2437,30 +2910,33 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             image = bpy.data.images.get(self.image_name)
             name = image.name
-            #if image.colorspace_settings.name != 'Non-Color':
-            #    image.colorspace_settings.name = 'Non-Color'
         elif self.type == 'VCOL':
+            name = self.vcol_name
             vcols = get_vertex_colors(obj)
-            vcol = vcols.get(self.vcol_name)
-            name = vcol.name
+            if self.vcol_name in vcols:
+                vcol = vcols.get(self.vcol_name)
 
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
-                    if o.type != 'MESH' or o == obj: continue
-                    if mat.name in o.data.materials and self.vcol_name not in get_vertex_colors(o):
-                        try:
-                            if is_greater_than_320():
-                                other_v = new_vertex_color(o, self.vcol_name, vcol.data_type, vcol.domain)
-                            else: other_v = new_vertex_color(o, self.vcol_name)
-                            if is_greater_than_292():
-                                set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 0.0))
-                            else: set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
-                            set_active_vertex_color(o, other_v)
-                        except: pass
+                    if o.type != 'MESH': continue
+                    if mat.name in o.data.materials and o not in objs:
+                        objs.append(o)
+
+            for o in objs:
+                if self.vcol_name not in get_vertex_colors(o):
+                    if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                    data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
+                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
+                    if is_greater_than_292():
+                        set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 0.0))
+                    else: set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
+                    set_active_vertex_color(o, other_v)
 
         add_new_layer(node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
                 self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map, 
                 image, vcol, None, 
+                interpolation = self.interpolation
                 )
 
         node.node_tree.yp.halt_update = False
@@ -2471,6 +2947,10 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
+        if self.texcoord_type == 'Decal':
+            wm.ypui.layer_ui.expand_content = True
+            wm.ypui.layer_ui.expand_vector = True
+
         print('INFO: Image', self.image_name, 'is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
@@ -2517,6 +2997,10 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
             neighbor_idx = -1
             neighbor_layer = None
 
+        #move_outside_up = False
+        #move_outside_down = False
+        original_parent_idx = -1
+
         # Move outside up
         if is_top_member(layer) and self.direction == 'UP':
             #print('Case 1')
@@ -2528,11 +3012,15 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
             yp.active_layer_index = neighbor_idx
 
+            original_parent_idx = last_member_idx
+
         # Move outside down
         elif is_bottom_member(layer) and self.direction == 'DOWN':
             #print('Case 2')
 
             parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, yp.layers[layer.parent_idx].parent_idx)
+
+            original_parent_idx = layer.parent_idx
 
         elif neighbor_layer and neighbor_layer.type == 'GROUP':
 
@@ -2566,12 +3054,22 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
         #if layer.type == 'GROUP' or has_parent:
         check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
+
+        # Also check original parent io and nodes
+        if original_parent_idx != -1:
+            original_parent = yp.layers[original_parent_idx]
+            check_all_layer_channel_io_and_nodes(original_parent) #, has_parent=has_parent)
+            reconnect_layer_nodes(original_parent)
+            rearrange_layer_nodes(original_parent)
+
+        # Background layers should update its ios
+        recheck_background_layers_ios(yp, index_dict)
 
         # Refresh layer channel blend nodes
-        rearrange_yp_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
 
         # Update UI
         wm.ypui.need_update = True
@@ -2716,6 +3214,9 @@ class YMoveLayer(bpy.types.Operator):
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch: update_displacement_height_ratio(height_root_ch)
 
+        # Background layers should update its ios
+        recheck_background_layers_ios(yp, index_dict)
+
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
@@ -2790,42 +3291,69 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
                 wm.popup_menu(draw_move_down_in_layer_group, title="Options")
         return {'FINISHED'}
 
-def remove_layer(yp, index):
+def remove_layer(yp, index, remove_on_disk=False):
     group_tree = yp.id_data
     obj = bpy.context.object
     layer = yp.layers[index]
     layer_tree = get_tree(layer)
+    mat = obj.active_material
+    wm = bpy.context.window_manager
+
+    # Dealing with decal object
+    remove_decal_object(layer_tree, layer)
 
     # Dealing with image atlas segments
     if layer.type == 'IMAGE': # and layer.segment_name != '':
         src = get_layer_source(layer)
-        if src and src.image.yia.is_image_atlas and layer.segment_name != '':
-            segment = src.image.yia.segments.get(layer.segment_name)
-            entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
-            if len(entities) == 1:
-                segment.unused = True
+        if src:
+            if src.image.yia.is_image_atlas and layer.segment_name != '':
+                segment = src.image.yia.segments.get(layer.segment_name)
+                entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
+                if len(entities) == 1:
+                    segment.unused = True
+            elif src.image.yua.is_udim_atlas and layer.segment_name != '':
+                UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, yp=yp)
 
     # Remove the source first to remove image
     source_tree = get_source_tree(layer) #, layer_tree)
-    remove_node(source_tree, layer, 'source')
+    remove_node(source_tree, layer, 'source', remove_on_disk=remove_on_disk)
+
+    # Remove channel source
+    for ch in layer.channels:
+        src = get_channel_source(ch)
+        if src and src.type == 'TEX_IMAGE' and src.image:
+            ch_tree = get_channel_source_tree(ch, layer)
+            remove_node(ch_tree, ch, 'source', remove_on_disk=remove_on_disk)
+
+        src = get_channel_source_1(ch)
+        if src and src.type == 'TEX_IMAGE' and src.image:
+            remove_node(layer_tree, ch, 'source_1', remove_on_disk=remove_on_disk)
 
     # Remove Mask source
     for mask in layer.masks:
 
+        # Dealing with decal object
+        remove_decal_object(layer_tree, mask)
+
         # Dealing with image atlas segments
         if mask.type == 'IMAGE': # and mask.segment_name != '':
             src = get_mask_source(mask)
+            if not src: continue
             if src.image.yia.is_image_atlas and mask.segment_name != '':
                 segment = src.image.yia.segments.get(mask.segment_name)
                 entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
                 if len(entities) == 1:
                     segment.unused = True
+            elif src.image.yua.is_udim_atlas and mask.segment_name != '':
+                UDIM.remove_udim_atlas_segment_by_name(src.image, mask.segment_name, yp=yp)
 
         mask_tree = get_mask_tree(mask)
-        remove_node(mask_tree, mask, 'source')
+        remove_node(mask_tree, mask, 'source', remove_on_disk=remove_on_disk)
 
     # Remove node group and layer tree
-    if layer_tree: bpy.data.node_groups.remove(layer_tree)
+    if layer_tree: 
+        layer_node = group_tree.nodes.get(layer.group_node)
+        remove_datablock(bpy.data.node_groups, layer_tree, user=layer_node, user_prop='node_tree')
     if layer.trash_group_node != '':
         trash = group_tree.nodes.get(yp.trash)
         if trash: trash.node_tree.nodes.remove(trash.node_tree.nodes.get(layer.trash_group_node))
@@ -2839,6 +3367,16 @@ def remove_layer(yp, index):
         depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
         depth_source_0.node_tree.nodes.remove(depth_source_0.node_tree.nodes.get(layer.depth_group_node))
 
+    # Reset UI
+    wm.ypui.layer_ui.expand_content = False
+    wm.ypui.layer_ui.expand_source = False
+    wm.ypui.layer_ui.expand_channels = False
+    wm.ypui.layer_ui.expand_masks = False
+    wm.ypui.layer_ui.expand_vector = False
+    for i, ch in enumerate(layer.channels):
+        wm.ypui.layer_ui.channels[i].expand_content = False
+    wm.ypui.need_update = True
+
     # Delete the layer
     yp.layers.remove(index)
 
@@ -2847,9 +3385,19 @@ def draw_remove_group(self, context):
 
     c = col.operator("node.y_remove_layer", text='Remove parent only', icon='PANEL_CLOSE')
     c.remove_childs = False
+    c.remove_on_disk = False
 
     c = col.operator("node.y_remove_layer", text='Remove parent with all its childrens', icon='PANEL_CLOSE')
     c.remove_childs = True
+    c.remove_on_disk = False
+
+    if hasattr(context, 'layer') and any_single_user_ondisk_image_inside_group(context.layer):
+        col.separator()
+        col.alert = True
+        col.label(text='Danger Zone', icon='ERROR')
+        c = col.operator("node.y_remove_layer", text='Remove parent with all its childrens and files on disk (WARNING: NO PROMPT & NO UNDO!)', icon='PANEL_CLOSE')
+        c.remove_childs = True
+        c.remove_on_disk = True
 
 class YRemoveLayerMenu(bpy.types.Operator):
     bl_idname = "node.y_remove_layer_menu"
@@ -2874,6 +3422,7 @@ class YRemoveLayer(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     remove_childs : BoolProperty(name='Remove Childs', description='Remove layer childrens', default=False)
+    remove_on_disk : BoolProperty(name='Remove Image on disk', description='Remove image file on disk', default=False)
 
     @classmethod
     def poll(cls, context):
@@ -2881,15 +3430,56 @@ class YRemoveLayer(bpy.types.Operator):
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
     def invoke(self, context, event):
+
+        # Remove on disk is dangerous so it's always disabled by default
+        self.remove_on_disk = False
+
+        # Removing UDIM atlas segment is can't be undoed
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = yp.layers[yp.active_layer_index]
+        self.using_udim_atlas = False
+
+        self.any_images_on_disk = any_single_user_ondisk_image_inside_layer(layer)
+
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source and source.image and source.image.yua.is_udim_atlas:
+                self.using_udim_atlas = True
+                return context.window_manager.invoke_props_dialog(self, width=300)
+            for mask in layer.masks:
+                if mask.type != 'IMAGE': continue
+                source = get_mask_source(mask)
+                if source and source.image and source.image.yua.is_udim_atlas:
+                    self.using_udim_atlas = True
+                    return context.window_manager.invoke_props_dialog(self, width=300)
+        
         obj = context.object
-        if obj.mode != 'OBJECT':
-            return context.window_manager.invoke_props_dialog(self, width=400)
+        if obj.mode != 'OBJECT' or self.any_images_on_disk:
+            return context.window_manager.invoke_props_dialog(self, width=300)
         return self.execute(context)
 
     def draw(self, context):
+
+        col = self.layout.column(align=True)
+
         obj = context.object
         if obj.mode != 'OBJECT':
-            self.layout.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
+            col.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
+        elif hasattr(self, 'using_udim_atlas') and self.using_udim_atlas:
+            col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
+            col.label(text='You cannot UNDO after removal', icon='BLANK1')
+            col.label(text='Are you sure want to continue?', icon='BLANK1')
+
+        if self.any_images_on_disk:
+            col.prop(self, 'remove_on_disk')
+
+            if self.remove_on_disk:
+                col.label(text="WARNING!", icon='ERROR')
+                col.label(text="You cannot UNDO and the file will be gone forever", icon='ERROR')
+
+    def check(self, context):
+        return True
 
     def execute(self, context):
         T = time.time()
@@ -2916,7 +3506,7 @@ class YRemoveLayer(bpy.types.Operator):
 
             last_idx = get_last_child_idx(layer)
             for i in reversed(range(layer_idx, last_idx+1)):
-                remove_layer(yp, i)
+                remove_layer(yp, i, remove_on_disk=self.remove_on_disk)
                 
             # The childs are all gone
             child_ids = []
@@ -2928,7 +3518,7 @@ class YRemoveLayer(bpy.types.Operator):
                 parent_dict[yp.layers[i].name] = parent_dict[layer.name]
 
             # Remove layer
-            remove_layer(yp, layer_idx)
+            remove_layer(yp, layer_idx, remove_on_disk=self.remove_on_disk)
 
         # Remove temp uv layer
         uv_layers = get_uv_layers(obj)
@@ -2960,14 +3550,18 @@ class YRemoveLayer(bpy.types.Operator):
         for i in child_ids:
             lay = yp.layers[i-1]
             check_all_layer_channel_io_and_nodes(lay)
-            rearrange_layer_nodes(lay)
             reconnect_layer_nodes(lay)
+            rearrange_layer_nodes(lay)
 
         # Update max height
         height_ch = get_root_height_channel(yp)
         if height_ch: update_displacement_height_ratio(height_ch)
 
+        # Background layers should update its ios
+        recheck_background_layers_ios(yp, index_dict)
+
         # Refresh layer channel blend nodes
+        check_start_end_root_ch_nodes(group_tree)
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
@@ -3056,8 +3650,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             source.image = image
             if hasattr(source, 'color_space'):
                 source.color_space = 'NONE'
-            #if image.colorspace_settings.name != 'Non-Color':
-            #    image.colorspace_settings.name = 'Non-Color'
+            #if image.colorspace_settings.name != get_noncolor_name():
+            #    image.colorspace_settings.name = get_noncolor_name()
         elif new_type == 'VCOL':
             set_source_vcol_name(source, item_name)
         elif new_type == 'HEMI':
@@ -3108,6 +3702,10 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     # Check uv maps
     check_uv_nodes(yp)
 
+    # Update layer name
+    if layer_type_labels[ori_type] in layer.name:
+        layer.name = layer.name.replace(layer_type_labels[ori_type], layer_type_labels[layer.type])
+
     # Refresh colorspace
     for root_ch in yp.channels:
         if root_ch.type == 'RGB':
@@ -3116,12 +3714,12 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     # Check childrens which need rearrange
     for lay in yp.layers:
         check_all_layer_channel_io_and_nodes(lay)
-        rearrange_layer_nodes(lay)
         reconnect_layer_nodes(lay)
+        rearrange_layer_nodes(lay)
 
     if layer.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
-        rearrange_yp_nodes(layer.id_data)
         reconnect_yp_nodes(layer.id_data)
+        rearrange_yp_nodes(layer.id_data)
 
 def replace_mask_type(mask, new_type, item_name='', remove_data=False):
 
@@ -3200,8 +3798,8 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
         source.image = image
         if hasattr(source, 'color_space'):
             source.color_space = 'NONE'
-        if image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
-            image.colorspace_settings.name = 'Non-Color'
+        if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
+            image.colorspace_settings.name = get_noncolor_name()
     elif new_type == 'VCOL':
         set_source_vcol_name(source, item_name)
     elif new_type == 'HEMI':
@@ -3229,7 +3827,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
     #        remove_node(tree, ch, 'normal_process')
 
     mapping = tree.nodes.get(mask.mapping)
-    if new_type == 'IMAGE' :
+    if is_mapping_possible(new_type):
         if not mapping:
             mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
     else:
@@ -3262,20 +3860,20 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
         #lay = yp.layers[i]
     #for lay in yp.layers:
     #    check_all_layer_channel_io_and_nodes(lay)
-    #    rearrange_layer_nodes(lay)
     #    reconnect_layer_nodes(lay)
+    #    rearrange_layer_nodes(lay)
 
     for lay in yp.layers:
         check_all_layer_channel_io_and_nodes(lay)
-        rearrange_layer_nodes(lay)
         reconnect_layer_nodes(lay)
+        rearrange_layer_nodes(lay)
 
-    #rearrange_layer_nodes(layer)
     #reconnect_layer_nodes(layer)
+    #rearrange_layer_nodes(layer)
 
     #if mask.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
-    rearrange_yp_nodes(mask.id_data)
     reconnect_yp_nodes(mask.id_data)
+    rearrange_yp_nodes(mask.id_data)
 
 class YReplaceLayerChannelOverride(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_channel_override"
@@ -3323,6 +3921,46 @@ class YReplaceLayerChannelOverride1(bpy.types.Operator):
         ch.override_1 = True
         return {'FINISHED'}
 
+class YRemoveLayerChannelOverrideSource(bpy.types.Operator):
+    bl_idname = "node.y_remove_channel_override_source"
+    bl_label = "Replace Layer Channel Override Source"
+    bl_description = "Replace Layer Channel Override Source"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'channel') and hasattr(context, 'layer')
+
+    def execute(self, context):
+        layer = context.layer
+        ch = context.channel
+        tree = get_tree(layer)
+        if ch.override:
+            remove_node(tree, ch, 'source')
+        else: remove_node(tree, ch, 'cache_image')
+        ch.override_type = 'DEFAULT'
+        return {'FINISHED'}
+
+class YRemoveLayerChannelOverride1Source(bpy.types.Operator):
+    bl_idname = "node.y_remove_channel_override_1_source"
+    bl_label = "Replace Layer Channel Normal Override Source"
+    bl_description = "Replace Layer Channel Normal Override Source"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'channel') and hasattr(context, 'layer')
+
+    def execute(self, context):
+        layer = context.layer
+        ch = context.channel
+        tree = get_tree(layer)
+        if ch.override_1:
+            remove_node(tree, ch, 'source_1')
+        else: remove_node(tree, ch, 'cache_1_image')
+        ch.override_1_type = 'DEFAULT'
+        return {'FINISHED'}
+
 class YReplaceLayerType(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_type"
     bl_label = "Replace Layer Type"
@@ -3357,8 +3995,8 @@ class YReplaceLayerType(bpy.types.Operator):
                     if not img.yia.is_image_atlas and img not in baked_channel_images:
                         self.item_coll.add().name = img.name
             else:
-                for vcol in get_vertex_colors(obj):
-                    self.item_coll.add().name = vcol.name
+                for vcol_name in get_vertex_color_names(obj):
+                    self.item_coll.add().name = vcol_name
 
             return context.window_manager.invoke_props_dialog(self)#, width=400)
 
@@ -3367,9 +4005,7 @@ class YReplaceLayerType(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
 
-        if is_greater_than_280():
-            split = layout.split(factor=0.35, align=True)
-        else: split = layout.split(percentage=0.35)
+        split = split_layout(layout, 0.35, align=True)
 
         #row = self.layout.row()
         if self.type == 'IMAGE':
@@ -3407,7 +4043,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False):
+def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False):
 
     yp = tree.yp
     ypup = get_user_preferences()
@@ -3453,23 +4089,46 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                 mod_group_1 = ttree.nodes.get(layer.mod_group_1)
                 if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
 
-        if layer.type == 'IMAGE': # and ypui.make_image_single_user:
+        # Decal object duplicate
+        if layer.texcoord_type == 'Decal':
+            texcoord = ttree.nodes.get(layer.texcoord)
+            if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+                nname = get_unique_name(texcoord.object.name, bpy.data.objects)
+                texcoord.object = texcoord.object.copy()
+                texcoord.object.name = nname
+                link_object(bpy.context.scene, texcoord.object)
+
+        # Duplicate baked layer image
+        baked_layer_source = get_layer_source(layer, get_baked=True)
+        if baked_layer_source:
+            img = baked_layer_source.image
+            if img:
+                img_users.append(layer)
+                img_nodes.append(baked_layer_source)
+                imgs.append(img)
+
+        # Duplicate layer source
+        if layer.type == 'IMAGE':
             img = source.image
             if img:
-                #mapping = get_layer_mapping(layer)
-                #img_mappings.append(mapping)
                 img_users.append(layer)
                 img_nodes.append(source)
                 imgs.append(img)
-                #source.image = img.copy()
         elif layer.type == 'HEMI':
             duplicate_lib_node_tree(source)
 
         # Duplicate override channel
         for ch in layer.channels:
             if ch.override and ch.override_type == 'IMAGE':
-                #ch_source = ttree.nodes.get(ch.source)
                 ch_source = get_channel_source(ch, layer)
+                img = ch_source.image
+                if img:
+                    img_users.append(ch)
+                    img_nodes.append(ch_source)
+                    imgs.append(img)
+
+            if ch.override_1 and ch.override_1_type == 'IMAGE':
+                ch_source = get_channel_source_1(ch, layer)
                 img = ch_source.image
                 if img:
                     img_users.append(ch)
@@ -3488,16 +4147,31 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                     if s: s.node_tree = mask_group.node_tree
             else:
                 mask_source = ttree.nodes.get(mask.source)
+            # Decal object duplicate
+            if mask.texcoord_type == 'Decal':
+                texcoord = ttree.nodes.get(mask.texcoord)
+                if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+                    nname = get_unique_name(texcoord.object.name, bpy.data.objects)
+                    texcoord.object = texcoord.object.copy()
+                    texcoord.object.name = nname
+                    link_object(bpy.context.scene, texcoord.object)
 
-            if mask.type == 'IMAGE': # and ypui.make_image_single_user:
+            # Duplicate baked mask image
+            baked_mask_source = get_mask_source(mask, get_baked=True)
+            if baked_mask_source:
+                img = baked_mask_source.image
+                if img:
+                    img_users.append(mask)
+                    img_nodes.append(baked_mask_source)
+                    imgs.append(img)
+
+            # Duplicate mask source
+            if mask.type == 'IMAGE':
                 img = mask_source.image
                 if img:
-                    #mapping = get_mask_mapping(mask)
-                    #img_mappings.append(mapping)
                     img_users.append(mask)
                     img_nodes.append(mask_source)
                     imgs.append(img)
-                    #mask_source.image = img.copy()
             elif mask.type == 'HEMI':
                 duplicate_lib_node_tree(mask_source)
 
@@ -3542,86 +4216,127 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                             n.node_tree = ori.node_tree
 
     # Make all images single user
-    if make_image_single_user:
+    #if packed_duplicate:
 
-        already_copied_ids = []
-        copied_image_atlas = {}
+    already_copied_ids = []
+    copied_image_atlas = {}
 
-        # Copy image on layer and masks
-        for i, img in enumerate(imgs):
+    # Copy image on layer and masks
+    for i, img in enumerate(imgs):
 
-            if img.yia.is_image_atlas:
-                segment = img.yia.segments.get(img_users[i].segment_name)
-                new_segment = None
+        # Check if it's an ondisk image
+        if not img.packed_file and img.filepath != '':
+            if not ondisk_duplicate:
+                continue
+        # Or packed image
+        elif not packed_duplicate:
+            continue
 
-                # create new segment based on previous one
-                if make_image_blank:
-                    new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
-                            img.yia.color, img.is_float, yp=yp)
+        if img.yia.is_image_atlas:
+            segment = img.yia.segments.get(img_users[i].segment_name)
+            new_segment = None
 
-                # If using different image atlas per yp, just copy the image (unless specific layer is on)
-                elif ypup.unique_image_atlas_per_yp and not specific_layer:
-                    if img.name not in copied_image_atlas:
-                        copied_image_atlas[img.name] = duplicate_image(img)
-                    img_nodes[i].image = copied_image_atlas[img.name]
+            # Create new segment based on previous one
+            if duplicate_blank:
+                new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
+                        img.yia.color, img.is_float, yp=yp)
 
+            # If using different image atlas per yp, just copy the image (unless specific layer is on)
+            elif ypup.unique_image_atlas_per_yp and not specific_layer:
+                if img.name not in copied_image_atlas:
+                    copied_image_atlas[img.name] = duplicate_image(img)
+                img_nodes[i].image = copied_image_atlas[img.name]
+
+            else:
+                new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
+                        img.yia.color, img.is_float, img, segment)
+
+            if new_segment:
+
+                img_users[i].segment_name = new_segment.name
+
+                # Change image if different image is returned
+                if new_segment.id_data != img:
+                    img_nodes[i].image = new_segment.id_data
+
+                # Update layer transform
+                update_mapping(img_users[i])
+
+        elif img.yua.is_udim_atlas:
+            segment = img.yua.segments.get(img_users[i].segment_name)
+            new_segment = None
+
+            tilenums = UDIM.get_udim_segment_base_tilenums(segment)
+            segment_tilenums = UDIM.get_udim_segment_tilenums(segment)
+
+            # create new segment based on previous one
+            if duplicate_blank:
+                new_segment = UDIM.get_set_udim_atlas_segment(tilenums, color=img.yui.base_color, 
+                        colorspace=img.colorspace_settings.name, hdr=img.is_float, yp=yp) #, source_image=img)
+
+            # If using different image atlas per yp, just copy the image (unless specific layer is on)
+            elif not specific_layer:
+                if img.name not in copied_image_atlas:
+                    copied_image_atlas[img.name] = duplicate_image(img)
+                img_nodes[i].image = copied_image_atlas[img.name]
+
+            else:
+                new_segment = UDIM.get_set_udim_atlas_segment(tilenums, color=img.yui.base_color, 
+                        colorspace=img.colorspace_settings.name, hdr=img.is_float, yp=yp, 
+                        source_image=img, source_tilenums=segment_tilenums)
+
+            if new_segment:
+
+                img_users[i].segment_name = new_segment.name
+
+                # Change image if different image is returned
+                if new_segment.id_data != img:
+                    img_nodes[i].image = new_segment.id_data
+
+                # Update layer transform
+                update_mapping(img_users[i])
+
+        elif i not in already_copied_ids:
+            # Copy image if not atlas
+            if duplicate_blank:
+
+                if hasattr(img, 'use_alpha'):
+                    alpha = img.use_alpha
+                else: alpha = True
+
+                # Mask will have alpha filled
+                m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', img_users[i].path_from_id())
+                if m: 
+                    mask_idx = int(m.group(2))
+
+                    # Only first mask will be black by default, others will be white
+                    if mask_idx == 0:
+                        color = (0,0,0,1)
+                    else: color = (1,1,1,1)
+                else: color = (0,0,0,0)
+
+                img_name = get_unique_name(img.name, bpy.data.images)
+
+                if img.source == 'TILED':
+                    img_nodes[i].image = img.copy()
+                    img_nodes[i].image.name = img_name
+                    UDIM.fill_tiles(img_nodes[i].image, color)
+                    UDIM.initial_pack_udim(img_nodes[i].image, color)
                 else:
-                    new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
-                            img.yia.color, img.is_float, img, segment)
+                    img_nodes[i].image = bpy.data.images.new(img_name,
+                            width=img.size[0], height=img.size[1], alpha=alpha, float_buffer=img.is_float)
+                    img_nodes[i].image.generated_color = color
 
-                #print(img_users[i], new_segment.tile_x, new_segment.tile_y)
+                img_nodes[i].image.colorspace_settings.name = img.colorspace_settings.name
 
-                if new_segment:
+            else:
+                img_nodes[i].image = duplicate_image(img)
 
-                    img_users[i].segment_name = new_segment.name
-
-                    # Change image if different image is returned
-                    if new_segment.id_data != img:
-                        img_nodes[i].image = new_segment.id_data
-
-                    # Update layer transform
-                    update_mapping(img_users[i])
-
-            elif i not in already_copied_ids:
-                # Copy image if not atlas
-                if make_image_blank:
-
-                    if hasattr(img, 'use_alpha'):
-                        alpha = img.use_alpha
-                    else: alpha = True
-
-                    # Mask will have alpha filled
-                    m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', img_users[i].path_from_id())
-                    if m: 
-                        mask_idx = int(m.group(2))
-
-                        # Only first mask will be black by default, others will be white
-                        if mask_idx == 0:
-                            color = (0,0,0,1)
-                        else: color = (1,1,1,1)
-                    else: color = (0,0,0,0)
-
-                    img_name = get_unique_name(img.name, bpy.data.images)
-
-                    if img.source == 'TILED':
-                        img_nodes[i].image = img.copy()
-                        UDIM.fill_tiles(img_nodes[i].image, color)
-                        UDIM.initial_pack_udim(img_nodes[i].image, color)
-                    else:
-                        img_nodes[i].image = bpy.data.images.new(img_name,
-                                width=img.size[0], height=img.size[1], alpha=alpha, float_buffer=img.is_float)
-                        img_nodes[i].image.generated_color = color
-
-                    img_nodes[i].image.colorspace_settings.name = img.colorspace_settings.name
-
-                else:
-                    img_nodes[i].image = duplicate_image(img)
-
-                # Check other nodes using the same image
-                for j, imgg in enumerate(imgs):
-                    if j != i and imgg == img:
-                        img_nodes[j].image = img_nodes[i].image
-                        already_copied_ids.append(j)
+            # Check other nodes using the same image
+            for j, imgg in enumerate(imgs):
+                if j != i and imgg == img:
+                    img_nodes[j].image = img_nodes[i].image
+                    already_copied_ids.append(j)
 
 class YDuplicateLayer(bpy.types.Operator):
     bl_idname = "node.y_duplicate_layer"
@@ -3629,12 +4344,52 @@ class YDuplicateLayer(bpy.types.Operator):
     bl_description = "Duplicate Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    make_image_blank : BoolProperty(default=False)
+    packed_duplicate : BoolProperty(
+            name = 'Duplicate Packed Images',
+            description = 'Duplicate packed images',
+            default = True
+            )
+
+    duplicate_blank : BoolProperty(
+            name = 'Make Duplicated Images blank',
+            description = 'Make duplicated images blank',
+            default = False
+            )
+
+    ondisk_duplicate : BoolProperty(
+            name = 'Duplicate Images on disk',
+            description = 'Duplicate images on disk, this will create copy of images sourced from external files',
+            default = False
+            )
 
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = yp.layers[yp.active_layer_index]
+
+        self.any_packed_image = False
+        self.any_ondisk_image = False
+
+        if not self.duplicate_blank:
+            self.any_packed_image = any(get_layer_images(layer, packed_only=True))
+            self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
+
+            if self.any_packed_image or self.any_ondisk_image:
+                return context.window_manager.invoke_props_dialog(self, width=200)
+
+        return self.execute(context)
+
+    def draw(self, context):
+        if self.any_packed_image:
+            self.layout.prop(self, 'packed_duplicate')
+
+        if self.any_ondisk_image:
+            self.layout.prop(self, 'ondisk_duplicate')
 
     def execute(self, context):
         T = time.time()
@@ -3651,6 +4406,7 @@ class YDuplicateLayer(bpy.types.Operator):
         # Get active layer
         layer_idx = yp.active_layer_index
         layer = yp.layers[layer_idx]
+        source_layer_name = layer.name
 
         # Get all childrens
         childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
@@ -3687,10 +4443,19 @@ class YDuplicateLayer(bpy.types.Operator):
             new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', group_node.label)
             new_group_node.node_tree = group_node.node_tree
 
-            # Duplicate images and some nodes inside
-            duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank)
+            # Duplicate group inputs
+            source_node = tree.nodes.get(l.group_node)
+            for inp in new_group_node.inputs:
+                source_inp = source_node.inputs.get(inp.name)
+                if source_inp: inp.default_value = source_inp.default_value
+
+            duplicate_layer_nodes_and_images(tree, new_layer, 
+                                             packed_duplicate = self.packed_duplicate or self.duplicate_blank,
+                                             duplicate_blank = self.duplicate_blank,
+                                             ondisk_duplicate=self.ondisk_duplicate or self.duplicate_blank)
 
             # Rename masks
+            mask_names = [m.name for m in l.masks]
             for mask in new_layer.masks:
                 if mask.type in {'VCOL'}: continue
                 m = re.match(r'^Mask\s.*\((.+)\)$', mask.name)
@@ -3698,6 +4463,11 @@ class YDuplicateLayer(bpy.types.Operator):
                     old_layer_name = m.group(1)
                     if old_layer_name == lname:
                         mask.name = mask.name.replace(old_layer_name, new_layer.name)
+                else:
+                    # Rename mask name with different name than original layer mask since
+                    # image atlas will show actual mask name rather than the image name itself
+                    mask.name = get_unique_name(mask.name, mask_names)
+                    mask_names.append(mask.name)
 
             #yp.layers.move(len(yp.layers)-1, idx)
             created_ids.append(len(yp.layers)-1)
@@ -3720,13 +4490,13 @@ class YDuplicateLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Rearrange and reconnect
-        rearrange_yp_nodes(tree)
         reconnect_yp_nodes(tree)
+        rearrange_yp_nodes(tree)
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
 
-        print('INFO: Layer', layer.name, 'is duplicated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', source_layer_name, 'is duplicated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -3764,11 +4534,51 @@ class YPasteLayer(bpy.types.Operator):
     bl_label = "Paste Layer"
     bl_description = "Paste Layer"
     bl_options = {'REGISTER', 'UNDO'}
+
+    packed_duplicate : BoolProperty(
+            name = 'Duplicate Packed Images',
+            description = 'Duplicate packed images',
+            default = True
+            )
+
+    ondisk_duplicate : BoolProperty(
+            name = 'Duplicate Images on disk',
+            description = 'Duplicate images on disk, this will create copy of images sourced from external files',
+            default = False
+            )
     
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
         return context.object and group_node
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        wmp = wm.ypprops
+
+        self.any_packed_image = False
+        self.any_ondisk_image = False
+
+        tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
+        if tree_source:
+            yp_source = tree_source.yp
+            layer_source = yp_source.layers.get(wmp.clipboard_layer)
+
+            if layer_source:
+                self.any_packed_image = any(get_layer_images(layer_source, packed_only=True))
+                self.any_ondisk_image = any(get_layer_images(layer_source, ondisk_only=True))
+
+        if self.any_packed_image or self.any_ondisk_image:
+            return context.window_manager.invoke_props_dialog(self, width=200)
+
+        return context.window_manager.invoke_props_dialog(self, width=200)
+
+    def draw(self, context):
+        if self.any_packed_image:
+            self.layout.prop(self, 'packed_duplicate')
+
+        if self.any_ondisk_image:
+            self.layout.prop(self, 'ondisk_duplicate')
 
     def execute(self, context):
         T = time.time()
@@ -3870,7 +4680,9 @@ class YPasteLayer(bpy.types.Operator):
             new_group_node.node_tree = get_tree(ls)
 
             # Duplicate images and some nodes inside
-            duplicate_layer_nodes_and_images(tree, new_layer, True, False) #self.make_image_blank)
+            duplicate_layer_nodes_and_images(tree, new_layer, 
+                                            packed_duplicate = self.packed_duplicate,
+                                            ondisk_duplicate=self.ondisk_duplicate)
 
             pasted_layer_names.append(new_layer.name)
 
@@ -3896,8 +4708,8 @@ class YPasteLayer(bpy.types.Operator):
             # Refresh io and nodes
             check_all_layer_channel_io_and_nodes(nl)
 
-            rearrange_layer_nodes(nl)
             reconnect_layer_nodes(nl)
+            rearrange_layer_nodes(nl)
 
         # Remap parents for non pasted layers
         for lay in yp.layers:
@@ -3914,8 +4726,9 @@ class YPasteLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Rearrange and reconnect
-        rearrange_yp_nodes(tree)
+        check_start_end_root_ch_nodes(tree)
         reconnect_yp_nodes(tree)
+        rearrange_yp_nodes(tree)
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
@@ -3925,29 +4738,38 @@ class YPasteLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def update_layer_channel_override_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
+class YSelectDecalObject(bpy.types.Operator):
+    bl_idname = "node.y_select_decal_object"
+    bl_label = "Select Decal Object"
+    bl_description = "Select Decal Object"
+    bl_options = {'REGISTER', 'UNDO'}
 
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    ch_index = int(m.group(2))
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[ch_index]
-    ch = self
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return group_node and hasattr(context, 'entity')
 
-    update_override_value(root_ch, layer, ch)
+    def execute(self, context):
+        entity = context.entity
 
-def update_layer_channel_override_1_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    ch_index = int(m.group(2))
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[ch_index]
-    ch = self
+        if m1: tree = get_tree(entity)
+        elif m2: tree = get_mask_tree(entity)
+        else: return {'CANCELLED'}
 
-    update_override_1_value(root_ch, layer, ch)
+        texcoord = tree.nodes.get(entity.texcoord)
+
+        if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+            try: bpy.ops.object.mode_set(mode='OBJECT')
+            except: pass
+            bpy.ops.object.select_all(action='DESELECT')
+            set_active_object(texcoord.object)
+            set_object_select(texcoord.object, True)
+        else: return {'CANCELLED'}
+
+        return {'FINISHED'}
 
 def update_layer_channel_override_1(self, context):
     yp = self.id_data.yp
@@ -3968,8 +4790,12 @@ def update_layer_channel_override_1(self, context):
         ch.halt_update = False
 
     check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
-    rearrange_layer_nodes(layer)
+    check_uv_nodes(yp)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_layer_channel_override(self, context):
     yp = self.id_data.yp
@@ -3990,8 +4816,17 @@ def update_layer_channel_override(self, context):
         ch.halt_update = False
 
     check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
-    rearrange_layer_nodes(layer)
+    check_uv_nodes(yp)
+
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
+    ypui = context.window_manager.ypui
+    if len(ypui.layer_ui.channels) > ch_index:
+        ypui.layer_ui.channels[ch_index].expand_source = ch.override_type not in {'IMAGE', 'VCOL'}
 
     # Reselect layer so vcol or image will be updated
     yp.active_layer_index = yp.active_layer_index
@@ -4010,10 +4845,13 @@ def update_channel_enable(self, context):
 
     tree = get_tree(layer)
 
+    if root_ch.type == 'NORMAL' and self.enable:
+        update_layer_images_interpolation(layer, 'Cubic') #, from_interpolation='Linear')
+
     # Check uv maps
     check_uv_nodes(yp)
 
-    #if yp.disable_quick_toggle:
+    # Refresh layer IO
     check_all_layer_channel_io_and_nodes(layer, tree, ch)
 
     if yp.halt_reconnect: return
@@ -4023,18 +4861,19 @@ def update_channel_enable(self, context):
         yp.layer_preview_mode = yp.layer_preview_mode
     else:
 
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
-        rearrange_yp_nodes(self.id_data)
+        check_start_end_root_ch_nodes(self.id_data)
         reconnect_yp_nodes(self.id_data)
+        rearrange_yp_nodes(self.id_data)
 
     # Disable active edit on overrides
     if not ch.enable:
         ch.active_edit = False
         ch.active_edit_1 = False
 
-    print('INFO: Channel', root_ch.name, ' of ' + layer.name + ' is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Channel '+ root_ch.name + ' of ' + layer.name + ' is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
 def update_normal_map_type(self, context):
@@ -4045,11 +4884,18 @@ def update_normal_map_type(self, context):
     root_ch = yp.channels[int(m.group(2))]
     tree = get_tree(layer)
 
-    check_channel_normal_map_nodes(tree, layer, root_ch, self)
+    check_all_layer_channel_io_and_nodes(layer, tree, self)
+    check_start_end_root_ch_nodes(self.id_data)
+    check_uv_nodes(yp)
+
+    check_layer_tree_ios(layer, tree)
 
     #if not yp.halt_reconnect:
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_blend_type(self, context):
     T = time.time()
@@ -4059,17 +4905,22 @@ def update_blend_type(self, context):
     if yp.halt_update: return
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
+    tree = get_tree(layer)
     ch_index = int(m.group(2))
     root_ch = yp.channels[ch_index]
 
-    if check_blend_type_nodes(root_ch, layer, self): # and not yp.halt_reconnect:
+    check_all_layer_channel_io_and_nodes(layer, tree, self)
+    check_uv_nodes(yp)
 
-        rearrange_layer_nodes(layer)
+    # Reconnect all layer channels if normal channel is updated
+    if root_ch.type == 'NORMAL':
+        reconnect_layer_nodes(layer) 
+    else: reconnect_layer_nodes(layer, ch_index)
 
-        # Reconnect all layer channels if normal channel is updated
-        if root_ch.type == 'NORMAL':
-            reconnect_layer_nodes(layer) 
-        else: reconnect_layer_nodes(layer, ch_index)
+    rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
     print('INFO: Layer', layer.name, ' blend type is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
@@ -4082,7 +4933,7 @@ def update_flip_backface_normal(self, context):
     tree = get_tree(layer)
 
     normal_flip = tree.nodes.get(self.normal_flip)
-    normal_flip.mute = self.invert_backface_normal
+    if normal_flip: normal_flip.mute = self.invert_backface_normal
 
 def update_write_height(self, context):
     yp = self.id_data.yp
@@ -4094,64 +4945,54 @@ def update_write_height(self, context):
     ch = self
     tree = get_tree(layer)
 
-    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
-
-    #max_height = get_displacement_max_height(root_ch)
-    #root_ch.displacement_height_ratio = max_height
+    check_all_layer_channel_io_and_nodes(layer, tree, self)
     update_displacement_height_ratio(root_ch)
+    check_start_end_root_ch_nodes(self.id_data)
+    check_uv_nodes(yp)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer) #, ch_index)
+    rearrange_layer_nodes(layer)
 
-def update_normal_strength(self, context):
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
+def update_voronoi_feature(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    layer = self
+
+    if layer.type != 'VORONOI': return
+
+    source = get_layer_source(layer)
+    source.feature = layer.voronoi_feature
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
+def update_layer_channel_voronoi_feature(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
-    ch_index = int(m.group(2))
-    root_ch = yp.channels[ch_index]
     ch = self
-    tree = get_tree(layer)
 
-    normal_proc = tree.nodes.get(ch.normal_proc)
-    if 'Strength' in normal_proc.inputs:
-        normal_proc.inputs['Strength'].default_value = ch.normal_strength
+    source = None
+    if ch.override_type == 'VORONOI':
+        source = get_channel_source(ch)
 
-def update_bump_distance(self, context):
-    group_tree = self.id_data
-    yp = group_tree.yp
-    if yp.halt_update: return
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[int(m.group(2))]
-    tree = get_tree(layer)
+    if not source:
+        tree = get_tree(layer)
+        source = tree.nodes.get(ch.cache_voronoi)
 
-    if self.normal_map_type == 'NORMAL_MAP' and self.enable_transition_bump: return
+    if source:
+        source.feature = ch.voronoi_feature
 
-    update_displacement_height_ratio(root_ch)
-
-def update_bump_smooth_multiplier(self, context):
-    group_tree = self.id_data
-    yp = group_tree.yp
-    if yp.halt_update: return
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[int(m.group(2))]
-    tree = get_tree(layer)
-
-    if self.override and self.override_type != 'DEFAULT':
-        set_uv_neighbor_resolution(self)
-    else: set_uv_neighbor_resolution(layer)
+        reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def update_layer_input(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
-
-    #m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    #layer = yp.layers[int(m.group(1))]
-    #root_ch = yp.channels[int(m.group(2))]
-    #tree = get_tree(layer)
-    #ch = self
 
     check_layer_channel_linear_node(self, reconnect=True)
 
@@ -4186,6 +5027,9 @@ def update_uv_name(self, context):
             uv_layers = get_uv_layers(obj)
             uv_layers.active = uv_layers.get(layer.uv_name)
 
+            if is_layer_vdm(layer):
+                uv_layers.active.active_render = True
+
         # Check for other objects with same material
         check_uvmap_on_other_objects_with_same_mat(mat, layer.uv_name)
 
@@ -4194,7 +5038,7 @@ def update_uv_name(self, context):
 
     # Update uv neighbor
     smooth_bump_ch = get_smooth_bump_channel(layer)
-    if smooth_bump_ch and smooth_bump_ch.enable:
+    if smooth_bump_ch and smooth_bump_ch.enable and (smooth_bump_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or smooth_bump_ch.enable_transition_bump):
         uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
                 return_status=False, hard_replace=True)
@@ -4205,21 +5049,31 @@ def update_uv_name(self, context):
                     return_status=False, hard_replace=True)
             set_uv_neighbor_resolution(smooth_bump_ch, uv_neighbor)
 
-    # Update neighbor uv if mask bump is active
-    for i, mask in enumerate(layer.masks):
-        set_mask_uv_neighbor(tree, layer, mask, i)
+        # Update neighbor uv if mask bump is active
+        for i, mask in enumerate(layer.masks):
+            check_mask_uv_neighbor(tree, layer, mask, i)
+
+    # Update normal process uv
+    normal_ch = get_height_channel(layer)
+    if normal_ch:
+        normal_proc = nodes.get(normal_ch.normal_proc)
+        if hasattr(normal_proc, 'uv_map'):
+            normal_proc.uv_map = layer.uv_name
 
     # Update layer tree inputs
     check_layer_tree_ios(layer, tree)
 
     #if yp_dirty or layer_dirty: #and not yp.halt_reconnect:
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     # Update layer tree inputs
     #if yp_dirty:
-    rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
+    rearrange_yp_nodes(group_tree)
+
+def update_projection_blend(self, context):
+    check_layer_projection_blends(self)
 
 def update_texcoord_type(self, context):
     yp = self.id_data.yp
@@ -4233,7 +5087,7 @@ def update_texcoord_type(self, context):
 
     # Update uv neighbor
     smooth_bump_ch = get_smooth_bump_channel(layer)
-    if smooth_bump_ch and smooth_bump_ch.enable:
+    if smooth_bump_ch and smooth_bump_ch.enable and (smooth_bump_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or smooth_bump_ch.enable_transition_bump):
         uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
         set_uv_neighbor_resolution(layer, uv_neighbor)
@@ -4241,21 +5095,22 @@ def update_texcoord_type(self, context):
             uv_neighbor = replace_new_node(tree, smooth_bump_ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                     lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
             set_uv_neighbor_resolution(smooth_bump_ch, uv_neighbor)
-    #else:
-    #    remove_node(tree, layer, 'uv_neighbor')
 
     # Update layer tree inputs
-    #yp_dirty = True if check_layer_tree_ios(layer, tree) else False
-    check_layer_tree_ios(layer, tree)
+    #check_layer_tree_ios(layer, tree)
+    check_all_layer_channel_io_and_nodes(layer, tree)
+
+    # Check layer projections
+    check_layer_projections(layer)
 
     #if not yp.halt_reconnect:
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     # Update layer tree inputs
     #if yp_dirty:
-    rearrange_yp_nodes(self.id_data)
     reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_hemi_space(self, context):
     if self.type != 'HEMI': return
@@ -4281,8 +5136,8 @@ def update_hemi_camera_ray_mask(self, context):
             trans = source.node_tree.nodes.get('Vector Transform')
             if trans: trans.convert_from = self.hemi_space
 
-            rearrange_layer_nodes(self)
             reconnect_layer_nodes(self)
+            rearrange_layer_nodes(self)
 
         source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
 
@@ -4295,51 +5150,10 @@ def update_hemi_use_prev_normal(self, context):
     check_layer_tree_ios(layer, tree)
     check_layer_bump_process(layer, tree)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     reconnect_yp_nodes(layer.id_data)
-
-def update_channel_intensity_value(self, context):
-    yp = self.id_data.yp
-    if yp.halt_update: return
-
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    tree = get_tree(layer)
-    ch_index = int(m.group(2))
-    ch = self
-    root_ch = yp.channels[ch_index]
-
-    mute = not layer.enable or not ch.enable
-
-    intensity = tree.nodes.get(ch.intensity)
-    if intensity:
-        intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-
-    height_proc = tree.nodes.get(ch.height_proc)
-    if height_proc:
-        height_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
-
-    normal_proc = tree.nodes.get(ch.normal_proc)
-    if normal_proc and 'Intensity' in normal_proc.inputs:
-        normal_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
-
-    if ch.enable_transition_ramp:
-        transition.set_ramp_intensity_value(tree, layer, ch)
-
-    if ch.enable_transition_ao:
-        tao = tree.nodes.get(ch.tao)
-        if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
-
-    if ch.enable_transition_bump and ch.transition_bump_crease:
-        tb_crease_intensity = tree.nodes.get(ch.tb_crease_intensity)
-        if tb_crease_intensity:
-            tb_crease_intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-
-    if root_ch.type == 'NORMAL':
-        #transition.check_transition_bump_nodes(layer, tree, ch)
-        update_displacement_height_ratio(root_ch)
 
 def group_trash_update(yp):
     tree = yp.id_data
@@ -4395,13 +5209,20 @@ def update_layer_enable(self, context):
     if height_root_ch:
         update_displacement_height_ratio(height_root_ch)
 
+    check_uv_nodes(yp)
+    check_all_layer_channel_io_and_nodes(layer, tree)
+    check_start_end_root_ch_nodes(layer.id_data)
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
     if yp.layer_preview_mode:
         # Refresh preview mode, rearrange and reconnect already done in this event
         yp.layer_preview_mode = yp.layer_preview_mode
     else:
         #if yp.disable_quick_toggle:
-        rearrange_yp_nodes(layer.id_data)
         reconnect_yp_nodes(layer.id_data)
+        rearrange_yp_nodes(layer.id_data)
 
     context.window_manager.yptimer.time = str(time.time())
 
@@ -4449,8 +5270,29 @@ def update_divide_rgb_by_alpha(self, context):
 
     check_layer_divider_alpha(self)
 
-    rearrange_layer_nodes(self)
     reconnect_layer_nodes(self)
+    rearrange_layer_nodes(self)
+
+def update_layer_channel_vdisp_flip_yz(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    m1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', self.path_from_id())
+
+    if m1:
+        layer = yp.layers[int(m1.group(1))]
+        tree = get_tree(layer)
+    else:
+        return
+
+    if self.normal_map_type == 'VECTOR_DISPLACEMENT_MAP' and self.vdisp_enable_flip_yz:
+        vdisp_flip_yz = check_new_node(tree, self, 'vdisp_flip_yz', 'ShaderNodeGroup', 'Flip Y/Z')
+        vdisp_flip_yz.node_tree = lib.get_node_tree_lib(lib.FLIP_YZ)
+    else:
+        remove_node(tree, self, 'vdisp_flip_yz')
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
 def update_image_flip_y(self, context):
     yp = self.id_data.yp
@@ -4477,8 +5319,8 @@ def update_image_flip_y(self, context):
     else:
         remove_node(tree, self, 'flip_y')
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
 def update_channel_active_edit(self, context):
     yp = self.id_data.yp
@@ -4523,14 +5365,15 @@ def update_channel_active_edit(self, context):
     yp.active_layer_index = layer_idx
 
 class YLayerChannel(bpy.types.PropertyGroup):
-    enable : BoolProperty(default=True, update=update_channel_enable)
+    enable : BoolProperty(
+            name = 'Enable Layer Channel',
+            description = 'Enable layer channel',
+            default=True, update=update_channel_enable)
 
     layer_input : EnumProperty(
             name = 'Layer Input',
-            #items = (('RGB', 'Color', ''),
-            #         ('ALPHA', 'Alpha / Factor', '')),
-            #default = 'RGB',
-            items = layer_input_items,
+            description = 'Input for layer channel',
+            items = entity_input_items,
             update = update_layer_input)
 
     gamma_space : BoolProperty(
@@ -4553,12 +5396,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     blend_type : EnumProperty(
             name = 'Blend',
+            description = 'Blend type of layer channel',
             items = blend_type_items,
             default = 'MIX',
             update = update_blend_type)
 
     normal_blend_type : EnumProperty(
             name = 'Normal Blend Type',
+            description = 'Blend type of layer normal channel',
             items = normal_blend_items,
             default = 'MIX',
             update = update_blend_type)
@@ -4570,29 +5415,49 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update = update_blend_type)
 
     intensity_value : FloatProperty(
-            name = 'Channel Intensity Factor', 
-            description = 'Channel Intensity Factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update = update_channel_intensity_value)
+            name = 'Layer Channel Opacity', 
+            description = 'Layer channel opacity',
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     # Modifiers
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
     modifiers_1 : CollectionProperty(type=NormalMapModifier.YNormalMapModifier)
 
     # Override source
-    override : BoolProperty(default=False, update=update_layer_channel_override)
-    #override_tex : BoolProperty(default=False)
+    override : BoolProperty(
+            name = 'Enable Override',
+            description = 'Use override value rather than layer value for this channel',
+            default=False, update=update_layer_channel_override)
     override_type : EnumProperty(items=channel_override_type_items, default='DEFAULT', update=update_layer_channel_override)
-    override_color : FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
-    override_value : FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
+    override_color : FloatVectorProperty(
+            name = 'Override Color',
+            description = 'Override color value for this channel',
+            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5))
+    override_value : FloatProperty(
+            name = 'Override Value',
+            description = 'Override value for this channel',
+            min=0.0, max=1.0, default=1.0)
     override_vcol_name : StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
 
+    # Specific for voronoi
+    voronoi_feature : EnumProperty(
+            name = 'Voronoi Feature',
+            description = 'The voronoi feature that will be used for compute',
+            items = voronoi_feature_items,
+            default = 'F1',
+            update = update_layer_channel_voronoi_feature
+            )
+
     # Extra override needed when bump and normal are used at the same time
-    override_1 : BoolProperty(default=False, update=update_layer_channel_override_1)
+    override_1 : BoolProperty(
+            name = 'Enable Override (Normal Map Channel)',
+            description = 'Use override value rather than layer value for normal map of this channel',
+            default=False, update=update_layer_channel_override_1)
     override_1_type : EnumProperty(items=channel_override_1_type_items, default='DEFAULT', update=update_layer_channel_override_1)
-    override_1_color : FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 1.0), update=update_layer_channel_override_1_value)
-    #override_1_value : FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_1_value)
-    #override_1_vcol_name : StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
+    override_1_color : FloatVectorProperty(
+            name = 'Override Color',
+            description = 'Override color value for normal map of this channel',
+            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 1.0))
 
     # Sources
     source : StringProperty(default='')
@@ -4621,14 +5486,25 @@ class YLayerChannel(bpy.types.PropertyGroup):
     linear_1 : StringProperty(default='')
     blend : StringProperty(default='')
     intensity : StringProperty(default='')
+    layer_intensity : StringProperty(default='')
     extra_alpha : StringProperty(default='')
+    decal_alpha : StringProperty(default='')
+    decal_alpha_n : StringProperty(default='')
+    decal_alpha_s : StringProperty(default='')
+    decal_alpha_e : StringProperty(default='')
+    decal_alpha_w : StringProperty(default='')
 
     # Flip y node
     flip_y : StringProperty(default='')
+    vdisp_flip_yz : StringProperty(default='')
 
     # Height related
     height_proc : StringProperty(default='')
     height_blend : StringProperty(default='')
+    bump_distance_ignorer : StringProperty(default='')
+
+    # Vector Displacement related
+    vdisp_proc : StringProperty(default='')
 
     # For pack/unpack height io
     height_group_unpack : StringProperty(default='')
@@ -4642,20 +5518,22 @@ class YLayerChannel(bpy.types.PropertyGroup):
     bump_distance : FloatProperty(
             name='Bump Height Range', 
             description= 'Bump height range.\n(White equals this value, black equals negative of this value)', 
-            default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
-            update=update_bump_distance)
+            default=0.05, min=-1.0, max=1.0, precision=3) #, # step=1,
+
+    bump_midlevel : FloatProperty(
+            name='Bump Midlevel', 
+            description= 'Neutral bump value that causes no bump',
+            default=0.5, min=0.0, max=1.0, precision=3) 
 
     bump_smooth_multiplier : FloatProperty(
         name = 'Smooth Bump Step Multiplier',
         description = 'Multiply the smooth bump step.\n(The default step is based on image resolution or 1000 for generated blender texture)',
-        default=1.0, min=0.1, max=10.0, 
-        update=update_bump_smooth_multiplier)
+        default=1.0, min=0.1, max=10.0, precision=3)
 
     normal_bump_distance : FloatProperty(
             name='Bump Height Range for normal', 
             description= 'Bump height range for normal channel.\n(White equals this value, black equals negative of this value)', 
-            default=0.00, min=-1.0, max=1.0, precision=3, # step=1,
-            update=update_bump_distance)
+            default=0.00, min=-1.0, max=1.0, precision=3) #, # step=1,
 
     write_height : BoolProperty(
             name = 'Write Height',
@@ -4672,8 +5550,17 @@ class YLayerChannel(bpy.types.PropertyGroup):
     normal_strength : FloatProperty(
         name = 'Normal Strength',
         description = 'Normal strength',
-        default=1.0, min=0.0, max=10.0, 
-        update=update_normal_strength)
+        default=1.0, min=0.0, max=100.0, precision=3)
+
+    vdisp_strength : FloatProperty(
+        name = 'Vector Displacement Strength',
+        description = 'Normal strength',
+        default=1.0, min=-10.0, max=10.0, precision=3)
+
+    vdisp_enable_flip_yz : BoolProperty(
+        name = 'Vector Displacement Flip YZ Channel',
+        description = 'Flip YZ channel value (Compatibility for blender vector displacement standard)',
+        default=True, update=update_layer_channel_vdisp_flip_yz)
 
     image_flip_y : BoolProperty(
             name = 'Image Flip Y',
@@ -4705,22 +5592,19 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_bump_value : FloatProperty(
         name = 'Transition Bump Value',
         description = 'Transition bump value',
-        default=3.0, min=1.0, max=100.0, 
-        update=transition.update_transition_bump_value)
+        default=3.0, min=1.0, max=100.0, precision=3)
 
     transition_bump_second_edge_value : FloatProperty(
             name = 'Second Edge Intensity', 
             description = 'Second Edge intensity value',
-            default=1.2, min=1.0, max=100.0, 
-            update=transition.update_transition_bump_value)
+            default=1.2, min=1.0, max=100.0, precision=3)
 
     transition_bump_distance : FloatProperty(
             #name='Transition Bump Distance', 
             #description= 'Distance of mask bump', 
             name='Transition Bump Height Range', 
             description= 'Transition bump height range.\n(White equals this value, black equals negative of this value)', 
-            default=0.05, min=0.0, max=1.0, precision=3, # step=1,
-            update=transition.update_transition_bump_distance)
+            default=0.05, min=0.0, max=1.0, precision=3) # step=1,
 
     transition_bump_chain : IntProperty(
             name = 'Transition bump chain',
@@ -4749,26 +5633,22 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_bump_crease_factor : FloatProperty(
             name = 'Transition Bump Crease Factor',
             description = 'Transition bump crease factor',
-            default=0.33, min=0.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_bump_crease_factor)
+            default=0.33, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     transition_bump_crease_power : FloatProperty(
             name = 'Transition Bump Crease Power',
             description = 'Transition Bump Crease Power',
-            default=5.0, min=1.0, max=100.0,
-            update=transition.update_transition_bump_crease_power)
+            default=5.0, min=1.0, max=100.0, precision=3)
 
     transition_bump_fac : FloatProperty(
             name='Transition Bump Factor',
             description = 'Transition bump factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_bump_fac)
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     transition_bump_second_fac : FloatProperty(
             name='Transition Bump Second Factor',
             description = 'Transition bump second factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_bump_fac)
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     transition_bump_falloff : BoolProperty(
             name = 'Transition Bump Falloff',
@@ -4786,13 +5666,15 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_bump_falloff_emulated_curve_fac : FloatProperty(
             name='Transition Bump Falloff Emulated Curve Factor',
             description = 'Transition bump curve emulated curve factor',
-            default=1.0, min=-1.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_bump_falloff_emulated_curve_fac)
+            default=1.0, min=-1.0, max=1.0, subtype='FACTOR', precision=3)
 
     tb_bump : StringProperty(default='')
     tb_bump_flip : StringProperty(default='')
     tb_inverse : StringProperty(default='')
     tb_intensity_multiplier : StringProperty(default='')
+    tb_distance_flipper : StringProperty(default='')
+    tb_delta_calc : StringProperty(default='')
+    max_height_calc : StringProperty(default='')
 
     tb_falloff : StringProperty(default='')
     #tb_falloff_n : StringProperty(default='')
@@ -4811,8 +5693,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_ramp_intensity_value : FloatProperty(
             name = 'Channel Intensity Factor', 
             description = 'Channel Intensity Factor',
-            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update=transition.update_transition_ramp_intensity_value)
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
 
     transition_ramp_blend_type : EnumProperty(
         name = 'Transition Ramp Blend Type',
@@ -4860,20 +5741,16 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     transition_ao_power : FloatProperty(name='Transition AO Power',
             #description='Transition AO edge power (higher value means less AO)', min=1.0, max=100.0, default=4.0,
-            description='Transition AO power', min=1.0, max=100.0, default=4.0,
-            update=transition.update_transition_ao_edge)
+            description='Transition AO power', min=1.0, max=100.0, default=4.0, precision=3)
 
     transition_ao_intensity : FloatProperty(name='Transition AO Intensity',
-            description='Transition AO intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.5,
-            update=transition.update_transition_ao_intensity)
+            description='Transition AO intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.5, precision=3)
 
     transition_ao_color : FloatVectorProperty(name='Transition AO Color', description='Transition AO Color', 
-            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.0, 0.0, 0.0),
-            update=transition.update_transition_ao_color)
+            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.0, 0.0, 0.0))
 
     transition_ao_inside_intensity : FloatProperty(name='Transition AO Inside Intensity', 
-            description='Transition AO Inside Intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.0,
-            update=transition.update_transition_ao_exclude_inside)
+            description='Transition AO Inside Intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.0, precision=3)
 
     transition_ao_blend_type : EnumProperty(
         name = 'Transition AO Blend Type',
@@ -4885,7 +5762,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
             name='Unlink Transition AO with Channel Intensity', 
             description='Unlink Transition AO with Channel Intensity', 
             default=False,
-            update=transition.update_transition_ao_intensity)
+            update=transition.update_transition_ao_intensity_link)
 
     tao : StringProperty(default='')
 
@@ -4947,12 +5824,14 @@ def update_layer_blur_vector(self, context):
     if layer.enable_blur_vector:
         blur_vector = new_node(tree, layer, 'blur_vector', 'ShaderNodeGroup', 'Blur Vector')
         blur_vector.node_tree = get_node_tree_lib(lib.BLUR_VECTOR)
-        blur_vector.inputs[0].default_value = layer.blur_vector_factor / 100.0
+        blur_vector.inputs[0].default_value = layer.blur_vector_factor
     else:
         remove_node(tree, layer, 'blur_vector')
 
-    rearrange_layer_nodes(layer)
+    check_layer_tree_ios(layer, tree)
+
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
 def update_layer_blur_vector_factor(self, context):
     yp = self.id_data.yp
@@ -4964,10 +5843,14 @@ def update_layer_blur_vector_factor(self, context):
     blur_vector = tree.nodes.get(layer.blur_vector)
 
     if blur_vector:
-        blur_vector.inputs[0].default_value = layer.blur_vector_factor / 100.0
+        blur_vector.inputs[0].default_value = layer.blur_vector_factor
 
 class YLayer(bpy.types.PropertyGroup):
-    name : StringProperty(default='', update=update_layer_name)
+    name : StringProperty(
+            name = 'Layer Name',
+            description = 'Layer name',
+            default='', update=update_layer_name)
+
     enable : BoolProperty(
             name = 'Enable Layer', description = 'Enable layer',
             default=True, update=update_layer_enable)
@@ -4983,6 +5866,11 @@ class YLayer(bpy.types.PropertyGroup):
             items = layer_type_items,
             default = 'IMAGE')
 
+    intensity_value : FloatProperty(
+            name = 'Layer Opacity', 
+            description = 'Layer opacity',
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3)
+
     color_shortcut : BoolProperty(
             name = 'Color Shortcut on the list',
             description = 'Display color shortcut on the list',
@@ -4990,10 +5878,37 @@ class YLayer(bpy.types.PropertyGroup):
             update=update_layer_color_chortcut)
 
     texcoord_type : EnumProperty(
-        name = 'Layer Coordinate Type',
-        items = texcoord_type_items,
-        default = 'UV',
-        update=update_texcoord_type)
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
+            items = texcoord_type_items,
+            default = 'UV',
+            update=update_texcoord_type)
+
+    original_texcoord : EnumProperty(
+            name = 'Original Layer Coordinate Type',
+            items = texcoord_type_items,
+            default = 'UV'
+            )
+
+    original_image_extension : StringProperty(
+            name = 'Original Image Extension Type',
+            default = ''
+            )
+
+    projection_blend : FloatProperty(
+            name = 'Box Projection Blend',
+            description = 'Amount of blend to use between sides',
+            default=0.0, min=0.0, max=1.0, subtype='FACTOR',
+            update=update_projection_blend)
+
+    # Specific for voronoi
+    voronoi_feature : EnumProperty(
+            name = 'Voronoi Feature',
+            description = 'The voronoi feature that will be used for compute',
+            items = voronoi_feature_items,
+            default = 'F1',
+            update = update_voronoi_feature
+            )
 
     # For temporary bake
     use_temp_bake : BoolProperty(
@@ -5050,8 +5965,17 @@ class YLayer(bpy.types.PropertyGroup):
 
     # To get segment if using image atlas
     segment_name : StringProperty(default='')
+    baked_segment_name : StringProperty(default='')
 
-    uv_name : StringProperty(default='', update=update_uv_name)
+    uv_name : StringProperty(
+            name = 'UV Name',
+            description = 'UV Name to use for layer coordinate',
+            default='', update=update_uv_name)
+
+    baked_uv_name : StringProperty(
+            name = 'Baked UV Name',
+            description = 'UV Name to use for layer coordinate',
+            default='')
 
     # Parent index
     parent_idx : IntProperty(default=-1)
@@ -5082,9 +6006,20 @@ class YLayer(bpy.types.PropertyGroup):
 
     blur_vector_factor : FloatProperty(
             name = 'Blur Vector Factor', 
-            description = 'Mask Intensity Factor',
+            description = 'Blur vector factor',
             default=1.0, min=0.0, max=100.0,
             update=update_layer_blur_vector_factor)
+
+    decal_distance_value : FloatProperty(
+            name = 'Decal Distance',
+            description = 'Distance between surface and the decal object',
+            min=0.0, max=100.0, default=0.5, precision=3)
+
+    use_baked : BoolProperty(
+            name = 'Use Baked',
+            description = 'Use baked layer image',
+            default = False,
+            )
 
     # Sources
     source : StringProperty(default='')
@@ -5093,6 +6028,7 @@ class YLayer(bpy.types.PropertyGroup):
     source_e : StringProperty(default='')
     source_w : StringProperty(default='')
     source_group : StringProperty(default='')
+    baked_source : StringProperty(default='')
 
     source_temp : StringProperty(default='')
 
@@ -5119,8 +6055,11 @@ class YLayer(bpy.types.PropertyGroup):
     uv_neighbor_1 : StringProperty(default='')
     uv_map : StringProperty(default='')
     mapping : StringProperty(default='')
+    baked_mapping : StringProperty(default='')
     texcoord : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    decal_process : StringProperty(default='')
 
     #need_temp_uv_refresh : BoolProperty(default=False)
 
@@ -5151,9 +6090,11 @@ def register():
     bpy.utils.register_class(YRefreshNeighborUV)
     bpy.utils.register_class(YUseLinearColorSpace)
     bpy.utils.register_class(YNewLayer)
+    bpy.utils.register_class(YNewVDMLayer)
     bpy.utils.register_class(YNewVcolToOverrideChannel)
     bpy.utils.register_class(YOpenImageToLayer)
-    bpy.utils.register_class(YOpenMultipleImagesToSingleLayer)
+    bpy.utils.register_class(YOpenImagesToSingleLayer)
+    bpy.utils.register_class(YOpenImagesFromMaterialToLayer)
     bpy.utils.register_class(YOpenImageToOverrideChannel)
     bpy.utils.register_class(YOpenImageToOverride1Channel)
     bpy.utils.register_class(YOpenAvailableDataToLayer)
@@ -5167,9 +6108,12 @@ def register():
     bpy.utils.register_class(YReplaceLayerType)
     bpy.utils.register_class(YReplaceLayerChannelOverride)
     bpy.utils.register_class(YReplaceLayerChannelOverride1)
+    bpy.utils.register_class(YRemoveLayerChannelOverrideSource)
+    bpy.utils.register_class(YRemoveLayerChannelOverride1Source)
     bpy.utils.register_class(YDuplicateLayer)
     bpy.utils.register_class(YCopyLayer)
     bpy.utils.register_class(YPasteLayer)
+    bpy.utils.register_class(YSelectDecalObject)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YLayer)
 
@@ -5177,9 +6121,11 @@ def unregister():
     bpy.utils.unregister_class(YRefreshNeighborUV)
     bpy.utils.unregister_class(YUseLinearColorSpace)
     bpy.utils.unregister_class(YNewLayer)
+    bpy.utils.unregister_class(YNewVDMLayer)
     bpy.utils.unregister_class(YNewVcolToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToLayer)
-    bpy.utils.unregister_class(YOpenMultipleImagesToSingleLayer)
+    bpy.utils.unregister_class(YOpenImagesToSingleLayer)
+    bpy.utils.unregister_class(YOpenImagesFromMaterialToLayer)
     bpy.utils.unregister_class(YOpenImageToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToOverride1Channel)
     bpy.utils.unregister_class(YOpenAvailableDataToLayer)
@@ -5193,8 +6139,11 @@ def unregister():
     bpy.utils.unregister_class(YReplaceLayerType)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride1)
+    bpy.utils.unregister_class(YRemoveLayerChannelOverrideSource)
+    bpy.utils.unregister_class(YRemoveLayerChannelOverride1Source)
     bpy.utils.unregister_class(YDuplicateLayer)
     bpy.utils.unregister_class(YCopyLayer)
     bpy.utils.unregister_class(YPasteLayer)
+    bpy.utils.unregister_class(YSelectDecalObject)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YLayer)

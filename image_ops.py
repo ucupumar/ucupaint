@@ -5,6 +5,7 @@ from bpy_extras.io_utils import ExportHelper
 #from bpy_extras.image_utils import load_image  
 from .common import *
 import time
+from . import UDIM
 
 def save_float_image(image):
     original_path = image.filepath
@@ -23,14 +24,19 @@ def save_float_image(image):
     
     if settings.file_format in {'OPEN_EXR', 'OPEN_EXR_MULTILAYER'}:
         settings.exr_codec = 'ZIP'
+        settings.color_depth = '32'
+    elif settings.file_format in {'PNG', 'TIFF'}:
+        settings.color_depth = '16'
 
     #ori_colorspace = image.colorspace_settings.name
     full_path = bpy.path.abspath(image.filepath)
     image.save_render(full_path, scene=tmpscene)
+    # HACK: If image still dirty after saving, save using standard save method
+    if image.is_dirty: image.save()
     image.source = 'FILE'
 
     # Delete temporary scene
-    bpy.data.scenes.remove(tmpscene)
+    remove_datablock(bpy.data.scenes, tmpscene)
 
 def pack_float_image(image):
     original_path = image.filepath
@@ -73,11 +79,11 @@ def pack_float_image(image):
     image.source = 'FILE'
     image.filepath = temp_filepath
     if image.file_format == 'PNG':
-        image.colorspace_settings.name = 'sRGB'
-    else: image.colorspace_settings.name = 'Non-Color'
+        image.colorspace_settings.name = get_srgb_name()
+    else: image.colorspace_settings.name = get_noncolor_name()
 
     # Delete temporary scene
-    bpy.data.scenes.remove(tmpscene)
+    remove_datablock(bpy.data.scenes, tmpscene)
 
     # Pack image
     image.pack()
@@ -163,7 +169,7 @@ def clean_object_references(image):
     for r in removed_references:
         print('Reference for', r, "is removed because it's no longer found!")
 
-def save_pack_all(yp, only_dirty = True):
+def save_pack_all(yp):
 
     tree = yp.id_data
 
@@ -178,11 +184,16 @@ def save_pack_all(yp, only_dirty = True):
 
         # Mask image
         for mask in layer.masks:
+            mask_tree = get_mask_tree(mask)
+
             if mask.type == 'IMAGE':
-                mask_tree = get_mask_tree(mask)
                 source = mask_tree.nodes.get(mask.source)
                 if source.image and source.image not in images:
                     images.append(source.image)
+
+            baked_source = mask_tree.nodes.get(mask.baked_source)
+            if baked_source and baked_source.image and baked_source.image not in images:
+                images.append(baked_source.image)
 
         # Channel override image
         for ch in layer.channels:
@@ -208,26 +219,35 @@ def save_pack_all(yp, only_dirty = True):
             if baked_disp and baked_disp.image and baked_disp.image not in images:
                 images.append(baked_disp.image)
 
+            baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+            if baked_vdisp and baked_vdisp.image and baked_vdisp.image not in images:
+                images.append(baked_vdisp.image)
+
             if not is_overlay_normal_empty(yp):
                 baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
                     images.append(baked_normal_overlay.image)
 
+    # Custom bake target images
+    for bt in yp.bake_targets:
+        image_node = tree.nodes.get(bt.image_node)
+        if image_node and image_node.image not in images:
+            images.append(image_node.image)
+
     packed_float_images = []
 
-    #print()
     # Temporary scene for blender 3.30 hack
     tmpscene = None
     if is_greater_than_330():
         tmpscene = bpy.data.scenes.new('Temp Save Scene')
-        tmpscene.view_settings.view_transform = 'Standard'
-        tmpscene.render.image_settings.file_format = 'PNG'
+        try: tmpscene.view_settings.view_transform = 'Standard'
+        except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
+        try: tmpscene.render.image_settings.file_format = 'PNG'
+        except: print('EXCEPTIION: Cannot set file format on temporary save scene!')
 
     # Save/pack images
     for image in images:
-        clean_object_references(image)
-        if not image: continue
-        if only_dirty and not image.is_dirty: continue
+        if not image or not image.is_dirty: continue
         T = time.time()
         if image.packed_file or image.filepath == '':
             if is_greater_than_280():
@@ -245,14 +265,14 @@ def save_pack_all(yp, only_dirty = True):
                 save_float_image(image)
             else:
                 # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
-                if is_greater_than_330() and image.colorspace_settings.name in {'Linear', 'Non-Color'}:
+                if is_greater_than_330() and image.colorspace_settings.name in {'Linear', get_noncolor_name()}:
 
                     # Get image path
                     path = bpy.path.abspath(image.filepath)
 
                     # Pack image first
                     image.pack()
-                    image.colorspace_settings.name = 'sRGB'
+                    image.colorspace_settings.name = get_srgb_name()
 
                     # Remove old files to avoid caching (?)
                     try: os.remove(path)
@@ -269,7 +289,7 @@ def save_pack_all(yp, only_dirty = True):
                     except: image.filepath = path
 
                     # Bring back linear
-                    image.colorspace_settings.name = 'Non-Color'
+                    image.colorspace_settings.name = get_noncolor_name()
 
                     # Remove unpacked images on Blender 3.3 
                     remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
@@ -288,7 +308,7 @@ def save_pack_all(yp, only_dirty = True):
 
     # Delete temporary scene
     if tmpscene:
-        bpy.data.scenes.remove(tmpscene)
+        remove_datablock(bpy.data.scenes, tmpscene)
 
     # HACK: For some reason active float image will glitch after auto save
     # This is only happen if active object is on texture paint mode
@@ -301,6 +321,11 @@ def save_pack_all(yp, only_dirty = True):
             if image in packed_float_images:
                 ypui = bpy.context.window_manager.ypui
                 ypui.refresh_image_hack = True
+
+    # Clean object reference on images
+    if is_greater_than_279():
+        for image in images:
+            clean_object_references(image)
 
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
@@ -318,45 +343,24 @@ class YInvertImage(bpy.types.Operator):
             self.report({'ERROR'}, 'Cannot invert image atlas!')
             return {'CANCELLED'}
 
-        if not is_greater_than_282():
-            # Copy context
+        # For some reason this no longer works since Blender 2.82, but worked again in Blender 4.2
+        if not is_greater_than_282() or is_greater_than_420():
             override = bpy.context.copy()
             override['edit_image'] = context.image
-
-            # Invert image
-            #context.image.reload()
-            # For some reason this no longer works since Blender 2.82
-            bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
+            if is_greater_than_400():
+                with bpy.context.temp_override(**override):
+                    bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
+            else: bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
         else:
+            ori_area_type = context.area.type
+            context.area.type = 'IMAGE_EDITOR'
 
-            # Search for context
-            override = None
-            space = None
-            ori_image = None
+            space = context.area.spaces[0]
+            space.image = context.image
+                
+            bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
 
-            #for screen in bpy.data.screens:
-            for area in context.screen.areas:
-                if area.type == 'IMAGE_EDITOR':
-                    space = area.spaces[0]
-                    ori_image = space.image
-                    space.image = context.image
-
-                    override = context.copy()
-
-                    override['area'] = area
-                    override['space_data'] = space
-                    break
-
-            if override:
-                # Invert image
-                bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
-                space.image = ori_image
-
-                self.report({'INFO'}, 'You probably need to move the viewport to see the changes!')
-
-            else:
-                self.report({'ERROR'}, 'To use this feature, Image Editor should be opened anywhere on this screen!')
-                return {'CANCELLED'}
+            context.area.type = ori_area_type
 
         return {'FINISHED'}
 
@@ -424,6 +428,17 @@ class YPackImage(bpy.types.Operator):
 
                     baked_disp.image.filepath = ''
 
+                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image and not baked_vdisp.image.packed_file:
+                    if is_greater_than_280():
+                        baked_vdisp.image.pack()
+                    else:
+                        if baked_vdisp.image.is_float:
+                            pack_float_image(baked_vdisp.image)
+                        else: baked_vdisp.image.pack(as_png=True)
+
+                    baked_vdisp.image.filepath = ''
+
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image and not baked_normal_overlay.image.packed_file:
@@ -473,16 +488,20 @@ format_extensions = {
         'OPEN_EXR' : '.exr',
         'HDR' : '.hdr',
         'TIFF' : '.tif',
+        'WEBP' : '.webp',
         }
 
 def color_mode_items(self, context):
-    if self.file_format in {'BMP', 'JPEG', 'CINEON', 'HDR'}:
-        items = (('BW', 'BW', ''),
-                ('RGB', 'RGB', ''))
-    else:
-        items = (('BW', 'BW', ''),
-                ('RGB', 'RGB', ''),
-                ('RGBA', 'RGBA', ''))
+    items = []
+
+    if self.file_format in {'BMP', 'IRIS', 'PNG', 'JPEG', 'TARGA', 'TARGA_RAW', 'TIFF'}:
+        items.append(('BW', 'BW', ''))
+
+    items.append(('RGB', 'RGB', ''))
+
+    if self.file_format not in {'BMP', 'JPEG', 'CINEON', 'HDR'}:
+        items.append(('RGBA', 'RGBA', ''))
+
     return items
 
 def color_depth_items(self, context):
@@ -515,7 +534,7 @@ def update_save_as_file_format(self, context):
         self.color_mode = 'RGB'
     else: self.color_mode = 'RGBA'
 
-    if self.file_format in {'BMP', 'IRIS', 'PNG', 'JPEG', 'JPEG2000', 'TARGA', 'TARGA_RAW' }:
+    if self.file_format in {'BMP', 'IRIS', 'PNG', 'JPEG', 'JPEG2000', 'TARGA', 'TARGA_RAW', 'WEBP'}:
         self.color_depth = '8'
     elif self.file_format in {'CINEON', 'DPX'}:
         self.color_depth = '10'
@@ -598,6 +617,16 @@ class YSaveAllBakedImages(bpy.types.Operator):
             default=False
             )
 
+    file_format : EnumProperty(
+            name = 'File Format',
+            items = (
+                    ('PNG', 'PNG', '', 'IMAGE_DATA', 0),
+                    ('TIFF', 'TIFF', '', 'IMAGE_DATA', 1),
+                    ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 2)
+                    ),
+            default = 'PNG',
+            )
+
     def invoke(self, context, event):
         # Open browser, take reference to 'self' read the path to selected
         # file, put path in predetermined self fields.
@@ -605,6 +634,13 @@ class YSaveAllBakedImages(bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         # Tells Blender to hang on for the slow user input
         return {'RUNNING_MODAL'}
+
+    def draw(self, context):
+        split = split_layout(self.layout, 0.4)
+        col = split.column()
+        col.label(text='Image Format:')
+        col = split.column()
+        col.prop(self, 'file_format', text='')
 
     def execute(self, context):
 
@@ -623,6 +659,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         height_root_ch = get_root_height_channel(yp)
 
+        # Baked images
         for ch in yp.channels:
             if ch.no_layer_using: continue
 
@@ -636,16 +673,28 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 if baked_disp and baked_disp.image:
                     images.append(baked_disp.image)
 
+                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image:
+                    images.append(baked_vdisp.image)
+
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         images.append(baked_normal_overlay.image)
 
+        # Custom bake target images
+        for bt in yp.bake_targets:
+            image_node = tree.nodes.get(bt.image_node)
+            if image_node and image_node.image not in images:
+                images.append(image_node.image)
+
         for image in images:
 
-            settings.file_format = 'PNG'
+            settings.file_format = self.file_format
+            settings.color_depth = '8' if settings.file_format != 'OPEN_EXR' else '16'
             if image.is_float:
-                settings.file_format = 'OPEN_EXR'
+                settings.color_depth = '16' if settings.file_format != 'OPEN_EXR' else '32'
+            if settings.file_format == 'OPEN_EXR':
                 settings.exr_codec = 'ZIP'
 
             if image.filepath == '':
@@ -656,12 +705,10 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 filename = image_name + format_extensions[settings.file_format]
             else:
                 filename = bpy.path.basename(image.filepath)
+                ext = os.path.splitext(filename)[1]
 
-                # Check current extensions
-                for form, ext in format_extensions.items():
-                    if filename.endswith(ext):
-                        settings.file_format = form
-                        break
+                if ext != format_extensions[settings.file_format]:
+                    filename = filename.replace(ext, format_extensions[settings.file_format])
 
             if self.remove_whitespaces:
                 filename = filename.replace(' ', '')
@@ -679,11 +726,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
             # Some image need to set to srgb when saving
             ori_colorspace = image.colorspace_settings.name
-            if not image.is_float:
-                image.colorspace_settings.name = 'sRGB'
+            if not image.is_float and image.colorspace_settings.name != get_srgb_name():
+                image.colorspace_settings.name = get_srgb_name()
             
-            #settings.file_format = file_format
-
             # Check if image is packed
             unpack = False
             if image.packed_file:
@@ -698,7 +743,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
             except: image.filepath = path
 
             # Set back colorspace settings
-            image.colorspace_settings.name = ori_colorspace
+            if image.colorspace_settings.name != ori_colorspace:
+                image.colorspace_settings.name = ori_colorspace
 
             # Remove temporarily unpacked image
             if unpack:
@@ -707,11 +753,33 @@ class YSaveAllBakedImages(bpy.types.Operator):
             #print(path)
 
         # Delete temporary scene
-        bpy.data.scenes.remove(tmpscene)
+        remove_datablock(bpy.data.scenes, tmpscene)
 
         #print("Selected dir: '" + self.directory + "'")
 
         return {'FINISHED'}
+
+def get_file_format_items():
+    items = [
+            ('BMP', 'BMP', '', 'IMAGE_DATA', 0),
+            ('IRIS', 'Iris', '', 'IMAGE_DATA', 1),
+            ('PNG', 'PNG', '', 'IMAGE_DATA', 2),
+            ('JPEG', 'JPEG', '', 'IMAGE_DATA', 3),
+            ('JPEG2000', 'JPEG 2000', '', 'IMAGE_DATA', 4),
+            ('TARGA', 'Targa', '', 'IMAGE_DATA', 5),
+            ('TARGA_RAW', 'Targa Raw', '', 'IMAGE_DATA', 6),
+            ('CINEON', 'Cineon', '', 'IMAGE_DATA', 7),
+            ('DPX', 'DPX', '', 'IMAGE_DATA', 8),
+            ('OPEN_EXR_MULTILAYER', 'OpenEXR Multilayer', '', 'IMAGE_DATA', 9),
+            ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 10),
+            ('HDR', 'Radiance HDR', '', 'IMAGE_DATA', 11),
+            ('TIFF', 'TIFF', '', 'IMAGE_DATA', 12)
+            ]
+
+    if is_greater_than_320():
+        items.append(('WEBP', 'WebP', '', 'IMAGE_DATA', 13))
+
+    return items
 
 class YSaveAsImage(bpy.types.Operator, ExportHelper):
     """Save As Image"""
@@ -719,29 +787,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
     bl_label = "Save As Image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    filter_glob : StringProperty(
-            default="*.bmp;*.rgb;*.png;*.jpg;*.jp2;*.tga;*.cin;*.dpx;*.exr;*.hdr;*.tif",
-            options={'HIDDEN'},
-            maxlen=255,  # Max internal buffer length, longer would be clamped.
-            )
-
     file_format : EnumProperty(
             name = 'File Format',
-            items = (
-                    ('BMP', 'BMP', '', 'IMAGE_DATA', 0),
-                    ('IRIS', 'Iris', '', 'IMAGE_DATA', 1),
-                    ('PNG', 'PNG', '', 'IMAGE_DATA', 2),
-                    ('JPEG', 'JPEG', '', 'IMAGE_DATA', 3),
-                    ('JPEG2000', 'JPEG 2000', '', 'IMAGE_DATA', 4),
-                    ('TARGA', 'Targa', '', 'IMAGE_DATA', 5),
-                    ('TARGA_RAW', 'Targa Raw', '', 'IMAGE_DATA', 6),
-                    ('CINEON', 'Cineon', '', 'IMAGE_DATA', 7),
-                    ('DPX', 'DPX', '', 'IMAGE_DATA', 8),
-                    ('OPEN_EXR_MULTILAYER', 'OpenEXR Multilayer', '', 'IMAGE_DATA', 9),
-                    ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 10),
-                    ('HDR', 'Radiance HDR', '', 'IMAGE_DATA', 11),
-                    ('TIFF', 'TIFF', '', 'IMAGE_DATA', 12),
-                    ),
+            items = get_file_format_items(),
             default = 'PNG',
             update = update_save_as_file_format
             )
@@ -827,9 +875,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         return hasattr(context, 'image') and context.image and get_active_ypaint_node()
 
     def draw(self, context):
-        if is_greater_than_280(): 
-            split = self.layout.split(factor=0.5)
-        else: split = self.layout.split(percentage=0.5)
+        split = split_layout(self.layout, 0.5)
 
         split.prop(self, 'file_format', text='')
         row = split.row(align=True)
@@ -843,7 +889,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if self.file_format == 'PNG':
             self.layout.prop(self, 'compression')
 
-        if self.file_format in {'JPEG', 'JPEG2000'}:
+        if self.file_format in {'JPEG', 'JPEG2000', 'WEBP'}:
             self.layout.prop(self, 'quality')
 
         if self.file_format == 'TIFF':
@@ -873,10 +919,13 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             self.layout.prop(self, 'relative')
 
     def invoke(self, context, event):
+        self.use_filter_image = True
+
         file_ext = format_extensions[self.file_format]
+        filename = bpy.path.basename(context.image.filepath)
 
         # Set filepath
-        if context.image.filepath == '':
+        if context.image.filepath == '' or filename == '':
             yp = get_active_ypaint_node().node_tree.yp
 
             name = context.image.name
@@ -903,8 +952,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         if self.image.is_float:
             self.is_float = True
-            self.file_format = 'OPEN_EXR'
-            if self.file_format in {'PNG', 'JPEG2000'}:
+            #self.file_format = 'OPEN_EXR'
+            #if self.file_format in {'PNG', 'JPEG2000'}:
+            if self.color_depth == '8':
                 self.color_depth = '16'
         else:
             self.is_float = False
@@ -992,20 +1042,23 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             self.report({'ERROR'}, 'Unpacking image atlas is not supported yet!')
             return {'CANCELLED'}
 
-        # Need to pack first to save the image
-        if image.is_dirty:
-            if is_greater_than_280():
-                image.pack()
-            else:
-                if image.is_float:
-                    pack_float_image(image)
-                else: image.pack(as_png=True)
-
-        # Unpack image if image is packed
+        # Packing and unpacking sometimes does not work if the blend file is not saved yet
         unpack = False
-        if self.unpack or image.packed_file:
-            unpack = True
-            self.unpack_image(context)
+        if bpy.data.filepath != '':
+
+            # Need to pack first to save the image
+            if image.is_dirty:
+                if is_greater_than_280():
+                    image.pack()
+                else:
+                    if image.is_float:
+                        pack_float_image(image)
+                    else: image.pack(as_png=True)
+
+            # Unpack image if image is packed
+            if self.unpack or image.packed_file:
+                unpack = True
+                self.unpack_image(context)
 
         # Create temporary scene
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
@@ -1016,8 +1069,8 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         # Some image need to set to srgb when saving
         ori_colorspace = image.colorspace_settings.name
-        if not image.is_float:
-            image.colorspace_settings.name = 'sRGB'
+        if not image.is_float and not image.is_dirty:
+            image.colorspace_settings.name = get_srgb_name()
 
         # Set settings
         settings = tmpscene.render.image_settings
@@ -1026,7 +1079,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         settings.color_depth = self.color_depth
         settings.compression = self.compression
         settings.quality = self.quality
-        settings.tiff_codec = self.tiff_codec
+        if hasattr(settings, 'tiff_codec'): settings.tiff_codec = self.tiff_codec
         settings.exr_codec = self.exr_codec
         settings.jpeg2k_codec = self.jpeg2k_codec
         settings.use_jpeg2k_cinema_48 = self.use_jpeg2k_cinema_48
@@ -1039,19 +1092,21 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         # Save image
         if image.source == 'TILED':
-            ori_ui_type = bpy.context.area.ui_type
-            bpy.context.area.ui_type = 'IMAGE_EDITOR'
-            bpy.context.space_data.image = image
-            bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
-            bpy.context.area.ui_type = ori_ui_type
+            override = bpy.context.copy()
+            override['edit_image'] = image
+            if is_greater_than_400():
+                with bpy.context.temp_override(**override):
+                    bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
+            else: bpy.ops.image.save_as(override, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
         else:
             image.save_render(self.filepath, scene=tmpscene)
 
             if not self.copy:
                 image.filepath = self.filepath
 
-                if self.relative:
-                    image.filepath = bpy.path.relpath(image.filepath)
+                if self.relative and bpy.data.filepath != '':
+                    try: image.filepath = bpy.path.relpath(image.filepath)
+                    except Exception as e: print(e)
                 else: image.filepath = bpy.path.abspath(image.filepath)
 
                 image.source = 'FILE'
@@ -1065,7 +1120,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         image.colorspace_settings.name = ori_colorspace
 
         # Delete temporary scene
-        bpy.data.scenes.remove(tmpscene)
+        remove_datablock(bpy.data.scenes, tmpscene)
 
         #context.image.save()
         return {'FINISHED'}
@@ -1084,9 +1139,80 @@ class YSavePackAll(bpy.types.Operator):
         ypui = bpy.context.window_manager.ypui
         #T = time.time()
         yp = get_active_ypaint_node().node_tree.yp
-        save_pack_all(yp, only_dirty=False)
+        save_pack_all(yp)
         #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         ypui.refresh_image_hack = False
+        return {'FINISHED'}
+
+class YConvertImageBitDepth(bpy.types.Operator):
+    """Convert Image Bit Depth"""
+    bl_idname = "image.y_convert_image_bit_depth"
+    bl_label = "Convert Image Bit Depth"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'image') and context.image
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        image = context.image
+
+        if image.yua.is_udim_atlas or image.yia.is_image_atlas:
+            self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
+            return {'CANCELLED'}
+
+        # Create new image based on original image but with different bit depth
+        if image.source == 'TILED':
+            tilenums = [tile.number for tile in image.tiles]
+            new_image = bpy.data.images.new(image.name,
+                                    width=image.size[0], height=image.size[1], 
+                                    alpha=True, float_buffer= not image.is_float, tiled=True)
+
+            # Fill tiles
+            color = (0, 0, 0, 0)
+            for tilenum in tilenums:
+                ori_width = image.tiles.get(tilenum).size[0]
+                ori_height = image.tiles.get(tilenum).size[1]
+                UDIM.fill_tile(new_image, tilenum, color, ori_width, ori_height)
+            UDIM.initial_pack_udim(new_image, color)
+
+        else:
+            new_image = bpy.data.images.new(image.name,
+                                    width=image.size[0], height=image.size[1], 
+                                    alpha=True, float_buffer= not image.is_float)
+
+            if image.filepath != '':
+                new_image.filepath = image.filepath
+
+        new_image.colorspace_settings.name = image.colorspace_settings.name
+
+        # Copy image pixels
+        if image.source == 'TILED':
+            UDIM.copy_udim_pixels(image, new_image)
+        else: copy_image_pixels(image, new_image)
+
+        # Pack image
+        if image.packed_file and image.source != 'TILED':
+            if is_greater_than_280():
+                new_image.pack()
+            else:
+                if new_image.is_float:
+                    pack_float_image(new_image)
+                else: new_image.pack(as_png=True)
+
+            # HACK: Float image need to be reloaded after packing to be showed correctly
+            if new_image.is_float:
+                new_image.reload()
+
+        # Replace image
+        replace_image(image, new_image)
+
+        # Update image editor by setting active layer index
+        yp.active_layer_index = yp.active_layer_index
+
         return {'FINISHED'}
 
 def register():
@@ -1097,6 +1223,7 @@ def register():
     bpy.utils.register_class(YSaveAsImage)
     bpy.utils.register_class(YSavePackAll)
     bpy.utils.register_class(YSaveAllBakedImages)
+    bpy.utils.register_class(YConvertImageBitDepth)
 
 def unregister():
     bpy.utils.unregister_class(YInvertImage)
@@ -1106,3 +1233,4 @@ def unregister():
     bpy.utils.unregister_class(YSaveAsImage)
     bpy.utils.unregister_class(YSavePackAll)
     bpy.utils.unregister_class(YSaveAllBakedImages)
+    bpy.utils.unregister_class(YConvertImageBitDepth)

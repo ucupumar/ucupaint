@@ -1,5 +1,7 @@
-import bpy, time, os, numpy
+import bpy, time, os, numpy, tempfile
+from bpy.props import *
 from .common import *
+from .input_outputs import *
 from .node_connections import *
 from . import lib, Layer, ImageAtlas, UDIM
 
@@ -59,9 +61,9 @@ def is_join_objects_problematic(yp, mat=None):
     for layer in yp.layers:
 
         for mask in layer.masks:
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}: 
+            if mask.type in {'VCOL', 'HEMI', 'COLOR_ID'}: 
                 continue
-            if mask.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS:
+            if mask.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS or mask.type in {'OBJECT_INDEX'}:
                 return True
 
         if layer.type in {'VCOL', 'COLOR', 'BACKGROUND', 'HEMI', 'GROUP'}: 
@@ -70,13 +72,25 @@ def is_join_objects_problematic(yp, mat=None):
             return True
 
     if mat:
-        output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+        output = get_material_output(mat)
         if output: 
-            output = output[0]
             if search_join_problematic_texcoord(mat.node_tree, output):
                 return True
 
     return False
+
+def bake_object_op():
+    try:
+        bpy.ops.object.bake()
+    except Exception as e:
+        scene = bpy.context.scene
+        if scene.cycles.device == 'GPU':
+            print('EXCEPTIION: GPU baking failed! Trying to use CPU...')
+            scene.cycles.device = 'CPU'
+
+            bpy.ops.object.bake()
+        else:
+            print('EXCEPTIION:', e)
 
 def remember_before_bake(yp=None, mat=None):
     book = {}
@@ -96,6 +110,13 @@ def remember_before_bake(yp=None, mat=None):
     book['ori_normal_space'] = scene.render.bake.normal_space
     book['ori_simplify'] = scene.render.use_simplify
     book['ori_device'] = scene.cycles.device
+    if hasattr(scene.render.bake, 'use_pass_direct'): book['ori_use_pass_direct'] = scene.render.bake.use_pass_direct
+    if hasattr(scene.render.bake, 'use_pass_indirect'): book['ori_use_pass_indirect'] = scene.render.bake.use_pass_indirect
+    if hasattr(scene.render.bake, 'use_pass_diffuse'): book['ori_use_pass_diffuse'] = scene.render.bake.use_pass_diffuse
+    if hasattr(scene.render.bake, 'use_pass_emit'): book['ori_use_pass_emit'] = scene.render.bake.use_pass_emit
+    if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'):
+        book['ori_use_pass_ambient_occlusion'] = scene.render.bake.use_pass_ambient_occlusion
+
     if hasattr(scene.render, 'tile_x'):
         book['ori_tile_x'] = scene.render.tile_x
         book['ori_tile_y'] = scene.render.tile_y
@@ -104,6 +125,9 @@ def remember_before_bake(yp=None, mat=None):
         book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
     book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
     book['ori_use_cage'] = scene.render.bake.use_cage
+    if is_greater_than_280():
+        book['ori_cage_object_name'] = scene.render.bake.cage_object.name if scene.render.bake.cage_object else ''
+    else: book['ori_cage_object_name'] = scene.render.bake.cage_object
 
     if hasattr(scene.render.bake, 'margin_type'):
         book['ori_margin_type'] = scene.render.bake.margin_type
@@ -187,7 +211,7 @@ def remember_before_bake(yp=None, mat=None):
     for o in objs:
         active_node_names = []
         for m in o.data.materials:
-            if m.use_nodes and m.node_tree.nodes.active:
+            if m and m.use_nodes and m.node_tree.nodes.active:
                 active_node_names.append(m.node_tree.nodes.active.name)
                 continue
             active_node_names.append('')
@@ -271,10 +295,9 @@ def prepare_other_objs_channels(yp, other_objs):
                 if mat in mats: continue
                 if not mat.use_nodes: continue
 
-                # Get output
-                output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+                # Get material output
+                output = get_material_output(mat)
                 if not output: continue
-                output = output[0]
 
                 socket = None
                 default = None
@@ -306,8 +329,12 @@ def prepare_other_objs_channels(yp, other_objs):
                     elif ch.name in bsdf_node.inputs:
                         socket = bsdf_node.inputs[ch.name]
 
-                    if socket and len(socket.links) == 0 and default == None:
-                        default = socket.default_value
+                    if socket:
+                        if len(socket.links) == 0:
+                            if default == None:
+                                default = socket.default_value
+                        else:
+                            socket = socket.links[0].from_socket
 
                 # Append objects and materials if socket is found
                 if socket or default:
@@ -343,7 +370,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
-        source_objs=[], bake_device='GPU'):
+        source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name=''):
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
@@ -358,20 +385,30 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if hasattr(scene.render.bake, 'max_ray_distance'):
         scene.render.bake.max_ray_distance = max_ray_distance
     scene.render.bake.cage_extrusion = cage_extrusion
-    scene.render.bake.use_cage = False
+    cage_object = bpy.data.objects.get(cage_object_name) if cage_object_name != '' else None
+    scene.render.bake.use_cage = True if cage_object else False
+    if cage_object: 
+        if is_greater_than_280(): scene.render.bake.cage_object = cage_object
+        else: scene.render.bake.cage_object = cage_object.name
     scene.render.use_simplify = False
+    if hasattr(scene.render.bake, 'use_pass_direct'): scene.render.bake.use_pass_direct = True
+    if hasattr(scene.render.bake, 'use_pass_indirect'): scene.render.bake.use_pass_indirect = True
+    if hasattr(scene.render.bake, 'use_pass_diffuse'): scene.render.bake.use_pass_diffuse = True
+    if hasattr(scene.render.bake, 'use_pass_emit'): scene.render.bake.use_pass_emit = True
+    if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'): scene.render.bake.use_pass_ambient_occlusion = True
+
     if hasattr(scene.render, 'tile_x'):
         scene.render.tile_x = tile_x
         scene.render.tile_y = tile_y
 
     if hasattr(scene.cycles, 'use_denoising'):
-        scene.cycles.use_denoising = False
+        scene.cycles.use_denoising = use_denoising
 
     if hasattr(scene.render.bake, 'target'):
         scene.render.bake.target = bake_target
 
     if hasattr(scene.render.bake, 'margin_type'):
-        scene.render.bake.margin_type = 'ADJACENT_FACES'
+        scene.render.bake.margin_type = margin_type
 
     if is_greater_than_280():
         bpy.context.view_layer.material_override = None
@@ -431,7 +468,15 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
 
         for obj in objs:
             obj.hide_set(False)
-            obj.select_set(True)
+
+            if bake_from_multires:
+                # Do not select object without multires modifier
+                mod = get_multires_modifier(obj)
+                if not mod:
+                    obj.select_set(False)
+                else: obj.select_set(True)
+            else:
+                obj.select_set(True)
             #print(obj.name, obj.hide_render, obj.select_get())
 
         # Disable material override
@@ -462,6 +507,16 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
                     if obj.layers[i] and not scene.layers[i]:
                         scene.layers[i] = True
                         break
+
+            # Blender 2.76 need all objects to be UV unwrapped
+            if not is_greater_than_277():
+                ori_active_object = scene.objects.active
+                uv_layers = get_uv_layers(obj)
+                if len(uv_layers) == 0:
+                    scene.objects.active = obj
+                    bpy.ops.node.y_add_simple_uvs()
+                if scene.objects.active != ori_active_object:
+                    scene.objects.active = ori_active_object
 
     book['obj_mods_lib'] = {}
     if disable_problematic_modifiers:
@@ -509,18 +564,21 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
                     add_active_render_uv_node(mat.node_tree, active_render_uv.name)
 
         for m in o.data.materials:
-            if not m.use_nodes: continue
+            if not m or not m.use_nodes: continue
 
             # Create temporary image texture node to make sure
             # other materials inside single object did not bake to their active image
             if m != mat:
-                temp = m.node_tree.nodes.new('ShaderNodeTexImage')
-                temp.name = EMPTY_IMG_NODE
+                temp = m.node_tree.nodes.get(EMPTY_IMG_NODE)
+                if not temp:
+                    temp = m.node_tree.nodes.new('ShaderNodeTexImage')
+                    temp.name = EMPTY_IMG_NODE
                 m.node_tree.nodes.active = temp
 
     # Set active uv layers
     if uv_map != '':
         for obj in objs:
+            if obj.type != 'MESH': continue
             #set_active_uv_layer(obj, uv_map)
             uv_layers = get_uv_layers(obj)
             uv = uv_layers.get(uv_map)
@@ -542,6 +600,11 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene.render.bake.use_clear = book['ori_use_clear']
     scene.render.use_simplify = book['ori_simplify']
     scene.cycles.device = book['ori_device']
+    if hasattr(scene.render.bake, 'use_pass_direct'): scene.render.bake.use_pass_direct = book['ori_use_pass_direct']
+    if hasattr(scene.render.bake, 'use_pass_indirect'): scene.render.bake.use_pass_indirect = book['ori_use_pass_indirect']
+    if hasattr(scene.render.bake, 'use_pass_emit'): scene.render.bake.use_pass_emit = book['ori_use_pass_emit']
+    if hasattr(scene.render.bake, 'use_pass_diffuse'): scene.render.bake.use_pass_diffuse = book['ori_use_pass_diffuse']
+    if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'): scene.render.bake.use_pass_ambient_occlusion = book['ori_use_pass_ambient_occlusion']
     if hasattr(scene.render, 'tile_x'):
         scene.render.tile_x = book['ori_tile_x']
         scene.render.tile_y = book['ori_tile_y']
@@ -558,6 +621,11 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
     scene.render.bake.cage_extrusion = book['ori_cage_extrusion']
     scene.render.bake.use_cage = book['ori_use_cage']
+    if book['ori_cage_object_name'] != '':
+        cage_object = bpy.data.objects.get(book['ori_cage_object_name'])
+        if cage_object: 
+            if is_greater_than_280(): scene.render.bake.cage_object = cage_object
+            else: scene.render.bake.cage_object = cage_object.name
 
     if is_greater_than_280():
         bpy.context.view_layer.material_override = book['ori_material_override']
@@ -583,11 +651,17 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     if recover_active_uv:
         uvl = uv_layers.get(book['ori_active_uv'])
         if uvl: uv_layers.active = uvl
+
+        # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
+        if not is_greater_than_291():
+            if 'ori_active_render_uv' in book:
+                uvl = uv_layers.get(book['ori_active_render_uv'])
+                if uvl: uvl.active_render = True
+
+    if is_greater_than_291():
         if 'ori_active_render_uv' in book:
             uvl = uv_layers.get(book['ori_active_render_uv'])
             if uvl: uvl.active_render = True
-
-    #return
 
     # Recover active object and mode
     if is_greater_than_280():
@@ -692,7 +766,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
             o = bpy.data.objects.get(o_name)
             if not o: continue
             for j, m in enumerate(o.data.materials):
-                if not m.use_nodes: continue
+                if not m or not m.use_nodes: continue
                 active_node = m.node_tree.nodes.get(book['ori_mat_objs_active_nodes'][i][j])
                 m.node_tree.nodes.active = active_node
 
@@ -702,9 +776,164 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
                 #act_uv = m.node_tree.nodes.get(ACTIVE_UV_NODE)
                 #if act_uv: m.node_tree.nodes.remove(act_uv)
 
-def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GPU'):
+def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
+    book = {}
+
+    # Remember original scene
+    book['ori_scene_name'] = bpy.context.scene.name
+
+    # Remember active object and view layer
+    book['ori_viewlayer'] = bpy.context.window.view_layer.name if bpy.context.window.view_layer and is_greater_than_280() else ''
+    book['ori_object'] = bpy.context.object.name if bpy.context.object else ''
+
+    # Check if original viewport is using camera view
+    area = bpy.context.area
+    book['ori_camera_view'] = area.type == 'VIEW_3D' and area.spaces[0].region_3d.view_perspective == 'CAMERA'
+
+    # Create new temporary scene
+    scene = bpy.data.scenes.new(name='TEMP_COMPOSITE_SCENE')
+    bpy.context.window.scene = scene
+
+    # Set up render settings
+    scene.cycles.samples = 1
+    if hasattr(scene, 'eevee'):
+        scene.eevee.taa_render_samples = 1
+    scene.render.resolution_x = res_x
+    scene.render.resolution_y = res_y
+    scene.render.resolution_percentage = 100
+    scene.render.pixel_aspect_x = 1.0
+    scene.render.pixel_aspect_y = 1.0
+    scene.use_nodes = True
+    scene.view_settings.view_transform = 'Standard' if is_greater_than_280() else 'Default'
+
+    # Float/HDR image related
+    scene.render.image_settings.file_format = 'OPEN_EXR' if use_hdr else 'PNG'
+    scene.render.image_settings.color_mode = 'RGBA'
+    scene.render.image_settings.color_depth = '32' if use_hdr else '8'
+
+    # Remember temp scene name
+    book['temp_scene_name'] = scene.name
+
+    # Create temporary camera
+    if not scene.camera:
+        cam_data = bpy.data.cameras.new('TEMP_CAM')
+        cam_obj = bpy.data.objects.new('TEMP_CAM', cam_data)
+        link_object(scene, cam_obj)
+        scene.camera = cam_obj
+        book['temp_camera_name'] = cam_obj.name
+
+    return book
+
+def recover_composite_settings(book):
+    scene = bpy.data.scenes.get(book['temp_scene_name'])
+
+    # Remove temporary objects
+    if 'temp_camera_name' in book:
+        cam_obj = bpy.data.objects.get(book['temp_camera_name'])
+        if cam_obj:
+            cam = cam_obj.data
+            remove_datablock(bpy.data.objects, cam_obj)
+            remove_datablock(bpy.data.cameras, cam)
+
+    # Remove temp scene
+    remove_datablock(bpy.data.scenes, scene)
+
+    # Go back to original scene
+    scene = bpy.data.scenes.get(book['ori_scene_name'])
+    bpy.context.window.scene = scene
+
+    # Recover camera view
+    if book['ori_camera_view']:
+        bpy.context.area.spaces[0].region_3d.view_perspective = 'CAMERA'
+
+    # Recover view layer
+    if is_greater_than_280():
+        ori_viewlayer = bpy.context.scene.view_layers.get(book['ori_viewlayer'])
+        if ori_viewlayer and bpy.context.window.view_layer != ori_viewlayer:
+            bpy.context.window.view_layer = ori_viewlayer
+
+    # Recover active object
+    ori_object = bpy.data.objects.get(book['ori_object'])
+    if ori_object and bpy.context.object != ori_object:
+        set_active_object(ori_object)
+
+def denoise_image(image):
+    if not is_greater_than_281(): return image
+
     T = time.time()
-    print('FXAA: Doing Blur pass on', image.name + '...')
+    print('DENOISE: Doing Denoise pass on', image.name + '...')
+
+    # Preparing settings
+    book = prepare_composite_settings(use_hdr=image.is_float)
+    scene = bpy.context.scene
+
+    # Set up compositor
+    tree = scene.node_tree
+    composite = [n for n in tree.nodes if n.type == 'COMPOSITE'][0]
+    denoise = tree.nodes.new('CompositorNodeDenoise')
+    denoise.use_hdr = image.is_float
+    image_node = tree.nodes.new('CompositorNodeImage')
+    image_node.image = image
+
+    gamma = None
+    if image.colorspace_settings.name != get_srgb_name() and not image.is_float:
+        gamma = tree.nodes.new('CompositorNodeGamma')
+        gamma.inputs[1].default_value = 2.2
+
+    rgb = image_node.outputs[0]
+    if gamma:
+        tree.links.new(rgb, gamma.inputs[0])
+        rgb = gamma.outputs[0]
+    tree.links.new(rgb, denoise.inputs['Image'])
+    rgb = denoise.outputs[0]
+    tree.links.new(rgb, composite.inputs[0])
+
+    if image.source == 'TILED':
+        tilenums = [tile.number for tile in image.tiles]
+    else: tilenums = [1001]
+
+    # Get temporary filepath
+    ext = 'exr' if image.is_float else 'png'
+    filepath = os.path.join(tempfile.gettempdir(), 'TEST_RENDER__.' + ext)
+
+    for tilenum in tilenums:
+
+        # Swap tile to 1001 to access the data
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+        # Set render resolution
+        scene.render.resolution_x = image.size[0]
+        scene.render.resolution_y = image.size[1]
+
+        # Render image!
+        bpy.ops.render.render()
+
+        # Save the image
+        render_result = next(img for img in bpy.data.images if img.type == "RENDER_RESULT")
+        render_result.save_render(filepath)
+        temp_image = bpy.data.images.load(filepath)
+
+        # Copy image pixels
+        copy_image_pixels(temp_image, image)
+
+        # Remove temp image
+        remove_datablock(bpy.data.images, temp_image)
+        os.remove(filepath)
+
+        # Swap back the tile
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+    # Recover settings
+    recover_composite_settings(book)
+
+    print('DENOISE:', image.name, 'denoise pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    return image
+
+def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CPU'):
+    T = time.time()
+    print('BLUR: Doing Blur pass on', image.name + '...')
     book = remember_before_bake()
 
     width = image.size[0]
@@ -717,10 +946,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
     # Create new plane
     bpy.ops.object.mode_set(mode = 'OBJECT')
-    bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
-    if is_greater_than_280():
-        plane_obj = bpy.context.view_layer.objects.active
-    else: plane_obj = bpy.context.scene.objects.active
+    plane_obj = create_plane_on_object_mode()
 
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=0, bake_device=bake_device)
 
@@ -738,7 +964,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
     blur = mat.node_tree.nodes.new('ShaderNodeGroup')
     blur.node_tree = get_node_tree_lib(lib.BLUR_VECTOR)
-    blur.inputs[0].default_value = factor / 100.0
+    blur.inputs[0].default_value = factor
 
     source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -771,12 +997,18 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
         # Set source image
         source_tex.image = image_copy
 
+        # Blender 2.79 need to set these parameter to correct the gamma
+        if not is_greater_than_280() :
+            if image.colorspace_settings.name == get_srgb_name():
+                source_tex.color_space = 'COLOR'
+            else: source_tex.color_space = 'NONE' 
+
         # Connect nodes again
         mat.node_tree.links.new(source_tex.outputs[0], emi.inputs[0])
         mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
 
         print('BLUR: Baking blur on', image.name + '...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Run alpha pass
         if alpha_aware:
@@ -796,21 +1028,19 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
             UDIM.swap_tile(image, 1001, tilenum)
 
         # Remove temp images
-        bpy.data.images.remove(image_copy)
+        remove_datablock(bpy.data.images, image_copy, user=source_tex, user_prop='image')
 
     # Remove temp datas
     print('BLUR: Removing temporary data of blur pass')
     if alpha_aware:
         if straight_over.node_tree.users == 1:
-            bpy.data.node_groups.remove(straight_over.node_tree)
+            remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
 
     if blur.node_tree.users == 1:
-        bpy.data.node_groups.remove(blur.node_tree)
+        remove_datablock(bpy.data.node_groups, blur.node_tree, user=blur, user_prop='node_tree')
 
-    bpy.data.materials.remove(mat)
-    plane = plane_obj.data
-    bpy.ops.object.delete()
-    bpy.data.meshes.remove(plane)
+    remove_datablock(bpy.data.materials, mat)
+    remove_mesh_obj(plane_obj)
 
     # Recover settings
     recover_bake_settings(book)
@@ -823,7 +1053,22 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
     return image
 
-def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False):
+def create_plane_on_object_mode():
+
+    if not is_greater_than_277():
+        bpy.ops.mesh.primitive_plane_add()
+        bpy.ops.object.mode_set(mode = 'EDIT')
+        bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.0)
+        bpy.ops.object.mode_set(mode = 'OBJECT')
+    else: 
+        bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
+
+    if not is_greater_than_280():
+        return bpy.context.scene.objects.active
+
+    return bpy.context.view_layer.objects.active
+
+def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False):
     T = time.time()
     print('FXAA: Doing FXAA pass on', image.name + '...')
     book = remember_before_bake()
@@ -835,10 +1080,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
 
     # Create new plane
     bpy.ops.object.mode_set(mode = 'OBJECT')
-    bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
-    if is_greater_than_280():
-        plane_obj = bpy.context.view_layer.objects.active
-    else: plane_obj = bpy.context.scene.objects.active
+    plane_obj = create_plane_on_object_mode()
 
     prepare_bake_settings(book, [plane_obj], samples=1, margin=0, bake_device=bake_device)
 
@@ -899,7 +1141,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
 
             # Bake
             print('FXAA: Baking straight over on', image.name + '...')
-            bpy.ops.object.bake()
+            bake_object_op()
 
             pixels_1 = list(image.pixels)
             image_copy.pixels = pixels_1
@@ -915,7 +1157,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
         res_y.outputs[0].default_value = height
         tex.image = image_copy
         if not is_greater_than_280() :
-            if image.colorspace_settings.name == 'sRGB':
+            if image.colorspace_settings.name == get_srgb_name():
                 tex.color_space = 'COLOR'
             else: tex.color_space = 'NONE'
 
@@ -924,7 +1166,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
         mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
 
         print('FXAA: Baking FXAA on', image.name + '...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Copy original alpha to baked image
         if alpha_aware:
@@ -936,23 +1178,24 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
             UDIM.swap_tile(image, 1001, tilenum)
 
         # Remove temp images
-        bpy.data.images.remove(image_copy)
-        if image_ori : bpy.data.images.remove(image_ori)
+        remove_datablock(bpy.data.images, image_copy, user=tex, user_prop='image')
+        if image_ori : 
+            remove_datablock(bpy.data.images, image_ori)
 
     # Remove temp datas
     print('FXAA: Removing temporary data of FXAA pass')
     if alpha_aware:
         if straight_over.node_tree.users == 1:
-            bpy.data.node_groups.remove(straight_over.node_tree)
+            remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
 
     if fxaa.node_tree.users == 1:
-        bpy.data.node_groups.remove(tex_node.node_tree)
-        bpy.data.node_groups.remove(fxaa.node_tree)
+        remove_datablock(bpy.data.node_groups, tex_node.node_tree, user=tex_node, user_prop='node_tree')
+        remove_datablock(bpy.data.node_groups, fxaa.node_tree, user=fxaa, user_prop='node_tree')
 
-    bpy.data.materials.remove(mat)
+    remove_datablock(bpy.data.materials, mat)
     plane = plane_obj.data
     bpy.ops.object.delete()
-    bpy.data.meshes.remove(plane)
+    remove_datablock(bpy.data.meshes, plane)
 
     # Recover settings
     recover_bake_settings(book)
@@ -965,7 +1208,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
 
     return image
 
-def bake_to_vcol(mat, node, root_ch, extra_channel=None, extra_multiplier=1.0):
+def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=1.0, bake_alpha=False, vcol_name=''):
 
     # Create setup nodes
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
@@ -1009,8 +1252,51 @@ def bake_to_vcol(mat, node, root_ch, extra_channel=None, extra_multiplier=1.0):
 
     mat.node_tree.links.new(rgb, emit.inputs[0])
 
+    # To avoid duplicate code, define the function here
+    def bake_alpha_to_vcol():
+        temp_vcol_alpha_name = '__temp__ucupaint_vertex_color_for_alpha_bake'
+        for obj in objs:
+            # Creates temp vertex color for baking alpha
+            temp_vcol = new_vertex_color(obj, temp_vcol_alpha_name)
+            set_active_vertex_color(obj, temp_vcol)
+        bake_object_op()
+        for obj in objs:
+            vcols = get_vertex_colors(obj)
+            temp_vcol = vcols.get(temp_vcol_alpha_name)
+            target_vcol = vcols.get(vcol_name)
+            
+            # Speed up the process with numpy
+            dim_rgba = 4
+            temp_nvcol = numpy.zeros(len(temp_vcol.data) * dim_rgba, dtype=numpy.float32)
+            target_nvcol = numpy.zeros(len(target_vcol.data) * dim_rgba, dtype=numpy.float32)
+            
+            temp_vcol.data.foreach_get('color', temp_nvcol)
+            target_vcol.data.foreach_get('color', target_nvcol)
+            temp_nvcol2D = temp_nvcol.reshape(-1, dim_rgba)
+            target_nvcol2D = target_nvcol.reshape(-1, dim_rgba)
+
+            # Moves the alpha of the temp vertex color to the target vertex color
+            target_nvcol2D[:, 3] = temp_nvcol2D[:, 0]
+            target_vcol.data.foreach_set('color', target_nvcol)   
+
+            # Deletes the temp vertex color and resets the active vertex color
+            vcols.remove(temp_vcol)
+            set_active_vertex_color(obj, target_vcol)
+
     # Bake!
-    bpy.ops.object.bake()
+    # When bake_alpha is True and the channel type is 'VALUE', bake the alpha channel separately.
+    if bake_alpha and root_ch.type == 'VALUE':
+        bake_alpha_to_vcol()
+    else:
+        # Bake without alpha channel
+        bake_object_op()
+    
+    # If bake_alpha is True and the channel type is 'RGB', Bake twice to merge Alpha channel
+    if bake_alpha and root_ch.type == 'RGB' and root_ch.enable_alpha:
+        # Connect channel alpha channel
+        alpha_outp = node.outputs.get(root_ch.name + io_suffix['ALPHA'])
+        mat.node_tree.links.new(alpha_outp, emit.inputs[0])
+        bake_alpha_to_vcol()
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, emit)
@@ -1036,30 +1322,36 @@ def get_valid_filepath(img, use_hdr):
 
     return img.filepath
 
-def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1):
+def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
+                 aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
+                 use_float_for_displacement=False, use_float_for_normal=False):
 
     print('BAKE CHANNEL: Baking', root_ch.name + ' channel...')
 
     tree = node.node_tree
     yp = tree.yp
+    ypup = get_user_preferences()
+
+    channel_idx = get_channel_index(root_ch)
 
     # Check if udim image is needed based on number of tiles
-    objs = get_all_objects_with_same_materials(mat)
-    tilenums = UDIM.get_tile_numbers(objs, uv_map)
+    if tilenums == []:
+        objs = get_all_objects_with_same_materials(mat)
+        tilenums = UDIM.get_tile_numbers(objs, uv_map)
 
     # Check if temp bake is necessary
-    #temp_baked = []
-    #if root_ch.type == 'NORMAL':
-    #    for lay in yp.layers:
-    #        if lay.type in {'HEMI'} and not lay.use_temp_bake:
-    #            print('BAKE CHANNEL: Fake lighting layer found! Baking temporary image of ' + lay.name + ' layer...')
-    #            temp_bake(bpy.context, lay, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
-    #            temp_baked.append(lay)
-    #        for mask in lay.masks:
-    #            if mask.type in {'HEMI'} and not mask.use_temp_bake:
-    #                print('BAKE CHANNEL: Fake lighting mask found! Baking temporary image of ' + mask.name + ' mask...')
-    #                temp_bake(bpy.context, mask, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
-    #                temp_baked.append(mask)
+    temp_baked = []
+    if root_ch.type == 'NORMAL':
+        for lay in yp.layers:
+            if lay.type in {'HEMI'} and not lay.use_temp_bake:
+                print('BAKE CHANNEL: Fake lighting layer found! Baking temporary image of ' + lay.name + ' layer...')
+                temp_bake(bpy.context, lay, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
+                temp_baked.append(lay)
+            for mask in lay.masks:
+                if mask.type in {'HEMI'} and not mask.use_temp_bake:
+                    print('BAKE CHANNEL: Fake lighting mask found! Baking temporary image of ' + mask.name + ' mask...')
+                    temp_bake(bpy.context, mask, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
+                    temp_baked.append(mask)
 
     ch = None
     img = None
@@ -1074,12 +1366,26 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         if source.image.yia.is_image_atlas and target_layer.segment_name != '':
             segment = source.image.yia.segments.get(target_layer.segment_name)
+        elif source.image.yua.is_udim_atlas and target_layer.segment_name != '':
+            segment = source.image.yua.segments.get(target_layer.segment_name)
         else:
             img_name = source.image.name
+            # Set new name for original image
+            source.image.name = get_unique_name(img_name, bpy.data.images)
             img = source.image.copy()
             img.name = img_name
 
-        ch = target_layer.channels[get_channel_index(root_ch)]
+        ch = target_layer.channels[channel_idx]
+
+    # Check if udim will be used
+    use_udim = force_use_udim or len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED')
+
+    # Get output node and remember original bsdf input
+    output = get_active_mat_output_node(mat.node_tree)
+    ori_bsdf = output.inputs[0].links[0].from_socket
+
+    # Get material output
+    mat_out = get_material_output(mat)
 
     # Create setup nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -1095,9 +1401,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     # Set tex as active node
     mat.node_tree.nodes.active = tex
 
-    # Get output node and remember original bsdf input
-    output = get_active_mat_output_node(mat.node_tree)
-    ori_bsdf = output.inputs[0].links[0].from_socket
+    #disp_from_socket = None
+    #for l in output.inputs['Displacement'].links:
+    #    disp_from_socket = l.from_socket
 
     # Connect emit to output material
     mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
@@ -1125,6 +1431,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL':
                 baked.color_space = 'NONE'
             else: baked.color_space = 'COLOR'
+        baked.interpolation = interpolation
         
         # Normal related nodes
         if root_ch.type == 'NORMAL':
@@ -1148,20 +1455,25 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 filepath = baked.image.filepath
             else: filepath = get_valid_filepath(baked.image, use_hdr)
             baked.image.name = '____TEMP'
-            #if baked.image.users == 1:
-            #    bpy.data.images.remove(baked.image)
 
     if not img:
 
         if segment:
-            width = segment.width
-            height = segment.height
+            if source.image.yia.is_image_atlas:
+                width = segment.width
+                height = segment.height
 
-            if source.image.yia.color == 'WHITE':
-                color = (1.0, 1.0, 1.0, 1.0)
-            elif source.image.yia.color == 'BLACK':
-                color = (0.0, 0.0, 0.0, 1.0)
-            else: color = (0.0, 0.0, 0.0, 0.0)
+                if source.image.yia.color == 'WHITE':
+                    color = (1.0, 1.0, 1.0, 1.0)
+                elif source.image.yia.color == 'BLACK':
+                    color = (0.0, 0.0, 0.0, 1.0)
+                else: color = (0.0, 0.0, 0.0, 0.0)
+            else:
+                copy_dict = {}
+                segment_tilenums = UDIM.get_udim_segment_tilenums(segment)
+                tilenums = UDIM.get_udim_segment_base_tilenums(segment)
+
+                color = segment.base_color
 
         elif root_ch.type == 'NORMAL':
             color = (0.5, 0.5, 1.0, 1.0)
@@ -1174,20 +1486,44 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             color = (0.0, 0.0, 0.0, 1.0)
 
         else:
-            col = node.inputs[root_ch.name].default_value
+            # NOTE: Sometimes user like to add solid color as base color rather than edit the channel background color
+            # So check the first layer that uses solid color that has no masks and use it as bake background color
+            base_solid_color = None
+            for layer in yp.layers:
+                if not layer.enable or layer.type != 'COLOR' or len(layer.masks) > 0 or layer.parent_idx != -1: continue
+                c = layer.channels[channel_idx]
+                if not c.enable or c.override: continue
+                source = get_layer_source(layer)
+                if source:
+                    base_solid_color = source.outputs[0].default_value
+                    break
+
+            if base_solid_color != None:
+                col = base_solid_color
+            else: col = node.inputs[root_ch.name].default_value
+
             col = Color((col[0], col[1], col[2]))
             col = linear_to_srgb(col)
             color = (col.r, col.g, col.b, 1.0)
 
         # Create new image
-        if len(tilenums) > 1:
+        #if force_use_udim or len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED'):
+        if use_udim:
+
             # Create new udim image
             img = bpy.data.images.new(name=img_name, width=width, height=height, 
                     alpha=True, tiled=True) #float_buffer=hdr)
 
             # Fill tiles
-            for tilenum in tilenums:
-                UDIM.fill_tile(img, tilenum, color, width, height)
+            if segment:
+                for i, tilenum in enumerate(tilenums):
+                    tile = source.image.tiles.get(segment_tilenums[i])
+                    copy_dict[tilenum] = segment_tilenums[i]
+                    if tile: UDIM.fill_tile(img, tilenum, color, tile.size[0], tile.size[1])
+            else:
+                for tilenum in tilenums:
+                    UDIM.fill_tile(img, tilenum, color, width, height)
+
             UDIM.initial_pack_udim(img, color)
 
         else:
@@ -1202,18 +1538,20 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         img.generated_color = color
 
         # Set filepath
-        if filepath != '':
+        if filepath != '' and (
+                (use_udim and '.<UDIM>.' in filepath) or 
+                (not use_udim and '.<UDIM>.' not in filepath)
+            ):
             img.filepath = filepath
 
-        # Use hdr if not baking normal
-        if root_ch.type != 'NORMAL' and use_hdr:
+        # Use hdr
+        if (root_ch.type == 'NORMAL' and use_float_for_normal) or use_hdr:
             img.use_generated_float = True
-            #img.colorspace_settings.name = 'Non-Color'
 
         # Set colorspace to linear
         if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL' or (root_ch.type != 'NORMAL' and use_hdr):
-            img.colorspace_settings.name = 'Non-Color'
-        else: img.colorspace_settings.name = 'sRGB'
+            img.colorspace_settings.name = get_noncolor_name()
+        else: img.colorspace_settings.name = get_srgb_name()
 
     # Bake main image
     if (
@@ -1234,23 +1572,35 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         mat.node_tree.links.new(rgb, emit.inputs[0])
 
-        #if root_ch.type == 'NORMAL':
-        #    return
-
         # Bake!
         print('BAKE CHANNEL: Baking main image of ' + root_ch.name + ' channel...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
     # Bake displacement
     if root_ch.type == 'NORMAL':
 
+        # Make sure height outputs available
+        check_all_channel_ios(yp, reconnect=True, force_height_io=True)
+
         if not target_layer:
 
             ### Normal overlay only
-            if is_overlay_normal_empty(yp):
+            if is_overlay_normal_empty(yp) and not root_ch.enable_subdiv_setup:
                 # Remove baked_normal_overlay
                 remove_node(tree, root_ch, 'baked_normal_overlay')
             else:
+
+                # Original displacement connection
+                ori_disp_from_node = ''
+                ori_disp_from_socket = ''
+
+                # Remove displacement link if subdiv setup is on
+                if root_ch.enable_subdiv_setup:
+                    for link in mat_out.inputs['Displacement'].links:
+                        ori_disp_from_node = link.from_node.name
+                        ori_disp_from_socket = link.from_socket.name
+                        mat.node_tree.links.remove(link)
+                        break
 
                 baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
                 if not baked_normal_overlay:
@@ -1265,12 +1615,12 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     #filepath = get_valid_filepath(baked_normal_overlay.image, use_hdr)
                     baked_normal_overlay.image.name = '____NORM_TEMP'
                 else:
-                    norm_img_name = tree.name + ' ' + root_ch.name + ' Overlay Only'
+                    norm_img_name = tree.name + ' ' + root_ch.name + ' without Bump'
 
                 # Create target image
                 norm_img = img.copy()
                 norm_img.name = norm_img_name
-                norm_img.colorspace_settings.name = 'Non-Color'
+                norm_img.colorspace_settings.name = get_noncolor_name()
                 color = (0.5, 0.5, 1.0, 1.0)
 
                 if img.source == 'TILED':
@@ -1278,26 +1628,32 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     UDIM.initial_pack_udim(norm_img, color)
                 else: 
                     norm_img.generated_color = color
-                    norm_img.filepath = filepath
+                    if filepath != '' and (
+                            (use_udim and '.<UDIM>.' in filepath) or 
+                            (not use_udim and '.<UDIM>.' not in filepath)
+                        ):
+                        norm_img.filepath = filepath
 
                 tex.image = norm_img
 
                 # Bake setup (doing little bit doing hacky reconnection here)
                 end = tree.nodes.get(TREE_END)
-                ori_soc = end.inputs[root_ch.name].links[0].from_socket
                 end_linear = tree.nodes.get(root_ch.end_linear)
-                soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
-                create_link(tree, soc, end.inputs[root_ch.name])
-                #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
+                if end_linear:
+                    ori_soc = end.inputs[root_ch.name].links[0].from_socket
+                    soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
+                    create_link(tree, soc, end.inputs[root_ch.name])
+                    #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
 
                 # Bake
                 print('BAKE CHANNEL: Baking normal overlay image of ' + root_ch.name + ' channel...')
-                bpy.ops.object.bake()
+                bake_object_op()
 
                 #return
 
                 # Recover connection
-                create_link(tree, ori_soc, end.inputs[root_ch.name])
+                if end_linear:
+                    create_link(tree, ori_soc, end.inputs[root_ch.name])
 
                 # Set baked normal overlay image
                 if baked_normal_overlay.image:
@@ -1305,9 +1661,130 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     img_users = get_all_image_users(baked_normal_overlay.image)
                     for user in img_users:
                         user.image = norm_img
-                    bpy.data.images.remove(temp)
+                    remove_datablock(bpy.data.images, temp)
                 else:
                     baked_normal_overlay.image = norm_img
+
+                # Recover displacement link
+                if ori_disp_from_node != '':
+                    nod = mat.node_tree.nodes.get(ori_disp_from_node)
+                    if nod: 
+                        soc = nod.outputs.get(ori_disp_from_socket)
+                        if soc:
+                            mat.node_tree.links.new(soc, mat_out.inputs['Displacement'])
+
+            ### Vector Displacement
+            if not any_layers_using_vdisp(yp):
+                # Remove baked_vdisp
+                remove_node(tree, root_ch, 'baked_vdisp')
+            else:
+
+                baked_vdisp = tree.nodes.get(root_ch.baked_vdisp)
+                if not baked_vdisp:
+                    baked_vdisp = new_node(tree, root_ch, 'baked_vdisp', 'ShaderNodeTexImage', 
+                            'Baked ' + root_ch.name + ' Vector Displacement')
+                    if hasattr(baked_vdisp, 'color_space'):
+                        baked_vdisp.color_space = 'NONE'
+
+                if baked_vdisp.image:
+                    vdisp_img_name = baked_vdisp.image.name
+                    filepath = baked_vdisp.image.filepath
+                    baked_vdisp.image.name = '____VDISP_TEMP'
+                else:
+                    vdisp_img_name = tree.name + ' ' + root_ch.name + ' Vector Displacement'
+
+                # Set interpolation to cubic
+                baked_vdisp.interpolation = 'Cubic'
+
+                # Create target image
+                vdisp_img = img.copy()
+                vdisp_img.name = vdisp_img_name
+                vdisp_img.use_generated_float = True
+                vdisp_img.colorspace_settings.name = get_noncolor_name()
+                color = (0.0, 0.0, 0.0, 1.0)
+
+                if img.source == 'TILED':
+                    UDIM.fill_tiles(vdisp_img, color)
+                    UDIM.initial_pack_udim(vdisp_img, color)
+                else: 
+                    vdisp_img.generated_color = color
+                    if filepath != '' and (
+                            (use_udim and '.<UDIM>.' in filepath) or 
+                            (not use_udim and '.<UDIM>.' not in filepath)
+                        ):
+                        vdisp_img.filepath = filepath
+
+                tex.image = vdisp_img
+
+                # Bake setup 
+                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['VDISP']], 
+                        emit.inputs[0])
+
+                # Bake
+                print('BAKE CHANNEL: Baking vector displacement image of ' + root_ch.name + ' channel...')
+                bake_object_op()
+
+                # Set baked vector displacement image
+                if baked_vdisp.image:
+                    temp = baked_vdisp.image
+                    img_users = get_all_image_users(baked_vdisp.image)
+                    for user in img_users:
+                        user.image = vdisp_img
+                    remove_datablock(bpy.data.images, temp)
+                else:
+                    baked_vdisp.image = vdisp_img
+
+            ### Max Height
+
+            # Create target image
+            if UDIM.is_udim_supported():
+                mh_img = bpy.data.images.new(name='____MAXHEIGHT_TEMP', width=100, height=100, 
+                        alpha=False, tiled=False, float_buffer=True)
+            else:
+                mh_img = bpy.data.images.new(name='____MAXHEIGHT_TEMP', width=100, height=100, 
+                        alpha=False, float_buffer=True)
+
+            mh_img.colorspace_settings.name = get_noncolor_name()
+            tex.image = mh_img
+
+            # Bake setup (doing little bit doing hacky reconnection here)
+            start = tree.nodes.get(TREE_START)
+            end = tree.nodes.get(TREE_END)
+            ori_soc = end.inputs[root_ch.name].links[0].from_socket
+            max_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
+            # Get the last layer that output max height
+            for l in yp.layers:
+                if not l.enable or not l.channels[get_channel_index(root_ch)].enable: continue
+                lnode = tree.nodes.get(l.group_node)
+                outp = lnode.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
+                if outp:
+                    max_height = outp
+                    break
+            create_link(tree, max_height, end.inputs[root_ch.name])
+            create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
+                    emit.inputs[0])
+
+            # Use high margin to make sure all pixels are covered
+            ori_margin = bpy.context.scene.render.bake.margin
+            bpy.context.scene.render.bake.margin = 1000
+
+            # Bake
+            print('BAKE CHANNEL: Baking max height of ' + root_ch.name + ' channel...')
+            bake_object_op()
+
+            # Recover margin
+            bpy.context.scene.render.bake.margin = ori_margin
+
+            # Recover connection
+            create_link(tree, ori_soc, end.inputs[root_ch.name])
+
+            # Set baked max height image
+            max_height_value = mh_img.pixels[0]
+            end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+            end_max_height.outputs[0].default_value = max_height_value
+
+            # Remove max height image
+            remove_datablock(bpy.data.images, mh_img, user=tex, user_prop='image')
 
             ### Displacement
 
@@ -1325,11 +1802,15 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 #filepath = get_valid_filepath(baked_disp.image, use_hdr)
                 baked_disp.image.name = '____DISP_TEMP'
             else:
-                disp_img_name = tree.name + ' ' + root_ch.name + ' Displacement'
+                disp_img_name = tree.name + ' Displacement'
+
+            # Set interpolation to cubic
+            baked_disp.interpolation = 'Cubic'
 
             disp_img = img.copy()
             disp_img.name = disp_img_name
-            disp_img.colorspace_settings.name = 'Non-Color'
+            disp_img.use_generated_float = use_float_for_displacement
+            disp_img.colorspace_settings.name = get_noncolor_name()
             color = (0.5, 0.5, 0.5, 1.0)
 
             if img.source == 'TILED':
@@ -1337,7 +1818,11 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 UDIM.initial_pack_udim(disp_img, color)
             else: 
                 disp_img.generated_color = color
-                disp_img.filepath = filepath
+                if filepath != '' and (
+                        (use_udim and '.<UDIM>.' in filepath) or 
+                        (not use_udim and '.<UDIM>.' not in filepath)
+                    ):
+                    disp_img.filepath = filepath
 
         elif ch.normal_map_type == 'BUMP_MAP':
             disp_img = img
@@ -1368,7 +1853,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
             # Bake
             print('BAKE CHANNEL: Baking displacement image of ' + root_ch.name + ' channel...')
-            bpy.ops.object.bake()
+            bake_object_op()
 
             if not target_layer:
 
@@ -1378,12 +1863,15 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     img_users = get_all_image_users(baked_disp.image)
                     for user in img_users:
                         user.image = disp_img
-                    bpy.data.images.remove(temp)
+                    remove_datablock(bpy.data.images, temp)
                 else:
                     baked_disp.image = disp_img
 
             if spread_height:
                 simple_remove_node(mat.node_tree, spread_height)
+
+        # Recover input outputs
+        check_all_channel_ios(yp)
 
     # Bake alpha
     #if root_ch.type != 'NORMAL' and root_ch.enable_alpha:
@@ -1391,7 +1879,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         # Create temp image
         alpha_img = img.copy()
-        alpha_img.colorspace_settings.name = 'Non-Color'
+        alpha_img.colorspace_settings.name = get_noncolor_name()
         create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], emit.inputs[0])
         tex.image = alpha_img
 
@@ -1402,7 +1890,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         # Bake
         print('BAKE CHANNEL: Baking alpha of ' + root_ch.name + ' channel...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Set tile pixels
         for tilenum in tilenums:
@@ -1421,7 +1909,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 UDIM.swap_tile(alpha_img, 1001, tilenum)
 
         # Remove temp image
-        bpy.data.images.remove(alpha_img)
+        remove_datablock(bpy.data.images, alpha_img, user=tex, user_prop='image')
 
     if not target_layer:
         # Set image to baked node and replace all previously original users
@@ -1430,11 +1918,11 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             img_users = get_all_image_users(baked.image)
             for user in img_users:
                 user.image = img
-            bpy.data.images.remove(temp)
+            remove_datablock(bpy.data.images, temp)
         else:
             baked.image = img
 
-    simple_remove_node(mat.node_tree, tex)
+    simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img)
     simple_remove_node(mat.node_tree, emit)
     #simple_remove_node(mat.node_tree, lin2srgb)
     #simple_remove_node(mat.node_tree, srgb2lin)
@@ -1445,28 +1933,29 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
     # Recover baked temp
-    #for ent in temp_baked:
-    #    print('BAKE CHANNEL: Removing temporary baked ' + ent.name + '...')
-    #    disable_temp_bake(ent)
+    for ent in temp_baked:
+        print('BAKE CHANNEL: Removing temporary baked ' + ent.name + '...')
+        disable_temp_bake(ent)
 
     # Set image to target layer
     if target_layer:
         ori_img = source.image
 
         if segment:
-            copy_image_pixels(img, ori_img, segment)
+            if ori_img.yia.is_image_atlas:
+                copy_image_pixels(img, ori_img, segment)
+            else:
+                UDIM.copy_tiles(img, ori_img, copy_dict)
 
             # Remove temp image
-            bpy.data.images.remove(img)
+            remove_datablock(bpy.data.images, img)
         else:
             source.image = img
-
-            if ori_img.users == 0:
-                bpy.data.images.remove(ori_img)
+            safe_remove_image(ori_img)
 
         return True
 
-def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake_device='CPU'):
+def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake_device='CPU', margin_type='ADJACENT_FACES'):
 
     m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
@@ -1479,7 +1968,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
 
     # Prepare bake settings
     book = remember_before_bake(yp)
-    prepare_bake_settings(book, [obj], yp, samples, margin, uv_map, bake_device=bake_device)
+    prepare_bake_settings(book, [obj], yp, samples, margin, uv_map, bake_device=bake_device, margin_type=margin_type)
 
     mat = get_active_material()
     name = entity.name + ' Temp'
@@ -1487,7 +1976,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
     # New target image
     image = bpy.data.images.new(name=name,
             width=width, height=height, alpha=True, float_buffer=hdr)
-    image.colorspace_settings.name = 'Non-Color'
+    image.colorspace_settings.name = get_noncolor_name()
 
     if entity.type == 'HEMI':
 
@@ -1500,19 +1989,21 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
 
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
         emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+        geo = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
         output = get_active_mat_output_node(mat.node_tree)
         ori_bsdf = output.inputs[0].links[0].from_socket
 
         # Connect emit to output material
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
         mat.node_tree.links.new(source_copy.outputs[0], output.inputs[0])
+        mat.node_tree.links.new(geo.outputs['Normal'], source_copy.inputs['Normal'])
 
         # Set active texture
         tex.image = image
         mat.node_tree.nodes.active = tex
 
         # Bake
-        bpy.ops.object.bake()
+        bake_object_op()
 
         # Recover link
         mat.node_tree.links.new(ori_bsdf, output.inputs[0])
@@ -1521,6 +2012,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
         mat.node_tree.nodes.remove(tex)
         simple_remove_node(mat.node_tree, emit)
         simple_remove_node(mat.node_tree, source_copy)
+        simple_remove_node(mat.node_tree, geo)
 
         # Set entity original type
         entity.original_type = 'HEMI'
@@ -1602,7 +2094,11 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
 
         # Apply shape keys
         if obj.data.shape_keys:
-            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+            # Set active shape to make sure context will be correct
+            if not obj.active_shape_key: obj.active_shape_key_index = 0
+            if is_greater_than_330():
+                bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+            else: bpy.ops.object.shape_key_remove(all=True)
 
         # Apply modifiers
         mnames = [m.name for m in obj.modifiers]
@@ -1654,12 +2150,12 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
     # Remove temp meshes
     for nm in new_meshes:
         if nm != merged_obj.data:
-            bpy.data.meshes.remove(nm)
+            remove_datablock(bpy.data.meshes, nm)
 
     print('INFO: Merging mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
     return merged_obj
 
-def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='GPU', specific_tile=0):
+def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='CPU', specific_tile=0):
 
     T = time.time()
     image_name = image.name
@@ -1691,10 +2187,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
     # Create new plane
     bpy.ops.object.mode_set(mode = 'OBJECT')
-    bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
-    if is_greater_than_280():
-        plane_obj = bpy.context.view_layer.objects.active
-    else: plane_obj = bpy.context.scene.objects.active
+    plane_obj = create_plane_on_object_mode()
 
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=margin, bake_device=bake_device)
 
@@ -1711,7 +2204,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     source_tex.image = image
 
     if not is_greater_than_280() :
-        if image.colorspace_settings.name == 'sRGB':
+        if image.colorspace_settings.name == get_srgb_name():
             source_tex.color_space = 'COLOR'
         else: source_tex.color_space = 'NONE'
 
@@ -1795,14 +2288,14 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
         # Bake
         print('RESIZE IMAGE: Baking resized image on', image_name + '...')
-        bpy.ops.object.bake()
+        bake_object_op()
 
         if alpha_aware:
 
             # Create alpha image as bake target
             alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
                     width=width, height=height, alpha=True, float_buffer=image.is_float)
-            alpha_img.colorspace_settings.name = 'Non-Color'
+            alpha_img.colorspace_settings.name = get_noncolor_name()
 
             # Retransform back uv
             if segment:
@@ -1826,12 +2319,14 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
             # Bake again!
             print('RESIZE IMAGE: Baking resized alpha on', image_name + '...')
-            bpy.ops.object.bake()
+            bake_object_op()
 
-            copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, segment)
+            if new_segment:
+                copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, new_segment)
+            else: copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, segment)
 
             # Remove alpha image
-            bpy.data.images.remove(alpha_img)
+            remove_datablock(bpy.data.images, alpha_img)
 
         if image.source == 'TILED':
             # Resize tile first
@@ -1840,7 +2335,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
             # Copy resized image to tile
             copy_image_pixels(scaled_img, image)
 
-            bpy.data.images.remove(scaled_img)
+            remove_datablock(bpy.data.images, scaled_img)
         else:
             if not new_segment:
                 # Replace original image to scaled image
@@ -1853,11 +2348,11 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
     # Remove temp datas
     if straight_over.node_tree.users == 1:
-        bpy.data.node_groups.remove(straight_over.node_tree)
-    bpy.data.materials.remove(mat)
+        remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
+    remove_datablock(bpy.data.materials, mat)
     plane = plane_obj.data
     bpy.ops.object.delete()
-    bpy.data.meshes.remove(plane)
+    remove_datablock(bpy.data.meshes, plane)
 
     # Recover settings
     recover_bake_settings(book)
@@ -1881,7 +2376,8 @@ def get_temp_default_material():
 
 def remove_temp_default_material():
     mat = bpy.data.materials.get(TEMP_MATERIAL)
-    if mat: bpy.data.materials.remove(mat)
+    if mat: 
+        remove_datablock(bpy.data.materials, mat)
 
 def get_temp_emit_white_mat():
     mat = bpy.data.materials.get(TEMP_EMIT_WHITE)
@@ -1899,7 +2395,8 @@ def get_temp_emit_white_mat():
 
 def remove_temp_emit_white_mat():
     mat = bpy.data.materials.get(TEMP_EMIT_WHITE)
-    if mat: bpy.data.materials.remove(mat)
+    if mat: 
+        remove_datablock(bpy.data.materials, mat)
 
 def get_output_uv_names_from_geometry_nodes(obj):
     if not is_greater_than_350: return []
@@ -1909,10 +2406,49 @@ def get_output_uv_names_from_geometry_nodes(obj):
     
     for m in obj.modifiers:
         if m.type == 'NODES' and m.node_group:
-            for outp in m.node_group.outputs:
-                if outp.type == 'VECTOR':
+            outputs = get_tree_outputs(m.node_group)
+            for outp in outputs:
+                if ((is_greater_than_400() and outp.socket_type == 'NodeSocketVector') or
+                    (not is_greater_than_400() and outp.type == 'VECTOR')):
                     uv = uv_layers.get(m[outp.identifier + '_attribute_name'])
                     if uv: uv_names.append(uv.name)
 
     return uv_names
+
+class BaseBakeOperator():
+    bake_device : EnumProperty(
+            name='Bake Device',
+            description='Device to use for baking',
+            items = (('GPU', 'GPU Compute', ''),
+                     ('CPU', 'CPU', '')),
+            default='CPU'
+            )
+    
+    samples : IntProperty(name='Bake Samples', 
+            description='Bake Samples, more means less jagged on generated textures', 
+            default=1, min=1)
+
+    margin : IntProperty(name='Bake Margin',
+            description = 'Bake margin in pixels',
+            default=5, subtype='PIXEL')
+
+    margin_type : EnumProperty(name = 'Margin Type',
+            description = '',
+            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
+            default = 'ADJACENT_FACES')
+
+    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+
+    def invoke_operator(self, context):
+        ypup = get_user_preferences()
+
+        # Set up default bake device
+        if ypup.default_bake_device != 'DEFAULT':
+            self.bake_device = ypup.default_bake_device
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
 

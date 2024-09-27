@@ -4,20 +4,12 @@ from bpy.types import Operator, AddonPreferences
 from bpy.app.handlers import persistent
 from . import image_ops
 from .common import *
+from . import addon_updater_ops
 
 class YPaintPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
     bl_idname = __package__
-
-    auto_save : EnumProperty(
-            name = 'Auto Save/Pack Images',
-            description = 'Auto save/pack images when saving blend',
-            items = (('FORCE_ALL', 'Force All Images', ''),
-                     ('ONLY_DIRTY', 'Only Dirty Images', ''),
-                     ('OFF', 'Off', ''),
-                     ),
-            default = 'ONLY_DIRTY')
 
     default_new_image_size : IntProperty(
             name = 'Default New Image Size',
@@ -28,14 +20,14 @@ class YPaintPreferences(AddonPreferences):
     image_atlas_size : IntProperty(
             name = 'Image Atlas Size',
             description = 'Image Atlas Size',
-            default = 4096,
-            min=2048, max=8192)
+            default = 8192,
+            min=2048, max=16384)
 
     hdr_image_atlas_size : IntProperty(
             name = 'HDR Image Atlas Size',
             description = 'HDR Image Atlas Size',
-            default = 2048,
-            min=1024, max=4096)
+            default = 4096,
+            min=1024, max=8192)
 
     unique_image_atlas_per_yp : BoolProperty(
             name = 'Use unique Image Atlas per ' + get_addon_title() + ' tree',
@@ -67,8 +59,58 @@ class YPaintPreferences(AddonPreferences):
             description = 'Make it possible to use parallax without using baked textures (currently VERY SLOW)',
             default = False)
 
+    default_bake_device : EnumProperty(
+            name = 'Default Bake Device',
+            description = 'Default bake device',
+            items = (('DEFAULT', 'Default', 'Use last selected bake device'),
+                     ('CPU', 'CPU', 'Use CPU by default'),
+                     ('GPU', 'GPU Compute', 'Use GPU by default')),
+            default='DEFAULT'
+            )
+    
+    # Addon updater preferences.
+    auto_check_update : BoolProperty(
+        name="Auto-check for Update",
+        description="If enabled, auto-check for updates using an interval",
+        default=True)
+    
+    updater_interval_months : IntProperty(
+        name='Months',
+        description="Number of months between checking for updates",
+        default=0,
+        min=0)
+    
+    updater_interval_days : IntProperty(
+        name='Days',
+        description="Number of days between checking for updates",
+        default=1,
+        min=0,
+        max=31)
+    
+    updater_interval_hours : IntProperty(
+        name='Hours',
+        description="Number of hours between checking for updates",
+        default=0,
+        min=0,
+        max=23)
+    
+    updater_interval_minutes : IntProperty(
+        name='Minutes',
+        description="Number of minutes between checking for updates",
+        default=1,
+        min=0,
+        max=59)
+
+    library_location : StringProperty(
+            name = 'Texture library path',
+            description = 'Location of texture library',
+            subtype='DIR_PATH',
+            )
+
     def draw(self, context):
-        self.layout.prop(self, 'auto_save')
+        if is_greater_than_280():
+            self.layout.prop(self, 'default_bake_device')
+
         self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
@@ -77,22 +119,66 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
-        self.layout.prop(self, 'parallax_without_baked')
+        #self.layout.prop(self, 'parallax_without_baked')
 
+        if self.developer_mode:
+            box = self.layout.box()
+
+            box.prop(self, "auto_check_update")
+            sub_col = box.column()
+            if not self.auto_check_update:
+                sub_col.enabled = False
+            sub_row = sub_col.row()
+            sub_row.label(text="Interval between checks")
+            sub_row = sub_col.row(align=True)
+            check_col = sub_row.column(align=True)
+            check_col.prop(self, "updater_interval_days")
+            check_col = sub_row.column(align=True)
+            check_col.prop(self, "updater_interval_hours")
+            check_col = sub_row.column(align=True)
+            check_col.prop(self, "updater_interval_minutes")
+            check_col = sub_row.column(align=True)
+
+        addon_updater_ops.update_settings_ui(self, context)
+        self.layout.prop(self, 'library_location')
+        if not self.library_location.strip():
+            self.layout.label(text = "Please select the folder of textures library", icon = 'INFO')
+@persistent
+def setup_library(scene):
+    bpy.app.handlers.load_post.remove(setup_library)
+    ypup:YPaintPreferences = get_user_preferences()
+   
+    if not ypup.library_location:
+        libraries = bpy.context.preferences.filepaths.asset_libraries
+        if len(libraries):
+            for lib in libraries:
+                if os.path.exists(lib.path):
+                    ypup.library_location = lib.path
+                    break
+    if not ypup.library_location:
+        home = os.path.expanduser("~")
+        new_path = os.path.join(home, "ucupaint-library") + os.sep 
+        if not os.path.exists(new_path):
+            os.mkdir(new_path)
+        ypup.library_location = new_path
 @persistent
 def auto_save_images(scene):
 
-    if is_greater_than_280():
-        ypup = bpy.context.preferences.addons[__package__].preferences
-    else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+    ypup = get_user_preferences()
 
     for tree in bpy.data.node_groups:
         if not hasattr(tree, 'yp'): continue
         if tree.yp.is_ypaint_node:
-            if ypup.auto_save == 'ONLY_DIRTY':
-                image_ops.save_pack_all(tree.yp, only_dirty=True)
-            elif ypup.auto_save == 'FORCE_ALL':
-                image_ops.save_pack_all(tree.yp, only_dirty=False)
+            image_ops.save_pack_all(tree.yp)
+
+        # NOTE: Version update only happen when loading the blend file or updating the node tree
+        # Update version
+        #try: tree.yp.version = get_current_version_str()
+        #except: print('EXCEPTIION: Cannot save yp version!')
+        #try: tree.yp.blender_version = get_current_blender_version_str()
+        #except: print('EXCEPTIION: Cannot save blender version!')
+        #try: tree.yp.is_unstable = get_alpha_suffix() != ''
+        #except: print('EXCEPTIION: Cannot save unstable version flag!')
 
 # HACK: For some reason active float image will glitch after auto save
 # This hack will fix that
@@ -117,8 +203,8 @@ def refresh_float_image_hack(scene):
 
 def register():
     bpy.utils.register_class(YPaintPreferences)
-
     bpy.app.handlers.save_pre.append(auto_save_images)
+    bpy.app.handlers.load_post.append(setup_library)
     bpy.app.handlers.save_post.append(refresh_float_image_hack)
 
 def unregister():

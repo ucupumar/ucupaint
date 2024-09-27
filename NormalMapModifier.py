@@ -1,6 +1,7 @@
 import bpy, re
 from bpy.props import *
 from .common import *
+from .modifier_common import *
 from .node_connections import *
 from .node_arrangements import *
 from . import lib
@@ -9,39 +10,6 @@ normalmap_modifier_type_items = (
         ('INVERT', 'Invert', 'Invert', 'MODIFIER', 0),
         ('MATH', 'Math', '', 'MODIFIER', 1),
         )
-
-def check_normalmap_modifier_nodes(m, tree):
-
-    # Create the nodes
-    if m.type == 'INVERT':
-        if not m.enable:
-            remove_node(tree, m, 'invert')
-        else:
-            invert, dirty = check_new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert', True)
-            if dirty:
-                invert.node_tree = get_node_tree_lib(lib.MOD_INVERT)
-                invert.inputs[2].default_value = 1.0 if m.invert_r_enable else 0.0
-                invert.inputs[3].default_value = 1.0 if m.invert_g_enable else 0.0
-                invert.inputs[4].default_value = 1.0 if m.invert_b_enable else 0.0
-                invert.inputs[5].default_value = 1.0 if m.invert_a_enable else 0.0
-
-    elif m.type == 'MATH':
-        if not m.enable:
-            remove_node(tree, m, 'math')
-        else:
-            math, dirty = check_new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math', True)
-            if dirty:
-                math.node_tree = get_node_tree_lib(lib.MOD_MATH)
-                duplicate_lib_node_tree(math)
-                math.inputs[2].default_value = m.math_r_val
-                math.inputs[3].default_value = m.math_g_val
-                math.inputs[4].default_value = m.math_b_val
-                math.inputs[5].default_value = m.math_a_val
-
-                math.node_tree.nodes.get('Math.R').use_clamp = m.use_clamp
-                math.node_tree.nodes.get('Math.A').use_clamp = m.use_clamp
-                math.node_tree.nodes.get('Math.G').use_clamp = m.use_clamp
-                math.node_tree.nodes.get('Math.B').use_clamp = m.use_clamp
 
 def add_new_normalmap_modifier(ch, layer, modifier_type):
     tree = get_tree(layer)
@@ -55,15 +23,7 @@ def add_new_normalmap_modifier(ch, layer, modifier_type):
     m = ch.modifiers_1[0]
     m.type = modifier_type
 
-    check_normalmap_modifier_nodes(m, tree)
-
-def delete_modifier_nodes(tree, mod):
-
-    if mod.type == 'INVERT':
-        remove_node(tree, mod, 'invert')
-
-    elif mod.type == 'MATH':
-        remove_node(tree, mod, 'math')
+    check_modifier_nodes(m, tree)
 
 class YNewNormalmapModifier(bpy.types.Operator):
     bl_idname = "node.y_new_normalmap_modifier"
@@ -301,35 +261,9 @@ def update_normalmap_modifier_enable(self, context):
     layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
 
-    check_normalmap_modifier_nodes(self, tree)
+    check_modifier_nodes(self, tree)
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
-
-def draw_modifier_properties(modifier, layout):
-
-    if modifier.type == 'INVERT':
-        row = layout.row(align=True)
-        row.prop(modifier, 'invert_r_enable', text='R', toggle=True)
-        row.prop(modifier, 'invert_g_enable', text='G', toggle=True)
-        row.prop(modifier, 'invert_b_enable', text='B', toggle=True)
-        row.prop(modifier, 'invert_a_enable', text='A', toggle=True)
-
-    elif modifier.type == 'MATH':
-        col = layout.column(align=True)
-        row = col.row()
-        col.prop(modifier, 'math_meth')
-        row = col.row()
-        row.label(text='Clamp:')
-        row.prop(modifier, 'use_clamp', text='')
-        col.prop(modifier, 'math_r_val', text='R')
-        col.prop(modifier, 'math_g_val', text='G')
-        col.prop(modifier, 'math_b_val', text='B')
-        col.separator()
-        row = col.row()
-        row.label(text='Affect Alpha:')
-        row.prop(modifier, 'affect_alpha', text='')
-        if modifier.affect_alpha :
-            col.prop(modifier, 'math_a_val', text='A')
 
 class YNormalMapModifier(bpy.types.PropertyGroup):
     enable : BoolProperty(default=True, update=update_normalmap_modifier_enable)
