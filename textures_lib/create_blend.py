@@ -91,7 +91,6 @@ for image_path in image_paths:
 		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
 		tex_image.image = image
 
-thumbnail_file = os.path.join(dir_target, arg_dict["id"]+".png")
 new_material.asset_mark()
 if cat_id:
     new_material.asset_data.catalog_id = cat_id
@@ -103,9 +102,6 @@ new_material.asset_data.description = "Material by ambientcg.com"
 
 override = bpy.context.copy()
 override["id"] = new_material
-print("thumbfile: ", thumbnail_file)
-with bpy.context.temp_override(**override):
-    bpy.ops.ed.lib_id_load_custom_preview(filepath=thumbnail_file)
 
 bpy.ops.mesh.primitive_plane_add(size=2)
 obj = bpy.context.active_object
