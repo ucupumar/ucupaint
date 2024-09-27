@@ -1793,6 +1793,43 @@ class YChangeActiveYPaintNode(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def duplicate_mat(mat):
+    # HACK: mat.copy() on Blender 3.0 and newer will make the yp tree used by 3 users (it should be 2 users)
+    # To get around this issue, use a temporary tree that will replace the yp trees before doing mat.copy()
+    if is_bl_newer_than(3):
+
+        yp_trees = {}
+        temp_trees = []
+
+        # Create temporary trees that will replace the yp tree
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node:
+                yp_trees[node.name] = node.node_tree
+
+                temp_tree = node.node_tree.copy()
+                temp_trees.append(temp_tree)
+
+                node.node_tree = temp_tree
+
+        # Duplicate material
+        new_mat = mat.copy()
+
+        # Set back yp tree to original nodes
+        for node_name, tree in yp_trees.items():
+            node = mat.node_tree.nodes.get(node_name)
+            node.node_tree = tree
+
+            node = new_mat.node_tree.nodes.get(node_name)
+            node.node_tree = tree
+
+        # Remove temporary trees
+        for temp_tree in reversed(temp_trees):
+            remove_datablock(bpy.data.node_groups, temp_tree)
+
+        return new_mat
+
+    return mat.copy()
+
 class YDuplicateYPNodes(bpy.types.Operator):
     bl_idname = "node.y_duplicate_yp_nodes"
     bl_label = "Duplicate " + get_addon_title() + " Nodes"
@@ -1863,7 +1900,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
         if self.duplicate_material:
 
             # Duplicate the material
-            dup_mat = mat.copy()
+            dup_mat = duplicate_mat(mat)
             for obj in objs:
                 for i, m in enumerate(obj.data.materials):
                     if m == mat:

@@ -513,7 +513,7 @@ GAMMA = 2.2
 valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
 
 def version_tuple(version_string):
-    return tuple(map(int, version_string.split('.')))
+    return tuple(map(int, version_string.split('.'))) if version_string != '' else (0, 0, 0)
 
 def get_manifest():
     import tomllib
