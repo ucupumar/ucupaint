@@ -841,7 +841,12 @@ def get_user_preferences():
     return bpy.context.user_preferences.addons[__package__].preferences
 
 def get_operator_description(operator):
-    description = operator.bl_description or operator.bl_label
+    if hasattr(operator, 'bl_description'):
+        description = operator.bl_description
+    elif hasattr(operator, 'bl_label'):
+        description = operator.bl_label
+    else:
+        return ''
     return description + ". Hold Shift for options" if get_user_preferences().skip_property_popups else ""
 
 def get_all_layer_collections(arr, col):
