@@ -90,7 +90,7 @@ def create_input(tree, name, socket_type, valid_inputs, index,
         if hasattr(inp, 'hide_value'): 
             inp.hide_value = hide_value
         else:
-            # NOTE: On some blender versions, hide_value is a node input prop
+            # NOTE: In some blender versions, hide_value is a node input prop
             if not node:
                 n = get_active_ypaint_node()
                 if n and n.node_tree == tree:
@@ -696,8 +696,8 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
             other_layers.append(parent)
 
         # Check child layers
-        childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
-        for child in childs: 
+        children, child_ids = get_list_of_all_children_and_child_ids(layer)
+        for child in children: 
             other_layers.append(child)
 
         # Check background layers

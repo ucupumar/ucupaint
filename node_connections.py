@@ -285,7 +285,7 @@ def remove_unused_group_node_connections(tree, layer, node): #, height_only=Fals
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        if has_channel_childrens(layer, root_ch): continue
+        if has_channel_children(layer, root_ch): continue
 
         io_name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP']
         if io_name in node.inputs:

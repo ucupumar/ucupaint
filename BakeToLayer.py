@@ -765,7 +765,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             active_layer = yp.layers[yp.active_layer_index]
 
         if self.type == 'SELECTED_VERTICES' and obj.mode != 'EDIT':
-            self.report({'ERROR'}, "Should be on edit mode!")
+            self.report({'ERROR'}, "Should be in edit mode!")
             return {'CANCELLED'}
 
         if self.target_type == 'MASK' and not active_layer:
@@ -781,7 +781,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             return {'CANCELLED'}
 
         if self.type in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_bl_newer_than(2, 80):
-            #self.report({'ERROR'}, "This feature is not implemented yet on Blender 2.79!")
+            #self.report({'ERROR'}, "This feature is not implemented yet in Blender 2.79!")
             self.report({'ERROR'}, "Blender 2.80+ is needed to use this feature!")
             return {'CANCELLED'}
 
@@ -1139,7 +1139,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
                 bpy.ops.paint.vertex_color_dirt(dirt_angle=math.pi/2)
 
-            print('BAKE TO LAYER: Applying subsurf/multires is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+            print('BAKE TO LAYER: Applying subsurf/multires is done in', '{:0.2f}'.format(time.time() - tt), 'seconds!')
 
         # Setup for flow
         if self.type == 'FLOW':
@@ -1993,8 +1993,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         #yp.active_layer_index = yp.active_layer_index
 
-        if image: print('BAKE TO LAYER: Baking', image.name, 'is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
-        else: print('BAKE TO LAYER: No image created! Executed at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        if image: print('BAKE TO LAYER: Baking', image.name, 'is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        else: print('BAKE TO LAYER: No image created! Executed in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 

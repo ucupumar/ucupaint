@@ -520,7 +520,7 @@ def check_create_spread_alpha(layer, tree, root_ch, ch):
     channel_enabled = get_channel_enabled(ch, layer, root_ch)
     need_reconnect = False
 
-    # NOTE: Remove spread alpha node entirely (at least for now), since it provides almost nothing in most situation
+    # NOTE: Remove spread alpha node entirely (at least for now), since it provides almost nothing in most situations
     if False and channel_enabled and layer.type == 'IMAGE' and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
         if root_ch.enable_smooth_bump:
             spread_alpha, dirty = replace_new_node(tree, ch, 'spread_alpha', 
@@ -748,7 +748,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
 
     if obj.type != 'MESH': return None
 
-    # Cannot do this on edit mode
+    # Cannot do this in edit mode
     ori_obj = bpy.context.object
     ori_mode = ori_obj.mode
     if ori_mode != 'OBJECT':

@@ -251,8 +251,8 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         # Remove temp image
         remove_datablock(bpy.data.images, temp_image, user=tex, user_prop='image')
 
-    # HACK: Pack and refresh to update image on Blender 2.77 and lower
-    if not is_bl_newer_than(2, 78, 0) and (image.packed_file or image.filepath == ''):
+    # HACK: Pack and refresh to update image in Blender 2.77 and lower
+    if not is_bl_newer_than(2, 78) and (image.packed_file or image.filepath == ''):
         if image.is_float:
             image_ops.pack_float_image(image)
         else: image.pack(as_png=True)
@@ -533,7 +533,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
-        print('INFO: All layer and masks that using', self.from_uv_map, 'is transferred to', self.uv_map, 'at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print('INFO: All layers and masks using', self.from_uv_map, 'are transferred to', self.uv_map, 'in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
@@ -837,7 +837,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
 
     vcol_name : StringProperty(
             name='Target Vertex Color Name', 
-            description="Target vertex color name, it will create one if it doesn't exists",
+            description="Target vertex color name, it will create one if it doesn't exist",
             default='')
     
     add_emission : BoolProperty(
@@ -882,7 +882,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
 
         self.vcol_name = 'Baked ' + channel.name
 
-        # Add emission will only availabel if it's on Color channel
+        # Add emission will only be available if it's on Color channel
         self.show_emission_option = False
         if channel.name == 'Color':
             for ch in yp.channels:
@@ -1007,7 +1007,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
                     vcol = vcols.get(vcol_name)
                     set_active_vertex_color(ob, vcol)
 
-                # Multi materials setup
+                # Multi-material setup
                 ori_mat_ids = {}
                 for ob in objs:
 
@@ -1883,7 +1883,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             for o in temp_objs:
                 remove_mesh_obj(o)
 
-        print('INFO:', tree.name, 'channels is baked at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print('INFO:', tree.name, 'channels are baked in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
@@ -2498,8 +2498,8 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         # Copy results to original image
         copy_image_pixels(img, source.image, segment)
 
-        # HACK: Pack and refresh to update image on Blender 2.77 and lower
-        if not is_bl_newer_than(2, 78, 0) and (source.image.packed_file or source.image.filepath == ''):
+        # HACK: Pack and refresh to update image in Blender 2.77 and lower
+        if not is_bl_newer_than(2, 78) and (source.image.packed_file or source.image.filepath == ''):
             if source.image.is_float:
                 image_ops.pack_float_image(source.image)
             else: source.image.pack(as_png=True)
@@ -2557,7 +2557,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_bake_temp_image"
     bl_label = "Bake temporary image of layer"
-    bl_description = "Bake temporary image of layer, can be useful to prefent glitch on cycles"
+    bl_description = "Bake temporary image of layer, can be useful to prefent glitching with cycles"
     bl_options = {'REGISTER', 'UNDO'}
 
     uv_map : StringProperty(default='')
@@ -3351,7 +3351,7 @@ def check_subdiv_setup(height_ch):
     # Scene and material displacement settings
     if height_ch.enable_subdiv_setup:
 
-        # Displacement only works with experimental feature set on Blender 2.79
+        # Displacement only works with experimental feature set in Blender 2.79
         if height_ch.subdiv_adaptive or not is_bl_newer_than(2, 80):
             scene.cycles.feature_set = 'EXPERIMENTAL'
 
@@ -3370,7 +3370,7 @@ def check_subdiv_setup(height_ch):
         else: mat.cycles.displacement_method = 'TRUE'
         
         # Displacement method is inside object data for Blender 2.77 and below 
-        if not is_bl_newer_than(2, 78, 0):
+        if not is_bl_newer_than(2, 78):
             for obj in objs:
                 if obj.data and hasattr(obj.data, 'cycles'):
                     obj.data.cycles.displacement_method = 'TRUE'
@@ -3564,7 +3564,7 @@ def get_objs_size_proportions(objs):
     
     for obj in objs:
         sorted_dim = sorted(obj.dimensions, reverse=True)
-        # Object size is only measured on its largest 2 dimensions because this should works on a plane too
+        # Object size is only measured on its largest 2 dimensions because this should work on a plane too
         size = sorted_dim[0] * sorted_dim[1]
         sizes.append(size)
 

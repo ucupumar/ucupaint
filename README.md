@@ -10,7 +10,7 @@ Open Blender, go to _Edit > Preferences > Add-ons_, press the _Install_ button, 
 
 ### Installation from Extension Platform
 Ucupaint is also available on [Blender Extension Platform](https://extensions.blender.org/add-ons/ucupaint/). 
-It means for Blender 4.2+, you can just search for 'Ucupaint' on _Edit > Preferences > Get Extensions_.
+It means for Blender 4.2+, you can just search for 'Ucupaint' in _Edit > Preferences > Get Extensions_.
 Be aware that this version has no branch selection, which can be useful for testing new features.
 
 ### Location

@@ -104,7 +104,7 @@ def update_tangent_process(tree, lib_name):
         ng.node_tree = get_node_tree_lib(lib_name)
         duplicate_lib_node_tree(ng)
 
-        print('INFO:', ori_tree.name, 'is replaced to', ng.node_tree.name + '!')
+        print('INFO:', ori_tree.name, 'is replaced by', ng.node_tree.name + '!')
 
         # Copy some nodes inside
         for n in ng.node_tree.nodes:
@@ -301,7 +301,7 @@ def update_yp_tree(tree):
             # Update vcol layer to use alpha by reconnection
             if layer.type == 'VCOL':
 
-                # Smooth bump channel need another fake neighbor for alpha
+                # Smooth bump channel needs another fake neighbor for alpha
                 smooth_bump_ch = get_smooth_bump_channel(layer)
                 if smooth_bump_ch and smooth_bump_ch.enable:
                     layer_tree = get_tree(layer)
@@ -733,7 +733,7 @@ def update_yp_tree(tree):
         print('INFO:', 'Converting old mix rgb nodes to newer ones...')
         convert_mix_nodes(tree)
 
-    # Version 1.0.12 will use newer tangent process nodes on Blender 3.0 or above
+    # Version 1.0.12 will use newer tangent process nodes in Blender 3.0 or above
     if is_bl_newer_than(3) and (
             version_tuple(yp.version) < (1, 0, 12) or is_created_before(3) or version_tuple(yp.blender_version) < (3, 0, 0)
         ):
@@ -836,7 +836,7 @@ def update_routine(name):
                         if node.type == 'GROUP' and node.node_tree == legacy_ng:
                             node.node_tree = newer_ng
 
-                print('INFO:', legacy_ng.name, 'is replaced to', newer_ng.name + '!')
+                print('INFO:', legacy_ng.name, 'is replaced by', newer_ng.name + '!')
 
                 # Remove old tree
                 remove_datablock(bpy.data.node_groups, legacy_ng)
@@ -877,7 +877,7 @@ def update_routine(name):
                     new_tree = used_nodes[0].node_tree
                     #newer_ng.name = name
 
-                    print('INFO:', ori_tree.name, 'is replaced to', new_tree.name + '!')
+                    print('INFO:', ori_tree.name, 'is replaced by', new_tree.name + '!')
 
                     if newer_ng not in copied_groups:
                         copied_groups.append(newer_ng)
@@ -885,7 +885,7 @@ def update_routine(name):
                     # Copy some nodes inside
                     for n in new_tree.nodes:
                         if n.name.startswith('_'):
-                            # Try to get the node on original tree
+                            # Try to get the node in original tree
                             ori_n = ori_tree.nodes.get(n.name)
                             if ori_n: copy_node_props(ori_n, n)
 
@@ -926,7 +926,7 @@ def update_routine(name):
 
         print('INFO: Bake Info is updated to be able to point directly to object since Blender 2.79')
 
-    print('INFO: ' + get_addon_title() + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: ' + get_addon_title() + ' update routine is done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def get_inside_group_update_names(tree, update_names):
 
@@ -1283,7 +1283,7 @@ def update_node_tree_libs(name):
             if l.filepath in filepaths:
                 bpy.data.batch_remove(ids=(l,))
 
-    print('INFO: ' + get_addon_title() + ' Node group libraries are checked at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: ' + get_addon_title() + ' Node group libraries are checked in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 class YUpdateYPTrees(bpy.types.Operator):
     bl_idname = "node.y_update_yp_trees"

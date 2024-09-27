@@ -482,7 +482,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Vertex Color is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Vertex Color is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -701,7 +701,7 @@ class YNewVDMLayer(bpy.types.Operator):
             if uv and not uv.active_render:
                 uv.active_render = True
 
-        print('INFO: VDM Layer', layer.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: VDM Layer', layer.name, 'is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1213,9 +1213,9 @@ class YNewLayer(bpy.types.Operator):
                 self.report({'ERROR'}, "Layer named '" + self.name +"' is already available!")
             return {'CANCELLED'}
 
-        # Edge Detect mask is only possible on Blender 2.93 or above
+        # Edge Detect mask is only possible in Blender 2.93 or above
         if not is_bl_newer_than(2, 93) and self.add_mask and self.mask_type == 'EDGE_DETECT':
-            self.report({'ERROR'}, "Edge detect mask is only supported on Blender 2.93 or above!")
+            self.report({'ERROR'}, "Edge detect mask is only supported in Blender 2.93 or above!")
             return {'CANCELLED'}
 
         # Clearing unused image atlas segments
@@ -1342,7 +1342,7 @@ class YNewLayer(bpy.types.Operator):
 
         ypui.need_update = True
 
-        print('INFO: Layer', layer.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', layer.name, 'created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1495,7 +1495,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Image(s) opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1646,7 +1646,7 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Image(s) opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1736,7 +1736,7 @@ class BaseMultipleImagesLayer():
 
     def is_synonym_in_image_name(self, syname, img_name):
 
-        # Check entire name of synonym if it's on image name
+        # Check entire name of synonym if it's in image name
         if (img_name.endswith(syname) or # Example: 'rocks_normalgl'
             '_' + syname in img_name or # Example: 'rocks_normalgl_4k'
             ' ' + syname in img_name # Example: 'rocks normalgl 4k'
@@ -1744,7 +1744,7 @@ class BaseMultipleImagesLayer():
             return True
 
         if ' ' in syname:
-            # Check if synonym without whitespace is on image name
+            # Check if synonym without whitespace is in image name
             no_whitespace = syname.replace(' ', '')
             if (img_name.endswith(no_whitespace) or # Example: 'rocks_ambientocclusion'
                 '_' + no_whitespace + '_' in img_name or # Example: 'rocks_ambientocclusion_4k'
@@ -1752,7 +1752,7 @@ class BaseMultipleImagesLayer():
                 ):
                 return True
 
-            # Check if synonym with underscore is on image name
+            # Check if synonym with underscore is in image name
             underscore = syname.replace(' ', '_')
             if (img_name.endswith(underscore) or # Example: 'rocks_ambient_occlusion'
                 '_' + underscore + '_' in img_name or # Example: 'rocks_ambient_occlusion_4k'
@@ -1760,7 +1760,7 @@ class BaseMultipleImagesLayer():
                 ):
                 return True
 
-        # Check parts of synonym if it's on image name
+        # Check parts of synonym if it's in image name
         for i in range(3, 6):
             if len(syname) > i:
                 part = syname[:i]
@@ -1953,7 +1953,7 @@ class BaseMultipleImagesLayer():
         wm.ypui.layer_ui.expand_content = True
         wm.ypui.layer_ui.expand_vector = True
 
-        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Image(s) opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return True
@@ -2189,7 +2189,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
                         images.append(baked.image)
 
         if not images:
-            self.report({'ERROR'}, "Cannot found images inside the material!")
+            self.report({'ERROR'}, "Couldn't find images inside of the material!")
             return {'CANCELLED'}
 
         # Check for existing images if the image source is from asset library
@@ -2484,7 +2484,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             wm.ypui.layer_ui.expand_content = True
             wm.ypui.layer_ui.expand_vector = True
 
-        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Image(s) opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -2598,7 +2598,7 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Data is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Data is opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -2775,7 +2775,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Data is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Data is opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -2982,7 +2982,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             wm.ypui.layer_ui.expand_content = True
             wm.ypui.layer_ui.expand_vector = True
 
-        print('INFO: Image', self.image_name, 'is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Image', self.image_name, 'is opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -3104,7 +3104,7 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Layer', layer.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', layer.name, 'is moved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -3255,7 +3255,7 @@ class YMoveLayer(bpy.types.Operator):
         # Update UI
         wm.ypui.need_update = True
 
-        print('INFO: Layer', layer.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', layer.name, 'is moved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -3415,19 +3415,19 @@ def draw_remove_group(self, context):
     col = self.layout.column()
 
     c = col.operator("node.y_remove_layer", text='Remove parent only', icon='PANEL_CLOSE')
-    c.remove_childs = False
+    c.remove_children = False
     c.remove_on_disk = False
 
-    c = col.operator("node.y_remove_layer", text='Remove parent with all its childrens', icon='PANEL_CLOSE')
-    c.remove_childs = True
+    c = col.operator("node.y_remove_layer", text='Remove parent with all of its children', icon='PANEL_CLOSE')
+    c.remove_children = True
     c.remove_on_disk = False
 
     if hasattr(context, 'layer') and any_single_user_ondisk_image_inside_group(context.layer):
         col.separator()
         col.alert = True
         col.label(text='Danger Zone', icon='ERROR')
-        c = col.operator("node.y_remove_layer", text='Remove parent with all its childrens and files on disk (WARNING: NO PROMPT & NO UNDO!)', icon='PANEL_CLOSE')
-        c.remove_childs = True
+        c = col.operator("node.y_remove_layer", text='Remove parent with all of its children and files on disk (WARNING: NO PROMPT & NO UNDO!)', icon='PANEL_CLOSE')
+        c.remove_children = True
         c.remove_on_disk = True
 
 class YRemoveLayerMenu(bpy.types.Operator):
@@ -3452,7 +3452,7 @@ class YRemoveLayer(bpy.types.Operator):
     bl_description = "Remove Layer"
     bl_options = {'UNDO'}
 
-    remove_childs : BoolProperty(name='Remove Childs', description='Remove layer childrens', default=False)
+    remove_children : BoolProperty(name='Remove Children', description='Remove layer children', default=False)
     remove_on_disk : BoolProperty(name='Remove Image on disk', description='Remove image file on disk', default=False)
 
     @classmethod
@@ -3473,7 +3473,7 @@ class YRemoveLayer(bpy.types.Operator):
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
-        # Removing UDIM atlas segment is can't be undoed
+        # Removing UDIM atlas segment can't be undone
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         layer = yp.layers[yp.active_layer_index]
@@ -3504,7 +3504,7 @@ class YRemoveLayer(bpy.types.Operator):
 
         obj = context.object
         if obj.mode != 'OBJECT':
-            col.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
+            col.label(text='You cannot UNDO this operation in this mode, are you sure?', icon='ERROR')
         elif hasattr(self, 'using_udim_atlas') and self.using_udim_atlas:
             col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
             col.label(text='You cannot UNDO after removal', icon='BLANK1')
@@ -3541,17 +3541,17 @@ class YRemoveLayer(bpy.types.Operator):
         # Remove layer fcurves first
         remove_entity_fcurves(layer)
 
-        if self.remove_childs:
+        if self.remove_children:
 
             last_idx = get_last_child_idx(layer)
             for i in reversed(range(layer_idx, last_idx+1)):
                 remove_layer(yp, i, remove_on_disk=self.remove_on_disk)
                 
-            # The childs are all gone
+            # The children are all gone
             child_ids = []
 
         else:
-            # Get childrens and repoint child parents
+            # Get children and repoint child parents
             child_ids = get_list_of_direct_child_ids(layer)
             for i in child_ids:
                 parent_dict[yp.layers[i].name] = parent_dict[layer.name]
@@ -3584,7 +3584,7 @@ class YRemoveLayer(bpy.types.Operator):
         # Check uv maps
         check_uv_nodes(yp)
 
-        # Check childrens
+        # Check children
         #if need_reconnect_layers:
         for i in child_ids:
             lay = yp.layers[i-1]
@@ -3610,7 +3610,7 @@ class YRemoveLayer(bpy.types.Operator):
         # Refresh normal map
         yp.refresh_tree = True
 
-        print('INFO: Layer', layer_name, 'is deleted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', layer_name, 'is deleted in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -3623,9 +3623,9 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     parent_dict = get_parent_dict(yp)
     child_ids = []
 
-    # If layer type is group, get childrens and repoint child parents
+    # If layer type is group, get children and repoint child parents
     if layer.type == 'GROUP':
-        # Get childrens and repoint child parents
+        # Get children and repoint child parents
         child_ids = get_list_of_direct_child_ids(layer)
         for i in child_ids:
             parent_dict[yp.layers[i].name] = parent_dict[layer.name]
@@ -3750,7 +3750,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         if root_ch.type == 'RGB':
             root_ch.colorspace = root_ch.colorspace
 
-    # Check childrens which need rearrange
+    # Check children which need rearrange
     for lay in yp.layers:
         check_all_layer_channel_io_and_nodes(lay)
         reconnect_layer_nodes(lay)
@@ -3894,7 +3894,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
     # Check uv maps
     check_uv_nodes(yp)
 
-    # Check childrens which need rearrange
+    # Check children which need rearrange
     #for i in child_ids:
         #lay = yp.layers[i]
     #for lay in yp.layers:
@@ -4077,7 +4077,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         replace_layer_type(self.layer, self.type, self.item_name)
 
-        print('INFO: Layer', layer.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', layer.name, 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -4397,7 +4397,7 @@ class YDuplicateLayer(bpy.types.Operator):
 
     ondisk_duplicate : BoolProperty(
             name = 'Duplicate Images on disk',
-            description = 'Duplicate images on disk, this will create copy of images sourced from external files',
+            description = 'Duplicate images on disk, this will create copies of images sourced from external files',
             default = False
             )
 
@@ -4454,13 +4454,13 @@ class YDuplicateLayer(bpy.types.Operator):
         layer = yp.layers[layer_idx]
         source_layer_name = layer.name
 
-        # Get all childrens
-        childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
+        # Get all children
+        children, child_ids = get_list_of_all_children_and_child_ids(layer)
 
         # Collect relevant ids to duplicate
         relevant_layer_names = [layer.name]
         relevant_ids = [layer_idx]
-        for child in childs:
+        for child in children:
             relevant_layer_names.append(child.name)
         relevant_ids.extend(child_ids)
 
@@ -4542,7 +4542,7 @@ class YDuplicateLayer(bpy.types.Operator):
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
 
-        print('INFO: Layer', source_layer_name, 'is duplicated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', source_layer_name, 'is duplicated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -4589,7 +4589,7 @@ class YPasteLayer(bpy.types.Operator):
 
     ondisk_duplicate : BoolProperty(
             name = 'Duplicate Images on disk',
-            description = 'Duplicate images on disk, this will create copy of images sourced from external files',
+            description = 'Duplicate images on disk, this will create copies of images sourced from external files',
             default = False
             )
     
@@ -4692,12 +4692,12 @@ class YPasteLayer(bpy.types.Operator):
             # Check index of copied layer to know the offest
             first_copied_index = get_layer_index_by_name(yp_source, layer_source.name)
 
-            # Get all childrens
-            childs, child_ids = get_list_of_all_childs_and_child_ids(layer_source)
+            # Get all children
+            children, child_ids = get_list_of_all_children_and_child_ids(layer_source)
 
             # Collect relevant names
             relevant_layer_names = [layer_source.name]
-            for child in childs:
+            for child in children:
                 relevant_layer_names.append(child.name)
 
         # Get parent and index dict
@@ -4786,7 +4786,7 @@ class YPasteLayer(bpy.types.Operator):
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
 
-        print('INFO: Layer(s) are pasted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer(s) pasted in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -4926,7 +4926,7 @@ def update_channel_enable(self, context):
         ch.active_edit = False
         ch.active_edit_1 = False
 
-    print('INFO: Channel '+ root_ch.name + ' of ' + layer.name + ' is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Channel '+ root_ch.name + ' of ' + layer.name + 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
 def update_normal_map_type(self, context):
@@ -4975,7 +4975,7 @@ def update_blend_type(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
-    print('INFO: Layer', layer.name, ' blend type is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Layer', layer.name, ' blend type is changed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
 def update_flip_backface_normal(self, context):
@@ -5279,7 +5279,7 @@ def update_layer_enable(self, context):
 
     context.window_manager.yptimer.time = str(time.time())
 
-    print('INFO: Layer', layer.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Layer', layer.name, 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_layer_name(self, context):
     yp = self.id_data.yp
@@ -5966,7 +5966,7 @@ class YLayer(bpy.types.PropertyGroup):
     # For temporary bake
     use_temp_bake : BoolProperty(
             name = 'Use Temporary Bake',
-            description = 'Use temporary bake, it can be useful for prevent glitch on cycles',
+            description = 'Use temporary bake, it can be useful for prevent glitching with cycles',
             default = False,
             #update=update_layer_temp_bake
             )

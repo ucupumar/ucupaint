@@ -864,7 +864,7 @@ def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
 
     if mod_group:
 
-        # Add new copied modifier nodes on layer tree
+        # Add new copied modifier nodes into the layer tree
         for mod in parent.modifiers:
             check_modifier_nodes(mod, parent_tree, mod_group.node_tree)
 

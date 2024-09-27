@@ -305,7 +305,7 @@ class YNewLayerMask(bpy.types.Operator):
 
     hemi_use_prev_normal : BoolProperty(
             name = 'Use previous Normal',
-            description = 'Take account previous Normal',
+            description = 'Take previous Normal into the account',
             default = True)
 
     # For object index
@@ -873,7 +873,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             mask.expand_content = True
             mask.expand_vector = True
 
-        print('INFO: Image(s) is opened as mask(s) at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Image(s) opened as mask(s) in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1005,7 +1005,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                 if not img.yia.is_image_atlas and img not in baked_channel_images and img != layer_image and img not in mask_images and img.name not in {'Render Result', 'Viewer Node'}:
                     self.image_coll.add().name = img.name
 
-            # Make sure default image is available on the collection and update the source input based on the default name
+            # Make sure default image is available in the collection and update the source input based on the default name
             if self.image_name not in self.image_coll:
                 self.image_name = ''
             else: self.image_name = self.image_name
@@ -1036,7 +1036,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                 if vcol_name != layer_vcol_name and vcol_name not in mask_vcol_names:
                     self.vcol_coll.add().name = vcol_name
 
-            # Make sure default vcol is available on the collection and update the source input based on the default name
+            # Make sure default vcol is available in the collection and update the source input based on the default name
             if self.vcol_name not in self.vcol_coll:
                 self.vcol_name = ''
             else: self.vcol_name = self.vcol_name
@@ -1899,7 +1899,7 @@ class YLayerMask(bpy.types.PropertyGroup):
     # For temporary bake
     use_temp_bake : BoolProperty(
             name = 'Use Temporary Bake',
-            description = 'Use temporary bake, it can be useful for prevent glitch on cycles',
+            description = 'Use temporary bake, it can be useful to prevent glitching with cycles',
             default = False,
             )
 

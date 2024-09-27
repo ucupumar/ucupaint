@@ -113,7 +113,7 @@ def clean_unused_frames(tree):
         if frame not in parents:
             tree.nodes.remove(frame)
 
-    #print('INFO: Unused frames cleaned at ', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    #print('INFO: Unused frames cleaned in ', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def rearrange_yp_frame_nodes(yp):
     tree = yp.id_data
