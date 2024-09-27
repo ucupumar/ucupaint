@@ -24,13 +24,13 @@ def channel_items(self, context):
         #if hasattr(lib, 'custom_icons'):
         # Add two spaces to prevent text from being translated
         text_ch_name = ch.name + '  '
-        if not is_greater_than_280():
+        if not is_bl_newer_than(2, 80):
             icon_name = lib.channel_custom_icon_dict[ch.type]
             items.append((str(i), text_ch_name, '', lib.get_icon(icon_name), i))
         else: items.append((str(i), text_ch_name, '', lib.channel_icon_dict[ch.type], i))
 
     #if hasattr(lib, 'custom_icons'):
-    if not is_greater_than_280():
+    if not is_bl_newer_than(2, 80):
         items.append(('-1', 'All Channels', '', lib.get_icon('channels'), len(items)))
     else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
 
@@ -39,7 +39,7 @@ def channel_items(self, context):
 def get_normal_map_type_items(self, context):
     items = []
 
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         items.append(('BUMP_MAP', 'Bump Map', ''))
         items.append(('NORMAL_MAP', 'Normal Map', ''))
         items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', ''))
@@ -265,7 +265,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
                 for o in objs:
                     if mask_name not in get_vertex_colors(o):
-                        if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                        if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                         mask_vcol = new_vertex_color(o, mask_name, mask_vcol_data_type, mask_vcol_domain)
                         if mask_color == 'WHITE':
                             set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0, 1.0))
@@ -414,14 +414,14 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         col = row.column()
         col.label(text='Name:')
 
-        if is_greater_than_320():
+        if is_bl_newer_than(3, 2):
             col.label(text='Domain:')
             col.label(text='Data Type:')
 
         col = row.column()
         col.prop(self, 'name', text='')
 
-        if is_greater_than_320():
+        if is_bl_newer_than(3, 2):
             crow = col.row(align=True)
             crow.prop(self, 'domain', expand=True)
             crow = col.row(align=True)
@@ -459,7 +459,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
         for o in objs:
             if self.name not in get_vertex_colors(o):
-                if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                 vcol = new_vertex_color(o, self.name, self.data_type, self.domain)
                 set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
                 set_active_vertex_color(o, vcol)
@@ -1037,7 +1037,7 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.label(text='Color:')
 
-        if self.type == 'VCOL' and is_greater_than_320():
+        if self.type == 'VCOL' and is_bl_newer_than(3, 2):
             col.label(text='Domain:')
             col.label(text='Data Type:')
 
@@ -1083,7 +1083,7 @@ class YNewLayer(bpy.types.Operator):
                         if UDIM.is_udim_supported():
                             col.label(text='')
                         col.label(text='')
-                if is_greater_than_320() and self.mask_type == 'VCOL':
+                if is_bl_newer_than(3, 2) and self.mask_type == 'VCOL':
                     col.label(text='Mask Domain:')
                     col.label(text='Mask Data Type:')
 
@@ -1103,7 +1103,7 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.prop(self, 'solid_color', text='')
 
-        if self.type == 'VCOL' and is_greater_than_320():
+        if self.type == 'VCOL' and is_bl_newer_than(3, 2):
             crow = col.row(align=True)
             crow.prop(self, 'vcol_domain', expand=True)
             crow = col.row(align=True)
@@ -1156,7 +1156,7 @@ class YNewLayer(bpy.types.Operator):
                             col.prop(self, 'use_udim_for_mask')
                         ccol = col.column()
                         ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
-                if is_greater_than_320() and self.mask_type == 'VCOL':
+                if is_bl_newer_than(3, 2) and self.mask_type == 'VCOL':
                     crow = col.row(align=True)
                     crow.prop(self, 'mask_vcol_domain', expand=True)
                     crow = col.row(align=True)
@@ -1186,7 +1186,7 @@ class YNewLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Vertex color only works with mesh object!")
             return {'CANCELLED'}
 
-        if (not is_greater_than_330() and
+        if (not is_bl_newer_than(3, 3) and
                 (
                 ((self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) 
                 and len(vcol_names) >= 8) 
@@ -1214,7 +1214,7 @@ class YNewLayer(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Edge Detect mask is only possible on Blender 2.93 or above
-        if not is_greater_than_293() and self.add_mask and self.mask_type == 'EDGE_DETECT':
+        if not is_bl_newer_than(2, 93) and self.add_mask and self.mask_type == 'EDGE_DETECT':
             self.report({'ERROR'}, "Edge detect mask is only supported on Blender 2.93 or above!")
             return {'CANCELLED'}
 
@@ -1278,10 +1278,10 @@ class YNewLayer(bpy.types.Operator):
 
             for o in objs:
                 if self.name not in get_vertex_colors(o):
-                    if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                    if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                     vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
 
-                    if is_greater_than_292():
+                    if is_bl_newer_than(2, 92):
                         set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
                     else: set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
 
@@ -1787,7 +1787,7 @@ class BaseMultipleImagesLayer():
 
         # Load images from directory
         if import_list:
-            if is_greater_than_277():
+            if is_bl_newer_than(2, 77):
                 images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
             else: images.extend(list(load_image(path, directory) for path in import_list))
 
@@ -2145,7 +2145,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
         # If not found get from the asset library
         from_asset_library = self.asset_library_path != ''
-        if not mat and from_asset_library and is_greater_than_300():
+        if not mat and from_asset_library and is_bl_newer_than(3):
             with bpy.data.libraries.load(str(self.asset_library_path), assets_only=True) as (data_from, data_to):
                 for mat in data_from.materials:
                     if mat == self.mat_name:
@@ -2746,7 +2746,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
 
             for o in objs:
                 if self.vcol_name not in get_vertex_colors(o):
-                    if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                    if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                     data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
                     other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
                     set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
@@ -2956,10 +2956,10 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
             for o in objs:
                 if self.vcol_name not in get_vertex_colors(o):
-                    if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                    if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                     data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
                     other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
-                    if is_greater_than_292():
+                    if is_bl_newer_than(2, 92):
                         set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 0.0))
                     else: set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
                     set_active_vertex_color(o, other_v)

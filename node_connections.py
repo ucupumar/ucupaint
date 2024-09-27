@@ -1527,7 +1527,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         #print(rgb)
         # Blender 2.79 cycles does not need bump normal
-        if not is_greater_than_280() and normal_no_bump and ch.type == 'NORMAL' and ch.enable_subdiv_setup:
+        if not is_bl_newer_than(2, 80) and normal_no_bump and ch.type == 'NORMAL' and ch.enable_subdiv_setup:
             create_link(tree, normal_no_bump, end.inputs[io_name])
         else: create_link(tree, rgb, end.inputs[io_name])
 
@@ -1663,7 +1663,7 @@ def reconnect_source_internal_nodes(layer):
 
     create_link(tree, start.outputs[0], source.inputs[0])
 
-    if is_greater_than_281() and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS':
+    if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS':
         rgb = source.outputs['Radius']
     else: rgb = source.outputs[0]
 
@@ -1884,7 +1884,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
 
     # RGB
-    if is_greater_than_281() and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS' and 'Radius' in source.outputs:
+    if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS' and 'Radius' in source.outputs:
         start_rgb = source.outputs['Radius']
     else: start_rgb = source.outputs[0]
 
@@ -2000,18 +2000,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mask_source_index = 0
         if not mask.use_baked and mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT'}:
             # Noise and voronoi output has flipped order since Blender 2.81
-            if is_greater_than_281() and mask.type == 'VORONOI' and mask.voronoi_feature == 'DISTANCE_TO_EDGE':
+            if is_bl_newer_than(2, 81) and mask.type == 'VORONOI' and mask.voronoi_feature == 'DISTANCE_TO_EDGE':
                 mask_source_index = 'Distance'
-            elif is_greater_than_281() and mask.type == 'VORONOI' and mask.voronoi_feature == 'N_SPHERE_RADIUS':
+            elif is_bl_newer_than(2, 81) and mask.type == 'VORONOI' and mask.voronoi_feature == 'N_SPHERE_RADIUS':
                 mask_source_index = 'Radius'
-            elif is_greater_than_281() and mask.type in {'NOISE', 'VORONOI'}:
+            elif is_bl_newer_than(2, 81) and mask.type in {'NOISE', 'VORONOI'}:
                 if mask.source_input == 'RGB':
                     mask_source_index = 1
             elif mask.type == 'BACKFACE':
                 mask_source_index = 'Backfacing'
             elif mask.source_input == 'ALPHA':
                 if mask.type == 'VCOL':
-                    if is_greater_than_292():
+                    if is_bl_newer_than(2, 92):
                         mask_source_index = 'Alpha'
                     else: mask_source_index = 'Fac'
                 else: mask_source_index = 1
@@ -2345,7 +2345,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         source_index = 0
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             # Noise and voronoi output has flipped order since Blender 2.81
-            if is_greater_than_281() and (layer.type == 'NOISE' or (layer.type == 'VORONOI' and layer.voronoi_feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})):
+            if is_bl_newer_than(2, 81) and (layer.type == 'NOISE' or (layer.type == 'VORONOI' and layer.voronoi_feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})):
                 if ch.layer_input == 'RGB':
                     rgb = start_rgb_1
                     alpha = start_alpha_1
@@ -2378,7 +2378,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
 
             if ch_source:
-                if is_greater_than_281() and ch.override_type == 'VORONOI' and ch.voronoi_feature == 'N_SPHERE_RADIUS':
+                if is_bl_newer_than(2, 81) and ch.override_type == 'VORONOI' and ch.voronoi_feature == 'N_SPHERE_RADIUS':
                     rgb = ch_source.outputs['Radius']
                 else: rgb = ch_source.outputs[0]
                 # Override channel will not output alpha whatsoever

@@ -104,7 +104,7 @@ def clean_object_references(image):
                 indices = []
                 for i, o in enumerate(segment.bake_info.selected_objects):
                     if o.object:
-                        if is_greater_than_280():
+                        if is_bl_newer_than(2, 80):
                             if not any([s for s in bpy.data.scenes if o.object.name in s.collection.all_objects]):
                                 removed_references.append(o.object.name)
                                 indices.append(i)
@@ -120,7 +120,7 @@ def clean_object_references(image):
                 indices = []
                 for i, o in enumerate(segment.bake_info.other_objects):
                     if o.object:
-                        if is_greater_than_280():
+                        if is_bl_newer_than(2, 80):
                             if not any([s for s in bpy.data.scenes if o.object.name in s.collection.all_objects]):
                                 removed_references.append(o.object.name)
                                 indices.append(i)
@@ -140,7 +140,7 @@ def clean_object_references(image):
             indices = []
             for i, o in enumerate(image.y_bake_info.selected_objects):
                 if o.object:
-                    if is_greater_than_280():
+                    if is_bl_newer_than(2, 80):
                         if not any([s for s in bpy.data.scenes if o.object.name in s.collection.all_objects]):
                             removed_references.append(o.object.name)
                             indices.append(i)
@@ -155,7 +155,7 @@ def clean_object_references(image):
             indices = []
             for i, o in enumerate(image.y_bake_info.other_objects):
                 if o.object:
-                    if is_greater_than_280():
+                    if is_bl_newer_than(2, 80):
                         if not any([s for s in bpy.data.scenes if o.object.name in s.collection.all_objects]):
                             removed_references.append(o.object.name)
                             indices.append(i)
@@ -238,7 +238,7 @@ def save_pack_all(yp):
 
     # Temporary scene for blender 3.30 hack
     tmpscene = None
-    if is_greater_than_330():
+    if is_bl_newer_than(3, 3):
         tmpscene = bpy.data.scenes.new('Temp Save Scene')
         try: tmpscene.view_settings.view_transform = 'Standard'
         except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
@@ -250,7 +250,7 @@ def save_pack_all(yp):
         if not image or not image.is_dirty: continue
         T = time.time()
         if image.packed_file or image.filepath == '':
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 image.pack()
             else:
                 if image.is_float:
@@ -265,7 +265,7 @@ def save_pack_all(yp):
                 save_float_image(image)
             else:
                 # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
-                if is_greater_than_330() and image.colorspace_settings.name in {'Linear', get_noncolor_name()}:
+                if is_bl_newer_than(3, 3) and image.colorspace_settings.name in {'Linear', get_noncolor_name()}:
 
                     # Get image path
                     path = bpy.path.abspath(image.filepath)
@@ -323,7 +323,7 @@ def save_pack_all(yp):
                 ypui.refresh_image_hack = True
 
     # Clean object reference on images
-    if is_greater_than_279():
+    if is_bl_newer_than(2, 79):
         for image in images:
             clean_object_references(image)
 
@@ -344,10 +344,10 @@ class YInvertImage(bpy.types.Operator):
             return {'CANCELLED'}
 
         # For some reason this no longer works since Blender 2.82, but worked again in Blender 4.2
-        if not is_greater_than_282() or is_greater_than_420():
+        if not is_bl_newer_than(2, 82) or is_bl_newer_than(4, 2):
             override = bpy.context.copy()
             override['edit_image'] = context.image
-            if is_greater_than_400():
+            if is_bl_newer_than(4):
                 with bpy.context.temp_override(**override):
                     bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
             else: bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
@@ -400,7 +400,7 @@ class YPackImage(bpy.types.Operator):
         T = time.time()
 
         # Save file to temporary place first if image is float
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             context.image.pack()
         else:
             if context.image.is_float:
@@ -419,7 +419,7 @@ class YPackImage(bpy.types.Operator):
 
                 baked_disp = tree.nodes.get(ch.baked_disp)
                 if baked_disp and baked_disp.image and not baked_disp.image.packed_file:
-                    if is_greater_than_280():
+                    if is_bl_newer_than(2, 80):
                         baked_disp.image.pack()
                     else:
                         if baked_disp.image.is_float:
@@ -430,7 +430,7 @@ class YPackImage(bpy.types.Operator):
 
                 baked_vdisp = tree.nodes.get(ch.baked_vdisp)
                 if baked_vdisp and baked_vdisp.image and not baked_vdisp.image.packed_file:
-                    if is_greater_than_280():
+                    if is_bl_newer_than(2, 80):
                         baked_vdisp.image.pack()
                     else:
                         if baked_vdisp.image.is_float:
@@ -442,7 +442,7 @@ class YPackImage(bpy.types.Operator):
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image and not baked_normal_overlay.image.packed_file:
-                        if is_greater_than_280():
+                        if is_bl_newer_than(2, 80):
                             baked_normal_overlay.image.pack()
                         else:
                             if baked_normal_overlay.image.is_float:
@@ -652,7 +652,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
         settings = tmpscene.render.image_settings
 
         # Blender 2.80 has filmic as default color settings, change it to standard
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             tmpscene.view_settings.view_transform = 'Standard'
 
         images = []
@@ -717,7 +717,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
             # Need to pack first to save the image
             if image.is_dirty:
-                if is_greater_than_280():
+                if is_bl_newer_than(2, 80):
                     image.pack()
                 else:
                     if image.is_float:
@@ -776,7 +776,7 @@ def get_file_format_items():
             ('TIFF', 'TIFF', '', 'IMAGE_DATA', 12)
             ]
 
-    if is_greater_than_320():
+    if is_bl_newer_than(3, 2):
         items.append(('WEBP', 'WebP', '', 'IMAGE_DATA', 13))
 
     return items
@@ -1048,7 +1048,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
             # Need to pack first to save the image
             if image.is_dirty:
-                if is_greater_than_280():
+                if is_bl_newer_than(2, 80):
                     image.pack()
                 else:
                     if image.is_float:
@@ -1064,7 +1064,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
 
         # Blender 2.80 has filmic as default color settings, change it to standard
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             tmpscene.view_settings.view_transform = 'Standard'
 
         # Some image need to set to srgb when saving
@@ -1094,7 +1094,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if image.source == 'TILED':
             override = bpy.context.copy()
             override['edit_image'] = image
-            if is_greater_than_400():
+            if is_bl_newer_than(4):
                 with bpy.context.temp_override(**override):
                     bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
             else: bpy.ops.image.save_as(override, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
@@ -1196,7 +1196,7 @@ class YConvertImageBitDepth(bpy.types.Operator):
 
         # Pack image
         if image.packed_file and image.source != 'TILED':
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 new_image.pack()
             else:
                 if new_image.is_float:

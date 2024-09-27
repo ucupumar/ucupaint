@@ -121,7 +121,7 @@ class YPaintPreferences(AddonPreferences):
         max=59)
 
     def draw(self, context):
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'default_bake_device')
             self.layout.prop(self, 'icons')
 

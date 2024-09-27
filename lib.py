@@ -242,7 +242,7 @@ def load_custom_icons():
     global custom_icons
     custom_icons = bpy.utils.previews.new()
 
-    if not is_greater_than_280():
+    if not is_bl_newer_than(2, 80):
         icon_set = 'legacy'
     else:
         icons = get_user_preferences().icons 

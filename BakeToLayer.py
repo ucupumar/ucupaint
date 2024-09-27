@@ -38,7 +38,7 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         scene_objs = get_scene_objects()
         objs = []
         for bso in bi.selected_objects:
-            if is_greater_than_279():
+            if is_bl_newer_than(2, 79):
                 bsoo = bso.object
             else: bsoo = scene_objs.get(bso.object_name)
 
@@ -48,7 +48,7 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         # Get actual selectable objects
         actual_selectable_objs = []
         for o in objs:
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
 
                 #for lc in layer_cols:
@@ -75,7 +75,7 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         bpy.ops.mesh.select_all(action='DESELECT')
 
         for bso in bi.selected_objects:
-            if is_greater_than_279():
+            if is_bl_newer_than(2, 79):
                 obj = bso.object
             else: obj = scene_objs.get(bso.object_name)
 
@@ -631,7 +631,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         if self.type == 'FLOW':
             col.label(text='Straight UV Map:')
         col.label(text='Margin:')
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             col.separator()
             col.label(text='Bake Device:')
         col.label(text='Interpolation:')
@@ -701,14 +701,14 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         if self.type == 'FLOW':
             col.prop_search(self, "uv_map_1", self, "uv_map_coll", text='', icon='GROUP_UVS')
-        if is_greater_than_310():
+        if is_bl_newer_than(3, 1):
             split = split_layout(col, 0.4, align=True)
             split.prop(self, 'margin', text='')
             split.prop(self, 'margin_type', text='')
         else:
             col.prop(self, 'margin', text='')
 
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             col.separator()
             col.prop(self, 'bake_device', text='')
         col.prop(self, 'interpolation', text='')
@@ -718,7 +718,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'ssaa')
         else: col.prop(self, 'fxaa')
 
-        if self.type in {'AO', 'BEVEL_MASK'} and is_greater_than_281():
+        if self.type in {'AO', 'BEVEL_MASK'} and is_bl_newer_than(2, 81):
             col.prop(self, 'denoise')
 
         col.separator()
@@ -776,11 +776,11 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             self.report({'ERROR'}, "Overwrite layer/mask cannot be empty!")
             return {'CANCELLED'}
 
-        if self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_greater_than_280():
+        if self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
             self.report({'ERROR'}, "Blender 2.80+ is needed to use this feature!")
             return {'CANCELLED'}
 
-        if self.type in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_greater_than_280():
+        if self.type in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_bl_newer_than(2, 80):
             #self.report({'ERROR'}, "This feature is not implemented yet on Blender 2.79!")
             self.report({'ERROR'}, "Blender 2.80+ is needed to use this feature!")
             return {'CANCELLED'}
@@ -876,12 +876,12 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
                 scene_objs = get_scene_objects()
                 for oo in bi.other_objects:
-                    if is_greater_than_279():
+                    if is_bl_newer_than(2, 79):
                         ooo = oo.object
                     else: ooo = scene_objs.get(oo.object_name)
 
                     if ooo:
-                        if is_greater_than_280():
+                        if is_bl_newer_than(2, 80):
                             # Check if object is on current view layer
                             layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, ooo)
                             if ooo not in other_objs and any(layer_cols):
@@ -916,7 +916,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         use_ssaa = self.ssaa and self.type.startswith('OTHER_OBJECT_')
 
         # Denoising only available for AO bake for now
-        use_denoise = self.denoise and self.type in {'AO', 'BEVEL_MASK'} and is_greater_than_281()
+        use_denoise = self.denoise and self.type in {'AO', 'BEVEL_MASK'} and is_bl_newer_than(2, 81)
 
         # SSAA will multiply size by 2 then resize it back
         if use_ssaa:
@@ -942,7 +942,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         if (self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp)):
 
             # NOTE: Baking cavity with subdiv setup can only happen if there's only one object and no UDIM
-            if is_greater_than_420() and len(objs) == 1 and not self.use_udim and height_root_ch and height_root_ch.enable_subdiv_setup:
+            if is_bl_newer_than(4, 2) and len(objs) == 1 and not self.use_udim and height_root_ch and height_root_ch.enable_subdiv_setup:
 
                 # Check if there's VDM layer
                 vdm_layer = get_first_vdm_layer(yp)
@@ -992,7 +992,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             if context.tool_settings.mesh_select_mode[0] or context.tool_settings.mesh_select_mode[1]:
                 fill_mode = 'VERTEX'
 
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 edit_objs = [o for o in objs if o.mode == 'EDIT']
             else: edit_objs = [context.object]
 
@@ -1123,7 +1123,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                     # Apply shape keys and modifiers
                     if any(need_to_be_applied_modifiers):
                         if obj.data.shape_keys:
-                            if is_greater_than_330():
+                            if is_bl_newer_than(3, 3):
                                 bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
                             else: bpy.ops.object.shape_key_remove(all=True)
 
@@ -1155,7 +1155,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         # Flip normals setup
         if self.flip_normals:
             #ori_mode[obj.name] = obj.mode
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 # Deselect other objects first
                 for o in other_objs:
                     o.select_set(False)
@@ -1253,7 +1253,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             geometry = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
             vector_math = mat.node_tree.nodes.new('ShaderNodeVectorMath')
             vector_math.operation = 'CROSS_PRODUCT'
-            if is_greater_than_281():
+            if is_bl_newer_than(2, 81):
                 vector_math_1 = mat.node_tree.nodes.new('ShaderNodeVectorMath')
                 vector_math_1.operation = 'LENGTH'
 
@@ -1279,7 +1279,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                     src.inputs['Distance'].default_value = self.ao_distance
 
                 # Links
-                if not is_greater_than_280():
+                if not is_bl_newer_than(2, 80):
                     mat.node_tree.links.new(src.outputs[0], output.inputs[0])
                 else:
                     mat.node_tree.links.new(src.outputs['AO'], bsdf.inputs[0])
@@ -1337,7 +1337,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             mat.node_tree.links.new(geometry.outputs['Normal'], vector_math.inputs[0])
             mat.node_tree.links.new(src.outputs[0], vector_math.inputs[1])
             #mat.node_tree.links.new(src.outputs[0], bsdf.inputs['Normal'])
-            if is_greater_than_281():
+            if is_bl_newer_than(2, 81):
                 mat.node_tree.links.new(vector_math.outputs[0], vector_math_1.inputs[0])
                 mat.node_tree.links.new(vector_math_1.outputs[1], bsdf.inputs[0])
             else:
@@ -1345,7 +1345,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
         elif self.type == 'SELECTED_VERTICES':
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 src = mat.node_tree.nodes.new('ShaderNodeVertexColor')
                 src.layer_name = TEMP_VCOL
             else:
@@ -1803,19 +1803,19 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
                 # Remember other objects to bake info
                 for o in other_objs:
-                    if is_greater_than_279(): 
+                    if is_bl_newer_than(2, 79): 
                         oo_recorded = any([oo for oo in bi.other_objects if oo.object == o])
                     else: oo_recorded = any([oo for oo in bi.other_objects if oo.object_name == o.name])
 
                     if not oo_recorded:
                         oo = bi.other_objects.add()
-                        if is_greater_than_279(): 
+                        if is_bl_newer_than(2, 79): 
                             oo.object = o
                         oo.object_name = o.name
 
                 # Remove unused other objects on bake info
                 for i, oo in reversed(list(enumerate(bi.other_objects))):
-                    if is_greater_than_279():
+                    if is_bl_newer_than(2, 79):
                         ooo = oo.object
                     else: ooo = bpy.data.objects.get(oo.object_name)
 
@@ -1834,7 +1834,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 for obj_name, v_indices in obj_vertex_indices.items():
                     obj = bpy.data.objects.get(obj_name)
                     bso = bi.selected_objects.add()
-                    if is_greater_than_279():
+                    if is_bl_newer_than(2, 79):
                         bso.object = obj
                     bso.object_name = obj.name
 
@@ -1923,7 +1923,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             #bpy.ops.mesh.flip_normals()
             #bpy.ops.mesh.select_all(action='DESELECT')
             #bpy.ops.object.mode_set(mode = ori_mode)
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 # Deselect other objects first
                 for o in other_objs:
                     o.select_set(False)
@@ -2123,7 +2123,7 @@ def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, s
     bpy.ops.object.bake()
 
     if blur: 
-        samples = 4096 if is_greater_than_300() else 128
+        samples = 4096 if is_bl_newer_than(3) else 128
         blur_image(image, False, bake_device=bake_device, factor=blur_factor, samples=samples)
     if denoise:
         denoise_image(image)
@@ -2370,12 +2370,12 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         col.label(text='UV Map:')
         col.label(text='Margin:')
 
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             col.separator()
             col.label(text='Bake Device:')
         col.separator()
         col.label(text='')
-        if is_greater_than_281():
+        if is_bl_newer_than(2, 81):
             col.label(text='')
         col.label(text='')
         col.label(text='')
@@ -2390,19 +2390,19 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'samples', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-        if is_greater_than_310():
+        if is_bl_newer_than(3, 1):
             split = split_layout(col, 0.4, align=True)
             split.prop(self, 'margin', text='')
             split.prop(self, 'margin_type', text='')
         else:
             col.prop(self, 'margin', text='')
 
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             col.separator()
             col.prop(self, 'bake_device', text='')
         col.separator()
         col.prop(self, 'fxaa')
-        if is_greater_than_281():
+        if is_bl_newer_than(2, 81):
             col.prop(self, 'denoise', text='Use Denoise')
         ccol = col.column(align=True)
 

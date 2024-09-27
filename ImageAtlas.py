@@ -269,7 +269,7 @@ def set_segment_mapping(entity, segment, image, use_baked=False):
     else: mapping = get_mask_mapping(entity, get_baked=use_baked)
 
     if mapping:
-        if is_greater_than_281():
+        if is_bl_newer_than(2, 81):
             mapping.inputs[3].default_value[0] = scale_x
             mapping.inputs[3].default_value[1] = scale_y
 

@@ -107,8 +107,7 @@ class SingletonUpdater:
         self._check_thread = None
         self._select_link = None
         self.skip_tag = None
-        self.legacy_blender = not is_greater_than_280() 
-        # self.legacy_blender = not is_greater_than_281() 
+        self.legacy_blender = not is_bl_newer_than(2, 80) 
         self.using_development_build = False
         self.current_branch = None
 
@@ -834,7 +833,7 @@ class SingletonUpdater:
         try:
             request = urllib.request.Request(url)
             context = None
-            if is_greater_than_277():
+            if is_bl_newer_than(2, 77):
                 context = ssl._create_unverified_context()
 
             # Setup private token if appropriate.

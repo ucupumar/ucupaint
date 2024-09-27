@@ -31,7 +31,7 @@ def get_problematic_modifiers(obj):
             # Mirror modifier is not problematic if mirror uv is used
             if m.type == 'MIRROR':
                 if not m.use_mirror_u and not m.use_mirror_v:
-                    if is_greater_than_280():
+                    if is_bl_newer_than(2, 80):
                         if m.offset_u == 0.0 and m.offset_v == 0.0:
                             pms.append(m)
                     else: pms.append(m)
@@ -125,7 +125,7 @@ def remember_before_bake(yp=None, mat=None):
         book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
     book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
     book['ori_use_cage'] = scene.render.bake.use_cage
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         book['ori_cage_object_name'] = scene.render.bake.cage_object.name if scene.render.bake.cage_object else ''
     else: book['ori_cage_object_name'] = scene.render.bake.cage_object
 
@@ -141,7 +141,7 @@ def remember_before_bake(yp=None, mat=None):
     if hasattr(scene.render.bake, 'target'):
         book['ori_bake_target'] = scene.render.bake.target
 
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         book['ori_material_override'] = bpy.context.view_layer.material_override
     else: book['ori_material_override'] = scene.render.layers.active.material_override
 
@@ -151,7 +151,7 @@ def remember_before_bake(yp=None, mat=None):
     book['ori_render_bake_type'] = scene.render.bake_type
     book['ori_bake_margin'] = scene.render.bake_margin
 
-    if is_greater_than_281() and not is_greater_than_300() and scene.cycles.device == 'GPU' and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences:
+    if is_bl_newer_than(2, 81) and not is_bl_newer_than(3) and scene.cycles.device == 'GPU' and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences:
         book['compute_device_type'] = bpy.context.preferences.addons['cycles'].preferences['compute_device_type']
 
     # Remember uv
@@ -161,7 +161,7 @@ def remember_before_bake(yp=None, mat=None):
         book['ori_active_render_uv'] = active_render_uvs[0].name
 
     # Remember scene objects
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         book['ori_hide_selects'] = [o for o in bpy.context.view_layer.objects if o.hide_select]
         book['ori_active_selected_objs'] = [o for o in bpy.context.view_layer.objects if o.select_get()]
         book['ori_hide_renders'] = [o for o in bpy.context.view_layer.objects if o.hide_render]
@@ -388,7 +388,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     cage_object = bpy.data.objects.get(cage_object_name) if cage_object_name != '' else None
     scene.render.bake.use_cage = True if cage_object else False
     if cage_object: 
-        if is_greater_than_280(): scene.render.bake.cage_object = cage_object
+        if is_bl_newer_than(2, 80): scene.render.bake.cage_object = cage_object
         else: scene.render.bake.cage_object = cage_object.name
     scene.render.use_simplify = False
     if hasattr(scene.render.bake, 'use_pass_direct'): scene.render.bake.use_pass_direct = True
@@ -410,7 +410,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if hasattr(scene.render.bake, 'margin_type'):
         scene.render.bake.margin_type = margin_type
 
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.context.view_layer.material_override = None
     else: scene.render.layers.active.material_override = None
 
@@ -424,12 +424,12 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         scene.cycles.bake_type = bake_type
 
     # Old blender will always use CPU
-    if not is_greater_than_280():
+    if not is_bl_newer_than(2, 80):
         scene.cycles.device = 'CPU'
     else: scene.cycles.device = bake_device
 
     # Use CUDA bake if Optix is selected
-    if (is_greater_than_281() and not is_greater_than_300() and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences and
+    if (is_bl_newer_than(2, 81) and not is_bl_newer_than(3) and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences and
             bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] == 3):
         #scene.cycles.device = 'CPU'
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = 1
@@ -438,7 +438,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         scene.render.bake.normal_space = 'TANGENT'
 
     # Disable other object selections and select only active object
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
 
         # Disable exclude only works on source objects
         for o in source_objs:
@@ -509,7 +509,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
                         break
 
             # Blender 2.76 need all objects to be UV unwrapped
-            if not is_greater_than_277():
+            if not is_bl_newer_than(2, 77):
                 ori_active_object = scene.objects.active
                 uv_layers = get_uv_layers(obj)
                 if len(uv_layers) == 0:
@@ -624,10 +624,10 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     if book['ori_cage_object_name'] != '':
         cage_object = bpy.data.objects.get(book['ori_cage_object_name'])
         if cage_object: 
-            if is_greater_than_280(): scene.render.bake.cage_object = cage_object
+            if is_bl_newer_than(2, 80): scene.render.bake.cage_object = cage_object
             else: scene.render.bake.cage_object = cage_object.name
 
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.context.view_layer.material_override = book['ori_material_override']
     else: scene.render.layers.active.material_override = book['ori_material_override']
 
@@ -640,7 +640,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     if 'compute_device_type' in book:
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = book['compute_device_type']
 
-    if is_greater_than_280() and 'material_override' in book:
+    if is_bl_newer_than(2, 80) and 'material_override' in book:
         bpy.context.view_layer.material_override = book['material_override']
 
     # Recover world settings
@@ -653,24 +653,24 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         if uvl: uv_layers.active = uvl
 
         # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
-        if not is_greater_than_291():
+        if not is_bl_newer_than(2, 91):
             if 'ori_active_render_uv' in book:
                 uvl = uv_layers.get(book['ori_active_render_uv'])
                 if uvl: uvl.active_render = True
 
-    if is_greater_than_291():
+    if is_bl_newer_than(2, 91):
         if 'ori_active_render_uv' in book:
             uvl = uv_layers.get(book['ori_active_render_uv'])
             if uvl: uvl.active_render = True
 
     # Recover active object and mode
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.context.view_layer.objects.active = obj
     else: scene.objects.active = obj
     bpy.ops.object.mode_set(mode = book['mode'])
 
     # Disable other object selections
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
 
         # Recover collections
         layer_cols = get_all_layer_collections([], bpy.context.view_layer.layer_collection)
@@ -783,7 +783,7 @@ def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     book['ori_scene_name'] = bpy.context.scene.name
 
     # Remember active object and view layer
-    book['ori_viewlayer'] = bpy.context.window.view_layer.name if bpy.context.window.view_layer and is_greater_than_280() else ''
+    book['ori_viewlayer'] = bpy.context.window.view_layer.name if bpy.context.window.view_layer and is_bl_newer_than(2, 80) else ''
     book['ori_object'] = bpy.context.object.name if bpy.context.object else ''
 
     # Check if original viewport is using camera view
@@ -804,7 +804,7 @@ def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     scene.render.pixel_aspect_x = 1.0
     scene.render.pixel_aspect_y = 1.0
     scene.use_nodes = True
-    scene.view_settings.view_transform = 'Standard' if is_greater_than_280() else 'Default'
+    scene.view_settings.view_transform = 'Standard' if is_bl_newer_than(2, 80) else 'Default'
 
     # Float/HDR image related
     scene.render.image_settings.file_format = 'OPEN_EXR' if use_hdr else 'PNG'
@@ -847,7 +847,7 @@ def recover_composite_settings(book):
         bpy.context.area.spaces[0].region_3d.view_perspective = 'CAMERA'
 
     # Recover view layer
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         ori_viewlayer = bpy.context.scene.view_layers.get(book['ori_viewlayer'])
         if ori_viewlayer and bpy.context.window.view_layer != ori_viewlayer:
             bpy.context.window.view_layer = ori_viewlayer
@@ -858,7 +858,7 @@ def recover_composite_settings(book):
         set_active_object(ori_object)
 
 def denoise_image(image):
-    if not is_greater_than_281(): return image
+    if not is_bl_newer_than(2, 81): return image
 
     T = time.time()
     print('DENOISE: Doing Denoise pass on', image.name + '...')
@@ -940,7 +940,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CP
     height = image.size[1]
 
     # Set active collection to be root collection
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
@@ -998,7 +998,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CP
         source_tex.image = image_copy
 
         # Blender 2.79 need to set these parameter to correct the gamma
-        if not is_greater_than_280() :
+        if not is_bl_newer_than(2, 80) :
             if image.colorspace_settings.name == get_srgb_name():
                 source_tex.color_space = 'COLOR'
             else: source_tex.color_space = 'NONE' 
@@ -1046,7 +1046,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CP
     recover_bake_settings(book)
 
     # Recover original active layer collection
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
     print('BLUR:', image.name, 'blur pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
@@ -1055,7 +1055,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CP
 
 def create_plane_on_object_mode():
 
-    if not is_greater_than_277():
+    if not is_bl_newer_than(2, 77):
         bpy.ops.mesh.primitive_plane_add()
         bpy.ops.object.mode_set(mode = 'EDIT')
         bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.0)
@@ -1063,7 +1063,7 @@ def create_plane_on_object_mode():
     else: 
         bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
 
-    if not is_greater_than_280():
+    if not is_bl_newer_than(2, 80):
         return bpy.context.scene.objects.active
 
     return bpy.context.view_layer.objects.active
@@ -1074,7 +1074,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
     book = remember_before_bake()
 
     # Set active collection to be root collection
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
@@ -1156,7 +1156,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
         res_x.outputs[0].default_value = width
         res_y.outputs[0].default_value = height
         tex.image = image_copy
-        if not is_greater_than_280() :
+        if not is_bl_newer_than(2, 80) :
             if image.colorspace_settings.name == get_srgb_name():
                 tex.color_space = 'COLOR'
             else: tex.color_space = 'NONE'
@@ -1201,7 +1201,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
     recover_bake_settings(book)
 
     # Recover original active layer collection
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
     print('FXAA:', image.name, 'FXAA pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
@@ -1216,7 +1216,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
     if root_ch.type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        if is_greater_than_280 and not is_greater_than_300():
+        if is_greater_than_280 and not is_bl_newer_than(3):
             norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
         else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
 
@@ -1394,7 +1394,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     if root_ch.type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        if is_greater_than_280 and not is_greater_than_300():
+        if is_greater_than_280 and not is_bl_newer_than(3):
             norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
         else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
 
@@ -2096,7 +2096,7 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
         if obj.data.shape_keys:
             # Set active shape to make sure context will be correct
             if not obj.active_shape_key: obj.active_shape_key_index = 0
-            if is_greater_than_330():
+            if is_bl_newer_than(3, 3):
                 bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
             else: bpy.ops.object.shape_key_remove(all=True)
 
@@ -2181,7 +2181,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     else: tilenums = [1001]
 
     # Set active collection to be root collection
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
@@ -2203,7 +2203,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     source_tex.image = image
 
-    if not is_greater_than_280() :
+    if not is_bl_newer_than(2, 80) :
         if image.colorspace_settings.name == get_srgb_name():
             source_tex.color_space = 'COLOR'
         else: source_tex.color_space = 'NONE'
@@ -2358,7 +2358,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     recover_bake_settings(book)
 
     # Recover original active layer collection
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
     print('RESIZE IMAGE:', image_name, 'Resize image is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
@@ -2408,8 +2408,8 @@ def get_output_uv_names_from_geometry_nodes(obj):
         if m.type == 'NODES' and m.node_group:
             outputs = get_tree_outputs(m.node_group)
             for outp in outputs:
-                if ((is_greater_than_400() and outp.socket_type == 'NodeSocketVector') or
-                    (not is_greater_than_400() and outp.type == 'VECTOR')):
+                if ((is_bl_newer_than(4) and outp.socket_type == 'NodeSocketVector') or
+                    (not is_bl_newer_than(4) and outp.type == 'VECTOR')):
                     uv = uv_layers.get(m[outp.identifier + '_attribute_name'])
                     if uv: uv_names.append(uv.name)
 

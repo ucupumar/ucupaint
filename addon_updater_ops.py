@@ -707,7 +707,7 @@ class UpdaterSettingMenu(bpy.types.Menu):
         col = self.layout.column()
 
         if len(updater.tags) == 0:
-            if common.is_greater_than_420():
+            if common.is_bl_newer_than(4, 2):
                 if common.is_online():
                     col.label(text="Please do 'Check for update' first to be able to change branch!", icon='ERROR')
                 else: col.label(text="You need to enable 'Online Access' in Blender Preferences to be able to change branch!", icon='ERROR')
