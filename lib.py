@@ -247,15 +247,9 @@ def load_custom_icons():
     else:
         icons = get_user_preferences().icons 
 
-        bg_color = bpy.context.preferences.themes[0].preferences.space.back
-        is_dark_theme = bg_color[0] + bg_color[1] + bg_color[2] < 1.5
-
         if icons == 'DEFAULT':
-            if is_greater_than_280():
-                icon_set = 'light' if is_dark_theme else 'dark'
-            else:
-                icon_set = 'legacy'
-        elif icons == 'MODERN':
+            bg_color = bpy.context.preferences.themes[0].preferences.space.back
+            is_dark_theme = bg_color[0] + bg_color[1] + bg_color[2] < 1.5
             icon_set = 'light' if is_dark_theme else 'dark'
         else:
             icon_set = 'legacy'
