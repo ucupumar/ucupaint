@@ -435,6 +435,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     metallic : BoolProperty(name='Metallic', default=True)
     roughness : BoolProperty(name='Roughness', default=True)
     normal : BoolProperty(name='Normal', default=True)
+    alpha : BoolProperty(name='Alpha', default=False)
 
     mute_texture_paint_overlay : BoolProperty(
             name = 'Mute Stencil Mask Opacity',
@@ -525,6 +526,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 ccol.prop(self, 'metallic', toggle=True)
             ccol.prop(self, 'roughness', toggle=True)
             ccol.prop(self, 'normal', toggle=True)
+            ccol.prop(self, 'alpha', toggle=True)
 
         col.prop(self, 'use_linear_blending')
 
@@ -682,6 +684,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         ch_metallic = None
         ch_roughness = None
         ch_normal = None
+        ch_alpha = None
 
         if self.color:
             ch_color = create_new_yp_channel(group_tree, 'Color', 'RGB', non_color=False)
@@ -698,6 +701,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
             if self.normal:
                 ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
+            
+            if self.alpha:
+                ch_alpha = create_new_yp_channel(group_tree, 'Alpha', 'VALUE', non_color=True)
 
         # Update io
         check_all_channel_ios(group_tree.yp, yp_node=node)
@@ -712,6 +718,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         ch_metallic = group_tree.yp.channels.get('Metallic')
         ch_roughness = group_tree.yp.channels.get('Roughness')
         ch_normal = group_tree.yp.channels.get('Normal')
+        ch_alpha = group_tree.yp.channels.get('Alpha')
 
         if ch_color:
             inp = main_bsdf.inputs[0]
@@ -763,6 +770,16 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             set_input_default_value(node, ch_normal)
             #links.new(node.outputs[ch_normal.io_index], inp)
             links.new(node.outputs[ch_normal.name], inp)
+        
+        if ch_alpha:
+            inp = main_bsdf.inputs['Alpha']
+
+            # Check original link
+            for l in inp.links:
+                links.new(l.from_socket, node.inputs[ch_alpha.name])
+
+            set_input_default_value(node, ch_alpha, inp.default_value)
+            links.new(node.outputs[ch_alpha.name], inp)
 
         # Disable overlay in Blender 2.8
         for area in context.screen.areas:
