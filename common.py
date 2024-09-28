@@ -5246,6 +5246,16 @@ def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=Fals
 
     return filtered_images
 
+def any_decal_inside_layer(layer):
+    if layer.texcoord_type == 'Decal':
+        return True
+
+    for mask in layer.masks:
+        if mask.texcoord_type == 'Decal':
+            return True
+
+    return False
+
 def any_single_user_ondisk_image_inside_layer(layer):
     for image in get_layer_images(layer, ondisk_only=True):
         if is_image_single_user(image):
