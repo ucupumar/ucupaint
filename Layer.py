@@ -4082,7 +4082,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False):
+def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False, set_new_decal_position=False):
 
     yp = tree.yp
     ypup = get_user_preferences()
@@ -4132,10 +4132,13 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
         if layer.texcoord_type == 'Decal':
             texcoord = ttree.nodes.get(layer.texcoord)
             if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-                nname = get_unique_name(texcoord.object.name, bpy.data.objects)
-                texcoord.object = texcoord.object.copy()
-                texcoord.object.name = nname
-                link_object(bpy.context.scene, texcoord.object)
+                if set_new_decal_position:
+                    texcoord.object = create_decal_empty()
+                else:
+                    nname = get_unique_name(texcoord.object.name, bpy.data.objects)
+                    texcoord.object = texcoord.object.copy()
+                    texcoord.object.name = nname
+                    link_object(bpy.context.scene, texcoord.object)
 
         # Duplicate baked layer image
         baked_layer_source = get_layer_source(layer, get_baked=True)
@@ -4190,10 +4193,13 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
             if mask.texcoord_type == 'Decal':
                 texcoord = ttree.nodes.get(mask.texcoord)
                 if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-                    nname = get_unique_name(texcoord.object.name, bpy.data.objects)
-                    texcoord.object = texcoord.object.copy()
-                    texcoord.object.name = nname
-                    link_object(bpy.context.scene, texcoord.object)
+                    if set_new_decal_position:
+                        texcoord.object = create_decal_empty()
+                    else:
+                        nname = get_unique_name(texcoord.object.name, bpy.data.objects)
+                        texcoord.object = texcoord.object.copy()
+                        texcoord.object.name = nname
+                        link_object(bpy.context.scene, texcoord.object)
 
             # Duplicate baked mask image
             baked_mask_source = get_mask_source(mask, get_baked=True)
@@ -4400,6 +4406,12 @@ class YDuplicateLayer(bpy.types.Operator):
             description = 'Duplicate images on disk, this will create copies of images sourced from external files',
             default = False
             )
+    
+    set_new_decal_position : BoolProperty(
+            name = 'Set New Decal Position to Cursor',
+            description = 'Position decals at 3D Cursor when duplicating',
+            default = False
+            )
 
     @classmethod
     def poll(cls, context):
@@ -4417,15 +4429,17 @@ class YDuplicateLayer(bpy.types.Operator):
 
         self.any_packed_image = False
         self.any_ondisk_image = False
+        self.any_decal = False
 
         if not self.duplicate_blank:
             self.any_packed_image = any(get_layer_images(layer, packed_only=True))
             self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
+            self.any_decal = any_decal_inside_layer(layer)
 
             if get_user_preferences().skip_property_popups and not event.shift:
                 return self.execute(context)
 
-            if self.any_packed_image or self.any_ondisk_image:
+            if self.any_packed_image or self.any_ondisk_image or self.any_decal:
                 return context.window_manager.invoke_props_dialog(self, width=200)
 
         return self.execute(context)
@@ -4436,6 +4450,9 @@ class YDuplicateLayer(bpy.types.Operator):
 
         if self.any_ondisk_image:
             self.layout.prop(self, 'ondisk_duplicate')
+        
+        if self.any_decal:
+            self.layout.prop(self, 'set_new_decal_position')
 
     def execute(self, context):
         T = time.time()
@@ -4498,7 +4515,8 @@ class YDuplicateLayer(bpy.types.Operator):
             duplicate_layer_nodes_and_images(tree, new_layer, 
                                              packed_duplicate = self.packed_duplicate or self.duplicate_blank,
                                              duplicate_blank = self.duplicate_blank,
-                                             ondisk_duplicate=self.ondisk_duplicate or self.duplicate_blank)
+                                             ondisk_duplicate=self.ondisk_duplicate or self.duplicate_blank,
+                                             set_new_decal_position=self.set_new_decal_position)
 
             # Rename masks
             mask_names = [m.name for m in l.masks]
@@ -4608,6 +4626,7 @@ class YPasteLayer(bpy.types.Operator):
 
         self.any_packed_image = False
         self.any_ondisk_image = False
+        self.any_decal = False
 
         tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
         if tree_source:
@@ -4617,8 +4636,9 @@ class YPasteLayer(bpy.types.Operator):
             if layer_source:
                 self.any_packed_image = any(get_layer_images(layer_source, packed_only=True))
                 self.any_ondisk_image = any(get_layer_images(layer_source, ondisk_only=True))
+                self.any_decal = any_decal_inside_layer(layer_source)
 
-        if self.any_packed_image or self.any_ondisk_image:
+        if self.any_packed_image or self.any_ondisk_image or self.any_decal:
             if get_user_preferences().skip_property_popups and not event.shift:
                 return self.execute(context)
 
@@ -4632,6 +4652,9 @@ class YPasteLayer(bpy.types.Operator):
 
         if self.any_ondisk_image:
             self.layout.prop(self, 'ondisk_duplicate')
+
+        if self.any_decal:
+            self.layout.prop(self, 'set_new_decal_position')
 
     def execute(self, context):
         T = time.time()
@@ -4735,7 +4758,8 @@ class YPasteLayer(bpy.types.Operator):
             # Duplicate images and some nodes inside
             duplicate_layer_nodes_and_images(tree, new_layer, 
                                             packed_duplicate = self.packed_duplicate,
-                                            ondisk_duplicate=self.ondisk_duplicate)
+                                            ondisk_duplicate=self.ondisk_duplicate,
+                                            set_new_decal_position=self.set_new_decal_position)
 
             pasted_layer_names.append(new_layer.name)
 
@@ -4820,6 +4844,42 @@ class YSelectDecalObject(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             set_active_object(texcoord.object)
             set_object_select(texcoord.object, True)
+        else: return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+class YSetDecalObjectPositionToCursor(bpy.types.Operator):
+    bl_idname = "node.y_set_decal_object_position_to_sursor"
+    bl_label = "Set Decal Position to Cursor"
+    bl_description = "Set the position of the decal object to the 3D cursor"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return group_node and hasattr(context, 'entity')
+
+    def execute(self, context):
+        scene = bpy.context.scene
+        entity = context.entity
+
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+        if m1: tree = get_tree(entity)
+        elif m2: tree = get_mask_tree(entity)
+        else: return {'CANCELLED'}
+
+        texcoord = tree.nodes.get(entity.texcoord)
+
+        if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+            # Move decal object to 3D cursor
+            if is_bl_newer_than(2, 80):
+                texcoord.object.location = scene.cursor.location.copy()
+                texcoord.object.rotation_euler = scene.cursor.rotation_euler.copy()
+            else: 
+                texcoord.object.location = scene.cursor_location.copy()
+
         else: return {'CANCELLED'}
 
         return {'FINISHED'}
@@ -6167,6 +6227,7 @@ def register():
     bpy.utils.register_class(YCopyLayer)
     bpy.utils.register_class(YPasteLayer)
     bpy.utils.register_class(YSelectDecalObject)
+    bpy.utils.register_class(YSetDecalObjectPositionToCursor)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YLayer)
 
@@ -6198,5 +6259,6 @@ def unregister():
     bpy.utils.unregister_class(YCopyLayer)
     bpy.utils.unregister_class(YPasteLayer)
     bpy.utils.unregister_class(YSelectDecalObject)
+    bpy.utils.unregister_class(YSetDecalObjectPositionToCursor)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YLayer)

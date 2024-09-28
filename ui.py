@@ -1461,6 +1461,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                         if is_bl_newer_than(2, 80):
                             boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
                         else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
+                        boxcol.operator('node.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
 
                     if layer.texcoord_type != 'Decal':
                         mapping = get_layer_mapping(layer)
@@ -2430,6 +2431,7 @@ def draw_layer_masks(context, layout, layer):
                         if is_bl_newer_than(2, 80):
                             boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
                         else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
+                        boxcol.operator('node.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
 
                     if mask.texcoord_type != 'Decal':
                         mapping = get_mask_mapping(mask)
