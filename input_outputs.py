@@ -463,7 +463,8 @@ def create_decal_empty():
     if is_bl_newer_than(2, 80):
         empty.empty_display_type = 'SINGLE_ARROW'
     else: empty.empty_draw_type = 'SINGLE_ARROW'
-    link_object(scene, empty)
+    custom_collection = obj.users_collection[0] if is_bl_newer_than(2, 80) and len(obj.users_collection) > 0 else None
+    link_object(scene, empty, custom_collection)
     if is_bl_newer_than(2, 80):
         empty.location = scene.cursor.location.copy()
         empty.rotation_euler = scene.cursor.rotation_euler.copy()
