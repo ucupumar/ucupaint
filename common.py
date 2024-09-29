@@ -658,9 +658,11 @@ def set_active_object(obj):
         except: print('EXCEPTIION: Cannot set active object!')
     else: bpy.context.scene.objects.active = obj
 
-def link_object(scene, obj):
+def link_object(scene, obj, custom_collection=None):
     if is_bl_newer_than(2, 80):
-        scene.collection.objects.link(obj)
+        if custom_collection:
+            custom_collection.objects.link(obj)
+        else: scene.collection.objects.link(obj)
     else: scene.objects.link(obj)
 
 def get_object_select(obj):
