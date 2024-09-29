@@ -608,7 +608,7 @@ def draw_mask_modifier_stack(layer, mask, layout, ui):
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('mask', mask)
         row.context_pointer_set('modifier', m)
-        icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         row.menu("NODE_MT_y_mask_modifier_menu", text='', icon=icon)
 
         row.prop(m, 'enable', text='')
@@ -712,10 +712,10 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         row.context_pointer_set('parent', parent)
         row.context_pointer_set('modifier', m)
         if use_modifier_1:
-            icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
             row.menu("NODE_MT_y_modifier1_menu", text='', icon=icon)
         else:
-            icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
             row.menu("NODE_MT_y_modifier_menu", text='', icon=icon)
         row.prop(m, 'enable', text='')
 
@@ -839,7 +839,7 @@ def draw_bake_targets_ui(context, layout, node):
 
         row.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
 
-        icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         row.context_pointer_set('image', image)
         row.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
         
@@ -943,7 +943,7 @@ def draw_root_channels_ui(context, layout, node):
         #if channel.type != 'NORMAL':
         row.context_pointer_set('parent', channel)
         row.context_pointer_set('channel_ui', chui)
-        icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         row.menu("NODE_MT_y_channel_special_menu", icon=icon, text='')
 
         if chui.expand_content:
@@ -1318,7 +1318,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         row.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
 
     #if layer.type != 'GROUP':
-    icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+    icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
     row.menu("NODE_MT_y_layer_special_menu", icon=icon, text='')
 
     if layer.type == 'GROUP': return
@@ -1429,7 +1429,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 split.prop(layer, 'texcoord_type', text='')
 
             if layer.texcoord_type == 'UV':
-                icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 row.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
 
             if lui.expand_vector:
@@ -1642,7 +1642,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('channel_ui', chui)
 
-        icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         row.menu("NODE_MT_y_layer_channel_special_menu", icon=icon, text='')
 
         if ypui.expand_channels:
@@ -1687,7 +1687,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     draw_input_prop(brow, ch, 'transition_bump_distance')
 
                 brow.context_pointer_set('parent', ch)
-                icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 brow.menu("NODE_MT_y_transition_bump_menu", text='', icon=icon)
 
                 brow.prop(ch, 'enable_transition_bump', text='')
@@ -1887,7 +1887,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     draw_input_prop(row, ch, 'transition_ramp_intensity_value')
 
                 row.context_pointer_set('parent', ch)
-                icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 row.menu("NODE_MT_y_transition_ramp_menu", text='', icon=icon)
 
                 row.prop(ch, 'enable_transition_ramp', text='')
@@ -1934,7 +1934,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
 
                 row.context_pointer_set('layer', layer)
                 row.context_pointer_set('parent', ch)
-                icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 row.menu("NODE_MT_y_transition_ao_menu", text='', icon=icon)
 
                 row.prop(ch, 'enable_transition_ao', text='')
@@ -2026,7 +2026,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     else: draw_input_prop(row, ch, 'override_color')
                 row.prop(ch, 'override', text='')
 
-                icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 row.menu("NODE_MT_y_replace_channel_override_menu", icon=icon, text='')
 
                 ch_source = None
@@ -2087,7 +2087,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
 
             row.prop(ch, 'override_1', text='')
 
-            icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
             row.menu("NODE_MT_y_replace_channel_override_1_menu", icon=icon, text='')
 
             ch_source_1 = None
@@ -2273,7 +2273,7 @@ def draw_layer_masks(context, layout, layer):
 
         row.context_pointer_set('mask', mask)
 
-        icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         row.menu("NODE_MT_y_layer_mask_menu", text='', icon=icon)
 
         row = row.row(align=True)
@@ -2385,7 +2385,7 @@ def draw_layer_masks(context, layout, layer):
                 rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
                 rrow.context_pointer_set('mask', mask)
-                icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
             elif mask.type == 'IMAGE' and mask.texcoord_type in {'Generated', 'Object'} and not maskui.expand_vector:
                 rrrow = split_layout(splits, 0.5, align=True)
@@ -2548,7 +2548,7 @@ def draw_layers_ui(context, layout, node):
                 row.context_pointer_set('root_ch', root_ch)
                 row.context_pointer_set('image', baked.image)
 
-                icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 row.menu("NODE_MT_y_baked_image_menu", text='', icon=icon)
 
                 row = col.row(align=True)
@@ -3330,7 +3330,7 @@ def main_draw(self, context):
     row.label(text=node.node_tree.name)
     #row.prop(node.node_tree, 'name', text='')
 
-    icon = 'DOWNARROW_HLT' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+    icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
     row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
 
     # Check for baked node
