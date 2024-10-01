@@ -291,6 +291,11 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             name = 'Use UDIM Tiles',
             description='Use UDIM Tiles',
             default=False)
+    
+    texture_size : EnumProperty(
+        name = 'Texture Size',
+        items = texture_size_items,
+        default = '1024')
 
     @classmethod
     def poll(cls, context):
@@ -622,8 +627,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         #    col.label(text='Source Object:')
 
         col.label(text='')
-        col.label(text='Width:')
-        col.label(text='Height:')
+        col.label(text='Resolution:')
+        if self.texture_size == 'Custom':
+            col.label(text='Width:')
+            col.label(text='Height:')
         col.label(text='Samples:')
         col.label(text='UV Map:')
         if self.type == 'FLOW':
@@ -693,8 +700,13 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'multires_base', text='')
 
         col.prop(self, 'hdr')
-        col.prop(self, 'width', text='')
-        col.prop(self, 'height', text='')
+        crow = col.row(align=True)
+        crow.prop(self, 'texture_size', expand= True,)
+        if self.texture_size != 'Custom':
+            self.height = self.width = int(self.texture_size)
+        elif self.texture_size == 'Custom':
+            col.prop(self, 'width', text='')
+            col.prop(self, 'height', text='')
         col.prop(self, 'samples', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         if self.type == 'FLOW':

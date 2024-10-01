@@ -1224,6 +1224,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             name = 'Use Float for Displacement',
             description='Use float image for baked displacement',
             default=False)
+    
+    texture_size : EnumProperty(
+        name = 'Texture Size',
+        items = texture_size_items,
+        default = '1024')
 
     bake_disabled_layers : BoolProperty(
             name = 'Bake Disabled Layers',  
@@ -1301,7 +1306,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=320)
+        return context.window_manager.invoke_props_dialog(self, width=340)
 
     def check(self, context):
         return True
@@ -1314,12 +1319,14 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         obj = context.object
         mat = obj.active_material
 
-        row = split_layout(self.layout, 0.4)
+        row = split_layout(self.layout, 0.3)
         col = row.column() #align=True)
 
         ccol = col.column(align=True)
-        ccol.label(text='Width:')
-        ccol.label(text='Height:')
+        ccol.label(text='Resolution:')
+        if self.texture_size == 'Custom':
+            ccol.label(text='Width:')
+            ccol.label(text='Height:')
 
         ccol.separator()
         ccol.label(text='Samples:')
@@ -1355,9 +1362,15 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         col = row.column()
 
+        crow = col.row(align=True)
         ccol = col.column(align=True)
-        ccol.prop(self, 'width', text='')
-        ccol.prop(self, 'height', text='')
+
+        crow.prop(self, 'texture_size', expand= True,)
+        if self.texture_size != 'Custom':
+            self.height = self.width = int(self.texture_size)
+        elif self.texture_size == 'Custom':
+            ccol.prop(self, 'width', text='')
+            ccol.prop(self, 'height', text='')
 
         ccol.separator()
         ccol.prop(self, 'samples', text='')

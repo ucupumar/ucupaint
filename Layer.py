@@ -883,6 +883,11 @@ class YNewLayer(bpy.types.Operator):
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
+    texture_size : EnumProperty(
+        name = 'Texture Size',
+        items = texture_size_items,
+        default = '1024')
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -970,7 +975,7 @@ class YNewLayer(bpy.types.Operator):
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=320)
+        return context.window_manager.invoke_props_dialog(self, width=330)
 
     #def is_mask_using_udim(self):
     #    return self.use_udim_for_mask and UDIM.is_udim_supported()
@@ -1029,7 +1034,7 @@ class YNewLayer(bpy.types.Operator):
             else: channel = None
         except: channel = None
 
-        row = split_layout(self.layout, 0.4)
+        row = split_layout(self.layout, 0.3)
         col = row.column(align=False)
 
         col.label(text='Name:')
@@ -1054,9 +1059,11 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='')
 
         if self.type == 'IMAGE':
-            col.label(text='')
-            col.label(text='Width:')
-            col.label(text='Height:')
+            col.label(text='Resolution:')
+            if self.texture_size == 'Custom':
+                col.label(text='')
+                col.label(text='Width:')
+                col.label(text='Height:')
             col.label(text='Interpolation:')
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
@@ -1119,9 +1126,14 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'hemi_use_prev_normal')
 
         if self.type == 'IMAGE':
+            crow = col.row(align=True)
+            crow.prop(self, 'texture_size', expand= True,)
+            if self.texture_size != 'Custom':
+                self.height = self.width = int(self.texture_size)
+            elif self.texture_size == 'Custom':
+                col.prop(self, 'width', text='')
+                col.prop(self, 'height', text='')
             col.prop(self, 'hdr')
-            col.prop(self, 'width', text='')
-            col.prop(self, 'height', text='')
             col.prop(self, 'interpolation', text='')
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
