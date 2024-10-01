@@ -627,6 +627,10 @@ class YSaveAllBakedImages(bpy.types.Operator):
             default = 'PNG',
             )
 
+    copy : BoolProperty(name='Copy',
+            description = 'Create a new image file without modifying the current image in Blender',
+            default = False)
+
     def invoke(self, context, event):
         # Open browser, take reference to 'self' read the path to selected
         # file, put path in predetermined self fields.
@@ -925,10 +929,11 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         filename = bpy.path.basename(context.image.filepath)
 
         # Set filepath
-        if context.image.filepath == '' or filename == '':
+        if context.image.filepath == '' or filename == '' or '.<UDIM>.' in filename:
             yp = get_active_ypaint_node().node_tree.yp
 
             name = context.image.name
+            name += '.<UDIM>' if '.<UDIM>.' in filename else ''
 
             # Remove addon title from the file names
             if yp.use_baked and name.startswith(get_addon_title() + ' '):
@@ -1042,6 +1047,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             self.report({'ERROR'}, 'Unpacking image atlas is not supported yet!')
             return {'CANCELLED'}
 
+        if self.copy:
+            image = self.image = image.copy()
+
         # Packing and unpacking sometimes does not work if the blend file is not saved yet
         unpack = False
         if bpy.data.filepath != '':
@@ -1060,35 +1068,10 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
                 unpack = True
                 self.unpack_image(context)
 
-        # Create temporary scene
-        tmpscene = bpy.data.scenes.new('Temp Save As Scene')
-
-        # Blender 2.80 has filmic as default color settings, change it to standard
-        if is_bl_newer_than(2, 80):
-            tmpscene.view_settings.view_transform = 'Standard'
-
         # Some image need to set to srgb when saving
         ori_colorspace = image.colorspace_settings.name
         if not image.is_float and not image.is_dirty:
             image.colorspace_settings.name = get_srgb_name()
-
-        # Set settings
-        settings = tmpscene.render.image_settings
-        settings.file_format = self.file_format
-        settings.color_mode = self.color_mode
-        settings.color_depth = self.color_depth
-        settings.compression = self.compression
-        settings.quality = self.quality
-        if hasattr(settings, 'tiff_codec'): settings.tiff_codec = self.tiff_codec
-        settings.exr_codec = self.exr_codec
-        settings.jpeg2k_codec = self.jpeg2k_codec
-        settings.use_jpeg2k_cinema_48 = self.use_jpeg2k_cinema_48
-        settings.use_jpeg2k_cinema_preset = self.use_jpeg2k_cinema_preset
-        settings.use_jpeg2k_ycc = self.use_jpeg2k_ycc
-        settings.use_cineon_log = self.use_cineon_log
-        if hasattr(settings, 'use_zbuffer'): settings.use_zbuffer = self.use_zbuffer
-
-        #print(self.file_format)
 
         # Save image
         if image.source == 'TILED':
@@ -1099,6 +1082,29 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
                     bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
             else: bpy.ops.image.save_as(override, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
         else:
+            # Create temporary scene
+            tmpscene = bpy.data.scenes.new('Temp Save As Scene')
+
+            # Blender 2.80 has filmic as default color settings, change it to standard
+            if is_bl_newer_than(2, 80):
+                tmpscene.view_settings.view_transform = 'Standard'
+
+            # Set settings
+            settings = tmpscene.render.image_settings
+            settings.file_format = self.file_format
+            settings.color_mode = self.color_mode
+            settings.color_depth = self.color_depth
+            settings.compression = self.compression
+            settings.quality = self.quality
+            if hasattr(settings, 'tiff_codec'): settings.tiff_codec = self.tiff_codec
+            settings.exr_codec = self.exr_codec
+            settings.jpeg2k_codec = self.jpeg2k_codec
+            settings.use_jpeg2k_cinema_48 = self.use_jpeg2k_cinema_48
+            settings.use_jpeg2k_cinema_preset = self.use_jpeg2k_cinema_preset
+            settings.use_jpeg2k_ycc = self.use_jpeg2k_ycc
+            settings.use_cineon_log = self.use_cineon_log
+            if hasattr(settings, 'use_zbuffer'): settings.use_zbuffer = self.use_zbuffer
+
             image.save_render(self.filepath, scene=tmpscene)
 
             if not self.copy:
@@ -1112,17 +1118,21 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
                 image.source = 'FILE'
                 image.reload()
 
+            # Delete temporary scene
+            remove_datablock(bpy.data.scenes, tmpscene)
+
         # Remove unpacked file
         if unpack:
             self.remove_unpacked_image(context)
 
         # Set back colorspace settings
-        image.colorspace_settings.name = ori_colorspace
+        if image.colorspace_settings.name != ori_colorspace:
+            image.colorspace_settings.name = ori_colorspace
 
-        # Delete temporary scene
-        remove_datablock(bpy.data.scenes, tmpscene)
+        # Delete copied image
+        if self.copy:
+            remove_datablock(bpy.data.images, image)
 
-        #context.image.save()
         return {'FINISHED'}
 
 class YSavePackAll(bpy.types.Operator):
