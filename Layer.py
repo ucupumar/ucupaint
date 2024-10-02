@@ -2071,6 +2071,19 @@ class BaseMultipleImagesLayer():
 
         return True
 
+def search_for_images(tree):
+    images = []
+
+    for node in tree.nodes:
+        if node.type == 'TEX_IMAGE':
+            if node.image:
+                images.append(node.image)
+
+        if node.type == 'GROUP' and node.node_tree and not node.node_tree.yp.is_ypaint_node:
+            images.extend(search_for_images(node.node_tree))
+
+    return images
+
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
     bl_idname = "node.y_open_images_from_material_to_single_layer"
     bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
@@ -2159,10 +2172,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         # Check material for images
         images = []
         if mat.node_tree:
-            for node in mat.node_tree.nodes:
-                if node.type == 'TEX_IMAGE':
-                    if node.image:
-                        images.append(node.image)
+            images = search_for_images(mat.node_tree)
 
         # Check for yp images
         output = get_material_output(mat)

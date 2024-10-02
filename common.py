@@ -1209,8 +1209,7 @@ def get_active_ypaint_node(obj=None):
             return node
 
     node = mat.node_tree.nodes.get(mui.active_ypaint_node)
-    #print(mui.active_ypaint_node, node)
-    if node: return node
+    if node and hasattr(node, 'node_tree') and node.node_tree and node.node_tree.yp.is_ypaint_node: return node
 
     # If node still not found
     for node in mat.node_tree.nodes:
