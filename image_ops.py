@@ -2,7 +2,6 @@ import bpy, shutil, os
 import tempfile
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
-#from bpy_extras.image_utils import load_image  
 from .common import *
 import time
 from . import UDIM

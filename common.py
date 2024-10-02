@@ -1,4 +1,5 @@
 import bpy, os, sys, re, time, numpy, math, pathlib
+import bpy_extras.image_utils
 from mathutils import *
 from bpy.app.handlers import persistent
 
@@ -6636,3 +6637,9 @@ def remove_decal_object(tree, entity):
         if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
             texcoord.object = None
             remove_datablock(bpy.data.objects, decal_obj)
+
+def load_image(path, directory, check_existing=True):
+    if not is_bl_newer_than(2, 77):
+        return bpy_extras.image_utils.load_image(path, directory)
+
+    return bpy_extras.image_utils.load_image(path, directory, check_existing=check_existing)

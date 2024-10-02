@@ -1,7 +1,6 @@
 import bpy, time, re, os, random, pathlib
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from bpy_extras.image_utils import load_image  
 from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier
 from .common import *
 #from .bake_common import *
@@ -1787,9 +1786,7 @@ class BaseMultipleImagesLayer():
 
         # Load images from directory
         if import_list:
-            if is_bl_newer_than(2, 77):
-                images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
-            else: images.extend(list(load_image(path, directory) for path in import_list))
+            images.extend(list(load_image(path, directory) for path in import_list))
 
         valid_channels = []
         valid_images = []
@@ -2458,8 +2455,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         if not UDIM.is_udim_supported():
             images = tuple(load_image(path, directory) for path in import_list)
         else:
-            ori_ui_type = bpy.context.area.ui_type
-            bpy.context.area.ui_type = 'IMAGE_EDITOR'
+            ori_ui_type = bpy.context.area.type
+            bpy.context.area.type = 'IMAGE_EDITOR'
             images = []
             for path in import_list:
                 bpy.ops.image.open(filepath=directory+os.sep+path, directory=directory, 
@@ -2467,7 +2464,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                 image = bpy.context.space_data.image
                 if image not in images:
                     images.append(image)
-            bpy.context.area.ui_type = ori_ui_type
+            bpy.context.area.type = ori_ui_type
 
         node.node_tree.yp.halt_update = True
 
