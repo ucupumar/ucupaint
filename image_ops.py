@@ -646,6 +646,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
         col = split.column()
         col.prop(self, 'file_format', text='')
 
+        self.layout.prop(self, 'copy')
+
     def execute(self, context):
 
         node = get_active_ypaint_node()
@@ -692,6 +694,21 @@ class YSaveAllBakedImages(bpy.types.Operator):
             if image_node and image_node.image not in images:
                 images.append(image_node.image)
 
+        original_image_names = []
+        original_names = []
+        if self.copy:
+            copied_images = []
+            for image in images:
+                ori_name = image.name
+                image_copy = duplicate_image(image, ondisk_duplicate=False)
+                image.name += '____'
+                image_copy.name = ori_name
+                original_image_names.append(image.name)
+                original_names.append(ori_name)
+                copied_images.append(image_copy)
+
+            images = copied_images
+
         for image in images:
 
             settings.file_format = self.file_format
@@ -701,12 +718,14 @@ class YSaveAllBakedImages(bpy.types.Operator):
             if settings.file_format == 'OPEN_EXR':
                 settings.exr_codec = 'ZIP'
 
-            if image.filepath == '':
+            if image.filepath == '' or '.<UDIM>.' in image.filepath:
                 image_name = image.name
                 # Remove addon title from the file names
                 if image_name.startswith(get_addon_title() + ' '):
                     image_name = image_name.replace(get_addon_title() + ' ', '')
-                filename = image_name + format_extensions[settings.file_format]
+                filename = image_name
+                filename += '.<UDIM>' if '.<UDIM>.' in image.filepath else ''
+                filename += format_extensions[settings.file_format]
             else:
                 filename = bpy.path.basename(image.filepath)
                 ext = os.path.splitext(filename)[1]
@@ -739,6 +758,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 unpack = True
                 default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
 
+            if self.copy:
+                pass
+
             # Save image
             image.save_render(path, scene=tmpscene)
 
@@ -754,7 +776,15 @@ class YSaveAllBakedImages(bpy.types.Operator):
             if unpack:
                 remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
 
-            #print(path)
+        # Remove copied images
+        if self.copy:
+            for image in reversed(images):
+                remove_datablock(bpy.data.images, image)
+
+        # Recover image names
+        for i, ori_image_name in enumerate(original_image_names):
+            ori_image = bpy.data.images.get(ori_image_name)
+            ori_image.name = original_names[i]
 
         # Delete temporary scene
         remove_datablock(bpy.data.scenes, tmpscene)
@@ -1048,7 +1078,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             return {'CANCELLED'}
 
         if self.copy:
-            image = self.image = image.copy()
+            image = self.image = duplicate_image(image, ondisk_duplicate=False)
 
         # Packing and unpacking sometimes does not work if the blend file is not saved yet
         unpack = False

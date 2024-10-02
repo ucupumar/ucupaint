@@ -6380,7 +6380,7 @@ def is_image_filepath_unique(filepath, check_disk=True):
             return False
     return True
 
-def duplicate_image(image):
+def duplicate_image(image, ondisk_duplicate=True):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
@@ -6390,7 +6390,7 @@ def duplicate_image(image):
     # Copy image
     new_image = image.copy()
 
-    if image.source == 'TILED' or (not image.packed_file and image.filepath != ''):
+    if ondisk_duplicate and (image.source == 'TILED' or (not image.packed_file and image.filepath != '')):
 
         directory = os.path.dirname(bpy.path.abspath(image.filepath))
         filename = bpy.path.basename(new_image.filepath)
