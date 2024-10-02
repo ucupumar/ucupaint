@@ -4291,8 +4291,14 @@ class YBakeTargetMenu(bpy.types.Menu):
 
         if context.image:
             if context.image.packed_file:
-                col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
-            else: col.operator('node.y_save_as_image', text='Save As Image').unpack = False
+                op = col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE')
+                op.unpack = True
+                op.copy = False
+            else: 
+                op = col.operator('node.y_save_as_image', text='Save As Image')
+                op.unpack = False
+                op.copy = False
+            col.operator('node.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
 
 class YNewChannelMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_channel_menu"
@@ -4340,12 +4346,12 @@ class YNewLayerMenu(bpy.types.Menu):
 
         #col.separator()
 
-        op = col.operator("node.y_open_image_to_layer", text='Open Image')
+        op = col.operator("node.y_open_image_to_layer", text='Open Image...')
         op.texcoord_type = 'UV'
         op.file_browser_filepath = ''
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
 
-        col.operator("node.y_open_images_to_single_layer", text='Open Images to Single Layer')
+        col.operator("node.y_open_images_to_single_layer", text='Open Images to Single Layer...')
         col.operator("node.y_open_images_from_material_to_single_layer", text='Open Images from Material').asset_library_path = ''
 
         # NOTE: Dedicated menu for opening images to single layer is kinda hard to see, so it's probably better be hidden for now
@@ -4536,13 +4542,20 @@ class YBakedImageMenu(bpy.types.Menu):
         col.operator('node.y_save_image', icon='FILE_TICK')
 
         if context.image.packed_file:
-            col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
-        else: col.operator('node.y_save_as_image', text='Save As Image').unpack = False
+            op = col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE')
+            op.unpack = True
+            op.copy = False
+        else: 
+            op = col.operator('node.y_save_as_image', text='Save As Image')
+            op.unpack = False
+            op.copy = False
+        col.operator('node.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
 
         col.separator()
 
         icon = 'FILEBROWSER' if is_bl_newer_than(2, 80) else 'FILE_FOLDER'
-        col.operator('node.y_save_all_baked_images', text='Save All Baked Images to..', icon=icon)
+        col.operator('node.y_save_all_baked_images', text='Save All Baked Images to...', icon=icon).copy = False
+        col.operator('node.y_save_all_baked_images', text='Save All Baked Image Copies to...').copy = True
 
         col.separator()
         col.operator('node.y_delete_baked_channel_images', text='Delete All Baked Images', icon='ERROR')
@@ -4607,34 +4620,36 @@ class YLayerListSpecialMenu(bpy.types.Menu):
             op.layer_name = context.layer.name
         if hasattr(context, 'image'):
             op.image_name = context.image.name
+        col.operator("node.y_invert_image", icon='IMAGE_ALPHA')
 
         col.separator()
         col.operator('node.y_pack_image', icon='PACKAGE')
         col.operator('node.y_save_image', icon='FILE_TICK')
         if hasattr(context, 'image') and context.image.packed_file:
-            col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
+            op = col.operator('node.y_save_as_image', text='Unpack As Image...', icon='UGLYPACKAGE')
+            op.unpack = True
+            op.copy = False
         else:
             if is_bl_newer_than(2, 80):
-                col.operator('node.y_save_as_image', text='Save As Image').unpack = False
-                col.operator('node.y_save_pack_all', text='Save/Pack All')
+                op = col.operator('node.y_save_as_image', text='Save As Image...')
+                op.unpack = False
+                op.copy = False
             else: 
-                col.operator('node.y_save_as_image', text='Save As Image', icon='SAVE_AS').unpack = False
-                col.operator('node.y_save_pack_all', text='Save/Pack All', icon='FILE_TICK')
+                op = col.operator('node.y_save_as_image', text='Save As Image...', icon='SAVE_AS')
+                op.unpack = False
+                op.copy = False
+        col.operator('node.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
 
         col.separator()
         col.operator("node.y_reload_image", icon='FILE_REFRESH')
 
-        # Invert image is causing crash since Blender 2.82
-        #if not is_bl_newer_than(2, 82):
         col.separator()
-        col.operator("node.y_invert_image", icon='IMAGE_ALPHA')
-
-        #if hasattr(context, 'entity') and context.entity:
-        #    col = row.column()
-        #    col.label(text=context.entity.name, icon=get_layer_type_icon(context.entity.type))
 
         if hasattr(context, 'image'):
             col.menu("NODE_MT_y_image_convert_menu", text='Convert Image')
+
+        if is_bl_newer_than(2, 80): col.operator('node.y_save_pack_all', text='Save/Pack All Images')
+        else: col.operator('node.y_save_pack_all', text='Save/Pack All Images', icon='FILE_TICK')
 
 class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_open_images_to_single_layer_menu"
@@ -4942,7 +4957,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.label(text='Image Mask:')
         new_mask_button(col, 'node.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE')
-        op = new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask', lib_icon='open_image')
+        op = new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask...', lib_icon='open_image')
         op.texcoord_type = 'UV'
         op.file_browser_filepath = ''
         new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Image as Mask', lib_icon='open_image', otype='IMAGE')
@@ -5145,14 +5160,9 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
             col.label(text=label, icon=icon)
 
         row = col.row(align=True)
-        # Blender 2.79 will create weird margin if there's blank space inside menu
-        #if is_bl_newer_than(2, 80):
-        #    ccol = row.column(align=True)
-        #    ccol.label(text='', icon='BLANK1')
 
         ccol = row.column(align=True)
-        #ccol.operator('node.y_replace_layer_channel_override', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
-        ccol.operator('node.y_open_image_to_override_layer_channel', text='Open Image', icon_value=lib.get_icon('open_image'))
+        ccol.operator('node.y_open_image_to_override_layer_channel', text='Open Image...', icon_value=lib.get_icon('open_image'))
         ccol.operator('node.y_open_available_data_to_override_channel', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         
         col.separator()
@@ -5171,14 +5181,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
         else:
             col.label(text=label, icon=icon)
 
-        #icon = 'RADIOBUT_ON' if ch.override_type == 'VCOL' else 'RADIOBUT_OFF'
-        #col.label(text='Vertex Color', icon=icon)
-
         row = col.row(align=True)
-        # Blender 2.79 will create weird margin if there's blank space inside menu
-        #if is_bl_newer_than(2, 80):
-        #    ccol = row.column(align=True)
-        #    ccol.label(text='', icon='BLANK1')
 
         ccol = row.column(align=True)
         #ccol.operator('node.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
@@ -5195,19 +5198,6 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
             if item[0] in {'DEFAULT', 'IMAGE', 'VCOL'}: continue
 
             col.operator('node.y_replace_layer_channel_override', text=item[1], icon=icon).type = item[0]
-
-        #col = row.column()
-        #col.label(text='Override Using Image:')
-
-        ##col.operator('node.y_replace_layer_channel_override', text='New Image', icon_value=lib.get_icon('image')).type = 'IMAGE'
-        #col.operator('node.y_replace_layer_channel_override', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
-        #col.operator('node.y_replace_layer_channel_override', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
-
-        #col = row.column()
-        #col.label(text='Override Using Vertex Color:')
-
-        #col.operator('node.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
-        #col.operator('node.y_replace_layer_channel_override', text='Use Available Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
 
 class YReplaceChannelOverride1Menu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_replace_channel_override_1_menu"
@@ -5268,8 +5258,7 @@ class YReplaceChannelOverride1Menu(bpy.types.Menu):
         #ccol.label(text='', icon='BLANK1')
 
         ccol = row.column(align=True)
-        #ccol.operator('node.y_replace_layer_channel_override_1', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
-        ccol.operator('node.y_open_image_to_override_1_layer_channel', text='Open Image', icon_value=lib.get_icon('open_image'))
+        ccol.operator('node.y_open_image_to_override_1_layer_channel', text='Open Image...', icon_value=lib.get_icon('open_image'))
         ccol.operator('node.y_open_available_data_to_override_1_channel', text='Open Available Image', icon_value=lib.get_icon('open_image'))
 
 class YChannelSpecialMenu(bpy.types.Menu):
