@@ -4618,6 +4618,12 @@ class YPasteLayer(bpy.types.Operator):
             default = False
             )
     
+    set_new_decal_position : BoolProperty(
+            name = 'Set New Decal Position to Cursor',
+            description = 'Position decals at 3D Cursor when duplicating',
+            default = False
+            )
+
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
