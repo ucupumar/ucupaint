@@ -6629,6 +6629,7 @@ def get_mesh_hash(obj):
     return str(h)
 
 def remove_decal_object(tree, entity):
+    if not tree: return
     # NOTE: This will remove the texcoord object even if the entity is not using decal
     #if entity.texcoord_type == 'Decal':
     texcoord = tree.nodes.get(entity.texcoord)
