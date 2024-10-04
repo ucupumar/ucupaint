@@ -200,7 +200,7 @@ def save_pack_all(yp):
 
                     # Create temporary scene
                     if not tmpscene:
-                        print('INFO: Creating temporary scene for saving ondisk images...')
+                        print('INFO: Creating temporary scene for saving some images...')
                         tmpscene = bpy.data.scenes.new('Temp Save Scene')
                         try: tmpscene.view_settings.view_transform = 'Standard'
                         except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
@@ -248,7 +248,7 @@ def save_pack_all(yp):
 
     # Delete temporary scene
     if tmpscene:
-        print('INFO: Deleting temporary scene used for saving ondisk images...')
+        print('INFO: Deleting temporary scene used for saving some images...')
         remove_datablock(bpy.data.scenes, tmpscene)
 
     # HACK: For some reason active float image will glitch after auto save

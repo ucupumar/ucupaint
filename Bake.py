@@ -3029,7 +3029,7 @@ def update_enable_baked_outside(self, context):
         for n in shift_nodes:
             n.location.x += yp.baked_outside_x_shift
 
-    else:
+    elif node:
         baked_outside_frame = mtree.nodes.get(yp.baked_outside_frame)
         bake_target_outside_frame = mtree.nodes.get(yp.bake_target_outside_frame)
 
