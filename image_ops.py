@@ -173,69 +173,7 @@ def is_packed_image(image):
 
 def save_pack_all(yp):
 
-    tree = yp.id_data
-
-    images = []
-    for layer in yp.layers:
-        
-        # Layer image
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if source.image and source.image not in images:
-                images.append(source.image)
-
-        # Mask image
-        for mask in layer.masks:
-            mask_tree = get_mask_tree(mask)
-
-            if mask.type == 'IMAGE':
-                source = mask_tree.nodes.get(mask.source)
-                if source.image and source.image not in images:
-                    images.append(source.image)
-
-            baked_source = mask_tree.nodes.get(mask.baked_source)
-            if baked_source and baked_source.image and baked_source.image not in images:
-                images.append(baked_source.image)
-
-        # Channel override image
-        for ch in layer.channels:
-
-            if ch.override and ch.override_type == 'IMAGE':
-                source = get_channel_source(ch, layer)
-                if source.image and source.image not in images:
-                    images.append(source.image)
-
-            if ch.override_1 and ch.override_1_type == 'IMAGE':
-                source = get_channel_source_1(ch, layer)
-                if source.image and source.image not in images:
-                    images.append(source.image)
-
-    # Baked images
-    for ch in yp.channels:
-        baked = tree.nodes.get(ch.baked)
-        if baked and baked.image and baked.image not in images:
-            images.append(baked.image)
-
-        if ch.type == 'NORMAL':
-            baked_disp = tree.nodes.get(ch.baked_disp)
-            if baked_disp and baked_disp.image and baked_disp.image not in images:
-                images.append(baked_disp.image)
-
-            baked_vdisp = tree.nodes.get(ch.baked_vdisp)
-            if baked_vdisp and baked_vdisp.image and baked_vdisp.image not in images:
-                images.append(baked_vdisp.image)
-
-            if not is_overlay_normal_empty(yp):
-                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
-                    images.append(baked_normal_overlay.image)
-
-    # Custom bake target images
-    for bt in yp.bake_targets:
-        image_node = tree.nodes.get(bt.image_node)
-        if image_node and image_node.image not in images:
-            images.append(image_node.image)
-
+    images = get_yp_images(yp, get_baked_channels=True, check_overlay_normal=True)
     packed_float_images = []
 
     # Temporary scene for blender 3.30 hack
