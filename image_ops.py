@@ -168,6 +168,9 @@ def clean_object_references(image):
     for r in removed_references:
         print('Reference for', r, "is removed because it's no longer found!")
 
+def is_packed_image(image):
+    return image.packed_file or image.filepath == ''
+
 def save_pack_all(yp):
 
     tree = yp.id_data
@@ -237,7 +240,8 @@ def save_pack_all(yp):
 
     # Temporary scene for blender 3.30 hack
     tmpscene = None
-    if is_bl_newer_than(3, 3):
+    if is_bl_newer_than(3, 3) and any([image for image in images if image and image.is_dirty and not is_packed_image(image)]):
+        print('INFO: Creating temporary scene for saving ondisk images...')
         tmpscene = bpy.data.scenes.new('Temp Save Scene')
         try: tmpscene.view_settings.view_transform = 'Standard'
         except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
@@ -248,7 +252,7 @@ def save_pack_all(yp):
     for image in images:
         if not image or not image.is_dirty: continue
         T = time.time()
-        if image.packed_file or image.filepath == '':
+        if is_packed_image(image):
             if is_bl_newer_than(2, 80):
                 image.pack()
             else:
@@ -307,6 +311,7 @@ def save_pack_all(yp):
 
     # Delete temporary scene
     if tmpscene:
+        print('INFO: Deleting temporary scene used for saving ondisk images...')
         remove_datablock(bpy.data.scenes, tmpscene)
 
     # HACK: For some reason active float image will glitch after auto save
