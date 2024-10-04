@@ -3376,7 +3376,7 @@ def check_subdiv_setup(height_ch):
                 if obj.data and hasattr(obj.data, 'cycles'):
                     obj.data.cycles.displacement_method = 'TRUE'
 
-        if not yp.enable_baked_outside:
+        if not yp.use_baked or not yp.enable_baked_outside:
             check_displacement_node(mat, node, set_one=True)
 
     # Outside nodes connection set

@@ -4809,7 +4809,7 @@ def is_entity_need_tangent_input(entity, uv_name):
         height_ch = get_height_channel(layer)
 
         # Previous normal is calculated using normal process
-        if height_root_ch and check_need_prev_normal(layer):
+        if height_root_ch and height_root_ch.enable_smooth_bump and check_need_prev_normal(layer):
             return True
 
         if height_root_ch and height_ch and get_channel_enabled(height_ch, layer, height_root_ch):
