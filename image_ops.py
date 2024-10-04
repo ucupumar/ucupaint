@@ -168,29 +168,19 @@ def clean_object_references(image):
     for r in removed_references:
         print('Reference for', r, "is removed because it's no longer found!")
 
-def is_packed_image(image):
-    return image.packed_file or image.filepath == ''
-
 def save_pack_all(yp):
 
     images = get_yp_images(yp, get_baked_channels=True, check_overlay_normal=True)
     packed_float_images = []
 
-    # Temporary scene for blender 3.30 hack
+    # Temporary scene for Blender 3.3 hack
     tmpscene = None
-    if is_bl_newer_than(3, 3) and any([image for image in images if image and image.is_dirty and not is_packed_image(image)]):
-        print('INFO: Creating temporary scene for saving ondisk images...')
-        tmpscene = bpy.data.scenes.new('Temp Save Scene')
-        try: tmpscene.view_settings.view_transform = 'Standard'
-        except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
-        try: tmpscene.render.image_settings.file_format = 'PNG'
-        except: print('EXCEPTIION: Cannot set file format on temporary save scene!')
 
     # Save/pack images
     for image in images:
         if not image or not image.is_dirty: continue
         T = time.time()
-        if is_packed_image(image):
+        if image.packed_file or image.filepath == '':
             if is_bl_newer_than(2, 80):
                 image.pack()
             else:
@@ -207,6 +197,15 @@ def save_pack_all(yp):
             else:
                 # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
                 if is_bl_newer_than(3, 3) and image.colorspace_settings.name in {'Linear', get_noncolor_name()}:
+
+                    # Create temporary scene
+                    if not tmpscene:
+                        print('INFO: Creating temporary scene for saving ondisk images...')
+                        tmpscene = bpy.data.scenes.new('Temp Save Scene')
+                        try: tmpscene.view_settings.view_transform = 'Standard'
+                        except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
+                        try: tmpscene.render.image_settings.file_format = 'PNG'
+                        except: print('EXCEPTIION: Cannot set file format on temporary save scene!')
 
                     # Get image path
                     path = bpy.path.abspath(image.filepath)
