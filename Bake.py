@@ -2688,6 +2688,7 @@ def update_enable_baked_outside(self, context):
     tree = self.id_data
     yp = tree.yp
     node = get_active_ypaint_node()
+    if not node: return
     mat = get_active_material()
     scene = context.scene
     ypup = get_user_preferences()
@@ -3029,7 +3030,7 @@ def update_enable_baked_outside(self, context):
         for n in shift_nodes:
             n.location.x += yp.baked_outside_x_shift
 
-    elif node:
+    else:
         baked_outside_frame = mtree.nodes.get(yp.baked_outside_frame)
         bake_target_outside_frame = mtree.nodes.get(yp.bake_target_outside_frame)
 
