@@ -3088,7 +3088,7 @@ def draw_layers_ui(context, layout, node):
                 row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
         in_texture_paint_mode = obj.mode == 'TEXTURE_PAINT' or (
-                is_bl_newer_than(4, 3) and obj.mode == 'SCULPT' and 
+                is_bl_newer_than(4, 4) and obj.mode == 'SCULPT' and 
                 # Assuming sculpt texture paint is already stable or enabled in experimental feature
                 (not hasattr(context.preferences.experimental, 'use_sculpt_texture_paint') or context.preferences.experimental.use_sculpt_texture_paint)
                 )
