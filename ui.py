@@ -479,7 +479,7 @@ def draw_tex_props(source, layout, entity=None):
             if source.feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
                 col.label(text='Distance:')
 
-        if is_bl_newer_than(4):
+        if is_bl_newer_than(4) and source.feature != 'N_SPHERE_RADIUS':
             col.label(text='Normalize:')
         else:
             col.separator()
