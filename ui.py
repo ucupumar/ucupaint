@@ -4169,7 +4169,8 @@ def draw_ypaint_about(self, context):
     if addon_updater_ops.updater.legacy_blender:
         col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
     else:
-        row.menu(addon_updater_ops.UpdaterSettingMenu.bl_idname, text='', icon='DOWNARROW_HLT')
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        row.menu(addon_updater_ops.UpdaterSettingMenu.bl_idname, text='', icon=icon)
 
     if updater.async_checking:
         col.enabled = False
