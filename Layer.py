@@ -1321,6 +1321,7 @@ class YNewLayer(bpy.types.Operator):
         else:
             ypui.layer_ui.expand_content = False
             ypui.layer_ui.expand_source = False
+        ypui.layer_ui.expand_vector = False
 
         if self.channel_idx != '-1':
             ypui.layer_ui.expand_channels = False
