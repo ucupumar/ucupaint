@@ -1651,11 +1651,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
         #        showed_bump_ch_found
         #        )
 
-        split = split_layout(row, 0.4)
-        rrow = split.row()
+        if not chui.expand_content: # and ch.enable:
+            split = split_layout(row, 0.4)
+            rrow = split.row()
+        else: 
+            rrow = row.row(align=True)
+
         rrow.alignment = 'LEFT'
         rrow.scale_x = 0.95
-        #rrow.ui_units_x = 100.0
 
         icon_name = lib.channel_custom_icon_dict[root_ch.type]
         if expandable:
@@ -1664,16 +1667,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
         if expandable:
-            #rrow.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
             rrow.prop(chui, 'expand_content', text=yp.channels[i].name+':', emboss=False, icon_value=icon_value, translate=False)
         else: rrow.label(text='', icon_value=icon_value)
 
-        #row.label(text=yp.channels[i].name + ':', translate=False)
-
-        rrow = split.row(align=True)
-
         #if layer.type != 'BACKGROUND':
         if not chui.expand_content: # and ch.enable:
+            rrow = split.row(align=True)
+
             if root_ch.type == 'NORMAL':
                 rrow.prop(ch, 'normal_blend_type', text='')
             elif layer.type != 'BACKGROUND':
@@ -1681,6 +1681,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
 
             draw_input_prop(rrow, ch, 'intensity_value')
         else:
+            rrow = row.row(align=True)
             rrow.alignment = 'RIGHT'
 
         #if ch.enable:
@@ -2149,7 +2150,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     row.prop(chui, 'expand_source', text='', emboss=False, icon=icon)
                 else:
                     row.label(text='', icon='BLANK1')
-                row.label(text='Source:')
+
+                label = 'Source:' if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Bump Source:'
+                row.label(text=label)
 
                 if ch.enable and ch.override:
                     if ch.override_type == 'IMAGE':
@@ -2195,7 +2198,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     else: draw_input_prop(split, ch, 'override_color')
                 else:
                     rrow = row.row(align=True)
-                    rrow.scale_x = 1.4
+                    rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
                     rrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
 
                 ch_source = None
@@ -2241,38 +2244,42 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     ypui.layer_ui.channels[i], layer, use_modifier_1=True)
 
             row = mcol.row(align=True)
-            if ch.override_1_type == 'DEFAULT':
-                row.label(text='', icon_value=lib.get_icon('input'))
+            if not ch.override_1:
+                row.label(text='', icon='BLANK1')
             else:
-                if chui.expand_source_1:
-                    icon_value = lib.get_icon('uncollapsed_input')
-                else: icon_value = lib.get_icon('collapsed_input')
-                row.prop(chui, 'expand_source_1', text='', emboss=False, icon_value=icon_value)
+                icon = 'DOWNARROW_HLT' if chui.expand_source_1 else 'RIGHTARROW'
+                row.prop(chui, 'expand_source_1', text='', emboss=False, icon=icon)
 
-            label_str = 'Override Normal'
-            if ch.override_1_type == 'IMAGE':
-                if source_1: label_str += ' (' + source_1.image.name + ')'
-            elif ch.override_1_type == 'VCOL':
-                if source_1: label_str += ' (' + get_source_vcol_name(source_1) + ')'
-            elif ch.override_1_type != 'DEFAULT':
-                label_str += ' (' + channel_override_labels[ch.override_1_type] + ')'
-            label_str += ':'
-            row.label(text=label_str)
-
-            row.context_pointer_set('parent', ch)
-            if ch.override_1 and ch.override_1_type == 'DEFAULT':
-                #if root_ch.type == 'VALUE':
-                #    row.prop(ch, 'override_value', text='')
-                #else: 
-                draw_input_prop(row, ch, 'override_1_color')
+            label = 'Source:' if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Normal Source:'
+            row.label(text=label)
 
             if ch.enable and ch.override_1_type == 'IMAGE':
                 row.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
 
-            row.prop(ch, 'override_1', text='')
+            #row.prop(ch, 'override_1', text='')
 
-            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-            row.menu("NODE_MT_y_replace_channel_override_1_menu", icon=icon, text='')
+            if ch.override_1:
+                if ch.override_1_type == 'IMAGE' and source_1 and source_1.image:
+                    label = source_1.image.name
+                else: label = 'Custom'
+            else:
+                label = 'Layer'
+                if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
+                    label += ' Distance'
+                else: label += ' Color'
+
+            row.context_pointer_set('parent', ch)
+            if ch.override_1 and ch.override_1_type == 'DEFAULT' and not ch.expand_source_1:
+                split = split_layout(row, 0.55, align=True)
+                split.menu("NODE_MT_y_layer_channel_input_1_menu", text=label)
+                draw_input_prop(split, ch, 'override_1_color')
+            else:
+                rrow = row.row(align=True)
+                rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
+                rrow.menu("NODE_MT_y_layer_channel_input_1_menu", text=label)
+
+            #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+            #row.menu("NODE_MT_y_replace_channel_override_1_menu", icon=icon, text='')
 
             ch_source_1 = None
             if ch.override_1:
@@ -2281,12 +2288,19 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 #ch_source_1 = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_1_type.lower()))
                 ch_source_1 = layer_tree.nodes.get(getattr(ch, 'cache_1_image'))
 
-            if ch.expand_source_1 and ch.override_1_type == 'IMAGE' and ch_source_1:
+            #if ch.expand_source_1 and ch.override_1_type == 'IMAGE' and ch_source_1:
+            if ch.expand_source_1 and ch.override_1:
                 rrow = mcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
-                rbox = rrow.box()
-                rbox.active = ch.override_1
-                draw_image_props(context, ch_source_1, rbox, entity=ch, show_flip_y=True)
+                #rbox = rrow.box()
+                #rbox.active = ch.override_1
+                rrcol = rrow.column()
+                if ch.override_1_type == 'DEFAULT':
+                    row = rrcol.row()
+                    row.label(text='Custom Color:')
+                    draw_input_prop(row, ch, 'override_1_color')
+                elif ch.override_1_type == 'IMAGE' and ch_source_1:
+                    draw_image_props(context, ch_source_1, rrcol, entity=ch, show_flip_y=True)
 
         # Layer input
         #if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'} and not 
@@ -4756,6 +4770,67 @@ def has_layer_input_options(layer):
     return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'} and not 
         (is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}))
 
+class YLayerChannelInput1Menu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_layer_channel_input_1_menu"
+    bl_label = "Normal Channel Input"
+    bl_description = "Normal Channel Input"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        ch = context.channel
+        yp = ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
+        if m: 
+            layer = yp.layers[int(m.group(1))]
+            root_ch = yp.channels[int(m.group(2))]
+            tree = get_tree(layer)
+        else: return
+        
+        col = self.layout.column()
+        col.label(text='Layer Normal Source')
+
+        col.separator()
+
+        # Layer Color
+        label = 'Layer'
+        if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
+            if layer.voronoi_feature == 'DISTANCE_TO_EDGE':
+                label += ' Distance'
+            elif layer.voronoi_feature == 'N_SPHERE_RADIUS':
+                label += ' Radius'
+            else:
+                label += ' Color'
+        else:
+            label += ' Color'
+        if layer.type not in {'IMAGE', 'VCOL'}:
+            label += ' ('+layer_type_labels[layer.type]+')'
+
+        icon = 'RADIOBUT_ON' if not ch.override_1 else 'RADIOBUT_OFF'
+        op = col.operator('node.y_set_layer_channel_input', text=label, icon=icon)
+        op.type = 'RGB'
+        op.set_normal_input = True
+
+        col.separator()
+
+        # Custom/Override Default
+        icon = 'RADIOBUT_ON' if ch.override_1 and ch.override_1_type == 'DEFAULT' else 'RADIOBUT_OFF'
+        op = col.operator('node.y_set_layer_channel_input', text='Custom Color', icon=icon)
+        op.type = 'CUSTOM'
+        op.set_normal_input = True
+
+        # Custom Data
+        label = 'Custom Image'
+        source = get_channel_source_1(ch, layer)
+        if source:
+            if ch.override_1_type == 'IMAGE':
+                label += ' (' + source.image.name + ')'
+
+        icon = 'RADIOBUT_ON' if ch.override_1 and ch.override_1_type != 'DEFAULT' else 'RADIOBUT_OFF'
+        col.menu("NODE_MT_y_replace_channel_override_1_menu", text=label, icon=icon)
+
 class YLayerChannelInputMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_input_menu"
     bl_label = "Layer Channel Input"
@@ -4798,7 +4873,9 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             label += ' ('+layer_type_labels[layer.type]+')'
 
         icon = 'RADIOBUT_ON' if not ch.override and (ch.layer_input == 'RGB' or not has_layer_input_options(layer)) else 'RADIOBUT_OFF'
-        col.operator('node.y_set_layer_channel_input', text=label, icon=icon).type = 'RGB'
+        op = col.operator('node.y_set_layer_channel_input', text=label, icon=icon)
+        op.type = 'RGB'
+        op.set_normal_input = False
 
         if has_layer_input_options(layer):
 
@@ -4814,7 +4891,9 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                 label += ' ('+layer_type_labels[layer.type]+')'
 
             icon = 'RADIOBUT_ON' if ch.layer_input == 'ALPHA' and not ch.override else 'RADIOBUT_OFF'
-            col.operator('node.y_set_layer_channel_input', text=label, icon=icon).type = 'ALPHA'
+            op = col.operator('node.y_set_layer_channel_input', text=label, icon=icon)
+            op.type = 'ALPHA'
+            op.set_normal_input = False
 
         col.separator()
 
@@ -4825,7 +4904,9 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         else: label += ' Color'
 
         icon = 'RADIOBUT_ON' if ch.override and ch.override_type == 'DEFAULT' else 'RADIOBUT_OFF'
-        col.operator('node.y_set_layer_channel_input', text=label, icon=icon).type = 'CUSTOM'
+        op = col.operator('node.y_set_layer_channel_input', text=label, icon=icon)
+        op.type = 'CUSTOM'
+        op.set_normal_input = False
 
         # Custom Data
         label = 'Custom Data'
@@ -5508,15 +5589,15 @@ class YReplaceChannelOverride1Menu(bpy.types.Menu):
         else:
             return
 
-        col.label(text='Override Type:')
+        col.label(text='Custom Image:')
 
-        icon = 'RADIOBUT_ON' if ch.override_1_type == 'DEFAULT' else 'RADIOBUT_OFF'
-        #if root_ch.type == 'VALUE':
-        #    col.operator('node.y_replace_layer_channel_override_1', text='Value', icon=icon).type = 'DEFAULT'
-        #else: 
-        col.operator('node.y_replace_layer_channel_override_1', text='Color', icon=icon).type = 'DEFAULT'
+        #icon = 'RADIOBUT_ON' if ch.override_1_type == 'DEFAULT' else 'RADIOBUT_OFF'
+        ##if root_ch.type == 'VALUE':
+        ##    col.operator('node.y_replace_layer_channel_override_1', text='Value', icon=icon).type = 'DEFAULT'
+        ##else: 
+        #col.operator('node.y_replace_layer_channel_override_1', text='Color', icon=icon).type = 'DEFAULT'
 
-        col.separator()
+        #col.separator()
 
         label = 'Image'
         cache_1_image = tree.nodes.get(ch.cache_1_image)
@@ -6202,6 +6283,7 @@ def register():
     bpy.utils.register_class(YBakedImageMenu)
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YLayerChannelInputMenu)
+    bpy.utils.register_class(YLayerChannelInput1Menu)
     bpy.utils.register_class(YImageConvertToMenu)
     bpy.utils.register_class(YOpenImagesToSingleLayerMenu)
     bpy.utils.register_class(YNewSolidColorLayerMenu)
@@ -6271,6 +6353,7 @@ def unregister():
     bpy.utils.unregister_class(YBakedImageMenu)
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YLayerChannelInputMenu)
+    bpy.utils.unregister_class(YLayerChannelInput1Menu)
     bpy.utils.unregister_class(YImageConvertToMenu)
     bpy.utils.unregister_class(YOpenImagesToSingleLayerMenu)
     bpy.utils.unregister_class(YNewSolidColorLayerMenu)

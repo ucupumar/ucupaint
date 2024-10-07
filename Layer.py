@@ -4018,7 +4018,7 @@ class YSetLayerChannelInput(bpy.types.Operator):
     bl_idname = "node.y_set_layer_channel_input"
     bl_label = "Set Layer Channel Input"
     bl_description = "Set layer channel input"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     type : EnumProperty(
             name = 'Input Type',
@@ -4032,6 +4032,8 @@ class YSetLayerChannelInput(bpy.types.Operator):
                 ),
             default = 'RGB')
 
+    set_normal_input : BoolProperty(default=False)
+
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
@@ -4044,11 +4046,19 @@ class YSetLayerChannelInput(bpy.types.Operator):
         #layer = context.layer
         ch = context.channel
         if self.type == 'CUSTOM':
-            ch.override = True
-            ch.override_type = 'DEFAULT'
+            if self.set_normal_input:
+                ch.override_1 = True
+                ch.override_1_type = 'DEFAULT'
+            else:
+                ch.override = True
+                ch.override_type = 'DEFAULT'
         else: 
-            ch.override = False
-            ch.layer_input = self.type
+            if self.set_normal_input:
+                ch.override_1 = False
+                #ch.layer_input = self.type
+            else:
+                ch.override = False
+                ch.layer_input = self.type
 
         return {'FINISHED'}
 
