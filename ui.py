@@ -3568,9 +3568,10 @@ def main_draw(self, context):
     # Layers
     icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.alignment = 'LEFT'
-    row.scale_x = 0.95
-    row.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
+    rrow = row.row(align=True)
+    rrow.alignment = 'LEFT'
+    rrow.scale_x = 0.95
+    rrow.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
 
     height_root_ch = get_root_height_channel(yp)
 
@@ -3578,11 +3579,15 @@ def main_draw(self, context):
             area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
 
     if scenario_1:
-        row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
+        rrow = row.row(align=True)
+        rrow.alignment = 'RIGHT'
+        rrow.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
 
     if baked_found or yp.use_baked:
-        row.prop(yp, 'use_baked', toggle=True, text='Use Baked')
-        row.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
+        rrow = row.row(align=True)
+        rrow.alignment = 'RIGHT'
+        rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
+        rrow.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
 
     if ypui.show_layers :
         if yp.sculpt_mode:
