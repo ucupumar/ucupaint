@@ -1421,29 +1421,25 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 
         rrow = row.row(align=True)
         rrow.alignment = 'RIGHT'
-        #split = split_layout(rrow, 0.275, align=True)
-        split = rrow.row(align=True)
-
-        #split.label(text='Vector:')
         if not lui.expand_vector:
             if is_a_mesh and layer.texcoord_type == 'UV':
-
-                ssplit = split_layout(split, 0.33, align=True)
-
-                ssplit.prop(layer, 'texcoord_type', text='')
-                ssplit.prop_search(layer, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-            elif layer.type == 'IMAGE' and layer.texcoord_type in {'Generated', 'Object'} and not lui.expand_vector:
-                ssplit = split_layout(split, 0.5, align=True)
-
-                ssplit.prop(layer, 'texcoord_type', text='')
-                ssplit.prop(layer, 'projection_blend', text='')
-            elif layer.texcoord_type == 'Decal' and not lui.expand_vector:
-                ssplit = split_layout(split, 0.4, align=True)
-                if texcoord:
-                    ssplit.prop(layer, 'texcoord_type', text='')
-                    ssplit.prop(texcoord, 'object', text='')
-            else:
+                rrow.scale_x = 0.5
+                split = split_layout(rrow, 0.33, align=True)
                 split.prop(layer, 'texcoord_type', text='')
+                split.prop_search(layer, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+            elif layer.type == 'IMAGE' and layer.texcoord_type in {'Generated', 'Object'} and not lui.expand_vector:
+                rrow.scale_x = 0.5
+                split = split_layout(rrow, 0.5, align=True)
+                split.prop(layer, 'texcoord_type', text='')
+                split.prop(layer, 'projection_blend', text='')
+            elif layer.texcoord_type == 'Decal' and not lui.expand_vector:
+                if texcoord:
+                    rrow.scale_x = 0.5
+                    split = split_layout(rrow, 0.4, align=True)
+                    split.prop(layer, 'texcoord_type', text='')
+                    split.prop(texcoord, 'object', text='')
+            else:
+                rrow.prop(layer, 'texcoord_type', text='')
 
         #if layer.texcoord_type == 'UV':
         #    icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
@@ -1585,24 +1581,19 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
     else: icon_value = lib.get_icon('collapsed_channels')
     rrow.prop(lui, 'expand_channels', text=label, emboss=False, icon_value=icon_value)
 
-    #row.label(text=label)
-
     if ch and root_ch:
+        rrow = row.row(align=True)
+        rrow.alignment = 'RIGHT'
         if root_ch.type == 'NORMAL':
-            rrow = row.row(align=True)
-            rrow.scale_x = 0.75
             rrow.prop(ch, 'normal_blend_type', text='')
             #rrow.prop(ch, 'normal_map_type', text='')
-            rrow = row.row(align=True)
-            rrow.scale_x = 0.75
             if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                 draw_input_prop(rrow, ch, 'bump_distance')
             elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
                 draw_input_prop(rrow, ch, 'vdisp_strength')
             else: draw_input_prop(rrow, ch, 'normal_strength')
         else: 
-            rrow = row.row(align=True)
-            rrow.scale_x = 0.9
+            #rrow.scale_x = 1.2
             rrow.prop(ch, 'blend_type', text='')
 
     if not lui.expand_channels:
