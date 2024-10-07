@@ -1528,6 +1528,37 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 
             layout.separator()
 
+def get_layer_channel_input_label(layer, ch, source=None):
+    if ch.override:
+        if not source: source = get_channel_source(ch, layer)
+        label = 'Custom'
+        if ch.override_type == 'IMAGE' and source and source.image:
+            label = source.image.name
+        elif ch.override_type != 'DEFAULT':
+            label = channel_override_labels[ch.override_type]
+        #if ch.override_type == 'DEFAULT':
+        #    if root_ch.type == 'VALUE':
+        #        #label += ' Value'
+        #        label = 'Value'
+        #    else: 
+        #        #label += ' Color'
+        #        label = 'Color'
+    else:
+        label = 'Layer'
+
+        if ch.layer_input == 'RGB':
+            if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
+                label += ' Distance'
+            else: label += ' Color'
+        elif ch.layer_input == 'ALPHA':
+            if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
+                label += ' Distance'
+            elif layer.type in {'IMAGE', 'VCOL'}:
+                label += ' Alpha'
+            else: label += ' Factor'
+
+    return label
+
 def draw_layer_channels(context, layout, layer, layer_tree, image):
 
     yp = layer.id_data.yp
@@ -1647,7 +1678,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
         #        )
 
         if not chui.expand_content: # and ch.enable:
-            split = split_layout(row, 0.4)
+            split = split_layout(row, 0.3)
             rrow = split.row()
         else: 
             rrow = row.row(align=True)
@@ -1668,13 +1699,24 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
         #if layer.type != 'BACKGROUND':
         if not chui.expand_content: # and ch.enable:
             rrow = split.row(align=True)
+            rrow.context_pointer_set('parent', ch)
+            ssplit = split_layout(rrow, 0.4, align=True)
 
             if root_ch.type == 'NORMAL':
-                rrow.prop(ch, 'normal_blend_type', text='')
+                ssplit.prop(ch, 'normal_blend_type', text='')
             elif layer.type != 'BACKGROUND':
-                rrow.prop(ch, 'blend_type', text='')
+                ssplit.prop(ch, 'blend_type', text='')
 
-            draw_input_prop(rrow, ch, 'intensity_value')
+            #draw_input_prop(ssplit, ch, 'intensity_value')
+            if ch.override and ch.override_type == 'DEFAULT':
+                rrrow = ssplit.row(align=True)
+                if root_ch.type == 'VALUE':
+                    draw_input_prop(rrrow, ch, 'override_value')
+                else: draw_input_prop(rrrow, ch, 'override_color')
+                rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+            else:
+                label = get_layer_channel_input_label(layer, ch)
+                ssplit.menu("NODE_MT_y_layer_channel_input_menu", text=label)
         else:
             rrow = row.row(align=True)
             rrow.alignment = 'RIGHT'
@@ -2157,34 +2199,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     elif ch.override_type != 'DEFAULT':
                         row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
+                label = get_layer_channel_input_label(layer, ch, source)
                 row.context_pointer_set('parent', ch)
-                if ch.override:
-                    label = 'Custom'
-                    if ch.override_type == 'IMAGE' and source and source.image:
-                        label = source.image.name
-                    elif ch.override_type != 'DEFAULT':
-                        label = channel_override_labels[ch.override_type]
-                    #if ch.override_type == 'DEFAULT':
-                    #    if root_ch.type == 'VALUE':
-                    #        #label += ' Value'
-                    #        label = 'Value'
-                    #    else: 
-                    #        #label += ' Color'
-                    #        label = 'Color'
-                else:
-                    label = 'Layer'
-
-                    if ch.layer_input == 'RGB':
-                        if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
-                            label += ' Distance'
-                        else: label += ' Color'
-                    elif ch.layer_input == 'ALPHA':
-                        if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
-                            label += ' Distance'
-                        elif layer.type in {'IMAGE', 'VCOL'}:
-                            label += ' Alpha'
-                        else: label += ' Factor'
-
                 if ch.override and ch.override_type == 'DEFAULT' and not ch.expand_source:
                     split = split_layout(row, 0.55, align=True)
                     split.menu("NODE_MT_y_layer_channel_input_menu", text=label)
@@ -4863,8 +4879,11 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         col = self.layout.column()
 
         if root_ch.type == 'NORMAL':
-            col.label(text='Layer Bump Source')
-        else: col.label(text='Layer '+root_ch.name+' Source')
+            #col.label(text='Layer Bump Source')
+            col.label(text='Bump Source')
+        else: 
+            #col.label(text='Layer '+root_ch.name+' Source')
+            col.label(text=root_ch.name+' Source')
 
         col.separator()
 
