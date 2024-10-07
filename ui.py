@@ -930,22 +930,26 @@ def draw_root_channels_ui(context, layout, node):
 
         row = mcol.row(align=True)
 
+        rrow = row.row(align=True)
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
         icon_name = lib.channel_custom_icon_dict[channel.type]
         if chui.expand_content:
             icon_name = 'uncollapsed_' + icon_name
         else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
-        row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        #else:
-        #    row.prop(chui, 'expand_content', text='', emboss=True, icon=lib.channel_icon_dict[channel.type])
+        text=channel.name + ' ' + pgettext_iface('Channel')
+        rrow.prop(chui, 'expand_content', text=text, emboss=False, icon_value=icon_value)
 
-        row.label(text=channel.name + ' ' + pgettext_iface('Channel'))
+        #row.label(text=channel.name + ' ' + pgettext_iface('Channel'))
 
         #if channel.type != 'NORMAL':
-        row.context_pointer_set('parent', channel)
-        row.context_pointer_set('channel_ui', chui)
+        rrow = row.row(align=True)
+        rrow.alignment = 'RIGHT'
+        rrow.context_pointer_set('parent', channel)
+        rrow.context_pointer_set('channel_ui', chui)
         icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-        row.menu("NODE_MT_y_channel_special_menu", icon=icon, text='')
+        rrow.menu("NODE_MT_y_channel_special_menu", icon=icon, text='')
 
         if chui.expand_content:
 
@@ -3432,15 +3436,19 @@ def main_draw(self, context):
 
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.prop(ypui, 'show_object', emboss=False, text='', icon=icon)
+    rrow = row.row(align=True)
+    rrow.alignment = 'LEFT'
+    rrow.scale_x = 0.95
     text_object = pgettext_iface('Object: ')
-    if obj:
-        row.label(text=text_object + obj.name)
-    else: row.label(text=text_object + '-')
+    if obj: text_object += obj.name
+    else: text_object += '-'
+    rrow.prop(ypui, 'show_object', emboss=False, text=text_object, icon=icon)
 
+    rrow = row.row(align=True)
+    rrow.alignment = 'RIGHT'
     if not is_bl_newer_than(2, 80):
-        row.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
-    else: row.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
+        rrow.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
+    else: rrow.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
 
     if ypui.show_object:
         box = layout.box()
@@ -3456,11 +3464,13 @@ def main_draw(self, context):
         row = layout.row(align=True)
 
     icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
-    row.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
+    rrow = row.row(align=True)
+    rrow.alignment = 'LEFT'
+    rrow.scale_x = 0.95
     text_material = pgettext_iface('Material: ')
-    if mat:
-        row.label(text=text_material + mat.name)
-    else: row.label(text=text_material + '-')
+    if mat: text_material += mat.name
+    else: text_material += '-'
+    rrow.prop(ypui, 'show_materials', emboss=False, text=text_material, icon=icon)
 
     # HACK: Load all icons earlier so no missing icons possible (Only for Blender 3.2+)
     if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
@@ -3548,8 +3558,9 @@ def main_draw(self, context):
     # Channels
     icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.prop(ypui, 'show_channels', emboss=False, text='', icon=icon)
-    row.label(text='Channels')
+    row.alignment = 'LEFT'
+    row.scale_x = 0.95
+    row.prop(ypui, 'show_channels', emboss=False, text='Channels', icon=icon)
 
     if ypui.show_channels:
         draw_root_channels_ui(context, layout, node)
@@ -3557,8 +3568,9 @@ def main_draw(self, context):
     # Layers
     icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
-    row.label(text='Layers')
+    row.alignment = 'LEFT'
+    row.scale_x = 0.95
+    row.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
 
     height_root_ch = get_root_height_channel(yp)
 
@@ -3595,8 +3607,9 @@ def main_draw(self, context):
     # Custom Bake Targets
     icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.prop(ypui, 'show_bake_targets', emboss=False, text='', icon=icon)
-    row.label(text='Custom Bake Targets')
+    row.alignment = 'LEFT'
+    row.scale_x = 0.95
+    row.prop(ypui, 'show_bake_targets', emboss=False, text='Custom Bake Targets', icon=icon)
 
     if ypui.show_bake_targets:
         draw_bake_targets_ui(context, layout, node)
@@ -3604,8 +3617,9 @@ def main_draw(self, context):
     # Stats
     icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.prop(ypui, 'show_stats', emboss=False, text='', icon=icon)
-    row.label(text='Stats')
+    row.alignment = 'LEFT'
+    row.scale_x = 0.95
+    row.prop(ypui, 'show_stats', emboss=False, text='Stats', icon=icon)
 
     if ypui.show_stats:
 
