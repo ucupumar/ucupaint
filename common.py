@@ -6678,3 +6678,7 @@ def load_image(path, directory, check_existing=True):
         return bpy_extras.image_utils.load_image(path, directory)
 
     return bpy_extras.image_utils.load_image(path, directory, check_existing=check_existing)
+
+def get_active_tool_idname():
+    tools = bpy.context.workspace.tools
+    return tools.from_space_view3d_mode(bpy.context.mode).idname

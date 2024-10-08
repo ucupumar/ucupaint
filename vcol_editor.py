@@ -44,13 +44,24 @@ class YToggleEraser(bpy.types.Operator):
 
         if mode == 'TEXTURE_PAINT':
             brush = context.tool_settings.image_paint.brush
-            draw_brush = bpy.data.brushes.get('TexDraw')
+            draw_brush_name = 'Paint Soft' if is_bl_newer_than(4, 3) else 'TexDraw'
+            draw_brush = bpy.data.brushes.get(draw_brush_name)
         elif mode == 'VERTEX_PAINT' and is_bl_newer_than(2, 80): 
             brush = context.tool_settings.vertex_paint.brush
-            draw_brush = bpy.data.brushes.get('Draw')
+            draw_brush_name = 'Paint Soft' if is_bl_newer_than(4, 3) else 'Draw'
+            draw_brush = bpy.data.brushes.get(draw_brush_name)
         elif mode == 'SCULPT' and is_bl_newer_than(3, 2): 
             brush = context.tool_settings.sculpt.brush
-            draw_brush = bpy.data.brushes.get('Paint')
+            draw_brush_name = 'Paint Blend' if is_bl_newer_than(4, 3) else 'Paint'
+            draw_brush = bpy.data.brushes.get(draw_brush_name)
+
+            # Sometime Blender 4.3+ need paint tool to be selected first
+            if not draw_brush and is_bl_newer_than(4, 3):
+                if ve.ori_sculpt_tool == '': 
+                    ve.ori_sculpt_tool = get_active_tool_idname()
+                bpy.ops.wm.tool_set_by_id(name="builtin_brush.paint")
+                draw_brush = bpy.data.brushes.get(draw_brush_name)
+
             if not draw_brush:
                 draw_brushes = [d for d in bpy.data.brushes if d.use_paint_sculpt and d.sculpt_tool == 'PAINT']
                 if draw_brushes: draw_brush = draw_brushes[0]
@@ -89,7 +100,7 @@ class YToggleEraser(bpy.types.Operator):
                     new_brush.blend = ve.ori_texpaint_blending_mode
                 elif mode == 'SCULPT':
                     new_brush.blend = ve.ori_sculpt_blending_mode
-            else:
+            elif draw_brush:
                 new_brush = draw_brush
                 new_brush.blend = 'MIX'
 
@@ -100,8 +111,11 @@ class YToggleEraser(bpy.types.Operator):
                 ve.ori_texpaint_brush = ''
                 ve.ori_texpaint_blending_mode = ''
             elif mode == 'SCULPT':
+                if ve.ori_sculpt_tool != '': 
+                    bpy.ops.wm.tool_set_by_id(name=ve.ori_sculpt_tool)
                 ve.ori_sculpt_brush = ''
                 ve.ori_sculpt_blending_mode = ''
+                ve.ori_sculpt_tool = ''
 
         else:
 
@@ -114,6 +128,8 @@ class YToggleEraser(bpy.types.Operator):
             if mode == 'SCULPT':
                 ve.ori_sculpt_brush = brush.name
                 ve.ori_sculpt_blending_mode = brush.blend
+                if is_bl_newer_than(4, 3): # and ve.ori_sculpt_tool == '': 
+                    ve.ori_sculpt_tool = get_active_tool_idname()
 
             new_brush = eraser_brush
 
@@ -564,6 +580,7 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
 
     ori_sculpt_blending_mode : StringProperty(default='')
     ori_sculpt_brush : StringProperty(default='')
+    ori_sculpt_tool : StringProperty(default='')
 
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
