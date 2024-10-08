@@ -278,7 +278,6 @@ texture_size_items = (
     ('1024', "1024", ''),
     ('2048', "2048", ''),
     ('4096', "4096", ''),
-    ('Custom', 'Custom', ''),
 )
 
 channel_override_labels = {
