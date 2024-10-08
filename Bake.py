@@ -1229,6 +1229,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         name = 'Texture Size',
         items = texture_size_items,
         default = '1024')
+    
+    use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False
+    )
 
     bake_disabled_layers : BoolProperty(
             name = 'Bake Disabled Layers',  
@@ -1306,7 +1311,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=340)
+        return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
         return True
@@ -1319,12 +1324,14 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         obj = context.object
         mat = obj.active_material
 
-        row = split_layout(self.layout, 0.3)
+        row = split_layout(self.layout, 0.4)
         col = row.column() #align=True)
 
         ccol = col.column(align=True)
-        ccol.label(text='Resolution:')
-        if self.texture_size == 'Custom':
+        ccol.label(text='')
+        if self.use_custom_resolution == False:
+            ccol.label(text='Resolution:')
+        if self.use_custom_resolution == True:
             ccol.label(text='Width:')
             ccol.label(text='Height:')
 
@@ -1362,13 +1369,14 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         col = row.column()
 
+        col.prop(self, 'use_custom_resolution')
         crow = col.row(align=True)
         ccol = col.column(align=True)
 
-        crow.prop(self, 'texture_size', expand= True,)
-        if self.texture_size != 'Custom':
+        if self.use_custom_resolution == False:
+            crow.prop(self, 'texture_size', expand= True,)
             self.height = self.width = int(self.texture_size)
-        elif self.texture_size == 'Custom':
+        elif self.use_custom_resolution == True:
             ccol.prop(self, 'width', text='')
             ccol.prop(self, 'height', text='')
 

@@ -339,6 +339,11 @@ class YNewLayerMask(bpy.types.Operator):
         name = 'Texture Size',
         items = texture_size_items,
         default = '1024')
+    
+    use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -418,7 +423,7 @@ class YNewLayerMask(bpy.types.Operator):
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=330)
+        return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
         ypup = get_user_preferences()
@@ -438,16 +443,20 @@ class YNewLayerMask(bpy.types.Operator):
         yp = node.node_tree.yp
         layer = get_active_layer(yp)
 
-        row = split_layout(self.layout, 0.3)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
         col.label(text='Name:')
-        if self.type == 'IMAGE':
+        if self.type == 'IMAGE' and self.use_custom_resolution == False:
+            col.label(text='')
             col.label(text='Resolution:')
-            if self.texture_size == 'Custom':
-                col.label(text='Width:')
-                col.label(text='Height:')
-                col.label(text='Interpolation:')
+        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
+            col.label(text='')
+            col.label(text='Width:')
+            col.label(text='Height:')
+
+        if self.type == 'IMAGE':
+            col.label(text='Interpolation:')
 
         if self.type in {'VCOL', 'IMAGE'}:
             col.label(text='Color:')
@@ -484,15 +493,20 @@ class YNewLayerMask(bpy.types.Operator):
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
-        if self.type == 'IMAGE':
+        if self.type == 'IMAGE' and self.use_custom_resolution == False:
+            crow = col.row(align=True)
+            crow.prop(self, 'use_custom_resolution')
             crow = col.row(align=True)
             crow.prop(self, 'texture_size', expand= True,)
-            if self.texture_size != 'Custom':
-                self.height = self.width = int(self.texture_size)
-            elif self.texture_size == 'Custom':
-                col.prop(self, 'width', text='')
-                col.prop(self, 'height', text='')
-                col.prop(self, 'interpolation', text='')
+            self.height = self.width = int(self.texture_size)
+        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
+            crow = col.row(align=True)
+            crow.prop(self, 'use_custom_resolution')
+            col.prop(self, 'width', text='')
+            col.prop(self, 'height', text='')
+
+        if self.type == 'IMAGE':
+            col.prop(self, 'interpolation', text='')
 
         if self.type in {'VCOL', 'IMAGE'}:
             col.prop(self, 'color_option', text='')

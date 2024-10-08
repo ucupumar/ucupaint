@@ -174,6 +174,16 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     selected_face_mode : BoolProperty(default=False)
     selected_objects : CollectionProperty(type=YBakeInfoSelectedObject)
 
+    texture_size : EnumProperty(
+        name = 'Texture Size',
+        items = texture_size_items,
+        default = '1024')
+    
+    use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False
+    )
+
 def register():
     bpy.utils.register_class(YBakeInfoOtherObject)
     bpy.utils.register_class(YBakeInfoSelectedVertex)

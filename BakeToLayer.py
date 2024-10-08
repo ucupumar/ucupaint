@@ -296,6 +296,11 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         name = 'Texture Size',
         items = texture_size_items,
         default = '1024')
+    
+    use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -627,8 +632,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         #    col.label(text='Source Object:')
 
         col.label(text='')
-        col.label(text='Resolution:')
-        if self.texture_size == 'Custom':
+        col.label(text='')
+        if self.use_custom_resolution == False:
+            col.label(text='Resolution:')
+        if self.use_custom_resolution == True:
             col.label(text='Width:')
             col.label(text='Height:')
         col.label(text='Samples:')
@@ -700,11 +707,12 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'multires_base', text='')
 
         col.prop(self, 'hdr')
+        col.prop(self, 'use_custom_resolution')
         crow = col.row(align=True)
-        crow.prop(self, 'texture_size', expand= True,)
-        if self.texture_size != 'Custom':
+        if self.use_custom_resolution == False:
+            crow.prop(self, 'texture_size', expand= True,)
             self.height = self.width = int(self.texture_size)
-        elif self.texture_size == 'Custom':
+        elif self.use_custom_resolution == True:
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
         col.prop(self, 'samples', text='')
