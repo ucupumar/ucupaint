@@ -2,7 +2,6 @@ import bpy, shutil, os
 import tempfile
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
-#from bpy_extras.image_utils import load_image  
 from .common import *
 import time
 from . import UDIM
@@ -171,79 +170,11 @@ def clean_object_references(image):
 
 def save_pack_all(yp):
 
-    tree = yp.id_data
-
-    images = []
-    for layer in yp.layers:
-        
-        # Layer image
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if source.image and source.image not in images:
-                images.append(source.image)
-
-        # Mask image
-        for mask in layer.masks:
-            mask_tree = get_mask_tree(mask)
-
-            if mask.type == 'IMAGE':
-                source = mask_tree.nodes.get(mask.source)
-                if source.image and source.image not in images:
-                    images.append(source.image)
-
-            baked_source = mask_tree.nodes.get(mask.baked_source)
-            if baked_source and baked_source.image and baked_source.image not in images:
-                images.append(baked_source.image)
-
-        # Channel override image
-        for ch in layer.channels:
-
-            if ch.override and ch.override_type == 'IMAGE':
-                source = get_channel_source(ch, layer)
-                if source.image and source.image not in images:
-                    images.append(source.image)
-
-            if ch.override_1 and ch.override_1_type == 'IMAGE':
-                source = get_channel_source_1(ch, layer)
-                if source.image and source.image not in images:
-                    images.append(source.image)
-
-    # Baked images
-    for ch in yp.channels:
-        baked = tree.nodes.get(ch.baked)
-        if baked and baked.image and baked.image not in images:
-            images.append(baked.image)
-
-        if ch.type == 'NORMAL':
-            baked_disp = tree.nodes.get(ch.baked_disp)
-            if baked_disp and baked_disp.image and baked_disp.image not in images:
-                images.append(baked_disp.image)
-
-            baked_vdisp = tree.nodes.get(ch.baked_vdisp)
-            if baked_vdisp and baked_vdisp.image and baked_vdisp.image not in images:
-                images.append(baked_vdisp.image)
-
-            if not is_overlay_normal_empty(yp):
-                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
-                    images.append(baked_normal_overlay.image)
-
-    # Custom bake target images
-    for bt in yp.bake_targets:
-        image_node = tree.nodes.get(bt.image_node)
-        if image_node and image_node.image not in images:
-            images.append(image_node.image)
-
+    images = get_yp_images(yp, get_baked_channels=True, check_overlay_normal=True)
     packed_float_images = []
 
-    # Temporary scene for blender 3.30 hack
+    # Temporary scene for Blender 3.3 hack
     tmpscene = None
-    if is_bl_newer_than(3, 3):
-        tmpscene = bpy.data.scenes.new('Temp Save Scene')
-        try: tmpscene.view_settings.view_transform = 'Standard'
-        except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
-        try: tmpscene.render.image_settings.file_format = 'PNG'
-        except: print('EXCEPTIION: Cannot set file format on temporary save scene!')
 
     # Save/pack images
     for image in images:
@@ -266,6 +197,15 @@ def save_pack_all(yp):
             else:
                 # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
                 if is_bl_newer_than(3, 3) and image.colorspace_settings.name in {'Linear', get_noncolor_name()}:
+
+                    # Create temporary scene
+                    if not tmpscene:
+                        print('INFO: Creating temporary scene for saving some images...')
+                        tmpscene = bpy.data.scenes.new('Temp Save Scene')
+                        try: tmpscene.view_settings.view_transform = 'Standard'
+                        except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
+                        try: tmpscene.render.image_settings.file_format = 'PNG'
+                        except: print('EXCEPTIION: Cannot set file format on temporary save scene!')
 
                     # Get image path
                     path = bpy.path.abspath(image.filepath)
@@ -308,6 +248,7 @@ def save_pack_all(yp):
 
     # Delete temporary scene
     if tmpscene:
+        print('INFO: Deleting temporary scene used for saving some images...')
         remove_datablock(bpy.data.scenes, tmpscene)
 
     # HACK: For some reason active float image will glitch after auto save
@@ -627,6 +568,10 @@ class YSaveAllBakedImages(bpy.types.Operator):
             default = 'PNG',
             )
 
+    copy : BoolProperty(name='Copy',
+            description = 'Create a new image file without modifying the current image in Blender',
+            default = False)
+
     def invoke(self, context, event):
         # Open browser, take reference to 'self' read the path to selected
         # file, put path in predetermined self fields.
@@ -641,6 +586,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
         col.label(text='Image Format:')
         col = split.column()
         col.prop(self, 'file_format', text='')
+
+        self.layout.prop(self, 'copy')
 
     def execute(self, context):
 
@@ -688,6 +635,21 @@ class YSaveAllBakedImages(bpy.types.Operator):
             if image_node and image_node.image not in images:
                 images.append(image_node.image)
 
+        original_image_names = []
+        original_names = []
+        if self.copy:
+            copied_images = []
+            for image in images:
+                ori_name = image.name
+                image_copy = duplicate_image(image, ondisk_duplicate=False)
+                image.name += '____'
+                image_copy.name = ori_name
+                original_image_names.append(image.name)
+                original_names.append(ori_name)
+                copied_images.append(image_copy)
+
+            images = copied_images
+
         for image in images:
 
             settings.file_format = self.file_format
@@ -697,12 +659,14 @@ class YSaveAllBakedImages(bpy.types.Operator):
             if settings.file_format == 'OPEN_EXR':
                 settings.exr_codec = 'ZIP'
 
-            if image.filepath == '':
+            if image.filepath == '' or '.<UDIM>.' in image.filepath:
                 image_name = image.name
                 # Remove addon title from the file names
                 if image_name.startswith(get_addon_title() + ' '):
                     image_name = image_name.replace(get_addon_title() + ' ', '')
-                filename = image_name + format_extensions[settings.file_format]
+                filename = image_name
+                filename += '.<UDIM>' if '.<UDIM>.' in image.filepath else ''
+                filename += format_extensions[settings.file_format]
             else:
                 filename = bpy.path.basename(image.filepath)
                 ext = os.path.splitext(filename)[1]
@@ -735,6 +699,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 unpack = True
                 default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
 
+            if self.copy:
+                pass
+
             # Save image
             image.save_render(path, scene=tmpscene)
 
@@ -750,7 +717,15 @@ class YSaveAllBakedImages(bpy.types.Operator):
             if unpack:
                 remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
 
-            #print(path)
+        # Remove copied images
+        if self.copy:
+            for image in reversed(images):
+                remove_datablock(bpy.data.images, image)
+
+        # Recover image names
+        for i, ori_image_name in enumerate(original_image_names):
+            ori_image = bpy.data.images.get(ori_image_name)
+            ori_image.name = original_names[i]
 
         # Delete temporary scene
         remove_datablock(bpy.data.scenes, tmpscene)
@@ -925,10 +900,11 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         filename = bpy.path.basename(context.image.filepath)
 
         # Set filepath
-        if context.image.filepath == '' or filename == '':
+        if context.image.filepath == '' or filename == '' or '.<UDIM>.' in filename:
             yp = get_active_ypaint_node().node_tree.yp
 
             name = context.image.name
+            name += '.<UDIM>' if '.<UDIM>.' in filename else ''
 
             # Remove addon title from the file names
             if yp.use_baked and name.startswith(get_addon_title() + ' '):
@@ -1042,6 +1018,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             self.report({'ERROR'}, 'Unpacking image atlas is not supported yet!')
             return {'CANCELLED'}
 
+        if self.copy:
+            image = self.image = duplicate_image(image, ondisk_duplicate=False)
+
         # Packing and unpacking sometimes does not work if the blend file is not saved yet
         unpack = False
         if bpy.data.filepath != '':
@@ -1060,35 +1039,10 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
                 unpack = True
                 self.unpack_image(context)
 
-        # Create temporary scene
-        tmpscene = bpy.data.scenes.new('Temp Save As Scene')
-
-        # Blender 2.80 has filmic as default color settings, change it to standard
-        if is_bl_newer_than(2, 80):
-            tmpscene.view_settings.view_transform = 'Standard'
-
         # Some image need to set to srgb when saving
         ori_colorspace = image.colorspace_settings.name
         if not image.is_float and not image.is_dirty:
             image.colorspace_settings.name = get_srgb_name()
-
-        # Set settings
-        settings = tmpscene.render.image_settings
-        settings.file_format = self.file_format
-        settings.color_mode = self.color_mode
-        settings.color_depth = self.color_depth
-        settings.compression = self.compression
-        settings.quality = self.quality
-        if hasattr(settings, 'tiff_codec'): settings.tiff_codec = self.tiff_codec
-        settings.exr_codec = self.exr_codec
-        settings.jpeg2k_codec = self.jpeg2k_codec
-        settings.use_jpeg2k_cinema_48 = self.use_jpeg2k_cinema_48
-        settings.use_jpeg2k_cinema_preset = self.use_jpeg2k_cinema_preset
-        settings.use_jpeg2k_ycc = self.use_jpeg2k_ycc
-        settings.use_cineon_log = self.use_cineon_log
-        if hasattr(settings, 'use_zbuffer'): settings.use_zbuffer = self.use_zbuffer
-
-        #print(self.file_format)
 
         # Save image
         if image.source == 'TILED':
@@ -1099,6 +1053,29 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
                     bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
             else: bpy.ops.image.save_as(override, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
         else:
+            # Create temporary scene
+            tmpscene = bpy.data.scenes.new('Temp Save As Scene')
+
+            # Blender 2.80 has filmic as default color settings, change it to standard
+            if is_bl_newer_than(2, 80):
+                tmpscene.view_settings.view_transform = 'Standard'
+
+            # Set settings
+            settings = tmpscene.render.image_settings
+            settings.file_format = self.file_format
+            settings.color_mode = self.color_mode
+            settings.color_depth = self.color_depth
+            settings.compression = self.compression
+            settings.quality = self.quality
+            if hasattr(settings, 'tiff_codec'): settings.tiff_codec = self.tiff_codec
+            settings.exr_codec = self.exr_codec
+            settings.jpeg2k_codec = self.jpeg2k_codec
+            settings.use_jpeg2k_cinema_48 = self.use_jpeg2k_cinema_48
+            settings.use_jpeg2k_cinema_preset = self.use_jpeg2k_cinema_preset
+            settings.use_jpeg2k_ycc = self.use_jpeg2k_ycc
+            settings.use_cineon_log = self.use_cineon_log
+            if hasattr(settings, 'use_zbuffer'): settings.use_zbuffer = self.use_zbuffer
+
             image.save_render(self.filepath, scene=tmpscene)
 
             if not self.copy:
@@ -1112,17 +1089,21 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
                 image.source = 'FILE'
                 image.reload()
 
+            # Delete temporary scene
+            remove_datablock(bpy.data.scenes, tmpscene)
+
         # Remove unpacked file
         if unpack:
             self.remove_unpacked_image(context)
 
         # Set back colorspace settings
-        image.colorspace_settings.name = ori_colorspace
+        if image.colorspace_settings.name != ori_colorspace:
+            image.colorspace_settings.name = ori_colorspace
 
-        # Delete temporary scene
-        remove_datablock(bpy.data.scenes, tmpscene)
+        # Delete copied image
+        if self.copy:
+            remove_datablock(bpy.data.images, image)
 
-        #context.image.save()
         return {'FINISHED'}
 
 class YSavePackAll(bpy.types.Operator):

@@ -230,22 +230,6 @@ def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
 
             if root_ch.enable_smooth_bump:
 
-                io_name = root_ch.name + io_suffix['HEIGHT_ONS']
-                if io_name in node.inputs:
-                    break_input_link(tree, node.inputs[io_name])
-
-                io_name = root_ch.name + io_suffix['HEIGHT_EW']
-                if io_name in node.inputs:
-                    break_input_link(tree, node.inputs[io_name])
-
-                io_name = root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['ALPHA']
-                if io_name in node.inputs:
-                    break_input_link(tree, node.inputs[io_name])
-
-                io_name = root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['ALPHA']
-                if io_name in node.inputs:
-                    break_input_link(tree, node.inputs[io_name])
-
                 for letter in nsew_letters:
 
                     io_name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()]
@@ -257,6 +241,10 @@ def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
                         break_input_link(tree, node.inputs[io_name])
 
             io_name = root_ch.name + io_suffix['MAX_HEIGHT']
+            if io_name in node.inputs:
+                break_input_link(tree, node.inputs[io_name])
+
+            io_name = root_ch.name + io_suffix['VDISP']
             if io_name in node.inputs:
                 break_input_link(tree, node.inputs[io_name])
 
@@ -311,22 +299,6 @@ def remove_unused_group_node_connections(tree, layer, node): #, height_only=Fals
             break_input_link(tree, node.inputs[io_name])
 
         if root_ch.enable_smooth_bump:
-
-            io_name = root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['GROUP']
-            if io_name in node.inputs:
-                break_input_link(tree, node.inputs[io_name])
-
-            io_name = root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['GROUP']
-            if io_name in node.inputs:
-                break_input_link(tree, node.inputs[io_name])
-
-            io_name = root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['ALPHA'] + io_suffix['GROUP']
-            if io_name in node.inputs:
-                break_input_link(tree, node.inputs[io_name])
-
-            io_name = root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['ALPHA'] + io_suffix['GROUP']
-            if io_name in node.inputs:
-                break_input_link(tree, node.inputs[io_name])
 
             for letter in nsew_letters:
                 io_name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['GROUP']
@@ -1801,12 +1773,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if prev_max_height and 'Max Height' in bump_process.inputs: create_link(tree, prev_max_height, bump_process.inputs['Max Height'])
 
         if height_root_ch.enable_smooth_bump:
-            #prev_height_ons = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_ONS'])
-            #prev_height_ew = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_EW'])
-
-            #if prev_height_ons and 'Height ONS' in bump_process.inputs: create_link(tree, prev_height_ons, bump_process.inputs['Height ONS'])
-            #if prev_height_ew and 'Height EW' in bump_process.inputs: create_link(tree, prev_height_ew, bump_process.inputs['Height EW'])
-
             prev_height_n = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_N'])
             prev_height_s = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_S'])
             prev_height_e = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_E'])

@@ -2709,6 +2709,7 @@ def update_enable_baked_outside(self, context):
     tree = self.id_data
     yp = tree.yp
     node = get_active_ypaint_node()
+    if not node: return
     mat = get_active_material()
     scene = context.scene
     ypup = get_user_preferences()
@@ -3396,7 +3397,7 @@ def check_subdiv_setup(height_ch):
                 if obj.data and hasattr(obj.data, 'cycles'):
                     obj.data.cycles.displacement_method = 'TRUE'
 
-        if not yp.enable_baked_outside:
+        if not yp.use_baked or not yp.enable_baked_outside:
             check_displacement_node(mat, node, set_one=True)
 
     # Outside nodes connection set

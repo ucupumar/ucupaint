@@ -1,7 +1,6 @@
 import bpy, time, re, os, random, pathlib
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from bpy_extras.image_utils import load_image  
 from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier
 from .common import *
 #from .bake_common import *
@@ -1347,6 +1346,7 @@ class YNewLayer(bpy.types.Operator):
         else:
             ypui.layer_ui.expand_content = False
             ypui.layer_ui.expand_source = False
+        ypui.layer_ui.expand_vector = False
 
         if self.channel_idx != '-1':
             ypui.layer_ui.expand_channels = False
@@ -1812,9 +1812,7 @@ class BaseMultipleImagesLayer():
 
         # Load images from directory
         if import_list:
-            if is_bl_newer_than(2, 77):
-                images.extend(list(load_image(path, directory, check_existing=True) for path in import_list))
-            else: images.extend(list(load_image(path, directory) for path in import_list))
+            images.extend(list(load_image(path, directory) for path in import_list))
 
         valid_channels = []
         valid_images = []
@@ -2096,6 +2094,19 @@ class BaseMultipleImagesLayer():
 
         return True
 
+def search_for_images(tree):
+    images = []
+
+    for node in tree.nodes:
+        if node.type == 'TEX_IMAGE':
+            if node.image:
+                images.append(node.image)
+
+        if node.type == 'GROUP' and node.node_tree and not node.node_tree.yp.is_ypaint_node:
+            images.extend(search_for_images(node.node_tree))
+
+    return images
+
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
     bl_idname = "node.y_open_images_from_material_to_single_layer"
     bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
@@ -2184,10 +2195,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         # Check material for images
         images = []
         if mat.node_tree:
-            for node in mat.node_tree.nodes:
-                if node.type == 'TEX_IMAGE':
-                    if node.image:
-                        images.append(node.image)
+            images = search_for_images(mat.node_tree)
 
         # Check for yp images
         output = get_material_output(mat)
@@ -2473,8 +2481,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         if not UDIM.is_udim_supported():
             images = tuple(load_image(path, directory) for path in import_list)
         else:
-            ori_ui_type = bpy.context.area.ui_type
-            bpy.context.area.ui_type = 'IMAGE_EDITOR'
+            ori_ui_type = bpy.context.area.type
+            bpy.context.area.type = 'IMAGE_EDITOR'
             images = []
             for path in import_list:
                 bpy.ops.image.open(filepath=directory+os.sep+path, directory=directory, 
@@ -2482,7 +2490,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                 image = bpy.context.space_data.image
                 if image not in images:
                     images.append(image)
-            bpy.context.area.ui_type = ori_ui_type
+            bpy.context.area.type = ori_ui_type
 
         node.node_tree.yp.halt_update = True
 
@@ -4636,6 +4644,12 @@ class YPasteLayer(bpy.types.Operator):
             default = False
             )
     
+    set_new_decal_position : BoolProperty(
+            name = 'Set New Decal Position to Cursor',
+            description = 'Position decals at 3D Cursor when duplicating',
+            default = False
+            )
+
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()

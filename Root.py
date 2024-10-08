@@ -130,6 +130,7 @@ def create_new_group_tree(mat):
     group_tree.yp.is_ypaint_node = True
     group_tree.yp.version = get_current_version_str()
     group_tree.yp.blender_version = get_current_blender_version_str()
+    group_tree.yp.enable_baked_outside = get_user_preferences().enable_baked_outside_by_default
 
     # Create IO nodes
     create_essential_nodes(group_tree, True, True, True)

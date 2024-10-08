@@ -86,6 +86,12 @@ class YPaintPreferences(AddonPreferences):
                      ('GPU', 'GPU Compute', 'Use GPU by default')),
             default='DEFAULT'
             )
+
+    enable_baked_outside_by_default : BoolProperty(
+            name = 'Enable Baked Outside by default',
+            description = "Enable baked outside by default when creating new "+get_addon_title()+" node.\n(Useful for creating game assets)",
+            default = False
+            )
     
     # Addon updater preferences.
     auto_check_update : BoolProperty(
@@ -132,6 +138,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'make_preview_mode_srgb')
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'skip_property_popups')
+        self.layout.prop(self, 'enable_baked_outside_by_default')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')

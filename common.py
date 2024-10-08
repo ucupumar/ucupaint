@@ -1,4 +1,5 @@
 import bpy, os, sys, re, time, numpy, math, pathlib
+import bpy_extras.image_utils
 from mathutils import *
 from bpy.app.handlers import persistent
 
@@ -1216,8 +1217,7 @@ def get_active_ypaint_node(obj=None):
             return node
 
     node = mat.node_tree.nodes.get(mui.active_ypaint_node)
-    #print(mui.active_ypaint_node, node)
-    if node: return node
+    if node and hasattr(node, 'node_tree') and node.node_tree and node.node_tree.yp.is_ypaint_node: return node
 
     # If node still not found
     for node in mat.node_tree.nodes:
@@ -4816,7 +4816,7 @@ def is_entity_need_tangent_input(entity, uv_name):
         height_ch = get_height_channel(layer)
 
         # Previous normal is calculated using normal process
-        if height_root_ch and check_need_prev_normal(layer):
+        if height_root_ch and height_root_ch.enable_smooth_bump and check_need_prev_normal(layer):
             return True
 
         if height_root_ch and height_ch and get_channel_enabled(height_ch, layer, height_root_ch):
@@ -5280,10 +5280,44 @@ def any_single_user_ondisk_image_inside_group(group):
 
     return False
 
-def get_yp_images(yp, udim_only=False):
+def get_yp_images(yp, udim_only=False, get_baked_channels=False, check_overlay_normal=False):
+
     images = []
+
+    # Layer images
     for layer in yp.layers:
-        images.extend(get_layer_images(layer, udim_only))
+        layer_images = get_layer_images(layer, udim_only)
+        for image in layer_images:
+            if image not in images:
+                images.append(image)
+
+    # Baked images
+    if get_baked_channels:
+        tree = yp.id_data
+        for ch in yp.channels:
+            baked = tree.nodes.get(ch.baked)
+            if baked and baked.image and baked.image not in images:
+                images.append(baked.image)
+
+            if ch.type == 'NORMAL':
+                baked_disp = tree.nodes.get(ch.baked_disp)
+                if baked_disp and baked_disp.image and baked_disp.image not in images:
+                    images.append(baked_disp.image)
+
+                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image and baked_vdisp.image not in images:
+                    images.append(baked_vdisp.image)
+
+                if not check_overlay_normal or not is_overlay_normal_empty(yp):
+                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
+                        images.append(baked_normal_overlay.image)
+
+        # Custom bake target images
+        for bt in yp.bake_targets:
+            image_node = tree.nodes.get(bt.image_node)
+            if image_node and image_node.image not in images:
+                images.append(image_node.image)
 
     return images
 
@@ -6387,7 +6421,7 @@ def is_image_filepath_unique(filepath, check_disk=True):
             return False
     return True
 
-def duplicate_image(image):
+def duplicate_image(image, ondisk_duplicate=True):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
         if image.packed_file:
@@ -6397,7 +6431,7 @@ def duplicate_image(image):
     # Copy image
     new_image = image.copy()
 
-    if image.source == 'TILED' or (not image.packed_file and image.filepath != ''):
+    if ondisk_duplicate and (image.source == 'TILED' or (not image.packed_file and image.filepath != '')):
 
         directory = os.path.dirname(bpy.path.abspath(image.filepath))
         filename = bpy.path.basename(new_image.filepath)
@@ -6636,6 +6670,7 @@ def get_mesh_hash(obj):
     return str(h)
 
 def remove_decal_object(tree, entity):
+    if not tree: return
     # NOTE: This will remove the texcoord object even if the entity is not using decal
     #if entity.texcoord_type == 'Decal':
     texcoord = tree.nodes.get(entity.texcoord)
@@ -6644,3 +6679,9 @@ def remove_decal_object(tree, entity):
         if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
             texcoord.object = None
             remove_datablock(bpy.data.objects, decal_obj)
+
+def load_image(path, directory, check_existing=True):
+    if not is_bl_newer_than(2, 77):
+        return bpy_extras.image_utils.load_image(path, directory)
+
+    return bpy_extras.image_utils.load_image(path, directory, check_existing=check_existing)
