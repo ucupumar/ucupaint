@@ -1123,6 +1123,16 @@ class YNewYPaintChannel(bpy.types.Operator):
             description = 'Set socket strength to one',
             default=True)
 
+    blend_method : EnumProperty(
+            name='Blend Method', 
+            description = 'Blend method for transparent material',
+            items = (
+                ('CLIP', 'Alpha Clip', ''),
+                ('HASHED', 'Alpha Hashed', ''),
+                ('BLEND', 'Alpha Blend', '')),
+            default='HASHED'
+            )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -1152,6 +1162,18 @@ class YNewYPaintChannel(bpy.types.Operator):
         return True
 
     def draw(self, context):
+
+        mat = get_active_material()
+
+        # Detect principled alpha
+        is_alpha_channel = False
+        if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
+            item = self.input_coll.get(self.connect_to)
+            if item:
+                target_node = mat.node_tree.nodes.get(item.node_name)
+                if target_node.type == 'BSDF_PRINCIPLED' and item.input_name == 'Alpha':
+                    is_alpha_channel = True
+
         row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
@@ -1159,6 +1181,8 @@ class YNewYPaintChannel(bpy.types.Operator):
         col.label(text='Connect To:')
         if self.type != 'NORMAL':
             col.label(text='Color Space:')
+        if is_alpha_channel:
+            col.label(text='Blend Method:')
         if self.type != 'NORMAL': col.label(text='')
 
         col = row.column(align=False)
@@ -1167,13 +1191,14 @@ class YNewYPaintChannel(bpy.types.Operator):
                 #lib.custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
         if self.type != 'NORMAL':
             col.prop(self, "colorspace", text='')
+        if is_alpha_channel:
+            col.prop(self, 'blend_method', text='')
         if self.type != 'NORMAL': col.prop(self, 'use_clamp')
 
         # Blender 4.0 and above has some default weight and strength set to 0.0
         if is_bl_newer_than(4):
             item = self.input_coll.get(self.connect_to)
             if item:
-                mat = get_active_material()
                 target_node = mat.node_tree.nodes.get(item.node_name)
                 if target_node.type == 'BSDF_PRINCIPLED' and item.input_name in {'Emission Color', 'Subsurface Scale'}:
                     col.prop(self, "set_strength_to_one")
@@ -1217,6 +1242,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         inp = None
         strength_inp = None
         input_name = ''
+        set_blend_method = False
         if item:
             target_node = mat.node_tree.nodes.get(item.node_name)
             input_name = item.input_name
@@ -1229,6 +1255,11 @@ class YNewYPaintChannel(bpy.types.Operator):
                     strength_inp = target_node.inputs.get('Emission Strength')
                 elif item.input_name == 'Subsurface Scale':
                     strength_inp = target_node.inputs.get('Subsurface Weight')
+
+            if (is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2) and
+                target_node.type == 'BSDF_PRINCIPLED' and item.input_name == 'Alpha'
+                ):
+                set_blend_method = True
 
         # Set input default value
         if inp and self.type != 'NORMAL': 
@@ -1246,6 +1277,10 @@ class YNewYPaintChannel(bpy.types.Operator):
         # Set use clamp
         if channel.use_clamp != self.use_clamp:
             channel.use_clamp = self.use_clamp
+
+        # Set blend method
+        if set_blend_method:
+            mat.blend_method = self.blend_method
 
         # Change active channel
         last_index = len(yp.channels)-1
