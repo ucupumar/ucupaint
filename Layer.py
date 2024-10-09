@@ -1737,11 +1737,15 @@ class BaseMultipleImagesLayer():
     def is_synonym_in_image_name(self, syname, img_name):
 
         # Check entire name of synonym if it's in image name
-        if (img_name.endswith(syname) or # Example: 'rocks_normalgl'
-            '_' + syname in img_name or # Example: 'rocks_normalgl_4k'
-            ' ' + syname in img_name # Example: 'rocks normalgl 4k'
-            ):
-            return True
+        if len(syname) > 1:
+            if (img_name.endswith(syname) or # Example: 'rocks_normalgl'
+                '_' + syname in img_name or # Example: 'rocks_normalgl_4k'
+                ' ' + syname in img_name # Example: 'rocks normalgl 4k'
+                ):
+                return True
+        else:
+            if img_name.endswith(('_' + syname, '.' + syname)): # Example 'rocks_n', 'rocks.n'
+                return True
 
         if ' ' in syname:
             # Check if synonym without whitespace is in image name
@@ -1772,9 +1776,9 @@ class BaseMultipleImagesLayer():
 
         # Check if initial of synonym is in the end of image name
         # Avoid initial a because it's too common
-        initial = syname[0] if syname not in {'displacement', 'base color'} else ''
-        if initial not in {'a', ''} and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
-            return True
+        #initial = syname[0] if syname not in {'displacement', 'base color'} else ''
+        #if initial not in {'a', ''} and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
+        #    return True
 
         return False
     
@@ -1807,10 +1811,12 @@ class BaseMultipleImagesLayer():
                 gl_image = image
 
         synonym_libs = {
-                'color' : ['albedo', 'diffuse', 'base color'], 
+                'color' : ['albedo', 'diffuse', 'base color', 'd'], 
+                'alpha' : ['opacity', 'a'], 
                 'ambient occlusion' : ['ao'], 
-                'roughness' : ['glossiness'],
-                'normal' : ['displacement', 'height', 'bump'], # Prioritize displacement/bump before actual normal map
+                'metallic' : ['metalness', 'm'],
+                'roughness' : ['glossiness', 'r'],
+                'normal' : ['displacement', 'height', 'bump', 'n'], # Prioritize displacement/bump before actual normal map
                 }
 
         wm = context.window_manager
@@ -1878,7 +1884,7 @@ class BaseMultipleImagesLayer():
         
         if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
             normal_map_type = self.normal_map_priority
-        elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] == 'normal']):
+        elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] in {'normal', 'n'}]):
             normal_map_type = 'NORMAL_MAP'
         else: normal_map_type = 'BUMP_MAP'
 
@@ -1915,7 +1921,7 @@ class BaseMultipleImagesLayer():
             else:
                 ch = layer.channels[ch_idx]
                 ch.enable = True
-                if root_ch.type == 'NORMAL' and (syname == 'normal' or 'normal without bump' in image.name.lower()):
+                if root_ch.type == 'NORMAL' and (syname in {'normal', 'n'} or 'normal without bump' in image.name.lower()):
                     image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
                     image_node.image = image
                     ch.override_1 = True
