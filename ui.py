@@ -1464,27 +1464,31 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                         boxcol.operator('node.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
 
                     if layer.texcoord_type != 'Decal':
-                        mapping = get_layer_mapping(layer)
-
                         rrow = boxcol.row()
                         rrow.label(text='Transform:')
-                        rrow.prop(mapping, 'vector_type', text='')
+                        rrow.prop(get_layer_mapping(layer), 'vector_type', text='')
 
                         rrow = boxcol.row()
-                        if is_bl_newer_than(2, 81):
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                        mcol = rrow.column()
+                        mcol.prop(layer, 'translation', text='Offset')
+                        mcol = rrow.column()
+                        mcol.prop(layer, 'rotation', text='Rotation')
+
+                        mcol = rrow.column()
+                        if layer.enable_uniform_scale:
+                            scale_col = mcol.column(align=True)
+                            scale_col.label(text='Scale:')
+                            scale_col.prop(layer, 'uniform_scale_value', text='')
+                            scale_col.prop(layer, 'uniform_scale_value', text='')
+                            scale_col.prop(layer, 'uniform_scale_value', text='')
                         else:
-                            mcol = rrow.column()
-                            mcol.prop(mapping, 'translation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping, 'rotation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping, 'scale')
+                            mcol.prop(layer, 'scale', text='Scale')
+                    
+                        # Uniform scale
+                        rrow = boxcol.row(align=True)
+                        splits = split_layout(rrow, 0.5)
+                        splits.label(text='Uniform Scale:')
+                        rrow.prop(layer, 'enable_uniform_scale', text='')
 
                         if yp.need_temp_uv_refresh:
                             rrow = boxcol.row(align=True)
@@ -1493,7 +1497,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
                 # Blur row
                 rrow = boxcol.row(align=True)
-                splits = split_layout(rrow, 0.3)
+                splits = split_layout(rrow, 0.5)
                 splits.label(text='Blur:')
                 if layer.enable_blur_vector:
                     draw_input_prop(splits, layer, 'blur_vector_factor')
@@ -2434,27 +2438,31 @@ def draw_layer_masks(context, layout, layer):
                         boxcol.operator('node.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
 
                     if mask.texcoord_type != 'Decal':
-                        mapping = get_mask_mapping(mask)
-
                         rrow = boxcol.row()
                         rrow.label(text='Transform:')
-                        rrow.prop(mapping, 'vector_type', text='')
+                        rrow.prop(get_mask_mapping(mask), 'vector_type', text='')
 
                         rrow = boxcol.row()
-                        if is_bl_newer_than(2, 81):
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                        mcol = rrow.column()
+                        mcol.prop(mask, 'translation', text='Offset')
+                        mcol = rrow.column()
+                        mcol.prop(mask, 'rotation', text='Rotation')
+
+                        mcol = rrow.column()
+                        if mask.enable_uniform_scale:
+                            scale_col = mcol.column(align=True)
+                            scale_col.label(text='Scale:')
+                            scale_col.prop(mask, 'uniform_scale_value', text='')
+                            scale_col.prop(mask, 'uniform_scale_value', text='')
+                            scale_col.prop(mask, 'uniform_scale_value', text='')
                         else:
-                            mcol = rrow.column()
-                            mcol.prop(mapping, 'translation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping, 'rotation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping, 'scale')
+                            mcol.prop(mask, 'scale', text='Scale')
+                    
+                        # Uniform scale
+                        rrow = boxcol.row(align=True)
+                        splits = split_layout(rrow, 0.5)
+                        splits.label(text='Uniform Scale:')
+                        rrow.prop(mask, 'enable_uniform_scale', text='')
 
                         if mask.type == 'IMAGE' and mask.active_edit and (
                                 yp.need_temp_uv_refresh
@@ -2466,7 +2474,7 @@ def draw_layer_masks(context, layout, layer):
                 # Blur row
                 if mask.texcoord_type != 'Layer':
                     rrow = boxcol.row(align=True)
-                    splits = split_layout(rrow, 0.3)
+                    splits = split_layout(rrow, 0.5)
                     splits.label(text='Blur:')
                     if mask.enable_blur_vector:
                         draw_input_prop(splits, mask, 'blur_vector_factor')

@@ -1707,6 +1707,14 @@ def update_mask_source_input(self, context):
     # Reconnect nodes
     reconnect_layer_nodes(layer)
 
+def update_mask_uniform_scale_enabled(self, context):
+    if self.enable_uniform_scale:
+        self.uniform_scale_value = min(self.scale)
+
+def update_mask_uniform_scale_value(self, context):
+    value = self.uniform_scale_value
+    self.scale = (value, value, value)
+
 class YLayerMaskChannel(bpy.types.PropertyGroup):
     enable : BoolProperty(default=True, update=update_layer_mask_channel_enable)
 
@@ -1943,6 +1951,21 @@ class YLayerMask(bpy.types.PropertyGroup):
     mapping : StringProperty(default='')
     baked_mapping : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    enable_uniform_scale : BoolProperty(
+        name = 'Enable Uniform Scale', 
+        description = 'Use the same value for all scale components',
+        default = True,
+        update = update_mask_uniform_scale_enabled
+        )
+
+    uniform_scale_value : FloatProperty(
+        name = 'Uniform Scale Value',
+        description = 'Value to use for all scale components',
+        default = 1,
+        precision = 3,
+        update = update_mask_uniform_scale_value
+        )
 
     decal_process : StringProperty(default='')
     texcoord : StringProperty(default='')

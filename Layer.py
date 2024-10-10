@@ -5971,6 +5971,14 @@ def update_layer_blur_vector_factor(self, context):
     if blur_vector:
         blur_vector.inputs[0].default_value = layer.blur_vector_factor
 
+def update_layer_uniform_scale_enabled(self, context):
+    if self.enable_uniform_scale:
+        self.uniform_scale_value = min(self.scale)
+
+def update_layer_uniform_scale_value(self, context):
+    value = self.uniform_scale_value
+    self.scale = (value, value, value)
+
 class YLayer(bpy.types.PropertyGroup):
     name : StringProperty(
             name = 'Layer Name',
@@ -6184,6 +6192,21 @@ class YLayer(bpy.types.PropertyGroup):
     baked_mapping : StringProperty(default='')
     texcoord : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    enable_uniform_scale : BoolProperty(
+        name = 'Enable Uniform Scale', 
+        description = 'Use the same value for all scale components',
+        default = True,
+        update = update_layer_uniform_scale_enabled
+        )
+
+    uniform_scale_value : FloatProperty(
+        name = 'Uniform Scale Value',
+        description = 'Value to use for all scale components',
+        default = 1,
+        precision = 3,
+        update = update_layer_uniform_scale_value
+        )
 
     decal_process : StringProperty(default='')
 
