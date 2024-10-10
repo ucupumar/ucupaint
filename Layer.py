@@ -877,6 +877,16 @@ class YNewLayer(bpy.types.Operator):
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
+    texture_size : EnumProperty(
+        name = 'Texture Size',
+        items = texture_size_items,
+        default = '1024')
+    
+    use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False
+    )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -1047,10 +1057,15 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='Space:')
             col.label(text='')
 
-        if self.type == 'IMAGE':
+        if self.type == 'IMAGE' and self.use_custom_resolution == False:
+            col.label(text='')
+            col.label(text='Resolution:')
+        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
             col.label(text='')
             col.label(text='Width:')
             col.label(text='Height:')
+            
+        if self.type == 'IMAGE':
             col.label(text='Interpolation:')
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
@@ -1112,10 +1127,20 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'hemi_space', text='')
             col.prop(self, 'hemi_use_prev_normal')
 
-        if self.type == 'IMAGE':
-            col.prop(self, 'hdr')
+        if self.type == 'IMAGE' and self.use_custom_resolution == False:
+            crow = col.row(align=True)
+            crow.prop(self, 'use_custom_resolution')
+            crow = col.row(align=True)
+            crow.prop(self, 'texture_size', expand= True,)
+            self.height = self.width = int(self.texture_size)
+        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
+            crow = col.row(align=True)
+            crow.prop(self, 'use_custom_resolution')
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
+
+        if self.type == 'IMAGE':
+            col.prop(self, 'hdr')
             col.prop(self, 'interpolation', text='')
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:

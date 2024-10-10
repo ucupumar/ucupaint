@@ -274,6 +274,13 @@ bake_type_items = (
         ('FLOW', 'Flow Map based on straight UVMap', ''),
         )
 
+texture_size_items = (
+    ('512', "512", ''),
+    ('1024', "1024", ''),
+    ('2048', "2048", ''),
+    ('4096', "4096", ''),
+)
+
 channel_override_labels = {
         'DEFAULT' : 'Default',
         'IMAGE' : 'Image',
