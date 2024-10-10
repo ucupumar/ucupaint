@@ -3277,29 +3277,19 @@ class YMoveLayer(bpy.types.Operator):
 def draw_move_up_in_layer_group(self, context):
     col = self.layout.column()
 
-    c = col.operator("node.y_move_layer", text='Move Up (skip group)', icon='TRIA_UP')
+    c = col.operator("node.y_move_layer", text='Move Up (Skip Group)', icon='TRIA_UP')
     c.direction = 'UP'
 
-    c = col.operator("node.y_move_in_out_layer_group", text='Move inside group', icon='TRIA_UP')
+    c = col.operator("node.y_move_in_out_layer_group", text='Move Inside Group', icon='TRIA_UP')
     c.direction = 'UP'
 
 def draw_move_down_in_layer_group(self, context):
     col = self.layout.column()
 
-    c = col.operator("node.y_move_layer", text='Move Down (skip group)', icon='TRIA_DOWN')
+    c = col.operator("node.y_move_layer", text='Move Down (Skip Group)', icon='TRIA_DOWN')
     c.direction = 'DOWN'
 
-    c = col.operator("node.y_move_in_out_layer_group", text='Move inside group', icon='TRIA_DOWN')
-    c.direction = 'DOWN'
-
-def draw_move_up_out_layer_group(self, context):
-    col = self.layout.column()
-    c = col.operator("node.y_move_in_out_layer_group", text='Move outside group', icon='TRIA_UP')
-    c.direction = 'UP'
-
-def draw_move_down_out_layer_group(self, context):
-    col = self.layout.column()
-    c = col.operator("node.y_move_in_out_layer_group", text='Move outside group', icon='TRIA_DOWN')
+    c = col.operator("node.y_move_in_out_layer_group", text='Move Inside Group', icon='TRIA_DOWN')
     c.direction = 'DOWN'
 
 class YMoveInOutLayerGroupMenu(bpy.types.Operator):
@@ -3325,10 +3315,7 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
         wm = bpy.context.window_manager
 
         if self.move_out:
-            if self.direction == 'UP':
-                wm.popup_menu(draw_move_up_out_layer_group, title="Options")
-            elif self.direction == 'DOWN':
-                wm.popup_menu(draw_move_down_out_layer_group, title="Options")
+            bpy.ops.node.y_move_in_out_layer_group(direction=self.direction)
         else:
             if self.direction == 'UP':
                 wm.popup_menu(draw_move_up_in_layer_group, title="Options")
