@@ -2526,6 +2526,18 @@ def draw_layers_ui(context, layout, node):
 
     box = layout.box()
 
+    # Check duplicated yp node (indicated by more than one users)
+    if group_tree.users > 1:
+        row = box.row(align=True)
+        row.alert = True
+        op = row.operator("node.y_duplicate_yp_nodes", text='Fix Multi-User ' + get_addon_title() + ' Node', icon='ERROR')
+        op.duplicate_node = True
+        op.duplicate_material = False
+        op.only_active = True
+        row.alert = False
+        #box.prop(ypui, 'make_image_single_user')
+        return
+
     if yp.use_baked:
         col = box.column(align=False)
 
@@ -2690,18 +2702,6 @@ def draw_layers_ui(context, layout, node):
     # Check if parallax is enabled
     height_root_ch = get_root_height_channel(yp)
     enable_parallax = is_parallax_enabled(height_root_ch)
-
-    # Check duplicated yp node (indicated by more than one users)
-    if group_tree.users > 1:
-        row = box.row(align=True)
-        row.alert = True
-        op = row.operator("node.y_duplicate_yp_nodes", text='Fix Multi-User ' + get_addon_title() + ' Node', icon='ERROR')
-        op.duplicate_node = True
-        op.duplicate_material = False
-        op.only_active = True
-        row.alert = False
-        #box.prop(ypui, 'make_image_single_user')
-        return
 
     # Check duplicated layers (indicated by more than one users)
     #elif len(yp.layers) > 0:
@@ -3363,7 +3363,7 @@ def main_draw(self, context):
     if scenario_1:
         row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
 
-    if baked_found or yp.use_baked:
+    if (baked_found or yp.use_baked) and not group_tree.users > 1:
         row.prop(yp, 'use_baked', toggle=True, text='Use Baked')
         row.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
 

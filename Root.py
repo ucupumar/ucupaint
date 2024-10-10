@@ -1962,6 +1962,10 @@ class YDuplicateYPNodes(bpy.types.Operator):
         tree = group_node.node_tree
         yp = tree.yp
 
+        ori_enable_baked_outside = yp.enable_baked_outside
+        if yp.enable_baked_outside:
+            yp.enable_baked_outside = False
+
         # Duplicate all layers
         Layer.duplicate_layer_nodes_and_images(tree, packed_duplicate=True, ondisk_duplicate=self.ondisk_duplicate)
 
@@ -2012,6 +2016,10 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
+
+        # Recover enable baked outside
+        if ori_enable_baked_outside:
+            yp.enable_baked_outside = True
 
         return {'FINISHED'}
 
