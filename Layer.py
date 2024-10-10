@@ -4762,6 +4762,12 @@ class YPasteLayer(bpy.types.Operator):
             new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', new_layer.name)
             new_group_node.node_tree = get_tree(ls)
 
+            # Duplicate group inputs
+            source_node = tree_source.nodes.get(ls.group_node)
+            for inp in new_group_node.inputs:
+                source_inp = source_node.inputs.get(inp.name)
+                if source_inp: inp.default_value = source_inp.default_value
+
             # Duplicate images and some nodes inside
             duplicate_layer_nodes_and_images(tree, new_layer, 
                                             packed_duplicate = self.packed_duplicate,
