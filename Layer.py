@@ -70,7 +70,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         ):
 
     yp = group_tree.yp
-    #ypup = get_user_preferences()
+    ypup = get_user_preferences()
     obj = bpy.context.object
     mat = obj.active_material
 
@@ -148,6 +148,10 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     # Tree start and end
     create_essential_nodes(tree, True, False, True)
+
+    # Uniform Scale
+    if is_bl_newer_than(2, 81) and is_layer_using_vector(layer):
+        layer.enable_uniform_scale = ypup.enable_uniform_uv_scale_by_default
 
     # Add source
     if layer_type == 'VCOL':
@@ -5971,6 +5975,15 @@ def update_layer_blur_vector_factor(self, context):
     if blur_vector:
         blur_vector.inputs[0].default_value = layer.blur_vector_factor
 
+def update_layer_uniform_scale_enabled(self, context):
+    if not hasattr(context, 'layer'): return
+
+    update_entity_uniform_scale_enabled(self)
+
+    check_layer_tree_ios(context.layer)
+    reconnect_layer_nodes(context.layer)
+    rearrange_layer_nodes(context.layer)
+
 class YLayer(bpy.types.PropertyGroup):
     name : StringProperty(
             name = 'Layer Name',
@@ -6184,6 +6197,15 @@ class YLayer(bpy.types.PropertyGroup):
     baked_mapping : StringProperty(default='')
     texcoord : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    enable_uniform_scale : BoolProperty(
+        name = 'Enable Uniform Scale', 
+        description = 'Use the same value for all scale components',
+        default = False,
+        update = update_layer_uniform_scale_enabled
+        )
+
+    uniform_scale_value : FloatProperty(default=1)
 
     decal_process : StringProperty(default='')
 

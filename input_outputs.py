@@ -844,6 +844,10 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty)
             input_index += 1
         
+        if is_bl_newer_than(2, 81) and layer.enable_uniform_scale and is_layer_using_vector(layer):
+            dirty = create_prop_input(layer, 'uniform_scale_value', valid_inputs, input_index, dirty)
+            input_index += 1
+        
         # Channel prop inputs
         for i, ch in enumerate(layer.channels):
             if not get_channel_enabled(ch): continue
@@ -959,6 +963,10 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             # Create intensity socket
             dirty = create_prop_input(mask, 'intensity_value', valid_inputs, input_index, dirty)
             input_index += 1
+
+            if is_bl_newer_than(2, 81) and mask.enable_uniform_scale and is_mask_using_vector(mask):
+                dirty = create_prop_input(mask, 'uniform_scale_value', valid_inputs, input_index, dirty)
+                input_index += 1
 
             # Mask blur vector
             if mask.enable_blur_vector:

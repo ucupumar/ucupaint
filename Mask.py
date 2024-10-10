@@ -14,6 +14,7 @@ from .input_outputs import *
 def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1), source_input='RGB', edge_detect_radius=0.05, modifier_type='INVERT', interpolation='Linear'):
     yp = layer.id_data.yp
     yp.halt_update = True
+    ypup = get_user_preferences()
 
     tree = get_tree(layer)
     nodes = tree.nodes
@@ -23,6 +24,10 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     mask.type = mask_type
     mask.texcoord_type = texcoord_type
     mask.source_input = source_input
+
+    # Uniform Scale
+    if is_bl_newer_than(2, 81) and is_mask_using_vector(mask):
+        mask.enable_uniform_scale = ypup.enable_uniform_uv_scale_by_default
 
     if segment:
         mask.segment_name = segment.name
@@ -403,7 +408,7 @@ class YNewLayerMask(bpy.types.Operator):
         elif layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image: self.interpolation = source.interpolation
-        
+
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
@@ -1735,6 +1740,15 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
     # UI related
     expand_content : BoolProperty(default=False)
 
+def update_mask_uniform_scale_enabled(self, context):
+    if not hasattr(context, 'layer'): return
+
+    update_entity_uniform_scale_enabled(self)
+
+    check_layer_tree_ios(context.layer)
+    reconnect_layer_nodes(context.layer)
+    rearrange_layer_nodes(context.layer)
+
 class YLayerMask(bpy.types.PropertyGroup):
 
     name : StringProperty(default='', update=update_mask_name)
@@ -1943,6 +1957,15 @@ class YLayerMask(bpy.types.PropertyGroup):
     mapping : StringProperty(default='')
     baked_mapping : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    enable_uniform_scale : BoolProperty(
+        name = 'Enable Uniform Scale', 
+        description = 'Use the same value for all scale components',
+        default = False,
+        update = update_mask_uniform_scale_enabled
+        )
+
+    uniform_scale_value : FloatProperty(default=1)
 
     decal_process : StringProperty(default='')
     texcoord : StringProperty(default='')

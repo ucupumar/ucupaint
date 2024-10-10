@@ -92,6 +92,12 @@ class YPaintPreferences(AddonPreferences):
             description = "Enable baked outside by default when creating new "+get_addon_title()+" node.\n(Useful for creating game assets)",
             default = False
             )
+
+    enable_uniform_uv_scale_by_default : BoolProperty(
+            name = 'Enable Uniform UV Scale by default',
+            description = "Enable uniform UV scale by default in Layer and Mask UVs. This will make all scale axes have the same value",
+            default = False
+            )
     
     # Addon updater preferences.
     auto_check_update : BoolProperty(
@@ -139,6 +145,8 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'skip_property_popups')
         self.layout.prop(self, 'enable_baked_outside_by_default')
+        if is_bl_newer_than(2, 81):
+            self.layout.prop(self, 'enable_uniform_uv_scale_by_default')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')
