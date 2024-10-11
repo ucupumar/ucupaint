@@ -847,7 +847,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             bpy.context.area.type = ori_ui_type
 
         for image in images:
-            if self.relative:
+            if self.relative and bpy.data.filepath != '':
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
