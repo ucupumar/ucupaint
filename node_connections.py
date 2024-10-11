@@ -1818,6 +1818,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         if vector and mapping and layer.texcoord_type != 'Decal':
             vector = create_link(tree, vector, mapping.inputs[0])[0]
+        
+        # Layer UV uniform scale value
+        if is_bl_newer_than(2, 81):
+            uniform_scale_value = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'uniform_scale_value'))
+            if uniform_scale_value:
+                if layer.enable_uniform_scale:
+                    create_link(tree, uniform_scale_value, mapping.inputs[3])
+                else:
+                    break_link(tree, uniform_scale_value, mapping.inputs[3])
 
     if vector and layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
         create_link(tree, vector, source.inputs[0])
@@ -2081,6 +2090,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
 
                 create_link(tree, mask_vector, mask_source.inputs[0])
+
+                # Mask UV uniform scale value
+                if is_bl_newer_than(2, 81):
+                    uniform_scale_value = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'uniform_scale_value'))
+                    if uniform_scale_value:
+                        if mask.enable_uniform_scale:
+                            create_link(tree, uniform_scale_value, mask_mapping.inputs[3])
+                        else:
+                            break_link(tree, uniform_scale_value, mask_mapping.inputs[3])
 
         # Mask uv neighbor
         mask_uv_neighbor = nodes.get(mask.uv_neighbor) if mask.texcoord_type != 'Layer' else uv_neighbor

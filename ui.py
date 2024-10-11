@@ -571,14 +571,14 @@ def draw_inbetween_modifier_mask_props(layer, source, layout):
     elif layer.modifier_type == 'RAMP':
         col.template_color_ramp(source, "color_ramp", expand=True)
 
-def draw_input_prop(layout, entity, prop_name, emboss=None):
+def draw_input_prop(layout, entity, prop_name, emboss=None, text=''):
     inp = get_entity_prop_input(entity, prop_name)
     if emboss != None:
-        if inp: layout.prop(inp, 'default_value', text='', emboss=emboss)
-        else: layout.prop(entity, prop_name, text='', emboss=emboss)
+        if inp: layout.prop(inp, 'default_value', text=text, emboss=emboss)
+        else: layout.prop(entity, prop_name, text=text, emboss=emboss)
     else:
-        if inp: layout.prop(inp, 'default_value', text='')
-        else: layout.prop(entity, prop_name, text='') 
+        if inp: layout.prop(inp, 'default_value', text=text)
+        else: layout.prop(entity, prop_name, text=text) 
 
 def draw_mask_modifier_stack(layer, mask, layout, ui):
     ypui = bpy.context.window_manager.ypui
@@ -1476,8 +1476,15 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                             mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
                             mcol = rrow.column()
                             mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                            if layer.enable_uniform_scale:
+                                mcol = rrow.column(align=True)
+                                mcol.label(text='Scale:')
+                                draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'X')
+                                draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Y')
+                                draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Z')
+                            else:
+                                mcol = rrow.column()
+                                mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
                         else:
                             mcol = rrow.column()
                             mcol.prop(mapping, 'translation')
@@ -1485,6 +1492,13 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                             mcol.prop(mapping, 'rotation')
                             mcol = rrow.column()
                             mcol.prop(mapping, 'scale')
+                    
+                        # Uniform scale
+                        if is_bl_newer_than(2, 81):
+                            rrow = boxcol.row(align=True)
+                            splits = split_layout(rrow, 0.5)
+                            splits.label(text='Uniform Scale:')
+                            rrow.prop(layer, 'enable_uniform_scale', text='')
 
                         if yp.need_temp_uv_refresh:
                             rrow = boxcol.row(align=True)
@@ -1493,7 +1507,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
                 # Blur row
                 rrow = boxcol.row(align=True)
-                splits = split_layout(rrow, 0.3)
+                splits = split_layout(rrow, 0.5)
                 splits.label(text='Blur:')
                 if layer.enable_blur_vector:
                     draw_input_prop(splits, layer, 'blur_vector_factor')
@@ -2446,8 +2460,15 @@ def draw_layer_masks(context, layout, layer):
                             mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
                             mcol = rrow.column()
                             mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                            if mask.enable_uniform_scale:
+                                mcol = rrow.column(align=True)
+                                mcol.label(text='Scale:')
+                                draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'X')
+                                draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Y')
+                                draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Z')
+                            else:
+                                mcol = rrow.column()
+                                mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
                         else:
                             mcol = rrow.column()
                             mcol.prop(mapping, 'translation')
@@ -2455,6 +2476,13 @@ def draw_layer_masks(context, layout, layer):
                             mcol.prop(mapping, 'rotation')
                             mcol = rrow.column()
                             mcol.prop(mapping, 'scale')
+                    
+                        # Uniform scale
+                        if is_bl_newer_than(2, 81):
+                            rrow = boxcol.row(align=True)
+                            splits = split_layout(rrow, 0.5)
+                            splits.label(text='Uniform Scale:')
+                            rrow.prop(mask, 'enable_uniform_scale', text='')
 
                         if mask.type == 'IMAGE' and mask.active_edit and (
                                 yp.need_temp_uv_refresh
@@ -2466,7 +2494,7 @@ def draw_layer_masks(context, layout, layer):
                 # Blur row
                 if mask.texcoord_type != 'Layer':
                     rrow = boxcol.row(align=True)
-                    splits = split_layout(rrow, 0.3)
+                    splits = split_layout(rrow, 0.5)
                     splits.label(text='Blur:')
                     if mask.enable_blur_vector:
                         draw_input_prop(splits, mask, 'blur_vector_factor')

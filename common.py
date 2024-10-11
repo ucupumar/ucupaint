@@ -2167,6 +2167,17 @@ def get_entity_mapping(entity, get_baked=False):
 
     return None
 
+def update_entity_uniform_scale_enabled(entity):
+    scale_input = get_entity_mapping(entity).inputs[3]
+
+    if entity.enable_uniform_scale:
+        # Set the uniform scale to min axis of regular scale when uniform scale is enabled
+        set_entity_prop_value(entity, 'uniform_scale_value', min(map(abs, scale_input.default_value)))
+    else:
+        # Set the regular scale axes to the uniform scale when uniform scale is disabled
+        scale = get_entity_prop_value(entity, 'uniform_scale_value')
+        scale_input.default_value = (scale, scale, scale)
+
 def get_neighbor_uv_space_input(texcoord_type):
     if texcoord_type == 'UV':
         return 0.0 # Tangent Space
