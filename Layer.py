@@ -4005,6 +4005,54 @@ class YRemoveLayerChannelOverride1Source(bpy.types.Operator):
         ch.override_1_type = 'DEFAULT'
         return {'FINISHED'}
 
+class YSetLayerChannelInput(bpy.types.Operator):
+    bl_idname = "node.y_set_layer_channel_input"
+    bl_label = "Set Layer Channel Input"
+    bl_description = "Set layer channel input"
+    bl_options = {'UNDO'}
+
+    type : EnumProperty(
+            name = 'Input Type',
+            items = (
+                ('CUSTOM', 'Custom', ''),
+                ('RGB', 'Layer RGB', ''),
+                ('ALPHA', 'Layer Alpha', ''),
+                #('R', 'Layer R', ''),
+                #('G', 'Layer G', ''),
+                #('B', 'Layer B', ''),
+                ),
+            default = 'RGB')
+
+    set_normal_input : BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
+    def execute(self, context):
+        #layer = context.layer
+        ch = context.channel
+        if self.type == 'CUSTOM':
+            if self.set_normal_input:
+                ch.override_1 = True
+                ch.override_1_type = 'DEFAULT'
+            else:
+                ch.override = True
+                ch.override_type = 'DEFAULT'
+        else: 
+            if self.set_normal_input:
+                ch.override_1 = False
+                #ch.layer_input = self.type
+            else:
+                ch.override = False
+                ch.layer_input = self.type
+
+        return {'FINISHED'}
+
 class YReplaceLayerType(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_type"
     bl_label = "Replace Layer Type"
@@ -4969,7 +5017,7 @@ def update_layer_channel_override(self, context):
 
     ypui = context.window_manager.ypui
     if len(ypui.layer_ui.channels) > ch_index:
-        ypui.layer_ui.channels[ch_index].expand_source = ch.override_type not in {'IMAGE', 'VCOL'}
+        ypui.layer_ui.channels[ch_index].expand_source = ch.override_type not in {'DEFAULT', 'IMAGE', 'VCOL'}
 
     # Reselect layer so vcol or image will be updated
     yp.active_layer_index = yp.active_layer_index
@@ -5935,6 +5983,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     expand_transition_ramp_settings : BoolProperty(default=False)
     expand_transition_ao_settings : BoolProperty(default=False)
     expand_input_settings : BoolProperty(default=False)
+    expand_blend_settings : BoolProperty(default=False)
     expand_source : BoolProperty(default=False)
     expand_source_1 : BoolProperty(default=False)
 
@@ -6268,6 +6317,7 @@ def register():
     bpy.utils.register_class(YRemoveLayer)
     bpy.utils.register_class(YRemoveLayerMenu)
     bpy.utils.register_class(YReplaceLayerType)
+    bpy.utils.register_class(YSetLayerChannelInput)
     bpy.utils.register_class(YReplaceLayerChannelOverride)
     bpy.utils.register_class(YReplaceLayerChannelOverride1)
     bpy.utils.register_class(YRemoveLayerChannelOverrideSource)
@@ -6300,6 +6350,7 @@ def unregister():
     bpy.utils.unregister_class(YRemoveLayer)
     bpy.utils.unregister_class(YRemoveLayerMenu)
     bpy.utils.unregister_class(YReplaceLayerType)
+    bpy.utils.unregister_class(YSetLayerChannelInput)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride1)
     bpy.utils.unregister_class(YRemoveLayerChannelOverrideSource)
