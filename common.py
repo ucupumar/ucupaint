@@ -67,6 +67,26 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("DODGE", "Dodge", ""),
 	             ("BURN", "Burn", ""))
 
+blend_type_labels = {
+                 "MIX" : "Mix",
+	             "ADD" : "Add",
+	             "SUBTRACT" : "Subtract",
+	             "MULTIPLY" : "Multiply",
+	             "SCREEN" : "Screen",
+	             "OVERLAY" : "Overlay",
+	             "DIFFERENCE" : "Difference",
+	             "DIVIDE" : "Divide",
+	             "DARKEN" : "Darken",
+	             "LIGHTEN" : "Lighten",
+	             "HUE" : "Hue",
+	             "SATURATION" : "Saturation",
+	             "VALUE" : "Value",
+	             "COLOR" : "Color",
+	             "SOFT_LIGHT" : "Soft Light",
+	             "LINEAR_LIGHT" : "Linear Light",
+	             "DODGE" : "Dodge",
+	             "BURN" : "Burn",
+                 }
 
 mask_blend_type_items = (("MIX", "Replace", ""),
 	             ("ADD", "Add", ""),
@@ -137,6 +157,12 @@ normal_blend_items = (
         ('OVERLAY', 'Add', ''),
         ('COMPARE', 'Compare Height', '')
         )
+
+normal_blend_labels = {
+        'MIX' : 'Mix',
+        'OVERLAY' : 'Overlay',
+        'COMPARE' : 'Compare Height',
+        }
 
 height_blend_items = (
         ('REPLACE', 'Replace', ''),

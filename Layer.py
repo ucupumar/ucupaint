@@ -4005,6 +4005,54 @@ class YRemoveLayerChannelOverride1Source(bpy.types.Operator):
         ch.override_1_type = 'DEFAULT'
         return {'FINISHED'}
 
+class YSetLayerChannelNormalBlendType(bpy.types.Operator):
+    bl_idname = "node.y_set_layer_channel_normal_blend_type"
+    bl_label = "Set Layer Channel Normal Blend Type"
+    bl_description = "Set layer channel normal blend type"
+    bl_options = {'UNDO'}
+
+    normal_blend_type : EnumProperty(
+            name = 'Normal Blend Type',
+            items = normal_blend_items,
+            default = 'MIX')
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
+    def execute(self, context):
+        ch = context.channel
+        ch.normal_blend_type = self.normal_blend_type
+        return {'FINISHED'}
+
+class YSetLayerChannelBlendType(bpy.types.Operator):
+    bl_idname = "node.y_set_layer_channel_blend_type"
+    bl_label = "Set Layer Channel Blend Type"
+    bl_description = "Set layer channel blend type"
+    bl_options = {'UNDO'}
+
+    blend_type : EnumProperty(
+            name = 'Blend Type',
+            items = blend_type_items,
+            default = 'MIX')
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
+    def execute(self, context):
+        ch = context.channel
+        ch.blend_type = self.blend_type
+        return {'FINISHED'}
+
 class YSetLayerChannelInput(bpy.types.Operator):
     bl_idname = "node.y_set_layer_channel_input"
     bl_label = "Set Layer Channel Input"
@@ -6303,6 +6351,8 @@ def register():
     bpy.utils.register_class(YRemoveLayer)
     bpy.utils.register_class(YRemoveLayerMenu)
     bpy.utils.register_class(YReplaceLayerType)
+    bpy.utils.register_class(YSetLayerChannelBlendType)
+    bpy.utils.register_class(YSetLayerChannelNormalBlendType)
     bpy.utils.register_class(YSetLayerChannelInput)
     bpy.utils.register_class(YReplaceLayerChannelOverride)
     bpy.utils.register_class(YReplaceLayerChannelOverride1)
@@ -6336,6 +6386,8 @@ def unregister():
     bpy.utils.unregister_class(YRemoveLayer)
     bpy.utils.unregister_class(YRemoveLayerMenu)
     bpy.utils.unregister_class(YReplaceLayerType)
+    bpy.utils.unregister_class(YSetLayerChannelBlendType)
+    bpy.utils.unregister_class(YSetLayerChannelNormalBlendType)
     bpy.utils.unregister_class(YSetLayerChannelInput)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride1)
