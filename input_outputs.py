@@ -772,11 +772,14 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty):
         dirty = True
 
     # Set animation data path back
-    if root_tree.animation_data and root_tree.animation_data.action:
+    if root_tree.animation_data:
         # Example: yp.layers[0].channels[0].intensity_value'
-        for fc in root_tree.animation_data.action.fcurves:
-            if fc.data_path == 'yp.layers[' + str(layer_index) + ']' + input_name:
-                fc.data_path = 'nodes["' + layer_node.name + '"].inputs[' + str(input_index) + '].default_value'
+
+        if root_tree.animation_data.action:
+            for fc in root_tree.animation_data.action.fcurves:
+                if fc.data_path == 'yp.layers[' + str(layer_index) + ']' + input_name:
+                    fc.data_path = 'nodes["' + layer_node.name + '"].inputs[' + str(input_index) + '].default_value'
+
         for driver in root_tree.animation_data.drivers:
             if driver.data_path == 'yp.layers[' + str(layer_index) + ']' + input_name:
                 driver.data_path = 'nodes["' + layer_node.name + '"].inputs[' + str(input_index) + '].default_value'
@@ -810,13 +813,16 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     trans_bump_ch = get_transition_bump_channel(layer)
 
     # Rename fcurve and driver data path before rearranging the inputs
-    if root_tree.animation_data and root_tree.animation_data.action:
+    if root_tree.animation_data:
         # Example: nodes["Group.003"].inputs[9].default_value'
-        for fc in root_tree.animation_data.action.fcurves:
-            m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
-            if m:
-                inp = layer_node.inputs[int(m.group(1))]
-                fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
+
+        if root_tree.animation_data.action:
+            for fc in root_tree.animation_data.action.fcurves:
+                m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                if m:
+                    inp = layer_node.inputs[int(m.group(1))]
+                    fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
+
         for driver in root_tree.animation_data.drivers:
             m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', driver.data_path)
             if m:
@@ -1187,29 +1193,15 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             # Set input prop before deleting input socket
             if inp.name.startswith('.'):
 
-                # For fully implemented prop only
-                if not any(prop for prop in [
-                    #'transition_bump_value', 
-                    #'transition_bump_second_edge_value',
-                    ] if prop in inp.name): 
-
-                    # Rename fcurve path first before deleting the input
-                    #if root_tree.animation_data and root_tree.animation_data.action:
-                    #    for fc in root_tree.animation_data.action.fcurves:
-                    #        if fc.data_path == 'nodes["' + layer_node.name + '"].inputs[' + str(i) + '].default_value':
-                    #            print([n.name for n in layer_node.inputs])
-                    #            print(fc.data_path, inp.name)
-                    #            fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
-
-                    # Set value back to prop
-                    val = layer_node.inputs.get(inp.name).default_value
-                    socket_type = inp.socket_type if is_bl_newer_than(4) else inp.type
-                    if socket_type in {'NodeSocketColor', 'RGBA'}:
-                        try: exec('layer' + inp.name + ' = (val[0], val[1], val[2])')
-                        except Exception as e: print(e)
-                    else:
-                        try: exec('layer' + inp.name + ' = val')
-                        except Exception as e: print(e)
+                # Set value back to prop
+                val = layer_node.inputs.get(inp.name).default_value
+                socket_type = inp.socket_type if is_bl_newer_than(4) else inp.type
+                if socket_type in {'NodeSocketColor', 'RGBA'}:
+                    try: exec('layer' + inp.name + ' = (val[0], val[1], val[2])')
+                    except Exception as e: print(e)
+                else:
+                    try: exec('layer' + inp.name + ' = val')
+                    except Exception as e: print(e)
 
             # Remove input socket
             remove_tree_input(tree, inp)
