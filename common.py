@@ -1394,8 +1394,8 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None, remove_on_dis
         tree.nodes.remove(node)
         dirty = True
 
-    setattr(entity, prop, '')
-    #entity[prop] = ''
+    if getattr(entity, prop) != '':
+        setattr(entity, prop, '')
 
     return dirty
 
@@ -4122,7 +4122,7 @@ def update_layer_bump_process_max_height(height_root_ch, layer, tree=None):
         max_height = get_displacement_max_height(height_root_ch, prev_layer)
     else: max_height = 0.0
 
-    if 'Max Height' in bump_process.inputs:
+    if 'Max Height' in bump_process.inputs and bump_process.inputs['Max Height'].default_value != max_height:
         bump_process.inputs['Max Height'].default_value = max_height
 
     #if height_root_ch.enable_smooth_bump:
@@ -5863,7 +5863,8 @@ def replace_new_mix_node(tree, entity, prop, label='', return_status=False, hard
             return_status=True, hard_replace=hard_replace, dirty=dirty, force_replace=force_replace)
 
     if is_bl_newer_than(3, 4):
-        node.data_type = data_type
+        if node.data_type != data_type:
+            node.data_type = data_type
 
     if return_status:
         return node, dirty
@@ -5871,9 +5872,9 @@ def replace_new_mix_node(tree, entity, prop, label='', return_status=False, hard
     return node
 
 def set_mix_clamp(mix, bool_val):
-    if hasattr(mix, 'clamp_result'):
+    if hasattr(mix, 'clamp_result') and mix.clamp_result != bool_val:
         mix.clamp_result = bool_val
-    elif hasattr(mix, 'use_clamp'):
+    elif hasattr(mix, 'use_clamp') and mix.use_clamp != bool_val:
         mix.use_clamp = bool_val
 
 def get_mix_color_indices(mix):

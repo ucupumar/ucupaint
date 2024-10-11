@@ -546,7 +546,8 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
                 mask.original_image_extension = ''
 
     # Save original texcoord type
-    mask.original_texcoord = mask.texcoord_type
+    if mask.original_texcoord != mask.texcoord_type:
+        mask.original_texcoord = mask.texcoord_type
 
 def check_layer_texcoord_nodes(layer, tree=None):
     yp = layer.id_data.yp
@@ -624,7 +625,8 @@ def check_layer_texcoord_nodes(layer, tree=None):
                 layer.original_image_extension = ''
 
     # Save original texcoord type
-    layer.original_texcoord = layer.texcoord_type
+    if layer.original_texcoord != layer.texcoord_type:
+        layer.original_texcoord = layer.texcoord_type
 
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 
