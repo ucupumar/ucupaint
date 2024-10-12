@@ -1722,7 +1722,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
         if expandable:
-            rrow.prop(chui, 'expand_content', text=yp.channels[i].name+':', emboss=False, icon_value=icon_value, translate=False)
+            if root_ch.type == 'NORMAL':
+                label = normal_type_labels[ch.normal_map_type] + ':'
+            else:
+                label = yp.channels[i].name + ':'
+            rrow.prop(chui, 'expand_content', text=label, emboss=False, icon_value=icon_value, translate=False)
         else: rrow.label(text='', icon_value=icon_value)
 
         #if layer.type != 'BACKGROUND':
@@ -1734,14 +1738,18 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             if root_ch.type == 'NORMAL':
                 #ssplit.prop(ch, 'normal_blend_type', text='')
                 label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
-                ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
+                #ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
+                if is_bl_newer_than(2, 80):
+                    ssplit.popover("NODE_MT_y_layer_channel_normal_blend_popover", text=label)
+                else:
+                    ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
             elif layer.type != 'BACKGROUND':
                 #ssplit.prop(ch, 'blend_type', text='')
                 label = blend_type_labels[ch.blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
-                #if is_bl_newer_than(2, 80):
-                #    ssplit.popover("NODE_MT_y_layer_channel_blend_popover", text=label)
-                #else: 
-                ssplit.menu("NODE_MT_y_layer_channel_blend_menu", text=label)
+                if is_bl_newer_than(2, 80):
+                    ssplit.popover("NODE_MT_y_layer_channel_blend_popover", text=label)
+                else: 
+                    ssplit.menu("NODE_MT_y_layer_channel_blend_menu", text=label)
 
             #draw_input_prop(ssplit, ch, 'intensity_value')
             if ch.override and ch.override_type == 'DEFAULT':
@@ -4896,12 +4904,48 @@ class YLayerChannelBlendPopover(bpy.types.Panel):
         col = self.layout.column(align=True)
         #col.label(text=root_ch.name + ' Blend Type')
         col.label(text='Blend Type')
-        col.separator()
+        #col.separator()
         for key, val in blend_type_labels.items():
             row = col.row()
             row.alignment = 'LEFT'
             icon = 'RADIOBUT_ON' if ch.blend_type == key else 'RADIOBUT_OFF'
             row.operator('node.y_set_layer_channel_blend_type', emboss=False, text=val, icon=icon).blend_type = key
+        col.separator()
+        draw_input_prop(col, ch, 'intensity_value', text='Opacity')
+
+class YLayerChannelNormalBlendPopover(bpy.types.Panel):
+    bl_idname = "NODE_MT_y_layer_channel_normal_blend_popover"
+    bl_label = "Layer Channel Normal Blend"
+    bl_description = "Layer channel normal blend"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "WINDOW"
+    bl_ui_units_x = 6
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        ch = context.channel
+        yp = ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
+        if m: 
+            #layer = yp.layers[int(m.group(1))]
+            root_ch = yp.channels[int(m.group(2))]
+            #tree = get_tree(layer)
+        else: return
+
+        col = self.layout.column(align=True)
+        col.label(text='Blend Type')
+        #col.separator()
+        for key, val in normal_blend_labels.items():
+            row = col.row()
+            row.alignment = 'LEFT'
+            icon = 'RADIOBUT_ON' if ch.normal_blend_type == key else 'RADIOBUT_OFF'
+            row.active = key != 'COMPARE' or ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} # or ch.normal_blend_type == 'COMPARE'
+            row.operator('node.y_set_layer_channel_normal_blend_type', emboss=False, text=val, icon=icon).normal_blend_type = key
+        col.separator()
+        col.prop(ch, 'normal_map_type', text='')
         col.separator()
         draw_input_prop(col, ch, 'intensity_value', text='Opacity')
 
@@ -6431,6 +6475,7 @@ def register():
     bpy.utils.register_class(YLayerChannelBlendMenu)
     bpy.utils.register_class(YLayerChannelNormalBlendMenu)
     bpy.utils.register_class(YLayerChannelBlendPopover)
+    bpy.utils.register_class(YLayerChannelNormalBlendPopover)
     bpy.utils.register_class(YLayerChannelInputMenu)
     bpy.utils.register_class(YLayerChannelInput1Menu)
     bpy.utils.register_class(YImageConvertToMenu)
@@ -6504,6 +6549,7 @@ def unregister():
     bpy.utils.unregister_class(YLayerChannelBlendMenu)
     bpy.utils.unregister_class(YLayerChannelNormalBlendMenu)
     bpy.utils.unregister_class(YLayerChannelBlendPopover)
+    bpy.utils.unregister_class(YLayerChannelNormalBlendPopover)
     bpy.utils.unregister_class(YLayerChannelInputMenu)
     bpy.utils.unregister_class(YLayerChannelInput1Menu)
     bpy.utils.unregister_class(YImageConvertToMenu)
