@@ -172,6 +172,13 @@ height_blend_items = (
         ('ADD', 'Add', ''),
         )
 
+normal_type_labels = {
+        'BUMP_MAP' : 'Bump',
+        'NORMAL_MAP' : 'Normal',
+        'BUMP_NORMAL_MAP' : 'Bump + Normal',
+        'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
+        }
+
 layer_type_items = (
         ('IMAGE', 'Image', ''),
         ('BRICK', 'Brick', ''),
