@@ -4222,6 +4222,7 @@ class YSetLayerChannelInput(bpy.types.Operator):
             else:
                 ch.override = True
                 ch.override_type = 'DEFAULT'
+            if not ch.enable: ch.enable = True
         else: 
             if self.set_normal_input:
                 ch.override_1 = False
