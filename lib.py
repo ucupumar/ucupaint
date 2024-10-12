@@ -235,13 +235,7 @@ channel_icon_dict = {
         'NORMAL' : 'KEYTYPE_BREAKDOWN_VEC',
         }
 
-def load_custom_icons():
-    import bpy.utils.previews
-    # Custom Icon
-    if not hasattr(bpy.utils, 'previews'): return
-    global custom_icons
-    custom_icons = bpy.utils.previews.new()
-
+def get_icon_folder():
     if not is_bl_newer_than(2, 80):
         icon_set = 'legacy'
     else:
@@ -254,7 +248,16 @@ def load_custom_icons():
         else:
             icon_set = 'legacy'
 
-    folder = get_addon_filepath() + 'icons' + os.sep + icon_set.lower() + os.sep
+    return get_addon_filepath() + 'icons' + os.sep + icon_set.lower() + os.sep
+
+def load_custom_icons():
+    import bpy.utils.previews
+    # Custom Icon
+    if not hasattr(bpy.utils, 'previews'): return
+    global custom_icons
+    custom_icons = bpy.utils.previews.new()
+
+    folder = get_icon_folder()
 
     for f in os.listdir(folder):
         icon_name = f.replace('_icon.png', '')

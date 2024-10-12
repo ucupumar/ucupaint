@@ -3289,7 +3289,7 @@ def main_draw(self, context):
     if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
         wm.ypprops.all_icons_loaded = True
         row.label(text='', icon='BLANK1')
-        folder = get_addon_filepath() + 'icons' + os.sep
+        folder = lib.get_icon_folder()
         # Add extra splits so the actual icons aren't actually visible
         s1 = split_layout(split, 1.0)
         s1.label(text='', icon='BLANK1')
