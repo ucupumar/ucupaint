@@ -1707,10 +1707,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
         if expandable:
+            label = ''
             if root_ch.type == 'NORMAL':
-                label = normal_type_labels[ch.normal_map_type] + ':'
-            else:
-                label = yp.channels[i].name + ':'
+                label += normal_type_labels[ch.normal_map_type]
+            else: label += yp.channels[i].name
+            intensity_value = get_entity_prop_value(ch, 'intensity_value')
+            if intensity_value != 1.0:
+                label += ' (%.1f)' % intensity_value
+            label += ':'
             rrow.prop(chui, 'expand_content', text=label, emboss=False, icon_value=icon_value, translate=False)
         else: rrow.label(text='', icon_value=icon_value)
 
@@ -1718,34 +1722,76 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
         if not chui.expand_content: # and ch.enable:
             rrow = split.row(align=True)
             rrow.context_pointer_set('parent', ch)
-            ssplit = split_layout(rrow, 0.45, align=True)
+            ssplit = split_layout(rrow, 0.4, align=True)
 
             if root_ch.type == 'NORMAL':
-                #ssplit.prop(ch, 'normal_blend_type', text='')
                 label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
-                #ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
-                if is_bl_newer_than(2, 80):
-                    ssplit.popover("NODE_MT_y_layer_channel_normal_blend_popover", text=label)
-                else:
-                    ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
+                #if is_bl_newer_than(2, 80):
+                #    ssplit.popover("NODE_MT_y_layer_channel_normal_blend_popover", text=label)
+                #else: ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
+                ssplit.prop(ch, 'normal_blend_type', text='')
+                #sssplit = split_layout(ssplit, 0.6, align=True)
+                #sssplit.prop(ch, 'normal_blend_type', text='')
+                #draw_input_prop(sssplit, ch, 'intensity_value')
             elif layer.type != 'BACKGROUND':
-                #ssplit.prop(ch, 'blend_type', text='')
                 label = blend_type_labels[ch.blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
-                if is_bl_newer_than(2, 80):
-                    ssplit.popover("NODE_MT_y_layer_channel_blend_popover", text=label)
-                else: 
-                    ssplit.menu("NODE_MT_y_layer_channel_blend_menu", text=label)
+                #if is_bl_newer_than(2, 80):
+                #    ssplit.popover("NODE_MT_y_layer_channel_blend_popover", text=label)
+                #else: ssplit.menu("NODE_MT_y_layer_channel_blend_menu", text=label)
+                ssplit.prop(ch, 'blend_type', text='')
+                #sssplit = split_layout(ssplit, 0.6, align=True)
+                #sssplit.prop(ch, 'blend_type', text='')
+                #draw_input_prop(sssplit, ch, 'intensity_value')
+            else:
+                draw_input_prop(ssplit, ch, 'intensity_value')
 
-            #draw_input_prop(ssplit, ch, 'intensity_value')
-            if ch.override and ch.override_type == 'DEFAULT':
+            if root_ch.type == 'NORMAL':
                 rrrow = ssplit.row(align=True)
-                if root_ch.type == 'VALUE':
-                    draw_input_prop(rrrow, ch, 'override_value')
-                else: draw_input_prop(rrrow, ch, 'override_color')
-                rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+
+                if ch.normal_map_type == 'NORMAL_MAP':
+                    draw_input_prop(rrrow, ch, 'normal_strength')
+                elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                    draw_input_prop(rrrow, ch, 'vdisp_strength')
+                else: draw_input_prop(rrrow, ch, 'bump_distance')
+
+                if ch.normal_map_type == 'NORMAL_MAP' and ch.override_1 and ch.override_1_type == 'DEFAULT':
+                    draw_input_prop(rrrow, ch, 'override_1_color')
+                elif ch.override and ch.override_type == 'DEFAULT':
+                    draw_input_prop(rrrow, ch, 'override_color')
+
+                if ch.normal_map_type == 'NORMAL_MAP':
+                    rrrow.menu("NODE_MT_y_layer_channel_input_1_menu", text='', icon='DOWNARROW_HLT')
+                elif ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
+                    rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+
+                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                    if ch.override_type == 'IMAGE':
+                        rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
+                    elif ch.override_type == 'VCOL':
+                        rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+
+                if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type == 'IMAGE':
+                    rrrow.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
+
+            elif ch.override:
+                rrrow = ssplit.row(align=True)
+
+                if ch.override_type == 'DEFAULT':
+                    if root_ch.type == 'VALUE':
+                        draw_input_prop(rrrow, ch, 'override_value')
+                    else: draw_input_prop(rrrow, ch, 'override_color')
+                    rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+                else:
+                    label = get_layer_channel_input_label(layer, ch)
+                    rrrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
+                    if ch.override_type == 'IMAGE':
+                        rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
+                    elif ch.override_type == 'VCOL':
+                        rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
             else:
                 label = get_layer_channel_input_label(layer, ch)
                 ssplit.menu("NODE_MT_y_layer_channel_input_menu", text=label)
+
         else:
             rrow = row.row(align=True)
             rrow.alignment = 'RIGHT'
@@ -2220,14 +2266,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 label = 'Source:' if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Bump Source:'
                 row.label(text=label)
 
-                if ch.enable and ch.override:
-                    if ch.override_type == 'IMAGE':
-                        row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
-                    elif ch.override_type == 'VCOL':
-                        row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
-                    elif ch.override_type != 'DEFAULT':
-                        row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
-
                 label = get_layer_channel_input_label(layer, ch, source)
                 row.context_pointer_set('parent', ch)
                 if ch.override and ch.override_type == 'DEFAULT' and not ch.expand_source:
@@ -2240,6 +2278,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     rrow = row.row(align=True)
                     rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
                     rrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
+
+                if ch.enable and ch.override:
+                    if ch.override_type == 'IMAGE':
+                        row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
+                    elif ch.override_type == 'VCOL':
+                        row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+                    elif ch.override_type != 'DEFAULT':
+                        row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
                 ch_source = None
                 if ch.override:
@@ -2293,9 +2339,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             label = 'Source:' if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Normal Source:'
             row.label(text=label)
 
-            if ch.enable and ch.override_1_type == 'IMAGE':
-                row.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
-
             #row.prop(ch, 'override_1', text='')
 
             if ch.override_1:
@@ -2317,6 +2360,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 rrow = row.row(align=True)
                 rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
                 rrow.menu("NODE_MT_y_layer_channel_input_1_menu", text=label)
+
+            if ch.enable and ch.override_1 and ch.override_1_type == 'IMAGE':
+                row.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
 
             #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
             #row.menu("NODE_MT_y_replace_channel_override_1_menu", icon=icon, text='')
@@ -3422,11 +3468,11 @@ def draw_layers_ui(context, layout, node):
         # Source
         draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh)
 
-        # Channels
-        draw_layer_channels(context, col, layer, layer_tree, image)
-
         # Vector
         draw_layer_vector(context, col, layer, layer_tree, source, image, vcol, is_a_mesh)
+
+        # Channels
+        draw_layer_channels(context, col, layer, layer_tree, image)
 
         # Masks
         draw_layer_masks(context, col, layer)
@@ -4869,7 +4915,7 @@ class YLayerChannelBlendPopover(bpy.types.Panel):
     bl_description = "Layer channel blend"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
-    bl_ui_units_x = 6
+    bl_ui_units_x = 8
 
     @classmethod
     def poll(cls, context):
@@ -4885,17 +4931,16 @@ class YLayerChannelBlendPopover(bpy.types.Panel):
             #tree = get_tree(layer)
         else: return
 
-        col = self.layout.column(align=True)
-        #col.label(text=root_ch.name + ' Blend Type')
-        col.label(text='Blend Type')
-        #col.separator()
-        for key, val in blend_type_labels.items():
-            row = col.row()
-            row.alignment = 'LEFT'
-            icon = 'RADIOBUT_ON' if ch.blend_type == key else 'RADIOBUT_OFF'
-            row.operator('node.y_set_layer_channel_blend_type', emboss=False, text=val, icon=icon).blend_type = key
-        col.separator()
-        draw_input_prop(col, ch, 'intensity_value', text='Opacity')
+        #self.layout.label(text=root_ch.name)
+        split = split_layout(self.layout, 0.35)
+
+        col = split.column()
+        col.label(text='Blend:')
+        col.label(text='Opacity:')
+
+        col = split.column()
+        col.prop(ch, 'blend_type', text='')
+        draw_input_prop(col, ch, 'intensity_value', text='')
 
 class YLayerChannelNormalBlendPopover(bpy.types.Panel):
     bl_idname = "NODE_MT_y_layer_channel_normal_blend_popover"
@@ -4903,7 +4948,7 @@ class YLayerChannelNormalBlendPopover(bpy.types.Panel):
     bl_description = "Layer channel normal blend"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
-    bl_ui_units_x = 6
+    bl_ui_units_x = 8
 
     @classmethod
     def poll(cls, context):
@@ -4919,19 +4964,18 @@ class YLayerChannelNormalBlendPopover(bpy.types.Panel):
             #tree = get_tree(layer)
         else: return
 
-        col = self.layout.column(align=True)
-        col.label(text='Blend Type')
-        #col.separator()
-        for key, val in normal_blend_labels.items():
-            row = col.row()
-            row.alignment = 'LEFT'
-            icon = 'RADIOBUT_ON' if ch.normal_blend_type == key else 'RADIOBUT_OFF'
-            row.active = key != 'COMPARE' or ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} # or ch.normal_blend_type == 'COMPARE'
-            row.operator('node.y_set_layer_channel_normal_blend_type', emboss=False, text=val, icon=icon).normal_blend_type = key
-        col.separator()
+        #self.layout.label(text=root_ch.name)
+        split = split_layout(self.layout, 0.35)
+
+        col = split.column()
+        col.label(text='Blend:')
+        col.label(text='Type:')
+        col.label(text='Opacity:')
+
+        col = split.column()
+        col.prop(ch, 'normal_blend_type', text='')
         col.prop(ch, 'normal_map_type', text='')
-        col.separator()
-        draw_input_prop(col, ch, 'intensity_value', text='Opacity')
+        draw_input_prop(col, ch, 'intensity_value', text='')
 
 def has_layer_input_options(layer):
     return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'} and not 
