@@ -2125,6 +2125,9 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
                 self.channel_idx = str(i)
                 break
 
+        # Check if there's any unsaved images
+        self.any_dirty_images = any_dirty_images_inside_layer(neighbor_layer) or any_dirty_images_inside_layer(layer)
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
@@ -2140,7 +2143,17 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'apply_modifiers', text='')
         col.prop(self, 'apply_neighbor_modifiers', text='')
 
+        if self.any_dirty_images:
+            col = self.layout.column(align=True)
+            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+
     def execute(self, context):
+
+        if self.error_message != '':
+            self.report({'ERROR'}, self.error_message)
+            return {'CANCELLED'}
+
         T = time.time()
 
         wm = context.window_manager
@@ -2151,10 +2164,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         mat = obj.active_material
         scene = context.scene
         objs = get_all_objects_with_same_materials(mat, True)
-
-        if self.error_message != '':
-            self.report({'ERROR'}, self.error_message)
-            return {'CANCELLED'}
 
         # Localize variables
         layer = self.layer
@@ -2362,7 +2371,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_merge_mask"
     bl_label = "Merge mask"
     bl_description = "Merge Mask"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
             name = 'Direction',
@@ -2372,15 +2381,45 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_ypaint_node() and hasattr(context, 'mask') and hasattr(context, 'layer')
+        return get_active_ypaint_node()
 
     def invoke(self, context, event):
         self.invoke_operator(context)
+
+        layer = self.layer = context.layer
+        mask = self.mask = context.mask
+
+        # Get neighbor mask
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        index = int(m.group(2))
+        if self.direction == 'UP':
+            try: neighbor_mask = layer.masks[index-1]
+            except: neighbor_mask = None
+        else:
+            try: neighbor_mask = layer.masks[index+1]
+            except: neighbor_mask = None
+
+        if neighbor_mask:
+            source = get_mask_source(mask)
+            image = source.image if mask.type == 'IMAGE' else None
+            neighbor_image = get_mask_source(neighbor_mask).image if neighbor_mask.type == 'IMAGE' else None
+
+            if (image and image.is_dirty) or (neighbor_image and neighbor_image.is_dirty):
+                return context.window_manager.invoke_props_dialog(self, width=300)
+
         return self.execute(context)
 
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
+        col.label(text="Are you sure want to continue?", icon='BLANK1')
+
+    def check(self, context):
+        return True
+
     def execute(self, context):
-        mask = context.mask
-        layer = context.layer
+        mask = self.mask
+        layer = self.layer
         yp = layer.id_data.yp
         obj = context.object
         mat = obj.active_material
@@ -2401,6 +2440,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         elif self.direction == 'DOWN' and index < num_masks-1:
             neighbor_idx = index+1
         else:
+            self.report({'ERROR'}, "No valid neighbor mask!")
             return {'CANCELLED'}
 
         if mask.type != 'IMAGE':
