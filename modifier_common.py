@@ -1,4 +1,3 @@
-import bpy
 from .common import *
 from . import lib
 

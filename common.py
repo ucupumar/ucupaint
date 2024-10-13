@@ -1,4 +1,4 @@
-import bpy, os, sys, re, time, numpy, math, pathlib
+import bpy, os, sys, re, numpy, math, pathlib
 import bpy_extras.image_utils
 from mathutils import *
 from bpy.app.handlers import persistent

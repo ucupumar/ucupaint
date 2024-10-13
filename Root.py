@@ -1,11 +1,11 @@
-import bpy, time, re, os
+import bpy, time, re
 from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
 from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer, Mask, transition, Bake, ImageAtlas, BakeTarget
+from . import lib, Modifier, Layer, Mask, transition, Bake, BakeTarget
 from .input_outputs import *
 
 YP_GROUP_SUFFIX = ' ' + get_addon_title()

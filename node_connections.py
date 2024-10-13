@@ -1,4 +1,3 @@
-import bpy
 from .common import *
 
 def create_link(tree, out, inp):

@@ -7,7 +7,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, image_ops
+from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops
 
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 

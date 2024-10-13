@@ -7,7 +7,7 @@ from .subtree import *
 from .input_outputs import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo, UDIM, vector_displacement_lib, vector_displacement
+from . import lib, Layer, Mask, ImageAtlas, UDIM, vector_displacement_lib, vector_displacement
 
 TEMP_VCOL = '__temp__vcol__'
 TEMP_EMISSION = '_TEMP_EMI_'

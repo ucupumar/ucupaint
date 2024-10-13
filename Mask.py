@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, Modifier, transition, ImageAtlas, MaskModifier, UDIM
+from . import lib, ImageAtlas, MaskModifier, UDIM
 from .common import *
 from .node_connections import *
 from .node_arrangements import *

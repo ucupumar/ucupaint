@@ -1,10 +1,9 @@
 import bpy
 from bpy.props import *
-from bpy.types import Operator, AddonPreferences
+from bpy.types import AddonPreferences
 from bpy.app.handlers import persistent
 from . import image_ops
 from .common import *
-from . import addon_updater_ops
 from .lib import *
 from .UDIM import *
 
