@@ -1243,11 +1243,41 @@ class YRemoveLayerMask(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'mask') and hasattr(context, 'layer')
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        layer = self.layer = context.layer
+        mask = self.mask = context.mask
+
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
+        # Check for any dirty images
+        self.any_dirty_images = False
+        source = get_mask_source(mask)
+        image = source.image if mask.type == 'IMAGE' else None
+        baked_source = get_mask_source(mask, get_baked=True)
+
+        if (image and image.is_dirty) or (baked_source and baked_source.image and baked_source.image.is_dirty):
+            self.any_dirty_images = True
+
+        if self.any_dirty_images or self.legacy_on_non_object_mode:
+            return context.window_manager.invoke_props_dialog(self, width=300)
+
+        return self.execute(context)
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        if self.legacy_on_non_object_mode:
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        else:
+            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
 
     def execute(self, context):
-        mask = context.mask
-        layer = context.layer
+        mask = self.mask
+        layer = self.layer
         tree = get_tree(layer)
         obj = context.object
         mat = obj.active_material
