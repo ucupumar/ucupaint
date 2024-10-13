@@ -123,7 +123,7 @@ class AddonUpdaterInstallPopup(bpy.types.Operator):
     # if true, run clean install - ie remove all files before adding new
     # equivalent to deleting the addon and reinstalling, except the
     # updater folder/backup folder remains
-    clean_install : BoolProperty(
+    clean_install = BoolProperty(
         name="Clean install",
         description=("If enabled, completely clear the addon's folder before "
                      "installing new update, creating a fresh install"),
@@ -131,7 +131,7 @@ class AddonUpdaterInstallPopup(bpy.types.Operator):
         options={'HIDDEN'}
     )
 
-    ignore_enum : EnumProperty(
+    ignore_enum = EnumProperty(
         name="Process update",
         description="Decide to install, ignore, or defer new addon update",
         items=[
@@ -289,7 +289,7 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
     # If true, run clean install - ie remove all files before adding new
     # equivalent to deleting the addon and reinstalling, except the updater
     # folder/backup folder remains.
-    clean_install : BoolProperty(
+    clean_install = BoolProperty(
         name="Clean install",
         description=("If enabled, completely clear the addon's folder before "
                      "installing new update, creating a fresh install"),
@@ -370,7 +370,7 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
             i += 1
         return ret
 
-    target : EnumProperty(
+    target = EnumProperty(
         name="Target version to install",
         description="Select the version to install",
         items=target_version
@@ -428,12 +428,12 @@ class AddonUpdaterUpdateBranch(bpy.types.Operator):
         x=updater.addon)
     bl_options = {'REGISTER', 'INTERNAL'}
 
-    target : StringProperty(
+    target = StringProperty(
         name="Target version to install",
         description="Select the version to install",
     )
 
-    label : StringProperty(
+    label = StringProperty(
         name="Target version to install",
         description="Select the version to install",
     )
@@ -492,7 +492,7 @@ class AddonUpdaterInstallManually(bpy.types.Operator):
     bl_description = "Proceed to manually install update"
     bl_options = {'REGISTER', 'INTERNAL'}
 
-    error : StringProperty(
+    error = StringProperty(
         name="Error Occurred",
         default="",
         options={'HIDDEN'}
@@ -558,7 +558,7 @@ class AddonUpdaterUpdatedSuccessful(bpy.types.Operator):
     bl_description = "Update installation response"
     bl_options = {'REGISTER', 'INTERNAL', 'UNDO'}
 
-    error : StringProperty(
+    error = StringProperty(
         name="Error Occurred",
         default="",
         options={'HIDDEN'}

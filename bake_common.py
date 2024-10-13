@@ -2416,7 +2416,7 @@ def get_output_uv_names_from_geometry_nodes(obj):
     return uv_names
 
 class BaseBakeOperator():
-    bake_device : EnumProperty(
+    bake_device = EnumProperty(
             name='Bake Device',
             description='Device to use for baking',
             items = (('GPU', 'GPU Compute', ''),
@@ -2424,22 +2424,22 @@ class BaseBakeOperator():
             default='CPU'
             )
     
-    samples : IntProperty(name='Bake Samples', 
+    samples = IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin : IntProperty(name='Bake Margin',
+    margin = IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    margin_type : EnumProperty(name = 'Margin Type',
+    margin_type = EnumProperty(name = 'Margin Type',
             description = '',
             items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
                      ('EXTEND', 'Extend', 'Extend border pixels outwards')),
             default = 'ADJACENT_FACES')
 
-    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+    width = IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height = IntProperty(name='Height', default = 1234, min=1, max=16384)
 
     def invoke_operator(self, context):
         ypup = get_user_preferences()
