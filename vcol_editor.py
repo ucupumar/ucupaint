@@ -1,4 +1,4 @@
-import bpy, bmesh, numpy, time, time
+import bpy, bmesh, numpy, time
 from mathutils import *
 from bpy.props import *
 from .common import *

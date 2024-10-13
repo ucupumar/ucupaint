@@ -2,7 +2,7 @@ import bpy, re, time, os
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
-from . import lib, Modifier, MaskModifier, NormalMapModifier, Root, UDIM
+from . import lib, Modifier, MaskModifier, UDIM
 from .common import *
 
 def update_yp_ui():

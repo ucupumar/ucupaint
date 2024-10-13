@@ -1,4 +1,4 @@
-import bpy, time, os
+import bpy, os
 from .common import *
 from mathutils import *
 

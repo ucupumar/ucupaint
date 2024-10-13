@@ -1,4 +1,4 @@
-import bpy, time, re, os, random, pathlib
+import bpy, time, re, os, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier

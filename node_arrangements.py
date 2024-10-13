@@ -1,4 +1,3 @@
-import bpy, time
 from mathutils import *
 from .common import *
 
