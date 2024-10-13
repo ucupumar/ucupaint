@@ -3471,35 +3471,30 @@ class YRemoveLayer(bpy.types.Operator):
 
     def invoke(self, context, event):
 
-        # Remove on disk is dangerous so it's always disabled by default
-        self.remove_on_disk = False
-
-        # Only allow to remove files on disk with a confirmation popup
-        if get_user_preferences().skip_property_popups and not event.shift:
-            return self.execute(context)
-
-        # Removing UDIM atlas segment can't be undone
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         layer = yp.layers[yp.active_layer_index]
-        self.using_udim_atlas = False
 
+        # Remove on disk is dangerous so it's always disabled by default
+        self.remove_on_disk = False
+
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
+        # Check if there's any dirty images
+        self.any_dirty_images = any_dirty_images_inside_layer(layer)
+
+        # Removing UDIM atlas segment can't be undone
+        self.any_udim_atlas = any(get_layer_images(layer, udim_atlas_only=True))
+
+        # Only allow to remove files on disk with a confirmation popup
+        if get_user_preferences().skip_property_popups and not event.shift and not self.any_dirty_images and not self.legacy_on_non_object_mode and not self.any_udim_atlas:
+            return self.execute(context)
+
+        # Check if there's ondisk image
         self.any_images_on_disk = any_single_user_ondisk_image_inside_layer(layer)
 
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if source and source.image and source.image.yua.is_udim_atlas:
-                self.using_udim_atlas = True
-                return context.window_manager.invoke_props_dialog(self, width=300)
-            for mask in layer.masks:
-                if mask.type != 'IMAGE': continue
-                source = get_mask_source(mask)
-                if source and source.image and source.image.yua.is_udim_atlas:
-                    self.using_udim_atlas = True
-                    return context.window_manager.invoke_props_dialog(self, width=300)
-        
-        obj = context.object
-        if obj.mode != 'OBJECT' or self.any_images_on_disk:
+        if self.any_images_on_disk or self.legacy_on_non_object_mode or self.any_dirty_images or self.any_udim_atlas:
             return context.window_manager.invoke_props_dialog(self, width=300)
         return self.execute(context)
 
@@ -3507,10 +3502,13 @@ class YRemoveLayer(bpy.types.Operator):
 
         col = self.layout.column(align=True)
 
-        obj = context.object
-        if obj.mode != 'OBJECT':
-            col.label(text='You cannot UNDO this operation in this mode, are you sure?', icon='ERROR')
-        elif hasattr(self, 'using_udim_atlas') and self.using_udim_atlas:
+        if self.legacy_on_non_object_mode:
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        elif self.any_dirty_images:
+            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        elif self.any_udim_atlas:
             col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
             col.label(text='You cannot UNDO after removal', icon='BLANK1')
             col.label(text='Are you sure want to continue?', icon='BLANK1')

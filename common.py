@@ -5209,7 +5209,7 @@ def get_all_objects_with_same_materials(mat, mesh_only=False, uv_name='', select
 
     return objs
 
-def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=False):
+def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=False, udim_atlas_only=False):
 
     layers = [layer]
 
@@ -5251,9 +5251,10 @@ def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=Fals
 
     filtered_images = []
     for image in images:
-        if udim_only and image.source != 'TILED': continue
+        if (udim_only or udim_atlas_only) and image.source != 'TILED': continue
         if ondisk_only and (image.packed_file or image.filepath == ''): continue
         if packed_only and not image.packed_file and image.filepath != '': continue
+        if udim_atlas_only and not image.yua.is_udim_atlas: continue
         if image not in filtered_images:
             filtered_images.append(image)
 
@@ -5267,6 +5268,13 @@ def any_decal_inside_layer(layer):
         if mask.texcoord_type == 'Decal':
             return True
 
+    return False
+
+def any_dirty_images_inside_layer(layer):
+    for image in get_layer_images(layer):
+        if image.is_dirty:
+            return True
+    
     return False
 
 def any_single_user_ondisk_image_inside_layer(layer):
