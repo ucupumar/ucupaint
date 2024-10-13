@@ -955,10 +955,6 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     def poll(cls, context):
         return True
 
-    @classmethod
-    def description(self, context, properties):
-        return get_operator_description(self)
-
     def invoke(self, context, event):
         obj = context.object
         node = get_active_ypaint_node()
@@ -1048,9 +1044,6 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         # The default blend type for mask is multiply
         if len(layer.masks) == 0:
             self.blend_type = 'MULTIPLY'
-    
-        if self.image_name != '' and get_user_preferences().skip_property_popups and not event.shift:
-            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
 
