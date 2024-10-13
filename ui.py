@@ -2264,7 +2264,7 @@ def draw_layer_masks(context, layout, layer):
         if mask.enable:
             if mask.type == 'IMAGE':
                 if mask.source_input == 'ALPHA':
-                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image_alpha'))
+                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('alpha_image'))
                 else: row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
             elif mask.type == 'VCOL':
                 if mask.source_input == 'ALPHA':
@@ -3893,7 +3893,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                         row.label(text='', icon_value=src.image.preview.icon_id)
                     else: 
                         if m.source_input == 'ALPHA':
-                            row.label(text='', icon_value=lib.get_icon('image_alpha'))
+                            row.label(text='', icon_value=lib.get_icon('alpha_image'))
                         else: row.label(text='', icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     active_vcol_mask = m
@@ -3922,7 +3922,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                         row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                     else: 
                         if m.source_input == 'ALPHA':
-                            row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image_alpha'))
+                            row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('alpha_image'))
                         else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     if m.source_input == 'ALPHA':
