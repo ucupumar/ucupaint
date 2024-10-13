@@ -6,6 +6,7 @@ from . import image_ops
 from .common import *
 from . import addon_updater_ops
 from .lib import *
+from .UDIM import *
 
 def update_icons(self, context):
     unload_custom_icons()
@@ -98,6 +99,12 @@ class YPaintPreferences(AddonPreferences):
             description = "Enable uniform UV scale by default in Layer and Mask UVs. This will make all scale axes have the same value",
             default = False
             )
+
+    enable_auto_udim_detection : BoolProperty(
+            name = 'Enable Auto UDIM Detection',
+            description = "Enable automatic UDIM detection. This will automatically check 'Use UDIM Tiles' checkboxes when UDIM is detected",
+            default = True
+            )
     
     # Addon updater preferences.
     auto_check_update : BoolProperty(
@@ -147,6 +154,8 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'enable_baked_outside_by_default')
         if is_bl_newer_than(2, 81):
             self.layout.prop(self, 'enable_uniform_uv_scale_by_default')
+        if is_udim_supported():
+            self.layout.prop(self, 'enable_auto_udim_detection')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')

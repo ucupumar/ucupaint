@@ -1131,9 +1131,10 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 def update_bake_channel_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 def bake_vcol_channel_items(self, context):
     node = get_active_ypaint_node()
