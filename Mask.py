@@ -226,9 +226,10 @@ def update_new_mask_uv_map(self, context):
         self.use_udim = False
         return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_name)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_name)
 
 class YNewLayerMask(bpy.types.Operator):
     bl_idname = "node.y_new_layer_mask"

@@ -135,9 +135,10 @@ class YRemoveBakeInfoOtherObject(bpy.types.Operator):
 def update_bake_to_layer_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_bake_to_layer"

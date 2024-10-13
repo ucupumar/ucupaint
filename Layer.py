@@ -496,9 +496,10 @@ def update_new_layer_uv_map(self, context):
         self.use_udim = False
         return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 def update_new_layer_mask_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
@@ -506,9 +507,10 @@ def update_new_layer_mask_uv_map(self, context):
         self.use_udim_for_mask = False
         return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
 
 def update_channel_idx_new_layer(self, context):
 
