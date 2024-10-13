@@ -2128,6 +2128,9 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         # Check if there's any unsaved images
         self.any_dirty_images = any_dirty_images_inside_layer(neighbor_layer) or any_dirty_images_inside_layer(layer)
 
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
@@ -2143,7 +2146,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'apply_modifiers', text='')
         col.prop(self, 'apply_neighbor_modifiers', text='')
 
-        if self.any_dirty_images:
+        if self.legacy_on_non_object_mode:
+            col = self.layout.column(align=True)
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        elif self.any_dirty_images:
             col = self.layout.column(align=True)
             col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
             col.label(text="Are you sure want to continue?", icon='BLANK1')
@@ -2399,20 +2406,32 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             try: neighbor_mask = layer.masks[index+1]
             except: neighbor_mask = None
 
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
+        # Check for any dirty images
+        self.any_dirty_images = False
         if neighbor_mask:
             source = get_mask_source(mask)
             image = source.image if mask.type == 'IMAGE' else None
             neighbor_image = get_mask_source(neighbor_mask).image if neighbor_mask.type == 'IMAGE' else None
 
             if (image and image.is_dirty) or (neighbor_image and neighbor_image.is_dirty):
-                return context.window_manager.invoke_props_dialog(self, width=300)
+                self.any_dirty_images = True
+
+        if self.any_dirty_images or self.legacy_on_non_object_mode:
+            return context.window_manager.invoke_props_dialog(self, width=300)
 
         return self.execute(context)
 
     def draw(self, context):
         col = self.layout.column(align=True)
-        col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
-        col.label(text="Are you sure want to continue?", icon='BLANK1')
+        if self.legacy_on_non_object_mode:
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        else:
+            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
 
     def check(self, context):
         return True
