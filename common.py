@@ -1270,7 +1270,13 @@ def is_image_single_user(image):
 
 def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
 
+    scene = bpy.context.scene
+
     if is_image_single_user(image):
+
+        # Remove image from canvas
+        if scene.tool_settings.image_paint.canvas == image:
+            scene.tool_settings.image_paint.canvas = None
 
         if remove_on_disk and not image.packed_file and image.filepath != '':
             if image.source == 'TILED':
