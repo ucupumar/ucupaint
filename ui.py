@@ -1551,7 +1551,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             else:
                 label += ' (' + root_ch.name + ')'
                 #label = root_ch.name
-            label += ':'
 
     else:
         label = pgettext_iface('Channels') + ' (' + str(len(enabled_channels)) + ')'
