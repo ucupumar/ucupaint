@@ -1,4 +1,4 @@
-import bpy
+import bpy, time
 from bpy.props import *
 from .common import *
 from .transition_common import *
