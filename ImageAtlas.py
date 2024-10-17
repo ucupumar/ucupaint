@@ -1,4 +1,4 @@
-import bpy, time, random, numpy, re
+import bpy, time, random, re
 from bpy.props import *
 from .common import *
 from .subtree import *

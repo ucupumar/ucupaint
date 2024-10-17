@@ -591,7 +591,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     need_reconnect = True
                     mix = new_mix_node(tree, c, 'mix', 'Mask Blend')
                     mix.inputs[0].default_value = mask.intensity_value
-                mix.blend_type = mask.blend_type
+                if mix.blend_type != mask.blend_type:
+                    mix.blend_type = mask.blend_type
                 # Use clamp to keep value between 0.0 to 1.0
                 if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
                     set_mix_clamp(mix, True)
@@ -603,7 +604,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     if not mix_pure:
                         need_reconnect = True
                         mix_pure = new_mix_node(tree, c, 'mix_pure', 'Mask Blend Pure')
-                        mix_pure.blend_type = mask.blend_type
+                        if mix_pure.blend_type != mask.blend_type:
+                            mix_pure.blend_type = mask.blend_type
                         # Use clamp to keep value between 0.0 to 1.0
                         set_mix_clamp(mix_pure, True)
                         mix_pure.inputs[0].default_value = mask.intensity_value
@@ -620,7 +622,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         need_reconnect = True
                         mix_remains = new_mix_node(tree, c, 'mix_remains', 'Mask Blend Remaining')
                         mix_remains.inputs[0].default_value = mask.intensity_value
-                    mix_remains.blend_type = mask.blend_type
+                    if mix_remains.blend_type != mask.blend_type:
+                        mix_remains.blend_type = mask.blend_type
                     # Use clamp to keep value between 0.0 to 1.0
                     if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
                         set_mix_clamp(mix_remains, True)
@@ -633,7 +636,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         need_reconnect = True
                         mix_normal = new_mix_node(tree, c, 'mix_normal', 'Mask Normal')
                         mix_normal.inputs[0].default_value = mask.intensity_value
-                    mix_normal.blend_type = mask.blend_type
+                    if mix_normal.blend_type != mask.blend_type:
+                        mix_normal.blend_type = mask.blend_type
                     # Use clamp to keep value between 0.0 to 1.0
                     if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
                         set_mix_clamp(mix_normal, True)
@@ -652,7 +656,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         mix_remains = new_mix_node(tree, c, 'mix_remains', 'Mask Blend n')
                         mix_remains.inputs[0].default_value = mask.intensity_value
 
-                    mix_remains.blend_type = mask.blend_type
+                    if mix_remains.blend_type != mask.blend_type:
+                        mix_remains.blend_type = mask.blend_type
                     # Use clamp to keep value between 0.0 to 1.0
                     if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
                         set_mix_clamp(mix_remains, True)
@@ -2085,7 +2090,8 @@ def update_preview_mix(ch, preview):
     if preview.type != 'GROUP': return
     # Set channel layer blending
     mix = preview.node_tree.nodes.get('Mix')
-    if mix: mix.blend_type = ch.blend_type
+    if mix and mix.blend_type != ch.blend_type:
+        mix.blend_type = ch.blend_type
 
 def check_override_1_layer_channel_nodes(root_ch, layer, ch):
 

@@ -1,4 +1,4 @@
-import bpy, time, re, os, random, pathlib
+import bpy, time, re, os, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier
@@ -70,7 +70,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         ):
 
     yp = group_tree.yp
-    #ypup = get_user_preferences()
+    ypup = get_user_preferences()
     obj = bpy.context.object
     mat = obj.active_material
 
@@ -148,6 +148,10 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     # Tree start and end
     create_essential_nodes(tree, True, False, True)
+
+    # Uniform Scale
+    if is_bl_newer_than(2, 81) and is_layer_using_vector(layer):
+        layer.enable_uniform_scale = ypup.enable_uniform_uv_scale_by_default
 
     # Add source
     if layer_type == 'VCOL':
@@ -492,9 +496,10 @@ def update_new_layer_uv_map(self, context):
         self.use_udim = False
         return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 def update_new_layer_mask_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
@@ -502,9 +507,10 @@ def update_new_layer_mask_uv_map(self, context):
         self.use_udim_for_mask = False
         return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
 
 def update_channel_idx_new_layer(self, context):
 
@@ -1762,11 +1768,15 @@ class BaseMultipleImagesLayer():
     def is_synonym_in_image_name(self, syname, img_name):
 
         # Check entire name of synonym if it's in image name
-        if (img_name.endswith(syname) or # Example: 'rocks_normalgl'
-            '_' + syname in img_name or # Example: 'rocks_normalgl_4k'
-            ' ' + syname in img_name # Example: 'rocks normalgl 4k'
-            ):
-            return True
+        if len(syname) > 1:
+            if (img_name.endswith(syname) or # Example: 'rocks_normalgl'
+                '_' + syname in img_name or # Example: 'rocks_normalgl_4k'
+                ' ' + syname in img_name # Example: 'rocks normalgl 4k'
+                ):
+                return True
+        else:
+            if img_name.endswith(('_' + syname, '.' + syname)): # Example 'rocks_n', 'rocks.n'
+                return True
 
         if ' ' in syname:
             # Check if synonym without whitespace is in image name
@@ -1797,9 +1807,9 @@ class BaseMultipleImagesLayer():
 
         # Check if initial of synonym is in the end of image name
         # Avoid initial a because it's too common
-        initial = syname[0] if syname not in {'displacement', 'base color'} else ''
-        if initial not in {'a', ''} and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
-            return True
+        #initial = syname[0] if syname not in {'displacement', 'base color'} else ''
+        #if initial not in {'a', ''} and img_name.endswith(('_' + initial, '.' + initial)): # Example: 'rock_r' / 'rock.r'
+        #    return True
 
         return False
     
@@ -1832,10 +1842,12 @@ class BaseMultipleImagesLayer():
                 gl_image = image
 
         synonym_libs = {
-                'color' : ['albedo', 'diffuse', 'base color'], 
+                'color' : ['albedo', 'diffuse', 'base color', 'd'], 
+                'alpha' : ['opacity', 'a'], 
                 'ambient occlusion' : ['ao'], 
-                'roughness' : ['glossiness'],
-                'normal' : ['displacement', 'height', 'bump'], # Prioritize displacement/bump before actual normal map
+                'metallic' : ['metalness', 'm'],
+                'roughness' : ['glossiness', 'r'],
+                'normal' : ['displacement', 'height', 'bump', 'n'], # Prioritize displacement/bump before actual normal map
                 }
 
         wm = context.window_manager
@@ -1903,7 +1915,7 @@ class BaseMultipleImagesLayer():
         
         if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
             normal_map_type = self.normal_map_priority
-        elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] == 'normal']):
+        elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] in {'normal', 'n'}]):
             normal_map_type = 'NORMAL_MAP'
         else: normal_map_type = 'BUMP_MAP'
 
@@ -1914,7 +1926,7 @@ class BaseMultipleImagesLayer():
             syname = valid_synonyms[i]
 
             # Set relative
-            if self.relative:
+            if self.relative and bpy.data.filepath != '':
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
@@ -1940,7 +1952,7 @@ class BaseMultipleImagesLayer():
             else:
                 ch = layer.channels[ch_idx]
                 ch.enable = True
-                if root_ch.type == 'NORMAL' and (syname == 'normal' or 'normal without bump' in image.name.lower()):
+                if root_ch.type == 'NORMAL' and (syname in {'normal', 'n'} or 'normal without bump' in image.name.lower()):
                     image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
                     image_node.image = image
                     ch.override_1 = True
@@ -2495,7 +2507,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         node.node_tree.yp.halt_update = True
 
         for image in images:
-            if self.relative:
+            if self.relative and bpy.data.filepath != '':
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
@@ -3296,29 +3308,19 @@ class YMoveLayer(bpy.types.Operator):
 def draw_move_up_in_layer_group(self, context):
     col = self.layout.column()
 
-    c = col.operator("node.y_move_layer", text='Move Up (skip group)', icon='TRIA_UP')
+    c = col.operator("node.y_move_layer", text='Move Up (Skip Group)', icon='TRIA_UP')
     c.direction = 'UP'
 
-    c = col.operator("node.y_move_in_out_layer_group", text='Move inside group', icon='TRIA_UP')
+    c = col.operator("node.y_move_in_out_layer_group", text='Move Inside Group', icon='TRIA_UP')
     c.direction = 'UP'
 
 def draw_move_down_in_layer_group(self, context):
     col = self.layout.column()
 
-    c = col.operator("node.y_move_layer", text='Move Down (skip group)', icon='TRIA_DOWN')
+    c = col.operator("node.y_move_layer", text='Move Down (Skip Group)', icon='TRIA_DOWN')
     c.direction = 'DOWN'
 
-    c = col.operator("node.y_move_in_out_layer_group", text='Move inside group', icon='TRIA_DOWN')
-    c.direction = 'DOWN'
-
-def draw_move_up_out_layer_group(self, context):
-    col = self.layout.column()
-    c = col.operator("node.y_move_in_out_layer_group", text='Move outside group', icon='TRIA_UP')
-    c.direction = 'UP'
-
-def draw_move_down_out_layer_group(self, context):
-    col = self.layout.column()
-    c = col.operator("node.y_move_in_out_layer_group", text='Move outside group', icon='TRIA_DOWN')
+    c = col.operator("node.y_move_in_out_layer_group", text='Move Inside Group', icon='TRIA_DOWN')
     c.direction = 'DOWN'
 
 class YMoveInOutLayerGroupMenu(bpy.types.Operator):
@@ -3344,10 +3346,7 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
         wm = bpy.context.window_manager
 
         if self.move_out:
-            if self.direction == 'UP':
-                wm.popup_menu(draw_move_up_out_layer_group, title="Options")
-            elif self.direction == 'DOWN':
-                wm.popup_menu(draw_move_down_out_layer_group, title="Options")
+            bpy.ops.node.y_move_in_out_layer_group(direction=self.direction)
         else:
             if self.direction == 'UP':
                 wm.popup_menu(draw_move_up_in_layer_group, title="Options")
@@ -3499,35 +3498,30 @@ class YRemoveLayer(bpy.types.Operator):
 
     def invoke(self, context, event):
 
-        # Remove on disk is dangerous so it's always disabled by default
-        self.remove_on_disk = False
-
-        # Only allow to remove files on disk with a confirmation popup
-        if get_user_preferences().skip_property_popups and not event.shift:
-            return self.execute(context)
-
-        # Removing UDIM atlas segment can't be undone
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         layer = yp.layers[yp.active_layer_index]
-        self.using_udim_atlas = False
 
+        # Remove on disk is dangerous so it's always disabled by default
+        self.remove_on_disk = False
+
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
+        # Check if there's any dirty images
+        self.any_dirty_images = any_dirty_images_inside_layer(layer)
+
+        # Removing UDIM atlas segment can't be undone
+        self.any_udim_atlas = any(get_layer_images(layer, udim_atlas_only=True))
+
+        # Only allow to remove files on disk with a confirmation popup
+        if get_user_preferences().skip_property_popups and not event.shift and not self.any_dirty_images and not self.legacy_on_non_object_mode and not self.any_udim_atlas:
+            return self.execute(context)
+
+        # Check if there's ondisk image
         self.any_images_on_disk = any_single_user_ondisk_image_inside_layer(layer)
 
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if source and source.image and source.image.yua.is_udim_atlas:
-                self.using_udim_atlas = True
-                return context.window_manager.invoke_props_dialog(self, width=300)
-            for mask in layer.masks:
-                if mask.type != 'IMAGE': continue
-                source = get_mask_source(mask)
-                if source and source.image and source.image.yua.is_udim_atlas:
-                    self.using_udim_atlas = True
-                    return context.window_manager.invoke_props_dialog(self, width=300)
-        
-        obj = context.object
-        if obj.mode != 'OBJECT' or self.any_images_on_disk:
+        if self.any_images_on_disk or self.legacy_on_non_object_mode or self.any_dirty_images or self.any_udim_atlas:
             return context.window_manager.invoke_props_dialog(self, width=300)
         return self.execute(context)
 
@@ -3535,10 +3529,13 @@ class YRemoveLayer(bpy.types.Operator):
 
         col = self.layout.column(align=True)
 
-        obj = context.object
-        if obj.mode != 'OBJECT':
-            col.label(text='You cannot UNDO this operation in this mode, are you sure?', icon='ERROR')
-        elif hasattr(self, 'using_udim_atlas') and self.using_udim_atlas:
+        if self.legacy_on_non_object_mode:
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        elif self.any_dirty_images:
+            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        elif self.any_udim_atlas:
             col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
             col.label(text='You cannot UNDO after removal', icon='BLANK1')
             col.label(text='Are you sure want to continue?', icon='BLANK1')
@@ -4794,6 +4791,12 @@ class YPasteLayer(bpy.types.Operator):
             new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', new_layer.name)
             new_group_node.node_tree = get_tree(ls)
 
+            # Duplicate group inputs
+            source_node = tree_source.nodes.get(ls.group_node)
+            for inp in new_group_node.inputs:
+                source_inp = source_node.inputs.get(inp.name)
+                if source_inp: inp.default_value = source_inp.default_value
+
             # Duplicate images and some nodes inside
             duplicate_layer_nodes_and_images(tree, new_layer, 
                                             packed_duplicate = self.packed_duplicate,
@@ -5997,6 +6000,15 @@ def update_layer_blur_vector_factor(self, context):
     if blur_vector:
         blur_vector.inputs[0].default_value = layer.blur_vector_factor
 
+def update_layer_uniform_scale_enabled(self, context):
+    if not hasattr(context, 'layer'): return
+
+    update_entity_uniform_scale_enabled(self)
+
+    check_layer_tree_ios(context.layer)
+    reconnect_layer_nodes(context.layer)
+    rearrange_layer_nodes(context.layer)
+
 class YLayer(bpy.types.PropertyGroup):
     name : StringProperty(
             name = 'Layer Name',
@@ -6210,6 +6222,15 @@ class YLayer(bpy.types.PropertyGroup):
     baked_mapping : StringProperty(default='')
     texcoord : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    enable_uniform_scale : BoolProperty(
+        name = 'Enable Uniform Scale', 
+        description = 'Use the same value for all scale components',
+        default = False,
+        update = update_layer_uniform_scale_enabled
+        )
+
+    uniform_scale_value : FloatProperty(default=1)
 
     decal_process : StringProperty(default='')
 
