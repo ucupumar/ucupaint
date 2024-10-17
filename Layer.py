@@ -576,7 +576,7 @@ class YNewVDMLayer(bpy.types.Operator):
 
         # Use user preference default image size if input uses default image size
         if self.width == 1234 and self.height == 1234:
-            self.width = self.height = ypup.default_new_image_size
+            self.width = self.height = ypup.default_texture_size
 
         # Set default UV name
         #uv_name = get_default_uv_name(obj, yp)
@@ -886,11 +886,13 @@ class YNewLayer(bpy.types.Operator):
     texture_size : EnumProperty(
         name = 'Texture Size',
         items = texture_size_items,
-        default = '1024')
-    
+        default = '1024'
+        )
+
     use_custom_resolution : BoolProperty(
         name= 'Custom Resolution',
-        default=False
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
     )
 
     @classmethod
@@ -920,11 +922,8 @@ class YNewLayer(bpy.types.Operator):
             items = yp.layers
 
         # Use user preference default image size if input uses default image size
-        if self.width == 1234 and self.height == 1234:
-            self.width = self.height = ypup.default_new_image_size
-        if self.mask_width == 1234 and self.mask_height == 1234:
-            self.mask_width = self.mask_height = ypup.default_new_image_size
-
+        if ypup.default_texture_size != 'DEFAULT':
+            self.texture_size = ypup.default_texture_size
         # Make sure add mask is inactive
         if self.type not in {'COLOR', 'BACKGROUND'}: #, 'GROUP'}:
             self.add_mask = False
@@ -1132,7 +1131,6 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
             col.prop(self, 'hemi_use_prev_normal')
-
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')

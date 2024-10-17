@@ -252,10 +252,10 @@ bake_type_items = (
         )
 
 texture_size_items = (
-    ('512', "512", ''),
-    ('1024', "1024", ''),
-    ('2048', "2048", ''),
-    ('4096', "4096", ''),
+    ('512', "512", 'Create a 512x512 texture image'),
+    ('1024', "1024", 'Create a 1024x1024 texture image'),
+    ('2048', "2048", 'Create a 2048x2048 texture image'),
+    ('4096', "4096", 'Create a 4096x4096 texture image'),
 )
 
 channel_override_labels = {

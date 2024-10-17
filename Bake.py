@@ -1232,7 +1232,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     
     use_custom_resolution : BoolProperty(
         name= 'Custom Resolution',
-        default=False
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
     )
 
     bake_disabled_layers : BoolProperty(
@@ -1255,6 +1256,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
+
+        # Use user preference default image size if input uses default image size
+        if ypup.default_texture_size != 'DEFAULT':
+            self.texture_size = ypup.default_texture_size
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(uv_layers) > 0:

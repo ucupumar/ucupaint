@@ -342,7 +342,8 @@ class YNewLayerMask(bpy.types.Operator):
     
     use_custom_resolution : BoolProperty(
         name= 'Custom Resolution',
-        default=False
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
     )
 
     @classmethod
@@ -378,8 +379,8 @@ class YNewLayerMask(bpy.types.Operator):
         self.name = get_new_mask_name(obj, layer, self.type, self.modifier_type)
 
         # Use user preference default image size if input uses default image size
-        if self.width == 1234 and self.height == 1234:
-            self.width = self.height = ypup.default_new_image_size
+        if ypup.default_texture_size != 'DEFAULT':
+            self.texture_size = ypup.default_texture_size
 
         if self.type == 'COLOR_ID':
             # Check if color id already being used

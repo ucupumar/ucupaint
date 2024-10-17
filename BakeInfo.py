@@ -181,7 +181,8 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     
     use_custom_resolution : BoolProperty(
         name= 'Custom Resolution',
-        default=False
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
     )
 
 def register():

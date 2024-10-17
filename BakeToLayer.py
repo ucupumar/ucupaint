@@ -299,7 +299,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     
     use_custom_resolution : BoolProperty(
         name= 'Custom Resolution',
-        default=False
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
     )
 
     @classmethod
@@ -347,6 +348,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             self.hdr = True
         else:
             self.hdr = False
+
+        # Use user preference default image size if input uses default image size
+        if ypup.default_texture_size != 'DEFAULT':
+            self.texture_size = ypup.default_texture_size
 
         # Set name
         mat = get_active_material()
@@ -507,8 +512,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 self.overwrite_image_name = source.image.name
                 if not source.image.yia.is_image_atlas and not source.image.yua.is_udim_atlas:
                     self.overwrite_name = source.image.name
-                    self.width = source.image.size[0] if source.image.size[0] != 0 else ypup.default_new_image_size
-                    self.height = source.image.size[1] if source.image.size[1] != 0 else ypup.default_new_image_size
+                    self.width = source.image.size[0] if source.image.size[0] != 0 else int(ypup.default_texture_size)
+                    self.height = source.image.size[1] if source.image.size[1] != 0 else int(ypup.default_texture_size)
                     self.use_image_atlas = False
                     bi = source.image.y_bake_info
                 else:
