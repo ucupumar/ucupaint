@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, Modifier, transition, ImageAtlas, MaskModifier, UDIM
+from . import lib, ImageAtlas, MaskModifier, UDIM
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -14,6 +14,7 @@ from .input_outputs import *
 def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1), source_input='RGB', edge_detect_radius=0.05, modifier_type='INVERT', interpolation='Linear'):
     yp = layer.id_data.yp
     yp.halt_update = True
+    ypup = get_user_preferences()
 
     tree = get_tree(layer)
     nodes = tree.nodes
@@ -23,6 +24,10 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     mask.type = mask_type
     mask.texcoord_type = texcoord_type
     mask.source_input = source_input
+
+    # Uniform Scale
+    if is_bl_newer_than(2, 81) and is_mask_using_vector(mask):
+        mask.enable_uniform_scale = ypup.enable_uniform_uv_scale_by_default
 
     if segment:
         mask.segment_name = segment.name
@@ -221,9 +226,10 @@ def update_new_mask_uv_map(self, context):
         self.use_udim = False
         return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_name)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_name)
 
 class YNewLayerMask(bpy.types.Operator):
     bl_idname = "node.y_new_layer_mask"
@@ -414,7 +420,7 @@ class YNewLayerMask(bpy.types.Operator):
         elif layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image: self.interpolation = source.interpolation
-        
+
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
@@ -874,7 +880,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             bpy.context.area.type = ori_ui_type
 
         for image in images:
-            if self.relative:
+            if self.relative and bpy.data.filepath != '':
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
@@ -977,10 +983,6 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     def poll(cls, context):
         return True
 
-    @classmethod
-    def description(self, context, properties):
-        return get_operator_description(self)
-
     def invoke(self, context, event):
         obj = context.object
         node = get_active_ypaint_node()
@@ -1070,9 +1072,6 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         # The default blend type for mask is multiply
         if len(layer.masks) == 0:
             self.blend_type = 'MULTIPLY'
-    
-        if self.image_name != '' and get_user_preferences().skip_property_popups and not event.shift:
-            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -1271,11 +1270,41 @@ class YRemoveLayerMask(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'mask') and hasattr(context, 'layer')
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        layer = self.layer = context.layer
+        mask = self.mask = context.mask
+
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
+        # Check for any dirty images
+        self.any_dirty_images = False
+        source = get_mask_source(mask)
+        image = source.image if mask.type == 'IMAGE' else None
+        baked_source = get_mask_source(mask, get_baked=True)
+
+        if (image and image.is_dirty) or (baked_source and baked_source.image and baked_source.image.is_dirty):
+            self.any_dirty_images = True
+
+        if self.any_dirty_images or self.legacy_on_non_object_mode:
+            return context.window_manager.invoke_props_dialog(self, width=300)
+
+        return self.execute(context)
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        if self.legacy_on_non_object_mode:
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        else:
+            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
 
     def execute(self, context):
-        mask = context.mask
-        layer = context.layer
+        mask = self.mask
+        layer = self.layer
         tree = get_tree(layer)
         obj = context.object
         mat = obj.active_material
@@ -1762,6 +1791,15 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
     # UI related
     expand_content : BoolProperty(default=False)
 
+def update_mask_uniform_scale_enabled(self, context):
+    if not hasattr(context, 'layer'): return
+
+    update_entity_uniform_scale_enabled(self)
+
+    check_layer_tree_ios(context.layer)
+    reconnect_layer_nodes(context.layer)
+    rearrange_layer_nodes(context.layer)
+
 class YLayerMask(bpy.types.PropertyGroup):
 
     name : StringProperty(default='', update=update_mask_name)
@@ -1970,6 +2008,15 @@ class YLayerMask(bpy.types.PropertyGroup):
     mapping : StringProperty(default='')
     baked_mapping : StringProperty(default='')
     blur_vector : StringProperty(default='')
+
+    enable_uniform_scale : BoolProperty(
+        name = 'Enable Uniform Scale', 
+        description = 'Use the same value for all scale components',
+        default = False,
+        update = update_mask_uniform_scale_enabled
+        )
+
+    uniform_scale_value : FloatProperty(default=1)
 
     decal_process : StringProperty(default='')
     texcoord : StringProperty(default='')

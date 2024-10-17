@@ -2,7 +2,7 @@ import bpy, re, time, os
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
-from . import lib, Modifier, MaskModifier, NormalMapModifier, Root, UDIM
+from . import lib, Modifier, MaskModifier, UDIM
 from .common import *
 
 def update_yp_ui():
@@ -571,14 +571,14 @@ def draw_inbetween_modifier_mask_props(layer, source, layout):
     elif layer.modifier_type == 'RAMP':
         col.template_color_ramp(source, "color_ramp", expand=True)
 
-def draw_input_prop(layout, entity, prop_name, emboss=None):
+def draw_input_prop(layout, entity, prop_name, emboss=None, text=''):
     inp = get_entity_prop_input(entity, prop_name)
     if emboss != None:
-        if inp: layout.prop(inp, 'default_value', text='', emboss=emboss)
-        else: layout.prop(entity, prop_name, text='', emboss=emboss)
+        if inp: layout.prop(inp, 'default_value', text=text, emboss=emboss)
+        else: layout.prop(entity, prop_name, text=text, emboss=emboss)
     else:
-        if inp: layout.prop(inp, 'default_value', text='')
-        else: layout.prop(entity, prop_name, text='') 
+        if inp: layout.prop(inp, 'default_value', text=text)
+        else: layout.prop(entity, prop_name, text=text) 
 
 def draw_mask_modifier_stack(layer, mask, layout, ui):
     ypui = bpy.context.window_manager.ypui
@@ -1476,8 +1476,15 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                             mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
                             mcol = rrow.column()
                             mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                            if layer.enable_uniform_scale:
+                                mcol = rrow.column(align=True)
+                                mcol.label(text='Scale:')
+                                draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'X')
+                                draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Y')
+                                draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Z')
+                            else:
+                                mcol = rrow.column()
+                                mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
                         else:
                             mcol = rrow.column()
                             mcol.prop(mapping, 'translation')
@@ -1485,6 +1492,13 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                             mcol.prop(mapping, 'rotation')
                             mcol = rrow.column()
                             mcol.prop(mapping, 'scale')
+                    
+                        # Uniform scale
+                        if is_bl_newer_than(2, 81):
+                            rrow = boxcol.row(align=True)
+                            splits = split_layout(rrow, 0.5)
+                            splits.label(text='Uniform Scale:')
+                            rrow.prop(layer, 'enable_uniform_scale', text='')
 
                         if yp.need_temp_uv_refresh:
                             rrow = boxcol.row(align=True)
@@ -1493,7 +1507,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
                 # Blur row
                 rrow = boxcol.row(align=True)
-                splits = split_layout(rrow, 0.3)
+                splits = split_layout(rrow, 0.5)
                 splits.label(text='Blur:')
                 if layer.enable_blur_vector:
                     draw_input_prop(splits, layer, 'blur_vector_factor')
@@ -1537,7 +1551,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             else:
                 label += ' (' + root_ch.name + ')'
                 #label = root_ch.name
-            label += ':'
 
     else:
         label = pgettext_iface('Channels') + ' (' + str(len(enabled_channels)) + ')'
@@ -2250,7 +2263,7 @@ def draw_layer_masks(context, layout, layer):
         if mask.enable:
             if mask.type == 'IMAGE':
                 if mask.source_input == 'ALPHA':
-                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image_alpha'))
+                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('alpha_image'))
                 else: row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
             elif mask.type == 'VCOL':
                 if mask.source_input == 'ALPHA':
@@ -2446,8 +2459,15 @@ def draw_layer_masks(context, layout, layer):
                             mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
                             mcol = rrow.column()
                             mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                            if mask.enable_uniform_scale:
+                                mcol = rrow.column(align=True)
+                                mcol.label(text='Scale:')
+                                draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'X')
+                                draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Y')
+                                draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Z')
+                            else:
+                                mcol = rrow.column()
+                                mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
                         else:
                             mcol = rrow.column()
                             mcol.prop(mapping, 'translation')
@@ -2455,6 +2475,13 @@ def draw_layer_masks(context, layout, layer):
                             mcol.prop(mapping, 'rotation')
                             mcol = rrow.column()
                             mcol.prop(mapping, 'scale')
+                    
+                        # Uniform scale
+                        if is_bl_newer_than(2, 81):
+                            rrow = boxcol.row(align=True)
+                            splits = split_layout(rrow, 0.5)
+                            splits.label(text='Uniform Scale:')
+                            rrow.prop(mask, 'enable_uniform_scale', text='')
 
                         if mask.type == 'IMAGE' and mask.active_edit and (
                                 yp.need_temp_uv_refresh
@@ -2466,7 +2493,7 @@ def draw_layer_masks(context, layout, layer):
                 # Blur row
                 if mask.texcoord_type != 'Layer':
                     rrow = boxcol.row(align=True)
-                    splits = split_layout(rrow, 0.3)
+                    splits = split_layout(rrow, 0.5)
                     splits.label(text='Blur:')
                     if mask.enable_blur_vector:
                         draw_input_prop(splits, mask, 'blur_vector_factor')
@@ -2525,6 +2552,18 @@ def draw_layers_ui(context, layout, node):
         uv_found = True
 
     box = layout.box()
+
+    # Check duplicated yp node (indicated by more than one users)
+    if group_tree.users > 1:
+        row = box.row(align=True)
+        row.alert = True
+        op = row.operator("node.y_duplicate_yp_nodes", text='Fix Multi-User ' + get_addon_title() + ' Node', icon='ERROR')
+        op.duplicate_node = True
+        op.duplicate_material = False
+        op.only_active = True
+        row.alert = False
+        #box.prop(ypui, 'make_image_single_user')
+        return
 
     if yp.use_baked:
         col = box.column(align=False)
@@ -2690,18 +2729,6 @@ def draw_layers_ui(context, layout, node):
     # Check if parallax is enabled
     height_root_ch = get_root_height_channel(yp)
     enable_parallax = is_parallax_enabled(height_root_ch)
-
-    # Check duplicated yp node (indicated by more than one users)
-    if group_tree.users > 1:
-        row = box.row(align=True)
-        row.alert = True
-        op = row.operator("node.y_duplicate_yp_nodes", text='Fix Multi-User ' + get_addon_title() + ' Node', icon='ERROR')
-        op.duplicate_node = True
-        op.duplicate_material = False
-        op.only_active = True
-        row.alert = False
-        #box.prop(ypui, 'make_image_single_user')
-        return
 
     # Check duplicated layers (indicated by more than one users)
     #elif len(yp.layers) > 0:
@@ -3261,7 +3288,7 @@ def main_draw(self, context):
     if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
         wm.ypprops.all_icons_loaded = True
         row.label(text='', icon='BLANK1')
-        folder = get_addon_filepath() + 'icons' + os.sep
+        folder = lib.get_icon_folder()
         # Add extra splits so the actual icons aren't actually visible
         s1 = split_layout(split, 1.0)
         s1.label(text='', icon='BLANK1')
@@ -3363,7 +3390,7 @@ def main_draw(self, context):
     if scenario_1:
         row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
 
-    if baked_found or yp.use_baked:
+    if (baked_found or yp.use_baked) and not group_tree.users > 1:
         row.prop(yp, 'use_baked', toggle=True, text='Use Baked')
         row.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
 
@@ -3865,7 +3892,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                         row.label(text='', icon_value=src.image.preview.icon_id)
                     else: 
                         if m.source_input == 'ALPHA':
-                            row.label(text='', icon_value=lib.get_icon('image_alpha'))
+                            row.label(text='', icon_value=lib.get_icon('alpha_image'))
                         else: row.label(text='', icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     active_vcol_mask = m
@@ -3894,7 +3921,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                         row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                     else: 
                         if m.source_input == 'ALPHA':
-                            row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image_alpha'))
+                            row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('alpha_image'))
                         else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     if m.source_input == 'ALPHA':

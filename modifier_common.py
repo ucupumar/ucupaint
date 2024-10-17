@@ -1,4 +1,3 @@
-import bpy
 from .common import *
 from . import lib
 
@@ -34,6 +33,10 @@ def get_modifier_channel_type(mod, return_non_color=False):
     elif match4:
         non_color = True
         channel_type = 'RGB'
+
+    else:
+        non_color = True
+        channel_type = 'VALUE'
 
     if return_non_color:
         return channel_type, non_color

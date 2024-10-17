@@ -7,7 +7,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, image_ops
+from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops
 
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
@@ -1131,9 +1131,10 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 def update_bake_channel_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 def bake_vcol_channel_items(self, context):
     node = get_active_ypaint_node()
@@ -2151,6 +2152,12 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
                 self.channel_idx = str(i)
                 break
 
+        # Check if there's any unsaved images
+        self.any_dirty_images = any_dirty_images_inside_layer(neighbor_layer) or any_dirty_images_inside_layer(layer)
+
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
@@ -2166,7 +2173,21 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'apply_modifiers', text='')
         col.prop(self, 'apply_neighbor_modifiers', text='')
 
+        if self.legacy_on_non_object_mode:
+            col = self.layout.column(align=True)
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        elif self.any_dirty_images:
+            col = self.layout.column(align=True)
+            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+
     def execute(self, context):
+
+        if self.error_message != '':
+            self.report({'ERROR'}, self.error_message)
+            return {'CANCELLED'}
+
         T = time.time()
 
         wm = context.window_manager
@@ -2177,10 +2198,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         mat = obj.active_material
         scene = context.scene
         objs = get_all_objects_with_same_materials(mat, True)
-
-        if self.error_message != '':
-            self.report({'ERROR'}, self.error_message)
-            return {'CANCELLED'}
 
         # Localize variables
         layer = self.layer
@@ -2388,7 +2405,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_merge_mask"
     bl_label = "Merge mask"
     bl_description = "Merge Mask"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
             name = 'Direction',
@@ -2398,15 +2415,57 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_ypaint_node() and hasattr(context, 'mask') and hasattr(context, 'layer')
+        return get_active_ypaint_node()
 
     def invoke(self, context, event):
         self.invoke_operator(context)
+
+        layer = self.layer = context.layer
+        mask = self.mask = context.mask
+
+        # Get neighbor mask
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        index = int(m.group(2))
+        if self.direction == 'UP':
+            try: neighbor_mask = layer.masks[index-1]
+            except: neighbor_mask = None
+        else:
+            try: neighbor_mask = layer.masks[index+1]
+            except: neighbor_mask = None
+
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
+        # Check for any dirty images
+        self.any_dirty_images = False
+        if neighbor_mask:
+            source = get_mask_source(mask)
+            image = source.image if mask.type == 'IMAGE' else None
+            neighbor_image = get_mask_source(neighbor_mask).image if neighbor_mask.type == 'IMAGE' else None
+
+            if (image and image.is_dirty) or (neighbor_image and neighbor_image.is_dirty):
+                self.any_dirty_images = True
+
+        if self.any_dirty_images or self.legacy_on_non_object_mode:
+            return context.window_manager.invoke_props_dialog(self, width=300)
+
         return self.execute(context)
 
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        if self.legacy_on_non_object_mode:
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+        else:
+            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure want to continue?", icon='BLANK1')
+
+    def check(self, context):
+        return True
+
     def execute(self, context):
-        mask = context.mask
-        layer = context.layer
+        mask = self.mask
+        layer = self.layer
         yp = layer.id_data.yp
         obj = context.object
         mat = obj.active_material
@@ -2427,6 +2486,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         elif self.direction == 'DOWN' and index < num_masks-1:
             neighbor_idx = index+1
         else:
+            self.report({'ERROR'}, "No valid neighbor mask!")
             return {'CANCELLED'}
 
         if mask.type != 'IMAGE':
