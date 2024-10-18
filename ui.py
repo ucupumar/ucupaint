@@ -465,6 +465,22 @@ def draw_tex_props(source, layout, entity=None):
             if is_input_skipped(inp): continue
             col.prop(inp, 'default_value', text='')
 
+    elif title == 'Gabor':
+        row = col.row()
+        col = row.column(align=True)
+        col.label(text='Gabor Type:')
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.label(text=inp.name + ':')
+
+        col = row.column(align=True)
+        col.prop(source, 'gabor_type', text='')
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.prop(inp, 'default_value', text='')
+
     elif title == 'Voronoi':
 
         row = col.row()
@@ -3456,7 +3472,7 @@ def main_draw(self, context):
                 vcol_name = get_source_vcol_name(src)
                 if vcol_name != '' and vcol_name not in vcols:
                     vcols.append(vcol_name)
-            elif layer.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'VORONOI', 'WAVE'}:
+            elif layer.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
                 num_gen_texs += 1
 
             for ch in layer.channels:
@@ -3519,7 +3535,7 @@ def main_draw(self, context):
                     vcol_name = get_source_vcol_name(src)
                     if vcol_name != '' and vcol_name not in vcols:
                         vcols.append(vcol_name)
-                elif mask.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'VORONOI', 'WAVE'}:
+                elif mask.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
                     num_gen_texs += 1
 
                 if mask.type == 'MODIFIER':
@@ -4454,6 +4470,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_new_layer", text='Magic').type = 'MAGIC'
         if not is_bl_newer_than(4, 1): col.operator("node.y_new_layer", text='Musgrave').type = 'MUSGRAVE'
         col.operator("node.y_new_layer", text='Noise').type = 'NOISE'
+        if is_bl_newer_than(4, 3): col.operator("node.y_new_layer", text='Gabor').type = 'GABOR'
         col.operator("node.y_new_layer", text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_layer", text='Wave').type = 'WAVE'
 
@@ -5004,9 +5021,9 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         new_mask_button(col, 'node.y_new_layer_mask', 'Checker', otype='CHECKER')
         new_mask_button(col, 'node.y_new_layer_mask', 'Gradient', otype='GRADIENT')
         new_mask_button(col, 'node.y_new_layer_mask', 'Magic', otype='MAGIC')
-        if not is_bl_newer_than(4, 1): 
-            new_mask_button(col, 'node.y_new_layer_mask', 'Musgrave', otype='MUSGRAVE')
+        if not is_bl_newer_than(4, 1): new_mask_button(col, 'node.y_new_layer_mask', 'Musgrave', otype='MUSGRAVE')
         new_mask_button(col, 'node.y_new_layer_mask', 'Noise', otype='NOISE')
+        if is_bl_newer_than(4, 3): new_mask_button(col, 'node.y_new_layer_mask', 'Gabor', otype='GABOR')
         new_mask_button(col, 'node.y_new_layer_mask', 'Voronoi', otype='VORONOI')
         new_mask_button(col, 'node.y_new_layer_mask', 'Wave', otype='WAVE')
 
@@ -5218,7 +5235,10 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         col.separator()
 
-        for item in channel_override_type_items_410 if is_bl_newer_than(4, 1) else channel_override_type_items:
+        for item in channel_override_type_items:
+            if item[0] == 'MUSGRAVE' and is_bl_newer_than(4, 1): continue
+            if item[0] == 'GABOR' and not is_bl_newer_than(4, 3): continue
+
             if item[0] == ch.override_type:
                 icon = 'RADIOBUT_ON'
             else: icon = 'RADIOBUT_OFF'
@@ -5452,6 +5472,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.operator('node.y_replace_layer_type', text='Magic', icon_value=lib.get_icon('texture')).type = 'MAGIC'
         if not is_bl_newer_than(4, 1): col.operator('node.y_replace_layer_type', text='Musgrave', icon_value=lib.get_icon('texture')).type = 'MUSGRAVE'
         col.operator('node.y_replace_layer_type', text='Noise', icon_value=lib.get_icon('texture')).type = 'NOISE'
+        if is_bl_newer_than(4, 3): col.operator('node.y_replace_layer_type', text='Gabor', icon_value=lib.get_icon('texture')).type = 'GABOR'
         col.operator('node.y_replace_layer_type', text='Voronoi', icon_value=lib.get_icon('texture')).type = 'VORONOI'
         col.operator('node.y_replace_layer_type', text='Wave', icon_value=lib.get_icon('texture')).type = 'WAVE'
 

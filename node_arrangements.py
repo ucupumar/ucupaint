@@ -782,6 +782,8 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.y -= 270
             elif layer.type == 'NOISE':
                 loc.y -= 170
+            elif layer.type == 'GABOR':
+                loc.y -= 170
             elif layer.type == 'VORONOI':
                 loc.y -= 190
             else:
@@ -822,6 +824,8 @@ def rearrange_layer_nodes(layer, tree=None):
                 elif ch.override_type == 'MUSGRAVE':
                     loc.y -= 270
                 elif ch.override_type == 'NOISE':
+                    loc.y -= 170
+                elif ch.override_type == 'GABOR':
                     loc.y -= 170
                 elif ch.override_type == 'VORONOI':
                     loc.y -= 190
