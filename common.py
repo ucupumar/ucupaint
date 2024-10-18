@@ -934,8 +934,9 @@ def copy_id_props(source, dest, extras = [], reverse=False):
             for i, subval in enumerate(val):
                 dest_val[i] = subval
         else:
-            try: setattr(dest, prop, val)
-            except: print('Error set prop:', prop)
+            if getattr(dest, prop) != val:
+                try: setattr(dest, prop, val)
+                except: print('Error set prop:', prop)
 
 def copy_node_props_(source, dest, extras = []):
 
@@ -966,17 +967,12 @@ def copy_node_props_(source, dest, extras = []):
             for i, subval in enumerate(val):
                 try: 
                     dest_val[i] = subval
-                    #print('SUCCESS:', prop, dest_val[i])
                 except: 
-                    #print('FAILED:', prop, dest_val[i])
                     pass
         else:
-            try: 
-                setattr(dest, prop, val)
-                #print('SUCCESS:', prop, val)
-            except: 
-                #print('FAILED:', prop, val)
-                pass
+            if getattr(dest, prop) != val:
+                try: setattr(dest, prop, val)
+                except: pass
 
 def copy_node_props(source, dest, extras=[]):
     if source.type != dest.type: return
@@ -2174,15 +2170,17 @@ def get_entity_mapping(entity, get_baked=False):
     return None
 
 def update_entity_uniform_scale_enabled(entity):
-    scale_input = get_entity_mapping(entity).inputs[3]
+    mapping = get_entity_mapping(entity)
+    if mapping:
+        scale_input = mapping.inputs[3]
 
-    if entity.enable_uniform_scale:
-        # Set the uniform scale to min axis of regular scale when uniform scale is enabled
-        set_entity_prop_value(entity, 'uniform_scale_value', min(map(abs, scale_input.default_value)))
-    else:
-        # Set the regular scale axes to the uniform scale when uniform scale is disabled
-        scale = get_entity_prop_value(entity, 'uniform_scale_value')
-        scale_input.default_value = (scale, scale, scale)
+        if entity.enable_uniform_scale:
+            # Set the uniform scale to min axis of regular scale when uniform scale is enabled
+            set_entity_prop_value(entity, 'uniform_scale_value', min(map(abs, scale_input.default_value)))
+        else:
+            # Set the regular scale axes to the uniform scale when uniform scale is disabled
+            scale = get_entity_prop_value(entity, 'uniform_scale_value')
+            scale_input.default_value = (scale, scale, scale)
 
 def get_neighbor_uv_space_input(texcoord_type):
     if texcoord_type == 'UV':

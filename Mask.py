@@ -1765,13 +1765,16 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
     expand_content : BoolProperty(default=False)
 
 def update_mask_uniform_scale_enabled(self, context):
-    if not hasattr(context, 'layer'): return
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = self
 
-    update_entity_uniform_scale_enabled(self)
+    update_entity_uniform_scale_enabled(mask)
 
-    check_layer_tree_ios(context.layer)
-    reconnect_layer_nodes(context.layer)
-    rearrange_layer_nodes(context.layer)
+    check_layer_tree_ios(layer)
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
 class YLayerMask(bpy.types.PropertyGroup):
 

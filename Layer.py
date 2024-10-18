@@ -5984,13 +5984,12 @@ def update_layer_blur_vector_factor(self, context):
         blur_vector.inputs[0].default_value = layer.blur_vector_factor
 
 def update_layer_uniform_scale_enabled(self, context):
-    if not hasattr(context, 'layer'): return
+    layer = self
+    update_entity_uniform_scale_enabled(layer)
 
-    update_entity_uniform_scale_enabled(self)
-
-    check_layer_tree_ios(context.layer)
-    reconnect_layer_nodes(context.layer)
-    rearrange_layer_nodes(context.layer)
+    check_layer_tree_ios(layer)
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
 class YLayer(bpy.types.PropertyGroup):
     name : StringProperty(
