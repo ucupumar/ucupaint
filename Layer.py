@@ -1,4 +1,4 @@
-import bpy, time, re, os, random
+import bpy, time, re, os, random, numpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier
@@ -4358,11 +4358,19 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
                 m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', img_users[i].path_from_id())
                 if m: 
                     mask_idx = int(m.group(2))
+                    mask = img_users[i]
 
-                    # Only first mask will be black by default, others will be white
-                    if mask_idx == 0:
-                        color = (0,0,0,1)
-                    else: color = (1,1,1,1)
+                    color = (0,0,0,1)
+                    if is_bl_newer_than(2, 83):
+                        # Check average value of the image using numpy
+                        pxs = numpy.empty(shape=img.size[0]*img.size[1]*4, dtype=numpy.float32)
+                        img.pixels.foreach_get(pxs)
+                        if numpy.average(pxs) > 0.5:
+                            color = (1,1,1,1)
+                    else:
+                        # Set Mask color based on the index and blend type
+                        if mask_idx > 0 and mask.blend_type not in {'ADD'}:
+                            color = (1,1,1,1)
                 else: color = (0,0,0,0)
 
                 img_name = get_unique_name(img.name, bpy.data.images)
