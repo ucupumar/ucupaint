@@ -4852,6 +4852,7 @@ class YSelectDecalObject(bpy.types.Operator):
         return group_node and hasattr(context, 'entity')
 
     def execute(self, context):
+        scene = context.scene
         entity = context.entity
 
         m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -4867,11 +4868,11 @@ class YSelectDecalObject(bpy.types.Operator):
             try: bpy.ops.object.mode_set(mode='OBJECT')
             except: pass
             bpy.ops.object.select_all(action='DESELECT')
-            print(texcoord.object not in get_scene_objects())
-            try: set_active_object(texcoord.object)
-            except Exception as e:
-                self.report({'ERROR'}, e)
-                return {'CANCELLED'}
+            if texcoord.object.name not in get_scene_objects():
+                parent = texcoord.object.parent
+                custom_collection = parent.users_collection[0] if is_bl_newer_than(2, 80) and parent and len(parent.users_collection) > 0 else None
+                link_object(scene, texcoord.object, custom_collection)
+            set_active_object(texcoord.object)
             set_object_select(texcoord.object, True)
         else: return {'CANCELLED'}
 
