@@ -5860,6 +5860,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     cache_magic : StringProperty(default='')
     cache_musgrave : StringProperty(default='')
     cache_noise : StringProperty(default='')
+    cache_gabor : StringProperty(default='')
     cache_voronoi : StringProperty(default='')
     cache_wave : StringProperty(default='')
 
@@ -6192,6 +6193,7 @@ class YLayer(bpy.types.PropertyGroup):
     cache_magic : StringProperty(default='')
     cache_musgrave : StringProperty(default='')
     cache_noise : StringProperty(default='')
+    cache_gabor : StringProperty(default='')
     cache_voronoi : StringProperty(default='')
     cache_wave : StringProperty(default='')
     cache_color : StringProperty(default='')
