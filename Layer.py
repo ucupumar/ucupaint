@@ -4867,7 +4867,11 @@ class YSelectDecalObject(bpy.types.Operator):
             try: bpy.ops.object.mode_set(mode='OBJECT')
             except: pass
             bpy.ops.object.select_all(action='DESELECT')
-            set_active_object(texcoord.object)
+            print(texcoord.object not in get_scene_objects())
+            try: set_active_object(texcoord.object)
+            except Exception as e:
+                self.report({'ERROR'}, e)
+                return {'CANCELLED'}
             set_object_select(texcoord.object, True)
         else: return {'CANCELLED'}
 
