@@ -5676,7 +5676,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     override_value : FloatProperty(
             name = 'Override Value',
             description = 'Override value for this channel',
-            min=0.0, max=1.0, default=1.0)
+            min=0.0, max=1.0, subtype='FACTOR', default=1.0)
     override_vcol_name : StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
 
     # Specific for voronoi
