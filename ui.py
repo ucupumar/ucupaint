@@ -1564,6 +1564,8 @@ def get_layer_channel_input_label(layer, ch, source=None):
         label = 'Custom'
         if ch.override_type == 'IMAGE' and source and source.image:
             label = source.image.name
+        elif ch.override_type == 'VCOL' and source:
+            label = source.attribute_name
         elif ch.override_type != 'DEFAULT':
             label = channel_override_labels[ch.override_type]
         #if ch.override_type == 'DEFAULT':
@@ -1724,7 +1726,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
         if expandable:
             label = ''
             if root_ch.type == 'NORMAL':
+                if chui.expand_content:
+                    label += yp.channels[i].name + ' ('
                 label += normal_type_labels[ch.normal_map_type]
+                if chui.expand_content:
+                    label += ')'
             else: label += yp.channels[i].name
             intensity_value = get_entity_prop_value(ch, 'intensity_value')
             if intensity_value != 1.0:
@@ -1774,10 +1780,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 elif ch.override and ch.override_type == 'DEFAULT':
                     draw_input_prop(rrrow, ch, 'override_color')
 
-                if ch.normal_map_type == 'NORMAL_MAP':
-                    rrrow.menu("NODE_MT_y_layer_channel_input_1_menu", text='', icon='DOWNARROW_HLT')
-                elif ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
+                if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
                     rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+                if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    rrrow.menu("NODE_MT_y_layer_channel_input_1_menu", text='', icon='DOWNARROW_HLT')
 
                 if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
                     if ch.override_type == 'IMAGE':
@@ -5085,6 +5091,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                 label += ' (' + source.image.name + ')'
             elif ch.override_type == 'VCOL':
                 label += ' (' + source.attribute_name + ')'
+            else:
+                label += ' (' + channel_override_labels[ch.override_type] +')'
 
         icon = 'RADIOBUT_ON' if ch.override and ch.override_type != 'DEFAULT' else 'RADIOBUT_OFF'
         col.menu("NODE_MT_y_replace_channel_override_menu", text=label, icon=icon)
@@ -5109,7 +5117,7 @@ class YLayerChannelInput1Menu(bpy.types.Menu):
         else: return
         
         col = self.layout.column()
-        col.label(text='Layer Normal Source')
+        col.label(text='Normal Source')
 
         col.separator()
 
@@ -5841,8 +5849,8 @@ class YReplaceChannelOverride1Menu(bpy.types.Menu):
         elif (ch.override_1_type == 'IMAGE' and source):
             label += ': ' + source.image.name
 
-        icon = 'RADIOBUT_ON' if ch.override_1_type == 'IMAGE' else 'RADIOBUT_OFF'
-        if cache_1_image and ch.override_1_type != 'IMAGE':
+        icon = 'RADIOBUT_ON' if ch.override_1 and ch.override_1_type == 'IMAGE' else 'RADIOBUT_OFF'
+        if cache_1_image and (ch.override_1_type != 'IMAGE' or not ch.override_1):
             col.operator('node.y_replace_layer_channel_override_1', text=label, icon=icon).type = 'IMAGE'
         else:
             col.label(text=label, icon=icon)
