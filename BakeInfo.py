@@ -142,6 +142,11 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             description='Use float image for baked displacement',
             default=False)
 
+    bake_disabled_layers : BoolProperty(
+            name = 'Bake Disabled Layers',  
+            description = 'Take disabled layers into account when baking',
+            default = False)
+
     # To store other objects info
     other_objects : CollectionProperty(type=YBakeInfoOtherObject)
     
