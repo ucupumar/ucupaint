@@ -1225,6 +1225,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             description='Use float image for baked displacement',
             default=False)
 
+    bake_disabled_layers : BoolProperty(
+            name = 'Bake Disabled Layers',  
+            description = 'Take disabled layers into account when baking',
+            default = False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1397,6 +1402,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if is_bl_newer_than(2, 81):
             ccol.prop(self, 'denoise', text='Use Denoise')
         ccol.prop(self, 'force_bake_all_polygons')
+        ccol.prop(self, 'bake_disabled_layers')
 
     def execute(self, context):
 
@@ -1466,8 +1472,6 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         vcol = refresh_tangent_sign_vcol(obj, uv.name)
                         if vcol: tansign.attribute_name = vcol.name
 
-        #return {'FINISHED'}
-
         # Disable use baked first
         if yp.use_baked:
             yp.use_baked = False
@@ -1531,6 +1535,13 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Get tilenums
         tilenums = UDIM.get_tile_numbers(objs, self.uv_map) if self.use_udim else [1001]
+
+        # Enable disabled layers if needed
+        disabled_layers = []
+        if self.bake_disabled_layers:
+            disabled_layers = [layer for layer in yp.layers if not layer.enable]
+            for layer in disabled_layers:
+                layer.enable = True 
 
         # Bake channels
         for ch in self.channels:
@@ -1743,6 +1754,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Recover bake settings
         recover_bake_settings(book, yp)
+
+        # Recover disabled layers
+        if self.bake_disabled_layers:
+            for layer in disabled_layers:
+                layer.enable = False
 
         # Return to original objects
         if ori_objs: objs = ori_objs
