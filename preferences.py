@@ -20,7 +20,7 @@ class YPaintPreferences(AddonPreferences):
             name = 'Custom Default Image Size',
             description = 'Default new image size',
             default = 1024,
-            min=64, max=4096)
+            min=64, max=16384)
 
     image_atlas_size : IntProperty(
             name = 'Image Atlas Size',

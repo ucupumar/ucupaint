@@ -1258,8 +1258,13 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         uv_layers = get_uv_layers(obj)
 
         # Use user preference default image size if input uses default image size
-        if ypup.default_texture_size != 'DEFAULT':
+        if ypup.default_texture_size != 'DEFAULT' and ypup.default_texture_size != 'CUSTOM':
             self.texture_size = ypup.default_texture_size
+
+        # Use Preference default image size if input uses Custom image size
+        if ypup.default_texture_size == 'CUSTOM':
+            self.use_custom_resolution = True
+            self.width = self.height = ypup.default_new_image_size
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(uv_layers) > 0:

@@ -922,8 +922,14 @@ class YNewLayer(bpy.types.Operator):
             items = yp.layers
 
         # Use user preference default image size if input uses default image size
-        if ypup.default_texture_size != 'DEFAULT':
+        if ypup.default_texture_size != 'DEFAULT' and ypup.default_texture_size != 'CUSTOM':
             self.texture_size = ypup.default_texture_size
+
+        # Use Preference default image size if input uses Custom image size
+        if ypup.default_texture_size == 'CUSTOM':
+            self.use_custom_resolution = True
+            self.width = self.height = ypup.default_new_image_size
+
         # Make sure add mask is inactive
         if self.type not in {'COLOR', 'BACKGROUND'}: #, 'GROUP'}:
             self.add_mask = False

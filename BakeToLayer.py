@@ -350,8 +350,13 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             self.hdr = False
 
         # Use user preference default image size if input uses default image size
-        if ypup.default_texture_size != 'DEFAULT':
+        if ypup.default_texture_size != 'DEFAULT' and ypup.default_texture_size != 'CUSTOM':
             self.texture_size = ypup.default_texture_size
+
+        # Use Preference default image size if input uses Custom image size
+        if ypup.default_texture_size == 'CUSTOM':
+            self.use_custom_resolution = True
+            self.width = self.height = ypup.default_new_image_size
 
         # Set name
         mat = get_active_material()
