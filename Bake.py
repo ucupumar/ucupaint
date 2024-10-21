@@ -1224,6 +1224,17 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             name = 'Use Float for Displacement',
             description='Use float image for baked displacement',
             default=False)
+    
+    texture_size : EnumProperty(
+        name = 'Texture Size',
+        items = texture_size_items,
+        default = '1024')
+    
+    use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
+    )
 
     bake_disabled_layers : BoolProperty(
             name = 'Bake Disabled Layers',  
@@ -1245,6 +1256,15 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
+
+        # Use user preference default image size if input uses default image size
+        if ypup.default_texture_size != 'DEFAULT' and ypup.default_texture_size != 'CUSTOM':
+            self.texture_size = ypup.default_texture_size
+
+        # Use Preference default image size if input uses Custom image size
+        if ypup.default_texture_size == 'CUSTOM':
+            self.use_custom_resolution = True
+            self.width = self.height = ypup.default_new_image_size
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(uv_layers) > 0:
@@ -1318,8 +1338,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         col = row.column() #align=True)
 
         ccol = col.column(align=True)
-        ccol.label(text='Width:')
-        ccol.label(text='Height:')
+        ccol.label(text='')
+        if self.use_custom_resolution == False:
+            ccol.label(text='Resolution:')
+        if self.use_custom_resolution == True:
+            ccol.label(text='Width:')
+            ccol.label(text='Height:')
 
         ccol.separator()
         ccol.label(text='Samples:')
@@ -1355,9 +1379,16 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         col = row.column()
 
+        col.prop(self, 'use_custom_resolution')
+        crow = col.row(align=True)
         ccol = col.column(align=True)
-        ccol.prop(self, 'width', text='')
-        ccol.prop(self, 'height', text='')
+
+        if self.use_custom_resolution == False:
+            crow.prop(self, 'texture_size', expand= True,)
+            self.height = self.width = int(self.texture_size)
+        elif self.use_custom_resolution == True:
+            ccol.prop(self, 'width', text='')
+            ccol.prop(self, 'height', text='')
 
         ccol.separator()
         ccol.prop(self, 'samples', text='')

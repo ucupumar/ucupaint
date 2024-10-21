@@ -291,6 +291,17 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             name = 'Use UDIM Tiles',
             description='Use UDIM Tiles',
             default=False)
+    
+    texture_size : EnumProperty(
+        name = 'Texture Size',
+        items = texture_size_items,
+        default = '1024')
+    
+    use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -337,6 +348,15 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             self.hdr = True
         else:
             self.hdr = False
+
+        # Use user preference default image size if input uses default image size
+        if ypup.default_texture_size != 'DEFAULT' and ypup.default_texture_size != 'CUSTOM':
+            self.texture_size = ypup.default_texture_size
+
+        # Use Preference default image size if input uses Custom image size
+        if ypup.default_texture_size == 'CUSTOM':
+            self.use_custom_resolution = True
+            self.width = self.height = ypup.default_new_image_size
 
         # Set name
         mat = get_active_material()
@@ -497,8 +517,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 self.overwrite_image_name = source.image.name
                 if not source.image.yia.is_image_atlas and not source.image.yua.is_udim_atlas:
                     self.overwrite_name = source.image.name
-                    self.width = source.image.size[0] if source.image.size[0] != 0 else ypup.default_new_image_size
-                    self.height = source.image.size[1] if source.image.size[1] != 0 else ypup.default_new_image_size
+                    self.width = source.image.size[0] if source.image.size[0] != 0 else int(ypup.default_texture_size)
+                    self.height = source.image.size[1] if source.image.size[1] != 0 else int(ypup.default_texture_size)
                     self.use_image_atlas = False
                     bi = source.image.y_bake_info
                 else:
@@ -622,8 +642,12 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         #    col.label(text='Source Object:')
 
         col.label(text='')
-        col.label(text='Width:')
-        col.label(text='Height:')
+        col.label(text='')
+        if self.use_custom_resolution == False:
+            col.label(text='Resolution:')
+        if self.use_custom_resolution == True:
+            col.label(text='Width:')
+            col.label(text='Height:')
         col.label(text='Samples:')
         col.label(text='UV Map:')
         if self.type == 'FLOW':
@@ -693,8 +717,14 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'multires_base', text='')
 
         col.prop(self, 'hdr')
-        col.prop(self, 'width', text='')
-        col.prop(self, 'height', text='')
+        col.prop(self, 'use_custom_resolution')
+        crow = col.row(align=True)
+        if self.use_custom_resolution == False:
+            crow.prop(self, 'texture_size', expand= True,)
+            self.height = self.width = int(self.texture_size)
+        elif self.use_custom_resolution == True:
+            col.prop(self, 'width', text='')
+            col.prop(self, 'height', text='')
         col.prop(self, 'samples', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         if self.type == 'FLOW':

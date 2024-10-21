@@ -17,10 +17,10 @@ class YPaintPreferences(AddonPreferences):
     bl_idname = __package__
 
     default_new_image_size : IntProperty(
-            name = 'Default New Image Size',
+            name = 'Custom Default Image Size',
             description = 'Default new image size',
             default = 1024,
-            min=64, max=4096)
+            min=64, max=16384)
 
     image_atlas_size : IntProperty(
             name = 'Image Atlas Size',
@@ -138,12 +138,25 @@ class YPaintPreferences(AddonPreferences):
         min=0,
         max=59)
 
+    default_texture_size : EnumProperty(
+        name = 'Default Texture Size',
+        items = (('DEFAULT', "Default", 'Create default texture image'),
+        ('512', "512", 'Create a 512x512 texture image'),
+        ('1024', "1024", 'Create a 1024x1024 texture image'),
+        ('2048', "2048", 'Create a 2048x2048 texture image'),
+        ('4096', "4096", 'Create a 4096x4096 texture image'),
+        ('CUSTOM', "Custom Resolution", 'Create a custom resolution')),
+        default = '1024'
+        )
+    
     def draw(self, context):
         if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'default_bake_device')
             self.layout.prop(self, 'icons')
 
-        self.layout.prop(self, 'default_new_image_size')
+        self.layout.prop(self, 'default_texture_size')
+        if self.default_texture_size == 'CUSTOM':
+            self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')
