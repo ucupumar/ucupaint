@@ -146,7 +146,7 @@ class YPaintPreferences(AddonPreferences):
         ('2048', "2048", 'Create a 2048x2048 texture image'),
         ('4096', "4096", 'Create a 4096x4096 texture image'),
         ('CUSTOM', "Custom Resolution", 'Create a custom resolution')),
-        default = '1024'
+        default = 'DEFAULT'
         )
     
     def draw(self, context):
