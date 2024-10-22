@@ -678,6 +678,22 @@ def update_yp_tree(tree):
                     bi = baked_vdisp.image.y_bake_info
                     bi.is_baked_channel = True
 
+    # Version 2.1.3 has resolution toggle, so update the bake info
+    if version_tuple(yp.version) < (2, 1, 3):
+
+        images = get_yp_images(yp, get_baked_channels=True)
+        for image in images:
+            if image.y_bake_info.is_baked:
+                if image.size[0] == image.size[1] == 512:
+                    image.y_bake_info.image_resolution = '512'
+                elif image.size[0] == image.size[1] == 1024:
+                    image.y_bake_info.image_resolution = '1024'
+                elif image.size[0] == image.size[1] == 2048:
+                    image.y_bake_info.image_resolution = '2048'
+                elif image.size[0] == image.size[1] == 4096:
+                    image.y_bake_info.image_resolution = '4096'
+                else: image.y_bake_info.use_custom_resolution = True
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

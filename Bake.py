@@ -1225,9 +1225,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             description='Use float image for baked displacement',
             default=False)
     
-    texture_size : EnumProperty(
-        name = 'Texture Size',
-        items = texture_size_items,
+    image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
         default = '1024')
     
     use_custom_resolution : BoolProperty(
@@ -1257,14 +1257,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
 
-        # Use user preference default image size if input uses default image size
-        if ypup.default_texture_size != 'DEFAULT' and ypup.default_texture_size != 'CUSTOM':
-            self.texture_size = ypup.default_texture_size
-
-        # Use Preference default image size if input uses Custom image size
-        if ypup.default_texture_size == 'CUSTOM':
+        # Use user preference default image size
+        if ypup.default_image_resolution == 'CUSTOM':
             self.use_custom_resolution = True
             self.width = self.height = ypup.default_new_image_size
+        elif ypup.default_image_resolution != 'DEFAULT':
+            self.image_resolution = ypup.default_image_resolution
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(uv_layers) > 0:
@@ -1324,6 +1322,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
+
+        if not self.use_custom_resolution:
+            self.height = self.width = int(self.image_resolution)
+
         return True
 
     def draw(self, context):
@@ -1384,8 +1386,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ccol = col.column(align=True)
 
         if self.use_custom_resolution == False:
-            crow.prop(self, 'texture_size', expand= True,)
-            self.height = self.width = int(self.texture_size)
+            crow.prop(self, 'image_resolution', expand= True,)
         elif self.use_custom_resolution == True:
             ccol.prop(self, 'width', text='')
             ccol.prop(self, 'height', text='')

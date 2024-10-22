@@ -138,14 +138,14 @@ class YPaintPreferences(AddonPreferences):
         min=0,
         max=59)
 
-    default_texture_size : EnumProperty(
-        name = 'Default Texture Size',
-        items = (('DEFAULT', "Default", 'Create default texture image'),
-        ('512', "512", 'Create a 512x512 texture image'),
-        ('1024', "1024", 'Create a 1024x1024 texture image'),
-        ('2048', "2048", 'Create a 2048x2048 texture image'),
-        ('4096', "4096", 'Create a 4096x4096 texture image'),
-        ('CUSTOM', "Custom Resolution", 'Create a custom resolution')),
+    default_image_resolution : EnumProperty(
+        name = 'Default Image Size',
+        items = (('DEFAULT', "Default", 'Use the last selected image size'),
+        ('512', "512", 'Always use a 512x512 image by default'),
+        ('1024', "1024", 'Always use a 1024x1024 image by default'),
+        ('2048', "2048", 'Always use a 2048x2048 image by default'),
+        ('4096', "4096", 'Always use a 4096x4096 image by default'),
+        ('CUSTOM', "Custom Resolution", 'Use a custom resolution by default')),
         default = 'DEFAULT'
         )
     
@@ -154,8 +154,8 @@ class YPaintPreferences(AddonPreferences):
             self.layout.prop(self, 'default_bake_device')
             self.layout.prop(self, 'icons')
 
-        self.layout.prop(self, 'default_texture_size')
-        if self.default_texture_size == 'CUSTOM':
+        self.layout.prop(self, 'default_image_resolution')
+        if self.default_image_resolution == 'CUSTOM':
             self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')

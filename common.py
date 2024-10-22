@@ -251,7 +251,7 @@ bake_type_items = (
         ('FLOW', 'Flow Map based on straight UVMap', ''),
         )
 
-texture_size_items = (
+image_resolution_items = (
     ('512', "512", 'Create a 512x512 texture image'),
     ('1024', "1024", 'Create a 1024x1024 texture image'),
     ('2048', "2048", 'Create a 2048x2048 texture image'),

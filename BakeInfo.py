@@ -174,9 +174,9 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     selected_face_mode : BoolProperty(default=False)
     selected_objects : CollectionProperty(type=YBakeInfoSelectedObject)
 
-    texture_size : EnumProperty(
-        name = 'Texture Size',
-        items = texture_size_items,
+    image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
         default = '1024')
     
     use_custom_resolution : BoolProperty(

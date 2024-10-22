@@ -2438,8 +2438,8 @@ class BaseBakeOperator():
                      ('EXTEND', 'Extend', 'Extend border pixels outwards')),
             default = 'ADJACENT_FACES')
 
-    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+    width : IntProperty(name='Width', default = 1024, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1024, min=1, max=16384)
 
     def invoke_operator(self, context):
         ypup = get_user_preferences()
@@ -2447,8 +2447,4 @@ class BaseBakeOperator():
         # Set up default bake device
         if ypup.default_bake_device != 'DEFAULT':
             self.bake_device = ypup.default_bake_device
-
-        # Use user preference default image size if input uses default image size
-        if self.width == 1234 and self.height == 1234:
-            self.width = self.height = ypup.default_new_image_size
 

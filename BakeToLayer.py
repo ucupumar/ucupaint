@@ -292,9 +292,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             description='Use UDIM Tiles',
             default=False)
     
-    texture_size : EnumProperty(
-        name = 'Texture Size',
-        items = texture_size_items,
+    image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
         default = '1024')
     
     use_custom_resolution : BoolProperty(
@@ -349,14 +349,12 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         else:
             self.hdr = False
 
-        # Use user preference default image size if input uses default image size
-        if ypup.default_texture_size != 'DEFAULT' and ypup.default_texture_size != 'CUSTOM':
-            self.texture_size = ypup.default_texture_size
-
-        # Use Preference default image size if input uses Custom image size
-        if ypup.default_texture_size == 'CUSTOM':
+        # Use user preference default image size
+        if ypup.default_image_resolution == 'CUSTOM':
             self.use_custom_resolution = True
             self.width = self.height = ypup.default_new_image_size
+        elif ypup.default_image_resolution != 'DEFAULT':
+            self.image_resolution = ypup.default_image_resolution
 
         # Set name
         mat = get_active_material()
@@ -517,8 +515,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 self.overwrite_image_name = source.image.name
                 if not source.image.yia.is_image_atlas and not source.image.yua.is_udim_atlas:
                     self.overwrite_name = source.image.name
-                    self.width = source.image.size[0] if source.image.size[0] != 0 else int(ypup.default_texture_size)
-                    self.height = source.image.size[1] if source.image.size[1] != 0 else int(ypup.default_texture_size)
+                    self.width = source.image.size[0] if source.image.size[0] != 0 else int(ypup.default_image_resolution)
+                    self.height = source.image.size[1] if source.image.size[1] != 0 else int(ypup.default_image_resolution)
                     self.use_image_atlas = False
                     bi = source.image.y_bake_info
                 else:
@@ -581,6 +579,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
     def check(self, context):
         ypup = get_user_preferences()
+
+        if not self.use_custom_resolution:
+            self.height = self.width = int(self.image_resolution)
 
         # New image cannot use more pixels than the image atlas
         if self.use_image_atlas:
@@ -720,8 +721,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'use_custom_resolution')
         crow = col.row(align=True)
         if self.use_custom_resolution == False:
-            crow.prop(self, 'texture_size', expand= True,)
-            self.height = self.width = int(self.texture_size)
+            crow.prop(self, 'image_resolution', expand= True,)
         elif self.use_custom_resolution == True:
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')

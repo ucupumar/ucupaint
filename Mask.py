@@ -249,8 +249,8 @@ class YNewLayerMask(bpy.types.Operator):
             items = MaskModifier.mask_modifier_type_items,
             default = 'INVERT')
 
-    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+    width : IntProperty(name='Width', default = 1024, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1024, min=1, max=16384)
     
     interpolation : EnumProperty(
             name = 'Image Interpolation Type',
@@ -335,9 +335,9 @@ class YNewLayerMask(bpy.types.Operator):
             items = vcol_domain_items,
             default='CORNER')
     
-    texture_size : EnumProperty(
-        name = 'Texture Size',
-        items = texture_size_items,
+    image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
         default = '1024')
     
     use_custom_resolution : BoolProperty(
@@ -378,14 +378,12 @@ class YNewLayerMask(bpy.types.Operator):
 
         self.name = get_new_mask_name(obj, layer, self.type, self.modifier_type)
 
-        # Use user preference default image size if input uses default image size
-        if ypup.default_texture_size != 'DEFAULT' and ypup.default_texture_size != 'CUSTOM':
-            self.texture_size = ypup.default_texture_size
-
-        # Use Preference default image size if input uses Custom image size
-        if ypup.default_texture_size == 'CUSTOM':
+        # Use user preference default image size
+        if ypup.default_image_resolution == 'CUSTOM':
             self.use_custom_resolution = True
             self.width = self.height = ypup.default_new_image_size
+        elif ypup.default_image_resolution != 'DEFAULT':
+            self.image_resolution = ypup.default_image_resolution
 
         if self.type == 'COLOR_ID':
             # Check if color id already being used
@@ -433,6 +431,9 @@ class YNewLayerMask(bpy.types.Operator):
 
     def check(self, context):
         ypup = get_user_preferences()
+
+        if not self.use_custom_resolution:
+            self.height = self.width = int(self.image_resolution)
 
         # New image cannot use more pixels than the image atlas
         if self.use_image_atlas:
@@ -503,8 +504,7 @@ class YNewLayerMask(bpy.types.Operator):
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
             crow = col.row(align=True)
-            crow.prop(self, 'texture_size', expand= True,)
-            self.height = self.width = int(self.texture_size)
+            crow.prop(self, 'image_resolution', expand= True,)
         elif self.type == 'IMAGE' and self.use_custom_resolution == True:
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')

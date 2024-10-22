@@ -537,6 +537,18 @@ class YNewVDMLayer(bpy.types.Operator):
     width : IntProperty(name='Width', default = 1234, min=1, max=16384)
     height : IntProperty(name='Height', default = 1234, min=1, max=16384)
 
+    image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
+        default = '1024'
+        )
+
+    use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
+    )
+
     blend_type : EnumProperty(
             name = 'Blend Type',
             items = normal_blend_items,
@@ -574,9 +586,12 @@ class YNewVDMLayer(bpy.types.Operator):
         name = obj.active_material.name + DEFAULT_NEW_VDM_SUFFIX
         self.name = get_unique_name(name, bpy.data.images)
 
-        # Use user preference default image size if input uses default image size
-        if self.width == 1234 and self.height == 1234:
-            self.width = self.height = ypup.default_texture_size
+        # Use user preference default image size
+        if ypup.default_image_resolution == 'CUSTOM':
+            self.use_custom_resolution = True
+            self.width = self.height = ypup.default_new_image_size
+        elif ypup.default_image_resolution != 'DEFAULT':
+            self.image_resolution = ypup.default_image_resolution
 
         # Set default UV name
         #uv_name = get_default_uv_name(obj, yp)
@@ -604,16 +619,25 @@ class YNewVDMLayer(bpy.types.Operator):
         col = row.column(align=False)
 
         col.label(text='Name:')
-        col.label(text='Width:')
-        col.label(text='Height:')
+        col.label(text='')
+        if not self.use_custom_resolution:
+            col.label(text='Resolution:')
+        else:
+            col.label(text='Width:')
+            col.label(text='Height:')
         col.label(text='Blend Type:')
         col.label(text='UV Map:')
 
         col = row.column(align=False)
 
         col.prop(self, 'name', text='')
-        col.prop(self, 'width', text='')
-        col.prop(self, 'height', text='')
+        col.prop(self, 'use_custom_resolution')
+        if not self.use_custom_resolution:
+            crow = col.row(align=True)
+            crow.prop(self, 'image_resolution', expand=True)
+        else:
+            col.prop(self, 'width', text='')
+            col.prop(self, 'height', text='')
         col.prop(self, 'blend_type', text='')
         if not first_vdm:
             col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
@@ -630,6 +654,13 @@ class YNewVDMLayer(bpy.types.Operator):
             col = self.layout.column()
             col.label(text='Displacement Setup is not enabled yet!', icon='ERROR')
             col.prop(self, 'enable_subdiv_setup')
+
+    def check(self, context):
+        if not self.use_custom_resolution:
+            self.width = int(self.image_resolution)
+            self.height = int(self.image_resolution)
+
+        return True
 
     def execute(self, context):
         T = time.time()
@@ -725,8 +756,8 @@ class YNewLayer(bpy.types.Operator):
             default = 'IMAGE')
 
     # For image layer
-    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+    width : IntProperty(name='Width', default = 1024, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1024, min=1, max=16384)
     #color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
     #alpha : BoolProperty(name='Alpha', default=True)
     hdr : BoolProperty(name='32 bit Float', default=False)
@@ -788,8 +819,19 @@ class YNewLayer(bpy.types.Operator):
                 ),
             default='BLACK')
 
-    mask_width : IntProperty(name='Mask Width', default = 1234, min=1, max=4096)
-    mask_height : IntProperty(name='Mask Height', default = 1234, min=1, max=4096)
+    mask_width : IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
+    mask_height : IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
+
+    mask_image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
+        default = '1024')
+    
+    mask_use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
+    )
 
     mask_interpolation : EnumProperty(
             name = 'Mask Image Interpolation Type',
@@ -883,9 +925,9 @@ class YNewLayer(bpy.types.Operator):
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    texture_size : EnumProperty(
-        name = 'Texture Size',
-        items = texture_size_items,
+    image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
         default = '1024'
         )
 
@@ -921,14 +963,15 @@ class YNewLayer(bpy.types.Operator):
             name = [i[1] for i in layer_type_items if i[0] == self.type][0]
             items = yp.layers
 
-        # Use user preference default image size if input uses default image size
-        if ypup.default_texture_size != 'DEFAULT' and ypup.default_texture_size != 'CUSTOM':
-            self.texture_size = ypup.default_texture_size
-
-        # Use Preference default image size if input uses Custom image size
-        if ypup.default_texture_size == 'CUSTOM':
+        # Use user preference default image size
+        if ypup.default_image_resolution == 'CUSTOM':
             self.use_custom_resolution = True
             self.width = self.height = ypup.default_new_image_size
+            self.mask_use_custom_resolution = True
+            self.mask_width = self.mask_height = ypup.default_new_image_size
+        elif ypup.default_image_resolution != 'DEFAULT':
+            self.image_resolution = ypup.default_image_resolution
+            self.mask_image_resolution = ypup.default_image_resolution
 
         # Make sure add mask is inactive
         if self.type not in {'COLOR', 'BACKGROUND'}: #, 'GROUP'}:
@@ -995,6 +1038,14 @@ class YNewLayer(bpy.types.Operator):
 
     def check(self, context):
         ypup = get_user_preferences()
+
+        if not self.use_custom_resolution:
+            self.width = int(self.image_resolution)
+            self.height = int(self.image_resolution)
+
+        if not self.mask_use_custom_resolution:
+            self.mask_width = int(self.mask_image_resolution)
+            self.mask_height = int(self.mask_image_resolution)
 
         # New image cannot use more pixels than the image atlas
         if self.use_image_atlas:
@@ -1101,8 +1152,12 @@ class YNewLayer(bpy.types.Operator):
                     col.label(text='Mask Color:')
                     if self.mask_type == 'IMAGE':
                         col.label(text='')
-                        col.label(text='Mask Width:')
-                        col.label(text='Mask Height:')
+                        col.label(text='')
+                        if not self.mask_use_custom_resolution:
+                            col.label(text='Mask Resolution:')
+                        else:
+                            col.label(text='Mask Width:')
+                            col.label(text='Mask Height:')
                         col.label(text='Mask Interpolation:')
                         col.label(text='Mask UV Map:')
                         if UDIM.is_udim_supported():
@@ -1141,8 +1196,7 @@ class YNewLayer(bpy.types.Operator):
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
             crow = col.row(align=True)
-            crow.prop(self, 'texture_size', expand= True,)
-            self.height = self.width = int(self.texture_size)
+            crow.prop(self, 'image_resolution', expand= True,)
         elif self.type == 'IMAGE' and self.use_custom_resolution == True:
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
@@ -1181,8 +1235,13 @@ class YNewLayer(bpy.types.Operator):
                     col.prop(self, 'mask_color', text='')
                     if self.mask_type == 'IMAGE':
                         col.prop(self, 'mask_use_hdr')
-                        col.prop(self, 'mask_width', text='')
-                        col.prop(self, 'mask_height', text='')
+                        col.prop(self, 'mask_use_custom_resolution')
+                        if not self.mask_use_custom_resolution:
+                            crow = col.row(align=True)
+                            crow.prop(self, 'mask_image_resolution', expand=True)
+                        else:
+                            col.prop(self, 'mask_width', text='')
+                            col.prop(self, 'mask_height', text='')
                         col.prop(self, 'mask_interpolation', text='')
                         #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                         col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
@@ -1734,8 +1793,19 @@ class BaseMultipleImagesLayer():
                 ),
             default='BLACK')
 
-    mask_width : IntProperty(name='Mask Width', default = 1234, min=1, max=4096)
-    mask_height : IntProperty(name='Mask Height', default = 1234, min=1, max=4096)
+    mask_width : IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
+    mask_height : IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
+
+    mask_image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
+        default = '1024')
+    
+    mask_use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
+    )
 
     mask_uv_name : StringProperty(default='', update=update_new_layer_mask_uv_map)
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
@@ -2003,9 +2073,12 @@ class BaseMultipleImagesLayer():
         yp = node.node_tree.yp if node else None
         ypup = get_user_preferences()
 
-        # Use user preference default image size if input uses default image size
-        if self.mask_width == 1234 and self.mask_height == 1234:
+        # Use user preference default image size
+        if ypup.default_image_resolution == 'CUSTOM':
+            self.mask_use_custom_resolution = True
             self.mask_width = self.mask_height = ypup.default_new_image_size
+        elif ypup.default_image_resolution != 'DEFAULT':
+            self.mask_image_resolution = ypup.default_image_resolution
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -2046,8 +2119,12 @@ class BaseMultipleImagesLayer():
             col.label(text='Mask Color:')
             if self.mask_type == 'IMAGE':
                 col.label(text='')
-                col.label(text='Mask Width:')
-                col.label(text='Mask Height:')
+                col.label(text='')
+                if not self.mask_use_custom_resolution:
+                    col.label(text='Mask Resolution:')
+                else:
+                    col.label(text='Mask Width:')
+                    col.label(text='Mask Height:')
                 col.label(text='Mask UV Map:')
                 col.label(text='')
 
@@ -2067,8 +2144,13 @@ class BaseMultipleImagesLayer():
             col.prop(self, 'mask_color', text='')
             if self.mask_type == 'IMAGE':
                 col.prop(self, 'mask_use_hdr')
-                col.prop(self, 'mask_width', text='')
-                col.prop(self, 'mask_height', text='')
+                col.prop(self, 'mask_use_custom_resolution')
+                if not self.mask_use_custom_resolution:
+                    crow = col.row(align=True)
+                    crow.prop(self, 'mask_image_resolution', expand=True)
+                else:
+                    col.prop(self, 'mask_width', text='')
+                    col.prop(self, 'mask_height', text='')
                 #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
                 if UDIM.is_udim_supported():
@@ -2091,6 +2173,11 @@ class BaseMultipleImagesLayer():
 
     def check_operator(self, context:bpy.context):
         ypup = get_user_preferences()
+
+        if not self.mask_use_custom_resolution:
+            self.mask_width = int(self.mask_image_resolution)
+            self.mask_height = int(self.mask_image_resolution)
+
         # New image cannot use more pixels than the image atlas
         if self.use_image_atlas_for_mask:
             if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
