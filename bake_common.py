@@ -2441,10 +2441,32 @@ class BaseBakeOperator():
     width : IntProperty(name='Width', default = 1024, min=1, max=16384)
     height : IntProperty(name='Height', default = 1024, min=1, max=16384)
 
+    image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
+        default = '1024')
+    
+    use_custom_resolution : BoolProperty(
+        name= 'Custom Resolution',
+        default=False,
+        description= 'Use custom Resolution to adjust the width and height individually'
+    )
+
     def invoke_operator(self, context):
         ypup = get_user_preferences()
 
         # Set up default bake device
         if ypup.default_bake_device != 'DEFAULT':
             self.bake_device = ypup.default_bake_device
+
+        # Use user preference default image size
+        if ypup.default_image_resolution == 'CUSTOM':
+            self.use_custom_resolution = True
+            self.width = self.height = ypup.default_new_image_size
+        elif ypup.default_image_resolution != 'DEFAULT':
+            self.image_resolution = ypup.default_image_resolution
+
+    def check_operator(self, context):
+        if not self.use_custom_resolution:
+            self.height = self.width = int(self.image_resolution)
 

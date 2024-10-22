@@ -1225,17 +1225,6 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             description='Use float image for baked displacement',
             default=False)
     
-    image_resolution : EnumProperty(
-        name = 'Image Resolution',
-        items = image_resolution_items,
-        default = '1024')
-    
-    use_custom_resolution : BoolProperty(
-        name= 'Custom Resolution',
-        default=False,
-        description= 'Use custom Resolution to adjust the width and height individually'
-    )
-
     bake_disabled_layers : BoolProperty(
             name = 'Bake Disabled Layers',  
             description = 'Take disabled layers into account when baking',
@@ -1256,13 +1245,6 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
-
-        # Use user preference default image size
-        if ypup.default_image_resolution == 'CUSTOM':
-            self.use_custom_resolution = True
-            self.width = self.height = ypup.default_new_image_size
-        elif ypup.default_image_resolution != 'DEFAULT':
-            self.image_resolution = ypup.default_image_resolution
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(uv_layers) > 0:
@@ -1322,10 +1304,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
-
-        if not self.use_custom_resolution:
-            self.height = self.width = int(self.image_resolution)
-
+        self.check_operator(context)
         return True
 
     def draw(self, context):

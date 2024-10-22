@@ -292,17 +292,6 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             description='Use UDIM Tiles',
             default=False)
     
-    image_resolution : EnumProperty(
-        name = 'Image Resolution',
-        items = image_resolution_items,
-        default = '1024')
-    
-    use_custom_resolution : BoolProperty(
-        name= 'Custom Resolution',
-        default=False,
-        description= 'Use custom Resolution to adjust the width and height individually'
-    )
-
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -348,13 +337,6 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             self.hdr = True
         else:
             self.hdr = False
-
-        # Use user preference default image size
-        if ypup.default_image_resolution == 'CUSTOM':
-            self.use_custom_resolution = True
-            self.width = self.height = ypup.default_new_image_size
-        elif ypup.default_image_resolution != 'DEFAULT':
-            self.image_resolution = ypup.default_image_resolution
 
         # Set name
         mat = get_active_material()
@@ -578,10 +560,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
+        self.check_operator(context)
         ypup = get_user_preferences()
-
-        if not self.use_custom_resolution:
-            self.height = self.width = int(self.image_resolution)
 
         # New image cannot use more pixels than the image atlas
         if self.use_image_atlas:
@@ -2373,6 +2353,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
+        self.check_operator(context)
         ypup = get_user_preferences()
 
         # New image cannot use more pixels than the image atlas
@@ -2392,8 +2373,12 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         col.label(text='Name:')
         col.label(text='')
-        col.label(text='Width:')
-        col.label(text='Height:')
+        col.label(text='')
+        if not self.use_custom_resolution:
+            col.label(text='Resolution:')
+        else:
+            col.label(text='Width:')
+            col.label(text='Height:')
         col.label(text='Samples:')
         col.label(text='UV Map:')
         col.label(text='Margin:')
@@ -2413,8 +2398,13 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         col.prop(self, 'name', text='')
         col.prop(self, 'hdr')
-        col.prop(self, 'width', text='')
-        col.prop(self, 'height', text='')
+        col.prop(self, 'use_custom_resolution')
+        if not self.use_custom_resolution:
+            crow = col.row(align=True)
+            crow.prop(self, 'image_resolution', expand=True)
+        else:
+            col.prop(self, 'width', text='')
+            col.prop(self, 'height', text='')
         col.prop(self, 'samples', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
