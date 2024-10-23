@@ -1924,6 +1924,8 @@ class BaseMultipleImagesLayer():
                 'normal' : ['displacement', 'height', 'bump', 'n'], # Prioritize displacement/bump before actual normal map
                 }
 
+        bump_synonyms = ['displacement', 'height', 'bump']
+
         wm = context.window_manager
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -1941,14 +1943,14 @@ class BaseMultipleImagesLayer():
                 synonyms = synonym_libs[ch_name]
             synonyms.append(ch_name)
 
-            # Normal channel can use two override images, this flag will check it
-            secondary_imgae_found = False
+            # Normal channel can use both bump and normal override images
+            bump_image_found = False
+            normal_image_found = False
             main_image_found = False
                 
             for syname in synonyms:
 
                 # Break if channel already used
-                #if ch in valid_channels: break
                 if main_image_found: break
             
                 for image in images:
@@ -1962,20 +1964,28 @@ class BaseMultipleImagesLayer():
 
                     # Get filename without extension
                     if image.filepath != '':
-                        img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
+                        img_name = os.path.splitext(bpy.path.basename(image.filepath))[0].lower()
                     else: img_name = image.name.lower()
 
                     # Check if synonym is in image name
                     if self.is_synonym_in_image_name(syname, img_name):
-                        valid_images.append(image)
-                        valid_channels.append(ch)
-                        valid_synonyms.append(syname)
 
-                        if ch.type != 'NORMAL' or secondary_imgae_found:
+                        if (ch.type != 'NORMAL' or 
+                            (syname in bump_synonyms and not bump_image_found) or # Only proceed if bump image is not yet found
+                            (syname not in bump_synonyms and not normal_image_found) # Only proceed if normal image is not yet found
+                            ):
+                            valid_images.append(image)
+                            valid_channels.append(ch)
+                            valid_synonyms.append(syname)
+
+                            if ch.type == 'NORMAL':
+                                if syname in bump_synonyms:
+                                    bump_image_found = True
+                                else: normal_image_found = True
+
+                        if ch.type != 'NORMAL' or (bump_image_found and normal_image_found):
                             main_image_found = True
                             break
-
-                        secondary_imgae_found = True
 
         if not valid_images:
             # Remove loaded images
@@ -2037,6 +2047,11 @@ class BaseMultipleImagesLayer():
                     image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
                     image_node.image = image
                     if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
+
+                    # Add invert modifier for glosiness
+                    if syname == 'glossiness':
+                        Modifier.add_new_modifier(ch, 'INVERT')
+
                     ch.override = True
                     ch.override_type = 'IMAGE'
 
