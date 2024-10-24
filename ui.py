@@ -4152,21 +4152,38 @@ class YPFileBrowserMenu(bpy.types.Menu):
             filepath = os.path.join(directory, filename)
 
             self.layout.label(text='Image: ' + filename)
+
             op = self.layout.operator("node.y_open_image_to_layer", icon_value=lib.get_icon('image'), text="Open Image as Layer")
             op.file_browser_filepath = filepath
             op.texcoord_type = 'UV'
+
             op = self.layout.operator("node.y_open_image_as_mask", icon_value=lib.get_icon('image'), text="Open Image as Mask")
             op.file_browser_filepath = filepath
             op.texcoord_type = 'UV'
+
+            op = self.layout.operator("node.y_new_layer", icon_value=lib.get_icon('image'), text="Open Image as Mask for New Layer")
+            op.type = 'COLOR'
+            op.add_mask = True
+            op.mask_type = 'IMAGE'
+            op.mask_image_filepath = filepath
+            op.mask_texcoord_type = 'UV'
 
             self.layout.separator()
 
             op = self.layout.operator("node.y_open_image_to_layer", icon_value=lib.get_icon('image'), text="Open Image as Decal Layer")
             op.file_browser_filepath = filepath
             op.texcoord_type = 'Decal'
+
             op = self.layout.operator("node.y_open_image_as_mask", icon_value=lib.get_icon('image'), text="Open Image as Decal Mask")
             op.file_browser_filepath = filepath
             op.texcoord_type = 'Decal'
+
+            op = self.layout.operator("node.y_new_layer", icon_value=lib.get_icon('image'), text="Open Image as Decal Mask for New Layer")
+            op.type = 'COLOR'
+            op.add_mask = True
+            op.mask_type = 'IMAGE'
+            op.mask_image_filepath = filepath
+            op.mask_texcoord_type = 'Decal'
 
 def draw_yp_file_browser_menu(self, context):
     params = context.space_data.params
