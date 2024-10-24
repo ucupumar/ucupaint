@@ -61,7 +61,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         blend_type, normal_blend_type, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, segment=None,
         solid_color = (1,1,1),
-        add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
+        add_mask=False, mask_type='IMAGE', mask_image_filepath='', mask_relative=True,
+        mask_texcoord_type='UV', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space = 'WORLD', hemi_use_prev_normal = True,
         mask_color_id=(1,0,1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
@@ -215,42 +216,55 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         mask_segment = None
 
         if mask_type == 'IMAGE':
+            if not mask_image_filepath:
+                color = (0,0,0,0)
+                if mask_color == 'WHITE':
+                    color = (1,1,1,1)
+                elif mask_color == 'BLACK':
+                    color = (0,0,0,1)
 
-            color = (0,0,0,0)
-            if mask_color == 'WHITE':
-                color = (1,1,1,1)
-            elif mask_color == 'BLACK':
-                color = (0,0,0,1)
-
-            if use_udim_for_mask:
-                objs = get_all_objects_with_same_materials(mat)
-                tilenums = UDIM.get_tile_numbers(objs, mask_uv_name)
-
-            if use_image_atlas_for_mask:
                 if use_udim_for_mask:
-                    mask_segment = UDIM.get_set_udim_atlas_segment(tilenums,
-                            mask_width, mask_height, color, colorspace=get_noncolor_name(), hdr=mask_use_hdr, yp=yp)
+                    objs = get_all_objects_with_same_materials(mat)
+                    tilenums = UDIM.get_tile_numbers(objs, mask_uv_name)
+
+                if use_image_atlas_for_mask:
+                    if use_udim_for_mask:
+                        mask_segment = UDIM.get_set_udim_atlas_segment(tilenums,
+                                mask_width, mask_height, color, colorspace=get_noncolor_name(), hdr=mask_use_hdr, yp=yp)
+                    else:
+                        mask_segment = ImageAtlas.get_set_image_atlas_segment(
+                                mask_width, mask_height, mask_color, mask_use_hdr, yp=yp)
+                    mask_image = mask_segment.id_data
                 else:
-                    mask_segment = ImageAtlas.get_set_image_atlas_segment(
-                            mask_width, mask_height, mask_color, mask_use_hdr, yp=yp)
-                mask_image = mask_segment.id_data
+                    if use_udim_for_mask:
+                        mask_image = bpy.data.images.new(mask_name, 
+                                width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr, tiled=True)
+
+                        # Fill tiles
+                        for tilenum in tilenums:
+                            UDIM.fill_tile(mask_image, tilenum, color, mask_width, mask_height)
+                        UDIM.initial_pack_udim(mask_image, color)
+
+                    else:
+                        mask_image = bpy.data.images.new(mask_name, 
+                                width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr)
+
+                    mask_image.generated_color = color
+                    if hasattr(mask_image, 'use_alpha'):
+                        mask_image.use_alpha = False
             else:
-                if use_udim_for_mask:
-                    mask_image = bpy.data.images.new(mask_name, 
-                            width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr, tiled=True)
+                if not os.path.isfile(mask_image_filepath):
+                    print("There's no image with address '" + mask_image_filepath + "'!")
+                    return {'CANCELLED'}
 
-                    # Fill tiles
-                    for tilenum in tilenums:
-                        UDIM.fill_tile(mask_image, tilenum, color, mask_width, mask_height)
-                    UDIM.initial_pack_udim(mask_image, color)
+                path = os.path.basename(mask_image_filepath)
+                directory = os.path.dirname(mask_image_filepath)
 
-                else:
-                    mask_image = bpy.data.images.new(mask_name, 
-                            width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr)
+                mask_image = load_image(path, directory)
 
-                mask_image.generated_color = color
-                if hasattr(mask_image, 'use_alpha'):
-                    mask_image.use_alpha = False
+                if mask_relative and bpy.data.filepath != '':
+                    try: mask_image.filepath = bpy.path.relpath(mask_image.filepath)
+                    except: pass
 
             if mask_image.colorspace_settings.name != get_noncolor_name() and not mask_image.is_dirty:
                 mask_image.colorspace_settings.name = get_noncolor_name()
@@ -279,7 +293,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
             elif mask_type == 'COLOR_ID':
                 check_colorid_vcol(objs)
 
-        mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
+        mask = Mask.add_new_mask(layer, mask_name, mask_type, mask_texcoord_type,
                 mask_uv_name, mask_image, mask_vcol, mask_segment, interpolation=mask_interpolation, color_id=mask_color_id,
                 edge_detect_radius=mask_edge_detect_radius)
         mask.active_edit = True
@@ -534,8 +548,8 @@ class YNewVDMLayer(bpy.types.Operator):
 
     name : StringProperty(default='')
 
-    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
+    width : IntProperty(name='Width', default = 1024, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1024, min=1, max=16384)
 
     image_resolution : EnumProperty(
         name = 'Image Resolution',
@@ -839,6 +853,12 @@ class YNewLayer(bpy.types.Operator):
             items = interpolation_type_items,
             default = 'Linear')
 
+    mask_texcoord_type : EnumProperty(
+            name = 'Mask Coordinate Type',
+            description = 'Mask Coordinate Type',
+            items = texcoord_type_items,
+            default = 'UV')
+
     mask_uv_name : StringProperty(default='', update=update_new_layer_mask_uv_map)
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
 
@@ -846,8 +866,16 @@ class YNewLayer(bpy.types.Operator):
             name='Color ID', size=3,
             subtype='COLOR',
             default=(1.0, 0.0, 1.0),
-            min=0.0, max=1.0,
-            )
+            min=0.0, max=1.0)
+    
+    mask_image_filepath : StringProperty(
+            name = 'Mask Image Path',
+            description = 'Path to mask image',
+            default = '',
+            subtype = 'FILE_PATH',
+            options = {'SKIP_SAVE'})
+
+    mask_relative : BoolProperty(name="Relative Mask Path", default=True, description="Apply relative paths")
 
     uv_map : StringProperty(default='', update=update_new_layer_uv_map)
 
@@ -1098,6 +1126,10 @@ class YNewLayer(bpy.types.Operator):
         row = split_layout(self.layout, 0.4)
         col = row.column(align=False)
 
+        if self.add_mask and self.mask_type == 'IMAGE' and self.mask_image_filepath:
+            col.label(text='Layer Type:')
+            col.separator()
+        
         col.label(text='Name:')
 
         if self.type not in {'GROUP', 'BACKGROUND'}:
@@ -1112,9 +1144,6 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='Domain:')
             col.label(text='Data Type:')
 
-        #if self.type == 'IMAGE':
-        #    col.label(text='')
-
         if self.type == 'HEMI':
             col.label(text='Space:')
             col.label(text='')
@@ -1128,6 +1157,7 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='Height:')
             
         if self.type == 'IMAGE':
+            col.label(text='')
             col.label(text='Interpolation:')
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
@@ -1136,10 +1166,6 @@ class YNewLayer(bpy.types.Operator):
         if self.type in {'VCOL'}:
             col.label(text='')
 
-        if self.type == 'IMAGE':
-            col.label(text='')
-
-        #if self.type in {'COLOR', 'GROUP', 'BACKGROUND'}:
         if self.type != 'IMAGE':
             col.label(text='')
             if self.add_mask:
@@ -1149,25 +1175,37 @@ class YNewLayer(bpy.types.Operator):
                 elif self.mask_type == 'EDGE_DETECT':
                     col.label(text='Edge Detect Radius:')
                 else:
-                    col.label(text='Mask Color:')
                     if self.mask_type == 'IMAGE':
-                        col.label(text='')
-                        col.label(text='')
-                        if not self.mask_use_custom_resolution:
-                            col.label(text='Mask Resolution:')
-                        else:
-                            col.label(text='Mask Width:')
-                            col.label(text='Mask Height:')
-                        col.label(text='Mask Interpolation:')
-                        col.label(text='Mask UV Map:')
-                        if UDIM.is_udim_supported():
+                        if self.mask_image_filepath:
+                            col.label(text='Mask Image Path:')
+
+                        if not self.mask_image_filepath:
+                            col.label(text='Mask Color:')
                             col.label(text='')
-                        col.label(text='')
+                            col.label(text='')
+                            if not self.mask_use_custom_resolution:
+                                col.label(text='Mask Resolution:')
+                            else:
+                                col.label(text='Mask Width:')
+                                col.label(text='Mask Height:')
+
+                        col.label(text='Mask Interpolation:')
+                        col.label(text='Mask Vector:')
+                    
+                        if not self.mask_image_filepath:
+                            if UDIM.is_udim_supported():
+                                col.label(text='')
+                            col.label(text='')
                 if is_bl_newer_than(3, 2) and self.mask_type == 'VCOL':
                     col.label(text='Mask Domain:')
                     col.label(text='Mask Data Type:')
 
         col = row.column(align=False)
+
+        if self.add_mask and self.mask_type == 'IMAGE' and self.mask_image_filepath:
+            col.prop(self, 'type', text='')
+            col.separator()
+
         col.prop(self, 'name', text='')
 
         if self.type not in {'GROUP', 'BACKGROUND'}:
@@ -1232,23 +1270,34 @@ class YNewLayer(bpy.types.Operator):
                 elif self.mask_type == 'EDGE_DETECT':
                     col.prop(self, 'mask_edge_detect_radius', text='')
                 else:
-                    col.prop(self, 'mask_color', text='')
                     if self.mask_type == 'IMAGE':
-                        col.prop(self, 'mask_use_hdr')
-                        col.prop(self, 'mask_use_custom_resolution')
-                        if not self.mask_use_custom_resolution:
-                            crow = col.row(align=True)
-                            crow.prop(self, 'mask_image_resolution', expand=True)
-                        else:
-                            col.prop(self, 'mask_width', text='')
-                            col.prop(self, 'mask_height', text='')
+                        if self.mask_image_filepath:
+                            col.prop(self, 'mask_image_filepath', text='')
+
+                        if not self.mask_image_filepath:
+                            col.prop(self, 'mask_color', text='')
+                            col.prop(self, 'mask_use_hdr')
+                            col.prop(self, 'mask_use_custom_resolution')
+                            if not self.mask_use_custom_resolution:
+                                crow = col.row(align=True)
+                                crow.prop(self, 'mask_image_resolution', expand=True)
+                            else:
+                                col.prop(self, 'mask_width', text='')
+                                col.prop(self, 'mask_height', text='')
+
                         col.prop(self, 'mask_interpolation', text='')
-                        #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-                        col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
-                        if UDIM.is_udim_supported():
-                            col.prop(self, 'use_udim_for_mask')
-                        ccol = col.column()
-                        ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+
+                        crow = col.row(align=True)
+                        crow.prop(self, 'mask_texcoord_type', text='')
+                        if self.mask_texcoord_type == 'UV':
+                            crow.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+                        if not self.mask_image_filepath:
+                            if UDIM.is_udim_supported():
+                                col.prop(self, 'use_udim_for_mask')
+                            ccol = col.column()
+                            ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+
                 if is_bl_newer_than(3, 2) and self.mask_type == 'VCOL':
                     crow = col.row(align=True)
                     crow.prop(self, 'mask_vcol_domain', expand=True)
@@ -1389,8 +1438,9 @@ class YNewLayer(bpy.types.Operator):
                 channel_idx, self.blend_type, self.normal_blend_type, 
                 self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol, segment,
                 self.solid_color,
-                self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
-                self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
+                self.add_mask, self.mask_type, self.mask_image_filepath, self.mask_relative,
+                self.mask_texcoord_type, self.mask_color, self.mask_use_hdr, self.mask_uv_name,
+                self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
                 self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id,
                 self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha,
                 self.use_udim_for_mask,
@@ -1424,10 +1474,14 @@ class YNewLayer(bpy.types.Operator):
         else:
             ypui.layer_ui.expand_channels = True
 
-        if self.add_mask and self.mask_type == 'EDGE_DETECT':
+        loaded_image_mask = self.mask_type == 'IMAGE' and self.mask_image_filepath
+        if self.add_mask and (loaded_image_mask or self.mask_type == 'EDGE_DETECT'):
             ypui.layer_ui.expand_masks = True
             layer.masks[0].expand_content = True
-            layer.masks[0].expand_source = True
+            if self.mask_type == 'EDGE_DETECT':
+                layer.masks[0].expand_source = True
+            elif loaded_image_mask:
+                layer.masks[0].expand_vector = True
         else:
             ypui.layer_ui.expand_masks = False
             for i, mask in enumerate(layer.masks):
@@ -2026,8 +2080,8 @@ class BaseMultipleImagesLayer():
                                                  
                 layer = add_new_layer(node.node_tree, image.name, 'IMAGE', 
                         int(ch_idx), 'MIX', 'MIX', 
-                        normal_map_type, self.texcoord_type, self.uv_map, image, None, None,
-                        (1,1,1),self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
+                        normal_map_type, self.texcoord_type, self.uv_map, image, None, None, None,
+                        (1,1,1), self.add_mask, self.mask_type, None, None, self.mask_color, self.mask_use_hdr, 
                         self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
                         use_udim_for_mask=self.use_udim_for_mask)
 
