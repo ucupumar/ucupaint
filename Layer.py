@@ -2080,8 +2080,8 @@ class BaseMultipleImagesLayer():
                                                  
                 layer = add_new_layer(node.node_tree, image.name, 'IMAGE', 
                         int(ch_idx), 'MIX', 'MIX', 
-                        normal_map_type, self.texcoord_type, self.uv_map, image, None, None, None,
-                        (1,1,1), self.add_mask, self.mask_type, None, None, self.mask_color, self.mask_use_hdr, 
+                        normal_map_type, self.texcoord_type, self.uv_map, image, None, None,
+                        (1,1,1), self.add_mask, self.mask_type, None, None, None, self.mask_color, self.mask_use_hdr, 
                         self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
                         use_udim_for_mask=self.use_udim_for_mask)
 
