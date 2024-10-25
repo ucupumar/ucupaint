@@ -119,6 +119,9 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
 
     yp.halt_update = False
 
+    # Update coords
+    update_mask_texcoord_type(mask, None, False)
+
     return mask
 
 def remove_mask_channel_nodes(tree, c):
@@ -1545,7 +1548,7 @@ def update_enable_layer_masks(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
-def update_mask_texcoord_type(self, context):
+def update_mask_texcoord_type(self, context, reconnect_nodes=True):
     yp = self.id_data.yp
     if yp.halt_update: return
 
@@ -1566,11 +1569,12 @@ def update_mask_texcoord_type(self, context):
         source = get_mask_source(mask)
         source.projection = 'BOX' if mask.texcoord_type in {'Generated', 'Object'} else 'FLAT'
 
-    reconnect_layer_nodes(layer)
-    rearrange_layer_nodes(layer)
+    if reconnect_nodes:
+        reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
-    reconnect_yp_nodes(self.id_data)
-    rearrange_yp_nodes(self.id_data)
+        reconnect_yp_nodes(self.id_data)
+        rearrange_yp_nodes(self.id_data)
 
 def update_mask_uv_name(self, context):
     obj = context.object
@@ -1849,7 +1853,9 @@ class YLayerMask(bpy.types.PropertyGroup):
             description = 'Mask Coordinate Type',
             items = mask_texcoord_type_items,
             default = 'UV',
-            update=update_mask_texcoord_type)
+            # Using a lambda because update function is expected to have an arity of 2
+            update = lambda self, context:
+                update_mask_texcoord_type(self, context))
 
     original_texcoord : EnumProperty(
             name = 'Original Layer Coordinate Type',
