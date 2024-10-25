@@ -6175,6 +6175,9 @@ def update_layer_blur_vector_factor(self, context):
         blur_vector.inputs[0].default_value = layer.blur_vector_factor
 
 def update_layer_uniform_scale_enabled(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
     layer = self
     update_entity_uniform_scale_enabled(layer)
 

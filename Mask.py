@@ -1802,6 +1802,8 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
 
 def update_mask_uniform_scale_enabled(self, context):
     yp = self.id_data.yp
+    if yp.halt_update: return
+
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
     mask = self
