@@ -3,18 +3,18 @@ from .common import *
 from bpy.props import *
 
 rgba_items = (
-        ('0', 'R', ''),
-        ('1', 'G', ''),
-        ('2', 'B', ''),
-        ('3', 'A', ''),
-        )
+    ('0', 'R', ''),
+    ('1', 'G', ''),
+    ('2', 'B', ''),
+    ('3', 'A', ''),
+)
 
 normal_type_items = (
-        ('COMBINED', 'Combined Normal', ''),
-        ('DISPLACEMENT', 'Displacement', ''),
-        ('OVERLAY_ONLY', 'Normal Without Bump', ''),
-        ('VECTOR_DISPLACEMENT', 'Vector Displacement', ''),
-        )
+    ('COMBINED', 'Combined Normal', ''),
+    ('DISPLACEMENT', 'Displacement', ''),
+    ('OVERLAY_ONLY', 'Normal Without Bump', ''),
+    ('VECTOR_DISPLACEMENT', 'Vector Displacement', ''),
+)
 
 def update_active_bake_target_index(self, context):
     yp = self
@@ -31,52 +31,60 @@ def update_active_bake_target_index(self, context):
 class YBakeTargetChannel(bpy.types.PropertyGroup):
 
     channel_name : StringProperty(
-            name = 'Channel Source Name',
-            description = 'Channel source name for bake target',
-            default = '')
+        name = 'Channel Source Name',
+        description = 'Channel source name for bake target',
+        default = ''
+    )
 
     subchannel_index : EnumProperty(
-            name = 'Subchannel',
-            description = 'Channel source RGBA index',
-            items = rgba_items,
-            default= '0')
+        name = 'Subchannel',
+        description = 'Channel source RGBA index',
+        items = rgba_items,
+        default = '0'
+    )
 
     default_value : FloatProperty(
-            name = 'Default Value',
-            description = 'Channel default value',
-            subtype = 'FACTOR',
-            default = 0.0, min=0.0, max=1.0)
+        name = 'Default Value',
+        description = 'Channel default value',
+        subtype = 'FACTOR',
+        default = 0.0, min=0.0, max=1.0
+    )
 
     normal_type : EnumProperty(
-            name = 'Normal Channel Type',
-            description = 'Normal channel source type',
-            items = normal_type_items,
-            default='COMBINED')
+        name = 'Normal Channel Type',
+        description = 'Normal channel source type',
+        items = normal_type_items,
+        default = 'COMBINED'
+    )
 
     invert_value : BoolProperty(
-            name = 'Invert Value',
-            description = 'Invert value',
-            default = False)
+        name = 'Invert Value',
+        description = 'Invert value',
+        default = False
+    )
 
 class YBakeTarget(bpy.types.PropertyGroup):
     name : StringProperty(
-            name='Bake Target Name',
-            description='Name of bake target name',
-            default='')
+        name = 'Bake Target Name',
+        description = 'Name of bake target name',
+        default = ''
+    )
 
     data_type : EnumProperty(
-            name = 'Bake Target Data Type',
-            description = 'Bake target data type',
-            items = (
-                ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
-                ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1),
-                ),
-            default='IMAGE')
+        name = 'Bake Target Data Type',
+        description = 'Bake target data type',
+        items = (
+            ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
+            ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1),
+        ),
+        default = 'IMAGE'
+    )
 
     use_float : BoolProperty(
-            name = '32-bit Image',
-            description = 'Use 32-bit float image',
-            default=False)
+        name = '32-bit Image',
+        description = 'Use 32-bit float image',
+        default = False
+    )
 
     r : PointerProperty(type=YBakeTargetChannel)
     g : PointerProperty(type=YBakeTargetChannel)
@@ -117,24 +125,28 @@ class YNewBakeTarget(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     name : StringProperty(
-            name = 'New Bake Target Name',
-            description = 'New bake target name',
-            default='')
+        name = 'New Bake Target Name',
+        description = 'New bake target name',
+        default = ''
+    )
 
     preset : EnumProperty(
-            name = 'Bake Target Preset',
-            description = 'Customm bake target preset',
-            items = (
-                ('BLANK', 'Blank', ''),
-                ('ORM', 'GLTF ORM', ''),
-                ('DX_NORMAL', 'DirectX Normal', ''),
-                ),
-            default='BLANK', update=update_new_bake_target_preset)
+        name = 'Bake Target Preset',
+        description = 'Customm bake target preset',
+        items = (
+            ('BLANK', 'Blank', ''),
+            ('ORM', 'GLTF ORM', ''),
+            ('DX_NORMAL', 'DirectX Normal', ''),
+        ),
+        default = 'BLANK',
+        update = update_new_bake_target_preset
+    )
 
     use_float : BoolProperty(
-            name = '32-bit Float',
-            description = 'Use 32-bit float image',
-            default=False)
+        name = '32-bit Float',
+        description = 'Use 32-bit float image',
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):

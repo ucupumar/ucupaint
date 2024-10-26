@@ -224,16 +224,16 @@ GLTF_SETTINGS = 'glTF Settings'
 BL278_BSDF = 'bsdf278'
 
 channel_custom_icon_dict = {
-        'RGB' : 'rgb_channel',
-        'VALUE' : 'value_channel',
-        'NORMAL' : 'vector_channel',
-        }
+    'RGB' : 'rgb_channel',
+    'VALUE' : 'value_channel',
+    'NORMAL' : 'vector_channel',
+}
 
 channel_icon_dict = {
-        'RGB' : 'KEYTYPE_KEYFRAME_VEC',
-        'VALUE' : 'HANDLETYPE_FREE_VEC',
-        'NORMAL' : 'KEYTYPE_BREAKDOWN_VEC',
-        }
+    'RGB' : 'KEYTYPE_KEYFRAME_VEC',
+    'VALUE' : 'HANDLETYPE_FREE_VEC',
+    'NORMAL' : 'KEYTYPE_BREAKDOWN_VEC',
+}
 
 def get_icon_folder():
     if not is_bl_newer_than(2, 80):

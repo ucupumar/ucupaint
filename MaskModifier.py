@@ -5,15 +5,15 @@ from .node_connections import *
 from .node_arrangements import *
 
 mask_modifier_type_items = (
-        ('INVERT', 'Invert', 'Invert', 'MODIFIER', 0),
-        ('RAMP', 'Ramp', '', 'MODIFIER', 1),
-        ('CURVE', 'Curve', '', 'MODIFIER', 2),
-        )
+    ('INVERT', 'Invert', 'Invert', 'MODIFIER', 0),
+    ('RAMP', 'Ramp', '', 'MODIFIER', 1),
+    ('CURVE', 'Curve', '', 'MODIFIER', 2),
+)
 
 can_be_expanded = {
-        'RAMP',
-        'CURVE',
-        }
+    'RAMP',
+    'CURVE',
+}
 
 def update_mask_modifier_enable(self, context):
 
@@ -128,7 +128,8 @@ class YNewMaskModifier(bpy.types.Operator):
     type : EnumProperty(
         name = 'Modifier Type',
         items = mask_modifier_type_items,
-        default = 'INVERT')
+        default = 'INVERT'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -158,10 +159,13 @@ class YMoveMaskModifier(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     direction : EnumProperty(
-            name = 'Direction',
-            items = (('UP', 'Up', ''),
-                     ('DOWN', 'Down', '')),
-            default = 'UP')
+        name = 'Direction',
+        items = (
+            ('UP', 'Up', ''),
+            ('DOWN', 'Down', '')
+        ),
+        default = 'UP'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -241,15 +245,19 @@ class YRemoveMaskModifier(bpy.types.Operator):
 
 class YMaskModifier(bpy.types.PropertyGroup):
     enable : BoolProperty(
-            name = 'Enable Modifier',
-            description = 'Enable modifier',
-            default=True, update=update_mask_modifier_enable)
+        name = 'Enable Modifier',
+        description = 'Enable modifier',
+        default = True,
+        update = update_mask_modifier_enable
+    )
+
     name : StringProperty(default='')
 
     type : EnumProperty(
         name = 'Modifier Type',
         items = mask_modifier_type_items,
-        default = 'INVERT')
+        default = 'INVERT'
+    )
 
     ramp : StringProperty(default='')
     ramp_mix : StringProperty(default='')

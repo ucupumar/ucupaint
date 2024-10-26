@@ -302,7 +302,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 rgb2i.inputs['RGB To Intensity Color'].default_value = m.rgb2i_col
                 if non_color:
                     rgb2i.inputs['Gamma'].default_value = 1.0
-                else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
+                else: rgb2i.inputs['Gamma'].default_value = 1.0 / GAMMA
 
                 load_rgb2i_anim_props(tree, m)
 
@@ -347,7 +347,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
 
                 if non_color:
                     oc.inputs['Gamma'].default_value = 1.0
-                else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
+                else: oc.inputs['Gamma'].default_value = 1.0 / GAMMA
 
     elif m.type == 'COLOR_RAMP':
 
@@ -430,11 +430,11 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 remove_node(tree, m, 'color_ramp_linear')
             else: 
                 color_ramp_linear_start.inputs[1].default_value = GAMMA
-                color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
+                color_ramp_linear.inputs[1].default_value = 1.0 / GAMMA
 
             if ramp_dirty:
                 # Set default color if ramp just created
-                color_ramp.color_ramp.elements[0].color = (0,0,0,0) 
+                color_ramp.color_ramp.elements[0].color = (0, 0, 0, 0) 
 
     elif m.type == 'RGB_CURVE':
 

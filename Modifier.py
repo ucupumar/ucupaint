@@ -5,45 +5,49 @@ from .modifier_common import *
 from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib
 
 modifier_type_items = (
-        ('INVERT', 'Invert', 
-            'Invert input RGB and/or Alpha', 'MODIFIER', 0),
+    ('INVERT', 'Invert', 'Invert input RGB and/or Alpha', 'MODIFIER', 0),
 
-        ('RGB_TO_INTENSITY', 'RGB to Intensity',
-            'Input RGB will be used as alpha output, Output RGB will be replaced using custom color.', 
-            'MODIFIER', 1),
+    (
+        'RGB_TO_INTENSITY', 'RGB to Intensity',
+        'Input RGB will be used as alpha output, Output RGB will be replaced using custom color.', 
+        'MODIFIER', 1
+    ),
 
-        ('INTENSITY_TO_RGB', 'Intensity to RGB',
-            'Input alpha will be used as RGB output, Output Alpha will use solid value of one.', 
-            'MODIFIER', 2),
+    (
+        'INTENSITY_TO_RGB', 'Intensity to RGB',
+        'Input alpha will be used as RGB output, Output Alpha will use solid value of one.', 
+        'MODIFIER', 2
+    ),
 
-        # Deprecated
-        ('OVERRIDE_COLOR', 'Override Color',
-            'Input RGB will be replaced with custom RGB', 
-            'MODIFIER', 3),
+    # Deprecated
+    (
+        'OVERRIDE_COLOR', 'Override Color',
+        'Input RGB will be replaced with custom RGB', 
+        'MODIFIER', 3
+    ),
 
-        ('COLOR_RAMP', 'Color Ramp', '', 'MODIFIER', 4),
-        ('RGB_CURVE', 'RGB Curve', '', 'MODIFIER', 5),
-        ('HUE_SATURATION', 'Hue Saturation', '', 'MODIFIER', 6),
-        ('BRIGHT_CONTRAST', 'Brightness Contrast', '', 'MODIFIER', 7),
-        # Deprecated
-        ('MULTIPLIER', 'Multiplier', '', 'MODIFIER', 8),
-        ('MATH', 'Math', '', 'MODIFIER',9)
-        )
+    ('COLOR_RAMP', 'Color Ramp', '', 'MODIFIER', 4),
+    ('RGB_CURVE', 'RGB Curve', '', 'MODIFIER', 5),
+    ('HUE_SATURATION', 'Hue Saturation', '', 'MODIFIER', 6),
+    ('BRIGHT_CONTRAST', 'Brightness Contrast', '', 'MODIFIER', 7),
+    # Deprecated
+    ('MULTIPLIER', 'Multiplier', '', 'MODIFIER', 8),
+    ('MATH', 'Math', '', 'MODIFIER',9)
+)
 
 can_be_expanded = {
-        'INVERT', 
-        'RGB_TO_INTENSITY', 
-        'OVERRIDE_COLOR', # Deprecated
-        'COLOR_RAMP',
-        'RGB_CURVE',
-        'HUE_SATURATION',
-        'BRIGHT_CONTRAST',
-        'MULTIPLIER', # Deprecated
-        'MATH'
-        }
+    'INVERT', 
+    'RGB_TO_INTENSITY', 
+    'OVERRIDE_COLOR', # Deprecated
+    'COLOR_RAMP',
+    'RGB_CURVE',
+    'HUE_SATURATION',
+    'BRIGHT_CONTRAST',
+    'MULTIPLIER', # Deprecated
+    'MATH'
+}
 
 def get_modifier_channel_type(mod, return_non_color=False):
 
@@ -121,7 +125,8 @@ class YNewYPaintModifier(bpy.types.Operator):
     type : EnumProperty(
         name = 'Modifier Type',
         items = modifier_type_items,
-        default = 'INVERT')
+        default = 'INVERT'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -180,10 +185,13 @@ class YMoveYPaintModifier(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     direction : EnumProperty(
-            name = 'Direction',
-            items = (('UP', 'Up', ''),
-                     ('DOWN', 'Down', '')),
-            default = 'UP')
+        name = 'Direction',
+        items = (
+            ('UP', 'Up', ''),
+            ('DOWN', 'Down', '')
+        ),
+        default = 'UP'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -582,13 +590,18 @@ class YPaintModifier(bpy.types.PropertyGroup):
     type : EnumProperty(
         name = 'Modifier Type',
         items = modifier_type_items,
-        default = 'INVERT')
+        default = 'INVERT'
+    )
 
     # RGB to Intensity nodes
     rgb2i : StringProperty(default='')
 
-    rgb2i_col : FloatVectorProperty(name='RGB to Intensity Color', size=4, subtype='COLOR', 
-            default=(1.0,0.0,1.0,1.0), min=0.0, max=1.0)
+    rgb2i_col : FloatVectorProperty(
+        name = 'RGB to Intensity Color',
+        size = 4,
+        subtype = 'COLOR', 
+        default=(1.0, 0.0, 1.0, 1.0), min=0.0, max=1.0
+    )
 
     # Intensity to RGB nodes
     i2rgb : StringProperty(default='')
@@ -596,13 +609,20 @@ class YPaintModifier(bpy.types.PropertyGroup):
     # Override Color nodes (Deprecated)
     oc : StringProperty(default='')
 
-    oc_col : FloatVectorProperty(name='Override Color', size=4, subtype='COLOR', 
-            default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0,
-            update=update_oc_col)
+    oc_col : FloatVectorProperty(
+        name = 'Override Color',
+        size = 4,
+        subtype = 'COLOR', 
+        default=(1.0, 1.0, 1.0, 1.0), min=0.0, max=1.0,
+        update = update_oc_col
+    )
 
-    oc_val : FloatProperty(name='Override Value', subtype='FACTOR', 
-            default=1.0, min=0.0, max=1.0,
-            update=update_oc_col)
+    oc_val : FloatProperty(
+        name = 'Override Value',
+        subtype = 'FACTOR', 
+        default=1.0, min=0.0, max=1.0,
+        update = update_oc_col
+    )
 
     # Invert nodes
     invert : StringProperty(default='')
@@ -627,10 +647,17 @@ class YPaintModifier(bpy.types.PropertyGroup):
     # Brightness Contrast nodes
     brightcon : StringProperty(default='')
 
-    brightness_value : FloatProperty(name='Brightness', description='Brightness', 
-            default=0.0, min=-100.0, max=100.0)
-    contrast_value : FloatProperty(name='Contrast', description='Contrast', 
-            default=0.0, min=-100.0, max=100.0)
+    brightness_value : FloatProperty(
+        name = 'Brightness',
+        description = 'Brightness', 
+        default=0.0, min=-100.0, max=100.0
+    )
+
+    contrast_value : FloatProperty(
+        name = 'Contrast',
+        description = 'Contrast', 
+        default=0.0, min=-100.0, max=100.0
+    )
 
     # Hue Saturation nodes
     huesat : StringProperty(default='')
@@ -658,8 +685,9 @@ class YPaintModifier(bpy.types.PropertyGroup):
     math_meth : EnumProperty(
         name = 'Method',
         items = math_method_items,
-        default = "MULTIPLY",
-        update = update_math_method)
+        default = 'MULTIPLY',
+        update = update_math_method
+    )
 
     affect_alpha : BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
 
@@ -670,10 +698,11 @@ class YPaintModifier(bpy.types.PropertyGroup):
     use_clamp : BoolProperty(name='Use Clamp', default=False, update=update_use_clamp)
 
     shortcut : BoolProperty(
-            name = 'Property Shortcut',
-            description = 'Property shortcut on layer list (currently only available on RGB to Intensity)',
-            default=False,
-            update=update_modifier_shortcut)
+        name = 'Property Shortcut',
+        description = 'Property shortcut on layer list (currently only available on RGB to Intensity)',
+        default = False,
+        update = update_modifier_shortcut
+    )
 
     expand_content : BoolProperty(default=True)
 

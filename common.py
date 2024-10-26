@@ -48,50 +48,56 @@ COLOR_ID_VCOL_NAME = '__yp_color_id'
 
 BUMP_MULTIPLY_TWEAK = 5
 
-blend_type_items = (("MIX", "Mix", ""),
-	             ("ADD", "Add", ""),
-	             ("SUBTRACT", "Subtract", ""),
-	             ("MULTIPLY", "Multiply", ""),
-	             ("SCREEN", "Screen", ""),
-	             ("OVERLAY", "Overlay", ""),
-	             ("DIFFERENCE", "Difference", ""),
-	             ("DIVIDE", "Divide", ""),
-	             ("DARKEN", "Darken", ""),
-	             ("LIGHTEN", "Lighten", ""),
-	             ("HUE", "Hue", ""),
-	             ("SATURATION", "Saturation", ""),
-	             ("VALUE", "Value", ""),
-	             ("COLOR", "Color", ""),
-	             ("SOFT_LIGHT", "Soft Light", ""),
-	             ("LINEAR_LIGHT", "Linear Light", ""),
-	             ("DODGE", "Dodge", ""),
-	             ("BURN", "Burn", ""))
+blend_type_items = (
+    ("MIX", "Mix", ""),
+    ("ADD", "Add", ""),
+    ("SUBTRACT", "Subtract", ""),
+    ("MULTIPLY", "Multiply", ""),
+    ("SCREEN", "Screen", ""),
+    ("OVERLAY", "Overlay", ""),
+    ("DIFFERENCE", "Difference", ""),
+    ("DIVIDE", "Divide", ""),
+    ("DARKEN", "Darken", ""),
+    ("LIGHTEN", "Lighten", ""),
+    ("HUE", "Hue", ""),
+    ("SATURATION", "Saturation", ""),
+    ("VALUE", "Value", ""),
+    ("COLOR", "Color", ""),
+    ("SOFT_LIGHT", "Soft Light", ""),
+    ("LINEAR_LIGHT", "Linear Light", ""),
+    ("DODGE", "Dodge", ""),
+    ("BURN", "Burn", "")
+)
 
 
-mask_blend_type_items = (("MIX", "Replace", ""),
-	             ("ADD", "Add", ""),
-	             ("SUBTRACT", "Subtract", ""),
-	             ("MULTIPLY", "Multiply", ""),
-	             ("SCREEN", "Screen", ""),
-	             ("OVERLAY", "Overlay", ""),
-	             ("DIFFERENCE", "Difference", ""),
-	             ("DIVIDE", "Divide", ""),
-	             ("DARKEN", "Darken", ""),
-	             ("LIGHTEN", "Lighten", ""),
-	             ("HUE", "Hue", ""),
-	             ("SATURATION", "Saturation", ""),
-	             ("VALUE", "Value", ""),
-	             ("COLOR", "Color", ""),
-	             ("SOFT_LIGHT", "Soft Light", ""),
-	             ("LINEAR_LIGHT", "Linear Light", ""),
-	             ("DODGE", "Dodge", ""),
-	             ("BURN", "Burn", ""))
+mask_blend_type_items = (
+    ("MIX", "Replace", ""),
+    ("ADD", "Add", ""),
+    ("SUBTRACT", "Subtract", ""),
+    ("MULTIPLY", "Multiply", ""),
+    ("SCREEN", "Screen", ""),
+    ("OVERLAY", "Overlay", ""),
+    ("DIFFERENCE", "Difference", ""),
+    ("DIVIDE", "Divide", ""),
+    ("DARKEN", "Darken", ""),
+    ("LIGHTEN", "Lighten", ""),
+    ("HUE", "Hue", ""),
+    ("SATURATION", "Saturation", ""),
+    ("VALUE", "Value", ""),
+    ("COLOR", "Color", ""),
+    ("SOFT_LIGHT", "Soft Light", ""),
+    ("LINEAR_LIGHT", "Linear Light", ""),
+    ("DODGE", "Dodge", ""),
+    ("BURN", "Burn", "")
+)
 
-voronoi_feature_items = (("F1", "F1", "Compute and return the distance to the closest feature point as well as its position and color"),
-	             ("F2", "F2", "Compute and return the distance to the second closest feature point as well as its position and color."),
-	             ("SMOOTH_F1", "Smooth F1", "Compute and return a smooth version of F1."), 
-	             ("DISTANCE_TO_EDGE", "Distance to Edge", "Compute and return the distance to the edges of the Voronoi cells."), 
-	             ("N_SPHERE_RADIUS", "N-Sphere Radius", "Compute and return the radius of the n-sphere inscribed in the Voronoi cells. In other words, it is half the distance between the closest feature point and the feature point closest to it."))
+voronoi_feature_items = (
+    ("F1", "F1", "Compute and return the distance to the closest feature point as well as its position and color"),
+    ("F2", "F2", "Compute and return the distance to the second closest feature point as well as its position and color."),
+    ("SMOOTH_F1", "Smooth F1", "Compute and return a smooth version of F1."), 
+    ("DISTANCE_TO_EDGE", "Distance to Edge", "Compute and return the distance to the edges of the Voronoi cells."), 
+    ("N_SPHERE_RADIUS", "N-Sphere Radius", "Compute and return the radius of the n-sphere inscribed in the Voronoi cells. In other words, it is half the distance between the closest feature point and the feature point closest to it.")
+)
 
 def entity_input_items(self, context):
     yp = self.id_data.yp
@@ -135,121 +141,121 @@ TANGENT_SIGN_PREFIX = '__tsign_'
 neighbor_directions = ['n', 's', 'e', 'w']
 
 normal_blend_items = (
-        ('MIX', 'Mix', ''),
-        ('OVERLAY', 'Add', ''),
-        ('COMPARE', 'Compare Height', '')
-        )
+    ('MIX', 'Mix', ''),
+    ('OVERLAY', 'Add', ''),
+    ('COMPARE', 'Compare Height', '')
+)
 
 height_blend_items = (
-        ('REPLACE', 'Replace', ''),
-        ('COMPARE', 'Compare', ''),
-        ('ADD', 'Add', ''),
-        )
+    ('REPLACE', 'Replace', ''),
+    ('COMPARE', 'Compare', ''),
+    ('ADD', 'Add', ''),
+)
 
 layer_type_items = (
-        ('IMAGE', 'Image', ''),
-        ('BRICK', 'Brick', ''),
-        ('CHECKER', 'Checker', ''),
-        ('GRADIENT', 'Gradient', ''),
-        ('MAGIC', 'Magic', ''),
-        ('MUSGRAVE', 'Musgrave', ''),
-        ('NOISE', 'Noise', ''),
-        ('VORONOI', 'Voronoi', ''),
-        ('WAVE', 'Wave', ''),
-        ('VCOL', 'Vertex Color', ''),
-        ('BACKGROUND', 'Background', ''),
-        ('COLOR', 'Solid Color', ''),
-        ('GROUP', 'Group', ''),
-        ('HEMI', 'Fake Lighting', ''),
-        ('GABOR', 'Gabor', ''),
-        )
+    ('IMAGE', 'Image', ''),
+    ('BRICK', 'Brick', ''),
+    ('CHECKER', 'Checker', ''),
+    ('GRADIENT', 'Gradient', ''),
+    ('MAGIC', 'Magic', ''),
+    ('MUSGRAVE', 'Musgrave', ''),
+    ('NOISE', 'Noise', ''),
+    ('VORONOI', 'Voronoi', ''),
+    ('WAVE', 'Wave', ''),
+    ('VCOL', 'Vertex Color', ''),
+    ('BACKGROUND', 'Background', ''),
+    ('COLOR', 'Solid Color', ''),
+    ('GROUP', 'Group', ''),
+    ('HEMI', 'Fake Lighting', ''),
+    ('GABOR', 'Gabor', ''),
+)
 
 mask_type_items = (
-        ('IMAGE', 'Image', ''),
-        ('BRICK', 'Brick', ''),
-        ('CHECKER', 'Checker', ''),
-        ('GRADIENT', 'Gradient', ''),
-        ('MAGIC', 'Magic', ''),
-        ('MUSGRAVE', 'Musgrave', ''),
-        ('NOISE', 'Noise', ''),
-        ('VORONOI', 'Voronoi', ''),
-        ('WAVE', 'Wave', ''),
-        ('VCOL', 'Vertex Color', ''),
-        ('HEMI', 'Fake Lighting', ''),
-        ('OBJECT_INDEX', 'Object Index', ''),
-        ('COLOR_ID', 'Color ID', ''),
-        ('BACKFACE', 'Backface', ''),
-        ('EDGE_DETECT', 'Edge Detect', ''),
-        ('MODIFIER', 'Modifier', ''),
-        ('GABOR', 'Gabor', ''),
-        )
+    ('IMAGE', 'Image', ''),
+    ('BRICK', 'Brick', ''),
+    ('CHECKER', 'Checker', ''),
+    ('GRADIENT', 'Gradient', ''),
+    ('MAGIC', 'Magic', ''),
+    ('MUSGRAVE', 'Musgrave', ''),
+    ('NOISE', 'Noise', ''),
+    ('VORONOI', 'Voronoi', ''),
+    ('WAVE', 'Wave', ''),
+    ('VCOL', 'Vertex Color', ''),
+    ('HEMI', 'Fake Lighting', ''),
+    ('OBJECT_INDEX', 'Object Index', ''),
+    ('COLOR_ID', 'Color ID', ''),
+    ('BACKFACE', 'Backface', ''),
+    ('EDGE_DETECT', 'Edge Detect', ''),
+    ('MODIFIER', 'Modifier', ''),
+    ('GABOR', 'Gabor', ''),
+)
 
 channel_override_type_items = (
-        ('DEFAULT', 'Default', ''),
-        ('IMAGE', 'Image', ''),
-        ('BRICK', 'Brick', ''),
-        ('CHECKER', 'Checker', ''),
-        ('GRADIENT', 'Gradient', ''),
-        ('MAGIC', 'Magic', ''),
-        ('MUSGRAVE', 'Musgrave', ''),
-        ('NOISE', 'Noise', ''),
-        ('VORONOI', 'Voronoi', ''),
-        ('WAVE', 'Wave', ''),
-        ('VCOL', 'Vertex Color', ''),
-        ('GABOR', 'Gabor', ''),
-        )
+    ('DEFAULT', 'Default', ''),
+    ('IMAGE', 'Image', ''),
+    ('BRICK', 'Brick', ''),
+    ('CHECKER', 'Checker', ''),
+    ('GRADIENT', 'Gradient', ''),
+    ('MAGIC', 'Magic', ''),
+    ('MUSGRAVE', 'Musgrave', ''),
+    ('NOISE', 'Noise', ''),
+    ('VORONOI', 'Voronoi', ''),
+    ('WAVE', 'Wave', ''),
+    ('VCOL', 'Vertex Color', ''),
+    ('GABOR', 'Gabor', ''),
+)
 
 # Override 1 will only use default value or image for now
 channel_override_1_type_items = (
-        ('DEFAULT', 'Default', ''),
-        ('IMAGE', 'Image', ''),
-        )
+    ('DEFAULT', 'Default', ''),
+    ('IMAGE', 'Image', ''),
+)
 
 hemi_space_items = (
-        ('WORLD', 'World Space', ''),
-        ('OBJECT', 'Object Space', ''),
-        ('CAMERA', 'Camera Space', ''),
-        )
+    ('WORLD', 'World Space', ''),
+    ('OBJECT', 'Object Space', ''),
+    ('CAMERA', 'Camera Space', ''),
+)
 
 layer_type_labels = {
-        'IMAGE' : 'Image',
-        'BRICK' : 'Brick',
-        'CHECKER' : 'Checker',
-        'GRADIENT' : 'Gradient',
-        'MAGIC' : 'Magic',
-        'MUSGRAVE' : 'Musgrave',
-        'NOISE' : 'Noise',
-        'VORONOI' : 'Voronoi',
-        'WAVE' : 'Wave',
-        'VCOL' : 'Vertex Color',
-        'BACKGROUND' : 'Background',
-        'COLOR' : 'Solid Color',
-        'GROUP' : 'Layer Group',
-        'HEMI' : 'Fake Lighting',
-        'GABOR' : 'Gabor',
-        }
+    'IMAGE' : 'Image',
+    'BRICK' : 'Brick',
+    'CHECKER' : 'Checker',
+    'GRADIENT' : 'Gradient',
+    'MAGIC' : 'Magic',
+    'MUSGRAVE' : 'Musgrave',
+    'NOISE' : 'Noise',
+    'VORONOI' : 'Voronoi',
+    'WAVE' : 'Wave',
+    'VCOL' : 'Vertex Color',
+    'BACKGROUND' : 'Background',
+    'COLOR' : 'Solid Color',
+    'GROUP' : 'Layer Group',
+    'HEMI' : 'Fake Lighting',
+    'GABOR' : 'Gabor',
+}
 
 bake_type_items = (
-        ('AO', 'Ambient Occlusion', ''),
-        ('POINTINESS', 'Pointiness', ''),
-        ('CAVITY', 'Cavity', ''),
-        ('DUST', 'Dust', ''),
-        ('PAINT_BASE', 'Paint Base', ''),
+    ('AO', 'Ambient Occlusion', ''),
+    ('POINTINESS', 'Pointiness', ''),
+    ('CAVITY', 'Cavity', ''),
+    ('DUST', 'Dust', ''),
+    ('PAINT_BASE', 'Paint Base', ''),
 
-        ('BEVEL_NORMAL', 'Bevel Normal', ''),
-        ('BEVEL_MASK', 'Bevel Grayscale', ''),
+    ('BEVEL_NORMAL', 'Bevel Normal', ''),
+    ('BEVEL_MASK', 'Bevel Grayscale', ''),
 
-        ('MULTIRES_NORMAL', 'Multires Normal', ''),
-        ('MULTIRES_DISPLACEMENT', 'Multires Displacement', ''),
+    ('MULTIRES_NORMAL', 'Multires Normal', ''),
+    ('MULTIRES_DISPLACEMENT', 'Multires Displacement', ''),
 
-        ('OTHER_OBJECT_NORMAL', 'Other Objects Normal', ''),
-        ('OTHER_OBJECT_EMISSION', 'Other Objects Emission', ''),
-        ('OTHER_OBJECT_CHANNELS', 'Other Objects Ucupaint Channels', ''),
+    ('OTHER_OBJECT_NORMAL', 'Other Objects Normal', ''),
+    ('OTHER_OBJECT_EMISSION', 'Other Objects Emission', ''),
+    ('OTHER_OBJECT_CHANNELS', 'Other Objects Ucupaint Channels', ''),
 
-        ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
+    ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
 
-        ('FLOW', 'Flow Map based on straight UVMap', ''),
-        )
+    ('FLOW', 'Flow Map based on straight UVMap', ''),
+)
 
 image_resolution_items = (
     ('512', "512", 'Create a 512x512 texture image'),
@@ -259,103 +265,103 @@ image_resolution_items = (
 )
 
 channel_override_labels = {
-        'DEFAULT' : 'Default',
-        'IMAGE' : 'Image',
-        'BRICK' : 'Brick',
-        'CHECKER' : 'Checker',
-        'GRADIENT' : 'Gradient',
-        'MAGIC' : 'Magic',
-        'MUSGRAVE' : 'Musgrave',
-        'NOISE' : 'Noise',
-        'VORONOI' : 'Voronoi',
-        'WAVE' : 'Wave',
-        'VCOL' : 'Vertex Color',
-        'HEMI' : 'Fake Lighting',
-        'GABOR' : 'Gabor',
-        }
+    'DEFAULT' : 'Default',
+    'IMAGE' : 'Image',
+    'BRICK' : 'Brick',
+    'CHECKER' : 'Checker',
+    'GRADIENT' : 'Gradient',
+    'MAGIC' : 'Magic',
+    'MUSGRAVE' : 'Musgrave',
+    'NOISE' : 'Noise',
+    'VORONOI' : 'Voronoi',
+    'WAVE' : 'Wave',
+    'VCOL' : 'Vertex Color',
+    'HEMI' : 'Fake Lighting',
+    'GABOR' : 'Gabor',
+}
 
 bake_type_labels = {
-        'AO' : 'Ambient Occlusion',
-        'POINTINESS': 'Pointiness',
-        'CAVITY': 'Cavity',
-        'DUST': 'Dust',
-        'PAINT_BASE': 'Paint Base',
+    'AO' : 'Ambient Occlusion',
+    'POINTINESS': 'Pointiness',
+    'CAVITY': 'Cavity',
+    'DUST': 'Dust',
+    'PAINT_BASE': 'Paint Base',
 
-        'BEVEL_NORMAL': 'Bevel Normal',
-        'BEVEL_MASK': 'Bevel Grayscale',
+    'BEVEL_NORMAL': 'Bevel Normal',
+    'BEVEL_MASK': 'Bevel Grayscale',
 
-        'MULTIRES_NORMAL': 'Multires Normal',
-        'MULTIRES_DISPLACEMENT': 'Multires Displacement',
+    'MULTIRES_NORMAL': 'Multires Normal',
+    'MULTIRES_DISPLACEMENT': 'Multires Displacement',
 
-        'OTHER_OBJECT_NORMAL': 'Other Objects Normal',
-        'OTHER_OBJECT_EMISSION': 'Other Objects Emission',
-        'OTHER_OBJECT_CHANNELS': 'Other Objects Ucupaint Channels',
+    'OTHER_OBJECT_NORMAL': 'Other Objects Normal',
+    'OTHER_OBJECT_EMISSION': 'Other Objects Emission',
+    'OTHER_OBJECT_CHANNELS': 'Other Objects Ucupaint Channels',
 
-        'SELECTED_VERTICES': 'Selected Vertices',
+    'SELECTED_VERTICES': 'Selected Vertices',
 
-        'FLOW': 'Flow'
-        }
+    'FLOW': 'Flow'
+}
 
 bake_type_suffixes = {
-        'AO' : 'AO',
-        'POINTINESS': 'Pointiness',
-        'CAVITY': 'Cavity',
-        'DUST': 'Dust',
-        'PAINT_BASE': 'Paint Base',
+    'AO' : 'AO',
+    'POINTINESS': 'Pointiness',
+    'CAVITY': 'Cavity',
+    'DUST': 'Dust',
+    'PAINT_BASE': 'Paint Base',
 
-        'BEVEL_NORMAL': 'Bevel Normal',
-        'BEVEL_MASK': 'Bevel Grayscale',
+    'BEVEL_NORMAL': 'Bevel Normal',
+    'BEVEL_MASK': 'Bevel Grayscale',
 
-        'MULTIRES_NORMAL': 'Normal Multires',
-        'MULTIRES_DISPLACEMENT': 'Displacement Multires',
+    'MULTIRES_NORMAL': 'Normal Multires',
+    'MULTIRES_DISPLACEMENT': 'Displacement Multires',
 
-        'OTHER_OBJECT_NORMAL': 'OO Normal',
-        'OTHER_OBJECT_EMISSION': 'OO Emission',
-        'OTHER_OBJECT_CHANNELS': 'OO Channel',
+    'OTHER_OBJECT_NORMAL': 'OO Normal',
+    'OTHER_OBJECT_EMISSION': 'OO Emission',
+    'OTHER_OBJECT_CHANNELS': 'OO Channel',
 
-        'SELECTED_VERTICES': 'Selected Vertices',
+    'SELECTED_VERTICES': 'Selected Vertices',
 
-        'FLOW': 'Flow'
-        }
+    'FLOW': 'Flow'
+}
 
 texcoord_lists = [
-        'Generated',
-        'Normal',
-        #'UV',
-        'Object',
-        'Camera',
-        'Window',
-        'Reflection',
-        ]
+    'Generated',
+    'Normal',
+    #'UV',
+    'Object',
+    'Camera',
+    'Window',
+    'Reflection',
+]
 
 texcoord_type_items = (
-        ('Generated', 'Generated', ''),
-        ('Normal', 'Normal', ''),
-        ('UV', 'UV', ''),
-        ('Object', 'Object', ''),
-        ('Camera', 'Camera', ''),
-        ('Window', 'Window', ''),
-        ('Reflection', 'Reflection', ''),
-        ('Decal', 'Decal', ''),
-        )
+    ('Generated', 'Generated', ''),
+    ('Normal', 'Normal', ''),
+    ('UV', 'UV', ''),
+    ('Object', 'Object', ''),
+    ('Camera', 'Camera', ''),
+    ('Window', 'Window', ''),
+    ('Reflection', 'Reflection', ''),
+    ('Decal', 'Decal', ''),
+)
 
 mask_texcoord_type_items = (
-        ('Generated', 'Generated', ''),
-        ('Normal', 'Normal', ''),
-        ('UV', 'UV', ''),
-        ('Object', 'Object', ''),
-        ('Camera', 'Camera', ''),
-        ('Window', 'Window', ''),
-        ('Reflection', 'Reflection', ''),
-        ('Decal', 'Decal', ''),
-        ('Layer', 'Use Layer Vector', ''),
-        )
+    ('Generated', 'Generated', ''),
+    ('Normal', 'Normal', ''),
+    ('UV', 'UV', ''),
+    ('Object', 'Object', ''),
+    ('Camera', 'Camera', ''),
+    ('Window', 'Window', ''),
+    ('Reflection', 'Reflection', ''),
+    ('Decal', 'Decal', ''),
+    ('Layer', 'Use Layer Vector', ''),
+)
 
 interpolation_type_items = (
-        ('Linear', 'Linear', 'Linear interpolation.'),
-        ('Closest', 'Closest', 'No interpolation (sample closest texel).'),
-        ('Cubic', 'Cubic', 'Cubic interpolation.'),
-        )
+    ('Linear', 'Linear', 'Linear interpolation.'),
+    ('Closest', 'Closest', 'No interpolation (sample closest texel).'),
+    ('Cubic', 'Cubic', 'Cubic interpolation.'),
+)
 
 channel_socket_input_bl_idnames = {
     'RGB': 'NodeSocketColor',
@@ -370,82 +376,82 @@ channel_socket_output_bl_idnames = {
 }
 
 possible_object_types = {
-        'MESH',
-        'META',
-        'CURVE',
-        'CURVES',
-        'SURFACE',
-        'FONT'
-        }
+    'MESH',
+    'META',
+    'CURVE',
+    'CURVES',
+    'SURFACE',
+    'FONT'
+}
 
 texture_node_types = {
-        'TEX_IMAGE',
-        'TEX_BRICK',
-        'TEX_ENVIRONMENT',
-        'TEX_CHECKER',
-        'TEX_GRADIENT',
-        'TEX_MAGIC',
-        'TEX_MUSGRAVE',
-        'TEX_NOISE',
-        'TEX_POINTDENSITY',
-        'TEX_SKY',
-        'TEX_VORONOI',
-        'TEX_WAVE',
-        }
+    'TEX_IMAGE',
+    'TEX_BRICK',
+    'TEX_ENVIRONMENT',
+    'TEX_CHECKER',
+    'TEX_GRADIENT',
+    'TEX_MAGIC',
+    'TEX_MUSGRAVE',
+    'TEX_NOISE',
+    'TEX_POINTDENSITY',
+    'TEX_SKY',
+    'TEX_VORONOI',
+    'TEX_WAVE',
+}
 
 layer_node_bl_idnames = {
-        'IMAGE' : 'ShaderNodeTexImage',
-        'ENVIRONMENT' : 'ShaderNodeTexEnvironment',
-        'BRICK' : 'ShaderNodeTexBrick',
-        'CHECKER' : 'ShaderNodeTexChecker',
-        'GRADIENT' : 'ShaderNodeTexGradient',
-        'MAGIC' : 'ShaderNodeTexMagic',
-        'MUSGRAVE' : 'ShaderNodeTexMusgrave',
-        'NOISE' : 'ShaderNodeTexNoise',
-        'POINT_DENSITY' : 'ShaderNodeTexPointDensity',
-        'SKY' : 'ShaderNodeTexSky',
-        'VORONOI' : 'ShaderNodeTexVoronoi',
-        'WAVE' : 'ShaderNodeTexWave',
-        'VCOL' : 'ShaderNodeAttribute',
-        'BACKGROUND' : 'NodeGroupInput',
-        'COLOR' : 'ShaderNodeRGB',
-        'GROUP' : 'NodeGroupInput',
-        'HEMI' : 'ShaderNodeGroup',
-        'OBJECT_INDEX' : 'ShaderNodeGroup',
-        'COLOR_ID' : 'ShaderNodeGroup',
-        'BACKFACE' : 'ShaderNodeNewGeometry',
-        'EDGE_DETECT' : 'ShaderNodeGroup',
-        'GABOR' : 'ShaderNodeTexGabor',
-        }
+    'IMAGE' : 'ShaderNodeTexImage',
+    'ENVIRONMENT' : 'ShaderNodeTexEnvironment',
+    'BRICK' : 'ShaderNodeTexBrick',
+    'CHECKER' : 'ShaderNodeTexChecker',
+    'GRADIENT' : 'ShaderNodeTexGradient',
+    'MAGIC' : 'ShaderNodeTexMagic',
+    'MUSGRAVE' : 'ShaderNodeTexMusgrave',
+    'NOISE' : 'ShaderNodeTexNoise',
+    'POINT_DENSITY' : 'ShaderNodeTexPointDensity',
+    'SKY' : 'ShaderNodeTexSky',
+    'VORONOI' : 'ShaderNodeTexVoronoi',
+    'WAVE' : 'ShaderNodeTexWave',
+    'VCOL' : 'ShaderNodeAttribute',
+    'BACKGROUND' : 'NodeGroupInput',
+    'COLOR' : 'ShaderNodeRGB',
+    'GROUP' : 'NodeGroupInput',
+    'HEMI' : 'ShaderNodeGroup',
+    'OBJECT_INDEX' : 'ShaderNodeGroup',
+    'COLOR_ID' : 'ShaderNodeGroup',
+    'BACKFACE' : 'ShaderNodeNewGeometry',
+    'EDGE_DETECT' : 'ShaderNodeGroup',
+    'GABOR' : 'ShaderNodeTexGabor',
+}
 
 io_suffix = {
-        'GROUP' : ' Group',
-        'BACKGROUND' : ' Background',
-        'ALPHA' : ' Alpha',
-        'DISPLACEMENT' : ' Displacement',
-        'HEIGHT' : ' Height',
-        'MAX_HEIGHT' : ' Max Height',
-        'VDISP' : ' Vector Displacement',
-        'HEIGHT_ONS' : ' Height ONS',
-        'HEIGHT_EW' : ' Height EW',
-        'UV' : ' UV',
-        'TANGENT' : ' Tangent',
-        'BITANGENT' : ' Bitangent',
-        'HEIGHT_N' : ' Height N',
-        'HEIGHT_S' : ' Height S',
-        'HEIGHT_E' : ' Height E',
-        'HEIGHT_W' : ' Height W',
-        }
+    'GROUP' : ' Group',
+    'BACKGROUND' : ' Background',
+    'ALPHA' : ' Alpha',
+    'DISPLACEMENT' : ' Displacement',
+    'HEIGHT' : ' Height',
+    'MAX_HEIGHT' : ' Max Height',
+    'VDISP' : ' Vector Displacement',
+    'HEIGHT_ONS' : ' Height ONS',
+    'HEIGHT_EW' : ' Height EW',
+    'UV' : ' UV',
+    'TANGENT' : ' Tangent',
+    'BITANGENT' : ' Bitangent',
+    'HEIGHT_N' : ' Height N',
+    'HEIGHT_S' : ' Height S',
+    'HEIGHT_E' : ' Height E',
+    'HEIGHT_W' : ' Height W',
+}
 
 io_names = {
-        'Generated' : 'Texcoord Generated',
-        'Object' : 'Texcoord Object',
-        'Normal' : 'Texcoord Normal',
-        'Camera' : 'Texcoord Camera',
-        'Window' : 'Texcoord Window',
-        'Reflection' : 'Texcoord Reflection',
-        'Decal' : 'Texcoord Object',
-        }
+    'Generated' : 'Texcoord Generated',
+    'Object' : 'Texcoord Object',
+    'Normal' : 'Texcoord Normal',
+    'Camera' : 'Texcoord Camera',
+    'Window' : 'Texcoord Window',
+    'Reflection' : 'Texcoord Reflection',
+    'Decal' : 'Texcoord Object',
+}
 
 math_method_items = (
     ("ADD", "Add", ""),
@@ -454,17 +460,17 @@ math_method_items = (
     ("DIVIDE", "Divide", ""),
     ("POWER", "Power", ""),
     ("LOGARITHM", "Logarithm", ""),
-    )
+)
 
 vcol_domain_items = (
     ('POINT', 'Vertex', ''),
     ('CORNER', 'Face Corner', ''),
-    )
+)
 
 vcol_data_type_items = (
     ('FLOAT_COLOR', 'Color', ''),
     ('BYTE_COLOR', 'Byte Color', ''),
-    )
+)
 
 limited_mask_blend_types = {
     'ADD',
@@ -475,13 +481,13 @@ limited_mask_blend_types = {
     'LIGHTEN',
     'VALUE',
     'LINEAR_LIGHT',
-    }
+}
 
 eraser_names = {
-        'TEXTURE_PAINT' : 'Eraser Tex',
-        'VERTEX_PAINT' : 'Eraser Vcol',
-        'SCULPT' : 'Eraser Paint',
-        }
+    'TEXTURE_PAINT' : 'Eraser Tex',
+    'VERTEX_PAINT' : 'Eraser Vcol',
+    'SCULPT' : 'Eraser Paint',
+}
 
 rgba_letters = ['r', 'g', 'b', 'a']
 nsew_letters = ['n', 's', 'e', 'w']
@@ -559,10 +565,10 @@ def get_current_version():
 def is_online():
     return not is_bl_newer_than(4, 2) or bpy.app.online_access
 
-def is_bl_newer_than(major, minor = 0, patch = 0):
+def is_bl_newer_than(major, minor=0, patch=0):
     return bpy.app.version >= (major, minor, patch)
 
-def is_bl_equal(major, minor = None, patch = None):
+def is_bl_equal(major, minor=None, patch=None):
     if minor == None and patch == None:
         return bpy.app.version[0] == major
     elif patch == None:
@@ -570,7 +576,7 @@ def is_bl_equal(major, minor = None, patch = None):
     else:
         return bpy.app.version == (major, minor, patch)
 
-def is_created_before(major, minor = 0, patch = 0):
+def is_created_before(major, minor=0, patch=0):
     return bpy.data.version < (major, minor, patch)
 
 def get_bpytypes():
@@ -790,7 +796,7 @@ def get_addon_filepath():
 
 def srgb_to_linear_per_element(e):
     if e <= 0.03928:
-        return e/12.92
+        return e / 12.92
     else: 
         return pow((e + 0.055) / 1.055, 2.4)
 
@@ -875,7 +881,7 @@ def blend_color_mix_byte(src1, src2, intensity1=1.0, intensity2=1.0):
 
     return dst
 
-def copy_id_props(source, dest, extras = [], reverse=False):
+def copy_id_props(source, dest, extras=[], reverse=False):
 
     bpytypes = get_bpytypes()
     props = dir(source)
@@ -924,7 +930,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 try: setattr(dest, prop, val)
                 except: print('Error set prop:', prop)
 
-def copy_node_props_(source, dest, extras = []):
+def copy_node_props_(source, dest, extras=[]):
 
     bpytypes = get_bpytypes()
     props = dir(source)
@@ -1542,7 +1548,7 @@ def get_masks_with_specific_segment(layer, segment):
 
     return masks
 
-def replace_image(old_image, new_image, yp=None, uv_name = ''):
+def replace_image(old_image, new_image, yp=None, uv_name=''):
 
     if old_image == new_image: return
 
@@ -1726,7 +1732,7 @@ def create_info_nodes(tree):
             loc.y -= 80
             info.location = loc
 
-def check_duplicated_node_group(node_group, duplicated_trees = []):
+def check_duplicated_node_group(node_group, duplicated_trees=[]):
 
     info_frame_found = False
 
@@ -2884,10 +2890,10 @@ def get_upper_neighbor(layer):
     if layer_idx == 0:
         return None, None
 
-    if layer.parent_idx == layer_idx-1:
-        return layer_idx-1, yp.layers[layer_idx-1]
+    if layer.parent_idx == layer_idx - 1:
+        return layer_idx - 1, yp.layers[layer_idx - 1]
 
-    upper_layer = yp.layers[layer_idx-1]
+    upper_layer = yp.layers[layer_idx - 1]
 
     neighbor_idx = get_last_chained_up_layer_ids(upper_layer, layer.parent_idx)
     neighbor = yp.layers[neighbor_idx]
@@ -2898,7 +2904,7 @@ def get_lower_neighbor(layer):
 
     yp = layer.id_data.yp
     layer_idx = get_layer_index(layer)
-    last_index = len(yp.layers)-1
+    last_index = len(yp.layers) - 1
 
     if layer_idx == last_index:
         return None, None
@@ -2911,7 +2917,7 @@ def get_lower_neighbor(layer):
 
         neighbor_idx = last_child_idx + 1
     else:
-        neighbor_idx = layer_idx+1
+        neighbor_idx = layer_idx + 1
 
     neighbor = yp.layers[neighbor_idx]
 
@@ -3070,8 +3076,8 @@ def update_mapping(entity, use_baked=False):
         else:
             segment = image.yia.segments.get(segment_name)
 
-            scale_x = segment.width/image.size[0] * scale_x
-            scale_y = segment.height/image.size[1] * scale_y
+            scale_x = segment.width / image.size[0] * scale_x
+            scale_y = segment.height / image.size[1] * scale_y
 
             offset_x = scale_x * segment.tile_x + offset_x * scale_x
             offset_y = scale_y * segment.tile_y + offset_y * scale_y
@@ -3191,7 +3197,7 @@ def set_uv_mirror_offsets(obj, matrix):
     mirror = get_first_mirror_modifier(obj)
     if not mirror: return
 
-    movec = Vector((mirror.mirror_offset_u/2, mirror.mirror_offset_v/2, 0.0))
+    movec = Vector((mirror.mirror_offset_u / 2, mirror.mirror_offset_v / 2, 0.0))
     if is_bl_newer_than(2, 80):
         # NOTE: For compatibility to older blenders, put matrix multiplication under eval
         movec = eval('matrix @ movec')
@@ -3401,7 +3407,7 @@ def refresh_temp_uv(obj, entity):
             (scale_x, 0, 0),
             (0, scale_y, 0),
             (0, 0, scale_z)
-            ))
+        ))
 
         # Rotate
         m.rotate(Euler((rotation_x, rotation_y, rotation_z)))
@@ -3419,7 +3425,7 @@ def refresh_temp_uv(obj, entity):
             (0, 1, 0, -translation_y),
             (0, 0, 1, -translation_z),
             (0, 0, 0, 1),
-            ))
+        ))
 
         # Rotate z matrix
         m1 = Matrix(((1, 0, 0), (0, 1, 0), (0, 0, 1)))
@@ -3435,15 +3441,15 @@ def refresh_temp_uv(obj, entity):
 
         # Scale matrix
         m4 = Matrix((
-            (1/scale_x, 0, 0),
-            (0, 1/scale_y, 0),
-            (0, 0, 1/scale_z)
-            ))
+            (1 / scale_x, 0, 0),
+            (0, 1 / scale_y, 0),
+            (0, 0, 1 / scale_z)
+        ))
 
     # Create numpy array to store uv coordinates
-    arr = numpy.zeros(len(obj.data.loops)*2, dtype=numpy.float32)
+    arr = numpy.zeros(len(obj.data.loops) * 2, dtype=numpy.float32)
     temp_uv_layer.data.foreach_get('uv', arr)
-    arr.shape = (arr.shape[0]//2, 2)
+    arr.shape = (arr.shape[0] // 2, 2)
 
     # Matrix transformation for each uv coordinates
     if is_bl_newer_than(2, 80):
@@ -3637,7 +3643,7 @@ def create_iterate_group_nodes(iter_tree, match_io=False):
     return group_tree
 
 def calculate_group_needed(num_of_iteration):
-    return int(num_of_iteration/PARALLAX_DIVIDER)
+    return int(num_of_iteration / PARALLAX_DIVIDER)
 
 def calculate_parallax_group_depth(num_of_iteration):
     #iter_inside = 1
@@ -3866,7 +3872,7 @@ def get_layer_channel_max_height(layer, ch, ch_idx=None):
             max_height = abs(get_transition_bump_max_distance_with_crease(ch))
         else:
             if ch.transition_bump_flip:
-                max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + base_distance*2
+                max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + base_distance * 2
 
             else: 
                 max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + base_distance
@@ -3952,7 +3958,7 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
         if (l.enable and c.enable and 
                 (write_height or (not write_height and l == layer)) and
                 c.normal_blend_type in {'MIX', 'COMPARE'} and max_height < ch_max_height
-                ):
+            ):
             max_height = ch_max_height
         if l == layer:
             break
@@ -3966,7 +3972,7 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
         if (l.enable and c.enable and 
                 (write_height or (not write_height and l == layer)) and
                 c.normal_blend_type == 'OVERLAY'
-                ):
+            ):
             max_height += ch_max_height
         if l == layer:
             break
@@ -4258,7 +4264,7 @@ def get_multires_modifier(obj, keyword='', include_hidden=False):
 
     return None
 
-def update_layer_images_interpolation(layer, interpolation='Linear', from_interpolation = ''):
+def update_layer_images_interpolation(layer, interpolation='Linear', from_interpolation=''):
     if layer.type == 'IMAGE':
         source = get_layer_source(layer)
         if source and source.image: 
@@ -4387,14 +4393,14 @@ def move_uv(obj, from_index, to_index):
     # Move the UV map down to the target index
     if from_index < to_index:
         move_uv_to_bottom(obj, from_index)
-        for i in range(len(uv_layers)-1-to_index):
+        for i in range(len(uv_layers) - 1 - to_index):
             move_uv_to_bottom(obj, to_index)
             
     # Move the UV map up to the target index
     elif from_index > to_index:
         for i in range(from_index-to_index):
             move_uv_to_bottom(obj, to_index)
-        for i in range(len(uv_layers)-1-from_index):
+        for i in range(len(uv_layers) - 1 - from_index):
             move_uv_to_bottom(obj, to_index+1)
     
     uv_layers.active_index = to_index
@@ -4867,7 +4873,7 @@ def is_tangent_process_needed(yp, uv_name):
                 #(not height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch) and any_layers_using_normal_map(height_root_ch))
                 #any_layers_using_bump_map(height_root_ch) or
                 (is_normal_height_input_connected(height_root_ch) and height_root_ch.enable_smooth_bump)
-                ):
+            ):
             return True
 
         for layer in yp.layers:
@@ -5404,14 +5410,16 @@ def get_yp_entities_images_and_segments(yp):
         if baked_source and baked_source.image:
             image = baked_source.image
             entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
-                    layer, image, layer.baked_segment_name, 'baked_segment_name', entities, images, segment_names, segment_name_props)
+                layer, image, layer.baked_segment_name, 'baked_segment_name', entities, images, segment_names, segment_name_props
+            )
 
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image:
                 image = source.image
                 entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
-                        layer, image, layer.segment_name, 'segment_name', entities, images, segment_names, segment_name_props)
+                    layer, image, layer.segment_name, 'segment_name', entities, images, segment_names, segment_name_props
+                )
 
         for mask in layer.masks:
 
@@ -5419,14 +5427,16 @@ def get_yp_entities_images_and_segments(yp):
             if baked_source and baked_source.image:
                 image = baked_source.image
                 entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
-                        mask, image, mask.baked_segment_name, 'baked_segment_name', entities, images, segment_names, segment_name_props)
+                    mask, image, mask.baked_segment_name, 'baked_segment_name', entities, images, segment_names, segment_name_props
+                )
 
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
                 if source and source.image:
                     image = source.image
                     entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
-                            mask, image, mask.segment_name, 'segment_name', entities, images, segment_names, segment_name_props)
+                        mask, image, mask.segment_name, 'segment_name', entities, images, segment_names, segment_name_props
+                    )
 
     return entities, images, segment_names, segment_name_props
 
@@ -5868,8 +5878,10 @@ def replace_new_mix_node(tree, entity, prop, label='', return_status=False, hard
 
     group_name = ''
 
-    node, dirty = replace_new_node(tree, entity, prop, node_id_name, label, group_name, 
-            return_status=True, hard_replace=hard_replace, dirty=dirty, force_replace=force_replace)
+    node, dirty = replace_new_node(
+        tree, entity, prop, node_id_name, label, group_name, 
+        return_status=True, hard_replace=hard_replace, dirty=dirty, force_replace=force_replace
+    )
 
     if is_bl_newer_than(3, 4):
         if node.data_type != data_type:
@@ -6349,8 +6361,8 @@ def copy_image_pixels(src, dest, segment=None, segment_src=None):
         src_start_y = height * segment_src.tile_y
 
     if is_bl_newer_than(2, 83):
-        target_pxs = numpy.empty(shape=dest.size[0]*dest.size[1]*4, dtype=numpy.float32)
-        source_pxs = numpy.empty(shape=src.size[0]*src.size[1]*4, dtype=numpy.float32)
+        target_pxs = numpy.empty(shape=dest.size[0]*dest.size[1] * 4, dtype=numpy.float32)
+        source_pxs = numpy.empty(shape=src.size[0]*src.size[1] * 4, dtype=numpy.float32)
         dest.pixels.foreach_get(target_pxs)
         src.pixels.foreach_get(source_pxs)
 
@@ -6641,8 +6653,9 @@ def restore_armature_order(obj):
     ori_obj = bpy.context.object
     bpy.context.view_layer.objects.active = obj
 
-    bpy.ops.object.modifier_move_to_index(modifier=mod.name, 
-            index=min(ys.ori_armature_index, len(obj.modifiers)-1))
+    bpy.ops.object.modifier_move_to_index(
+        modifier=mod.name, index=min(ys.ori_armature_index, len(obj.modifiers)-1)
+    )
 
     bpy.context.view_layer.objects.active = ori_obj    
 

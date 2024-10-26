@@ -100,12 +100,16 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
 
     # Create uv neighbor
     if ch.override_type in {'VCOL', 'HEMI'}:
-        uv_neighbor = replace_new_node(layer_tree, ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-                lib.NEIGHBOR_FAKE, hard_replace=True)
+        uv_neighbor = replace_new_node(
+            layer_tree, ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+            lib.NEIGHBOR_FAKE, hard_replace=True
+        )
     #else: 
     elif ch.override_type not in {'DEFAULT'}: 
-        uv_neighbor = replace_new_node(layer_tree, ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-                lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
+        uv_neighbor = replace_new_node(
+            layer_tree, ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+            lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True
+        )
         set_uv_neighbor_resolution(ch, uv_neighbor)
 
     if rearrange:
@@ -181,14 +185,20 @@ def enable_layer_source_tree(layer, rearrange=False):
 
     # Create uv neighbor
     if layer.type in {'VCOL', 'HEMI'}:
-        uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-                lib.NEIGHBOR_FAKE, hard_replace=True)
+        uv_neighbor = replace_new_node(
+            layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+            lib.NEIGHBOR_FAKE, hard_replace=True
+        )
         if layer.type == 'VCOL':
-            uv_neighbor_1 = replace_new_node(layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
-                    lib.NEIGHBOR_FAKE, hard_replace=True)
+            uv_neighbor_1 = replace_new_node(
+                layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
+                lib.NEIGHBOR_FAKE, hard_replace=True
+            )
     elif layer.type not in {'GROUP', 'OBJECT_INDEX', 'BACKFACE'}: 
-        uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-                lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
+        uv_neighbor = replace_new_node(
+            layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+            lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True
+        )
         set_uv_neighbor_resolution(layer, uv_neighbor)
 
     if rearrange:
@@ -329,8 +339,10 @@ def check_layer_bump_process(layer, tree=None):
             lib_name = lib.FINE_BUMP_PROCESS
         else: lib_name = lib.BUMP_PROCESS
 
-        bump_process, dirty = replace_new_node(tree, layer, 'bump_process', 'ShaderNodeGroup', 'Bump Process',
-                lib_name, return_status=True, hard_replace=True)
+        bump_process, dirty = replace_new_node(
+            tree, layer, 'bump_process', 'ShaderNodeGroup', 'Bump Process',
+            lib_name, return_status=True, hard_replace=True
+        )
 
         #update_layer_bump_process_max_height(height_root_ch, layer, tree)
     else:
@@ -366,8 +378,11 @@ def check_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
         #else: 
         lib_name = lib.get_neighbor_uv_tree_name(mask.texcoord_type, entity=mask)
 
-        uv_neighbor, dirty = replace_new_node(tree, mask, 'uv_neighbor', 
-                'ShaderNodeGroup', 'UV Neighbor', lib_name, return_status=True, hard_replace=True)
+        uv_neighbor, dirty = replace_new_node(
+            tree, mask, 'uv_neighbor', 
+            'ShaderNodeGroup', 'UV Neighbor', lib_name,
+            return_status=True, hard_replace=True
+        )
 
         set_uv_neighbor_resolution(mask, uv_neighbor)
 
@@ -1237,8 +1252,10 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=Fals
         else:
             parallax_prep = tree.nodes.get(uv.parallax_prep)
             if not parallax_prep:
-                parallax_prep = new_node(tree, uv, 'parallax_prep', 'ShaderNodeGroup', 
-                        uv.name + ' Parallax Preparation')
+                parallax_prep = new_node(
+                    tree, uv, 'parallax_prep', 'ShaderNodeGroup', 
+                    uv.name + ' Parallax Preparation'
+                )
                 parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
 
             #parallax_prep.inputs['depth_scale'].default_value = height_ch.displacement_height_ratio
@@ -1333,10 +1350,11 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
     parallax = tree.nodes.get(node_name)
     baked_parallax_filter = tree.nodes.get(BAKED_PARALLAX_FILTER)
 
-    if (not is_parallax_enabled(height_ch) or 
+    if (
+            not is_parallax_enabled(height_ch) or 
             (baked and not yp.use_baked) or (not baked and yp.use_baked) or
             (yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive)
-            ):
+        ):
         if parallax:
             clear_parallax_node_data(yp, parallax, baked)
             simple_remove_node(tree, parallax, True)
@@ -1784,7 +1802,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         # Bump distance ignorer
         if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and not is_bump_distance_relevant(layer, ch):
             bump_distance_ignorer, dirty = check_new_node(
-                    tree, ch, 'bump_distance_ignorer', 'ShaderNodeMath', 'Bump Distance Ignorer', True)
+                tree, ch, 'bump_distance_ignorer', 'ShaderNodeMath',
+                'Bump Distance Ignorer', True
+            )
             if dirty: need_reconnect = True
             bump_distance_ignorer.operation = 'MULTIPLY'
             bump_distance_ignorer.inputs[1].default_value = 0.0
@@ -1794,7 +1814,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         # Transition bump flipper
         if ch.enable_transition_bump and ch.transition_bump_flip:
             tb_distance_flipper, dirty = check_new_node(
-                    tree, ch, 'tb_distance_flipper', 'ShaderNodeMath', 'Transition Bump Distance Flipper', True)
+                tree, ch, 'tb_distance_flipper', 'ShaderNodeMath',
+                'Transition Bump Distance Flipper', True
+            )
             if dirty: need_reconnect = True
             tb_distance_flipper.operation = 'MULTIPLY'
             tb_distance_flipper.inputs[1].default_value = -1.0
@@ -1804,7 +1826,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         # Delta calculation node
         if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.enable_transition_bump:
             tb_delta_calc, dirty = check_new_node(
-                    tree, ch, 'tb_delta_calc', 'ShaderNodeGroup', 'Transition Bump Delta Calculation', True)
+                tree, ch, 'tb_delta_calc', 'ShaderNodeGroup',
+                'Transition Bump Delta Calculation', True
+            )
             if dirty: need_reconnect = True
             tb_delta_calc.node_tree = get_node_tree_lib(lib.TB_DELTA_CALC)
         else:
@@ -1825,8 +1849,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         if ch.write_height:
             max_height_calc, need_reconnect = replace_new_node(
-                    tree, ch, 'max_height_calc', 'ShaderNodeGroup', 'Max Height Calculation', 
-                    lib_name, return_status = True, hard_replace=True, dirty=need_reconnect)
+                tree, ch, 'max_height_calc', 'ShaderNodeGroup', 'Max Height Calculation', 
+                lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+            )
 
             inp = max_height_calc.inputs.get('Is Flipped')
             if inp: inp.default_value = 1.0 if ch.enable_transition_bump and ch.transition_bump_flip else 0.0
@@ -1877,8 +1902,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 lib_name += ' Group'
 
         height_proc, need_reconnect = replace_new_node(
-                tree, ch, 'height_proc', 'ShaderNodeGroup', 'Height Process', 
-                lib_name, return_status = True, hard_replace=True, dirty=need_reconnect)
+            tree, ch, 'height_proc', 'ShaderNodeGroup', 'Height Process', 
+            lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+        )
 
         if ch.normal_map_type == 'NORMAL_MAP':
             if ch.enable_transition_bump:
@@ -1914,8 +1940,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     else: lib_name = lib.STRAIGHT_OVER_HEIGHT_MIX
 
                     height_blend, need_reconnect = replace_new_node(
-                            tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                            lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
+                        tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
+                        lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
 
                     if write_height:
                         height_blend.inputs['Divide'].default_value = 1.0
@@ -1923,12 +1950,14 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 else:
                     if root_ch.enable_smooth_bump:
                         height_blend, need_reconnect = replace_new_node(
-                                tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                                lib.HEIGHT_MIX_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect)
+                            tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
+                            lib.HEIGHT_MIX_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect
+                        )
                     else:
                         height_blend, need_reconnect = replace_new_mix_node(
-                                tree, ch, 'height_blend', 'Height Blend', 
-                                return_status=True, dirty=need_reconnect)
+                            tree, ch, 'height_blend', 'Height Blend', 
+                            return_status=True, dirty=need_reconnect
+                        )
 
                         height_blend.blend_type = 'MIX'
 
@@ -1940,8 +1969,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     else: lib_name = lib.STRAIGHT_OVER_HEIGHT_ADD
 
                     height_blend, need_reconnect = replace_new_node(
-                            tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                            lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
+                        tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
+                        lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
 
                     if write_height:
                         height_blend.inputs['Divide'].default_value = 1.0
@@ -1949,12 +1979,14 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 else:
                     if root_ch.enable_smooth_bump:
                         height_blend, need_reconnect = replace_new_node(
-                                tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                                lib.HEIGHT_ADD_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect)
+                            tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
+                            lib.HEIGHT_ADD_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect
+                        )
                     else:
                         height_blend, need_reconnect = replace_new_mix_node(
-                                tree, ch, 'height_blend', 'Height Blend', 
-                                return_status=True, dirty=need_reconnect)
+                            tree, ch, 'height_blend', 'Height Blend', 
+                            return_status=True, dirty=need_reconnect
+                        )
 
                         height_blend.blend_type = 'ADD'
 
@@ -1970,8 +2002,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 else: lib_name = lib.HEIGHT_COMPARE
 
             height_blend, need_reconnect = replace_new_node(
-                    tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                    lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
+                tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
+                lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+            )
     else:
         if remove_node(tree, ch, 'height_proc'): need_reconnect = True
         if remove_node(tree, ch, 'height_blend'): need_reconnect = True
@@ -2022,14 +2055,16 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         if lib_name == '':
             normal_proc, need_reconnect = replace_new_node(
-                    tree, ch, 'normal_proc', 'ShaderNodeNormalMap', 'Normal Process', 
-                    return_status = True, hard_replace=True, dirty=need_reconnect)
+                tree, ch, 'normal_proc', 'ShaderNodeNormalMap', 'Normal Process', 
+                return_status=True, hard_replace=True, dirty=need_reconnect
+            )
 
             normal_proc.uv_map = layer.uv_name
         else:
             normal_proc, need_reconnect = replace_new_node(
-                    tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 
-                    lib_name, return_status = True, hard_replace=True, dirty=need_reconnect)
+                tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 
+                lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+            )
 
         if 'Max Height' in normal_proc.inputs:
             normal_proc.inputs['Max Height'].default_value = max_height
@@ -2069,8 +2104,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         else:
             if remove_node(tree, ch, 'vdisp_flip_yz'): need_reconnect = True
 
-        vdisp_proc, need_reconnect = replace_new_mix_node(tree, ch, 'vdisp_proc', 
-                'Vector Displacement Process', return_status = True, hard_replace=True, dirty=need_reconnect)
+        vdisp_proc, need_reconnect = replace_new_mix_node(
+            tree, ch, 'vdisp_proc', 'Vector Displacement Process',
+            return_status=True, hard_replace=True, dirty=need_reconnect
+        )
         vdisp_proc.blend_type = 'MULTIPLY'
         vdisp_proc.inputs[0].default_value = 1.0
     else:
@@ -2256,38 +2293,47 @@ def check_blend_type_nodes(root_ch, layer, ch):
             if root_ch.type == 'RGB':
                 if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
 
-                    if (layer.type == 'BACKGROUND' and not 
+                    if (
+                            layer.type == 'BACKGROUND' and not 
                             (ch.enable_transition_ramp and ch.transition_ramp_intensity_unlink 
                                 and ch.transition_ramp_blend_type == 'MIX') and not 
                             (ch.enable_transition_ramp and layer.parent_idx != -1 and ch.transition_ramp_blend_type == 'MIX')
-                            ):
-                        blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                                'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True, 
-                                hard_replace=True, dirty=need_reconnect)
+                        ):
+                        blend, need_reconnect = replace_new_node(
+                            tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG,
+                            return_status=True, hard_replace=True, dirty=need_reconnect
+                        )
 
                     else: 
-                        blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                                'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, 
-                                return_status = True, hard_replace=True, dirty=need_reconnect)
+                        blend, need_reconnect = replace_new_node(
+                            tree, ch, 'blend',  'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, 
+                            return_status=True, hard_replace=True, dirty=need_reconnect
+                        )
 
                 else:
-                    blend, need_reconnect = replace_new_mix_node(tree, ch, 'blend', 
-                            'Blend', return_status = True, hard_replace=True, dirty=need_reconnect)
+                    blend, need_reconnect = replace_new_mix_node(
+                        tree, ch, 'blend', 'Blend',
+                        return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
             elif root_ch.type == 'VALUE':
 
                 if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
                     if layer.type == 'BACKGROUND':
-                        blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                                'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, 
-                                return_status = True, hard_replace=True, dirty=need_reconnect)
+                        blend, need_reconnect = replace_new_node(
+                            tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, 
+                            return_status=True, hard_replace=True, dirty=need_reconnect
+                        )
                     else:
-                        blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                                'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, 
-                                return_status = True, hard_replace=True, dirty=need_reconnect)
+                        blend, need_reconnect = replace_new_node(
+                            tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, 
+                            return_status=True, hard_replace=True, dirty=need_reconnect
+                        )
                 else:
 
-                    blend, need_reconnect = replace_new_mix_node(tree, ch, 'blend', 
-                            'Blend', return_status = True, hard_replace=True, dirty=need_reconnect)
+                    blend, need_reconnect = replace_new_mix_node(
+                        tree, ch, 'blend', 'Blend',
+                        return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
 
             if blend.type in {'MIX_RGB', 'MIX'} and blend.blend_type != blend_type:
                 blend.blend_type = blend_type
@@ -2317,33 +2363,40 @@ def check_blend_type_nodes(root_ch, layer, ch):
             #if has_parent and ch.normal_blend_type == 'MIX':
             if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
                 if layer.type == 'BACKGROUND':
-                    blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                            'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
-                            return_status = True, hard_replace=True, dirty=need_reconnect)
+                    blend, need_reconnect = replace_new_node(
+                        tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
+                        return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
                 else:
-                    blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                            'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, 
-                            return_status = True, hard_replace=True, dirty=need_reconnect)
+                    blend, need_reconnect = replace_new_node(
+                        tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, 
+                        return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
 
             elif ch.normal_blend_type == 'OVERLAY':
                 if has_parent:
-                    blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                            'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL_STRAIGHT_OVER, 
-                            return_status = True, hard_replace=True, dirty=need_reconnect)
+                    blend, need_reconnect = replace_new_node(
+                        tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL_STRAIGHT_OVER, 
+                        return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
                 else:
-                    blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                            'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
-                            return_status = True, hard_replace=True, dirty=need_reconnect)
+                    blend, need_reconnect = replace_new_node(
+                        tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
+                        return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
 
             elif ch.normal_blend_type in {'MIX', 'COMPARE'}:
-                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
-                        return_status = True, hard_replace=True, dirty=need_reconnect)
+                blend, need_reconnect = replace_new_node(
+                    tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
+                    return_status=True, hard_replace=True, dirty=need_reconnect
+                )
 
         elif channel_enabled and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
 
-            blend, need_reconnect = replace_new_mix_node(tree, ch, 'blend', 
-                    'Blend', return_status = True, hard_replace=True, dirty=need_reconnect)
+            blend, need_reconnect = replace_new_mix_node(
+                tree, ch, 'blend', 'Blend',
+                return_status=True, hard_replace=True, dirty=need_reconnect
+            )
             blend.blend_type = 'ADD' if ch.normal_blend_type == 'OVERLAY' else 'MIX'
 
         else:
