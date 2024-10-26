@@ -96,7 +96,7 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
     # Set object to active
     bpy.context.view_layer.objects.active = obj
     if obj.mode != 'OBJECT':
-        bpy.ops.object.mode_set(mode = 'OBJECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
 
@@ -164,15 +164,15 @@ def get_offset_attributes(base, sclupted_mesh, layer_disabled_mesh=None, intensi
         return None, None
 
     # Get coordinates for each vertices
-    base_arr = numpy.zeros(len(base.data.vertices)*3, dtype=numpy.float32)
+    base_arr = numpy.zeros(len(base.data.vertices) * 3, dtype=numpy.float32)
     base.data.vertices.foreach_get('co', base_arr)
 
-    sculpted_arr = numpy.zeros(len(sclupted_mesh.data.vertices)*3, dtype=numpy.float32)
+    sculpted_arr = numpy.zeros(len(sclupted_mesh.data.vertices) * 3, dtype=numpy.float32)
     sclupted_mesh.data.vertices.foreach_get('co', sculpted_arr)
 
     if layer_disabled_mesh:
 
-        layer_disabled_arr = numpy.zeros(len(layer_disabled_mesh.data.vertices)*3, dtype=numpy.float32)
+        layer_disabled_arr = numpy.zeros(len(layer_disabled_mesh.data.vertices) * 3, dtype=numpy.float32)
         layer_disabled_mesh.data.vertices.foreach_get('co', layer_disabled_arr)
     
         sculpted_arr = numpy.subtract(sculpted_arr, base_arr)
@@ -191,7 +191,7 @@ def get_offset_attributes(base, sclupted_mesh, layer_disabled_mesh=None, intensi
         offset = numpy.divide(offset, intensity)
 
     max_value = numpy.abs(offset).max()  
-    offset.shape = (offset.shape[0]//3, 3)
+    offset.shape = (offset.shape[0] // 3, 3)
     
     # Create new attribute to store the offset
     att = base.data.attributes.get(OFFSET_ATTR)
@@ -246,7 +246,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     temp0 = obj.copy()
     link_object(scene, temp0)
     temp0.data = temp0.data.copy()
-    temp0.location = obj.location + Vector(((obj.dimensions[0]+0.1)*1, 0.0, 0.0))     
+    temp0.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
 
     # Delete multires and shape keys
     set_active_object(temp0)
@@ -276,7 +276,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     temp2 = obj.copy()
     link_object(scene, temp2)
     temp2.data = temp2.data.copy()
-    temp2.location = obj.location + Vector(((obj.dimensions[0]+0.1)*3, 0.0, 0.0))
+    temp2.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 3, 0.0, 0.0))
     
     # Apply multires
     set_active_object(temp2)
@@ -296,7 +296,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
         temp1 = temp0.copy()
         link_object(scene, temp1)
         temp1.data = temp1.data.copy()
-        temp1.location = obj.location + Vector(((obj.dimensions[0]+0.1)*2, 0.0, 0.0))
+        temp1.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 2, 0.0, 0.0))
         set_active_object(temp1)
 
         vdm_loader = get_vdm_loader_geotree(uv_name, layer_disabled_vdm_image, tanimage, bitimage)
@@ -408,9 +408,11 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     else: image_name = obj.name + '_' + uv_name + TEMP_COMBINED_VDM_IMAGE_SUFFIX
 
     # Create combined vdm image
-    image = bpy.data.images.new(name=image_name,
-            width=width, height=height, alpha=False, float_buffer=True)
-    image.generated_color = (0,0,0,1)
+    image = bpy.data.images.new(
+        name=image_name, width=width, height=height,
+        alpha=False, float_buffer=True
+    )
+    image.generated_color = (0, 0, 0, 1)
 
     # Get output node and remember original bsdf input
     mat_out = get_active_mat_output_node(mat.node_tree)
@@ -509,7 +511,7 @@ def get_tangent_bitangent_images(obj, uv_name):
         link_object(scene, temp)
         temp.data = temp.data.copy()
         context.view_layer.objects.active = temp
-        temp.location += Vector(((obj.dimensions[0]+0.1)*1, 0.0, 0.0))     
+        temp.location += Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
 
         # Set active uv
         uv_layers = get_uv_layers(temp)
@@ -569,9 +571,11 @@ def get_tangent_bitangent_images(obj, uv_name):
         _prepare_bake_settings(book, temp, uv_name)     
 
         if not tanimage:
-            tanimage = bpy.data.images.new(name=tanimage_name,
-                    width=1024, height=1024, alpha=False, float_buffer=True)
-            tanimage.generated_color = (0,0,0,1)
+            tanimage = bpy.data.images.new(
+                name=tanimage_name, width=1024, height=1024,
+                alpha=False, float_buffer=True
+            )
+            tanimage.generated_color = (0, 0, 0, 1)
 
             # Set bake tangent material
             temp.data.materials.clear()
@@ -586,9 +590,11 @@ def get_tangent_bitangent_images(obj, uv_name):
 
         if not bitimage:
 
-            bitimage = bpy.data.images.new(name=bitimage_name,
-                    width=1024, height=1024, alpha=False, float_buffer=True)
-            bitimage.generated_color = (0,0,0,1)
+            bitimage = bpy.data.images.new(
+                name=bitimage_name, width=1024, height=1024,
+                alpha=False, float_buffer=True
+            )
+            bitimage.generated_color = (0, 0, 0, 1)
 
             # Set bake bitangent material
             temp.data.materials.clear()
@@ -604,8 +610,8 @@ def get_tangent_bitangent_images(obj, uv_name):
         # Pack tangent and bitangent images so they won't lost their data
         tanimage.pack()
         bitimage.pack()
-        tanimage.use_fake_user=True
-        bitimage.use_fake_user=True
+        tanimage.use_fake_user = True
+        bitimage.use_fake_user = True
 
         # Revover bake settings
         _recover_bake_settings(book, True)
@@ -730,7 +736,7 @@ class YSculptImage(bpy.types.Operator):
         link_object(scene, temp)
         temp.data = temp.data.copy()
         context.view_layer.objects.active = temp
-        temp.location += Vector(((obj.dimensions[0]+0.1)*1, 0.0, 0.0))     
+        temp.location += Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
 
         # Select temp object
         set_active_object(temp)

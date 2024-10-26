@@ -171,13 +171,14 @@ class YHideTransitionEffect(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
-            name = 'Type',
-            items = (
-                ('BUMP', 'Bump', ''),
-                ('RAMP', 'Ramp', ''),
-                ('AO', 'AO', ''),
-                ),
-            default = 'BUMP')
+        name = 'Type',
+        items = (
+            ('BUMP', 'Bump', ''),
+            ('RAMP', 'Ramp', ''),
+            ('AO', 'AO', ''),
+        ),
+        default = 'BUMP'
+    )
 
     @classmethod
     def poll(cls, context):

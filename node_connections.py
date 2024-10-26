@@ -318,34 +318,25 @@ def reconnect_relief_mapping_nodes(yp, node):
 
     loop = node.node_tree.nodes.get('_linear_search')
     if loop:
-        loop_start = loop.node_tree.nodes.get(TREE_START)
-        loop_end = loop.node_tree.nodes.get(TREE_END)
+        tree = loop.node_tree
+        loop_start = tree.nodes.get(TREE_START)
+        loop_end = tree.nodes.get(TREE_END)
         prev_it = None
 
         for i in range (parallax_ch.parallax_num_of_linear_samples):
-            it = loop.node_tree.nodes.get('_iterate_' + str(i))
+            it = tree.nodes.get('_iterate_' + str(i))
             if not prev_it:
-                create_link(loop.node_tree, 
-                        loop_start.outputs['t'], it.inputs['t'])
+                create_link(tree, loop_start.outputs['t'], it.inputs['t'])
             else:
-                create_link(loop.node_tree, 
-                        prev_it.outputs['t'], it.inputs['t'])
+                create_link(tree, prev_it.outputs['t'], it.inputs['t'])
 
-            create_link(loop.node_tree,
-                    loop_start.outputs['tx'], it.inputs['tx'])
+            create_link(tree, loop_start.outputs['tx'], it.inputs['tx'])
+            create_link(tree, loop_start.outputs['v'], it.inputs['v'])
+            create_link(tree, loop_start.outputs['dataz'], it.inputs['dataz'])
+            create_link(tree, loop_start.outputs['size'], it.inputs['size'])
 
-            create_link(loop.node_tree,
-                    loop_start.outputs['v'], it.inputs['v'])
-
-            create_link(loop.node_tree,
-                    loop_start.outputs['dataz'], it.inputs['dataz'])
-
-            create_link(loop.node_tree,
-                    loop_start.outputs['size'], it.inputs['size'])
-
-            if i == parallax_ch.parallax_num_of_linear_samples-1:
-                create_link(loop.node_tree, 
-                        it.outputs['t'], loop_end.inputs['t'])
+            if i == parallax_ch.parallax_num_of_linear_samples - 1:
+                create_link(tree, it.outputs['t'], loop_end.inputs['t'])
 
             prev_it = it
 
@@ -354,34 +345,23 @@ def reconnect_relief_mapping_nodes(yp, node):
         loop_start = loop.node_tree.nodes.get(TREE_START)
         loop_end = loop.node_tree.nodes.get(TREE_END)
         prev_it = None
+        tree = loop.node_tree
 
         for i in range (parallax_ch.parallax_num_of_binary_samples):
-            it = loop.node_tree.nodes.get('_iterate_' + str(i))
+            it = tree.nodes.get('_iterate_' + str(i))
             if not prev_it:
-                create_link(loop.node_tree, 
-                        loop_start.outputs['t'], it.inputs['t'])
-
-                create_link(loop.node_tree, 
-                        loop_start.outputs['size'], it.inputs['size'])
+                create_link(tree, loop_start.outputs['t'], it.inputs['t'])
+                create_link(tree, loop_start.outputs['size'], it.inputs['size'])
             else:
-                create_link(loop.node_tree, 
-                        prev_it.outputs['t'], it.inputs['t'])
+                create_link(tree, prev_it.outputs['t'], it.inputs['t'])
+                create_link(tree, prev_it.outputs['size'], it.inputs['size'])
 
-                create_link(loop.node_tree, 
-                        prev_it.outputs['size'], it.inputs['size'])
+            create_link(tree, loop_start.outputs['tx'], it.inputs['tx'])
+            create_link(tree, loop_start.outputs['v'], it.inputs['v'])
+            create_link(tree, loop_start.outputs['dataz'], it.inputs['dataz'])
 
-            create_link(loop.node_tree,
-                    loop_start.outputs['tx'], it.inputs['tx'])
-
-            create_link(loop.node_tree,
-                    loop_start.outputs['v'], it.inputs['v'])
-
-            create_link(loop.node_tree,
-                    loop_start.outputs['dataz'], it.inputs['dataz'])
-
-            if i == parallax_ch.parallax_num_of_binary_samples-1:
-                create_link(loop.node_tree, 
-                        it.outputs['t'], loop_end.inputs['t'])
+            if i == parallax_ch.parallax_num_of_binary_samples - 1:
+                create_link(tree, it.outputs['t'], loop_end.inputs['t'])
 
             prev_it = it
 
@@ -557,37 +537,26 @@ def reconnect_baked_parallax_layer_nodes(yp, node):
         loop_start = loop.node_tree.nodes.get(TREE_START)
         loop_end = loop.node_tree.nodes.get(TREE_END)
         prev_it = None
+        tree = loop.node_tree
 
         for i in range (num_of_layers):
-            it = loop.node_tree.nodes.get('_iterate_' + str(i))
+            it = tree.nodes.get('_iterate_' + str(i))
             if not prev_it:
-                create_link(loop.node_tree, 
-                        loop_start.outputs['cur_uv'], it.inputs['cur_uv'])
-                create_link(loop.node_tree, 
-                        loop_start.outputs['cur_layer_depth'], it.inputs['cur_layer_depth'])
-                create_link(loop.node_tree, 
-                        loop_start.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
+                create_link(tree, loop_start.outputs['cur_uv'], it.inputs['cur_uv'])
+                create_link(tree, loop_start.outputs['cur_layer_depth'], it.inputs['cur_layer_depth'])
+                create_link(tree, loop_start.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
             else:
-                create_link(loop.node_tree, 
-                        prev_it.outputs['cur_uv'], it.inputs['cur_uv'])
-                create_link(loop.node_tree, 
-                        prev_it.outputs['cur_layer_depth'], it.inputs['cur_layer_depth'])
-                create_link(loop.node_tree, 
-                        prev_it.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
+                create_link(tree, prev_it.outputs['cur_uv'], it.inputs['cur_uv'])
+                create_link(tree, prev_it.outputs['cur_layer_depth'], it.inputs['cur_layer_depth'])
+                create_link(tree, prev_it.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
 
-            create_link(loop.node_tree,
-                    loop_start.outputs['delta_uv'], it.inputs['delta_uv'])
-
-            create_link(loop.node_tree,
-                    loop_start.outputs['layer_depth'], it.inputs['layer_depth'])
+            create_link(tree, loop_start.outputs['delta_uv'], it.inputs['delta_uv'])
+            create_link(tree, loop_start.outputs['layer_depth'], it.inputs['layer_depth'])
 
             if i == num_of_layers-1:
-                create_link(loop.node_tree, 
-                        it.outputs['cur_uv'], loop_end.inputs['cur_uv'])
-                create_link(loop.node_tree, 
-                        it.outputs['cur_layer_depth'], loop_end.inputs['cur_layer_depth'])
-                create_link(loop.node_tree, 
-                        it.outputs['depth_from_tex'], loop_end.inputs['depth_from_tex'])
+                create_link(tree, it.outputs['cur_uv'], loop_end.inputs['cur_uv'])
+                create_link(tree, it.outputs['cur_layer_depth'], loop_end.inputs['cur_layer_depth'])
+                create_link(tree, it.outputs['depth_from_tex'], loop_end.inputs['depth_from_tex'])
 
             prev_it = it
 
@@ -675,10 +644,16 @@ def reconnect_parallax_process_nodes(group_tree, parallax, baked=False, uv_name=
             create_link(depth_source_0.node_tree, height_map.outputs[0], depth_end.inputs[0])
 
         # Inside iteration
-        create_link(iterate.node_tree, 
-                iterate_start.outputs[uv.name + START_UV], iterate_depth.inputs[uv.name + START_UV])
-        create_link(iterate.node_tree, 
-                iterate_start.outputs[uv.name + DELTA_UV], iterate_depth.inputs[uv.name + DELTA_UV])
+        create_link(
+            iterate.node_tree, 
+            iterate_start.outputs[uv.name + START_UV],
+            iterate_depth.inputs[uv.name + START_UV]
+        )
+        create_link(
+            iterate.node_tree, 
+            iterate_start.outputs[uv.name + DELTA_UV],
+            iterate_depth.inputs[uv.name + DELTA_UV]
+        )
 
         if baked: parallax_current_uv_mix = iterate.node_tree.nodes.get(uv.baked_parallax_current_uv_mix)
         else: parallax_current_uv_mix = iterate.node_tree.nodes.get(uv.parallax_current_uv_mix)
@@ -686,13 +661,22 @@ def reconnect_parallax_process_nodes(group_tree, parallax, baked=False, uv_name=
         mixcol0, mixcol1, mixout = get_mix_color_indices(parallax_current_uv_mix)
 
         create_link(iterate.node_tree, iterate_branch.outputs[0], parallax_current_uv_mix.inputs[0])
-        create_link(iterate.node_tree, 
-                iterate_depth.outputs[uv.name + CURRENT_UV], parallax_current_uv_mix.inputs[mixcol0])
-        create_link(iterate.node_tree, 
-                iterate_start.outputs[uv.name + CURRENT_UV], parallax_current_uv_mix.inputs[mixcol1])
 
-        create_link(iterate.node_tree, 
-                parallax_current_uv_mix.outputs[mixout], iterate_end.inputs[uv.name + CURRENT_UV])
+        create_link(
+            iterate.node_tree, 
+            iterate_depth.outputs[uv.name + CURRENT_UV],
+            parallax_current_uv_mix.inputs[mixcol0]
+        )
+        create_link(
+            iterate.node_tree, 
+            iterate_start.outputs[uv.name + CURRENT_UV],
+            parallax_current_uv_mix.inputs[mixcol1]
+        )
+        create_link(
+            iterate.node_tree, 
+            parallax_current_uv_mix.outputs[mixout],
+            iterate_end.inputs[uv.name + CURRENT_UV]
+        )
 
     if not baked:
         for tc in texcoord_lists:
@@ -736,22 +720,37 @@ def reconnect_parallax_process_nodes(group_tree, parallax, baked=False, uv_name=
             create_link(depth_source_0.node_tree, current_uv.outputs[0], depth_end.inputs[base_name + CURRENT_UV])
 
             # Inside iteration
-            create_link(iterate.node_tree, 
-                    iterate_start.outputs[base_name + START_UV], iterate_depth.inputs[base_name + START_UV])
-            create_link(iterate.node_tree, 
-                    iterate_start.outputs[base_name + DELTA_UV], iterate_depth.inputs[base_name + DELTA_UV])
+            create_link(
+                iterate.node_tree, 
+                iterate_start.outputs[base_name + START_UV],
+                iterate_depth.inputs[base_name + START_UV]
+            )
+            create_link(
+                iterate.node_tree, 
+                iterate_start.outputs[base_name + DELTA_UV],
+                iterate_depth.inputs[base_name + DELTA_UV]
+            )
 
             parallax_current_uv_mix = iterate.node_tree.nodes.get(PARALLAX_CURRENT_MIX_PREFIX + base_name)
             mixcol0, mixcol1, mixout = get_mix_color_indices(parallax_current_uv_mix)
 
             create_link(iterate.node_tree, iterate_branch.outputs[0], parallax_current_uv_mix.inputs[0])
-            create_link(iterate.node_tree, 
-                    iterate_depth.outputs[base_name + CURRENT_UV], parallax_current_uv_mix.inputs[mixcol0])
-            create_link(iterate.node_tree, 
-                    iterate_start.outputs[base_name + CURRENT_UV], parallax_current_uv_mix.inputs[mixcol1])
+            create_link(
+                iterate.node_tree, 
+                iterate_depth.outputs[base_name + CURRENT_UV],
+                parallax_current_uv_mix.inputs[mixcol0]
+            )
+            create_link(
+                iterate.node_tree,
+                iterate_start.outputs[base_name + CURRENT_UV],
+                parallax_current_uv_mix.inputs[mixcol1]
+            )
 
-            create_link(iterate.node_tree, 
-                    parallax_current_uv_mix.outputs[mixout], iterate_end.inputs[base_name + CURRENT_UV])
+            create_link(
+                iterate.node_tree, 
+                parallax_current_uv_mix.outputs[mixout],
+                iterate_end.inputs[base_name + CURRENT_UV]
+            )
 
     #reconnect_parallax_layer_nodes(group_tree, parallax, uv_name)
     #reconnect_parallax_layer_nodes_(group_tree, parallax, uv_name)
@@ -1340,11 +1339,20 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 outputs = create_link(tree, height_w, node.inputs[io_height_w_name])
                 if io_height_w_name in outputs: height_w = outputs[io_height_w_name]
 
-            if height_alpha and io_height_alpha_name in node.inputs: height_alpha = create_link(tree, height_alpha, node.inputs[io_height_alpha_name])[io_height_alpha_name]
-            if height_n_alpha and io_height_n_alpha_name in node.inputs: height_n_alpha = create_link(tree, height_n_alpha, node.inputs[io_height_n_alpha_name])[io_height_n_alpha_name]
-            if height_s_alpha and io_height_s_alpha_name in node.inputs: height_s_alpha = create_link(tree, height_s_alpha, node.inputs[io_height_s_alpha_name])[io_height_s_alpha_name]
-            if height_e_alpha and io_height_e_alpha_name in node.inputs: height_e_alpha = create_link(tree, height_e_alpha, node.inputs[io_height_e_alpha_name])[io_height_e_alpha_name]
-            if height_w_alpha and io_height_w_alpha_name in node.inputs: height_w_alpha = create_link(tree, height_w_alpha, node.inputs[io_height_w_alpha_name])[io_height_w_alpha_name]
+            if height_alpha and io_height_alpha_name in node.inputs:
+                height_alpha = create_link(tree, height_alpha, node.inputs[io_height_alpha_name])[io_height_alpha_name]
+
+            if height_n_alpha and io_height_n_alpha_name in node.inputs:
+                height_n_alpha = create_link(tree, height_n_alpha, node.inputs[io_height_n_alpha_name])[io_height_n_alpha_name]
+
+            if height_s_alpha and io_height_s_alpha_name in node.inputs:
+                height_s_alpha = create_link(tree, height_s_alpha, node.inputs[io_height_s_alpha_name])[io_height_s_alpha_name]
+
+            if height_e_alpha and io_height_e_alpha_name in node.inputs:
+                height_e_alpha = create_link(tree, height_e_alpha, node.inputs[io_height_e_alpha_name])[io_height_e_alpha_name]
+
+            if height_w_alpha and io_height_w_alpha_name in node.inputs:
+                height_w_alpha = create_link(tree, height_w_alpha, node.inputs[io_height_w_alpha_name])[io_height_w_alpha_name]
 
             if max_height and io_max_height_name in node.inputs:
                 outps = create_link(tree, max_height, node.inputs[io_max_height_name])
@@ -1387,11 +1395,20 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     create_link(tree, max_height, end_linear.inputs['Max Height'])
 
                 if end_max_height_tweak:
-                    if height and 'Height' in end_max_height_tweak.inputs: height = create_link(tree, height, end_max_height_tweak.inputs['Height'])['Height']
-                    if height_n and 'Height N' in end_max_height_tweak.inputs: height_n = create_link(tree, height_n, end_max_height_tweak.inputs['Height N'])['Height N']
-                    if height_s and 'Height S' in end_max_height_tweak.inputs: height_s = create_link(tree, height_s, end_max_height_tweak.inputs['Height S'])['Height S']
-                    if height_e and 'Height E' in end_max_height_tweak.inputs: height_e = create_link(tree, height_e, end_max_height_tweak.inputs['Height E'])['Height E']
-                    if height_w and 'Height W' in end_max_height_tweak.inputs: height_w = create_link(tree, height_w, end_max_height_tweak.inputs['Height W'])['Height W']
+                    if height and 'Height' in end_max_height_tweak.inputs:
+                        height = create_link(tree, height, end_max_height_tweak.inputs['Height'])['Height']
+
+                    if height_n and 'Height N' in end_max_height_tweak.inputs:
+                        height_n = create_link(tree, height_n, end_max_height_tweak.inputs['Height N'])['Height N']
+
+                    if height_s and 'Height S' in end_max_height_tweak.inputs:
+                        height_s = create_link(tree, height_s, end_max_height_tweak.inputs['Height S'])['Height S']
+
+                    if height_e and 'Height E' in end_max_height_tweak.inputs:
+                        height_e = create_link(tree, height_e, end_max_height_tweak.inputs['Height E'])['Height E']
+
+                    if height_w and 'Height W' in end_max_height_tweak.inputs:
+                        height_w = create_link(tree, height_w, end_max_height_tweak.inputs['Height W'])['Height W']
 
                 if height and 'Height' in end_linear.inputs: height = create_link(tree, height, end_linear.inputs['Height'])[1]
                 if height_n and 'Height N' in end_linear.inputs: create_link(tree, height_n, end_linear.inputs['Height N'])
@@ -1900,12 +1917,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             pass
         else:
             start_rgb, start_alpha = reconnect_all_modifier_nodes(
-                    tree, layer, start_rgb, start_alpha, mod_group)
+                tree, layer, start_rgb, start_alpha, mod_group
+            )
 
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             mod_group_1 = nodes.get(layer.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
-                    tree, layer, source.outputs[1], get_essential_node(tree, ONE_VALUE)[0], mod_group_1)
+                tree, layer, source.outputs[1], get_essential_node(tree, ONE_VALUE)[0], mod_group_1
+            )
 
     # UV neighbor vertex color
     if layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'} and uv_neighbor:
@@ -3221,11 +3240,20 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         if prev_height_w: create_link(tree, prev_height_w, height_blend.inputs['Prev Height W'])
 
                     if height_proc: 
-                        if 'Height' in height_proc.outputs and 'Height' in height_blend.inputs: create_link(tree, height_proc.outputs['Height'], height_blend.inputs['Height'])
-                        if 'Height N' in height_proc.outputs and 'Height N' in height_blend.inputs: create_link(tree, height_proc.outputs['Height N'], height_blend.inputs['Height N'])
-                        if 'Height S' in height_proc.outputs and 'Height S' in height_blend.inputs: create_link(tree, height_proc.outputs['Height S'], height_blend.inputs['Height S'])
-                        if 'Height E' in height_proc.outputs and 'Height E' in height_blend.inputs: create_link(tree, height_proc.outputs['Height E'], height_blend.inputs['Height E'])
-                        if 'Height W' in height_proc.outputs and 'Height W' in height_blend.inputs: create_link(tree, height_proc.outputs['Height W'], height_blend.inputs['Height W'])
+                        if 'Height' in height_proc.outputs and 'Height' in height_blend.inputs:
+                            create_link(tree, height_proc.outputs['Height'], height_blend.inputs['Height'])
+
+                        if 'Height N' in height_proc.outputs and 'Height N' in height_blend.inputs:
+                            create_link(tree, height_proc.outputs['Height N'], height_blend.inputs['Height N'])
+
+                        if 'Height S' in height_proc.outputs and 'Height S' in height_blend.inputs:
+                            create_link(tree, height_proc.outputs['Height S'], height_blend.inputs['Height S'])
+
+                        if 'Height E' in height_proc.outputs and 'Height E' in height_blend.inputs:
+                            create_link(tree, height_proc.outputs['Height E'], height_blend.inputs['Height E'])
+
+                        if 'Height W' in height_proc.outputs and 'Height W' in height_blend.inputs:
+                            create_link(tree, height_proc.outputs['Height W'], height_blend.inputs['Height W'])
 
                     create_link(tree, height_alpha, height_blend.inputs['Alpha'])
 
@@ -3253,10 +3281,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         #if 'Height EW' in normal_proc.inputs:
                         #    create_link(tree, height_blend.outputs['Height EW'], normal_proc.inputs['Height EW'])
 
-                        if 'Height N' in normal_proc.inputs and 'Height N' in height_blend.outputs: create_link(tree, height_blend.outputs['Height N'], normal_proc.inputs['Height N'])
-                        if 'Height S' in normal_proc.inputs and 'Height S' in height_blend.outputs: create_link(tree, height_blend.outputs['Height S'], normal_proc.inputs['Height S'])
-                        if 'Height E' in normal_proc.inputs and 'Height E' in height_blend.outputs: create_link(tree, height_blend.outputs['Height E'], normal_proc.inputs['Height E'])
-                        if 'Height W' in normal_proc.inputs and 'Height W' in height_blend.outputs: create_link(tree, height_blend.outputs['Height W'], normal_proc.inputs['Height W'])
+                        if 'Height N' in normal_proc.inputs and 'Height N' in height_blend.outputs:
+                            create_link(tree, height_blend.outputs['Height N'], normal_proc.inputs['Height N'])
+
+                        if 'Height S' in normal_proc.inputs and 'Height S' in height_blend.outputs:
+                            create_link(tree, height_blend.outputs['Height S'], normal_proc.inputs['Height S'])
+
+                        if 'Height E' in normal_proc.inputs and 'Height E' in height_blend.outputs:
+                            create_link(tree, height_blend.outputs['Height E'], normal_proc.inputs['Height E'])
+
+                        if 'Height W' in normal_proc.inputs and 'Height W' in height_blend.outputs:
+                            create_link(tree, height_blend.outputs['Height W'], normal_proc.inputs['Height W'])
 
                 if 'Normal Alpha' in height_blend.outputs:
                     alpha = height_blend.outputs['Normal Alpha']

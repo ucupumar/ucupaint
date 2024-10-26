@@ -150,11 +150,12 @@ class YSelectFacesByVcol(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     color : FloatVectorProperty(
-            name='Color', size=4,
-            subtype='COLOR',
-            default=(1.0, 0.0, 1.0, 1.0),
-            min=0.0, max=1.0,
-            )
+        name = 'Color',
+        size = 4,
+        subtype = 'COLOR',
+        default = (1.0, 0.0, 1.0, 1.0),
+        min=0.0, max=1.0,
+    )
 
     #deselect : BoolProperty(
     #        name='Deselect Faces',
@@ -237,11 +238,12 @@ class YVcolFillFaceCustom(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     color : FloatVectorProperty(
-            name='Color ID', size=4,
-            subtype='COLOR',
-            default=(1.0, 0.0, 1.0, 1.0),
-            min=0.0, max=1.0,
-            )
+        name = 'Color ID',
+        size = 4,
+        subtype = 'COLOR',
+        default = (1.0, 0.0, 1.0, 1.0),
+        min=0.0, max=1.0,
+    )
 
     @classmethod
     def poll(cls, context):
@@ -341,15 +343,16 @@ class YVcolFill(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     color_option : EnumProperty(
-            name = 'Color Option',
-            description = 'Color Option',
-            items = (
-                ('WHITE', 'White', ''),
-                ('BLACK', 'Black', ''),
-                #('TRANSPARENT', 'Transparent', ''),
-                ('CUSTOM', 'Custom', ''),
-                ),
-            default='WHITE')
+        name = 'Color Option',
+        description = 'Color Option',
+        items = (
+            ('WHITE', 'White', ''),
+            ('BLACK', 'Black', ''),
+            #('TRANSPARENT', 'Transparent', ''),
+            ('CUSTOM', 'Custom', ''),
+        ),
+        default='WHITE'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -409,10 +412,10 @@ class YVcolFill(bpy.types.Operator):
             alpha = context.scene.ve_edit.color[3]
 
             if self.color_option == 'WHITE':
-                color = (1,1,1)
+                color = (1, 1, 1)
                 alpha = 1.0
             elif self.color_option == 'BLACK':
-                color = (0,0,0)
+                color = (0, 0, 0)
                 alpha = 1.0
             elif not is_bl_newer_than(3, 2):
                 color = linear_to_srgb(color)
@@ -566,11 +569,14 @@ class VIEW3D_PT_y_vcol_editor_tools(bpy.types.Panel):
         vcol_editor_draw(self, context)
 
 class YVcolEditorProps(bpy.types.PropertyGroup):
-    color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0)
+    color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(1.0, 1.0, 1.0, 1.0), min=0.0, max=1.0)
     #palette : PointerProperty(type=bpy.types.Palette)
 
-    show_vcol_list : BoolProperty(name='Show Vertex Color List',
-            description='Show vertex color list', default=True)
+    show_vcol_list : BoolProperty(
+        name = 'Show Vertex Color List',
+        description = 'Show vertex color list',
+        default = True
+    )
 
     ori_blending_mode : StringProperty(default='')
     ori_brush : StringProperty(default='')

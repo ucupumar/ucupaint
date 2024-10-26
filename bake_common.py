@@ -8,15 +8,15 @@ from . import lib, Layer, ImageAtlas, UDIM
 BL28_HACK = True
 
 BAKE_PROBLEMATIC_MODIFIERS = {
-        'MIRROR',
-        'SOLIDIFY',
-        'ARRAY',
-        }
+    'MIRROR',
+    'SOLIDIFY',
+    'ARRAY',
+}
 
 JOIN_PROBLEMATIC_TEXCOORDS = {
-        'Object',
-        'Generated',
-        }
+    'Object',
+    'Generated',
+}
 
 EMPTY_IMG_NODE = '___EMPTY_IMAGE__'
 ACTIVE_UV_NODE = '___ACTIVE_UV__'
@@ -252,7 +252,6 @@ def add_active_render_uv_node(tree, active_render_uv_name):
             add_active_render_uv_node(n.node_tree, active_render_uv_name)
 
 def prepare_other_objs_channels(yp, other_objs):
-
     ch_other_objects = []
     ch_other_mats = []
     ch_other_sockets = []
@@ -290,7 +289,6 @@ def prepare_other_objs_channels(yp, other_objs):
                         m.use_nodes = True
 
             for mat in o.data.materials:
-
                 if mat == None: continue
                 if mat in mats: continue
                 if not mat.use_nodes: continue
@@ -366,11 +364,13 @@ def recover_other_objs_channels(other_objs, ori_mat_no_nodes):
 
     remove_temp_default_material()
 
-def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
+def prepare_bake_settings(
+        book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
-        source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name=''):
+        source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name=''
+    ):
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
@@ -1057,9 +1057,9 @@ def create_plane_on_object_mode():
 
     if not is_bl_newer_than(2, 77):
         bpy.ops.mesh.primitive_plane_add()
-        bpy.ops.object.mode_set(mode = 'EDIT')
+        bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.0)
-        bpy.ops.object.mode_set(mode = 'OBJECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
     else: 
         bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
 
@@ -1322,9 +1322,11 @@ def get_valid_filepath(img, use_hdr):
 
     return img.filepath
 
-def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
-                 aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
-                 use_float_for_displacement=False, use_float_for_normal=False):
+def bake_channel(
+        uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
+        aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
+        use_float_for_displacement=False, use_float_for_normal=False
+    ):
 
     print('BAKE CHANNEL: Baking', root_ch.name + ' channel...')
 
@@ -1442,8 +1444,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
             baked_normal_prep = tree.nodes.get(root_ch.baked_normal_prep)
             if not baked_normal_prep:
-                baked_normal_prep = new_node(tree, root_ch, 'baked_normal_prep', 'ShaderNodeGroup', 
-                        'Baked Normal Preparation')
+                baked_normal_prep = new_node(
+                    tree, root_ch, 'baked_normal_prep',
+                    'ShaderNodeGroup', 'Baked Normal Preparation'
+                )
                 if is_bl_newer_than(2, 80):
                     baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
                 else: baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP_LEGACY)
@@ -1511,8 +1515,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         if use_udim:
 
             # Create new udim image
-            img = bpy.data.images.new(name=img_name, width=width, height=height, 
-                    alpha=True, tiled=True) #float_buffer=hdr)
+            img = bpy.data.images.new(
+                name=img_name, width=width, height=height,
+                alpha=True, tiled=True
+            )
 
             # Fill tiles
             if segment:
@@ -1528,8 +1534,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         else:
             # Create new standard image
-            img = bpy.data.images.new(name=img_name,
-                    width=width, height=height, alpha=True) #, alpha=True, float_buffer=hdr)
+            img = bpy.data.images.new(
+                name=img_name, width=width, height=height, alpha=True
+            )
             img.generated_type = 'BLANK'
 
         # Set image base color
@@ -1604,8 +1611,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
                 baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
                 if not baked_normal_overlay:
-                    baked_normal_overlay = new_node(tree, root_ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
-                            'Baked ' + root_ch.name + ' Overlay Only')
+                    baked_normal_overlay = new_node(
+                        tree, root_ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
+                        'Baked ' + root_ch.name + ' Overlay Only'
+                    )
                     if hasattr(baked_normal_overlay, 'color_space'):
                         baked_normal_overlay.color_space = 'NONE'
 
@@ -1681,8 +1690,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
                 baked_vdisp = tree.nodes.get(root_ch.baked_vdisp)
                 if not baked_vdisp:
-                    baked_vdisp = new_node(tree, root_ch, 'baked_vdisp', 'ShaderNodeTexImage', 
-                            'Baked ' + root_ch.name + ' Vector Displacement')
+                    baked_vdisp = new_node(
+                        tree, root_ch, 'baked_vdisp', 'ShaderNodeTexImage', 
+                        'Baked ' + root_ch.name + ' Vector Displacement'
+                    )
                     if hasattr(baked_vdisp, 'color_space'):
                         baked_vdisp.color_space = 'NONE'
 
@@ -1717,8 +1728,11 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 tex.image = vdisp_img
 
                 # Bake setup 
-                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['VDISP']], 
-                        emit.inputs[0])
+                create_link(
+                    mat.node_tree,
+                    node.outputs[root_ch.name + io_suffix['VDISP']], 
+                    emit.inputs[0]
+                )
 
                 # Bake
                 print('BAKE CHANNEL: Baking vector displacement image of ' + root_ch.name + ' channel...')
@@ -1738,11 +1752,15 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
             # Create target image
             if UDIM.is_udim_supported():
-                mh_img = bpy.data.images.new(name='____MAXHEIGHT_TEMP', width=100, height=100, 
-                        alpha=False, tiled=False, float_buffer=True)
+                mh_img = bpy.data.images.new(
+                    name='____MAXHEIGHT_TEMP', width=100, height=100, 
+                    alpha=False, tiled=False, float_buffer=True
+                )
             else:
-                mh_img = bpy.data.images.new(name='____MAXHEIGHT_TEMP', width=100, height=100, 
-                        alpha=False, float_buffer=True)
+                mh_img = bpy.data.images.new(
+                    name='____MAXHEIGHT_TEMP', width=100, height=100, 
+                    alpha=False, float_buffer=True
+                )
 
             mh_img.colorspace_settings.name = get_noncolor_name()
             tex.image = mh_img
@@ -1791,8 +1809,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             # Create target image
             baked_disp = tree.nodes.get(root_ch.baked_disp)
             if not baked_disp:
-                baked_disp = new_node(tree, root_ch, 'baked_disp', 'ShaderNodeTexImage', 
-                        'Baked ' + root_ch.name + ' Displacement')
+                baked_disp = new_node(
+                    tree, root_ch, 'baked_disp', 'ShaderNodeTexImage', 
+                    'Baked ' + root_ch.name + ' Displacement'
+                )
                 if hasattr(baked_disp, 'color_space'):
                     baked_disp.color_space = 'NONE'
 
@@ -1836,10 +1856,15 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 spread_height = mat.node_tree.nodes.new('ShaderNodeGroup')
                 spread_height.node_tree = get_node_tree_lib(lib.SPREAD_NORMALIZED_HEIGHT)
 
-                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], 
-                        spread_height.inputs[0])
-                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], 
-                        spread_height.inputs[1])
+                create_link(
+                    mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], 
+                    spread_height.inputs[0]
+                )
+                create_link(
+                    mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], 
+                    spread_height.inputs[1]
+                )
+
                 create_link(mat.node_tree, spread_height.outputs[0], emit.inputs[0])
 
                 #create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], srgb2lin.inputs[0])
@@ -1974,8 +1999,10 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
     name = entity.name + ' Temp'
 
     # New target image
-    image = bpy.data.images.new(name=name,
-            width=width, height=height, alpha=True, float_buffer=hdr)
+    image = bpy.data.images.new(
+        name=name, width=width, height=height,
+        alpha=True, float_buffer=hdr
+    )
     image.colorspace_settings.name = get_noncolor_name()
 
     if entity.type == 'HEMI':
@@ -2186,7 +2213,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
     # Create new plane
-    bpy.ops.object.mode_set(mode = 'OBJECT')
+    bpy.ops.object.mode_set(mode='OBJECT')
     plane_obj = create_plane_on_object_mode()
 
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=margin, bake_device=bake_device)
@@ -2227,7 +2254,8 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
         if segment:
             new_segment = ImageAtlas.get_set_image_atlas_segment(
-                        width, height, image.yia.color, image.is_float, yp=yp) #, ypup.image_atlas_size)
+                width, height, image.yia.color, image.is_float, yp=yp
+            )
             scaled_img = new_segment.id_data
 
             ori_start_x = segment.width * segment.tile_x
@@ -2272,8 +2300,10 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
                     d.uv.y = start_y / scaled_img.size[1]
 
         else:
-            scaled_img = bpy.data.images.new(name='__TEMP__', 
-                width=width, height=height, alpha=True, float_buffer=image.is_float)
+            scaled_img = bpy.data.images.new(
+                name='__TEMP__', width=width, height=height,
+                alpha=True, float_buffer=image.is_float
+            )
             scaled_img.colorspace_settings.name = colorspace
             if image.filepath != '' and not image.packed_file:
                 scaled_img.filepath = image.filepath
@@ -2293,8 +2323,10 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
         if alpha_aware:
 
             # Create alpha image as bake target
-            alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
-                    width=width, height=height, alpha=True, float_buffer=image.is_float)
+            alpha_img = bpy.data.images.new(
+                name='__TEMP_ALPHA__', width=width, height=height,
+                alpha=True, float_buffer=image.is_float
+            )
             alpha_img.colorspace_settings.name = get_noncolor_name()
 
             # Retransform back uv
@@ -2417,39 +2449,51 @@ def get_output_uv_names_from_geometry_nodes(obj):
 
 class BaseBakeOperator():
     bake_device : EnumProperty(
-            name='Bake Device',
-            description='Device to use for baking',
-            items = (('GPU', 'GPU Compute', ''),
-                     ('CPU', 'CPU', '')),
-            default='CPU'
-            )
+        name = 'Bake Device',
+        description = 'Device to use for baking',
+        items = (
+            ('GPU', 'GPU Compute', ''),
+            ('CPU', 'CPU', '')
+        ),
+        default = 'CPU'
+    )
     
-    samples : IntProperty(name='Bake Samples', 
-            description='Bake Samples, more means less jagged on generated textures', 
-            default=1, min=1)
+    samples : IntProperty(
+        name = 'Bake Samples', 
+        description = 'Bake Samples, more means less jagged on generated textures', 
+        default=1, min=1
+    )
 
-    margin : IntProperty(name='Bake Margin',
-            description = 'Bake margin in pixels',
-            default=5, subtype='PIXEL')
+    margin : IntProperty(
+        name = 'Bake Margin',
+        description = 'Bake margin in pixels',
+        default = 5,
+        subtype = 'PIXEL'
+    )
 
-    margin_type : EnumProperty(name = 'Margin Type',
-            description = '',
-            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
-                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
-            default = 'ADJACENT_FACES')
+    margin_type : EnumProperty(
+        name = 'Margin Type',
+        description = '',
+        items = (
+            ('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+            ('EXTEND', 'Extend', 'Extend border pixels outwards')
+        ),
+        default = 'ADJACENT_FACES'
+    )
 
-    width : IntProperty(name='Width', default = 1024, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1024, min=1, max=16384)
+    width : IntProperty(name='Width', default=1024, min=1, max=16384)
+    height : IntProperty(name='Height', default=1024, min=1, max=16384)
 
     image_resolution : EnumProperty(
         name = 'Image Resolution',
         items = image_resolution_items,
-        default = '1024')
+        default = '1024'
+    )
     
     use_custom_resolution : BoolProperty(
-        name= 'Custom Resolution',
-        default=False,
-        description= 'Use custom Resolution to adjust the width and height individually'
+        name = 'Custom Resolution',
+        description = 'Use custom Resolution to adjust the width and height individually',
+        default = False
     )
 
     def invoke_operator(self, context):
@@ -2469,4 +2513,3 @@ class BaseBakeOperator():
     def check_operator(self, context):
         if not self.use_custom_resolution:
             self.height = self.width = int(self.image_resolution)
-

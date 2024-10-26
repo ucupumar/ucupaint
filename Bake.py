@@ -96,8 +96,10 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     # Create temp image as bake target
     if len(tilenums) > 1 or (segment and image.source == 'TILED'):
-        temp_image = bpy.data.images.new(name='__TEMP',
-                width=width, height=height, alpha=True, float_buffer=image.is_float, tiled=True)
+        temp_image = bpy.data.images.new(
+            name='__TEMP', width=width, height=height,
+            alpha=True, float_buffer=image.is_float, tiled=True
+        )
 
         # Fill tiles
         for tilenum in tilenums:
@@ -109,8 +111,10 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         else: UDIM.initial_pack_udim(temp_image, col, image.name)
 
     else:
-        temp_image = bpy.data.images.new(name='__TEMP',
-                width=width, height=height, alpha=True, float_buffer=image.is_float)
+        temp_image = bpy.data.images.new(
+            name='__TEMP', width=width, height=height,
+            alpha=True, float_buffer=image.is_float
+        )
 
     temp_image.colorspace_settings.name = image.colorspace_settings.name
     temp_image.generated_color = col
@@ -229,10 +233,12 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         UDIM.remove_udim_atlas_segment_by_name(image, segment.name, yp)
 
         # Create new segment
-        new_segment = UDIM.get_set_udim_atlas_segment(tilenums, 
-                width=width, height=height, color=col, 
-                colorspace=image.colorspace_settings.name, hdr=image.is_float, yp=yp, 
-                source_image=temp_image, source_tilenums=tilenums)
+        new_segment = UDIM.get_set_udim_atlas_segment(
+            tilenums, 
+            width=width, height=height, color=col, 
+            colorspace=image.colorspace_settings.name, hdr=image.is_float, yp=yp, 
+            source_image=temp_image, source_tilenums=tilenums
+        )
 
         # Set image
         if image != new_segment.id_data:
@@ -384,13 +390,17 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    remove_from_uv : BoolProperty(name='Delete From UV',
-            description = "Remove 'From UV' from objects",
-            default=False)
+    remove_from_uv : BoolProperty(
+        name = 'Delete From UV',
+        description = "Remove 'From UV' from objects",
+        default = False
+    )
 
-    reorder_uv_list : BoolProperty(name='Reorder UV',
-            description = "Reorder 'To UV' so it will have the same index as 'From UV'",
-            default=True)
+    reorder_uv_list : BoolProperty(
+        name = 'Reorder UV',
+        description = "Reorder 'To UV' so it will have the same index as 'From UV'",
+        default = True
+    )
 
     @classmethod
     def poll(cls, context):
@@ -485,9 +495,10 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
 
         # Prepare bake settings
         book = remember_before_bake(yp)
-        prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device, margin_type=self.margin_type
-                )
+        prepare_bake_settings(
+            book, objs, yp, samples=self.samples, margin=self.margin, 
+            uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device, margin_type=self.margin_type
+        )
         
         # Get entites to transfer
         entities = get_entities_to_transfer(yp, self.from_uv_map, self.uv_map)
@@ -533,7 +544,11 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
-        print('INFO: All layers and masks using', self.from_uv_map, 'are transferred to', self.uv_map, 'in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print(
+            'INFO: All layers and masks using', self.from_uv_map,
+            'are transferred to', self.uv_map,
+            'in', '{:0.2f}'.format(time.time() - T), 'seconds!'
+        )
 
         return {'FINISHED'}
 
@@ -622,9 +637,10 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
 
         # Prepare bake settings
         book = remember_before_bake(yp)
-        prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device, margin_type=self.margin_type
-                )
+        prepare_bake_settings(
+            book, objs, yp, samples=self.samples, margin=self.margin, 
+            uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device, margin_type=self.margin_type
+        )
 
         if self.entity.type == 'IMAGE':
             # Set other entites uv that using the same image or segment
@@ -643,7 +659,12 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
-        print('INFO:', self.entity.name, 'UV is transferred from', self.entity.uv_name, 'to', self.uv_map, 'at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print(
+            'INFO:', self.entity.name,
+            'UV is transferred from', self.entity.uv_name,
+            'to', self.uv_map,
+            'in', '{:0.2f}'.format(time.time() - T), 'seconds!'
+        )
 
         return {'FINISHED'}
 
@@ -678,17 +699,21 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
     layer_name : StringProperty(default='')
     image_name : StringProperty(default='')
 
-    width : IntProperty(name='Width', default = 1024, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1024, min=1, max=16384)
+    width : IntProperty(name='Width', default=1024, min=1, max=16384)
+    height : IntProperty(name='Height', default=1024, min=1, max=16384)
 
-    all_tiles : BoolProperty(name='Resize All Tiles',
-            description='Resize all tiles (when using UDIM atlas, only segment tiles will be resized)',
-            default=False)
+    all_tiles : BoolProperty(
+        name = 'Resize All Tiles',
+        description = 'Resize all tiles (when using UDIM atlas, only segment tiles will be resized)',
+        default = False
+    )
 
-    tile_number : EnumProperty(name='Tile Number',
-            description='Tile number that will be resized',
-            items = UDIM.udim_tilenum_items,
-            update=update_resize_image_tile_number)
+    tile_number : EnumProperty(
+        name = 'Tile Number',
+        description = 'Tile number that will be resized',
+        items = UDIM.udim_tilenum_items,
+        update = update_resize_image_tile_number
+    )
 
     @classmethod
     def poll(cls, context):
@@ -807,7 +832,10 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
             bpy.context.area.ui_type = ori_ui_type
 
         else:
-            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, bake_device=self.bake_device, yp=yp)
+            scaled_img, new_segment = resize_image(
+                image, self.width, self.height, image.colorspace_settings.name,
+                self.samples, 0, segment, bake_device=self.bake_device, yp=yp
+            )
 
             if new_segment:
                 entity.segment_name = new_segment.name
@@ -831,39 +859,46 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
     bl_options = {'REGISTER', 'UNDO'}
 
     all_materials : BoolProperty(
-            name='Bake All Materials',
-            description='Bake all materials with ucupaint nodes rather than just the active one',
-            default=False)
+        name = 'Bake All Materials',
+        description = 'Bake all materials with ucupaint nodes rather than just the active one',
+        default = False
+    )
 
     vcol_name : StringProperty(
-            name='Target Vertex Color Name', 
-            description="Target vertex color name, it will create one if it doesn't exist",
-            default='')
+        name = 'Target Vertex Color Name', 
+        description = "Target vertex color name, it will create one if it doesn't exist",
+        default = ''
+    )
     
     add_emission : BoolProperty(
-            name='Add Emission', 
-            description='Add the result with Emission Channel', 
-            default=False)
+        name = 'Add Emission', 
+        description = 'Add the result with Emission Channel', 
+        default = False
+    )
 
     emission_multiplier : FloatProperty(
-            name='Emission Multiplier',
-            description='Emission multiplier so the emission can be more visible on the result',
-            default=1.0, min=0.0)
+        name = 'Emission Multiplier',
+        description = 'Emission multiplier so the emission can be more visible on the result',
+        default=1.0, min=0.0
+    )
 
     force_first_index : BoolProperty(
-            name='Force First Index', 
-            description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
-            default=True)
+        name = 'Force First Index', 
+        description = "Force target vertex color to be first on the vertex colors list (useful for exporting)",
+        default = True
+    )
 
     include_alpha : BoolProperty(
-            name='Include Alpha',
-            description="Bake channel alpha to result (need channel enable alpha)",
-            default=False)
+        name = 'Include Alpha',
+        description = "Bake channel alpha to result (need channel enable alpha)",
+        default = False
+    )
 
     bake_to_alpha_only : BoolProperty(
-            name='Bake To Alpha Only',
-            description="Bake value into the alpha",
-            default=False)
+        name = 'Bake To Alpha Only',
+        description = "Bake value into the alpha",
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1024,7 +1059,10 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
                             p.material_index = active_mat_id
 
                 # Prepare bake settings
-                prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device=self.bake_device, bake_target='VERTEX_COLORS')
+                prepare_bake_settings(
+                    book, objs, yp, disable_problematic_modifiers=True,
+                    bake_device=self.bake_device, bake_target='VERTEX_COLORS'
+                )
 
                 # Get extra channel
                 extra_channel = None
@@ -1032,7 +1070,10 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
                     extra_channel = yp.channels.get('Emission')
 
                 # Bake channel
-                bake_to_vcol(mat, node, channel, objs, extra_channel, self.emission_multiplier, self.include_alpha or self.bake_to_alpha_only, self.vcol_name)
+                bake_to_vcol(
+                    mat, node, channel, objs, extra_channel, self.emission_multiplier,
+                    self.include_alpha or self.bake_to_alpha_only, self.vcol_name
+                )
 
                 for ob in objs:
                     # Recover material index
@@ -1053,8 +1094,9 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
     bl_options = {'UNDO'}
 
     also_del_vcol : BoolProperty(
-        name="Also delete the vertex color",
-        default=False)
+        name = "Also delete the vertex color",
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1167,68 +1209,85 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     interpolation : EnumProperty(
-            name = 'Image Interpolation Type',
-            description = 'Image interpolation type',
-            items = interpolation_type_items,
-            default = 'Linear')
+        name = 'Image Interpolation Type',
+        description = 'Image interpolation type',
+        items = interpolation_type_items,
+        default = 'Linear'
+    )
 
     #hdr : BoolProperty(name='32 bit Float', default=False)
 
-    only_active_channel : BoolProperty(name = 'Only Bake Active Channel',
-            description = 'Only bake active channel',
-            default = False)
+    only_active_channel : BoolProperty(
+        name = 'Only Bake Active Channel',
+        description = 'Only bake active channel',
+        default = False
+    )
 
-    fxaa : BoolProperty(name='Use FXAA', 
-            description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
-            default=True)
+    fxaa : BoolProperty(
+        name = 'Use FXAA', 
+        description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
+        default = True
+    )
 
     aa_level : IntProperty(
-        name='Anti Aliasing Level',
-        description='Super Sample Anti Aliasing Level (1=off)',
-        default=1, min=1, max=2)
+        name = 'Anti Aliasing Level',
+        description = 'Super Sample Anti Aliasing Level (1=off)',
+        default=1, min=1, max=2
+    )
 
-    denoise : BoolProperty(name='Use Denoise', 
-            description = "Use Denoise on baked images",
-            default=False)
+    denoise : BoolProperty(
+        name = 'Use Denoise', 
+        description = "Use Denoise on baked images",
+        default = False
+    )
 
     force_bake_all_polygons : BoolProperty(
-            name='Force Bake all Polygons',
-            description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
-            default=False)
+        name = 'Force Bake all Polygons',
+        description = 'Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
+        default = False
+    )
 
-    enable_bake_as_vcol : BoolProperty(name='Enable Bake As VCol',
-            description='Has any channel enabled Bake As Vertex Color',
-            default=False)
+    enable_bake_as_vcol : BoolProperty(
+        name = 'Enable Bake As VCol',
+        description = 'Has any channel enabled Bake As Vertex Color',
+        default = False
+    )
 
     vcol_force_first_ch_idx : EnumProperty(
-                name='Force First Vertex Color Channel',
-                description='Force the first channel after baking the Vertex Color',
-                items=bake_vcol_channel_items)
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
+        items = bake_vcol_channel_items
+    )
 
     vcol_force_first_ch_idx_bool : BoolProperty(
-                name='Force First Vertex Color Channel',
-                description='Force the first channel after baking the Vertex Color',
-                default=False)
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
+        default = False
+    )
 
     use_udim : BoolProperty(
-            name = 'Use UDIM Tiles',
-            description='Use UDIM Tiles',
-            default=False)
+        name = 'Use UDIM Tiles',
+        description = 'Use UDIM Tiles',
+        default = False
+    )
 
     use_float_for_normal : BoolProperty(
-            name = 'Use Float for Normal',
-            description='Use float image for baked normal',
-            default=False)
+        name = 'Use Float for Normal',
+        description = 'Use float image for baked normal',
+        default = False
+    )
 
     use_float_for_displacement : BoolProperty(
-            name = 'Use Float for Displacement',
-            description='Use float image for baked displacement',
-            default=False)
+        name = 'Use Float for Displacement',
+        description = 'Use float image for baked displacement',
+        default = False
+    )
     
     bake_disabled_layers : BoolProperty(
-            name = 'Bake Disabled Layers',  
-            description = 'Take disabled layers into account when baking',
-            default = False)
+        name = 'Bake Disabled Layers',  
+        description = 'Take disabled layers into account when baking',
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1541,8 +1600,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         height = self.height * self.aa_level
 
         # Prepare bake settings
-        prepare_bake_settings(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, 
-                bake_device=self.bake_device, margin_type=self.margin_type)
+        prepare_bake_settings(
+            book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, 
+            bake_device=self.bake_device, margin_type=self.margin_type
+        )
 
         # Get tilenums
         tilenums = UDIM.get_tile_numbers(objs, self.uv_map) if self.use_udim else [1001]
@@ -1559,10 +1620,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 use_hdr = not ch.use_clamp
-                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
-                             tilenums=tilenums, interpolation=self.interpolation, 
-                             use_float_for_displacement=self.use_float_for_displacement, 
-                             use_float_for_normal=self.use_float_for_normal)
+                bake_channel(
+                    self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
+                    tilenums=tilenums, interpolation=self.interpolation, 
+                    use_float_for_displacement=self.use_float_for_displacement, 
+                    use_float_for_normal=self.use_float_for_normal
+                )
 
         # Process baked images
         baked_images = []
@@ -1577,8 +1640,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                 # AA process
                 if self.aa_level > 1:
-                    resize_image(baked.image, self.width, self.height, 
-                            baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+                    resize_image(
+                        baked.image, self.width, self.height, 
+                        baked.image.colorspace_settings.name,
+                        alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                    )
 
                 # FXAA doesn't work with hdr image
                 if self.fxaa and ch.use_clamp:
@@ -1597,8 +1663,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                     # AA process
                     if self.aa_level > 1:
-                        resize_image(baked_disp.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+                        resize_image(
+                            baked_disp.image, self.width, self.height, 
+                            baked.image.colorspace_settings.name,
+                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                        )
 
                     # FXAA
                     if self.fxaa and not baked_disp.image.is_float:
@@ -1611,8 +1680,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                     # AA process
                     if self.aa_level > 1:
-                        resize_image(baked_normal_overlay.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+                        resize_image(
+                            baked_normal_overlay.image, self.width, self.height, 
+                            baked.image.colorspace_settings.name,
+                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                        )
                     # FXAA
                     if self.fxaa:
                         fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
@@ -1624,8 +1696,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                     # AA process
                     if self.aa_level > 1:
-                        resize_image(baked_vdisp.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+                        resize_image(
+                            baked_vdisp.image, self.width, self.height, 
+                            baked.image.colorspace_settings.name,
+                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                        )
 
                     baked_images.append(baked_vdisp.image)
 
@@ -1685,8 +1760,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 if not btimg:
                     # Set new bake target image
                     if len(tilenums) > 1:
-                        btimg = bpy.data.images.new(name=bt.name, width=self.width, height=self.height, 
-                                alpha=True, tiled=True, float_buffer=bt.use_float)
+                        btimg = bpy.data.images.new(
+                            name=bt.name, width=self.width, height=self.height, 
+                            alpha=True, tiled=True, float_buffer=bt.use_float
+                        )
                         btimg.colorspace_settings.name = get_noncolor_name()
                         btimg.filepath = filepath
 
@@ -1696,8 +1773,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                         UDIM.initial_pack_udim(btimg, color)
                     else:
-                        btimg = bpy.data.images.new(name=bt.name,
-                            width=self.width, height=self.height, alpha=True, float_buffer=bt.use_float)
+                        btimg = bpy.data.images.new(
+                            name=bt.name, width=self.width, height=self.height,
+                            alpha=True, float_buffer=bt.use_float
+                        )
                         btimg.colorspace_settings.name = get_noncolor_name()
                         btimg.filepath = filepath
                         btimg.generated_color = color
@@ -1746,7 +1825,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                                     UDIM.swap_tile(baked.image, 1001, tilenum)
 
                                 # Copy pixels
-                                copy_image_channel_pixels(baked.image, btimg, src_idx=subidx, dest_idx=i, invert_value=btc.invert_value)
+                                copy_image_channel_pixels(
+                                    baked.image, btimg, src_idx=subidx,
+                                    dest_idx=i, invert_value=btc.invert_value
+                                )
 
                                 # Swap tile again to recover
                                 if tilenum != 1001:
@@ -1818,7 +1900,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     real_force_first_ch_idx = -1
             # used to sort by channel
             current_vcol_order = 0
-            prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device=self.bake_device, bake_target='VERTEX_COLORS')
+            prepare_bake_settings(
+                book, objs, yp, disable_problematic_modifiers=True,
+                bake_device=self.bake_device, bake_target='VERTEX_COLORS'
+            )
             for ch in self.channels:
                 if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
                     # Check vertex color
@@ -2055,26 +2140,31 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
     bl_options = {'REGISTER', 'UNDO'}
 
     direction : EnumProperty(
-            name = 'Direction',
-            items = (('UP', 'Up', ''),
-                     ('DOWN', 'Down', '')),
-            default = 'UP')
+        name = 'Direction',
+        items = (
+            ('UP', 'Up', ''),
+            ('DOWN', 'Down', '')
+        ),
+        default = 'UP'
+    )
 
     channel_idx : EnumProperty(
-            name = 'Channel',
-            description = 'Channel for merge reference',
-            items = merge_channel_items)
-            #update=update_channel_idx_new_layer)
+        name = 'Channel',
+        description = 'Channel for merge reference',
+        items = merge_channel_items
+    )
 
     apply_modifiers : BoolProperty(
-            name = 'Apply Layer Modifiers',
-            description = 'Apply layer modifiers',
-            default = False)
+        name = 'Apply Layer Modifiers',
+        description = 'Apply layer modifiers',
+        default = False
+    )
 
     apply_neighbor_modifiers : BoolProperty(
-            name = 'Apply Neighbor Modifiers',
-            description = 'Apply neighbor modifiers',
-            default = True)
+        name = 'Apply Neighbor Modifiers',
+        description = 'Apply neighbor modifiers',
+        default = True
+    )
 
     #height_aware : BoolProperty(
     #        name = 'Height Aware',
@@ -2084,8 +2174,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
-        return (context.object and group_node and len(group_node.node_tree.yp.layers) > 0 
-                and len(group_node.node_tree.yp.channels) > 0)
+        return (
+            context.object and group_node
+                and len(group_node.node_tree.yp.layers) > 0 
+                and len(group_node.node_tree.yp.channels) > 0
+        )
 
     def invoke(self, context, event):
         self.invoke_operator(context)
@@ -2227,9 +2320,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
 
             book = remember_before_bake(yp)
-            prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
-                    uv_map=layer.uv_name, bake_type='EMIT', bake_device=self.bake_device
-                    )
+            prepare_bake_settings(
+                book, objs, yp, samples=1, margin=5, 
+                uv_map=layer.uv_name, bake_type='EMIT',
+                bake_device = self.bake_device
+            )
 
             # Merge objects if necessary
             temp_objs = []
@@ -2353,8 +2448,8 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
                 if upper_vcol and lower_vcol:
 
-                    cols = numpy.zeros(len(obj.data.loops)*4, dtype=numpy.float32)
-                    cols.shape = (cols.shape[0]//4, 4)
+                    cols = numpy.zeros(len(obj.data.loops) * 4, dtype=numpy.float32)
+                    cols.shape = (cols.shape[0] // 4, 4)
 
                     for i, l in enumerate(obj.data.loops):
                         cols[i] = blend_color_mix_byte(lower_vcol.data[i].color, upper_vcol.data[i].color, 
@@ -2409,10 +2504,13 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
     bl_options = {'UNDO'}
 
     direction : EnumProperty(
-            name = 'Direction',
-            items = (('UP', 'Up', ''),
-                     ('DOWN', 'Down', '')),
-            default = 'UP')
+        name = 'Direction',
+        items = (
+            ('UP', 'Up', ''),
+            ('DOWN', 'Down', '')
+        ),
+        default = 'UP'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -2428,10 +2526,10 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         index = int(m.group(2))
         if self.direction == 'UP':
-            try: neighbor_mask = layer.masks[index-1]
+            try: neighbor_mask = layer.masks[index - 1]
             except: neighbor_mask = None
         else:
-            try: neighbor_mask = layer.masks[index+1]
+            try: neighbor_mask = layer.masks[index + 1]
             except: neighbor_mask = None
 
         # Blender 2.7x has no global undo between modes
@@ -2483,9 +2581,9 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
         # Get neighbor index
         if self.direction == 'UP' and index > 0:
-            neighbor_idx = index-1
+            neighbor_idx = index - 1
         elif self.direction == 'DOWN' and index < num_masks-1:
-            neighbor_idx = index+1
+            neighbor_idx = index + 1
         else:
             self.report({'ERROR'}, "No valid neighbor mask!")
             return {'CANCELLED'}
@@ -2507,8 +2605,10 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             width = segment.width
             height = segment.height
 
-            img = bpy.data.images.new(name='__TEMP',
-                    width=width, height=height, alpha=True, float_buffer=source.image.is_float)
+            img = bpy.data.images.new(
+                name='__TEMP', width=width, height=height,
+                alpha=True, float_buffer=source.image.is_float
+            )
 
             if source.image.yia.color == 'WHITE':
                 img.generated_color = (1.0, 1.0, 1.0, 1.0)
@@ -2552,9 +2652,11 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         objs = get_all_objects_with_same_materials(mat, True)
 
         book = remember_before_bake(yp)
-        prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
-                uv_map=mask.uv_name, bake_type='EMIT', bake_device=self.bake_device
-                )
+        prepare_bake_settings(
+            book, objs, yp, samples=1, margin=5, 
+            uv_map=mask.uv_name, bake_type='EMIT',
+            bake_device = self.bake_device
+        )
 
         # Combine objects if possible
         temp_objs = []
@@ -2735,7 +2837,11 @@ class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
             return {'CANCELLED'}
 
         # Bake temp image
-        image = temp_bake(context, entity, self.width, self.height, self.hdr, self.samples , self.margin, self.uv_map, margin_type=self.margin_type, bake_device=self.bake_device)
+        image = temp_bake(
+            context, entity, self.width, self.height, self.hdr, self.samples,
+            self.margin, self.uv_map, margin_type=self.margin_type,
+            bake_device=self.bake_device
+        )
 
         return {'FINISHED'}
 
@@ -2765,7 +2871,7 @@ def copy_default_value(inp_source, inp_target):
     elif isinstance(inp_target.default_value, float) and isinstance(inp_source.default_value, float):
         inp_target.default_value = inp_source.default_value
     elif isinstance(inp_target.default_value, float):
-        avg = sum([inp_source.default_value[i] for i in range(3)])/3
+        avg = sum([inp_source.default_value[i] for i in range(3)]) / 3
         inp_target.default_value = avg
     elif isinstance(inp_source.default_value, float):
         for i in range(3):
@@ -3145,7 +3251,6 @@ def update_enable_baked_outside(self, context):
 
             # Delete nodes inside frames
             if baked_outside_frame:
-                
                 remove_node(mtree, ch, 'baked_outside', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_vcol', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_disp', parent=baked_outside_frame)

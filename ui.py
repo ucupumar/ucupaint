@@ -250,13 +250,15 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
             col.label(text='Path: ' + image.filepath)
 
         image_format = 'RGBA'
-        image_bit = int(image.depth/4)
+        image_bit = int(image.depth / 4)
         if image.depth in {24, 48, 96}:
             image_format = 'RGB'
-            image_bit = int(image.depth/3)
+            image_bit = int(image.depth / 3)
 
-        col.label(text='Info: ' + str(image.size[0]) + ' x ' + str(image.size[1]) +
-                ' ' + image_format + ' ' + str(image_bit) + '-bit')
+        col.label(
+            text='Info: ' + str(image.size[0]) + ' x ' + str(image.size[1]) +
+                ' ' + image_format + ' ' + str(image_bit) + '-bit'
+        )
 
     split = split_layout(col, 0.4)
 
@@ -806,8 +808,10 @@ def draw_bake_targets_ui(context, layout, node):
     row = col.row()
 
     rcol = row.column()
-    rcol.template_list("NODE_UL_YPaint_bake_targets", "", yp,
-            "bake_targets", yp, "active_bake_target_index", rows=2, maxrows=5)
+    rcol.template_list(
+        "NODE_UL_YPaint_bake_targets", "", yp, "bake_targets", yp,
+        "active_bake_target_index", rows=2, maxrows=5
+    )
 
     rcol = row.column(align=True)
     #rcol.context_pointer_set('node', node)
@@ -938,7 +942,7 @@ def draw_root_channels_ui(context, layout, node):
                 row.operator('node.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
 
             # Fix for alpha channel missing connection
-            elif channel.type=='RGB' and channel.enable_alpha and is_output_unconnected(node, output_index+1, channel):
+            elif channel.type == 'RGB' and channel.enable_alpha and is_output_unconnected(node, output_index + 1, channel):
                 row = mcol.row(align=True)
                 row.alert = True
                 row.operator('node.y_connect_ypaint_channel_alpha', icon='ERROR', text='Fix Unconnected Alpha Output')
@@ -1348,8 +1352,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     modcol = rcol.column()
     modcol.active = layer.type not in {'BACKGROUND', 'GROUP'}
-    draw_modifier_stack(context, layer, 'RGB', modcol, 
-            lui, layer)
+    draw_modifier_stack(context, layer, 'RGB', modcol, lui, layer)
 
     #if layer.type not in {'VCOL', 'BACKGROUND'}:
     if layer.type not in {'BACKGROUND'}:
@@ -2767,9 +2770,10 @@ def draw_layers_ui(context, layout, node):
         if layer.type in {'IMAGE' , 'VCOL'}:
             src = get_layer_source(layer)
 
-            if ( not src or
-                (layer.type == 'IMAGE' and not src.image) or 
-                (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
+            if (
+                    not src or
+                    (layer.type == 'IMAGE' and not src.image) or 
+                    (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
                 ):
                 missing_data = True
                 break
@@ -2779,9 +2783,10 @@ def draw_layers_ui(context, layout, node):
             if mask.type in {'IMAGE' , 'VCOL'}:
                 mask_src = get_mask_source(mask)
 
-                if ( not mask_src or
-                    (mask.type == 'IMAGE' and mask_src and not mask_src.image) or 
-                    (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_src))
+                if (
+                        not mask_src or
+                        (mask.type == 'IMAGE' and mask_src and not mask_src.image) or 
+                        (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_src))
                     ):
                     missing_data = True
                     break
@@ -2795,9 +2800,9 @@ def draw_layers_ui(context, layout, node):
             if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
                 src = get_channel_source(ch, layer)
                 if (
-                    not src or
-                    (ch.override_type == 'IMAGE' and not src.image) or 
-                    (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
+                        not src or
+                        (ch.override_type == 'IMAGE' and not src.image) or 
+                        (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
                     ):
                     missing_data = True
                     break
@@ -3250,9 +3255,11 @@ def main_draw(self, context):
         if "just_updated" in saved_state and saved_state["just_updated"]:
             row_update = layout.row()
             row_update.alert = True
-            row_update.operator("wm.quit_blender",
-                         text="Restart blender to complete update",
-                         icon="ERROR")
+            row_update.operator(
+                "wm.quit_blender",
+                text="Restart blender to complete update",
+                icon="ERROR"
+            )
             return
         
     if updater.update_ready and not ypui.hide_update:
@@ -3262,8 +3269,10 @@ def main_draw(self, context):
             update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
             row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
         else:
-            row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                        text="Update now to " + str(updater.update_version))
+            row_update.operator(
+                addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+                text="Update now to " + str(updater.update_version)
+            )
         row_update.alert = False
 
         row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
@@ -3702,11 +3711,11 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
                 row.label(text='', icon='ERROR')
 
             if item.type=='RGB' and item.enable_alpha:
-                if len(inputs[input_index+1].links) == 0:
-                    row.prop(inputs[input_index+1], 'default_value', text='')
+                if len(inputs[input_index + 1].links) == 0:
+                    row.prop(inputs[input_index + 1], 'default_value', text='')
                 else: row.label(text='', icon='LINKED')
 
-                if is_output_unconnected(group_node, output_index+1, item):
+                if is_output_unconnected(group_node, output_index + 1, item):
                     row.label(text='', icon='ERROR')
 
 class NODE_UL_YPaint_layers(bpy.types.UIList):
@@ -4238,13 +4247,14 @@ def draw_ypaint_about(self, context):
     elif updater.update_ready:
         col.alert = True
         if updater.using_development_build:
-            update_now_txt = "Update to latest commit on '{}' branch".format(
-                updater.current_branch)
+            update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
             col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
             
         else:
-            col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                        text="Update now to " + str(updater.update_version))
+            col.operator(
+                addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+                text="Update now to " + str(updater.update_version)
+            )
     elif is_online() or updater.current_branch != None:
         col.operator(addon_updater_ops.RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
         col.label(text="Ucupaint is up to date")
@@ -5651,29 +5661,39 @@ def update_mask_channel_ui(self, context):
 
 class YBakeTargetUI(bpy.types.PropertyGroup):
     expand_content : BoolProperty(
-            name='Bake Target Options',
-            description='Expand bake target options',
-            default=True, update=update_bake_target_ui)
+        name = 'Bake Target Options',
+        description = 'Expand bake target options',
+        default = True,
+        update = update_bake_target_ui
+    )
 
     expand_r : BoolProperty(
-            name='R Channel',
-            description='Expand bake target R channel options',
-            default=False, update=update_bake_target_ui)
+        name = 'R Channel',
+        description = 'Expand bake target R channel options',
+        default = False,
+        update = update_bake_target_ui
+    )
 
     expand_g : BoolProperty(
-            name='G Channel',
-            description='Expand bake target R channel options',
-            default=False, update=update_bake_target_ui)
+        name = 'G Channel',
+        description = 'Expand bake target R channel options',
+        default = False,
+        update = update_bake_target_ui
+    )
 
     expand_b : BoolProperty(
-            name='B Channel',
-            description='Expand bake target B channel options',
-            default=False, update=update_bake_target_ui)
+        name = 'B Channel',
+        description = 'Expand bake target B channel options',
+        default = False,
+        update = update_bake_target_ui
+    )
 
     expand_a : BoolProperty(
-            name='A Channel',
-            description='Expand bake target A channel options',
-            default=False, update=update_bake_target_ui)
+        name = 'A Channel',
+        description = 'Expand bake target A channel options',
+        default = False,
+        update = update_bake_target_ui
+    )
 
 class YModifierUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
@@ -5682,115 +5702,156 @@ class YModifierUI(bpy.types.PropertyGroup):
 class YChannelUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
     expand_content : BoolProperty(
-            name='Channel Options',
-            description='Expand channel options',
-            default=False, update=update_channel_ui)
+        name = 'Channel Options',
+        description = 'Expand channel options',
+        default = False,
+        update = update_channel_ui
+    )
 
     expand_bump_settings : BoolProperty(
-            name='Bump',
-            description='Expand bump settings',
-            default=False, update=update_channel_ui)
+        name = 'Bump',
+        description = 'Expand bump settings',
+        default = False,
+        update = update_channel_ui
+    )
 
     expand_intensity_settings : BoolProperty(
-            name='Intensity',
-            description='Expand intensity settings',
-            default=False, update=update_channel_ui)
+        name = 'Intensity',
+        description = 'Expand intensity settings',
+        default = False,
+        update = update_channel_ui
+    )
 
     expand_base_vector : BoolProperty(
-            name='Base Vector',
-            description='Expand base vector options',
-            default=True, update=update_channel_ui)
+        name = 'Base Vector',
+        description = 'Expand base vector options',
+        default = True,
+        update = update_channel_ui
+    )
 
     expand_transition_bump_settings : BoolProperty(
-            name='Transition Bump',
-            description='Expand transition bump settings',
-            default=True, update=update_channel_ui)
+        name = 'Transition Bump',
+        description = 'Expand transition bump settings',
+        default = True,
+        update = update_channel_ui
+    )
 
     expand_transition_ramp_settings : BoolProperty(
-            name='Transition Ramp',
-            description='Expand transition ramp settings',
-            default=True, update=update_channel_ui)
+        name = 'Transition Ramp',
+        description = 'Expand transition ramp settings',
+        default = True, update = update_channel_ui
+    )
 
     expand_transition_ao_settings : BoolProperty(
-            name='Transition AO',
-            description='Expand transition AO settings',
-            default=True, update=update_channel_ui)
+        name = 'Transition AO',
+        description = 'Expand transition AO settings',
+        default = True,
+        update = update_channel_ui
+    )
 
     expand_subdiv_settings : BoolProperty(
-            name='Displacement Subdivision',
-            description='Expand displacement subdivision settings',
-            default=False, update=update_channel_ui)
+        name = 'Displacement Subdivision',
+        description = 'Expand displacement subdivision settings',
+        default = False,
+        update = update_channel_ui
+    )
 
     expand_parallax_settings : BoolProperty(
-            name='Parallax',
-            description='Expand parallax settings',
-            default=False, update=update_channel_ui)
+        name = 'Parallax',
+        description = 'Expand parallax settings',
+        default = False,
+        update = update_channel_ui
+    )
 
     expand_alpha_settings : BoolProperty(
-            name='Channel Alpha',
-            description='Expand alpha settings',
-            default=False, update=update_channel_ui)
+        name = 'Channel Alpha',
+        description = 'Expand alpha settings',
+        default = False,
+        update = update_channel_ui
+    )
 
     expand_bake_to_vcol_settings : BoolProperty(
-            name='Bake to Vertex Color',
-            description='Expand bake to vertex color settings',
-            default=False, update=update_channel_ui)
+        name = 'Bake to Vertex Color',
+        description = 'Expand bake to vertex color settings',
+        default = False,
+        update = update_channel_ui
+    )
 
     expand_input_bump_settings : BoolProperty(
-            name='Input Bump',
-            description='Expand input bump settings',
-            default=False, update=update_channel_ui)
+        name = 'Input Bump',
+        description = 'Expand input bump settings',
+        default = False,
+        update = update_channel_ui
+    )
 
     expand_smooth_bump_settings : BoolProperty(
-            name='Smooth Bump',
-            description='Expand smooth bump settings',
-            default=False, update=update_channel_ui)
+        name = 'Smooth Bump',
+        description = 'Expand smooth bump settings',
+        default = False,
+        update = update_channel_ui
+    )
 
     expand_input_settings : BoolProperty(
-            name='Input',
-            description='Expand input settings',
-            default=True, update=update_channel_ui)
+        name = 'Input',
+        description = 'Expand input settings',
+        default = True,
+        update = update_channel_ui
+    )
 
     expand_source : BoolProperty(
-            name='Channel Source',
-            description='Expand channel source settings',
-            default=True, update=update_channel_ui)
+        name = 'Channel Source',
+        description = 'Expand channel source settings',
+        default = True,
+        update = update_channel_ui
+    )
 
     expand_source_1 : BoolProperty(
-            name='Channel Normal Source',
-            description='Expand channel normal source settings',
-            default=True, update=update_channel_ui)
+        name = 'Channel Normal Source',
+        description = 'Expand channel normal source settings',
+        default = True,
+        update = update_channel_ui
+    )
 
     modifiers : CollectionProperty(type=YModifierUI)
     modifiers_1 : CollectionProperty(type=YModifierUI)
 
 class YMaskChannelUI(bpy.types.PropertyGroup):
     expand_content : BoolProperty(
-            name='Mask Channel Options',
-            description='Expand mask channel options',
-            default=False, update=update_mask_channel_ui)
+        name = 'Mask Channel Options',
+        description = 'Expand mask channel options',
+        default = False,
+        update = update_mask_channel_ui
+    )
 
 class YMaskUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
     expand_content : BoolProperty(
-            name='Mask Options',
-            description='Expand mask options',
-            default=True, update=update_mask_ui)
+        name = 'Mask Options',
+        description = 'Expand mask options',
+        default = True,
+        update = update_mask_ui
+    )
 
     expand_channels : BoolProperty(
-            name='Mask Channel',
-            description='Expand mask channels',
-            default=True, update=update_mask_ui)
+        name = 'Mask Channel',
+        description = 'Expand mask channels',
+        default = True,
+        update = update_mask_ui
+    )
 
     expand_source : BoolProperty(
-            name='Mask Source',
-            description='Expand mask source options',
-            default=True, update=update_mask_ui)
+        name = 'Mask Source',
+        description = 'Expand mask source options',
+        default = True,
+        update = update_mask_ui
+    )
 
     expand_vector : BoolProperty(
-            name='Mask Vector',
-            description='Expand mask vector options',
-            default=True, update=update_mask_ui)
+        name = 'Mask Vector',
+        description = 'Expand mask vector options',
+        default = True,
+        update = update_mask_ui
+    )
 
     channels : CollectionProperty(type=YMaskChannelUI)
     modifiers : CollectionProperty(type=YModifierUI)
@@ -5799,29 +5860,39 @@ class YLayerUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
 
     expand_content : BoolProperty(
-            name='Layer Options',
-            description='Expand layer options',
-            default=False, update=update_layer_ui)
+        name = 'Layer Options',
+        description = 'Expand layer options',
+        default = False,
+        update = update_layer_ui
+    )
 
     expand_vector : BoolProperty(
-            name='Layer Vector',
-            description='Expand layer vector options',
-            default=False, update=update_layer_ui)
+        name = 'Layer Vector',
+        description = 'Expand layer vector options',
+        default = False,
+        update = update_layer_ui
+    )
 
     expand_masks : BoolProperty(
-            name='Masks',
-            description='Expand all masks',
-            default=False, update=update_layer_ui)
+        name = 'Masks',
+        description = 'Expand all masks',
+        default = False,
+        update = update_layer_ui
+    )
 
     expand_source : BoolProperty(
-            name='Layer Source',
-            description='Expand layer source options',
-            default=False, update=update_layer_ui)
+        name = 'Layer Source',
+        description = 'Expand layer source options',
+        default = False,
+        update = update_layer_ui
+    )
 
     expand_channels : BoolProperty(
-            name='Layer Channels',
-            description='Expand layer channels',
-            default=True, update=update_layer_ui)
+        name = 'Layer Channels',
+        description = 'Expand layer channels',
+        default = True,
+        update = update_layer_ui
+    )
 
     channels : CollectionProperty(type=YChannelUI)
     masks : CollectionProperty(type=YMaskUI)
@@ -5836,49 +5907,58 @@ class YMaterialUI(bpy.types.PropertyGroup):
 
 class YPaintUI(bpy.types.PropertyGroup):
     show_object : BoolProperty(
-            name='Active Object',
-            description='Show active object options',
-            default=False)
+        name = 'Active Object',
+        description = 'Show active object options',
+        default = False
+    )
 
     show_materials : BoolProperty(
-            name='Materials',
-            description='Show material lists',
-            default=False)
+        name = 'Materials',
+        description = 'Show material lists',
+        default = False
+    )
 
     show_channels : BoolProperty(
-            name='Channels',
-            description='Show channel lists',
-            default=True)
+        name = 'Channels',
+        description = 'Show channel lists',
+        default = True
+    )
 
     show_layers : BoolProperty(
-            name='Layers',
-            description='Show layer lists',
-            default=True)
+        name = 'Layers',
+        description = 'Show layer lists',
+        default = True
+    )
 
     show_bake_targets : BoolProperty(
-            name='Custom Bake Targets',
-            description='Show custom bake target lists',
-            default=False)
+        name = 'Custom Bake Targets',
+        description = 'Show custom bake target lists',
+        default = False
+    )
 
     show_stats : BoolProperty(
-            name='Stats',
-            description='Show node stats',
-            default=False)
+        name = 'Stats',
+        description = 'Show node stats',
+        default = False
+    )
 
     show_support : BoolProperty(
-            name='Support',
-            description='Show support',
-            default=False)
+        name = 'Support',
+        description = 'Show support',
+        default = False
+    )
 
     expand_channels : BoolProperty(
-            name='Show Channel Toggle',
-            description="Show layer channels toggle",
-            default=False)
+        name = 'Show Channel Toggle',
+        description = "Show layer channels toggle",
+        default = False
+    )
 
     expand_mask_channels : BoolProperty(
-            name='Expand all mask channels',
-            description='Expand all mask channels',
-            default=False)
+        name = 'Expand all mask channels',
+        description = 'Expand all mask channels',
+        default = False
+    )
 
     # To store active node and tree
     tree_name : StringProperty(default='')

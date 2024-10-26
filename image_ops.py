@@ -416,21 +416,21 @@ class YSaveImage(bpy.types.Operator):
         return {'FINISHED'}
 
 format_extensions = {
-        'BMP' : '.bmp',
-        'IRIS' : '.rgb',
-        'PNG' : '.png',
-        'JPEG' : '.jpg',
-        'JPEG2000' : '.jp2',
-        'TARGA' : '.tga',
-        'TARGA_RAW' : '.tga',
-        'CINEON' : '.cin',
-        'DPX' : '.dpx',
-        'OPEN_EXR_MULTILAYER' : '.exr',
-        'OPEN_EXR' : '.exr',
-        'HDR' : '.hdr',
-        'TIFF' : '.tif',
-        'WEBP' : '.webp',
-        }
+    'BMP' : '.bmp',
+    'IRIS' : '.rgb',
+    'PNG' : '.png',
+    'JPEG' : '.jpg',
+    'JPEG2000' : '.jp2',
+    'TARGA' : '.tga',
+    'TARGA_RAW' : '.tga',
+    'CINEON' : '.cin',
+    'DPX' : '.dpx',
+    'OPEN_EXR_MULTILAYER' : '.exr',
+    'OPEN_EXR' : '.exr',
+    'HDR' : '.hdr',
+    'TIFF' : '.tif',
+    'WEBP' : '.webp',
+}
 
 def color_mode_items(self, context):
     items = []
@@ -447,26 +447,36 @@ def color_mode_items(self, context):
 
 def color_depth_items(self, context):
     if self.file_format in {'PNG', 'TIFF'}:
-        items = (('8', '8', ''),
-                ('16', '16', ''))
+        items = (
+            ('8', '8', ''),
+            ('16', '16', '')
+        )
     elif self.file_format in {'JPEG2000'}:
-        items = (('8', '8', ''),
-                ('12', '12', ''),
-                ('16', '16', ''))
+        items = (
+            ('8', '8', ''),
+            ('12', '12', ''),
+            ('16', '16', '')
+        )
     elif self.file_format in {'DPX'}:
-        items = (('8', '8', ''),
-                ('10', '10', ''),
-                ('12', '12', ''),
-                ('16', '16', ''))
+        items = (
+            ('8', '8', ''),
+            ('10', '10', ''),
+            ('12', '12', ''),
+            ('16', '16', '')
+        )
     elif self.file_format in {'OPEN_EXR_MULTILAYER', 'OPEN_EXR'}:
-        items = (('16', 'Float (Half)', ''),
-                ('32', 'Float (Full)', ''))
+        items = (
+            ('16', 'Float (Half)', ''),
+            ('32', 'Float (Full)', '')
+        )
     else:
-        items = (('8', '8', ''),
-                ('10', '10', ''),
-                ('12', '12', ''),
-                ('16', '16', ''),
-                ('32', '32', ''))
+        items = (
+            ('8', '8', ''),
+            ('10', '10', ''),
+            ('12', '12', ''),
+            ('16', '16', ''),
+            ('32', '32', '')
+        )
 
     return items
 
@@ -546,31 +556,33 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
     # Define this to tell 'fileselect_add' that we want a directoy
     directory : bpy.props.StringProperty(
-        name="Outdir Path",
-        description="Where I will save my stuff"
+        name = 'Outdir Path',
+        description = 'Where I will save my stuff'
         # subtype='DIR_PATH' is not needed to specify the selection mode.
         # But this will be anyway a directory path.
-        )
+    )
 
     remove_whitespaces : bpy.props.BoolProperty(
-            name="Remove Whitespaces",
-            description="Remove whitespaces from baked image names",
-            default=False
-            )
+        name = 'Remove Whitespaces',
+        description = 'Remove whitespaces from baked image names',
+        default = False
+    )
 
     file_format : EnumProperty(
-            name = 'File Format',
-            items = (
-                    ('PNG', 'PNG', '', 'IMAGE_DATA', 0),
-                    ('TIFF', 'TIFF', '', 'IMAGE_DATA', 1),
-                    ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 2)
-                    ),
-            default = 'PNG',
-            )
+        name = 'File Format',
+        items = (
+            ('PNG', 'PNG', '', 'IMAGE_DATA', 0),
+            ('TIFF', 'TIFF', '', 'IMAGE_DATA', 1),
+            ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 2)
+        ),
+        default = 'PNG'
+    )
 
-    copy : BoolProperty(name='Copy',
-            description = 'Create a new image file without modifying the current image in Blender',
-            default = False)
+    copy : BoolProperty(
+        name = 'Copy',
+        description = 'Create a new image file without modifying the current image in Blender',
+        default = False
+    )
 
     def invoke(self, context, event):
         # Open browser, take reference to 'self' read the path to selected
@@ -736,20 +748,20 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
 def get_file_format_items():
     items = [
-            ('BMP', 'BMP', '', 'IMAGE_DATA', 0),
-            ('IRIS', 'Iris', '', 'IMAGE_DATA', 1),
-            ('PNG', 'PNG', '', 'IMAGE_DATA', 2),
-            ('JPEG', 'JPEG', '', 'IMAGE_DATA', 3),
-            ('JPEG2000', 'JPEG 2000', '', 'IMAGE_DATA', 4),
-            ('TARGA', 'Targa', '', 'IMAGE_DATA', 5),
-            ('TARGA_RAW', 'Targa Raw', '', 'IMAGE_DATA', 6),
-            ('CINEON', 'Cineon', '', 'IMAGE_DATA', 7),
-            ('DPX', 'DPX', '', 'IMAGE_DATA', 8),
-            ('OPEN_EXR_MULTILAYER', 'OpenEXR Multilayer', '', 'IMAGE_DATA', 9),
-            ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 10),
-            ('HDR', 'Radiance HDR', '', 'IMAGE_DATA', 11),
-            ('TIFF', 'TIFF', '', 'IMAGE_DATA', 12)
-            ]
+        ('BMP', 'BMP', '', 'IMAGE_DATA', 0),
+        ('IRIS', 'Iris', '', 'IMAGE_DATA', 1),
+        ('PNG', 'PNG', '', 'IMAGE_DATA', 2),
+        ('JPEG', 'JPEG', '', 'IMAGE_DATA', 3),
+        ('JPEG2000', 'JPEG 2000', '', 'IMAGE_DATA', 4),
+        ('TARGA', 'Targa', '', 'IMAGE_DATA', 5),
+        ('TARGA_RAW', 'Targa Raw', '', 'IMAGE_DATA', 6),
+        ('CINEON', 'Cineon', '', 'IMAGE_DATA', 7),
+        ('DPX', 'DPX', '', 'IMAGE_DATA', 8),
+        ('OPEN_EXR_MULTILAYER', 'OpenEXR Multilayer', '', 'IMAGE_DATA', 9),
+        ('OPEN_EXR', 'OpenEXR', '', 'IMAGE_DATA', 10),
+        ('HDR', 'Radiance HDR', '', 'IMAGE_DATA', 11),
+        ('TIFF', 'TIFF', '', 'IMAGE_DATA', 12)
+    ]
 
     if is_bl_newer_than(3, 2):
         items.append(('WEBP', 'WebP', '', 'IMAGE_DATA', 13))
@@ -763,72 +775,81 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
     bl_options = {'REGISTER', 'UNDO'}
 
     file_format : EnumProperty(
-            name = 'File Format',
-            items = get_file_format_items(),
-            default = 'PNG',
-            update = update_save_as_file_format
-            )
+        name = 'File Format',
+        items = get_file_format_items(),
+        default = 'PNG',
+        update = update_save_as_file_format
+    )
 
     # File browser filter
     filter_folder : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
     filter_image : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
     display_type : EnumProperty(
-            items = (('FILE_DEFAULTDISPLAY', 'Default', ''),
-                     ('FILE_SHORTDISLPAY', 'Short List', ''),
-                     ('FILE_LONGDISPLAY', 'Long List', ''),
-                     ('FILE_IMGDISPLAY', 'Thumbnails', '')),
-            default = 'FILE_IMGDISPLAY',
-            options={'HIDDEN', 'SKIP_SAVE'})
+        items = (
+            ('FILE_DEFAULTDISPLAY', 'Default', ''),
+            ('FILE_SHORTDISLPAY', 'Short List', ''),
+            ('FILE_LONGDISPLAY', 'Long List', ''),
+            ('FILE_IMGDISPLAY', 'Thumbnails', '')
+        ),
+        default = 'FILE_IMGDISPLAY',
+        options = {'HIDDEN', 'SKIP_SAVE'}
+    )
 
-    copy : BoolProperty(name='Copy',
-            description = 'Create a new image file without modifying the current image in Blender',
-            default = False)
+    copy : BoolProperty(
+        name = 'Copy',
+        description = 'Create a new image file without modifying the current image in Blender',
+        default = False
+    )
 
-    relative : BoolProperty(name='Relative Path',
-            description = 'Select the file relative to the blend file',
-            default = True)
+    relative : BoolProperty(
+        name = 'Relative Path',
+        description = 'Select the file relative to the blend file',
+        default = True
+    )
 
     color_mode : EnumProperty(
-            name = 'Color Mode',
-            items = color_mode_items)
+        name = 'Color Mode',
+        items = color_mode_items
+    )
 
     color_depth : EnumProperty(
-            name = 'Color Depth',
-            items = color_depth_items)
+        name = 'Color Depth',
+        items = color_depth_items
+    )
 
     tiff_codec : EnumProperty(
-            name = 'Compression',
-            items = (
-                ('NONE', 'None', ''),
-                ('DEFLATE', 'Deflate', ''),
-                ('LZW', 'LZW', ''),
-                ('PACKBITS', 'Pack Bits', ''),
-                ),
-            default = 'DEFLATE'
-            )
+        name = 'Compression',
+        items = (
+            ('NONE', 'None', ''),
+            ('DEFLATE', 'Deflate', ''),
+            ('LZW', 'LZW', ''),
+            ('PACKBITS', 'Pack Bits', ''),
+        ),
+        default = 'DEFLATE'
+    )
 
     exr_codec : EnumProperty(
-            name = 'Codec',
-            items = (
-                ('NONE', 'None', ''),
-                ('PXR24', 'Pxr24 (lossy)', ''),
-                ('ZIP', 'ZIP (lossless)', ''),
-                ('PIZ', 'PIZ (lossless)', ''),
-                ('RLE', 'RLE (lossless)', ''),
-                ('ZIPS', 'ZIPS (lossless)', ''),
-                ('DWAA', 'DWAA (lossy)', ''),
-                ),
-            default = 'ZIP'
-            )
+        name = 'Codec',
+        items = (
+            ('NONE', 'None', ''),
+            ('PXR24', 'Pxr24 (lossy)', ''),
+            ('ZIP', 'ZIP (lossless)', ''),
+            ('PIZ', 'PIZ (lossless)', ''),
+            ('RLE', 'RLE (lossless)', ''),
+            ('ZIPS', 'ZIPS (lossless)', ''),
+            ('DWAA', 'DWAA (lossy)', ''),
+        ),
+        default = 'ZIP'
+    )
 
     jpeg2k_codec : EnumProperty(
-            name = 'Codec',
-            items = (
-                ('JP2', 'JP2', ''),
-                ('J2K', 'J2K', ''),
-                ),
-            default = 'JP2'
-            )
+        name = 'Codec',
+        items = (
+            ('JP2', 'JP2', ''),
+            ('J2K', 'J2K', ''),
+        ),
+        default = 'JP2'
+    )
 
     compression : IntProperty(name='Compression', default=15, min=0, max=100, subtype='PERCENTAGE')
     quality : IntProperty(name='Quality', default=90, min=0, max=100, subtype='PERCENTAGE')
@@ -1148,9 +1169,10 @@ class YConvertImageBitDepth(bpy.types.Operator):
         # Create new image based on original image but with different bit depth
         if image.source == 'TILED':
             tilenums = [tile.number for tile in image.tiles]
-            new_image = bpy.data.images.new(image.name,
-                                    width=image.size[0], height=image.size[1], 
-                                    alpha=True, float_buffer= not image.is_float, tiled=True)
+            new_image = bpy.data.images.new(
+                image.name, width=image.size[0], height=image.size[1], 
+                alpha=True, float_buffer=not image.is_float, tiled=True
+            )
 
             # Fill tiles
             color = (0, 0, 0, 0)
@@ -1161,9 +1183,10 @@ class YConvertImageBitDepth(bpy.types.Operator):
             UDIM.initial_pack_udim(new_image, color)
 
         else:
-            new_image = bpy.data.images.new(image.name,
-                                    width=image.size[0], height=image.size[1], 
-                                    alpha=True, float_buffer= not image.is_float)
+            new_image = bpy.data.images.new(
+                image.name, width=image.size[0], height=image.size[1], 
+                alpha=True, float_buffer=not image.is_float
+            )
 
             if image.filepath != '':
                 new_image.filepath = image.filepath
