@@ -3804,14 +3804,14 @@ class YRemoveLayer(bpy.types.Operator):
 
         if self.legacy_on_non_object_mode:
             col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
-            col.label(text="Are you sure want to continue?", icon='BLANK1')
+            col.label(text="Are you sure you want to continue?", icon='BLANK1')
         elif self.any_dirty_images:
-            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
-            col.label(text="Are you sure want to continue?", icon='BLANK1')
+            col.label(text="Unsaved data will be LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure you want to continue?", icon='BLANK1')
         elif self.any_udim_atlas:
             col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
             col.label(text='You cannot UNDO after removal', icon='BLANK1')
-            col.label(text='Are you sure want to continue?', icon='BLANK1')
+            col.label(text='Are you sure you want to continue?', icon='BLANK1')
 
         if self.any_images_on_disk:
             col.prop(self, 'remove_on_disk')
