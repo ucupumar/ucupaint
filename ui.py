@@ -4211,13 +4211,14 @@ def draw_yp_file_browser_menu(self, context):
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
     col.label(text=get_addon_title() + ' is created by:')
-    col.operator('wm.url_open', text='ucupumar', icon='ARMATURE_DATA').url = 'https://github.com/sponsors/ucupumar'
-    col.operator('wm.url_open', text='arsa', icon='ARMATURE_DATA').url = 'https://sites.google.com/view/arsanagara'
-    col.operator('wm.url_open', text='swifterik', icon='ARMATURE_DATA').url = 'https://jblaha.art/'
-    col.operator('wm.url_open', text='rifai', icon='ARMATURE_DATA').url = 'https://github.com/rifai'
-    col.operator('wm.url_open', text='morirain', icon='ARMATURE_DATA').url = 'https://github.com/morirain'
-    col.operator('wm.url_open', text='kareemov03', icon='ARMATURE_DATA').url = 'https://www.artstation.com/kareem'
-    col.operator('wm.url_open', text='passivestar', icon='ARMATURE_DATA').url = 'https://github.com/passivestar'
+    icon_name = 'USER' if is_bl_newer_than(2, 80) else 'ARMATURE_DATA'
+    col.operator('wm.url_open', text='ucupumar', icon=icon_name).url = 'https://github.com/sponsors/ucupumar'
+    col.operator('wm.url_open', text='arsa', icon=icon_name).url = 'https://sites.google.com/view/arsanagara'
+    col.operator('wm.url_open', text='swifterik', icon=icon_name).url = 'https://jblaha.art/'
+    col.operator('wm.url_open', text='rifai', icon=icon_name).url = 'https://github.com/rifai'
+    col.operator('wm.url_open', text='morirain', icon=icon_name).url = 'https://github.com/morirain'
+    col.operator('wm.url_open', text='kareemov03', icon=icon_name).url = 'https://www.artstation.com/kareem'
+    col.operator('wm.url_open', text='passivestar', icon=icon_name).url = 'https://github.com/passivestar'
     col.separator()
 
     col.label(text='Documentation:')
