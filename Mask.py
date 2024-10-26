@@ -1357,10 +1357,10 @@ class YRemoveLayerMask(bpy.types.Operator):
         col = self.layout.column(align=True)
         if self.legacy_on_non_object_mode:
             col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
-            col.label(text="Are you sure want to continue?", icon='BLANK1')
+            col.label(text="Are you sure you want to continue?", icon='BLANK1')
         else:
-            col.label(text="Unsaved data will LOST if you UNDO this operation.", icon='ERROR')
-            col.label(text="Are you sure want to continue?", icon='BLANK1')
+            col.label(text="Unsaved data will be LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure you want to continue?", icon='BLANK1')
 
     def execute(self, context):
         mask = self.mask
