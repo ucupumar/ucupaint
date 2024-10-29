@@ -463,8 +463,8 @@ class YBackToOriginalUV(bpy.types.Operator):
             for uv in uv_layers:
                 if uv.name == src_of_img.uv_name:
 
-                    if uv_layers.src_of_img != uv_layers.get(src_of_img.uv_name):
-                        uv_layers.src_of_img = uv_layers.get(src_of_img.uv_name)
+                    if uv_layers.active != uv_layers.get(src_of_img.uv_name):
+                        uv_layers.active = uv_layers.get(src_of_img.uv_name)
 
                 if uv.name == TEMP_UV:
                     uv_layers.remove(uv)
