@@ -2093,7 +2093,7 @@ def get_duplicated_mesh_objects(scene, objs, hide_original=False):
     print('INFO: Duplicating mesh(es) is done in', '{:0.2f}'.format(time.time() - tt), 'seconds!')
     return new_objs
 
-def get_merged_mesh_objects(scene, objs, hide_original=False):
+def get_merged_mesh_objects(scene, objs, hide_original=False, disable_problematic_modifiers=True):
 
     # Duplicate objects
     new_objs = get_duplicated_mesh_objects(scene, objs, hide_original)
@@ -2129,7 +2129,7 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
 
         # Apply modifiers
         mnames = [m.name for m in obj.modifiers]
-        problematic_modifiers = get_problematic_modifiers(obj)
+        problematic_modifiers = get_problematic_modifiers(obj) if disable_problematic_modifiers else []
 
         # Get all uv output from geometry nodes
         geo_uv_names = get_output_uv_names_from_geometry_nodes(obj)

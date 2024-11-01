@@ -981,7 +981,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 tanimage, bitimage = vector_displacement.get_tangent_bitangent_images(objs[0], self.uv_map)
 
                 # Duplicate object
-                objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
+                objs = temp_objs = [get_merged_mesh_objects(scene, objs, True, disable_problematic_modifiers=False)]
 
                 # Use VDM loader geometry nodes
                 # NOTE: Geometry nodes currently does not support UDIM, so using UDIM will cause wrong bake result
@@ -1210,6 +1210,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         ori_loop_locs = {}
         ori_multires_levels = {}
 
+        # Do not disable modifiers for surface based bake types
+        disable_problematic_modifiers = self.type not in {'CAVITY', 'POINTINESS', 'BEVEL_NORMAL', 'BEVEL_MASK'}
+
         for obj in objs:
 
             # Disable few modifiers
@@ -1224,7 +1227,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                         if i > multires_index: 
                             m.show_render = False
                             m.show_viewport = False
-            elif obj not in other_objs:
+            elif disable_problematic_modifiers and obj not in other_objs:
                 for m in get_problematic_modifiers(obj):
                     m.show_render = False
 
