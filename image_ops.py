@@ -225,8 +225,10 @@ def save_pack_all(yp):
                     image.save_render(path, scene=tmpscene)
 
                     # Set the filepath to the image
-                    try: image.filepath = bpy.path.relpath(path)
-                    except: image.filepath = path
+                    image.filepath = path
+                    if bpy.data.filepath != '':
+                        try: image.filepath = bpy.path.relpath(path)
+                        except: pass
 
                     # Bring back linear
                     image.colorspace_settings.name = get_noncolor_name()
@@ -705,29 +707,32 @@ class YSaveAllBakedImages(bpy.types.Operator):
             if not image.is_float and image.colorspace_settings.name != get_srgb_name():
                 image.colorspace_settings.name = get_srgb_name()
             
-            # Check if image is packed
-            unpack = False
-            if image.packed_file:
-                unpack = True
+            # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
+            unpacked_to_disk = False
+            if not is_bl_newer_than(2, 81) and bpy.data.filepath != '' and image.packed_file:
+                unpacked_to_disk = True
                 default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
-
-            if self.copy:
-                pass
 
             # Save image
             image.save_render(path, scene=tmpscene)
 
             # Set the filepath to the image
-            try: image.filepath = bpy.path.relpath(path)
-            except: image.filepath = path
+            image.filepath = path
+            if bpy.data.filepath != '':
+                try: image.filepath = bpy.path.relpath(path)
+                except: pass
 
             # Set back colorspace settings
             if image.colorspace_settings.name != ori_colorspace:
                 image.colorspace_settings.name = ori_colorspace
 
             # Remove temporarily unpacked image
-            if unpack:
+            if unpacked_to_disk:
                 remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
+
+            # Remove packed flag
+            if is_bl_newer_than(2, 81) and image.packed_file:
+                image.unpack(method='REMOVE')
 
         # Remove copied images
         if self.copy:
@@ -1042,23 +1047,21 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if self.copy:
             image = self.image = duplicate_image(image, ondisk_duplicate=False)
 
+        # Need to pack first to save the image
+        if image.is_dirty:
+            if is_bl_newer_than(2, 80):
+                image.pack()
+            else:
+                if image.is_float:
+                    pack_float_image(image)
+                else: image.pack(as_png=True)
+
+        # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
         # Packing and unpacking sometimes does not work if the blend file is not saved yet
-        unpack = False
-        if bpy.data.filepath != '':
-
-            # Need to pack first to save the image
-            if image.is_dirty:
-                if is_bl_newer_than(2, 80):
-                    image.pack()
-                else:
-                    if image.is_float:
-                        pack_float_image(image)
-                    else: image.pack(as_png=True)
-
-            # Unpack image if image is packed
-            if self.unpack or image.packed_file:
-                unpack = True
-                self.unpack_image(context)
+        unpacked_to_disk = False
+        if not is_bl_newer_than(2, 81) and bpy.data.filepath != '' and (self.unpack or image.packed_file):
+            unpacked_to_disk = True
+            self.unpack_image(context)
 
         # Some image need to set to srgb when saving
         ori_colorspace = image.colorspace_settings.name
@@ -1114,8 +1117,12 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             remove_datablock(bpy.data.scenes, tmpscene)
 
         # Remove unpacked file
-        if unpack:
+        if unpacked_to_disk:
             self.remove_unpacked_image(context)
+
+        # Remove packed flag
+        if is_bl_newer_than(2, 81) and self.unpack and image.packed_file:
+            image.unpack(method='REMOVE')
 
         # Set back colorspace settings
         if image.colorspace_settings.name != ori_colorspace:
