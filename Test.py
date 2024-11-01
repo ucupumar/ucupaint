@@ -10,8 +10,7 @@ def run_tests():
     test_suite = test_loader.discover(test_directory, pattern='test_*.py')
     runner = TextTestRunner(verbosity=2)
     result = runner.run(test_suite)
-
-    print(result)
+    return result
 
 
 class YRunAutomatedTest(bpy.types.Operator):
@@ -23,17 +22,18 @@ class YRunAutomatedTest(bpy.types.Operator):
         return context.active_object is not None
 
     def execute(self, context):
-        run_tests()
-        return {'FINISHED'}
+        wm = context.window_manager
+        ypui = wm.ypui
+        result = run_tests()
 
-def menu_func(self, context):
-    self.layout.operator(YRunAutomatedTest.bl_idname, text=YRunAutomatedTest.bl_label)
+        ypui.test_result_run = result.testsRun
+        ypui.test_result_error = len(result.errors)
+        ypui.test_result_failed = len(result.failures)
+        
+        return {'FINISHED'}
 
 def register():
     bpy.utils.register_class(YRunAutomatedTest)
-    bpy.types.VIEW3D_MT_object.append(menu_func)
-
 
 def unregister():
     bpy.utils.unregister_class(YRunAutomatedTest)
-    bpy.types.VIEW3D_MT_object.append(menu_func)
