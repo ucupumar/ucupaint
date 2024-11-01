@@ -1493,6 +1493,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
                 colorspace = get_noncolor_name()
 
+            # Using float image will always make the image linear/non-color
+            if self.hdr:
+                colorspace = get_noncolor_name() 
+
             # Base color of baked image
             if self.type == 'AO':
                 color = [1.0, 1.0, 1.0, 1.0] 
