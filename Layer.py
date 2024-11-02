@@ -823,7 +823,6 @@ class YNewLayer(bpy.types.Operator):
         name = 'Blend',
         description = 'Blend type',
         items = blend_type_items,
-        default = 'MIX'
     )
 
     normal_blend_type : EnumProperty(
@@ -2614,7 +2613,6 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     blend_type : EnumProperty(
         name = 'Blend',
         items = blend_type_items,
-        default = 'MIX'
     )
 
     normal_blend_type : EnumProperty(
@@ -3122,7 +3120,6 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
     blend_type : EnumProperty(
         name = 'Blend',
         items = blend_type_items,
-        default = 'MIX'
     )
 
     normal_blend_type : EnumProperty(
@@ -5871,7 +5868,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
         name = 'Blend',
         description = 'Blend type of layer channel',
         items = blend_type_items,
-        default = 'MIX',
         update = update_blend_type
     )
 
@@ -6242,7 +6238,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_ramp_blend_type : EnumProperty(
         name = 'Transition Ramp Blend Type',
         items = blend_type_items,
-        default = 'MIX', 
         update = transition.update_enable_transition_ramp
     )
 
@@ -6322,7 +6317,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_ao_blend_type : EnumProperty(
         name = 'Transition AO Blend Type',
         items = blend_type_items,
-        default = 'MIX', 
         update = transition.update_enable_transition_ao
     )
 

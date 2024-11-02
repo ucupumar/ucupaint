@@ -48,48 +48,59 @@ COLOR_ID_VCOL_NAME = '__yp_color_id'
 
 BUMP_MULTIPLY_TWEAK = 5
 
-blend_type_items = (
-    ("MIX", "Mix", ""),
-    ("ADD", "Add", ""),
-    ("SUBTRACT", "Subtract", ""),
-    ("MULTIPLY", "Multiply", ""),
-    ("SCREEN", "Screen", ""),
-    ("OVERLAY", "Overlay", ""),
-    ("DIFFERENCE", "Difference", ""),
-    ("DIVIDE", "Divide", ""),
-    ("DARKEN", "Darken", ""),
-    ("LIGHTEN", "Lighten", ""),
-    ("HUE", "Hue", ""),
-    ("SATURATION", "Saturation", ""),
-    ("VALUE", "Value", ""),
-    ("COLOR", "Color", ""),
-    ("SOFT_LIGHT", "Soft Light", ""),
-    ("LINEAR_LIGHT", "Linear Light", ""),
-    ("DODGE", "Dodge", ""),
-    ("BURN", "Burn", "")
-)
+def blend_type_items(self, context):
+    items = [
+        ("MIX", "Mix", ""),
+        ("ADD", "Add", ""),
+        ("SUBTRACT", "Subtract", ""),
+        ("MULTIPLY", "Multiply", ""),
+        ("SCREEN", "Screen", ""),
+        ("OVERLAY", "Overlay", ""),
+        ("DIFFERENCE", "Difference", ""),
+        ("DIVIDE", "Divide", ""),
+        ("DARKEN", "Darken", ""),
+        ("LIGHTEN", "Lighten", ""),
+        ("HUE", "Hue", ""),
+        ("SATURATION", "Saturation", ""),
+        ("VALUE", "Value", ""),
+        ("COLOR", "Color", ""),
+        ("SOFT_LIGHT", "Soft Light", ""),
+        ("LINEAR_LIGHT", "Linear Light", ""),
+        ("DODGE", "Dodge", ""),
+        ("BURN", "Burn", ""),
+    ]
 
+    if is_bl_newer_than(3, 5):
+        items.append(("EXCLUSION", "Exclusion", ""))
 
-mask_blend_type_items = (
-    ("MIX", "Replace", ""),
-    ("ADD", "Add", ""),
-    ("SUBTRACT", "Subtract", ""),
-    ("MULTIPLY", "Multiply", ""),
-    ("SCREEN", "Screen", ""),
-    ("OVERLAY", "Overlay", ""),
-    ("DIFFERENCE", "Difference", ""),
-    ("DIVIDE", "Divide", ""),
-    ("DARKEN", "Darken", ""),
-    ("LIGHTEN", "Lighten", ""),
-    ("HUE", "Hue", ""),
-    ("SATURATION", "Saturation", ""),
-    ("VALUE", "Value", ""),
-    ("COLOR", "Color", ""),
-    ("SOFT_LIGHT", "Soft Light", ""),
-    ("LINEAR_LIGHT", "Linear Light", ""),
-    ("DODGE", "Dodge", ""),
-    ("BURN", "Burn", "")
-)
+    return items
+
+def mask_blend_type_items(self, context):
+    items = [
+        ("MIX", "Replace", ""),
+        ("ADD", "Add", ""),
+        ("SUBTRACT", "Subtract", ""),
+        ("MULTIPLY", "Multiply", ""),
+        ("SCREEN", "Screen", ""),
+        ("OVERLAY", "Overlay", ""),
+        ("DIFFERENCE", "Difference", ""),
+        ("DIVIDE", "Divide", ""),
+        ("DARKEN", "Darken", ""),
+        ("LIGHTEN", "Lighten", ""),
+        ("HUE", "Hue", ""),
+        ("SATURATION", "Saturation", ""),
+        ("VALUE", "Value", ""),
+        ("COLOR", "Color", ""),
+        ("SOFT_LIGHT", "Soft Light", ""),
+        ("LINEAR_LIGHT", "Linear Light", ""),
+        ("DODGE", "Dodge", ""),
+        ("BURN", "Burn", ""),
+    ]
+
+    if is_bl_newer_than(3, 5):
+        items.append(("EXCLUSION", "Exclusion", ""))
+
+    return items
 
 voronoi_feature_items = (
     ("F1", "F1", "Compute and return the distance to the closest feature point as well as its position and color"),
