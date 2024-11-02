@@ -250,7 +250,6 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     blend_type : EnumProperty(
         name = 'Blend',
         items = blend_type_items,
-        default = 'MIX'
     )
 
     normal_blend_type : EnumProperty(
