@@ -256,6 +256,8 @@ def prepare_other_objs_channels(yp, other_objs):
     ch_other_mats = []
     ch_other_sockets = []
     ch_other_defaults = []
+    ch_other_alpha_sockets = []
+    ch_other_alpha_defaults = []
 
     ori_mat_no_nodes = []
 
@@ -266,6 +268,8 @@ def prepare_other_objs_channels(yp, other_objs):
         mats = []
         sockets = []
         defaults = []
+        alpha_sockets = []
+        alpha_defaults = []
 
         for o in other_objs:
 
@@ -299,6 +303,8 @@ def prepare_other_objs_channels(yp, other_objs):
 
                 socket = None
                 default = None
+                alpha_socket = None
+                alpha_default = 1.0
 
                 # If material originally aren't using nodes
                 if mat in ori_mat_no_nodes:
@@ -315,6 +321,11 @@ def prepare_other_objs_channels(yp, other_objs):
                     oyp = yp_node.node_tree.yp
                     if ch.name in oyp.channels:
                         socket = yp_node.outputs[ch.name]
+
+                    # Check for alpha channel
+                    for och in oyp.channels:
+                        if och.enable_alpha: # and och.name == ch.name:
+                            alpha_socket = yp_node.outputs.get(och.name + io_suffix['ALPHA'])
 
                 # Check for possible sockets available on the bsdf node
                 if not socket:
@@ -334,11 +345,23 @@ def prepare_other_objs_channels(yp, other_objs):
                         else:
                             socket = socket.links[0].from_socket
 
+                    # Get alpha socket
+                    alpha_socket = bsdf_node.inputs.get('Alpha')
+                    if alpha_socket:
+
+                        if len(alpha_socket.links) == 0:
+                            alpha_default = alpha_socket.default_value
+                            alpha_socket = None
+                        else:
+                            alpha_socket = alpha_socket.links[0].from_socket
+
                 # Append objects and materials if socket is found
                 if socket or default:
                     mats.append(mat)
                     sockets.append(socket)
                     defaults.append(default)
+                    alpha_sockets.append(alpha_socket)
+                    alpha_defaults.append(alpha_default)
 
                     if o not in objs:
                         objs.append(o)
@@ -347,8 +370,10 @@ def prepare_other_objs_channels(yp, other_objs):
         ch_other_mats.append(mats)
         ch_other_sockets.append(sockets)
         ch_other_defaults.append(defaults)
+        ch_other_alpha_sockets.append(alpha_sockets)
+        ch_other_alpha_defaults.append(alpha_defaults)
 
-    return ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ori_mat_no_nodes
+    return ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes
 
 def recover_other_objs_channels(other_objs, ori_mat_no_nodes):
     for o in other_objs:
