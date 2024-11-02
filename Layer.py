@@ -1962,6 +1962,12 @@ class BaseMultipleImagesLayer():
         default = 'BUMP_MAP'
     )
 
+    normal_map_flip_y : BoolProperty(
+        name = 'Flip G (Normal Map)',
+        description = 'Invert G channel on loaded normal map (useful for DirectX normal maps)',
+        default = False
+    )
+
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
@@ -2175,7 +2181,7 @@ class BaseMultipleImagesLayer():
                     image_node.image = image
                     ch.override_1 = True
                     ch.override_1_type = 'IMAGE'
-                    if dx_image and dx_image == image:
+                    if (self.normal_map_flip_y and (not gl_image or gl_image != image)) or (dx_image and dx_image == image):
                         ch.image_flip_y = True
                 else:
                     image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
@@ -2261,6 +2267,7 @@ class BaseMultipleImagesLayer():
         height_root_ch = get_root_height_channel(yp) if yp else None
         if not yp or height_root_ch:
             col.label(text='Normal Map:')
+            col.label(text='')
 
         col.label(text='')
         if self.add_mask:
@@ -2285,7 +2292,9 @@ class BaseMultipleImagesLayer():
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         if not yp or height_root_ch:
-            col.prop(self, 'normal_map_priority', text='')
+            crow = col.row(align=True)
+            crow.prop(self, 'normal_map_priority', text='')
+            crow.prop(self, 'normal_map_flip_y', text='', icon_value=lib.get_icon('g'))
 
         col.prop(self, 'add_mask', text='Add Mask')
         if self.add_mask:
