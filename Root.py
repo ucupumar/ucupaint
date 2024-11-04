@@ -1308,6 +1308,11 @@ class YNewYPaintChannel(bpy.types.Operator):
         last_index = len(yp.channels)-1
         group_tree.yp.active_channel_index = last_index
 
+        # Automatically enable new layer channel for group and background layers
+        for layer in yp.layers:
+            if layer.type in {'GROUP', 'BACKGROUND'}:
+                layer.channels[last_index].enable = True
+
         # Update UI
         wm.ypui.need_update = True
         print('INFO: Channel', channel.name, 'is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
