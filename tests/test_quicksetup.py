@@ -7,10 +7,10 @@ class TestQuickSetup(unittest.TestCase):
         
         nodes = bpy.data.materials['Material'].node_tree.nodes
 
-        ucupaint = False
+        is_yp_node_found = False
 
         for node in nodes:
             if hasattr(node, 'node_tree'):
-                ucupaint = node.node_tree.yp.is_ypaint_node
-            if ucupaint == True: pass
-        self.assertTrue(ucupaint)
+                is_yp_node_found = node.node_tree.yp.is_ypaint_node
+            if is_yp_node_found == True: pass
+        self.assertTrue(is_yp_node_found)
