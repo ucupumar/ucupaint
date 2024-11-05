@@ -273,6 +273,7 @@ class YNewLayerMask(bpy.types.Operator):
         name = 'Blend',
         description = 'Blend type',
         items = mask_blend_type_items,
+        default = 3 if is_bl_newer_than(2, 90) else None,
     )
 
     color_option : EnumProperty(
@@ -767,6 +768,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         name = 'Blend',
         description = 'Blend type',
         items = mask_blend_type_items,
+        default = 3 if is_bl_newer_than(2, 90) else None,
     )
 
     source_input : EnumProperty(
@@ -1029,6 +1031,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         name = 'Blend',
         description = 'Blend type',
         items = mask_blend_type_items,
+        default = 3 if is_bl_newer_than(2, 90) else None,
     )
 
     @classmethod
@@ -1971,6 +1974,7 @@ class YLayerMask(bpy.types.PropertyGroup):
     blend_type : EnumProperty(
         name = 'Blend',
         items = mask_blend_type_items,
+        default = 3 if is_bl_newer_than(2, 90) else None,
         update = update_mask_blend_type
     )
 
