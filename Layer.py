@@ -4051,8 +4051,26 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     check_uv_nodes(yp)
 
     # Update layer name
-    if layer_type_labels[ori_type] in layer.name:
-        layer.name = layer.name.replace(layer_type_labels[ori_type], layer_type_labels[layer.type])
+    if layer.type == 'IMAGE':
+        # Rename layer with image name
+        source = get_layer_source(layer)
+        if source and source.image:
+            yp.halt_update = True
+            layer.name = get_unique_name(source.image.name, yp.layers)
+            yp.halt_update = False
+
+    elif layer.type == 'VCOL':
+        # Rename layer with vcol name
+        source = get_layer_source(layer)
+        if source: layer.name = get_unique_name(source.attribute_name, yp.layers)
+
+    elif ori_type in {'IMAGE', 'VCOL'}:
+        # Rename layer with texture types
+        layer.name = get_unique_name(layer_type_labels[layer.type], yp.layers)
+
+    elif layer_type_labels[ori_type] in layer.name:  
+        # Rename texture types with another texture types
+        layer.name = get_unique_name(layer.name.replace(layer_type_labels[ori_type], layer_type_labels[layer.type]), yp.layers)
 
     # Refresh colorspace
     for root_ch in yp.channels:
