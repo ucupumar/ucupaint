@@ -1606,7 +1606,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
     if not lui.expand_channels:
         return
 
-    row.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.get_icon('channels'))
+    row.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.get_icon('checkbox'))
 
     rrow = layout.row(align=True)
     rrow.label(text='', icon='BLANK1')
