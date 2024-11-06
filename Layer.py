@@ -4059,6 +4059,11 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             layer.name = get_unique_name(source.image.name, yp.layers)
             yp.halt_update = False
 
+            # Set interpolation to Cubic if normal/height channel is found
+            height_ch = get_height_channel(layer)
+            if height_ch and height_ch.enable:
+                source.interpolation = 'Cubic'
+
     elif layer.type == 'VCOL':
         # Rename layer with vcol name
         source = get_layer_source(layer)
