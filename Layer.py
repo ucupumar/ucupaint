@@ -3940,14 +3940,20 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             parent_dict[yp.layers[i].name] = parent_dict[layer.name]
 
     # Remove segment if original layer using image atlas
+    print(layer.type, layer.segment_name)
     if layer.type == 'IMAGE' and layer.segment_name != '':
         src = get_layer_source(layer)
         if src.image.yia.is_image_atlas:
             segment = src.image.yia.segments.get(layer.segment_name)
             segment.unused = True
-            layer.segment_name = ''
         elif src.image.yua.is_udim_atlas:
             UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, yp=yp)
+
+        # Set segment name to empty
+        layer.segment_name = ''
+
+        # Reset mapping after removing image atlas segment
+        clear_mapping(layer)
 
     # Save hemi vector
     if layer.type == 'HEMI':
