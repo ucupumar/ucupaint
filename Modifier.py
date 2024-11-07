@@ -10,13 +10,13 @@ modifier_type_items = (
     ('INVERT', 'Invert', 'Invert input RGB and/or Alpha', 'MODIFIER', 0),
 
     (
-        'RGB_TO_INTENSITY', 'RGB to Intensity',
+        'RGB_TO_INTENSITY', 'RGB to Alpha',
         'Input RGB will be used as alpha output, Output RGB will be replaced using custom color.', 
         'MODIFIER', 1
     ),
 
     (
-        'INTENSITY_TO_RGB', 'Intensity to RGB',
+        'INTENSITY_TO_RGB', 'Alpha to RGB',
         'Input alpha will be used as RGB output, Output Alpha will use solid value of one.', 
         'MODIFIER', 2
     ),
