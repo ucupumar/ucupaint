@@ -4077,6 +4077,9 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         source = get_layer_source(layer)
         if source: layer.name = get_unique_name(source.attribute_name, yp.layers)
 
+        # Set active vertex color
+        set_active_vertex_color_by_name(bpy.context.object, source.attribute_name)
+
     elif ori_type in {'IMAGE', 'VCOL'}:
         # Rename layer with texture types
         layer.name = get_unique_name(layer_type_labels[layer.type], yp.layers)

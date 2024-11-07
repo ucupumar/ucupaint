@@ -4479,6 +4479,12 @@ def set_active_vertex_color(obj, vcol):
                 obj.data.vertex_colors.active = vcol
     except Exception as e: print(e)
 
+def set_active_vertex_color_by_name(obj, vcol_name):
+    vcols = get_vertex_colors(obj)
+    if vcols: 
+        vcol = vcols.get(vcol_name)
+        if vcol: set_active_vertex_color(obj, vcol)
+
 def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER'):
     if not obj or obj.type != 'MESH': return None
 
