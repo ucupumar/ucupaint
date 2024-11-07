@@ -685,6 +685,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
     # Check the need of divider alpha
     check_layer_divider_alpha(layer)
 
+    # Check the need of flip y
+    check_entity_image_flip_y(layer)
+
     # Update transition related nodes
     height_ch = get_height_channel(layer)
     if height_ch:
@@ -701,6 +704,11 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
         if root_ch.type != 'NORMAL': # Because normal map related nodes should already created
             # Check mask mix nodes
             check_mask_mix_nodes(layer, tree, specific_ch=ch)
+
+        else:
+            # Check flip y
+            if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                check_entity_image_flip_y(ch)
 
     # Mask nodes
     for mask in layer.masks:

@@ -5794,29 +5794,11 @@ def update_image_flip_y(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
 
-    m1 = re.match(r'yp\.layers\[(\d+)\]$', self.path_from_id())
-    m2 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', self.path_from_id())
+    layer = check_entity_image_flip_y(self)
 
-    if m1:
-        #layer = yp.layers[int(m1.group(1))]
-        layer = self
-        tree = get_source_tree(self)
-
-    elif m2:
-        layer = yp.layers[int(m2.group(1))]
-        #ch = layer.channels[int(m2.group(2))]
-        tree = get_tree(layer)
-    else:
-        return
-
-    if self.image_flip_y:
-        flip_y = check_new_node(tree, self, 'flip_y', 'ShaderNodeGroup', 'Flip Y')
-        flip_y.node_tree = lib.get_node_tree_lib(lib.FLIP_Y)
-    else:
-        remove_node(tree, self, 'flip_y')
-
-    reconnect_layer_nodes(layer)
-    rearrange_layer_nodes(layer)
+    if layer:
+        reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def update_channel_active_edit(self, context):
     yp = self.id_data.yp
