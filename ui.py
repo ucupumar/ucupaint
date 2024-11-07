@@ -559,23 +559,13 @@ def draw_colorid_props(layer, source, layout):
     col = layout.column()
     row = col.row()
     row.label(text='Color ID:')
-    #row.prop(source.inputs[0], 'default_value', text='')
-
-    #row.prop(layer, 'color_id', text='')
     draw_input_prop(row, layer, 'color_id')
-    #row = col.row()
-    #row.label(text='Shortcut on list:')
-    #row.prop(layer, 'color_shortcut', text='')
 
 def draw_solid_color_props(layer, source, layout):
     col = layout.column()
-    #col.label(text='Ewsom')
     row = col.row()
     row.label(text='Color:')
     row.prop(source.outputs[0], 'default_value', text='')
-    row = col.row()
-    row.label(text='Shortcut on list:')
-    row.prop(layer, 'color_shortcut', text='')
 
 def draw_edge_detect_props(layer, source, layout):
     col = layout.column()
@@ -4023,7 +4013,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         # Modifier shortcut
         shortcut_found = False
 
-        if layer.type == 'COLOR' and layer.color_shortcut:
+        if layer.type == 'COLOR':
             src = get_layer_source(layer, layer_tree)
             rrow = row.row()
             rrow.prop(src.outputs[0], 'default_value', text='', icon='COLOR')
