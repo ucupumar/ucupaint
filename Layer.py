@@ -989,8 +989,8 @@ class YNewLayer(bpy.types.Operator):
     )
 
     use_divider_alpha : BoolProperty(
-        name = 'Spread Fix',
-        description='Use spread fix (very recommended for vertex color or image layer)',
+        name = 'Divide RGB by Alpha',
+        description='Divide RGB by its alpha value (very recommended for vertex color layer)',
         default = False
     )
 
@@ -6552,8 +6552,8 @@ class YLayer(bpy.types.PropertyGroup):
     )
 
     divide_rgb_by_alpha : BoolProperty(
-        name = 'Spread Fix',
-        description = "Spread fix will divide RGB value by its alpha\nThis can be useful remove dark outline on painted image/vertex color\nWARNING: This is a hack solution so the result might not looks right",
+        name = 'Divide RGB by Alpha',
+        description = "Dividing RGB value by its alpha\nThis can be useful remove dark outline on painted image/vertex color\nWARNING: This is a hack solution so the result might not looks right",
         default = False,
         update = update_divide_rgb_by_alpha
     )

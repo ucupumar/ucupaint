@@ -269,9 +269,6 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
             scol.label(text='Use Alpha:')
         scol.label(text='Alpha Mode:')
 
-    if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
-        scol.label(text='Flip Y:')
-
     scol.label(text='Interpolation:')
 
     scol.label(text='Extension:')
@@ -287,15 +284,17 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
             scol.prop(image, 'use_alpha', text='')
         scol.prop(image, 'alpha_mode', text='')
 
-    if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
-        scol.prop(entity, 'image_flip_y', text='')
-
     scol.prop(source, 'interpolation', text='')
 
     scol.prop(source, 'extension', text='')
     #scol.prop(source, 'projection', text='')
     #if source.projection == 'BOX':
     #    scol.prop(entity, 'projection_blend', text='')
+
+    if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
+        row = col.row(align=True)
+        row.label(text='Flip Y:')
+        row.prop(entity, 'image_flip_y', text='')
 
 def draw_object_index_props(entity, layout):
     col = layout.column()
@@ -315,7 +314,9 @@ def draw_hemi_props(entity, source, layout):
 
 def draw_vcol_props(layout, vcol=None, entity=None):
     if hasattr(entity, 'divide_rgb_by_alpha'):
-        layout.prop(entity, 'divide_rgb_by_alpha')
+        row = layout.row(align=True)
+        row.label(text='Divide RGB by Alpha:')
+        row.prop(entity, 'divide_rgb_by_alpha', text='')
     else:
         layout.label(text='You can also edit vertex color in edit mode')
 
@@ -1395,21 +1396,24 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             row = rcol.row(align=True)
             row.label(text='', icon='BLANK1')
             bbox = row.box()
+            bcol = bbox.column(align=False)
 
             if layer.use_temp_bake:
-                bbox.context_pointer_set('parent', layer)
-                bbox.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
+                bcol.context_pointer_set('parent', layer)
+                bcol.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
             elif image:
-                draw_image_props(context, source, bbox, layer, show_flip_y=True)
+                draw_image_props(context, source, bcol, layer, show_flip_y=True)
                 if hasattr(layer, 'divide_rgb_by_alpha'):
-                    bbox.prop(layer, 'divide_rgb_by_alpha', text='Spread Fix')
+                    brow = bcol.row(align=True)
+                    brow.label(text='Divide RGB by Alpha:')
+                    brow.prop(layer, 'divide_rgb_by_alpha', text='')
             elif layer.type == 'COLOR':
-                draw_solid_color_props(layer, source, bbox)
+                draw_solid_color_props(layer, source, bcol)
             elif layer.type == 'VCOL':
-                draw_vcol_props(bbox, vcol, layer)
+                draw_vcol_props(bcol, vcol, layer)
             elif layer.type == 'HEMI':
-                draw_hemi_props(layer, source, bbox)
-            else: draw_tex_props(source, bbox, entity=layer)
+                draw_hemi_props(layer, source, bcol)
+            else: draw_tex_props(source, bcol, entity=layer)
 
         # Vector
         #if layer.type not in {'VCOL', 'COLOR', 'HEMI', 'OBJECT_INDEX'}:
