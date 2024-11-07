@@ -3942,9 +3942,12 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     # Remove segment if original layer using image atlas
     if layer.type == 'IMAGE' and layer.segment_name != '':
         src = get_layer_source(layer)
-        segment = src.image.yia.segments.get(layer.segment_name)
-        segment.unused = True
-        layer.segment_name = ''
+        if src.image.yia.is_image_atlas:
+            segment = src.image.yia.segments.get(layer.segment_name)
+            segment.unused = True
+            layer.segment_name = ''
+        elif src.image.yua.is_udim_atlas:
+            UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, yp=yp)
 
     # Save hemi vector
     if layer.type == 'HEMI':
@@ -4366,7 +4369,7 @@ class YReplaceLayerType(bpy.types.Operator):
             if self.type == 'IMAGE':
                 baked_channel_images = get_all_baked_channel_images(self.layer.id_data)
                 for img in bpy.data.images:
-                    if not img.yia.is_image_atlas and img not in baked_channel_images:
+                    if not img.yia.is_image_atlas and not img.yua.is_udim_atlas and img not in baked_channel_images:
                         self.item_coll.add().name = img.name
             else:
                 for vcol_name in get_vertex_color_names(obj):
