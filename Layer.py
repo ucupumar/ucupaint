@@ -3940,7 +3940,6 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             parent_dict[yp.layers[i].name] = parent_dict[layer.name]
 
     # Remove segment if original layer using image atlas
-    print(layer.type, layer.segment_name)
     if layer.type == 'IMAGE' and layer.segment_name != '':
         src = get_layer_source(layer)
         if src.image.yia.is_image_atlas:
