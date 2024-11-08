@@ -71,7 +71,7 @@ class YToggleEraser(bpy.types.Operator):
         else:
             self.report({'ERROR'}, "There's no need to use this operator in this blender version!")
             return {'CANCELLED'}
-
+        
         # Get eraser brush
         eraser_name = eraser_names[mode]
         eraser_brush = bpy.data.brushes.get(eraser_name)
@@ -134,10 +134,38 @@ class YToggleEraser(bpy.types.Operator):
             new_brush = eraser_brush
 
         if new_brush:
+
             if mode == 'TEXTURE_PAINT':
                 context.tool_settings.image_paint.brush = new_brush
+
+                # HACK: Blender 4.3 sometimes can't set the active brush this way
+                if is_bl_newer_than(4, 3) and context.tool_settings.image_paint.brush != new_brush:
+                    catalog_id = new_brush.asset_data.catalog_id if new_brush.asset_data else ''
+                    try:
+                        bpy.ops.brush.asset_activate(
+                            asset_library_type='ESSENTIALS', 
+                            asset_library_identifier="", 
+                            relative_asset_identifier="brushes\\essentials_brushes-mesh_texture.blend\\Brush\\" + new_brush.name
+                        )
+                    except: 
+                        self.report({'ERROR'}, 'Cannot set the brush to \'' + new_brush.name + '\'!')
+                        return {'CANCELLED'}
+
             elif mode == 'VERTEX_PAINT': 
                 context.tool_settings.vertex_paint.brush = new_brush
+
+                # HACK: Blender 4.3 sometimes can't set the active brush this way
+                if is_bl_newer_than(4, 3) and context.tool_settings.vertex_paint.brush != new_brush:
+                    try:
+                        bpy.ops.brush.asset_activate(
+                            asset_library_type='ESSENTIALS', 
+                            asset_library_identifier="", 
+                            relative_asset_identifier="brushes\\essentials_brushes-mesh_vertex.blend\\Brush\\" + new_brush.name
+                        )
+                    except: 
+                        self.report({'ERROR'}, 'Cannot set the brush to \'' + new_brush.name + '\'!')
+                        return {'CANCELLED'}
+
             elif mode == 'SCULPT': 
                 context.tool_settings.sculpt.brush = new_brush
 
