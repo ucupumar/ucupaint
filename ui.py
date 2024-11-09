@@ -1269,6 +1269,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     ypui = context.window_manager.ypui
     lui = ypui.layer_ui
     scene = context.scene
+    ypup = get_user_preferences()
 
     row = layout.row(align=True)
     if image:
@@ -1393,10 +1394,14 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 bcol.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
             elif image:
                 draw_image_props(context, source, bcol, layer, show_flip_y=True)
-                if hasattr(layer, 'divide_rgb_by_alpha'):
+
+                # NOTE: Divide rgb by alpha is mostly useless for image layer, 
+                # so it's hidden under experimental feature unless the user ever enabled it before
+                if hasattr(layer, 'divide_rgb_by_alpha') and (layer.divide_rgb_by_alpha or ypup.show_experimental):
                     brow = bcol.row(align=True)
                     brow.label(text='Divide RGB by Alpha:')
                     brow.prop(layer, 'divide_rgb_by_alpha', text='')
+
             elif layer.type == 'COLOR':
                 draw_solid_color_props(layer, source, bcol)
             elif layer.type == 'VCOL':
