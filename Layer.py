@@ -6099,8 +6099,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     )
 
     image_flip_y : BoolProperty(
-        name = 'Image Flip Y',
-        description = "Image Flip Y (Use this if you're using normal map created for DirectX application)",
+        name = 'Image Flip G',
+        description = "Image Flip G (Use this if you're using normal map created for DirectX application)",
         default = False,
         update = update_image_flip_y
     )
@@ -6538,8 +6538,8 @@ class YLayer(bpy.types.PropertyGroup):
     )
 
     image_flip_y : BoolProperty(
-        name = 'Image Flip Y',
-        description = "Image Flip Y (Use this if you're using normal map created for DirectX application) ",
+        name = 'Image Flip G',
+        description = "Image Flip G (Use this if you're using normal map created for DirectX application) ",
         default = False,
         update = update_image_flip_y
     )

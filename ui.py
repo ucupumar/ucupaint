@@ -293,7 +293,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
 
     if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
         row = col.row(align=True)
-        row.label(text='Flip Y:')
+        row.label(text='Flip G:')
         row.prop(entity, 'image_flip_y', text='')
 
 def draw_object_index_props(entity, layout):
