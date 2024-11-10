@@ -2285,7 +2285,7 @@ def draw_layer_masks(context, layout, layer):
                 else: row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
             elif mask.type == 'VCOL':
                 if mask.source_input == 'ALPHA':
-                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color_alpha'))
+                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('alpha_vertex_color'))
                 else: row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
             elif mask.type == 'HEMI':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('hemi'))
@@ -3921,7 +3921,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 elif m.type == 'VCOL':
                     active_vcol_mask = m
                     if m.source_input == 'ALPHA':
-                        row.label(text='', icon_value=lib.get_icon('vertex_color_alpha'))
+                        row.label(text='', icon_value=lib.get_icon('alpha_vertex_color'))
                     else: row.label(text='', icon_value=lib.get_icon('vertex_color'))
                 elif m.type == 'HEMI':
                     row.label(text='', icon_value=lib.get_icon('hemi'))
@@ -3949,7 +3949,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                         else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     if m.source_input == 'ALPHA':
-                        row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color_alpha'))
+                        row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('alpha_vertex_color'))
                     else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 elif m.type == 'HEMI':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
