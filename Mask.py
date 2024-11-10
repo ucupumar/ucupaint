@@ -1827,7 +1827,12 @@ def update_mask_source_input(self, context):
     reconnect_layer_nodes(layer)
 
 class YLayerMaskChannel(bpy.types.PropertyGroup):
-    enable : BoolProperty(default=True, update=update_layer_mask_channel_enable)
+    enable : BoolProperty(
+        name = 'Enable Mask Channel',
+        description = 'Mask will affect this channel',
+        default = True, 
+        update = update_layer_mask_channel_enable
+    )
 
     # Multiply between mask channels
     mix : StringProperty(default='')
