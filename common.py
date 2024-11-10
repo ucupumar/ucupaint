@@ -241,7 +241,7 @@ layer_type_labels = {
     'VCOL' : 'Vertex Color',
     'BACKGROUND' : 'Background',
     'COLOR' : 'Solid Color',
-    'GROUP' : 'Layer Group',
+    'GROUP' : 'Group',
     'HEMI' : 'Fake Lighting',
     'GABOR' : 'Gabor',
 }
