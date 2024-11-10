@@ -257,6 +257,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, mask.source_w, frame)
 
         check_set_node_parent(tree, mask.blur_vector, frame)
+        check_set_node_parent(tree, mask.separate_color_channels, frame)
         check_set_node_parent(tree, mask.decal_process, frame)
         check_set_node_parent(tree, mask.decal_alpha, frame)
         check_set_node_parent(tree, mask.decal_alpha_n, frame)
@@ -509,6 +510,9 @@ def rearrange_mask_tree_nodes(mask):
         loc.y = 0
 
     if check_set_node_loc(tree, mask.linear, loc):
+        loc.x += 180
+    
+    if check_set_node_loc(tree, mask.separate_color_channels, loc):
         loc.x += 180
 
     arrange_mask_modifier_nodes(tree, mask, loc)
@@ -1149,6 +1153,9 @@ def rearrange_layer_nodes(layer, tree=None):
         #    loc.y -= 180
 
         loc.y = 0
+
+        loc.x += 270
+        check_set_node_loc(tree, mask.separate_color_channels, loc)
 
         if mask.group_node == '' and len(mask.modifiers) > 0:
             loc.x += 270
