@@ -780,6 +780,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             if area.type == 'VIEW_3D':
                 if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity and self.mute_texture_paint_overlay:
                     area.spaces[0].overlay.texture_paint_mode_opacity = 0.0
+                    area.spaces[0].overlay.vertex_paint_mode_opacity = 0.0
 
                 if self.not_on_material_view and self.switch_to_material_view:
                     if not is_bl_newer_than(2, 80):
