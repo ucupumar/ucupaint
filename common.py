@@ -120,26 +120,29 @@ def entity_input_items(self, context):
     items = []
 
     if entity.type not in layer_type_labels:
-        items.append(('RGB', 'RGB',  ''))
-        items.append(('ALPHA', 'Alpha',  ''))
+        items.append(('RGB', 'RGB', ''))
+        items.append(('ALPHA', 'Alpha', ''))
     else:
         label = layer_type_labels[entity.type]
 
         if is_bl_newer_than(2, 81) and entity.type == 'VORONOI':
-            items.append(('RGB', label + ' Color',  ''))
-            items.append(('ALPHA', label + ' Distance',  ''))
+            items.append(('RGB', label + ' Color', ''))
+            items.append(('ALPHA', label + ' Distance', ''))
         elif entity.type == 'GABOR':
-            items.append(('RGB', label + ' Value',  ''))
-            items.append(('ALPHA', label + ' Phase',  ''))
+            items.append(('RGB', label + ' Value', ''))
+            items.append(('ALPHA', label + ' Phase', ''))
         elif entity.type == 'VCOL':
-            items.append(('RGB', label,  ''))
-            items.append(('ALPHA', label + ' Alpha',  ''))
+            items.append(('RGB', label, ''))
+            items.append(('ALPHA', label + ' Alpha', ''))
+            items.append(('R', label + ' Red', ''))
+            items.append(('G', label + ' Green', ''))
+            items.append(('B', label + ' Blue', ''))
         elif entity.type == 'IMAGE':
-            items.append(('RGB', label + ' Color',  ''))
-            items.append(('ALPHA', label + ' Alpha',  ''))
+            items.append(('RGB', label + ' Color', ''))
+            items.append(('ALPHA', label + ' Alpha', ''))
         else:
-            items.append(('RGB', label + ' Color',  ''))
-            items.append(('ALPHA', label + ' Factor',  ''))
+            items.append(('RGB', label + ' Color', ''))
+            items.append(('ALPHA', label + ' Factor', ''))
         
     return items
 

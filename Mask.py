@@ -191,6 +191,7 @@ def remove_mask(layer, mask, obj):
     remove_node(tree, mask, 'source')
     remove_node(tree, mask, 'baked_source')
     remove_node(tree, mask, 'blur_vector')
+    remove_node(tree, mask, 'separate_color_channels')
     remove_node(tree, mask, 'mapping')
     remove_node(tree, mask, 'texcoord')
     remove_node(tree, mask, 'baked_mapping')
@@ -1823,8 +1824,17 @@ def update_mask_source_input(self, context):
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
 
+    mask = self
+    tree = get_mask_tree(mask)
+
+    if mask.source_input in {'R', 'G', 'B'}:
+        check_new_node(tree, mask, 'separate_color_channels', 'ShaderNodeSeparateXYZ', 'Separate Color')
+    else:
+        remove_node(tree, mask, 'separate_color_channels')
+
     # Reconnect nodes
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
 class YLayerMaskChannel(bpy.types.PropertyGroup):
     enable : BoolProperty(
@@ -2118,6 +2128,7 @@ class YLayerMask(bpy.types.PropertyGroup):
     mapping : StringProperty(default='')
     baked_mapping : StringProperty(default='')
     blur_vector : StringProperty(default='')
+    separate_color_channels : StringProperty(default='')
 
     enable_uniform_scale : BoolProperty(
         name = 'Enable Uniform Scale', 

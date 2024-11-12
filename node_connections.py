@@ -1706,6 +1706,7 @@ def reconnect_mask_internal_nodes(mask, mask_source_index=0):
         source = baked_source
     else: source = tree.nodes.get(mask.source)
     linear = tree.nodes.get(mask.linear)
+    separate_color_channels = tree.nodes.get(mask.separate_color_channels)
     start = tree.nodes.get(TREE_START)
     end = tree.nodes.get(TREE_END)
 
@@ -1715,6 +1716,12 @@ def reconnect_mask_internal_nodes(mask, mask_source_index=0):
         create_link(tree, start.outputs[0], source.inputs[0])
 
     val = source.outputs[mask_source_index]
+
+    if mask.source_input in {'R', 'G', 'B'}:
+        separate_color_channels_outputs = create_link(tree, val, separate_color_channels.inputs[0])
+        if mask.source_input == 'R': val = separate_color_channels_outputs[0]
+        elif mask.source_input == 'G': val = separate_color_channels_outputs[1]
+        elif mask.source_input == 'B': val = separate_color_channels_outputs[2]
 
     if linear:
         val = create_link(tree, val, linear.inputs[0])[0]
@@ -2022,10 +2029,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 mask_source = baked_mask_source
             else: mask_source = nodes.get(mask.source)
             mask_linear = nodes.get(mask.linear)
+            mask_separate_color_channels = nodes.get(mask.separate_color_channels)
 
             if mask.type == 'BACKFACE':
                 mask_val = get_essential_node(tree, GEOMETRY)[mask_source_index]
             else: mask_val = mask_source.outputs[mask_source_index]
+
+            if mask.source_input in {'R', 'G', 'B'}:
+                separate_color_channels_outputs = create_link(tree, mask_val, mask_separate_color_channels.inputs[0])
+                if mask.source_input == 'R': mask_val = separate_color_channels_outputs[0]
+                elif mask.source_input == 'G': mask_val = separate_color_channels_outputs[1]
+                elif mask.source_input == 'B': mask_val = separate_color_channels_outputs[2]
 
             if mask_linear:
                 mask_val = create_link(tree, mask_val, mask_linear.inputs[0])[0]
