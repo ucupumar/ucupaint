@@ -170,7 +170,7 @@ class YHideTransitionEffect(bpy.types.Operator):
     bl_label = "Hide Transition Effect"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Type',
         items = (
             ('BUMP', 'Bump', ''),
