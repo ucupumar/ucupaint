@@ -5,6 +5,13 @@ from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, UDIM
 from .common import *
 
+RGBA_CHANNEL_PREFIX = {
+    'ALPHA' : 'alpha_',
+    'R' : 'r_',
+    'G' : 'g_',
+    'B' : 'b_',
+}
+
 def update_yp_ui():
 
     # Get active yp node
@@ -2280,12 +2287,12 @@ def draw_layer_masks(context, layout, layer):
 
         if mask.enable:
             if mask.type == 'IMAGE':
-                if mask.source_input == 'ALPHA':
-                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('alpha_image'))
+                if mask.source_input in {'ALPHA', 'R', 'G', 'B'}:
+                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[mask.source_input]+'image'))
                 else: row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
             elif mask.type == 'VCOL':
-                if mask.source_input == 'ALPHA':
-                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('alpha_vertex_color'))
+                if mask.source_input in {'ALPHA', 'R', 'G', 'B'}:
+                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[mask.source_input]+'vertex_color'))
                 else: row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
             elif mask.type == 'HEMI':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('hemi'))
@@ -3915,13 +3922,13 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                         #if not src.image.preview: src.image.preview_ensure()
                         row.label(text='', icon_value=src.image.preview.icon_id)
                     else: 
-                        if m.source_input == 'ALPHA':
-                            row.label(text='', icon_value=lib.get_icon('alpha_image'))
+                        if m.source_input in {'ALPHA', 'R', 'G', 'B'}:
+                            row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.source_input]+'image'))
                         else: row.label(text='', icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     active_vcol_mask = m
-                    if m.source_input == 'ALPHA':
-                        row.label(text='', icon_value=lib.get_icon('alpha_vertex_color'))
+                    if m.source_input in {'ALPHA', 'R', 'G', 'B'}:
+                        row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.source_input]+'vertex_color'))
                     else: row.label(text='', icon_value=lib.get_icon('vertex_color'))
                 elif m.type == 'HEMI':
                     row.label(text='', icon_value=lib.get_icon('hemi'))
@@ -3944,12 +3951,12 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                         #if not src.image.preview: src.image.preview_ensure()
                         row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                     else: 
-                        if m.source_input == 'ALPHA':
-                            row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('alpha_image'))
+                        if m.source_input in {'ALPHA', 'R', 'G', 'B'}:
+                            row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.source_input]+'image'))
                         else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
-                    if m.source_input == 'ALPHA':
-                        row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('alpha_vertex_color'))
+                    if m.source_input in {'ALPHA', 'R', 'G', 'B'}:
+                        row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.source_input]+'vertex_color'))
                     else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 elif m.type == 'HEMI':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
