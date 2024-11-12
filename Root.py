@@ -2561,27 +2561,11 @@ def remove_preview(mat, advanced=False):
 #    pass
 
 def layer_preview_mode_type_items(self, context):
-    #node = get_active_ypaint_node()
-    #yp = node.node_tree.yp
-
     items = (
         ('LAYER', 'Layer', '',  lib.get_icon('texture'), 0),
         ('MASK', 'Mask', '', lib.get_icon('mask'), 1),
         ('SPECIFIC_MASK', 'Specific Mask', '', lib.get_icon('mask'), 2)
     )
-
-    #for i, ch in enumerate(yp.channels):
-    #    #if hasattr(lib, 'custom_icons'):
-    #    if not is_bl_newer_than(2, 80):
-    #        icon_name = lib.channel_custom_icon_dict[ch.type]
-    #        items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
-    #    else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], i))
-
-    ##if hasattr(lib, 'custom_icons'):
-    #if not is_bl_newer_than(2, 80):
-    #    items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
-    #else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
-
     return items
 
 def update_layer_preview_mode(self, context):

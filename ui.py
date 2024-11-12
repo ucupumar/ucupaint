@@ -953,8 +953,6 @@ def draw_root_channels_ui(context, layout, node):
         else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
         row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        #else:
-        #    row.prop(chui, 'expand_content', text='', emboss=True, icon=lib.channel_icon_dict[channel.type])
 
         row.label(text=channel.name + ' ' + pgettext_iface('Channel'))
 

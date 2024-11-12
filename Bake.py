@@ -1192,10 +1192,8 @@ def bake_vcol_channel_items(self, context):
         # Add two spaces to prevent text from being translated
         text_ch_name = ch.name + '  '
         # Index plus one, minus one when read
-        if hasattr(lib, 'custom_icons'):
-            icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i + 2), text_ch_name, '', lib.get_icon(icon_name), i + 2))
-        else: items.append((str(i + 2), text_ch_name, '', lib.channel_icon_dict[ch.type], i + 2))
+        icon_name = lib.channel_custom_icon_dict[ch.type]
+        items.append((str(i + 2), text_ch_name, '', lib.get_icon(icon_name), i + 2))
 
     return items
 
@@ -2012,10 +2010,8 @@ def merge_channel_items(self, context):
     counter = 0
     for i, ch in enumerate(yp.channels):
         if not layer.channels[i].enable: continue
-        if hasattr(lib, 'custom_icons'):
-            icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i), ch.name, '', lib.get_icon(icon_name), counter))
-        else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], counter))
+        icon_name = lib.channel_custom_icon_dict[ch.type]
+        items.append((str(i), ch.name, '', lib.get_icon(icon_name), counter))
         counter += 1
 
     return items

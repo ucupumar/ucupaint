@@ -20,18 +20,12 @@ def channel_items(self, context):
     items = []
 
     for i, ch in enumerate(yp.channels):
-        #if hasattr(lib, 'custom_icons'):
         # Add two spaces to prevent text from being translated
         text_ch_name = ch.name + '  '
-        if not is_bl_newer_than(2, 80):
-            icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i), text_ch_name, '', lib.get_icon(icon_name), i))
-        else: items.append((str(i), text_ch_name, '', lib.channel_icon_dict[ch.type], i))
+        icon_name = lib.channel_custom_icon_dict[ch.type]
+        items.append((str(i), text_ch_name, '', lib.get_icon(icon_name), i))
 
-    #if hasattr(lib, 'custom_icons'):
-    if not is_bl_newer_than(2, 80):
-        items.append(('-1', 'All Channels', '', lib.get_icon('channels'), len(items)))
-    else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
+    items.append(('-1', 'All Channels', '', lib.get_icon('channels'), len(items)))
 
     return items
 
