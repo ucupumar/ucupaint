@@ -3224,6 +3224,29 @@ def draw_layers_ui(context, layout, node):
         # Masks
         draw_layer_masks(context, col, layer)
 
+def draw_test_ui(context, layout):
+    ypup = get_user_preferences()
+    if (ypup.developer_mode == True):
+        wm = context.window_manager
+        ypui = wm.ypui
+
+        icon = 'TRIA_DOWN' if ypui.show_test else 'TRIA_RIGHT'
+        row = layout.row(align=True)
+        row.prop(ypui, 'show_test', emboss=False, text='', icon=icon)
+        row.label(text='Test')
+
+        if (ypui.show_test):
+            box = layout.box()
+            col = box.column()
+
+            if (ypui.test_result_run == 0):
+                col.label(text='Run test with default cube scene!')
+                col.operator('node.y_run_autmated_test')
+            else:
+                col.label(text=pgettext_iface('Test Run Count: ') + str(ypui.test_result_run))
+                col.label(text=pgettext_iface('Test Error Count: ') + str(ypui.test_result_error))
+                col.label(text=pgettext_iface('Test Failed Count: ') + str(ypui.test_result_failed))
+
 def main_draw(self, context):
 
     wm = context.window_manager
@@ -3365,6 +3388,9 @@ def main_draw(self, context):
     if not node:
         layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
         layout.operator("node.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
+
+        # Test
+        draw_test_ui(context=context, layout=layout)
 
         return
 
@@ -3578,6 +3604,9 @@ def main_draw(self, context):
         #col.operator('node.y_new_image_atlas_segment_test', icon_value=lib.get_icon('image'))
         #col.operator('node.y_new_udim_atlas_segment_test', icon_value=lib.get_icon('image'))
         #col.operator('node.y_uv_transform_test', icon_value=lib.get_icon('uv'))
+
+    # Test
+    draw_test_ui(context=context, layout=layout)
 
 class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
@@ -5947,6 +5976,12 @@ class YPaintUI(bpy.types.PropertyGroup):
         default = False
     )
 
+    show_test : BoolProperty(
+        name = 'Tests',
+        description = 'Show test sections',
+        default = False
+    )
+
     show_support : BoolProperty(
         name = 'Support',
         description = 'Show support',
@@ -6009,6 +6044,11 @@ class YPaintUI(bpy.types.PropertyGroup):
 
     hide_update : BoolProperty(default=False)
     #random_prop : BoolProperty(default=False)
+
+    test_result_run: IntProperty(default=0)
+    test_result_error: IntProperty(default=0)
+    test_result_failed: IntProperty(default=0)
+
 
 def add_new_ypaint_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}: return
