@@ -2159,10 +2159,10 @@ class BaseMultipleImagesLayer():
                 layer = add_new_layer(
                     node.node_tree, image.name, 'IMAGE', 
                     int(ch_idx), 'MIX', 'MIX', 
-                    normal_map_type, self.texcoord_type, self.uv_map, image, None, None,
-                    (1, 1, 1), self.add_mask, self.mask_type, None, None, None, self.mask_color, self.mask_use_hdr, 
-                    self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-                    use_udim_for_mask=self.use_udim_for_mask
+                    normal_map_type, self.texcoord_type, self.uv_map, image, None, None, (1, 1, 1), 
+                    add_mask=self.add_mask, mask_type=self.mask_type, mask_color=self.mask_color, mask_use_hdr=self.mask_use_hdr, 
+                    mask_uv_name=self.mask_uv_name, mask_width=self.mask_width, mask_height=self.mask_height, 
+                    use_image_atlas_for_mask=self.use_image_atlas_for_mask, use_udim_for_mask=self.use_udim_for_mask
                 )
 
                 yp.halt_update = False
