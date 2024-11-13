@@ -2263,7 +2263,6 @@ class BaseMultipleImagesLayer():
             col.label(text='Normal Map:')
             col.label(text='')
 
-        col.label(text='')
         if self.add_mask:
             col.label(text='Mask Type:')
             col.label(text='Mask Color:')
