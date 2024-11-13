@@ -3956,6 +3956,10 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     custom_srgb_name : StringProperty(default='')
     custom_noncolor_name : StringProperty(default='')
 
+    test_result_run : IntProperty(default=0)
+    test_result_error : IntProperty(default=0)
+    test_result_failed : IntProperty(default=0)
+
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')

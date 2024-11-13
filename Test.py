@@ -24,12 +24,20 @@ class YRunAutomatedTest(bpy.types.Operator):
 
     def execute(self, context):
         wm = context.window_manager
-        ypui = wm.ypui
+        wmyp = wm.ypprops
+
+        # Reset test results
+        wmyp.test_result_run = 0
+        wmyp.test_result_error = 0
+        wmyp.test_result_failed = 0
+
+        # Run tests
         result = run_tests()
 
-        ypui.test_result_run = result.testsRun
-        ypui.test_result_error = len(result.errors)
-        ypui.test_result_failed = len(result.failures)
+        # Set test results
+        wmyp.test_result_run = result.testsRun
+        wmyp.test_result_error = len(result.errors)
+        wmyp.test_result_failed = len(result.failures)
         
         return {'FINISHED'}
 

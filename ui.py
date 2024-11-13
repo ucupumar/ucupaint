@@ -3229,6 +3229,11 @@ def draw_test_ui(context, layout):
     if (ypup.developer_mode == True):
         wm = context.window_manager
         ypui = wm.ypui
+        wmyp = wm.ypprops
+
+        obj = context.object
+        mat = get_active_material()
+        node = get_active_ypaint_node()
 
         icon = 'TRIA_DOWN' if ypui.show_test else 'TRIA_RIGHT'
         row = layout.row(align=True)
@@ -3239,13 +3244,15 @@ def draw_test_ui(context, layout):
             box = layout.box()
             col = box.column()
 
-            if (ypui.test_result_run == 0):
+
+            if obj and obj.name == 'Cube' and mat and mat.name == 'Material' and not node:
                 col.label(text='Run test with default cube scene!')
                 col.operator('node.y_run_automated_test')
-            else:
-                col.label(text=pgettext_iface('Test Run Count: ') + str(ypui.test_result_run))
-                col.label(text=pgettext_iface('Test Error Count: ') + str(ypui.test_result_error))
-                col.label(text=pgettext_iface('Test Failed Count: ') + str(ypui.test_result_failed))
+
+            if (wmyp.test_result_run != 0):
+                col.label(text=pgettext_iface('Test Run Count: ') + str(wmyp.test_result_run))
+                col.label(text=pgettext_iface('Test Error Count: ') + str(wmyp.test_result_error))
+                col.label(text=pgettext_iface('Test Failed Count: ') + str(wmyp.test_result_failed))
 
 def main_draw(self, context):
 
@@ -6044,11 +6051,6 @@ class YPaintUI(bpy.types.PropertyGroup):
 
     hide_update : BoolProperty(default=False)
     #random_prop : BoolProperty(default=False)
-
-    test_result_run : IntProperty(default=0)
-    test_result_error : IntProperty(default=0)
-    test_result_failed : IntProperty(default=0)
-
 
 def add_new_ypaint_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}: return
