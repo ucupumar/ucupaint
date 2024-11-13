@@ -14,7 +14,7 @@ def run_tests():
 
 
 class YRunAutomatedTest(bpy.types.Operator):
-    bl_idname = "node.y_run_autmated_test"
+    bl_idname = "node.y_run_automated_test"
     bl_label = "Run Automated Test"
     bl_options = {'UNDO'}
 

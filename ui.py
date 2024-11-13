@@ -3241,7 +3241,7 @@ def draw_test_ui(context, layout):
 
             if (ypui.test_result_run == 0):
                 col.label(text='Run test with default cube scene!')
-                col.operator('node.y_run_autmated_test')
+                col.operator('node.y_run_automated_test')
             else:
                 col.label(text=pgettext_iface('Test Run Count: ') + str(ypui.test_result_run))
                 col.label(text=pgettext_iface('Test Error Count: ') + str(ypui.test_result_error))
@@ -6045,9 +6045,9 @@ class YPaintUI(bpy.types.PropertyGroup):
     hide_update : BoolProperty(default=False)
     #random_prop : BoolProperty(default=False)
 
-    test_result_run: IntProperty(default=0)
-    test_result_error: IntProperty(default=0)
-    test_result_failed: IntProperty(default=0)
+    test_result_run : IntProperty(default=0)
+    test_result_error : IntProperty(default=0)
+    test_result_failed : IntProperty(default=0)
 
 
 def add_new_ypaint_node_menu(self, context):
