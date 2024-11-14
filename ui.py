@@ -3244,9 +3244,8 @@ def draw_test_ui(context, layout):
             box = layout.box()
             col = box.column()
 
-
+            col.label(text='Run test with default cube scene!')
             if obj and obj.name == 'Cube' and mat and mat.name == 'Material' and not node:
-                col.label(text='Run test with default cube scene!')
                 col.operator('node.y_run_automated_test')
 
             if (wmyp.test_result_run != 0):

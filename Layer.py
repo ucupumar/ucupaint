@@ -4475,9 +4475,10 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
                     texcoord.object = create_decal_empty()
                 else:
                     nname = get_unique_name(texcoord.object.name, bpy.data.objects)
+                    custom_collection = texcoord.object.users_collection[0] if is_bl_newer_than(2, 80) and texcoord.object and len(texcoord.object.users_collection) > 0 else None
                     texcoord.object = texcoord.object.copy()
                     texcoord.object.name = nname
-                    link_object(bpy.context.scene, texcoord.object)
+                    link_object(bpy.context.scene, texcoord.object, custom_collection)
 
         # Duplicate baked layer image
         baked_layer_source = get_layer_source(layer, get_baked=True)
@@ -4536,9 +4537,10 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
                         texcoord.object = create_decal_empty()
                     else:
                         nname = get_unique_name(texcoord.object.name, bpy.data.objects)
+                        custom_collection = texcoord.object.users_collection[0] if is_bl_newer_than(2, 80) and texcoord.object and len(texcoord.object.users_collection) > 0 else None
                         texcoord.object = texcoord.object.copy()
                         texcoord.object.name = nname
-                        link_object(bpy.context.scene, texcoord.object)
+                        link_object(bpy.context.scene, texcoord.object, custom_collection)
 
             # Duplicate baked mask image
             baked_mask_source = get_mask_source(mask, get_baked=True)
