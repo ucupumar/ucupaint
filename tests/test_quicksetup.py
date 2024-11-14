@@ -19,8 +19,8 @@ def get_texdir():
     dirname = os.path.dirname(filepath) 
     return dirname + os.sep + 'textures'
 
-class TestQuickSetup(unittest.TestCase):
-    def test_01_principled(self):
+class TestPrincipled(unittest.TestCase):
+    def test_00_principled(self):
         # Quick Setup
         bpy.ops.node.y_quick_ypaint_node_setup(type='BSDF_PRINCIPLED')
         
@@ -28,21 +28,31 @@ class TestQuickSetup(unittest.TestCase):
         yp = get_yp()
         self.assertTrue(yp != None)
 
-    def test_02_new_layer(self):
+    def test_99_remove_yp_node(self):
+        bpy.ops.node.y_remove_yp_node()
+
+        # Get yp
+        yp = get_yp()
+        self.assertTrue(yp == None)
+
+class TestNewLayer(TestPrincipled):
+    def test_01_new_layer(self):
         # Add new image layer
         bpy.ops.node.y_new_layer(name='Image', uv_map='UVMap')
 
         yp = get_yp()
         self.assertTrue(len(yp.layers) == 1)
 
-    def test_03_new_layer_with_mask(self):
+class TestNewLayerWithMask(TestPrincipled):
+    def test_01_new_layer_with_mask(self):
         # Add new solid color layer with image mask
         bpy.ops.node.y_new_layer(name='Solid Color', type='COLOR', uv_map='UVMap', add_mask=True, mask_uv_name='UVMap')
 
         yp = get_yp()
-        self.assertTrue(len(yp.layers) == 2)
+        self.assertTrue(len(yp.layers) == 1)
 
-    def test_04_open_image_to_layer(self):
+class TestOpenImageAsLayer(TestPrincipled):
+    def test_01_open_image_to_layer(self):
         texdir = get_texdir()
 
         # Open image as layer
@@ -53,36 +63,10 @@ class TestQuickSetup(unittest.TestCase):
         )
         
         yp = get_yp()
-        self.assertTrue(len(yp.layers) == 3)
+        self.assertTrue(len(yp.layers) == 1)
 
-    def test_05_new_mask(self):
-
-        # New layer mask
-        bpy.ops.node.y_new_layer_mask(name='Image Mask', uv_name='UVMap', color_option='WHITE')
-
-        layer = get_active_layer()
-        self.assertTrue(len(layer.masks) == 1)
-
-    def test_06_enable_normal(self):
-        layer = get_active_layer()
-
-        # Enable normal channel (it use index 3 by default)
-        layer.channels[3].enable = True
-
-        # TODO: Need proper state for this
-        self.assertTrue(True)
-
-    def test_06_enable_transition_bump(self):
-        layer = get_active_layer()
-
-        # Show and enable transition bump
-        layer.channels[3].show_transition_bump = True
-        layer.channels[3].enable_transition_bump = True
-
-        # TODO: Need proper state for this
-        self.assertTrue(True)
-
-    def test_07_open_images_to_single_layer_with_mask(self):
+class TestOpenImagesToSingleLayerWithMask(TestPrincipled):
+    def test_01_open_images_to_single_layer_with_mask(self):
         texdir = get_texdir()
 
         # Open images to single layer with white mask
@@ -101,5 +85,43 @@ class TestQuickSetup(unittest.TestCase):
         )
         
         yp = get_yp()
-        self.assertTrue(len(yp.layers) == 4)
+        self.assertTrue(len(yp.layers) == 1)
 
+class TestNewMask(TestOpenImageAsLayer):
+    def test_02_new_mask(self):
+
+        # New layer mask
+        bpy.ops.node.y_new_layer_mask(name='Image Mask', uv_name='UVMap', color_option='WHITE')
+
+        layer = get_active_layer()
+        self.assertTrue(len(layer.masks) == 1)
+
+class TestEnableNormal(TestNewMask):
+    def test_03_enable_normal(self):
+        layer = get_active_layer()
+
+        # Enable normal channel (it use index 3 by default)
+        layer.channels[3].enable = True
+
+        # TODO: Need proper state for this
+        self.assertTrue(True)
+
+class TestEnableTransitionBump(TestEnableNormal):
+    def test_04_enable_transition_bump(self):
+        layer = get_active_layer()
+
+        # Show and enable transition bump
+        layer.channels[3].show_transition_bump = True
+        layer.channels[3].enable_transition_bump = True
+
+        # TODO: Need proper state for this
+        self.assertTrue(True)
+
+class TestDuplicateLayer(TestNewLayer):
+    def test_02_duplicate_layer(self):
+
+        # Duplicate Layer
+        bpy.ops.node.y_duplicate_layer()
+
+        yp = get_yp()
+        self.assertTrue(len(yp.layers) == 2)

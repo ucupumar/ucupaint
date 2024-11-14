@@ -2274,7 +2274,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
 
-        if self.error_message != '':
+        if hasattr(self, 'error_message') and self.error_message != '':
             self.report({'ERROR'}, self.error_message)
             return {'CANCELLED'}
 
