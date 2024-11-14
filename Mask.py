@@ -580,7 +580,7 @@ class YNewLayerMask(bpy.types.Operator):
             col.prop(self, 'blend_type', text='')
 
     def execute(self, context):
-        if self.auto_cancel: return {'CANCELLED'}
+        if hasattr(self, 'auto_cancel') and self.auto_cancel: return {'CANCELLED'}
 
         obj = context.object
         mat = obj.active_material
