@@ -4702,17 +4702,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
                     mask_idx = int(m.group(2))
                     mask = img_users[i]
 
-                    color = (0, 0, 0, 1)
-                    if is_bl_newer_than(2, 83):
-                        # Check average value of the image using numpy
-                        pxs = numpy.empty(shape=img.size[0] * img.size[1] * 4, dtype=numpy.float32)
-                        img.pixels.foreach_get(pxs)
-                        if numpy.average(pxs) > 0.5:
-                            color = (1, 1, 1, 1)
-                    else:
-                        # Set Mask color based on the index and blend type
-                        if mask_idx > 0 and mask.blend_type not in {'ADD'}:
-                            color = (1, 1, 1, 1)
+                    color = get_image_mask_base_color(mask, img, mask_idx)
                 else: color = (0, 0, 0, 0)
 
                 img_name = get_unique_name(img.name, bpy.data.images)
