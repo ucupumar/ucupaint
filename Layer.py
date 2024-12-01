@@ -2198,7 +2198,7 @@ class BaseMultipleImagesLayer():
 
         # Remove unused images
         for image in images:
-            if image not in valid_images: # and image not in existing_images:
+            if image not in valid_images and image.users == 0: # and image not in existing_images:
                 remove_datablock(bpy.data.images, image)
 
         # Update UI
