@@ -5372,12 +5372,19 @@ def update_normal_map_type(self, context):
 
     check_layer_tree_ios(layer, tree)
 
-    #if not yp.halt_reconnect:
-    reconnect_layer_nodes(layer)
-    rearrange_layer_nodes(layer)
+    if yp.layer_preview_mode:
+        # Set correct active edit
+        if self.normal_map_type == 'BUMP_MAP':
+            self.active_edit = True
+        elif self.normal_map_type == 'NORMAL_MAP':
+            self.active_edit_1 = True
+    else:
+        #if not yp.halt_reconnect:
+        reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
-    reconnect_yp_nodes(self.id_data)
-    rearrange_yp_nodes(self.id_data)
+        reconnect_yp_nodes(self.id_data)
+        rearrange_yp_nodes(self.id_data)
 
 def update_blend_type(self, context):
     T = time.time()

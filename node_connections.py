@@ -2471,6 +2471,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if ch_linear_1: normal = create_link(tree, normal, ch_linear_1.inputs[0])[0]
             if ch_flip_y: normal = create_link(tree, normal, ch_flip_y.inputs[0])[0]
 
+            if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and ch.active_edit_1 == True:
+                if alpha_preview:
+                    create_link(tree, normal, alpha_preview)
+
         if ch_idx != -1 and i != ch_idx: continue
 
         intensity = nodes.get(ch.intensity)
@@ -3672,6 +3676,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 for ch in layer.channels:
                     if ch.override and ch.override_type != 'DEFAULT' and ch.active_edit:
+                        active_found = True
+                        break
+
+                    if ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.active_edit_1:
                         active_found = True
                         break
                 
