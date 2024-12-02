@@ -5374,9 +5374,9 @@ def update_normal_map_type(self, context):
 
     if yp.layer_preview_mode:
         # Set correct active edit
-        if self.normal_map_type == 'BUMP_MAP':
+        if self.normal_map_type == 'BUMP_MAP' and self.active_edit_1:
             self.active_edit = True
-        elif self.normal_map_type == 'NORMAL_MAP':
+        elif self.normal_map_type == 'NORMAL_MAP' and self.active_edit:
             self.active_edit_1 = True
     else:
         #if not yp.halt_reconnect:
