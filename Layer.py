@@ -1,7 +1,7 @@
 import bpy, time, re, os, random, numpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier
+from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem
 from .common import *
 #from .bake_common import *
 from .node_arrangements import *
@@ -6893,7 +6893,7 @@ class YLayer(bpy.types.PropertyGroup):
     expand_masks : BoolProperty(default=False)
     expand_channels : BoolProperty(default=True)
     expand_source : BoolProperty(default=False)
-    expand_subitems : BoolProperty(default=False)
+    expand_subitems : BoolProperty(default=False, update=ListItem.update_expand_subitems)
 
 def register():
     bpy.utils.register_class(YRefreshNeighborUV)

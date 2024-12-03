@@ -2,6 +2,22 @@ import bpy
 from bpy.props import *
 from .common import *
 
+def refresh_list_items(yp):
+    yp.list_items.clear()
+
+    for i, layer in enumerate(yp.layers):
+        item = yp.list_items.add()
+        item.type = 'LAYER'
+        item.index = i
+        item.layer_index = i
+
+        if layer.expand_subitems:
+            for j, mask in enumerate(layer.masks):
+                item = yp.list_items.add()
+                item.type = 'MASK'
+                item.index = j
+                item.layer_index = i
+
 class YListItem(bpy.types.PropertyGroup):
     type : EnumProperty(
         name = 'Item Type',
@@ -22,22 +38,6 @@ class YListItem(bpy.types.PropertyGroup):
         default = True
     )
 
-def refresh_list_items(yp):
-    yp.list_items.clear()
-
-    for i, layer in enumerate(yp.layers):
-        item = yp.list_items.add()
-        item.type = 'LAYER'
-        item.index = i
-        item.layer_index = i
-
-        if layer.expand_subitems:
-            for j, mask in enumerate(layer.masks):
-                item = yp.list_items.add()
-                item.type = 'MASK'
-                item.index = j
-                item.layer_index = i
-
 class YRefreshListItems(bpy.types.Operator):
     bl_idname = "node.y_refresh_list_items"
     bl_label = "Refresh List Items"
@@ -56,27 +56,9 @@ class YRefreshListItems(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YToggleItemDropdown(bpy.types.Operator):
-    bl_idname = "node.y_toggle_item_dropdown"
-    bl_label = "Toggle Item Dropdown"
-    bl_description = "Toggle item dropdown"
-    #bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def execute(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        item = context.item
-        if item.type == 'LAYER' and item.index < len(yp.layers):
-            layer = yp.layers[item.index]
-            layer.expand_subitems = not layer.expand_subitems
-
-        refresh_list_items(yp)
-
-        return {'FINISHED'}
+def update_expand_subitems(self, context):
+    yp = self.id_data.yp
+    refresh_list_items(yp)
 
 def register():
     bpy.utils.register_class(YListItem)
