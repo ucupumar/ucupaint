@@ -2,7 +2,7 @@ import bpy, re, time, os
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
-from . import lib, Modifier, MaskModifier, UDIM
+from . import lib, Modifier, MaskModifier, UDIM, ListItem
 from .common import *
 
 RGBA_CHANNEL_PREFIX = {
@@ -69,6 +69,12 @@ def update_yp_ui():
                 m.expand_content = mod.expand_content
 
         if len(yp.layers) > 0:
+
+            # Layer list item
+            ypui.layer_items.clear()
+            for i, layer in enumerate(yp.layers):
+                li = ypui.layer_items.add()
+                li.expand_subitems = layer.expand_subitems
 
             # Get layer
             layer = yp.layers[yp.active_layer_index]
@@ -4245,8 +4251,7 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
 
             if len(layer.masks) > 0:
                 icon = 'DOWNARROW_HLT' if layer.expand_subitems else 'RIGHTARROW'
-                row.context_pointer_set('item', item)
-                row.operator("node.y_toggle_item_dropdown", icon=icon, text='', emboss=False)
+                row.prop(layer, 'expand_subitems', icon=icon, text='', emboss=False)
             else: row.label(text='', icon='BLANK1')
 
             # Try to get layer image
@@ -6534,6 +6539,9 @@ def update_layer_ui(self, context):
     layer.expand_masks = self.expand_masks
     layer.expand_source = self.expand_source
     layer.expand_channels = self.expand_channels
+    layer.expand_subitems = self.expand_subitems
+
+    #ListItem.refresh_list_items()
 
 def update_channel_ui(self, context):
     ypui = context.window_manager.ypui
@@ -6877,6 +6885,15 @@ class YLayerUI(bpy.types.PropertyGroup):
     masks : CollectionProperty(type=YMaskUI)
     modifiers : CollectionProperty(type=YModifierUI)
 
+class YLayerItemUI(bpy.types.PropertyGroup):
+
+    expand_subitems : BoolProperty(
+        name = 'Expand Layer Sub-Items',
+        description = 'Expand layer sub-items',
+        default = False,
+        update = update_layer_ui
+    )
+
 #def update_mat_active_yp_node(self, context):
 #    print('Update:', self.active_ypaint_node)
 
@@ -6951,6 +6968,8 @@ class YPaintUI(bpy.types.PropertyGroup):
     # Layer related UI
     layer_idx : IntProperty(default=0)
     layer_ui : PointerProperty(type=YLayerUI)
+
+    layer_items : PointerProperty(type=YLayerItemUI)
 
     #disable_auto_temp_uv_update : BoolProperty(
     #        name = 'Disable Transformed UV Auto Update',
@@ -7081,6 +7100,7 @@ def register():
     bpy.utils.register_class(YMaskChannelUI)
     bpy.utils.register_class(YMaskUI)
     bpy.utils.register_class(YLayerUI)
+    bpy.utils.register_class(YLayerItemUI)
     bpy.utils.register_class(YMaterialUI)
     bpy.utils.register_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.register_class(NODE_UL_YPaint_channels)
@@ -7157,6 +7177,7 @@ def unregister():
     bpy.utils.unregister_class(YMaskChannelUI)
     bpy.utils.unregister_class(YMaskUI)
     bpy.utils.unregister_class(YLayerUI)
+    bpy.utils.unregister_class(YLayerItemUI)
     bpy.utils.unregister_class(YMaterialUI)
     bpy.utils.unregister_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.unregister_class(NODE_UL_YPaint_channels)
