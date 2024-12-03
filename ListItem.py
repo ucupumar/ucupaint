@@ -60,6 +60,22 @@ def update_expand_subitems(self, context):
     yp = self.id_data.yp
     refresh_list_items(yp)
 
+def update_list_item_index(self, context):
+    yp = self.id_data.yp
+
+    if yp.active_item_index >= len(yp.list_items): return
+    
+    item = yp.list_items[yp.active_item_index]
+
+    layer_index = -1
+    if item.type == 'LAYER':
+        layer_index = item.index
+    elif item.type == 'MASK':
+        layer_index = item.layer_index
+
+    if layer_index != -1 and layer_index < len(yp.layers):
+        yp.active_layer_index = layer_index
+
 def register():
     bpy.utils.register_class(YListItem)
     bpy.utils.register_class(YRefreshListItems)
