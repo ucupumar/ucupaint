@@ -3785,7 +3785,7 @@ class YPaint(bpy.types.PropertyGroup):
         name = 'Active Item Index',
         description = 'Active item index',
         default = 0,
-        #update = update_layer_index
+        update = ListItem.update_list_item_index
     )
 
     # UVs
