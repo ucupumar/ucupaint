@@ -6877,6 +6877,7 @@ class YLayer(bpy.types.PropertyGroup):
     expand_masks : BoolProperty(default=False)
     expand_channels : BoolProperty(default=True)
     expand_source : BoolProperty(default=False)
+    expand_subitems : BoolProperty(default=False)
 
 def register():
     bpy.utils.register_class(YRefreshNeighborUV)
