@@ -4255,7 +4255,6 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                 row.prop(layer, 'expand_subitems', icon=icon, text='', emboss=False)
                 #layer_idx = get_layer_index(layer)
                 #layer_ui_item = ypui.layer_items[layer_idx]
-                #icon = 'DOWNARROW_HLT' if layer_ui_item.expand_subitems else 'RIGHTARROW'
                 #row.prop(layer_ui_item, 'expand_subitems', icon=icon, text='', emboss=False)
             else: row.label(text='', icon='BLANK1')
 
@@ -4332,7 +4331,14 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                 row.label(text='', icon='BLANK1')
                 row.label(text='', icon='BLANK1')
 
-                row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('mask'))
+                if mask.type == 'IMAGE':
+                    mask_tree = get_mask_tree(mask)
+                    source = mask_tree.nodes.get(mask.source)
+                    if source and source.image:
+                        row.prop(source.image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
+                    else: row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('mask'))
+                else:
+                    row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('mask'))
 
                 # Mask intensity
                 row = master.row()

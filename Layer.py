@@ -355,6 +355,9 @@ def add_new_layer(
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
+    # Update list items
+    ListItem.refresh_list_items(yp)
+
     return layer
 
 class YRefreshNeighborUV(bpy.types.Operator):
@@ -3737,6 +3740,9 @@ def remove_layer(yp, index, remove_on_disk=False):
     # Delete the layer
     yp.layers.remove(index)
 
+    # Update list items
+    ListItem.refresh_list_items(yp)
+
 def draw_remove_group(self, context):
     col = self.layout.column()
 
@@ -6893,7 +6899,13 @@ class YLayer(bpy.types.PropertyGroup):
     expand_masks : BoolProperty(default=False)
     expand_channels : BoolProperty(default=True)
     expand_source : BoolProperty(default=False)
-    expand_subitems : BoolProperty(default=False, update=ListItem.update_expand_subitems)
+
+    expand_subitems : BoolProperty(
+        name = 'Expand Subitems',
+        description = 'Expand subitems',
+        default = False,
+        update = ListItem.update_expand_subitems
+    )
 
 def register():
     bpy.utils.register_class(YRefreshNeighborUV)
