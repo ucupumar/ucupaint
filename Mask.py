@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, ImageAtlas, MaskModifier, UDIM
+from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -127,6 +127,9 @@ def add_new_mask(
     # Update coords
     update_mask_texcoord_type(mask, None, False)
 
+    # Update list items
+    ListItem.refresh_list_items(yp)
+
     return mask
 
 def remove_mask_channel_nodes(tree, c):
@@ -209,6 +212,9 @@ def remove_mask(layer, mask, obj):
 
     # Remove mask
     layer.masks.remove(mask_index)
+
+    # Update list items
+    ListItem.refresh_list_items(yp)
 
 def get_new_mask_name(obj, layer, mask_type, modifier_type=''):
     surname = '(' + layer.name + ')'
