@@ -3313,6 +3313,19 @@ def draw_layers_ui(context, layout, node):
         row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent Sign Hacks is missing!')
         row.alert = False
 
+    if get_user_preferences().developer_mode:
+        col = box.column()
+        #row = col.row(align=True)
+
+        row = col.row()
+        rcol = row.column()
+        rcol.operator('node.y_refresh_list_items', icon='FILE_REFRESH', text='Refresh Items')
+        rcol.template_list("NODE_UL_YPaint_list_items", "", yp,
+                "list_items", yp, "active_item_index", rows=5, maxrows=5)  
+
+        rcol = row.column()
+        rcol.label(text='', icon='BLANK1')
+
     # Get layer, image and set context pointer
     layer = None
     source = None
@@ -4212,6 +4225,129 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
 
                 if is_output_unconnected(group_node, output_index + 1, item):
                     row.label(text='', icon='ERROR')
+
+class NODE_UL_YPaint_list_items(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+
+        ypup = get_user_preferences()
+        group_tree = item.id_data
+        yp = group_tree.yp
+
+        master = layout.row(align=True)
+        if item.type == 'LAYER' and item.index < len(yp.layers):
+            layer = yp.layers[item.index]
+            layer_tree = get_tree(layer)
+
+            is_hidden = not is_parent_hidden(layer)
+
+            row = master.row(align=True)
+            row.active = is_hidden
+
+            if len(layer.masks) > 0:
+                icon = 'DOWNARROW_HLT' if layer.expand_subitems else 'RIGHTARROW'
+                row.context_pointer_set('item', item)
+                row.operator("node.y_toggle_item_dropdown", icon=icon, text='', emboss=False)
+            else: row.label(text='', icon='BLANK1')
+
+            # Try to get layer image
+            image = None
+            if layer.type == 'IMAGE':
+                source = get_layer_source(layer, layer_tree)
+                image = source.image
+
+            if image and (image.yia.is_image_atlas or image.yua.is_udim_atlas): 
+                if ypup.use_image_preview and image.preview: 
+                    #if not image.preview: image.preview_ensure()
+                    row.prop(layer, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+                else: row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
+            elif image: 
+                if ypup.use_image_preview and image.preview: 
+                    #if not image.preview: image.preview_ensure()
+                    row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+                else: row.prop(image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
+            elif layer.type == 'VCOL': 
+                row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
+            elif layer.type == 'HEMI': 
+                row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('hemi'))
+            elif layer.type == 'COLOR': 
+                row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
+            elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
+            elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
+            else: 
+                row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
+
+            # Solid color shortcut
+            if layer.type == 'COLOR':
+                src = get_layer_source(layer, layer_tree)
+                rrow = row.row()
+                rrow.prop(src.outputs[0], 'default_value', text='', icon='COLOR')
+                #shortcut_found = True
+
+            # Layer intensity
+            row = master.row()
+            row.scale_x = 0.4
+            if is_bl_newer_than(3):
+                row.emboss = 'NONE_OR_STATUS'
+            elif is_bl_newer_than(2, 92):
+                row.emboss = 'UI_EMBOSS_NONE_OR_STATUS'
+            elif is_bl_newer_than(2, 80): row.emboss = 'NONE'
+
+            if is_bl_newer_than(2, 80):
+                draw_input_prop(row, layer, 'intensity_value')
+            else: draw_input_prop(row, layer, 'intensity_value', emboss=False)          
+
+            # Layer visibility
+            row = master.row()
+            row.active = is_hidden
+            if not is_bl_newer_than(2, 80):
+                if layer.enable: eye_icon = 'RESTRICT_VIEW_OFF'
+                else: eye_icon = 'RESTRICT_VIEW_ON'
+            else:
+                if layer.enable: eye_icon = 'HIDE_OFF'
+                else: eye_icon = 'HIDE_ON'
+            row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
+
+        if item.type == 'MASK' and item.layer_index < len(yp.layers):
+            layer = yp.layers[item.layer_index]
+
+            if item.index < len(layer.masks):
+
+                mask = layer.masks[item.index]
+
+                is_hidden = not is_parent_hidden(layer) and mask.enable
+
+                row = master.row(align=True)
+                row.active = is_hidden
+
+                row.label(text='', icon='BLANK1')
+                row.label(text='', icon='BLANK1')
+
+                row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('mask'))
+
+                # Mask intensity
+                row = master.row()
+                row.scale_x = 0.4
+                if is_bl_newer_than(3):
+                    row.emboss = 'NONE_OR_STATUS'
+                elif is_bl_newer_than(2, 92):
+                    row.emboss = 'UI_EMBOSS_NONE_OR_STATUS'
+                elif is_bl_newer_than(2, 80): row.emboss = 'NONE'
+
+                if is_bl_newer_than(2, 80):
+                    draw_input_prop(row, mask, 'intensity_value')
+                else: draw_input_prop(row, mask, 'intensity_value', emboss=False)          
+
+                # Mask visibility
+                row = master.row()
+                row.active = is_hidden
+                if not is_bl_newer_than(2, 80):
+                    if mask.enable: eye_icon = 'RESTRICT_VIEW_OFF'
+                    else: eye_icon = 'RESTRICT_VIEW_ON'
+                else:
+                    if mask.enable: eye_icon = 'HIDE_OFF'
+                    else: eye_icon = 'HIDE_ON'
+                row.prop(mask, 'enable', emboss=False, text='', icon=eye_icon)
+                #row.label(text='', icon='BLANK1')
 
 class NODE_UL_YPaint_layers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -6946,6 +7082,7 @@ def register():
     bpy.utils.register_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.register_class(NODE_UL_YPaint_channels)
     bpy.utils.register_class(NODE_UL_YPaint_layers)
+    bpy.utils.register_class(NODE_UL_YPaint_list_items)
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
 
@@ -7021,6 +7158,7 @@ def unregister():
     bpy.utils.unregister_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.unregister_class(NODE_UL_YPaint_channels)
     bpy.utils.unregister_class(NODE_UL_YPaint_layers)
+    bpy.utils.unregister_class(NODE_UL_YPaint_list_items)
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
 
