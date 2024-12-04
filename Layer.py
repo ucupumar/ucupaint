@@ -3591,6 +3591,9 @@ class YMoveLayer(bpy.types.Operator):
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
+
         # Update UI
         wm.ypui.need_update = True
 
