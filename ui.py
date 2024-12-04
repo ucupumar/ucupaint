@@ -4316,8 +4316,8 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                 else: eye_icon = 'HIDE_ON'
             row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
 
-        if item.type == 'MASK' and item.layer_index < len(yp.layers):
-            layer = yp.layers[item.layer_index]
+        if item.type == 'MASK' and item.parent_index != -1 and item.parent_index < len(yp.layers):
+            layer = yp.layers[item.parent_index]
 
             if item.index < len(layer.masks):
 
