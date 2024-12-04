@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake
+from . import Bake, ListItem
 
 def flip_tangent_sign():
     meshes = []
@@ -803,6 +803,10 @@ def update_routine(name):
         flag1, flag2 = update_yp_tree(ng)
         if flag1: updated_to_tangent_process_300 = True
         if flag2: updated_to_yp_200_displacement = True
+
+        # Fill list items if it's still empty
+        if len(ng.yp.list_items) == 0 and len(ng.yp.layers) > 0:
+            ListItem.refresh_list_items(ng.yp)
 
     # Remove tangent sign vertex colors for Blender 3.0+
     if updated_to_tangent_process_300:
