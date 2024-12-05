@@ -2080,6 +2080,12 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             elif is_parallax_enabled(root_ch):
                 lib_name = lib.NORMAL_MAP
 
+        if lib_name == '' or lib_name in {lib.NORMAL_MAP_PROCESS, lib.NORMAL_MAP_PROCESS_SMOOTH, lib.NORMAL_MAP_PROCESS_TRANSITION, lib.NORMAL_MAP_PROCESS_SMOOTH_TRANSITION}:
+            normal_map_proc, need_reconnect = check_new_node( tree, ch, 'normal_map_proc', 'ShaderNodeNormalMap', 'Normal Map Process', True)
+            normal_map_proc.uv_map = layer.uv_name
+        else:
+            if remove_node(tree, ch, 'normal_map_proc'): need_reconnect = True
+
         if lib_name == '':
             normal_proc, need_reconnect = replace_new_node(
                 tree, ch, 'normal_proc', 'ShaderNodeNormalMap', 'Normal Process', 
@@ -2119,6 +2125,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         else:
             if remove_node(tree, ch, 'normal_flip'): need_reconnect = True
     else:
+        if remove_node(tree, ch, 'normal_map_proc'): need_reconnect = True
         if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
         if remove_node(tree, ch, 'normal_flip'): need_reconnect = True
 

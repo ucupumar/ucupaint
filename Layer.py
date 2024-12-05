@@ -5896,6 +5896,20 @@ class YLayerChannel(bpy.types.PropertyGroup):
         update = update_blend_type
     )
 
+    normal_space : EnumProperty(
+        name = 'Normal Space',
+        description = 'Space of the normal map',
+        items = (
+            ('TANGENT', 'Tangent Space', 'Tangent space normal mapping'),
+            ('OBJECT', 'Object Space', 'Object space normal mapping'),
+            ('WORLD', 'World Space', 'World space normal mapping'),
+            ('BLENDER_OBJECT', 'Blender Object Space', 'Object space normal mapping, compatible with Blender render baking'),
+            ('BLENDER_WORLD', 'Blender World Space', 'World space normal mapping, compatible with Blender render baking'),
+        ),
+        default = 'TANGENT',
+        update = update_blend_type
+    )
+
     height_blend_type : EnumProperty(
         name = 'Height Blend Type',
         items = normal_blend_items,
@@ -6030,6 +6044,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Normal related
     normal_proc : StringProperty(default='')
+    normal_map_proc : StringProperty(default='')
     #normal_blend : StringProperty(default='')
     normal_flip : StringProperty(default='')
 
