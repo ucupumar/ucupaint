@@ -2080,37 +2080,35 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             elif is_parallax_enabled(root_ch):
                 lib_name = lib.NORMAL_MAP
 
+        # Normal map
         if lib_name == '' or lib_name in {lib.NORMAL_MAP_PROCESS, lib.NORMAL_MAP_PROCESS_SMOOTH, lib.NORMAL_MAP_PROCESS_TRANSITION, lib.NORMAL_MAP_PROCESS_SMOOTH_TRANSITION}:
             normal_map_proc, need_reconnect = check_new_node( tree, ch, 'normal_map_proc', 'ShaderNodeNormalMap', 'Normal Map Process', True)
             normal_map_proc.uv_map = layer.uv_name
         else:
             if remove_node(tree, ch, 'normal_map_proc'): need_reconnect = True
 
-        if lib_name == '':
-            normal_proc, need_reconnect = replace_new_node(
-                tree, ch, 'normal_proc', 'ShaderNodeNormalMap', 'Normal Process', 
-                return_status=True, hard_replace=True, dirty=need_reconnect
-            )
-
-            normal_proc.uv_map = layer.uv_name
-        else:
+        # Normal map from bump
+        if lib_name != '':
             normal_proc, need_reconnect = replace_new_node(
                 tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 
                 lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
             )
 
-        if 'Max Height' in normal_proc.inputs:
-            normal_proc.inputs['Max Height'].default_value = max_height
-        if root_ch.enable_smooth_bump:
-            if 'Bump Height Scale' in normal_proc.inputs:
-                normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+            if 'Max Height' in normal_proc.inputs:
+                normal_proc.inputs['Max Height'].default_value = max_height
+            if root_ch.enable_smooth_bump:
+                if 'Bump Height Scale' in normal_proc.inputs:
+                    normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
-        if 'Intensity' in normal_proc.inputs:
-            #normal_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
-            normal_proc.inputs['Intensity'].default_value = ch.intensity_value
+            if 'Intensity' in normal_proc.inputs:
+                #normal_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+                normal_proc.inputs['Intensity'].default_value = ch.intensity_value
 
-        if 'Strength' in normal_proc.inputs:
-            normal_proc.inputs['Strength'].default_value = ch.normal_strength
+            if 'Strength' in normal_proc.inputs:
+                normal_proc.inputs['Strength'].default_value = ch.normal_strength
+
+        else:
+            if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
 
         # NOTE: Normal flip node is kinda unecessary since non smooth bump don't support backface up for now
         # Normal flip
