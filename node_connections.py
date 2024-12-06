@@ -3324,7 +3324,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, tangent, normal_proc.inputs['Tangent'])
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 
-
             # Normal map
             if normal_map_proc and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
                 rgb = normal_map_proc.outputs[0]
