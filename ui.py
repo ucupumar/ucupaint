@@ -1883,11 +1883,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                             draw_input_prop(brow, ch, 'bump_smooth_multiplier')
 
                     if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}: 
-                        brow = cccol.row(align=True) if ch.normal_map_type == 'BUMP_NORMAL_MAP' else split_layout(cccol, 0.375)
+                        brow = cccol.row(align=True) if ch.normal_map_type == 'BUMP_NORMAL_MAP' else split_layout(cccol, 0.35)
                         label = 'Normal Strength:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Strength:'
                         brow.label(text=label)
                         draw_input_prop(brow, ch, 'normal_strength')
-                        brow = cccol.row(align=True) if ch.normal_map_type == 'BUMP_NORMAL_MAP' else split_layout(cccol, 0.375)
+                        brow = cccol.row(align=True) if ch.normal_map_type == 'BUMP_NORMAL_MAP' else split_layout(cccol, 0.35)
                         label = 'Normal Space:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Space:'
                         brow.label(text=label)
                         brow.prop(ch, 'normal_space', text='')

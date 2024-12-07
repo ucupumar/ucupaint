@@ -2603,8 +2603,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if normal_proc and ch_normal_strength and 'Strength' in normal_proc.inputs:
                 create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
 
-                if normal_map_proc:
-                    create_link(tree, ch_normal_strength, normal_map_proc.inputs['Strength'])
+            if normal_map_proc:
+                create_link(tree, ch_normal_strength, normal_map_proc.inputs['Strength'])
 
             height_blend = nodes.get(ch.height_blend)
             hbcol0, hbcol1, hbout = get_mix_color_indices(height_blend)
