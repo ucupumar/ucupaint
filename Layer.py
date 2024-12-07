@@ -5414,6 +5414,16 @@ def update_blend_type(self, context):
     print('INFO: Layer', layer.name, ' blend type is changed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
+def update_normal_space(self, context):
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    tree = get_tree(layer)
+
+    normal_map_proc = tree.nodes.get(self.normal_map_proc)
+    if normal_map_proc:
+        normal_map_proc.space = self.normal_space
+
 def update_flip_backface_normal(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -5907,7 +5917,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
             ('BLENDER_WORLD', 'Blender World Space', 'World space normal mapping, compatible with Blender render baking'),
         ),
         default = 'TANGENT',
-        update = update_blend_type
+        update = update_normal_space
     )
 
     height_blend_type : EnumProperty(
@@ -6043,8 +6053,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     height_alpha_group_unpack : StringProperty(default='')
 
     # Normal related
-    normal_proc : StringProperty(default='')
-    normal_map_proc : StringProperty(default='')
+    normal_proc : StringProperty(default='') # For converting bump to normal
+    normal_map_proc : StringProperty(default='') # For processing normal map
     #normal_blend : StringProperty(default='')
     normal_flip : StringProperty(default='')
 
