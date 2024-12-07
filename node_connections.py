@@ -2580,6 +2580,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         height_proc = nodes.get(ch.height_proc)
         normal_proc = nodes.get(ch.normal_proc)
+        normal_map_proc = nodes.get(ch.normal_map_proc)
         vdisp_proc = nodes.get(ch.vdisp_proc)
 
         if root_ch.type == 'NORMAL':
@@ -2599,8 +2600,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, ch_intensity, normal_proc.inputs['Intensity'])
 
             # Set normal strength
-            if ch_normal_strength and 'Strength' in normal_proc.inputs:
+            if normal_proc and ch_normal_strength and 'Strength' in normal_proc.inputs:
                 create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
+
+            if normal_map_proc:
+                create_link(tree, ch_normal_strength, normal_map_proc.inputs['Strength'])
 
             height_blend = nodes.get(ch.height_blend)
             hbcol0, hbcol1, hbout = get_mix_color_indices(height_blend)
@@ -2760,19 +2764,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if tangent and 'Tangent' in blend.inputs: create_link(tree, tangent, blend.inputs['Tangent'])
                 if bitangent and 'Bitangent' in blend.inputs: create_link(tree, bitangent, blend.inputs['Bitangent'])
 
-            #if layer.type not in {'BACKGROUND', 'GROUP'}: #, 'COLOR'}:
-
-            if normal_proc:
-                if 'Normal Map' in normal_proc.inputs:
-                    if ch.normal_map_type == 'NORMAL_MAP':
-                        create_link(tree, rgb, normal_proc.inputs['Normal Map'])
-                    elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                        create_link(tree, normal, normal_proc.inputs['Normal Map'])
-                elif 'Color' in normal_proc.inputs:
-                    if ch.normal_map_type == 'NORMAL_MAP':
-                        create_link(tree, rgb, normal_proc.inputs['Color'])
-                    elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                        create_link(tree, normal, normal_proc.inputs['Color'])
+            if normal_map_proc:
+                if ch.normal_map_type == 'NORMAL_MAP':
+                    create_link(tree, rgb, normal_map_proc.inputs['Color'])
+                elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                    create_link(tree, normal, normal_map_proc.inputs['Color'])
 
             if write_height:
                 chain_local = len(layer.masks)
@@ -3008,6 +3004,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     if rgb_s and 'Height s' in height_proc.inputs: create_link(tree, rgb_s, height_proc.inputs['Height s'])
                     if rgb_e and 'Height e' in height_proc.inputs: create_link(tree, rgb_e, height_proc.inputs['Height e'])
                     if rgb_w and 'Height w' in height_proc.inputs: create_link(tree, rgb_w, height_proc.inputs['Height w'])
+            elif normal_map_proc and normal_proc and 'Normal' in normal_proc.inputs:
+                create_link(tree, normal_map_proc.outputs[0], normal_proc.inputs['Normal'])
             else:
                 prev_normal = get_essential_node(tree, TREE_START).get(root_ch.name)
                 if prev_normal and normal_proc and 'Normal' in normal_proc.inputs: 
@@ -3086,10 +3084,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         if 'Edge 1 Alpha' in height_proc.inputs:
                             create_link(tree, intensity_multiplier.outputs[0], height_proc.inputs['Edge 1 Alpha'])
 
-                        if normal_proc and 'Edge 1 Alpha' in normal_proc.inputs:
-                            if not write_height and not root_ch.enable_smooth_bump:
-                                create_link(tree, height_proc.outputs['Filtered Alpha'], normal_proc.inputs['Edge 1 Alpha'])
-                            else: create_link(tree, intensity_multiplier.outputs[0], normal_proc.inputs['Edge 1 Alpha'])
+                        #if normal_proc and 'Edge 1 Alpha' in normal_proc.inputs:
+                        #    if not write_height and not root_ch.enable_smooth_bump:
+                        #        create_link(tree, height_proc.outputs['Filtered Alpha'], normal_proc.inputs['Edge 1 Alpha'])
+                        #    else: create_link(tree, intensity_multiplier.outputs[0], normal_proc.inputs['Edge 1 Alpha'])
 
                         if 'Transition Crease' in height_proc.inputs:
                             create_link(tree, end_chain_crease, height_proc.inputs['Transition Crease'])
@@ -3109,8 +3107,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                             if 'Edge 1 Alpha' in height_proc.inputs:
                                 create_link(tree, intensity_multiplier.outputs[0], height_proc.inputs['Edge 1 Alpha'])
 
-                            if normal_proc and 'Edge 1 Alpha' in normal_proc.inputs:
-                                create_link(tree, intensity_multiplier.outputs[0], normal_proc.inputs['Edge 1 Alpha'])
+                            #if normal_proc and 'Edge 1 Alpha' in normal_proc.inputs:
+                            #    create_link(tree, intensity_multiplier.outputs[0], normal_proc.inputs['Edge 1 Alpha'])
 
                         else:
 
@@ -3124,15 +3122,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                             if 'Edge 1 Alpha' in height_proc.inputs:
                                 create_link(tree, alpha_before_intensity, height_proc.inputs['Edge 1 Alpha'])
 
-                            if normal_proc and 'Edge 1 Alpha' in normal_proc.inputs:
-                                create_link(tree, alpha_before_intensity, normal_proc.inputs['Edge 1 Alpha'])
+                            #if normal_proc and 'Edge 1 Alpha' in normal_proc.inputs:
+                            #    create_link(tree, alpha_before_intensity, normal_proc.inputs['Edge 1 Alpha'])
 
                     tb_inverse = nodes.get(ch.tb_inverse)
                     tb_intensity_multiplier = nodes.get(ch.tb_intensity_multiplier)
 
                     if tb_intensity_multiplier:
-                        if normal_proc and 'Edge 2 Alpha' in normal_proc.inputs:
-                            create_link(tree, tb_intensity_multiplier.outputs[0], normal_proc.inputs['Edge 2 Alpha'])
+                        #if normal_proc and 'Edge 2 Alpha' in normal_proc.inputs:
+                        #    create_link(tree, tb_intensity_multiplier.outputs[0], normal_proc.inputs['Edge 2 Alpha'])
 
                         if height_proc and 'Edge 2 Alpha' in height_proc.inputs:
                             create_link(tree, tb_intensity_multiplier.outputs[0], height_proc.inputs['Edge 2 Alpha'])
@@ -3294,10 +3292,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     if alpha_w and 'Alpha W' in height_blend.inputs: create_link(tree, alpha_w, height_blend.inputs['Alpha W'])
 
                     if normal_proc:
-                        #if 'Height ONS' in normal_proc.inputs:
-                        #    create_link(tree, height_blend.outputs['Height ONS'], normal_proc.inputs['Height ONS'])
-                        #if 'Height EW' in normal_proc.inputs:
-                        #    create_link(tree, height_blend.outputs['Height EW'], normal_proc.inputs['Height EW'])
 
                         if 'Height N' in normal_proc.inputs and 'Height N' in height_blend.outputs:
                             create_link(tree, height_blend.outputs['Height N'], normal_proc.inputs['Height N'])
@@ -3322,24 +3316,24 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if layer.type == 'GROUP':
                 if normal_proc:
-                    if write_height: #and 'Normal Alpha' in normal_proc.outputs:
+                    if write_height:
                         alpha = normal_proc.outputs['Normal Alpha']
-                    #elif 'Combined Alpha' in normal_proc.outputs:
-                    else:
-                        alpha = normal_proc.outputs['Combined Alpha']
+                    else: alpha = normal_proc.outputs['Combined Alpha']
 
             if normal_proc and tangent and bitangent and 'Tangent' in normal_proc.inputs:
                 create_link(tree, tangent, normal_proc.inputs['Tangent'])
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 
-            if normal_proc:
-                if ch.normal_map_type == 'BUMP_NORMAL_MAP' or (ch.enable_transition_bump and not ch.write_height) or (layer.type == 'GROUP' and not write_height):
-                    rgb = normal_proc.outputs['Normal']
-                elif 'Normal No Bump' in normal_proc.outputs:
-                    rgb = normal_proc.outputs['Normal No Bump']
-                else: 
-                    rgb = normal_proc.outputs[0]
-            elif ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
+            # Normal map
+            if normal_map_proc and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                rgb = normal_map_proc.outputs[0]
+
+            # Bump turned normal map when 'Write Height' is disabled
+            if normal_proc and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and not ch.write_height:
+                rgb = normal_proc.outputs[0]
+
+            # Default normal
+            if not normal_map_proc and not normal_proc and ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
                 rgb = get_essential_node(tree, GEOMETRY)['Normal']
 
             vdisp_flip_yz = tree.nodes.get(ch.vdisp_flip_yz)

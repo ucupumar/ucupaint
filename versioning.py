@@ -696,6 +696,20 @@ def update_yp_tree(tree):
                     image.y_bake_info.image_resolution = '4096'
                 else: image.y_bake_info.use_custom_resolution = True
 
+    # Version 2.1.5 has separated normal map process node
+    if version_tuple(yp.version) < (2, 1, 5):
+
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                layer_tree = get_tree(layer)
+                need_reconnect = check_channel_normal_map_nodes(layer_tree, layer, height_root_ch, height_ch)
+
+                if need_reconnect:
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

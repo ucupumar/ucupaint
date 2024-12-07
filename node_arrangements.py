@@ -222,6 +222,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
             check_set_node_parent(tree, ch.max_height_calc, frame)
 
+            check_set_node_parent(tree, ch.normal_map_proc, frame)
             check_set_node_parent(tree, ch.normal_proc, frame)
             check_set_node_parent(tree, ch.normal_flip, frame)
 
@@ -1453,6 +1454,9 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x += 200
 
             if check_set_node_loc(tree, ch.max_height_calc, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.normal_map_proc, loc):
                 loc.x += 200
 
             if check_set_node_loc(tree, ch.normal_proc, loc):
