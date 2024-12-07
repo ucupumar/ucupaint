@@ -3084,12 +3084,14 @@ def update_channel_alpha(self, context):
     if not self.enable_alpha:
 
         if not any(alpha_chs):
-            # Set material to use opaque
-            if is_bl_newer_than(2, 80):
-                mat.blend_method = 'OPAQUE'
-                mat.shadow_method = 'OPAQUE'
-            else:
-                mat.game_settings.alpha_blend = 'OPAQUE'
+
+            # Set material to use opaque (only for legacy renderer)
+            if not is_bl_newer_than(4, 2):
+                if is_bl_newer_than(2, 80):
+                    mat.blend_method = 'OPAQUE'
+                    mat.shadow_method = 'OPAQUE'
+                else:
+                    mat.game_settings.alpha_blend = 'OPAQUE'
 
         node = get_active_ypaint_node()
         inp = node.inputs[self.io_index + 1]
@@ -3137,7 +3139,7 @@ def update_channel_alpha(self, context):
                 # Settings for eevee next
                 mat.use_transparent_shadow = True
 
-            if is_bl_newer_than(2, 80):
+            elif is_bl_newer_than(2, 80):
                 # Settings for eevee legacy
                 mat.blend_method = self.alpha_blend_mode
                 mat.shadow_method = self.alpha_shadow_mode
