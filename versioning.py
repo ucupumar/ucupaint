@@ -704,7 +704,11 @@ def update_yp_tree(tree):
             for layer in yp.layers:
                 height_ch = get_height_channel(layer)
                 layer_tree = get_tree(layer)
-                check_channel_normal_map_nodes(layer_tree, layer, height_root_ch, height_ch, need_reconnect=True)
+                need_reconnect = check_channel_normal_map_nodes(layer_tree, layer, height_root_ch, height_ch)
+
+                if need_reconnect:
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
 
     # SECTION II: Updates based on the blender version
 
