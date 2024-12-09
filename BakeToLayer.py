@@ -419,7 +419,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 self.normal_map_type = 'NORMAL_MAP'
                 self.normal_blend_type = 'OVERLAY'
 
-            self.margin = 0
+            if self.type == 'OTHER_OBJECT_NORMAL':
+                self.margin = 0
 
         elif self.type == 'OTHER_OBJECT_CHANNELS':
             self.subsurf_influence = False
