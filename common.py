@@ -160,6 +160,14 @@ normal_blend_items = (
     ('COMPARE', 'Compare Height', '')
 )
 
+normal_space_items = (
+    ('TANGENT', 'Tangent Space', 'Tangent space normal mapping'),
+    ('OBJECT', 'Object Space', 'Object space normal mapping'),
+    ('WORLD', 'World Space', 'World space normal mapping'),
+    ('BLENDER_OBJECT', 'Blender Object Space', 'Object space normal mapping, compatible with Blender render baking'),
+    ('BLENDER_WORLD', 'Blender World Space', 'World space normal mapping, compatible with Blender render baking'),
+)
+
 height_blend_items = (
     ('REPLACE', 'Replace', ''),
     ('COMPARE', 'Compare', ''),

@@ -2631,6 +2631,12 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         items = get_normal_map_type_items
     )
 
+    normal_space : EnumProperty(
+        name = 'Normal Space',
+        items = normal_space_items,
+        default = 'TANGENT'
+    )
+
     use_udim_detecting : BoolProperty(
         name = 'Detect UDIMs',
         description = 'Detect selected UDIM files and load all matching tiles.',
@@ -2702,6 +2708,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
             col.label(text='Type:')
+            if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                col.label(text='Space:')
 
         col = row.column()
         if self.file_browser_filepath != '':
@@ -2718,6 +2726,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             if channel.type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
                 col.prop(self, 'normal_map_type', text='')
+                if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    col.prop(self, 'normal_space', text='')
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
@@ -2769,7 +2779,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             add_new_layer(
                 node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                 self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
-                image, None, None, interpolation=self.interpolation
+                image, None, None, interpolation=self.interpolation, normal_space=self.normal_space
             )
 
         node.node_tree.yp.halt_update = False
@@ -3137,6 +3147,12 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         description = 'Normal map type of this layer',
         items = get_normal_map_type_items
     )
+    
+    normal_space : EnumProperty(
+        name = 'Normal Space',
+        items = normal_space_items,
+        default = 'TANGENT'
+    )
 
     image_name : StringProperty(name="Image")
     image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -3208,6 +3224,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
             col.label(text='Type:')
+            if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                col.label(text='Space:')
 
         col = row.column()
 
@@ -3226,6 +3244,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             if channel.type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
                 col.prop(self, 'normal_map_type', text='')
+                if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    col.prop(self, 'normal_space', text='')
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
@@ -3277,7 +3297,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         add_new_layer(
             node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
             self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map, 
-            image, vcol, None, interpolation=self.interpolation
+            image, vcol, None, interpolation=self.interpolation, normal_space=self.normal_space
         )
 
         node.node_tree.yp.halt_update = False
@@ -5911,13 +5931,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     normal_space : EnumProperty(
         name = 'Normal Space',
         description = 'Space of the normal map',
-        items = (
-            ('TANGENT', 'Tangent Space', 'Tangent space normal mapping'),
-            ('OBJECT', 'Object Space', 'Object space normal mapping'),
-            ('WORLD', 'World Space', 'World space normal mapping'),
-            ('BLENDER_OBJECT', 'Blender Object Space', 'Object space normal mapping, compatible with Blender render baking'),
-            ('BLENDER_WORLD', 'Blender World Space', 'World space normal mapping, compatible with Blender render baking'),
-        ),
+        items = normal_space_items,
         default = 'TANGENT',
         update = update_normal_space
     )
