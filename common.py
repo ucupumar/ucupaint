@@ -269,6 +269,8 @@ bake_type_items = (
     ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
 
     ('FLOW', 'Flow Map based on straight UVMap', ''),
+
+    ('OBJECT_SPACE_NORMAL', 'Object Space Normal', ''),
 )
 
 image_resolution_items = (
@@ -313,7 +315,9 @@ bake_type_labels = {
 
     'SELECTED_VERTICES': 'Selected Vertices',
 
-    'FLOW': 'Flow'
+    'FLOW': 'Flow',
+
+    'OBJECT_SPACE_NORMAL' : 'Object Space Normal'
 }
 
 bake_type_suffixes = {
@@ -335,7 +339,9 @@ bake_type_suffixes = {
 
     'SELECTED_VERTICES': 'Selected Vertices',
 
-    'FLOW': 'Flow'
+    'FLOW': 'Flow',
+
+    'OBJECT_SPACE_NORMAL' : 'Object Space Normal'
 }
 
 texcoord_lists = [

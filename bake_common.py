@@ -394,7 +394,8 @@ def prepare_bake_settings(
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
-        source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name=''
+        source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name='', 
+        normal_space='TANGENT',
     ):
 
     scene = bpy.context.scene
@@ -460,7 +461,7 @@ def prepare_bake_settings(
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = 1
 
     if bake_type == 'NORMAL':
-        scene.render.bake.normal_space = 'TANGENT'
+        scene.render.bake.normal_space = normal_space
 
     # Disable other object selections and select only active object
     if is_bl_newer_than(2, 80):
@@ -623,6 +624,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene.render.threads_mode = book['ori_threads_mode']
     scene.render.bake.margin = book['ori_margin']
     scene.render.bake.use_clear = book['ori_use_clear']
+    scene.render.bake.normal_space = book['ori_normal_space']
     scene.render.use_simplify = book['ori_simplify']
     scene.cycles.device = book['ori_device']
     if hasattr(scene.render.bake, 'use_pass_direct'): scene.render.bake.use_pass_direct = book['ori_use_pass_direct']

@@ -62,7 +62,8 @@ def add_new_layer(
         hemi_space='WORLD', hemi_use_prev_normal=True,
         mask_color_id=(1, 0, 1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha=False, use_udim_for_mask=False,
-        interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05
+        interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05,
+        normal_space = 'TANGENT'
     ):
 
     yp = group_tree.yp
@@ -314,6 +315,7 @@ def add_new_layer(
             ch.enable = True
             if root_ch.type == 'NORMAL':
                 ch.normal_blend_type = normal_blend_type
+                ch.normal_space = normal_space
             else:
                 ch.blend_type = blend_type
         else: 

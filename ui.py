@@ -4586,6 +4586,11 @@ class YNewLayerMenu(bpy.types.Menu):
         c.target_type = 'LAYER'
         c.overwrite_current = False
 
+        c = col.operator("node.y_bake_to_layer", text='Object Space Normal')
+        c.type = 'OBJECT_SPACE_NORMAL'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
         if is_bl_newer_than(2, 80):
             col.separator()
 
