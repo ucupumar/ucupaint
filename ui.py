@@ -4586,10 +4586,12 @@ class YNewLayerMenu(bpy.types.Menu):
         c.target_type = 'LAYER'
         c.overwrite_current = False
 
-        c = col.operator("node.y_bake_to_layer", text='Object Space Normal')
-        c.type = 'OBJECT_SPACE_NORMAL'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
+        # NOTE: Blender 2.76 does not bake to object space normal correctly
+        if is_bl_newer_than(2, 77):
+            c = col.operator("node.y_bake_to_layer", text='Object Space Normal')
+            c.type = 'OBJECT_SPACE_NORMAL'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
 
         if is_bl_newer_than(2, 80):
             col.separator()
@@ -4604,6 +4606,7 @@ class YNewLayerMenu(bpy.types.Menu):
             c.target_type = 'LAYER'
             c.overwrite_current = False
 
+        # NOTE: Blender 2.76 currently cant bake from other objects since it has a different setup
         if is_bl_newer_than(2, 77):
             col.separator()
 
