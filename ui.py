@@ -4232,6 +4232,32 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
                 if is_output_unconnected(group_node, output_index + 1, item):
                     row.label(text='', icon='ERROR')
 
+def is_layer_dropdownable(layer):
+    yp = layer.id_data.yp
+
+    if len(layer.masks) > 0:
+        return True
+
+    for i, ch in enumerate(layer.channels):
+        if not ch.enable: continue
+
+        root_ch = yp.channels[i]
+
+        if (root_ch.type == 'NORMAL' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} 
+            and ch.override and ch.override_type in {'IMAGE', 'VCOL'}
+            ):
+            return True
+
+        elif (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} 
+            and ch.override_1 and ch.override_1_type != 'DEFAULT'
+            ):
+            return True
+
+        elif root_ch.type != 'NORMAL' and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+            return True
+
+    return False
+
 class NODE_UL_YPaint_list_items(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 
@@ -4240,6 +4266,7 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
         yp = group_tree.yp
         ypui = context.window_manager.ypui
 
+        # Layer
         master = layout.row(align=True)
         if item.type == 'LAYER' and item.index < len(yp.layers):
             layer = yp.layers[item.index]
@@ -4250,7 +4277,7 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
             row = master.row(align=True)
             row.active = is_hidden
 
-            if len(layer.masks) > 0:
+            if is_layer_dropdownable(layer):
                 icon = 'DOWNARROW_HLT' if layer.expand_subitems else 'RIGHTARROW'
                 row.prop(layer, 'expand_subitems', icon=icon, text='', emboss=False)
                 #layer_idx = get_layer_index(layer)
@@ -4316,6 +4343,43 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                 else: eye_icon = 'HIDE_ON'
             row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
 
+        # Overrides
+        if item.type == 'CHANNEL_OVERRIDE' and item.parent_index != -1 and item.parent_index < len(yp.layers):
+            layer = yp.layers[item.parent_index]
+
+            if item.index < len(layer.channels):
+
+                ch = layer.channels[item.index]
+
+                is_hidden = not is_parent_hidden(layer) and ch.enable
+
+                row = master.row(align=True)
+                row.active = is_hidden
+
+                row.label(text='', icon='BLANK1')
+                row.label(text='', icon='BLANK1')
+
+                ch_source = None
+                if ch.override:
+                    ch_source = get_channel_source(ch, layer)
+
+                if ch.override_type == 'IMAGE' and ch_source and ch_source.image:
+                    row.prop(ch_source.image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
+                elif ch.override_type == 'VCOL' and ch_source and ch_source.attribute_name:
+                    row.prop(ch, 'override_vcol_name', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
+                else: 
+                    row.prop(item, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
+
+                row = master.row()
+                if not is_bl_newer_than(2, 80):
+                    if ch.enable: eye_icon = 'RESTRICT_VIEW_OFF'
+                    else: eye_icon = 'RESTRICT_VIEW_ON'
+                else:
+                    if ch.enable: eye_icon = 'HIDE_OFF'
+                    else: eye_icon = 'HIDE_ON'
+                row.prop(ch, 'enable', emboss=False, text='', icon=eye_icon)
+
+        # Masks
         if item.type == 'MASK' and item.parent_index != -1 and item.parent_index < len(yp.layers):
             layer = yp.layers[item.parent_index]
 

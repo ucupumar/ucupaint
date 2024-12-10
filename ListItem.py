@@ -9,9 +9,8 @@ def refresh_list_items(yp, repoint_active=False):
     if repoint_active and yp.active_item_index < len(yp.list_items):
         item = yp.list_items[yp.active_item_index]
 
-        if item.type in {'LAYER', 'MASK'}:
-            active_item_name = item.name
-            active_item_type = item.type
+        active_item_name = item.name
+        active_item_type = item.type
 
     # Reset list
     yp.list_items.clear()
@@ -28,6 +27,30 @@ def refresh_list_items(yp, repoint_active=False):
         if active_item_name == layer.name and active_item_type == 'LAYER':
             new_active_index = layer_item_index
 
+        for j, ch in enumerate(layer.channels):
+
+            root_ch = yp.channels[j]
+
+            if layer.expand_subitems and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                item = yp.list_items.add()
+                item.type = 'CHANNEL_OVERRIDE'
+                item.index = j
+                item.parent_index = i
+                item.parent_name = layer.name
+                item.name = layer.name + ' ' + root_ch.name
+
+                if (
+                    # Select channel with active edit after expand subitems
+                    (repoint_active and yp.active_layer_index == i and ch.active_edit) or 
+
+                    # Select correct mask after other layer uncollapsing
+                    (active_item_name == item.name and active_item_type == 'CHANNEL_OVERRIDE')
+                ):
+                    new_active_index = len(yp.list_items)-1
+
+            elif active_item_name == layer.name + ' ' + root_ch.name and active_item_type == 'CHANNEL_OVERRIDE':
+                new_active_index = layer_item_index
+
         for j, mask in enumerate(layer.masks):
 
             if layer.expand_subitems:
@@ -39,8 +62,11 @@ def refresh_list_items(yp, repoint_active=False):
                 item.name = mask.name
 
                 if (
-                    (repoint_active and yp.active_layer_index == i and mask.active_edit) or # Select mask with active edit after expand subitems
-                    (active_item_name == mask.name and active_item_type == 'MASK') # Select correct mask after other layer uncollapsing
+                    # Select mask with active edit after expand subitems
+                    (repoint_active and yp.active_layer_index == i and mask.active_edit) or 
+
+                    # Select correct mask after other layer uncollapsing
+                    (active_item_name == mask.name and active_item_type == 'MASK')
                 ):
                     new_active_index = len(yp.list_items)-1
 
@@ -101,6 +127,20 @@ def update_list_item_index(self, context):
     layer_index = -1
     if item.type == 'LAYER':
         layer_index = item.index
+
+        # Disable active edit on masks and overrides if layer is expanded
+        if layer_index < len(yp.layers):
+            layer = yp.layers[layer_index]
+            if layer.expand_subitems and layer.type in {'IMAGE', 'VCOL'}:
+                for mask in layer.masks:
+                    if mask.active_edit:
+                        mask.active_edit = False
+                for ch in layer.channels:
+                    if ch.active_edit:
+                        ch.active_edit = False
+                    if ch.active_edit_1:
+                        ch.active_edit_1 = False
+
     elif item.type == 'MASK':
         layer_index = item.parent_index
         if layer_index < len(yp.layers):
@@ -108,6 +148,13 @@ def update_list_item_index(self, context):
             if item.index < len(layer.masks):
                 mask = layer.masks[item.index]
                 mask.active_edit = True
+    elif item.type == 'CHANNEL_OVERRIDE':
+        layer_index = item.parent_index
+        if layer_index < len(yp.layers):
+            layer = yp.layers[layer_index]
+            if item.index < len(layer.channels):
+                ch = layer.channels[item.index]
+                ch.active_edit = True
 
     if layer_index != -1 and layer_index < len(yp.layers):
         yp.active_layer_index = layer_index
