@@ -4320,6 +4320,10 @@ class YReplaceLayerChannelOverride(bpy.types.Operator):
         ch = context.parent
         ch.override_type = self.type
         ch.override = True
+
+        # Update list items
+        ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
+
         return {'FINISHED'}
 
 class YReplaceLayerChannelOverride1(bpy.types.Operator):
@@ -4344,6 +4348,10 @@ class YReplaceLayerChannelOverride1(bpy.types.Operator):
         ch = context.parent
         ch.override_1_type = self.type
         ch.override_1 = True
+
+        # Update list items
+        ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
+
         return {'FINISHED'}
 
 class YRemoveLayerChannelOverrideSource(bpy.types.Operator):
@@ -4480,6 +4488,9 @@ class YSetLayerChannelInput(bpy.types.Operator):
             else:
                 ch.override = False
                 ch.layer_input = self.type
+
+        # Update list items
+        ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
 
         return {'FINISHED'}
 
@@ -5532,6 +5543,9 @@ def update_normal_map_type(self, context):
 
         reconnect_yp_nodes(self.id_data)
         rearrange_yp_nodes(self.id_data)
+
+    # Update list items
+    ListItem.refresh_list_items(yp)
 
 def update_blend_type(self, context):
     T = time.time()
