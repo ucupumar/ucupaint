@@ -4350,6 +4350,7 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
             if item.index < len(layer.channels):
 
                 ch = layer.channels[item.index]
+                root_ch = yp.channels[item.index]
 
                 is_hidden = not is_parent_hidden(layer) and ch.enable
 
@@ -4360,24 +4361,29 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                 row.label(text='', icon='BLANK1')
 
                 ch_source = None
-                if ch.override:
+                override_type = ''
+                if (root_ch.type != 'NORMAL' or ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}) and ch.override and not item.is_second_member:
                     ch_source = get_channel_source(ch, layer)
+                    override_type = ch.override_type
+                elif (root_ch.type == 'NORMAL' or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}) and ch.override_1 and item.is_second_member:
+                    ch_source = get_channel_source_1(ch, layer)
+                    override_type = ch.override_1_type
 
-                if ch.override_type == 'IMAGE' and ch_source and ch_source.image:
+                if override_type == 'IMAGE' and ch_source and ch_source.image:
                     row.prop(ch_source.image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
-                elif ch.override_type == 'VCOL' and ch_source and ch_source.attribute_name:
+                elif override_type == 'VCOL' and ch_source and ch_source.attribute_name:
                     row.prop(ch, 'override_vcol_name', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 else: 
                     row.prop(item, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
 
-                row = master.row()
-                if not is_bl_newer_than(2, 80):
-                    if ch.enable: eye_icon = 'RESTRICT_VIEW_OFF'
-                    else: eye_icon = 'RESTRICT_VIEW_ON'
-                else:
-                    if ch.enable: eye_icon = 'HIDE_OFF'
-                    else: eye_icon = 'HIDE_ON'
-                row.prop(ch, 'enable', emboss=False, text='', icon=eye_icon)
+                #row = master.row()
+                #if not is_bl_newer_than(2, 80):
+                #    if ch.enable: eye_icon = 'RESTRICT_VIEW_OFF'
+                #    else: eye_icon = 'RESTRICT_VIEW_ON'
+                #else:
+                #    if ch.enable: eye_icon = 'HIDE_OFF'
+                #    else: eye_icon = 'HIDE_ON'
+                #row.prop(ch, 'enable', emboss=False, text='', icon=eye_icon)
 
         # Masks
         if item.type == 'MASK' and item.parent_index != -1 and item.parent_index < len(yp.layers):
