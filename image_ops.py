@@ -865,9 +865,6 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
     use_cineon_log : BoolProperty(name='Log', default=False)
     use_zbuffer : BoolProperty(name='Log', default=False)
 
-    # Option to unpack image if image is packed
-    unpack : BoolProperty(default=False)
-
     # Flag for float image
     is_float : BoolProperty(default=False)
 
@@ -1059,7 +1056,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
         # Packing and unpacking sometimes does not work if the blend file is not saved yet
         unpacked_to_disk = False
-        if not is_bl_newer_than(2, 81) and bpy.data.filepath != '' and (self.unpack or image.packed_file):
+        if not is_bl_newer_than(2, 81) and bpy.data.filepath != '' and image.packed_file:
             unpacked_to_disk = True
             self.unpack_image(context)
 
@@ -1121,7 +1118,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             self.remove_unpacked_image(context)
 
         # Remove packed flag
-        if is_bl_newer_than(2, 81) and self.unpack and image.packed_file:
+        if is_bl_newer_than(2, 81) and image.packed_file:
             image.unpack(method='REMOVE')
 
         # Set back colorspace settings

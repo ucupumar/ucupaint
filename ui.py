@@ -4407,13 +4407,8 @@ class YBakeTargetMenu(bpy.types.Menu):
 
         if context.image:
             if context.image.packed_file:
-                op = col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE')
-                op.unpack = True
-                op.copy = False
-            else: 
-                op = col.operator('node.y_save_as_image', text='Save As Image')
-                op.unpack = False
-                op.copy = False
+                col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').copy = False
+            else: col.operator('node.y_save_as_image', text='Save As Image').copy = False
             col.operator('node.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
 
 class YNewChannelMenu(bpy.types.Menu):
@@ -4667,13 +4662,8 @@ class YBakedImageMenu(bpy.types.Menu):
         col.operator('node.y_save_image', icon='FILE_TICK')
 
         if context.image.packed_file:
-            op = col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE')
-            op.unpack = True
-            op.copy = False
-        else: 
-            op = col.operator('node.y_save_as_image', text='Save As Image')
-            op.unpack = False
-            op.copy = False
+            col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').copy = False
+        else: col.operator('node.y_save_as_image', text='Save As Image').copy = False
         col.operator('node.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
 
         col.separator()
@@ -4751,18 +4741,11 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         col.operator('node.y_pack_image', icon='PACKAGE')
         col.operator('node.y_save_image', icon='FILE_TICK')
         if hasattr(context, 'image') and context.image.packed_file:
-            op = col.operator('node.y_save_as_image', text='Unpack As Image...', icon='UGLYPACKAGE')
-            op.unpack = True
-            op.copy = False
+            col.operator('node.y_save_as_image', text='Unpack As Image...', icon='UGLYPACKAGE').copy = False
         else:
             if is_bl_newer_than(2, 80):
-                op = col.operator('node.y_save_as_image', text='Save As Image...')
-                op.unpack = False
-                op.copy = False
-            else: 
-                op = col.operator('node.y_save_as_image', text='Save As Image...', icon='SAVE_AS')
-                op.unpack = False
-                op.copy = False
+                col.operator('node.y_save_as_image', text='Save As Image...').copy = False
+            else: col.operator('node.y_save_as_image', text='Save As Image...', icon='SAVE_AS').copy = False
         col.operator('node.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
 
         col.separator()
