@@ -1027,9 +1027,9 @@ def draw_root_channels_ui(context, layout, node):
                     bbcol = bbox.column() #align=True)
                     bbcol.active = channel.enable_alpha
 
-                    if is_bl_newer_than(2, 80):
+                    if is_bl_newer_than(2, 80) and engine != 'HYDRA_STORM':
 
-                        if is_bl_newer_than(4, 2) and engine == 'BLENDER_EEVEE_NEXT':
+                        if is_bl_newer_than(4, 2):
                             brow = bbcol.row(align=True)
                             brow.label(text='Transparent Shadows:')
                             brow.prop(mat, 'use_transparent_shadow', text='')
@@ -1039,7 +1039,7 @@ def draw_root_channels_ui(context, layout, node):
                             brow = bbcol.row(align=True)
                             brow.label(text='Render Method:')
                             brow.prop(mat, 'surface_render_method', text='')
-                        elif engine != 'HYDRA_STORM':
+                        else:
                             brow = bbcol.row(align=True)
                             brow.label(text='Blend Mode:')
                             brow.prop(channel, 'alpha_blend_mode', text='')
