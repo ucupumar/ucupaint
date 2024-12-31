@@ -2478,10 +2478,16 @@ def get_preview(mat, output=None, advanced=False, normal_viewer=False):
 
         # Remember output and original bsdf
         ori_bsdf = output.inputs[0].links[0].from_node
+        ori_socket = output.inputs[0].links[0].from_socket
+        ori_bsdf_output_index = 0
+        for i, outp in enumerate(ori_bsdf.outputs):
+            if outp == ori_socket:
+                ori_bsdf_output_index = i
 
         # Only remember original BSDF if its not the preview node itself
         if ori_bsdf != preview:
             mat.yp.ori_bsdf = ori_bsdf.name
+            mat.yp.ori_bsdf_output_index = ori_bsdf_output_index
 
     return preview
 
@@ -2529,7 +2535,7 @@ def remove_preview(mat, advanced=False):
         mat.yp.ori_bsdf = ''
 
         if bsdf and output:
-            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+            mat.node_tree.links.new(bsdf.outputs[mat.yp.ori_bsdf_output_index], output.inputs[0])
 
         # Recover view transform
         if scene.yp.ori_view_transform != '':
@@ -3937,6 +3943,7 @@ class YPaint(bpy.types.PropertyGroup):
 
 class YPaintMaterialProps(bpy.types.PropertyGroup):
     ori_bsdf : StringProperty(default='')
+    ori_bsdf_output_index : IntProperty(default=0)
     #ori_blend_method : StringProperty(default='')
     active_ypaint_node : StringProperty(default='')
 
