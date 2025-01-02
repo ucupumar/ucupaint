@@ -18,6 +18,7 @@ def save_float_image(image):
     # Check current extensions
     for form, ext in format_extensions.items():
         if image.filepath.endswith(ext):
+            if form == 'OPEN_EXR_MULTILAYER' and image.type != 'MULTILAYER': continue
             settings.file_format = form
             break
     
