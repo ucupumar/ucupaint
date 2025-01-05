@@ -3618,7 +3618,7 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
     bl_idname = "node.y_move_in_out_layer_group_menu"
     bl_label = "Move In/Out Layer Group"
     bl_description = "Move inside or outside layer group"
-    #bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
