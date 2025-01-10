@@ -654,6 +654,14 @@ def rearrange_layer_nodes(layer, tree=None):
     cache_found = False
 
     # Layer Caches
+    if check_set_node_loc(tree, layer.cache_image, loc, hide=False):
+        loc.y -= 270
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_vcol, loc, hide=False):
+        loc.y -= 200
+        cache_found = True
+
     if check_set_node_loc(tree, layer.cache_color, loc, hide=False):
         loc.y -= 200
         cache_found = True

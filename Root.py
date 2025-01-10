@@ -5,7 +5,7 @@ from .common import *
 from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer, Mask, transition, Bake, BakeTarget
+from . import lib, Modifier, Layer, Mask, transition, Bake, BakeTarget, ListItem
 from .input_outputs import *
 
 YP_GROUP_SUFFIX = ' ' + get_addon_title()
@@ -3782,6 +3782,16 @@ class YPaint(bpy.types.PropertyGroup):
         description = 'Active layer index',
         default = 0,
         update = update_layer_index
+    )
+
+    # List Items
+    list_items : CollectionProperty(type=ListItem.YListItem)
+
+    active_item_index : IntProperty(
+        name = 'Active Item Index',
+        description = 'Active item index',
+        default = 0,
+        update = ListItem.update_list_item_index
     )
 
     # UVs

@@ -1,7 +1,7 @@
 import bpy, time, re, os, random, numpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier
+from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem
 from .common import *
 #from .bake_common import *
 from .node_arrangements import *
@@ -354,6 +354,9 @@ def add_new_layer(
     # Rearrange node inside layers
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+
+    # Update list items
+    ListItem.refresh_list_items(yp)
 
     return layer
 
@@ -3435,6 +3438,15 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
+        # Make sure new parent subitems is expanded
+        if layer.parent_idx != -1:
+            parent = yp.layers[layer.parent_idx]
+            if not parent.expand_subitems:
+                parent.expand_subitems = True
+
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
+
         # Update UI
         wm.ypui.need_update = True
         print('INFO: Layer', layer.name, 'is moved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -3588,6 +3600,9 @@ class YMoveLayer(bpy.types.Operator):
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
+
         # Update UI
         wm.ypui.need_update = True
 
@@ -3618,6 +3633,7 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
     bl_idname = "node.y_move_in_out_layer_group_menu"
     bl_label = "Move In/Out Layer Group"
     bl_description = "Move inside or outside layer group"
+    bl_options = {'UNDO'}
     bl_options = {'UNDO'}
 
     direction : EnumProperty(
@@ -3736,6 +3752,9 @@ def remove_layer(yp, index, remove_on_disk=False):
 
     # Delete the layer
     yp.layers.remove(index)
+
+    # Update list items
+    ListItem.refresh_list_items(yp)
 
 def draw_remove_group(self, context):
     col = self.layout.column()
@@ -3954,19 +3973,22 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         for i in child_ids:
             parent_dict[yp.layers[i].name] = parent_dict[layer.name]
 
-    # Remove segment if original layer using image atlas
+    # Check if layer is using image atlas
     if layer.type == 'IMAGE' and layer.segment_name != '':
-        src = get_layer_source(layer)
-        if src.image.yia.is_image_atlas:
-            segment = src.image.yia.segments.get(layer.segment_name)
-            segment.unused = True
-        elif src.image.yua.is_udim_atlas:
-            UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, yp=yp)
 
-        # Set segment name to empty
-        layer.segment_name = ''
+        # Replace to non atlas image will remove the segment
+        if new_type == 'IMAGE':
+            src = get_layer_source(layer)
+            if src.image.yia.is_image_atlas:
+                segment = src.image.yia.segments.get(layer.segment_name)
+                segment.unused = True
+            elif src.image.yua.is_udim_atlas:
+                UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, yp=yp)
 
-        # Reset mapping after removing image atlas segment
+            # Set segment name to empty
+            layer.segment_name = ''
+
+        # Reset mapping
         clear_mapping(layer)
 
     # Save hemi vector
@@ -3994,8 +4016,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     source_tree = get_source_tree(layer)
     source = source_tree.nodes.get(layer.source)
 
-    # Save source to cache if it's not image, vertex color, or background
-    if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
+    # Save source to cache
+    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI'} and layer.type != new_type:
         setattr(layer, 'cache_' + layer.type.lower(), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
@@ -4006,7 +4028,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Try to get available cache
     cache = None
-    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
+    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
         cache = tree.nodes.get(getattr(layer, 'cache_' + new_type.lower()))
 
     if cache:
@@ -4079,7 +4101,21 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         source = get_layer_source(layer)
         if source and source.image:
             yp.halt_update = True
-            layer.name = get_unique_name(source.image.name, yp.layers)
+            if source.image.yia.is_image_atlas or source.image.yua.is_udim_atlas:
+                mat = get_active_material()
+                new_name = mat.name if mat else 'Image'
+                new_name += DEFAULT_NEW_IMG_SUFFIX
+
+                # Set back the mapping
+                if source.image.yia.is_image_atlas:
+                    segment = source.image.yia.segments.get(layer.segment_name)
+                    ImageAtlas.set_segment_mapping(layer, segment, source.image)
+                else:
+                    segment = source.image.yua.segments.get(layer.segment_name)
+                    UDIM.set_udim_segment_mapping(layer, segment, source.image)
+
+            else: new_name = source.image.name
+            layer.name = get_unique_name(new_name, yp.layers)
             yp.halt_update = False
 
             # Set interpolation to Cubic if normal/height channel is found
@@ -4294,6 +4330,10 @@ class YReplaceLayerChannelOverride(bpy.types.Operator):
         ch = context.parent
         ch.override_type = self.type
         ch.override = True
+
+        # Update list items
+        ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
+
         return {'FINISHED'}
 
 class YReplaceLayerChannelOverride1(bpy.types.Operator):
@@ -4318,6 +4358,10 @@ class YReplaceLayerChannelOverride1(bpy.types.Operator):
         ch = context.parent
         ch.override_1_type = self.type
         ch.override_1 = True
+
+        # Update list items
+        ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
+
         return {'FINISHED'}
 
 class YRemoveLayerChannelOverrideSource(bpy.types.Operator):
@@ -4360,6 +4404,106 @@ class YRemoveLayerChannelOverride1Source(bpy.types.Operator):
         ch.override_1_type = 'DEFAULT'
         return {'FINISHED'}
 
+class YSetLayerChannelNormalBlendType(bpy.types.Operator):
+    bl_idname = "node.y_set_layer_channel_normal_blend_type"
+    bl_label = "Set Layer Channel Normal Blend Type"
+    bl_description = "Set layer channel normal blend type"
+    bl_options = {'UNDO'}
+
+    normal_blend_type : EnumProperty(
+            name = 'Normal Blend Type',
+            items = normal_blend_items,
+            default = 'MIX')
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
+    def execute(self, context):
+        ch = context.channel
+        ch.normal_blend_type = self.normal_blend_type
+        return {'FINISHED'}
+
+class YSetLayerChannelBlendType(bpy.types.Operator):
+    bl_idname = "node.y_set_layer_channel_blend_type"
+    bl_label = "Set Layer Channel Blend Type"
+    bl_description = "Set layer channel blend type"
+    bl_options = {'UNDO'}
+
+    blend_type : EnumProperty(
+        name = 'Blend Type',
+        items = blend_type_items,
+        )
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
+    def execute(self, context):
+        ch = context.channel
+        ch.blend_type = self.blend_type
+        return {'FINISHED'}
+
+class YSetLayerChannelInput(bpy.types.Operator):
+    bl_idname = "node.y_set_layer_channel_input"
+    bl_label = "Set Layer Channel Input"
+    bl_description = "Set layer channel input"
+    bl_options = {'UNDO'}
+
+    type : EnumProperty(
+            name = 'Input Type',
+            items = (
+                ('CUSTOM', 'Custom', ''),
+                ('RGB', 'Layer RGB', ''),
+                ('ALPHA', 'Layer Alpha', ''),
+                #('R', 'Layer R', ''),
+                #('G', 'Layer G', ''),
+                #('B', 'Layer B', ''),
+                ),
+            default = 'RGB')
+
+    set_normal_input : BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        return self.execute(context)
+
+    def execute(self, context):
+        #layer = context.layer
+        ch = context.channel
+        if self.type == 'CUSTOM':
+            if self.set_normal_input:
+                ch.override_1 = True
+                ch.override_1_type = 'DEFAULT'
+            else:
+                ch.override = True
+                ch.override_type = 'DEFAULT'
+            if not ch.enable: ch.enable = True
+        else: 
+            if self.set_normal_input:
+                ch.override_1 = False
+                #ch.layer_input = self.type
+            else:
+                ch.override = False
+                ch.layer_input = self.type
+
+        # Update list items
+        ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
+
+        return {'FINISHED'}
+
 class YReplaceLayerType(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_type"
     bl_label = "Replace Layer Type"
@@ -4375,6 +4519,8 @@ class YReplaceLayerType(bpy.types.Operator):
     item_name : StringProperty(name="Item")
     item_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
+    load_item : BoolProperty(default=False)
+
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
@@ -4383,7 +4529,7 @@ class YReplaceLayerType(bpy.types.Operator):
     def invoke(self, context, event):
         obj = context.object
         self.layer = context.layer
-        if self.type in {'IMAGE', 'VCOL'}:
+        if self.load_item and self.type in {'IMAGE', 'VCOL'}:
 
             self.item_coll.clear()
             self.item_name = ''
@@ -4427,12 +4573,12 @@ class YReplaceLayerType(bpy.types.Operator):
             self.report({'ERROR'}, "Cannot replace temporarily baked layer!")
             return {'CANCELLED'}
 
-        if self.type == layer.type: return {'CANCELLED'}
+        if self.type == layer.type and self.type not in {'IMAGE', 'VCOL'}: return {'CANCELLED'}
         #if layer.type == 'GROUP':
         #    self.report({'ERROR'}, "You can't change type of group layer!")
         #    return {'CANCELLED'}
 
-        if self.type in {'VCOL', 'IMAGE'} and self.item_name == '':
+        if self.load_item and self.type in {'VCOL', 'IMAGE'} and self.item_name == '':
             self.report({'ERROR'}, "Form is cannot be empty!")
             return {'CANCELLED'}
 
@@ -5330,7 +5476,7 @@ def update_layer_channel_override(self, context):
 
     ypui = context.window_manager.ypui
     if len(ypui.layer_ui.channels) > ch_index:
-        ypui.layer_ui.channels[ch_index].expand_source = ch.override_type not in {'IMAGE', 'VCOL'}
+        ypui.layer_ui.channels[ch_index].expand_source = ch.override_type not in {'DEFAULT', 'IMAGE', 'VCOL'}
 
     # Reselect layer so vcol or image will be updated
     yp.active_layer_index = yp.active_layer_index
@@ -5377,6 +5523,9 @@ def update_channel_enable(self, context):
         ch.active_edit = False
         ch.active_edit_1 = False
 
+    # Update list items
+    ListItem.refresh_list_items(yp)
+
     print('INFO: Channel '+ root_ch.name + ' of ' + layer.name + 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
@@ -5407,6 +5556,9 @@ def update_normal_map_type(self, context):
 
         reconnect_yp_nodes(self.id_data)
         rearrange_yp_nodes(self.id_data)
+
+    # Update list items
+    ListItem.refresh_list_items(yp)
 
 def update_blend_type(self, context):
     T = time.time()
@@ -5877,6 +6029,10 @@ def update_channel_active_edit(self, context):
     # Refresh
     yp.active_layer_index = layer_idx
 
+    # Set active subitem
+    if layer.expand_subitems:
+        ListItem.set_active_entity_subitem(self)
+
 class YLayerChannel(bpy.types.PropertyGroup):
     enable : BoolProperty(
         name = 'Enable Layer Channel',
@@ -5976,8 +6132,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     override_value : FloatProperty(
         name = 'Override Value',
         description = 'Override value for this channel',
-        min=0.0, max=1.0, default=1.0
-    )
+        min=0.0, max=1.0, subtype='FACTOR', default=1.0
+	)
 
     override_vcol_name : StringProperty(
         name = 'Vertex Color Name',
@@ -6415,6 +6571,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     expand_transition_ramp_settings : BoolProperty(default=False)
     expand_transition_ao_settings : BoolProperty(default=False)
     expand_input_settings : BoolProperty(default=False)
+    expand_blend_settings : BoolProperty(default=False)
     expand_source : BoolProperty(default=False)
     expand_source_1 : BoolProperty(default=False)
 
@@ -6723,6 +6880,10 @@ class YLayer(bpy.types.PropertyGroup):
     cache_wave : StringProperty(default='')
     cache_color : StringProperty(default='')
 
+    cache_image : StringProperty(default='')
+    cache_vcol : StringProperty(default='')
+    cache_hemi : StringProperty(default='')
+
     # UV
     uv_neighbor : StringProperty(default='')
     uv_neighbor_1 : StringProperty(default='')
@@ -6773,6 +6934,13 @@ class YLayer(bpy.types.PropertyGroup):
     expand_channels : BoolProperty(default=True)
     expand_source : BoolProperty(default=False)
 
+    expand_subitems : BoolProperty(
+        name = 'Expand Subitems',
+        description = 'Expand subitems',
+        default = False,
+        update = ListItem.update_expand_subitems
+    )
+
 def register():
     bpy.utils.register_class(YRefreshNeighborUV)
     bpy.utils.register_class(YUseLinearColorSpace)
@@ -6793,6 +6961,9 @@ def register():
     bpy.utils.register_class(YRemoveLayer)
     bpy.utils.register_class(YRemoveLayerMenu)
     bpy.utils.register_class(YReplaceLayerType)
+    bpy.utils.register_class(YSetLayerChannelBlendType)
+    bpy.utils.register_class(YSetLayerChannelNormalBlendType)
+    bpy.utils.register_class(YSetLayerChannelInput)
     bpy.utils.register_class(YReplaceLayerChannelOverride)
     bpy.utils.register_class(YReplaceLayerChannelOverride1)
     bpy.utils.register_class(YRemoveLayerChannelOverrideSource)
@@ -6825,6 +6996,9 @@ def unregister():
     bpy.utils.unregister_class(YRemoveLayer)
     bpy.utils.unregister_class(YRemoveLayerMenu)
     bpy.utils.unregister_class(YReplaceLayerType)
+    bpy.utils.unregister_class(YSetLayerChannelBlendType)
+    bpy.utils.unregister_class(YSetLayerChannelNormalBlendType)
+    bpy.utils.unregister_class(YSetLayerChannelInput)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride1)
     bpy.utils.unregister_class(YRemoveLayerChannelOverrideSource)

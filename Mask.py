@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, ImageAtlas, MaskModifier, UDIM
+from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -127,6 +127,9 @@ def add_new_mask(
     # Update coords
     update_mask_texcoord_type(mask, None, False)
 
+    # Update list items
+    ListItem.refresh_list_items(yp)
+
     return mask
 
 def remove_mask_channel_nodes(tree, c):
@@ -209,6 +212,9 @@ def remove_mask(layer, mask, obj):
 
     # Remove mask
     layer.masks.remove(mask_index)
+
+    # Update list items
+    ListItem.refresh_list_items(yp)
 
 def get_new_mask_name(obj, layer, mask_type, modifier_type=''):
     surname = '(' + layer.name + ')'
@@ -1471,6 +1477,10 @@ def update_mask_active_edit(self, context):
     # Refresh
     yp.active_layer_index = layer_idx
 
+    # Set active subitem
+    if layer.expand_subitems:
+        ListItem.set_active_entity_subitem(self)
+
 def update_mask_blur_vector(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -1579,6 +1589,9 @@ def update_layer_mask_enable(self, context):
     rearrange_yp_nodes(self.id_data)
 
     self.active_edit = self.enable and self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}
+
+    # Update list items
+    ListItem.refresh_list_items(yp, repoint_active=True)
 
 def update_enable_layer_masks(self, context):
     yp = self.id_data.yp
