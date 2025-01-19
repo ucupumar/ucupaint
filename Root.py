@@ -3794,6 +3794,18 @@ class YPaint(bpy.types.PropertyGroup):
         update = ListItem.update_list_item_index
     )
 
+    enable_collapsible_subitems : BoolProperty(
+        name = 'Collapsible Subitem',
+        description = 'Subitems (masks and editable custom layer inputs) will have their own item entries',
+        default = False
+    )
+
+    enable_inline_subitems : BoolProperty(
+        name = 'Inline Subitem',
+        description = 'Subitems (masks and editable custom layer inputs) will their icons beside layer icon',
+        default = True
+    ) # Always True if item_collapsible_subitems is False
+
     # UVs
     uvs : CollectionProperty(type=YPaintUV)
 
