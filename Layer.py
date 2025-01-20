@@ -3754,7 +3754,7 @@ def remove_layer(yp, index, remove_on_disk=False):
     yp.layers.remove(index)
 
     # Update list items
-    ListItem.refresh_list_items(yp)
+    ListItem.refresh_list_items(yp, repoint_active=True)
 
 def draw_remove_group(self, context):
     col = self.layout.column()

@@ -33,24 +33,51 @@ def refresh_list_items(yp, repoint_active=False):
     active_item_type = ''
     active_item_is_second_member = False
     active_collapsed_parent_item_index = -1
-    if repoint_active and yp.active_item_index < len(yp.list_items):
-        item = yp.list_items[yp.active_item_index]
+    if repoint_active:
 
-        active_item_name = item.name
-        active_item_type = item.type
-        active_item_is_second_member = item.is_second_member
+        # If layer index is out of bound, point to last layer
+        if yp.active_layer_index >= len(yp.layers) and len(yp.layers) != 0:
+            layer = yp.layers[len(yp.layers)-1]
 
-        # Get corresponding layer
-        layer = None
-        if item.type == 'LAYER':
-            if item.index < len(yp.layers):
-                layer = yp.layers[item.index]
-        elif item.parent_index < len(yp.layers):
-            layer = yp.layers[item.parent_index]
+            if not layer.expand_subitems or not yp.enable_collapsible_subitems:
+                active_item_name = layer.name
+                active_item_type = 'LAYER'
+                active_collapsed_parent_item_index = get_collapsed_parent_item_index(layer)
 
-        # Get collapsed parent item index
-        if layer:
-            active_collapsed_parent_item_index = get_collapsed_parent_item_index(layer)
+            elif layer.expand_subitems and yp.enable_collapsible_subitems:
+                for mask in layer.masks:
+                    if mask.active_edit:
+                        active_item_name = mask.name
+                        active_item_type = 'MASK'
+
+                for i, ch in enumerate(layer.channels):
+                    if not ch.enable: continue
+                    root_ch = yp.channels[i]
+                    if ch.override and ch.override_type in {'IMAGE', 'VCOL'} and ch.active_edit:
+                        active_item_name = layer.name + ' ' + root_ch.name
+                        active_item_type = 'CHANNEL_OVERRIDE'
+
+                    if root_ch.type == 'NORMAL' and ch.override_1 and ch.override_1_type == 'IMAGE' and ch.active_edit_1:
+                        active_item_name = layer.name + ' ' + root_ch.name + ' 1'
+                        active_item_type = 'CHANNEL_OVERRIDE'
+                        active_item_is_second_member = True
+
+        # Get current item
+        elif yp.active_item_index < len(yp.list_items):
+            item = yp.list_items[yp.active_item_index]
+
+            # Get corresponding layer
+            layer_index = item.index if item.type == 'LAYER' else item.parent_index
+            if layer_index < len(yp.layers):
+                layer = yp.layers[layer_index]
+
+                # Get collapsed parent item index
+                active_collapsed_parent_item_index = get_collapsed_parent_item_index(layer)
+
+                # Get current active item
+                active_item_name = item.name
+                active_item_type = item.type
+                active_item_is_second_member = item.is_second_member
 
     # Reset list
     yp.list_items.clear()
@@ -84,7 +111,8 @@ def refresh_list_items(yp, repoint_active=False):
                 if (layer.expand_subitems and 
                     (root_ch.type != 'NORMAL' or ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}) and 
                     (ch.override and ch.override_type in {'IMAGE', 'VCOL'}) and
-                    ch.enable
+                    ch.enable and
+                    yp.enable_collapsible_subitems
                     ):
                     item = yp.list_items.add()
                     item.type = 'CHANNEL_OVERRIDE'
@@ -109,7 +137,8 @@ def refresh_list_items(yp, repoint_active=False):
                 if (layer.expand_subitems and 
                     (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}) and 
                     (ch.override_1 and ch.override_1_type in {'IMAGE', 'VCOL'}) and
-                    ch.enable
+                    ch.enable and
+                    yp.enable_collapsible_subitems
                     ):
                     item = yp.list_items.add()
                     item.type = 'CHANNEL_OVERRIDE'
@@ -134,7 +163,7 @@ def refresh_list_items(yp, repoint_active=False):
             # Masks
             for j, mask in enumerate(layer.masks):
 
-                if layer.expand_subitems and mask.enable:
+                if layer.expand_subitems and mask.enable and yp.enable_collapsible_subitems:
                     item = yp.list_items.add()
                     item.type = 'MASK'
                     item.index = j
