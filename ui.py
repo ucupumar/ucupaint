@@ -3516,8 +3516,9 @@ def draw_layers_ui(context, layout, node):
 
     rcol.menu("NODE_MT_y_layer_list_special_menu", text='', icon='DOWNARROW_HLT')
 
-    rcol.separator()
-    rcol.popover("NODE_PT_y_list_item_option_popover", text='', icon='OUTLINER')
+    if is_bl_newer_than(2, 80):
+        rcol.separator()
+        rcol.popover("NODE_PT_y_list_item_option_popover", text='', icon='OUTLINER')
 
     if layer:
         layer_tree = get_tree(layer)
@@ -5504,6 +5505,9 @@ class YListItemOptionPopover(bpy.types.Panel):
     def draw(self, context):
         col = self.layout.column()
         yp = get_active_ypaint_node().node_tree.yp
+
+        col.label(text='Layer List Options')
+        col.separator()
         
         col.prop(yp, 'enable_collapsible_subitems')
         col.prop(yp, 'enable_inline_subitems')
