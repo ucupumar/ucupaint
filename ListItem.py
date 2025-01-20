@@ -39,12 +39,12 @@ def refresh_list_items(yp, repoint_active=False):
         if yp.active_layer_index >= len(yp.layers) and len(yp.layers) != 0:
             layer = yp.layers[len(yp.layers)-1]
 
-            if not layer.expand_subitems or not yp.enable_collapsible_subitems:
+            if not layer.expand_subitems or not yp.enable_expandable_subitems:
                 active_item_name = layer.name
                 active_item_type = 'LAYER'
                 active_collapsed_parent_item_index = get_collapsed_parent_item_index(layer)
 
-            elif layer.expand_subitems and yp.enable_collapsible_subitems:
+            elif layer.expand_subitems and yp.enable_expandable_subitems:
                 for mask in layer.masks:
                     if mask.active_edit:
                         active_item_name = mask.name
@@ -112,7 +112,7 @@ def refresh_list_items(yp, repoint_active=False):
                     (root_ch.type != 'NORMAL' or ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}) and 
                     (ch.override and ch.override_type in {'IMAGE', 'VCOL'}) and
                     ch.enable and
-                    yp.enable_collapsible_subitems
+                    yp.enable_expandable_subitems
                     ):
                     item = yp.list_items.add()
                     item.type = 'CHANNEL_OVERRIDE'
@@ -138,7 +138,7 @@ def refresh_list_items(yp, repoint_active=False):
                     (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}) and 
                     (ch.override_1 and ch.override_1_type in {'IMAGE', 'VCOL'}) and
                     ch.enable and
-                    yp.enable_collapsible_subitems
+                    yp.enable_expandable_subitems
                     ):
                     item = yp.list_items.add()
                     item.type = 'CHANNEL_OVERRIDE'
@@ -163,7 +163,7 @@ def refresh_list_items(yp, repoint_active=False):
             # Masks
             for j, mask in enumerate(layer.masks):
 
-                if layer.expand_subitems and mask.enable and yp.enable_collapsible_subitems:
+                if layer.expand_subitems and mask.enable and yp.enable_expandable_subitems:
                     item = yp.list_items.add()
                     item.type = 'MASK'
                     item.index = j
@@ -296,7 +296,7 @@ def set_active_entity_item(entity):
         ch = layer.channels[int(m2.group(2))]
         root_ch = yp.channels[int(m2.group(2))]
 
-        if not yp.enable_collapsible_subitems or not layer.expand_subitems or (not ch.active_edit_1 and not ch.active_edit):
+        if not yp.enable_expandable_subitems or not layer.expand_subitems or (not ch.active_edit_1 and not ch.active_edit):
             repoint_to_layer = True
 
         if ch.active_edit_1:
@@ -306,7 +306,7 @@ def set_active_entity_item(entity):
         layer = yp.layers[int(m3.group(1))]
         mask = layer.masks[int(m3.group(2))]
 
-        if not yp.enable_collapsible_subitems or not layer.expand_subitems or not mask.active_edit:
+        if not yp.enable_expandable_subitems or not layer.expand_subitems or not mask.active_edit:
             repoint_to_layer = True
 
     else: return

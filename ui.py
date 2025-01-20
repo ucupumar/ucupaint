@@ -3516,7 +3516,7 @@ def draw_layers_ui(context, layout, node):
 
     rcol.menu("NODE_MT_y_layer_list_special_menu", text='', icon='DOWNARROW_HLT')
 
-    if is_bl_newer_than(2, 80):
+    if is_bl_newer_than(2, 80) and any_subitem_exists(yp):
         rcol.separator()
         rcol.popover("NODE_PT_y_list_item_option_popover", text='', icon='OUTLINER')
 
@@ -4269,30 +4269,39 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
                 if is_output_unconnected(group_node, output_index + 1, item):
                     row.label(text='', icon='ERROR')
 
-def is_layer_collapsible(layer):
+def any_subitem_in_layer(layer):
     yp = layer.id_data.yp
 
-    if yp.enable_collapsible_subitems:
-        if len(layer.masks) > 0:
+    for mask in layer.masks:
+        if mask.enable:
             return True
 
-        for i, ch in enumerate(layer.channels):
-            if not ch.enable: continue
+    for i, ch in enumerate(layer.channels):
+        if not ch.enable: continue
 
-            root_ch = yp.channels[i]
+        root_ch = yp.channels[i]
 
-            if (root_ch.type == 'NORMAL' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} 
-                and ch.override and ch.override_type in {'IMAGE', 'VCOL'}
-                ):
-                return True
+        if (root_ch.type == 'NORMAL' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} 
+            and ch.override and ch.override_type in {'IMAGE', 'VCOL'}
+            ):
+            return True
 
-            elif (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} 
-                and ch.override_1 and ch.override_1_type != 'DEFAULT'
-                ):
-                return True
+        elif (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} 
+            and ch.override_1 and ch.override_1_type != 'DEFAULT'
+            ):
+            return True
 
-            elif root_ch.type != 'NORMAL' and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
-                return True
+        elif root_ch.type != 'NORMAL' and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+            return True
+
+    return False
+
+def is_layer_expandable(layer):
+    yp = layer.id_data.yp
+
+    if yp.enable_expandable_subitems:
+        if any_subitem_in_layer(layer):
+            return True
 
     children = get_list_of_direct_children(layer)
     if len(children) > 0:
@@ -4300,9 +4309,16 @@ def is_layer_collapsible(layer):
 
     return False
 
-def any_collapsible_layer(yp):
+def any_expandable_layer(yp):
     for layer in yp.layers:
-        if is_layer_collapsible(layer):
+        if is_layer_expandable(layer):
+            return True
+
+    return False
+
+def any_subitem_exists(yp):
+    for layer in yp.layers:
+        if any_subitem_in_layer(layer):
             return True
 
     return False
@@ -4335,13 +4351,13 @@ def layer_listing(layout, layer, show_expand=False):
             master.label(text='', icon='BLANK1')
 
     if show_expand:
-        if is_layer_collapsible(layer):
+        if is_layer_expandable(layer):
             icon = 'DOWNARROW_HLT' if layer.expand_subitems else 'RIGHTARROW'
             master.prop(layer, 'expand_subitems', icon=icon, text='', emboss=False)
             #layer_idx = get_layer_index(layer)
             #layer_ui_item = ypui.layer_items[layer_idx]
             #master.prop(layer_ui_item, 'expand_subitems', icon=icon, text='', emboss=False)
-        elif any_collapsible_layer(yp): 
+        elif any_expandable_layer(yp): 
             master.label(text='', icon='BLANK1')
 
     # Try to get image
@@ -4360,7 +4376,7 @@ def layer_listing(layout, layer, show_expand=False):
     selectable_overrides = []
     active_override = None
     override_idx = 0
-    if not show_expand or (yp.enable_inline_subitems and (not layer.expand_subitems or not yp.enable_collapsible_subitems)):
+    if not show_expand or (yp.enable_inline_subitems and (not layer.expand_subitems or not yp.enable_expandable_subitems)):
         for i, c in enumerate(layer.channels):
             root_ch = yp.channels[i]
             #if not c.enable: continue
@@ -4377,7 +4393,7 @@ def layer_listing(layout, layer, show_expand=False):
     all_masks = []
     selectable_masks = []
     active_mask = None
-    if not show_expand or (yp.enable_inline_subitems and (not layer.expand_subitems or not yp.enable_collapsible_subitems)):
+    if not show_expand or (yp.enable_inline_subitems and (not layer.expand_subitems or not yp.enable_expandable_subitems)):
         for m in layer.masks:
             #if m.type in {'IMAGE', 'VCOL'}:
             if m.enable: selectable_masks.append(m)
@@ -5509,7 +5525,7 @@ class YListItemOptionPopover(bpy.types.Panel):
         col.label(text='Layer List Options')
         col.separator()
         
-        col.prop(yp, 'enable_collapsible_subitems')
+        col.prop(yp, 'enable_expandable_subitems')
         col.prop(yp, 'enable_inline_subitems')
 
 class YLayerChannelNormalBlendPopover(bpy.types.Panel):
