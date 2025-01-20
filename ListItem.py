@@ -277,7 +277,7 @@ def update_list_item_index(self, context):
     if layer_index != -1 and layer_index < len(yp.layers) and yp.active_layer_index != layer_index:
         yp.active_layer_index = layer_index
 
-def set_active_entity_subitem(entity):
+def set_active_entity_item(entity):
     yp = entity.id_data.yp
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -296,18 +296,18 @@ def set_active_entity_subitem(entity):
         ch = layer.channels[int(m2.group(2))]
         root_ch = yp.channels[int(m2.group(2))]
 
+        if not yp.enable_collapsible_subitems or not layer.expand_subitems or (not ch.active_edit_1 and not ch.active_edit):
+            repoint_to_layer = True
+
         if ch.active_edit_1:
             appendix = ' 1'
-        elif not ch.active_edit:
-            repoint_to_layer = True
-            #return
 
     elif m3: 
         layer = yp.layers[int(m3.group(1))]
         mask = layer.masks[int(m3.group(2))]
-        if not mask.active_edit:
+
+        if not yp.enable_collapsible_subitems or not layer.expand_subitems or not mask.active_edit:
             repoint_to_layer = True
-            #return
 
     else: return
 

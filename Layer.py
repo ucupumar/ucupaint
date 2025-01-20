@@ -6029,9 +6029,8 @@ def update_channel_active_edit(self, context):
     # Refresh
     yp.active_layer_index = layer_idx
 
-    # Set active subitem
-    if layer.expand_subitems:
-        ListItem.set_active_entity_subitem(self)
+    # Set active entity item
+    ListItem.set_active_entity_item(self)
 
 class YLayerChannel(bpy.types.PropertyGroup):
     enable : BoolProperty(

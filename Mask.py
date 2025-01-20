@@ -1478,8 +1478,7 @@ def update_mask_active_edit(self, context):
     yp.active_layer_index = layer_idx
 
     # Set active subitem
-    if layer.expand_subitems:
-        ListItem.set_active_entity_subitem(self)
+    ListItem.set_active_entity_item(self)
 
 def update_mask_blur_vector(self, context):
     yp = self.id_data.yp
