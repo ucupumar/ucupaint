@@ -1840,7 +1840,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             if root_ch.type == 'NORMAL':
                 label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
                 #if is_bl_newer_than(2, 80):
-                #    ssplit.popover("NODE_MT_y_layer_channel_normal_blend_popover", text=label)
+                #    ssplit.popover("NODE_PT_y_layer_channel_normal_blend_popover", text=label)
                 #else: ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
                 ssplit.prop(ch, 'normal_blend_type', text='')
                 #sssplit = split_layout(ssplit, 0.6, align=True)
@@ -1849,7 +1849,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             elif layer.type != 'BACKGROUND':
                 label = blend_type_labels[ch.blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
                 #if is_bl_newer_than(2, 80):
-                #    ssplit.popover("NODE_MT_y_layer_channel_blend_popover", text=label)
+                #    ssplit.popover("NODE_PT_y_layer_channel_blend_popover", text=label)
                 #else: ssplit.menu("NODE_MT_y_layer_channel_blend_menu", text=label)
                 ssplit.prop(ch, 'blend_type', text='')
                 #sssplit = split_layout(ssplit, 0.6, align=True)
@@ -3517,7 +3517,7 @@ def draw_layers_ui(context, layout, node):
     rcol.menu("NODE_MT_y_layer_list_special_menu", text='', icon='DOWNARROW_HLT')
 
     rcol.separator()
-    rcol.popover("NODE_MT_y_list_item_option_popover", text='', icon='OUTLINER')
+    rcol.popover("NODE_PT_y_list_item_option_popover", text='', icon='OUTLINER')
 
     if layer:
         layer_tree = get_tree(layer)
@@ -5457,7 +5457,7 @@ class YLayerChannelBlendMenu(bpy.types.Menu):
             col.operator('node.y_set_layer_channel_blend_type', text=val).blend_type = key
 
 class YLayerChannelBlendPopover(bpy.types.Panel):
-    bl_idname = "NODE_MT_y_layer_channel_blend_popover"
+    bl_idname = "NODE_PT_y_layer_channel_blend_popover"
     bl_label = "Layer Channel Blend"
     bl_description = "Layer channel blend"
     bl_space_type = "VIEW_3D"
@@ -5490,7 +5490,7 @@ class YLayerChannelBlendPopover(bpy.types.Panel):
         draw_input_prop(col, ch, 'intensity_value', text='')
 
 class YListItemOptionPopover(bpy.types.Panel):
-    bl_idname = "NODE_MT_y_list_item_option_popover"
+    bl_idname = "NODE_PT_y_list_item_option_popover"
     bl_label = "List Item Popover"
     bl_description = "List item popover"
     bl_space_type = "VIEW_3D"
@@ -5509,7 +5509,7 @@ class YListItemOptionPopover(bpy.types.Panel):
         col.prop(yp, 'enable_inline_subitems')
 
 class YLayerChannelNormalBlendPopover(bpy.types.Panel):
-    bl_idname = "NODE_MT_y_layer_channel_normal_blend_popover"
+    bl_idname = "NODE_PT_y_layer_channel_normal_blend_popover"
     bl_label = "Layer Channel Normal Blend"
     bl_description = "Layer channel normal blend"
     bl_space_type = "VIEW_3D"
