@@ -1877,7 +1877,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
                     rrrow.menu("NODE_MT_y_layer_channel_input_1_menu", text='', icon='DOWNARROW_HLT')
 
-                #if ypup.layers_list_mode in {'CLASSIC', 'BOTH'}:
+                #if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
                 if ch.enable:
                     if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
                         if ch.override_type == 'IMAGE':
@@ -1900,7 +1900,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     label = get_layer_channel_input_label(layer, ch)
                     rrrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
 
-                    #if ypup.layers_list_mode in {'CLASSIC', 'BOTH'}:
+                    #if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
                     if ch.enable:
                         if ch.override_type == 'IMAGE':
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
@@ -2412,7 +2412,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
                     rrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
 
-                if ch.enable and ch.override: #and ypup.layers_list_mode in {'CLASSIC', 'BOTH'}:
+                if ch.enable and ch.override: #and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
                     if ch.override_type == 'IMAGE':
                         row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
                     elif ch.override_type == 'VCOL':
@@ -2494,7 +2494,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
                 rrow.menu("NODE_MT_y_layer_channel_input_1_menu", text=label)
 
-            if ch.enable and ch.override_1 and ch.override_1_type == 'IMAGE': # and ypup.layers_list_mode in {'CLASSIC', 'BOTH'}:
+            if ch.enable and ch.override_1 and ch.override_1_type == 'IMAGE': # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
                 row.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
 
             #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
@@ -2655,7 +2655,7 @@ def draw_layer_masks(context, layout, layer):
         mrow.label(text='', icon='BLANK1')
         mrow.active = mask.enable
 
-        if not maskui.expand_content: # and ypup.layers_list_mode in {'CLASSIC', 'BOTH'}:
+        if not maskui.expand_content: # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
             srow = split_layout(mrow, 0.3, align=True)
         else: 
             srow = mrow
@@ -2674,7 +2674,7 @@ def draw_layer_masks(context, layout, layer):
         #if mask.baked_source != '':
         #    rrow.prop(mask, 'use_baked', text='Use Baked', toggle=True)
 
-        if not maskui.expand_content: # and ypup.layers_list_mode in {'CLASSIC', 'BOTH'}:
+        if not maskui.expand_content: # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
             rrow.prop(mask, 'blend_type', text='')
             draw_input_prop(rrow, mask, 'intensity_value')
 
@@ -2705,7 +2705,7 @@ def draw_layer_masks(context, layout, layer):
             else:
                 mask_icon = 'texture'
 
-        if mask_icon != '' and not maskui.expand_content: # and ypup.layers_list_mode in {'CLASSIC', 'BOTH'}:
+        if mask_icon != '' and not maskui.expand_content: # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
             rrow.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon(mask_icon))
 
         rrow.context_pointer_set('mask', mask)
@@ -2844,7 +2844,7 @@ def draw_layer_masks(context, layout, layer):
         else: 
             rrrow.label(text=mask_type_labels[mask.type])
         
-        if mask_icon != '': # and ypup.layers_list_mode in {'CLASSIC', 'BOTH'}:
+        if mask_icon != '': # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
             rrrow.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon(mask_icon))
 
         if maskui.expand_source and (mask.type not in {'BACKFACE', 'MODIFIER'} or 
@@ -3445,12 +3445,12 @@ def draw_layers_ui(context, layout, node):
         #icon_value = lib.get_icon("mask)"
         prow.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
 
-    if ypup.layers_list_mode in {'CLASSIC', 'BOTH'}:
+    if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
         rcol.template_list("NODE_UL_YPaint_layers", "", yp,
                 "layers", yp, "active_layer_index", rows=5, maxrows=5)  
 
-    if ypup.layers_list_mode in {'DYNAMIC', 'BOTH'}:
-        if ypup.layers_list_mode == 'BOTH':
+    if ypup.layer_list_mode in {'DYNAMIC', 'BOTH'}:
+        if ypup.layer_list_mode == 'BOTH':
             rcol.operator('node.y_refresh_list_items', icon='FILE_REFRESH', text='Refresh Items')
         rcol.template_list("NODE_UL_YPaint_list_items", "", yp,
                 "list_items", yp, "active_item_index", rows=5, maxrows=5)  
@@ -3516,7 +3516,7 @@ def draw_layers_ui(context, layout, node):
 
     rcol.menu("NODE_MT_y_layer_list_special_menu", text='', icon='DOWNARROW_HLT')
 
-    if is_bl_newer_than(2, 80) and any_subitem_exists(yp):
+    if is_bl_newer_than(2, 80) and any_subitem_exists(yp) and ypup.layer_list_mode != 'CLASSIC' :
         rcol.separator()
         rcol.popover("NODE_PT_y_list_item_option_popover", text='', icon='OUTLINER')
 

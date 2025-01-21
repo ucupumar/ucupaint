@@ -116,7 +116,7 @@ class YPaintPreferences(AddonPreferences):
         default = True
     )
 
-    layers_list_mode : EnumProperty(
+    layer_list_mode : EnumProperty(
         name = 'Layer Lists Mode',
         items = (
             ('DYNAMIC', "Dynamic (Experimental)", 'Dynamic layers list with dropdown support (Experimental)'),
@@ -174,7 +174,7 @@ class YPaintPreferences(AddonPreferences):
         if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'default_bake_device')
             self.layout.prop(self, 'icons')
-        self.layout.prop(self, 'layers_list_mode')
+        self.layout.prop(self, 'layer_list_mode')
 
         self.layout.prop(self, 'default_image_resolution')
         if self.default_image_resolution == 'CUSTOM':
