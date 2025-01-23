@@ -34,13 +34,17 @@ def get_mod_y_offsets(mod, is_value=False):
         return value_mod_y_offsets[mod.type]
     return mod_y_offsets[mod.type]
 
-def check_set_node_loc(tree, node_name, loc, hide=False):
+def check_set_node_loc(tree, node_name, loc, hide=False, parent_unset=False):
     node = tree.nodes.get(node_name)
     if node:
         if node.location != loc:
             node.location = loc
         if node.hide != hide:
             node.hide = hide
+
+        if parent_unset and node.parent != None:
+            node.parent = None
+
         return True
     return False
 
@@ -751,6 +755,57 @@ def rearrange_layer_nodes(layer, tree=None):
 
         if check_set_node_loc(tree, ch.cache_1_image, loc, hide=False):
             loc.y -= 270
+            cache_found = True
+
+    # Mask caches
+    for mask in layer.masks:
+
+        #if check_set_node_loc(tree, mask.cache_ramp, loc, hide=False, parent_unset=True):
+        #    loc.y -= 250
+        #    cache_found = True
+
+        #if check_set_node_loc(tree, mask.cache_falloff_curve, loc, hide=False, parent_unset=True):
+        #    loc.y -= 270
+        #    cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_image, loc, hide=False, parent_unset=True):
+            loc.y -= 270
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_vcol, loc, hide=False, parent_unset=True):
+            loc.y -= 200
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_brick, loc, hide=False, parent_unset=True):
+            loc.y -= 400
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_checker, loc, hide=False, parent_unset=True):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_gradient, loc, hide=False, parent_unset=True):
+            loc.y -= 140
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_magic, loc, hide=False, parent_unset=True):
+            loc.y -= 180
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_musgrave, loc, hide=False, parent_unset=True):
+            loc.y -= 270
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_noise, loc, hide=False, parent_unset=True):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_voronoi, loc, hide=False, parent_unset=True):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_wave, loc, hide=False, parent_unset=True):
+            loc.y -= 260
             cache_found = True
 
     if cache_found or start: loc.x += 350

@@ -2349,6 +2349,11 @@ class YCleanYPCaches(bpy.types.Operator):
                     if prop.startswith('cache_'):
                         remove_node(layer_tree, ch, prop)
 
+            for mask in layer.masks:
+                for prop in dir(mask):
+                    if prop.startswith('cache_'):
+                        remove_node(layer_tree, mask, prop)
+
         # Remove tangent and bitangent images
         for image in reversed(bpy.data.images):
             if image.name.endswith(CACHE_TANGENT_IMAGE_SUFFIX) or image.name.endswith(CACHE_BITANGENT_IMAGE_SUFFIX):

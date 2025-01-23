@@ -6667,19 +6667,19 @@ class YMaskTypeMenu(bpy.types.Menu):
 
         folder_emoji = '🗁  ' if is_bl_newer_than(3, 4) else '>  '
 
-        #cache_image = tree.nodes.get(mask.cache_image)
-        #if mask.type != 'IMAGE' and cache_image and cache_image.image:
-        #    op = col.operator('node.y_replace_mask_type', text='Image: ' + cache_image.image.name, icon='RADIOBUT_OFF')
-        #    op.type = 'IMAGE'
-        #    op.load_item = False
-        #    op.item_name = ''
-        #else:
-        source = get_mask_source(mask)
-        suffix = ''
-        if mask.type == 'IMAGE' and source and source.image:
-            suffix += ': ' + source.image.name
-        icon = 'RADIOBUT_ON' if mask.type == 'IMAGE' else 'RADIOBUT_OFF'
-        col.label(text='Image' + suffix, icon=icon)
+        cache_image = tree.nodes.get(mask.cache_image)
+        if mask.type != 'IMAGE' and cache_image and cache_image.image:
+            op = col.operator('node.y_replace_mask_type', text='Image: ' + cache_image.image.name, icon='RADIOBUT_OFF')
+            op.type = 'IMAGE'
+            op.load_item = False
+            op.item_name = ''
+        else:
+            source = get_mask_source(mask)
+            suffix = ''
+            if mask.type == 'IMAGE' and source and source.image:
+                suffix += ': ' + source.image.name
+            icon = 'RADIOBUT_ON' if mask.type == 'IMAGE' else 'RADIOBUT_OFF'
+            col.label(text='Image' + suffix, icon=icon)
 
         label = 'Open Available Image' if mask.type != 'IMAGE' else 'Replace Image'
         op = col.operator('node.y_replace_mask_type', text=folder_emoji+label) #, icon_value=lib.get_icon('open_image'))
@@ -6688,19 +6688,19 @@ class YMaskTypeMenu(bpy.types.Menu):
 
         col.separator()
 
-        #cache_vcol = tree.nodes.get(mask.cache_vcol)
-        #if mask.type != 'VCOL' and cache_vcol and cache_vcol.attribute_name != '':
-        #    op = col.operator('node.y_replace_mask_type', text='Vertex Color: ' + cache_vcol.attribute_name, icon='RADIOBUT_OFF')
-        #    op.type = 'VCOL'
-        #    op.load_item = False
-        #    op.item_name = ''
-        #else:
-        source = get_mask_source(mask)
-        suffix = ''
-        if mask.type == 'VCOL' and source and source.attribute_name != '':
-            suffix += ': ' + source.attribute_name
-        icon = 'RADIOBUT_ON' if mask.type == 'VCOL' else 'RADIOBUT_OFF'
-        col.label(text='Vertex Color' + suffix, icon=icon)
+        cache_vcol = tree.nodes.get(mask.cache_vcol)
+        if mask.type != 'VCOL' and cache_vcol and cache_vcol.attribute_name != '':
+            op = col.operator('node.y_replace_mask_type', text='Vertex Color: ' + cache_vcol.attribute_name, icon='RADIOBUT_OFF')
+            op.type = 'VCOL'
+            op.load_item = False
+            op.item_name = ''
+        else:
+            source = get_mask_source(mask)
+            suffix = ''
+            if mask.type == 'VCOL' and source and source.attribute_name != '':
+                suffix += ': ' + source.attribute_name
+            icon = 'RADIOBUT_ON' if mask.type == 'VCOL' else 'RADIOBUT_OFF'
+            col.label(text='Vertex Color' + suffix, icon=icon)
 
         label = 'Open Available Vertex Color' if mask.type != 'VCOL' else 'Replace Vertex Color'
         op = col.operator('node.y_replace_mask_type', text=folder_emoji+label) #, icon_value=lib.get_icon('vertex_color'))

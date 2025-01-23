@@ -286,9 +286,6 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     yp.halt_reconnect = True
 
     # Standard bump map is easier to convert
-    #fine_bump_channels = [ch for ch in mask.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
-    #for ch in fine_bump_channels:
-    #    ch.normal_map_type = 'BUMP_MAP'
     fine_bump_channels = [ch for ch in yp.channels if ch.enable_smooth_bump]
     for ch in fine_bump_channels:
         ch.enable_smooth_bump = False
@@ -300,70 +297,66 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
 
     # Current source
     tree = get_mask_tree(mask)
-    #source_tree = get_source_tree(mask)
-    #source = source_tree.nodes.get(mask.source)
     source = get_mask_source(mask)
 
+    non_cached_types = {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'EDGE_DETECT', 'MODIFIER', 'BACKFACE'}
+
     # Save source to cache if it's not image, vertex color, or background
-    #if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
-    #    setattr(mask, 'cache_' + mask.type.lower(), source.name)
-    #    # Remove uv input link
-    #    if any(source.inputs) and any(source.inputs[0].links):
-    #        tree.links.remove(source.inputs[0].links[0])
-    #    source.label = ''
-    #else:
-    #    remove_node(source_tree, mask, 'source', remove_data=remove_data)
-    remove_node(tree, mask, 'source', remove_data=remove_data)
+    if mask.type not in non_cached_types:
+        setattr(mask, 'cache_' + mask.type.lower(), source.name)
+        # Remove uv input link
+        if any(source.inputs) and any(source.inputs[0].links):
+            tree.links.remove(source.inputs[0].links[0])
+        source.label = ''
+    else:
+        remove_node(tree, mask, 'source', remove_data=remove_data)
 
     # Disable modifier tree
-    #if (mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'} and 
-    #        new_type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'}):
+    #if mask.type not in non_cached_types and new_type in non_cached_types:
     #    Modifier.disable_modifiers_tree(mask)
 
     # Try to get available cache
-    #cache = None
-    #if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
-    #    cache = tree.nodes.get(getattr(mask, 'cache_' + new_type.lower()))
+    cache = None
+    if new_type not in non_cached_types:
+        cache = tree.nodes.get(getattr(mask, 'cache_' + new_type.lower()))
 
-    #if cache:
-    #    mask.source = cache.name
-    #    setattr(mask, 'cache_' + new_type.lower(), '')
-    #    cache.label = 'Source'
-    #else:
+    if cache:
+        mask.source = cache.name
+        setattr(mask, 'cache_' + new_type.lower(), '')
+        cache.label = 'Source'
+    else:
 
-    #source = new_node(source_tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
-    if new_type == 'MODIFIER':
-        source = setup_modifier_mask_source(tree, mask, modifier_type)
-    else: source = new_node(tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
+        if new_type == 'MODIFIER':
+            source = setup_modifier_mask_source(tree, mask, modifier_type)
+        else: source = new_node(tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
 
-    if new_type == 'IMAGE':
-        image = bpy.data.images.get(item_name)
-        source.image = image
-        if hasattr(source, 'color_space'):
-            source.color_space = 'NONE'
-        if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
-            image.colorspace_settings.name = get_noncolor_name()
+        if new_type == 'IMAGE':
+            image = bpy.data.images.get(item_name)
+            source.image = image
+            if hasattr(source, 'color_space'):
+                source.color_space = 'NONE'
+            if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
+                image.colorspace_settings.name = get_noncolor_name()
 
-    elif new_type == 'VCOL':
-        set_source_vcol_name(source, item_name)
+        elif new_type == 'VCOL':
+            set_source_vcol_name(source, item_name)
 
-    elif new_type == 'HEMI':
-        source.node_tree = get_node_tree_lib(lib.HEMI)
-        duplicate_lib_node_tree(source)
-        load_hemi_props(mask, source)
+        elif new_type == 'HEMI':
+            source.node_tree = get_node_tree_lib(lib.HEMI)
+            duplicate_lib_node_tree(source)
+            load_hemi_props(mask, source)
 
-    elif new_type == 'COLOR_ID':
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-        check_colorid_vcol(objs)
-        setup_color_id_source(mask, source, (1, 0, 1))
+        elif new_type == 'COLOR_ID':
+            mat = get_active_material()
+            objs = get_all_objects_with_same_materials(mat)
+            check_colorid_vcol(objs)
+            setup_color_id_source(mask, source, (1, 0, 1))
 
-    elif new_type == 'OBJECT_INDEX':
-        setup_object_idx_source(mask, source, 0)
+        elif new_type == 'OBJECT_INDEX':
+            setup_object_idx_source(mask, source, 0)
 
-    elif new_type == 'EDGE_DETECT':
-        setup_edge_detect_source(mask, source, 0.05)
-
+        elif new_type == 'EDGE_DETECT':
+            setup_edge_detect_source(mask, source, 0.05)
 
     # Change mask type
     ori_type = mask.type
@@ -372,16 +365,10 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     # Enable modifiers tree if generated texture is used
     #if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
     #    Modifier.enable_modifiers_tree(mask)
-    Modifier.check_modifiers_trees(mask)
+    #Modifier.check_modifiers_trees(mask)
 
     # Update group ios
     check_all_layer_channel_io_and_nodes(layer, tree)
-    #if mask.type == 'BACKGROUND':
-    #    # Remove bump and its base
-    #    for ch in mask.channels:
-    #        #remove_node(tree, ch, 'bump_base')
-    #        #remove_node(tree, ch, 'bump')
-    #        remove_node(tree, ch, 'normal_process')
 
     mapping = tree.nodes.get(mask.mapping)
     if is_mapping_possible(new_type):
@@ -2409,6 +2396,22 @@ class YLayerMask(bpy.types.PropertyGroup):
     source_w : StringProperty(default='')
 
     baked_source : StringProperty(default='')
+
+    # Mask type cache
+    cache_brick : StringProperty(default='')
+    cache_checker : StringProperty(default='')
+    cache_gradient : StringProperty(default='')
+    cache_magic : StringProperty(default='')
+    cache_musgrave : StringProperty(default='')
+    cache_noise : StringProperty(default='')
+    cache_gabor : StringProperty(default='')
+    cache_voronoi : StringProperty(default='')
+    cache_wave : StringProperty(default='')
+    cache_color : StringProperty(default='')
+
+    cache_image : StringProperty(default='')
+    cache_vcol : StringProperty(default='')
+    cache_hemi : StringProperty(default='')
 
     uv_map : StringProperty(default='')
     uv_neighbor : StringProperty(default='')
