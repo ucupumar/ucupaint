@@ -505,6 +505,7 @@ layer_node_bl_idnames = {
     'BACKFACE' : 'ShaderNodeNewGeometry',
     'EDGE_DETECT' : 'ShaderNodeGroup',
     'GABOR' : 'ShaderNodeTexGabor',
+    'MODIFIER' : 'ShaderNodeGroup',
 }
 
 io_suffix = {
@@ -5239,6 +5240,12 @@ def get_layer_type_icon(layer_type):
         return 'LAMP'
 
     return 'TEXTURE'
+
+def load_hemi_props(layer, source):
+    norm = source.node_tree.nodes.get('Normal')
+    if norm: norm.outputs[0].default_value = layer.hemi_vector
+    trans = source.node_tree.nodes.get('Vector Transform')
+    if trans: trans.convert_from = layer.hemi_space
 
 def save_hemi_props(layer, source):
     norm = source.node_tree.nodes.get('Normal')

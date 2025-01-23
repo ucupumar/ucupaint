@@ -2825,24 +2825,34 @@ def draw_layer_masks(context, layout, layer):
         else:
             rrow.label(text='', icon='BLANK1')
 
+        splits = split_layout(rrow, 0.3)
+
         text_source = pgettext_iface('Source: ')
         #if mask_image:
         #    rrow.label(text=text_source + mask_image.name)
         #else: rrow.label(text=text_source + mask.name)
-        rrow.label(text=text_source)
+        splits.label(text=text_source)
 
-        rrrow = rrow.row(align=True)
-        rrrow.alignment = 'RIGHT'
+        #rrrow = rrow.row(align=True)
+        #splits.alignment = 'RIGHT'
         if mask_image:
-            rrrow.label(text=mask_image.name)
+            label = mask_image.name
         elif mask_vcol_name != '':
-            rrrow.label(text=mask_vcol_name)
+            label = mask_vcol.name
         elif mask.type == 'MODIFIER':
-            if mask.modifier_type == 'INVERT': rrrow.label(text='Invert')
-            elif mask.modifier_type == 'RAMP': rrrow.label(text='Ramp')
-            elif mask.modifier_type == 'CURVE': rrrow.label(text='Curve')
+            if mask.modifier_type == 'INVERT': 
+                label = 'Invert'
+            elif mask.modifier_type == 'RAMP': 
+                label = 'Ramp'
+            elif mask.modifier_type == 'CURVE': 
+                label = 'Curve'
         else: 
-            rrrow.label(text=mask_type_labels[mask.type])
+            label = mask_type_labels[mask.type]
+
+        rrrow = splits.row(align=True)
+        rrrow.context_pointer_set('mask', mask)
+        #rrrow.label(text=label)
+        rrrow.menu("NODE_MT_y_mask_type_menu", text=label) #, icon_value=icon_value)
         
         if mask_icon != '': # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
             rrrow.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon(mask_icon))
@@ -3320,14 +3330,14 @@ def draw_layers_ui(context, layout, node):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER'}:
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER'} and layer.uv_name != '':
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
                     #entities.append(layer.name)
 
             for mask in layer.masks:
-                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} and mask.uv_name != '':
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
@@ -6636,6 +6646,144 @@ class YLayerTypeMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if layer.type == 'HEMI' else 'RADIOBUT_OFF'
         col.operator("node.y_replace_layer_type", icon=icon, text='Fake Lighting').type = 'HEMI'
 
+class YMaskTypeMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_mask_type_menu"
+    bl_label = "Mask Type Menu"
+    bl_description = 'Mask Type Menu'
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        mask = context.mask
+        layer = context.layer
+        tree = get_tree(layer)
+        
+        col = self.layout.column()
+        col.label(text='Mask Source')
+        col.separator()
+
+        folder_emoji = '🗁  ' if is_bl_newer_than(3, 4) else '>  '
+
+        #cache_image = tree.nodes.get(mask.cache_image)
+        #if mask.type != 'IMAGE' and cache_image and cache_image.image:
+        #    op = col.operator('node.y_replace_mask_type', text='Image: ' + cache_image.image.name, icon='RADIOBUT_OFF')
+        #    op.type = 'IMAGE'
+        #    op.load_item = False
+        #    op.item_name = ''
+        #else:
+        source = get_mask_source(mask)
+        suffix = ''
+        if mask.type == 'IMAGE' and source and source.image:
+            suffix += ': ' + source.image.name
+        icon = 'RADIOBUT_ON' if mask.type == 'IMAGE' else 'RADIOBUT_OFF'
+        col.label(text='Image' + suffix, icon=icon)
+
+        label = 'Open Available Image' if mask.type != 'IMAGE' else 'Replace Image'
+        op = col.operator('node.y_replace_mask_type', text=folder_emoji+label) #, icon_value=lib.get_icon('open_image'))
+        op.type = 'IMAGE'
+        op.load_item = True
+
+        col.separator()
+
+        #cache_vcol = tree.nodes.get(mask.cache_vcol)
+        #if mask.type != 'VCOL' and cache_vcol and cache_vcol.attribute_name != '':
+        #    op = col.operator('node.y_replace_mask_type', text='Vertex Color: ' + cache_vcol.attribute_name, icon='RADIOBUT_OFF')
+        #    op.type = 'VCOL'
+        #    op.load_item = False
+        #    op.item_name = ''
+        #else:
+        source = get_mask_source(mask)
+        suffix = ''
+        if mask.type == 'VCOL' and source and source.attribute_name != '':
+            suffix += ': ' + source.attribute_name
+        icon = 'RADIOBUT_ON' if mask.type == 'VCOL' else 'RADIOBUT_OFF'
+        col.label(text='Vertex Color' + suffix, icon=icon)
+
+        label = 'Open Available Vertex Color' if mask.type != 'VCOL' else 'Replace Vertex Color'
+        op = col.operator('node.y_replace_mask_type', text=folder_emoji+label) #, icon_value=lib.get_icon('vertex_color'))
+        op.type = 'VCOL'
+        op.load_item = True
+
+        col.separator()
+
+        #icon = 'RADIOBUT_ON' if mask.type == 'COLOR' else 'RADIOBUT_OFF'
+        #col.operator('node.y_replace_mask_type', text='Solid Color', icon=icon).type = 'COLOR'
+
+        #icon = 'RADIOBUT_ON' if mask.type == 'BACKGROUND' else 'RADIOBUT_OFF'
+        #col.operator('node.y_replace_mask_type', text='Background', icon=icon).type = 'BACKGROUND'
+
+        #icon = 'RADIOBUT_ON' if mask.type == 'GROUP' else 'RADIOBUT_OFF'
+        #col.operator('node.y_replace_mask_type', text='Group', icon=icon).type = 'GROUP'
+
+        #col.separator()
+
+        icon = 'RADIOBUT_ON' if mask.type == 'BRICK' else 'RADIOBUT_OFF'
+        col.operator('node.y_replace_mask_type', text='Brick', icon=icon).type = 'BRICK'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'CHECKER' else 'RADIOBUT_OFF'
+        col.operator('node.y_replace_mask_type', text='Checker', icon=icon).type = 'CHECKER'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'GRADIENT' else 'RADIOBUT_OFF'
+        col.operator('node.y_replace_mask_type', text='Gradient', icon=icon).type = 'GRADIENT'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'MAGIC' else 'RADIOBUT_OFF'
+        col.operator('node.y_replace_mask_type', text='Magic', icon=icon).type = 'MAGIC'
+
+        if not is_bl_newer_than(4, 1): 
+            icon = 'RADIOBUT_ON' if mask.type == 'MUSGRAVE' else 'RADIOBUT_OFF'
+            col.operator('node.y_replace_mask_type', text='Musgrave', icon=icon).type = 'MUSGRAVE'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'NOISE' else 'RADIOBUT_OFF'
+        col.operator('node.y_replace_mask_type', text='Noise', icon=icon).type = 'NOISE'
+
+        if is_bl_newer_than(4, 3): 
+            icon = 'RADIOBUT_ON' if mask.type == 'GABOR' else 'RADIOBUT_OFF'
+            col.operator('node.y_replace_mask_type', text='Gabor', icon=icon).type = 'GABOR'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'VORONOI' else 'RADIOBUT_OFF'
+        col.operator('node.y_replace_mask_type', text='Voronoi', icon=icon).type = 'VORONOI'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'WAVE' else 'RADIOBUT_OFF'
+        col.operator('node.y_replace_mask_type', text='Wave', icon=icon).type = 'WAVE'
+
+        col.separator()
+        icon = 'RADIOBUT_ON' if mask.type == 'HEMI' else 'RADIOBUT_OFF'
+        col.operator("node.y_replace_mask_type", icon=icon, text='Fake Lighting').type = 'HEMI'
+
+        col.separator()
+
+        icon = 'RADIOBUT_ON' if mask.type == 'COLOR_ID' else 'RADIOBUT_OFF'
+        col.operator("node.y_replace_mask_type", icon=icon, text='Color ID').type = 'COLOR_ID'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'OBJECT_INDEX' else 'RADIOBUT_OFF'
+        col.operator("node.y_replace_mask_type", icon=icon, text='Object Index').type = 'OBJECT_INDEX'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'BACKFACE' else 'RADIOBUT_OFF'
+        col.operator("node.y_replace_mask_type", icon=icon, text='Backface').type = 'BACKFACE'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'EDGE_DETECT' else 'RADIOBUT_OFF'
+        col.operator("node.y_replace_mask_type", icon=icon, text='Edge Detect').type = 'EDGE_DETECT'
+
+        col.separator()
+
+        icon = 'RADIOBUT_ON' if mask.type == 'MODIFIER' and mask.modifier_type == 'INVERT' else 'RADIOBUT_OFF'
+        op = col.operator("node.y_replace_mask_type", icon=icon, text='Invert Modifier')
+        op.type = 'MODIFIER'
+        op.modifier_type = 'INVERT'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'MODIFIER' and mask.modifier_type == 'RAMP' else 'RADIOBUT_OFF'
+        op = col.operator("node.y_replace_mask_type", icon=icon, text='Ramp Modifier')
+        op.type = 'MODIFIER'
+        op.modifier_type = 'RAMP'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'MODIFIER' and mask.modifier_type == 'CURVE' else 'RADIOBUT_OFF'
+        op = col.operator("node.y_replace_mask_type", icon=icon, text='Curve Modifier')
+        op.type = 'MODIFIER'
+        op.modifier_type = 'CURVE'
+
 class YLayerSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_special_menu"
     bl_label = "Layer Special Menu"
@@ -7293,6 +7441,7 @@ def register():
     bpy.utils.register_class(YReplaceChannelOverride1Menu)
     bpy.utils.register_class(YLayerSpecialMenu)
     bpy.utils.register_class(YLayerTypeMenu)
+    bpy.utils.register_class(YMaskTypeMenu)
     bpy.utils.register_class(YModifierUI)
     bpy.utils.register_class(YBakeTargetUI)
     bpy.utils.register_class(YChannelUI)
@@ -7371,6 +7520,7 @@ def unregister():
     bpy.utils.unregister_class(YReplaceChannelOverride1Menu)
     bpy.utils.unregister_class(YLayerSpecialMenu)
     bpy.utils.unregister_class(YLayerTypeMenu)
+    bpy.utils.unregister_class(YMaskTypeMenu)
     bpy.utils.unregister_class(YModifierUI)
     bpy.utils.unregister_class(YBakeTargetUI)
     bpy.utils.unregister_class(YChannelUI)

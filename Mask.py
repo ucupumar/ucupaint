@@ -11,6 +11,41 @@ from .input_outputs import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
+def setup_color_id_source(mask, source, color_id):
+    if is_bl_newer_than(2, 82):
+        source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL_282)
+    else: source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL)
+    mask.color_id = color_id
+    col = (color_id[0], color_id[1], color_id[2], 1.0)
+    source.inputs[0].default_value = col
+
+def setup_object_idx_source(mask, source, object_index):
+    source.node_tree = get_node_tree_lib(lib.OBJECT_INDEX_EQUAL)
+    mask.object_index = object_index
+    source.inputs[0].default_value = object_index
+
+def setup_edge_detect_source(mask, source, edge_detect_radius):
+    source.node_tree = get_node_tree_lib(lib.EDGE_DETECT)
+    source.inputs[0].default_value = mask.edge_detect_radius = edge_detect_radius
+
+    # Enable AO to see edge detect mask
+    scene = bpy.context.scene
+    if not scene.eevee.use_gtao: scene.eevee.use_gtao = True
+
+def setup_modifier_mask_source(tree, mask, modifier_type):
+    mask.modifier_type = modifier_type
+
+    source = None
+    if modifier_type == 'INVERT':
+        source = new_node(tree, mask, 'source', 'ShaderNodeInvert', 'Mask Source')
+    elif modifier_type == 'RAMP':
+        source = new_node(tree, mask, 'source', 'ShaderNodeValToRGB', 'Mask Source')
+        #ramp_mix = new_mix_node(tree, mask, 'ramp_mix', 'Ramp Mix', 'FLOAT')
+    elif modifier_type == 'CURVE':
+        source = new_node(tree, mask, 'source', 'ShaderNodeRGBCurve', 'Mask Source')
+
+    return source
+
 def add_new_mask(
         layer, name, mask_type, texcoord_type, uv_name, image=None, vcol=None, segment=None,
         object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False,
@@ -41,14 +76,7 @@ def add_new_mask(
     if mask_type == 'VCOL':
         source = new_node(tree, mask, 'source', get_vcol_bl_idname(), 'Mask Source')
     elif mask_type == 'MODIFIER':
-        mask.modifier_type = modifier_type
-        if modifier_type == 'INVERT':
-            source = new_node(tree, mask, 'source', 'ShaderNodeInvert', 'Mask Source')
-        elif modifier_type == 'RAMP':
-            source = new_node(tree, mask, 'source', 'ShaderNodeValToRGB', 'Mask Source')
-            #ramp_mix = new_mix_node(tree, mask, 'ramp_mix', 'Ramp Mix', 'FLOAT')
-        elif modifier_type == 'CURVE':
-            source = new_node(tree, mask, 'source', 'ShaderNodeRGBCurve', 'Mask Source')
+        source = setup_modifier_mask_source(tree, mask, modifier_type)
 
     elif mask.type != 'BACKFACE': source = new_node(tree, mask, 'source', layer_node_bl_idnames[mask_type], 'Mask Source')
 
@@ -68,25 +96,13 @@ def add_new_mask(
         mask.hemi_use_prev_normal = hemi_use_prev_normal
 
     if mask_type == 'OBJECT_INDEX':
-        source.node_tree = get_node_tree_lib(lib.OBJECT_INDEX_EQUAL)
-        mask.object_index = object_index
-        source.inputs[0].default_value = object_index
+        setup_object_idx_source(mask, source, object_index)
 
     if mask_type == 'COLOR_ID':
-        if is_bl_newer_than(2, 82):
-            source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL_282)
-        else: source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL)
-        mask.color_id = color_id
-        col = (color_id[0], color_id[1], color_id[2], 1.0)
-        source.inputs[0].default_value = col
+        setup_color_id_source(mask, source, color_id)
 
     if mask_type == 'EDGE_DETECT':
-        source.node_tree = get_node_tree_lib(lib.EDGE_DETECT)
-        source.inputs[0].default_value = mask.edge_detect_radius = edge_detect_radius
-
-        # Enable AO to see edge detect mask
-        scene = bpy.context.scene
-        if not scene.eevee.use_gtao: scene.eevee.use_gtao = True
+        setup_edge_detect_source(mask, source, edge_detect_radius)
 
     if is_mapping_possible(mask_type):
         mask.uv_name = uv_name
@@ -245,6 +261,176 @@ def update_new_mask_uv_map(self, context):
         mat = get_active_material()
         objs = get_all_objects_with_same_materials(mat)
         self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_name)
+
+def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_type='INVERT'):
+
+    yp = mask.id_data.yp
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', mask.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+
+    # Remove segment if original mask using image atlas
+    if mask.type == 'IMAGE' and mask.segment_name != '':
+        src = get_mask_source(mask)
+        segment = src.image.yia.segments.get(mask.segment_name)
+        segment.unused = True
+        mask.segment_name = ''
+
+    # Save hemi vector
+    if mask.type == 'HEMI':
+        src = get_mask_source(mask)
+        save_hemi_props(mask, src)
+
+    #if new_type = 
+
+    yp.halt_reconnect = True
+
+    # Standard bump map is easier to convert
+    #fine_bump_channels = [ch for ch in mask.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
+    #for ch in fine_bump_channels:
+    #    ch.normal_map_type = 'BUMP_MAP'
+    fine_bump_channels = [ch for ch in yp.channels if ch.enable_smooth_bump]
+    for ch in fine_bump_channels:
+        ch.enable_smooth_bump = False
+
+    # Disable transition will also helps
+    transition_channels = [ch for ch in layer.channels if ch.enable_transition_bump]
+    for ch in transition_channels:
+        ch.enable_transition_bump = False
+
+    # Current source
+    tree = get_mask_tree(mask)
+    #source_tree = get_source_tree(mask)
+    #source = source_tree.nodes.get(mask.source)
+    source = get_mask_source(mask)
+
+    # Save source to cache if it's not image, vertex color, or background
+    #if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
+    #    setattr(mask, 'cache_' + mask.type.lower(), source.name)
+    #    # Remove uv input link
+    #    if any(source.inputs) and any(source.inputs[0].links):
+    #        tree.links.remove(source.inputs[0].links[0])
+    #    source.label = ''
+    #else:
+    #    remove_node(source_tree, mask, 'source', remove_data=remove_data)
+    remove_node(tree, mask, 'source', remove_data=remove_data)
+
+    # Disable modifier tree
+    #if (mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'} and 
+    #        new_type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'}):
+    #    Modifier.disable_modifiers_tree(mask)
+
+    # Try to get available cache
+    #cache = None
+    #if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
+    #    cache = tree.nodes.get(getattr(mask, 'cache_' + new_type.lower()))
+
+    #if cache:
+    #    mask.source = cache.name
+    #    setattr(mask, 'cache_' + new_type.lower(), '')
+    #    cache.label = 'Source'
+    #else:
+
+    #source = new_node(source_tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
+    if new_type == 'MODIFIER':
+        source = setup_modifier_mask_source(tree, mask, modifier_type)
+    else: source = new_node(tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
+
+    if new_type == 'IMAGE':
+        image = bpy.data.images.get(item_name)
+        source.image = image
+        if hasattr(source, 'color_space'):
+            source.color_space = 'NONE'
+        if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
+            image.colorspace_settings.name = get_noncolor_name()
+
+    elif new_type == 'VCOL':
+        set_source_vcol_name(source, item_name)
+
+    elif new_type == 'HEMI':
+        source.node_tree = get_node_tree_lib(lib.HEMI)
+        duplicate_lib_node_tree(source)
+        load_hemi_props(mask, source)
+
+    elif new_type == 'COLOR_ID':
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        check_colorid_vcol(objs)
+        setup_color_id_source(mask, source, (1, 0, 1))
+
+    elif new_type == 'OBJECT_INDEX':
+        setup_object_idx_source(mask, source, 0)
+
+    elif new_type == 'EDGE_DETECT':
+        setup_edge_detect_source(mask, source, 0.05)
+
+
+    # Change mask type
+    ori_type = mask.type
+    mask.type = new_type
+
+    # Enable modifiers tree if generated texture is used
+    #if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+    #    Modifier.enable_modifiers_tree(mask)
+    Modifier.check_modifiers_trees(mask)
+
+    # Update group ios
+    check_all_layer_channel_io_and_nodes(layer, tree)
+    #if mask.type == 'BACKGROUND':
+    #    # Remove bump and its base
+    #    for ch in mask.channels:
+    #        #remove_node(tree, ch, 'bump_base')
+    #        #remove_node(tree, ch, 'bump')
+    #        remove_node(tree, ch, 'normal_process')
+
+    mapping = tree.nodes.get(mask.mapping)
+    if is_mapping_possible(new_type):
+        if not mapping:
+            mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
+    else:
+        remove_node(tree, mask, 'mapping')
+
+    # Update linear stuff
+    #for i, ch in enumerate(mask.channels):
+    #    root_ch = yp.channels[i]
+    #    set_layer_channel_linear_node(tree, mask, root_ch, ch)
+
+    # Back to use fine bump if conversion happen
+    for ch in fine_bump_channels:
+        #ch.normal_map_type = 'FINE_BUMP_MAP'
+        ch.enable_smooth_bump = True
+
+    # Bring back transition
+    for ch in transition_channels:
+        ch.enable_transition_bump = True
+
+    # Update uv neighbor
+    #set_uv_neighbor_resolution(mask)
+
+    yp.halt_reconnect = False
+
+    # Check uv maps
+    check_uv_nodes(yp)
+
+    # Check children which need rearrange
+    #for i in child_ids:
+        #lay = yp.layers[i]
+    #for lay in yp.layers:
+    #    check_all_layer_channel_io_and_nodes(lay)
+    #    reconnect_layer_nodes(lay)
+    #    rearrange_layer_nodes(lay)
+
+    for lay in yp.layers:
+        check_all_layer_channel_io_and_nodes(lay)
+        reconnect_layer_nodes(lay)
+        rearrange_layer_nodes(lay)
+
+    #reconnect_layer_nodes(layer)
+    #rearrange_layer_nodes(layer)
+
+    #if mask.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
+    reconnect_yp_nodes(mask.id_data)
+    rearrange_yp_nodes(mask.id_data)
 
 class YNewLayerMask(bpy.types.Operator):
     bl_idname = "node.y_new_layer_mask"
@@ -1426,6 +1612,95 @@ class YRemoveLayerMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YReplaceMaskType(bpy.types.Operator):
+    bl_idname = "node.y_replace_mask_type"
+    bl_label = "Replace Mask Type"
+    bl_description = "Replace Mask Type"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type : EnumProperty(
+        name = 'Layer Type',
+        items = mask_type_items,
+        default = 'IMAGE'
+    )
+
+    modifier_type : EnumProperty(
+        name = 'Mask Modifier Type',
+        items = MaskModifier.mask_modifier_type_items,
+        default = 'INVERT'
+    )
+
+    item_name : StringProperty(name="Item")
+    item_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    load_item : BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        obj = context.object
+        self.mask = context.mask
+        if self.load_item and self.type in {'IMAGE', 'VCOL'}:
+
+            self.item_coll.clear()
+            self.item_name = ''
+
+            # Update image names
+            if self.type == 'IMAGE':
+                baked_channel_images = get_all_baked_channel_images(self.mask.id_data)
+                for img in bpy.data.images:
+                    if not img.yia.is_image_atlas and not img.yua.is_udim_atlas and img not in baked_channel_images:
+                        self.item_coll.add().name = img.name
+            else:
+                for vcol_name in get_vertex_color_names(obj):
+                    if vcol_name not in {COLOR_ID_VCOL_NAME}:
+                        self.item_coll.add().name = vcol_name
+
+            return context.window_manager.invoke_props_dialog(self)#, width=400)
+
+        return self.execute(context)
+
+    def draw(self, context):
+        layout = self.layout
+
+        split = split_layout(layout, 0.35, align=True)
+
+        #row = self.layout.row()
+        if self.type == 'IMAGE':
+            split.label(text='Image:')
+            split.prop_search(self, "item_name", self, "item_coll", text='', icon='IMAGE_DATA')
+        else:
+            split.label(text='Vertex Color:')
+            split.prop_search(self, "item_name", self, "item_coll", text='', icon='GROUP_VCOL')
+
+    def execute(self, context):
+
+        T = time.time()
+
+        wm = context.window_manager
+        mask = self.mask
+        yp = mask.id_data.yp
+
+        if mask.use_temp_bake:
+            self.report({'ERROR'}, "Cannot replace temporarily baked mask!")
+            return {'CANCELLED'}
+
+        if self.type == mask.type and self.type not in {'IMAGE', 'VCOL', 'MODIFIER'}: return {'CANCELLED'}
+
+        if self.load_item and self.type in {'VCOL', 'IMAGE'} and self.item_name == '':
+            self.report({'ERROR'}, "Form is cannot be empty!")
+            return {'CANCELLED'}
+
+        replace_mask_type(self.mask, self.type, self.item_name, modifier_type=self.modifier_type)
+
+        print('INFO: Mask ', mask.name, 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
+
 class YFixEdgeDetectAO(bpy.types.Operator):
     """Eevee Ambient Occlusion must be enabled to make edge detect mask to work"""
     bl_idname = "node.y_fix_edge_detect_ao"
@@ -2183,6 +2458,7 @@ def register():
     bpy.utils.register_class(YOpenAvailableDataAsMask)
     bpy.utils.register_class(YMoveLayerMask)
     bpy.utils.register_class(YRemoveLayerMask)
+    bpy.utils.register_class(YReplaceMaskType)
     bpy.utils.register_class(YFixEdgeDetectAO)
     bpy.utils.register_class(YLayerMaskChannel)
     bpy.utils.register_class(YLayerMask)
@@ -2193,6 +2469,7 @@ def unregister():
     bpy.utils.unregister_class(YOpenAvailableDataAsMask)
     bpy.utils.unregister_class(YMoveLayerMask)
     bpy.utils.unregister_class(YRemoveLayerMask)
+    bpy.utils.unregister_class(YReplaceMaskType)
     bpy.utils.unregister_class(YFixEdgeDetectAO)
     bpy.utils.unregister_class(YLayerMaskChannel)
     bpy.utils.unregister_class(YLayerMask)
