@@ -11,22 +11,32 @@ from .input_outputs import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def setup_color_id_source(mask, source, color_id):
+def setup_color_id_source(mask, source, color_id=None):
     if is_bl_newer_than(2, 82):
         source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL_282)
     else: source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL)
-    mask.color_id = color_id
+
+    if color_id != None:
+        mask.color_id = color_id
+    else: color_id = mask.color_id
+
     col = (color_id[0], color_id[1], color_id[2], 1.0)
     source.inputs[0].default_value = col
 
-def setup_object_idx_source(mask, source, object_index):
+def setup_object_idx_source(mask, source, object_index=None):
     source.node_tree = get_node_tree_lib(lib.OBJECT_INDEX_EQUAL)
-    mask.object_index = object_index
+
+    if object_index != None:
+        mask.object_index = object_index
+    else: object_index = mask.object_index
+
     source.inputs[0].default_value = object_index
 
-def setup_edge_detect_source(mask, source, edge_detect_radius):
+def setup_edge_detect_source(mask, source, edge_detect_radius=None):
     source.node_tree = get_node_tree_lib(lib.EDGE_DETECT)
-    source.inputs[0].default_value = mask.edge_detect_radius = edge_detect_radius
+    if edge_detect_radius != None:
+        source.inputs[0].default_value = mask.edge_detect_radius = edge_detect_radius
+    else: source.inputs[0].default_value = mask.edge_detect_radius
 
     # Enable AO to see edge detect mask
     scene = bpy.context.scene
@@ -309,6 +319,11 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
             tree.links.remove(source.inputs[0].links[0])
         source.label = ''
     else:
+        # Remember values by disabling then enabling the mask again
+        if mask.enable:
+            mask.enable = False
+            mask.enable = True
+
         remove_node(tree, mask, 'source', remove_data=remove_data)
 
     # Disable modifier tree
@@ -350,13 +365,13 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
             mat = get_active_material()
             objs = get_all_objects_with_same_materials(mat)
             check_colorid_vcol(objs)
-            setup_color_id_source(mask, source, (1, 0, 1))
+            setup_color_id_source(mask, source)
 
         elif new_type == 'OBJECT_INDEX':
-            setup_object_idx_source(mask, source, 0)
+            setup_object_idx_source(mask, source)
 
         elif new_type == 'EDGE_DETECT':
-            setup_edge_detect_source(mask, source, 0.05)
+            setup_edge_detect_source(mask, source)
 
     # Change mask type
     ori_type = mask.type
