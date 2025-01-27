@@ -43,8 +43,6 @@ def setup_edge_detect_source(mask, source, edge_detect_radius=None):
     if not scene.eevee.use_gtao: scene.eevee.use_gtao = True
 
 def setup_modifier_mask_source(tree, mask, modifier_type):
-    mask.modifier_type = modifier_type
-
     source = None
     if modifier_type == 'INVERT':
         source = new_node(tree, mask, 'source', 'ShaderNodeInvert', 'Mask Source')
@@ -272,6 +270,21 @@ def update_new_mask_uv_map(self, context):
         objs = get_all_objects_with_same_materials(mat)
         self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_name)
 
+
+def get_mask_cache_name(mask_type, modifier_type=''):
+    name = 'cache_' + mask_type.lower()
+
+    if mask_type == 'MODIFIER':
+        name += '_' + modifier_type.lower()
+
+    return name
+
+def is_mask_type_cacheable(mask_type, modifier_type=''):
+    if mask_type == 'MODIFIER':
+        return modifier_type in {'RAMP', 'CURVE'}
+
+    return mask_type not in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'EDGE_DETECT', 'BACKFACE'}
+
 def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_type='INVERT'):
 
     yp = mask.id_data.yp
@@ -291,8 +304,6 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
         src = get_mask_source(mask)
         save_hemi_props(mask, src)
 
-    #if new_type = 
-
     yp.halt_reconnect = True
 
     # Standard bump map is easier to convert
@@ -309,11 +320,9 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     tree = get_mask_tree(mask)
     source = get_mask_source(mask)
 
-    non_cached_types = {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'EDGE_DETECT', 'MODIFIER', 'BACKFACE'}
-
     # Save source to cache if it's not image, vertex color, or background
-    if mask.type not in non_cached_types:
-        setattr(mask, 'cache_' + mask.type.lower(), source.name)
+    if is_mask_type_cacheable(mask.type, mask.modifier_type):
+        setattr(mask, get_mask_cache_name(mask.type, mask.modifier_type), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
             tree.links.remove(source.inputs[0].links[0])
@@ -327,18 +336,19 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
         remove_node(tree, mask, 'source', remove_data=remove_data)
 
     # Disable modifier tree
-    #if mask.type not in non_cached_types and new_type in non_cached_types:
+    #if is_mask_type_cacheable(mask.type, mask.modifier_type) and is_mask_type_cacheable(new_type, modifier_type):
     #    Modifier.disable_modifiers_tree(mask)
 
     # Try to get available cache
     cache = None
-    if new_type not in non_cached_types:
-        cache = tree.nodes.get(getattr(mask, 'cache_' + new_type.lower()))
+    if is_mask_type_cacheable(new_type, modifier_type):
+        cache = tree.nodes.get(getattr(mask, get_mask_cache_name(new_type, modifier_type)))
 
     if cache:
         mask.source = cache.name
-        setattr(mask, 'cache_' + new_type.lower(), '')
+        setattr(mask, get_mask_cache_name(new_type, modifier_type), '')
         cache.label = 'Source'
+
     else:
 
         if new_type == 'MODIFIER':
@@ -376,6 +386,10 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     # Change mask type
     ori_type = mask.type
     mask.type = new_type
+
+    # Change mask modifier type
+    if mask.type == 'MODIFIER':
+        mask.modifier_type = modifier_type
 
     # Enable modifiers tree if generated texture is used
     #if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
@@ -2427,6 +2441,9 @@ class YLayerMask(bpy.types.PropertyGroup):
     cache_image : StringProperty(default='')
     cache_vcol : StringProperty(default='')
     cache_hemi : StringProperty(default='')
+
+    cache_modifier_ramp : StringProperty(default='')
+    cache_modifier_curve : StringProperty(default='')
 
     uv_map : StringProperty(default='')
     uv_neighbor : StringProperty(default='')

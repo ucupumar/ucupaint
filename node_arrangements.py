@@ -760,13 +760,13 @@ def rearrange_layer_nodes(layer, tree=None):
     # Mask caches
     for mask in layer.masks:
 
-        #if check_set_node_loc(tree, mask.cache_ramp, loc, hide=False, parent_unset=True):
-        #    loc.y -= 250
-        #    cache_found = True
+        if check_set_node_loc(tree, mask.cache_modifier_ramp, loc, hide=False, parent_unset=True):
+            loc.y -= 250
+            cache_found = True
 
-        #if check_set_node_loc(tree, mask.cache_falloff_curve, loc, hide=False, parent_unset=True):
-        #    loc.y -= 270
-        #    cache_found = True
+        if check_set_node_loc(tree, mask.cache_modifier_curve, loc, hide=False, parent_unset=True):
+            loc.y -= 270
+            cache_found = True
 
         if check_set_node_loc(tree, mask.cache_image, loc, hide=False, parent_unset=True):
             loc.y -= 270
