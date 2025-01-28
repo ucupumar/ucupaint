@@ -14,6 +14,7 @@ It means for Blender 4.2+, you can just search for 'Ucupaint' in _Edit > Prefere
 Be aware that this version has no branch selection, which can be useful for testing new features.
 
 ### Location
+Select an object that can have a material (mesh, curve, etc) and Ucupaint is accessible on:
 - **Blender 2.7x**: View 3D > Tool Shelf > Ucupaint
 - **Blender 2.80+**: View 3D or Node Editor > Sidebar > Ucupaint
 
