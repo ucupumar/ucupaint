@@ -1682,7 +1682,7 @@ def get_layer_channel_input_label(layer, ch, source=None):
 
     return label
 
-def draw_layer_channels(context, layout, layer, layer_tree, image):
+def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
     yp = layer.id_data.yp
     ypui = context.window_manager.ypui
@@ -1693,73 +1693,77 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
     root_ch = None
     ch = None
 
-    label = pgettext_iface('Channel')
-    if len(enabled_channels) == 0:
-        #label += ' (0)'
-        pass
-    elif len(enabled_channels) == 1:
-        if lui.expand_channels:
-            label += ' (1)'
-        else:
-            ch = enabled_channels[0]
-            ch_idx = get_layer_channel_index(layer, ch)
-            root_ch = yp.channels[ch_idx]
-            #label = root_ch.name
-            if root_ch.type == 'NORMAL' and ch.normal_map_type != 'NORMAL_MAP':
-                if ch.normal_map_type == 'BUMP_MAP':
-                    label += ' (Bump)'
-                    #label = 'Bump'
-                elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                    label += ' (Bump + Normal)'
-                    #label = 'Bump + Normal'
-                elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                    label += ' (VDM)'
-                    #label = 'VDM'
-                #label += ' (' + root_ch.name + ')'
+
+    if not specific_ch:
+
+        label = pgettext_iface('Channel')
+        if len(enabled_channels) == 0:
+            #label += ' (0)'
+            pass
+        elif len(enabled_channels) == 1:
+            if lui.expand_channels:
+                label += ' (1)'
             else:
-                label += ' (' + root_ch.name + ')'
+                ch = enabled_channels[0]
+                ch_idx = get_layer_channel_index(layer, ch)
+                root_ch = yp.channels[ch_idx]
                 #label = root_ch.name
+                if root_ch.type == 'NORMAL' and ch.normal_map_type != 'NORMAL_MAP':
+                    if ch.normal_map_type == 'BUMP_MAP':
+                        label += ' (Bump)'
+                        #label = 'Bump'
+                    elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                        label += ' (Bump + Normal)'
+                        #label = 'Bump + Normal'
+                    elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                        label += ' (VDM)'
+                        #label = 'VDM'
+                    #label += ' (' + root_ch.name + ')'
+                else:
+                    label += ' (' + root_ch.name + ')'
+                    #label = root_ch.name
 
-    else:
-        label = pgettext_iface('Channels') + ' (' + str(len(enabled_channels)) + ')'
+        else:
+            label = pgettext_iface('Channels') + ' (' + str(len(enabled_channels)) + ')'
 
-    if lui.expand_channels:
-        label += ':'
-    
-    row = layout.row(align=True)
-    rrow = row.row()
-    rrow.alignment = 'LEFT'
-    rrow.scale_x = 0.95
-    if lui.expand_channels:
-        icon_value = lib.get_icon('uncollapsed_channels')
-    else: icon_value = lib.get_icon('collapsed_channels')
-    rrow.prop(lui, 'expand_channels', text=label, emboss=False, icon_value=icon_value)
+        if lui.expand_channels:
+            label += ':'
+        
+        row = layout.row(align=True)
+        rrow = row.row()
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
+        if lui.expand_channels:
+            icon_value = lib.get_icon('uncollapsed_channels')
+        else: icon_value = lib.get_icon('collapsed_channels')
+        rrow.prop(lui, 'expand_channels', text=label, emboss=False, icon_value=icon_value)
 
-    if ch and root_ch:
-        rrow = row.row(align=True)
+        if ch and root_ch:
+            rrow = row.row(align=True)
+            rrow.alignment = 'RIGHT'
+            if root_ch.type == 'NORMAL':
+                rrow.prop(ch, 'normal_blend_type', text='')
+                #rrow.prop(ch, 'normal_map_type', text='')
+                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    draw_input_prop(rrow, ch, 'bump_distance')
+                elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                    draw_input_prop(rrow, ch, 'vdisp_strength')
+                else: draw_input_prop(rrow, ch, 'normal_strength')
+            else: 
+                #rrow.scale_x = 1.2
+                rrow.prop(ch, 'blend_type', text='')
+
+        if not lui.expand_channels:
+            return
+
+        rrow = row.row()
         rrow.alignment = 'RIGHT'
-        if root_ch.type == 'NORMAL':
-            rrow.prop(ch, 'normal_blend_type', text='')
-            #rrow.prop(ch, 'normal_map_type', text='')
-            if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                draw_input_prop(rrow, ch, 'bump_distance')
-            elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                draw_input_prop(rrow, ch, 'vdisp_strength')
-            else: draw_input_prop(rrow, ch, 'normal_strength')
-        else: 
-            #rrow.scale_x = 1.2
-            rrow.prop(ch, 'blend_type', text='')
-
-    if not lui.expand_channels:
-        return
-
-    rrow = row.row()
-    rrow.alignment = 'RIGHT'
-    rrow.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.get_icon('checkbox'))
-    #row.prop(ypui, 'expand_channels', text='', emboss=True, icon='CHECKMARK')
+        rrow.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.get_icon('checkbox'))
+        #row.prop(ypui, 'expand_channels', text='', emboss=True, icon='CHECKMARK')
 
     rrow = layout.row(align=True)
-    rrow.label(text='', icon='BLANK1')
+    if not specific_ch:
+        rrow.label(text='', icon='BLANK1')
     rcol = rrow.column(align=False)
 
     if len(layer.channels) == 0:
@@ -1774,6 +1778,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
     for i, ch in enumerate(layer.channels):
 
         if not ypui.expand_channels and not ch.enable:
+            continue
+
+        if specific_ch and ch != specific_ch:
             continue
 
         root_ch = yp.channels[i]
@@ -2561,15 +2568,16 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
         if ypui.expand_channels:
             mrow.label(text='', icon='BLANK1')
 
-        if extra_separator and i < len(layer.channels)-1:
+        if not specific_ch and extra_separator and i < len(layer.channels)-1:
             ccol.separator()
 
     if not ypui.expand_channels and ch_count == 0:
         rcol.label(text='No active channel!')
 
-    layout.separator()
+    if not specific_ch:
+        layout.separator()
 
-def draw_layer_masks(context, layout, layer):
+def draw_layer_masks(context, layout, layer, specific_mask=None):
     obj = context.object
     yp = layer.id_data.yp
     ypui = context.window_manager.ypui
@@ -2581,48 +2589,49 @@ def draw_layer_masks(context, layout, layer):
     col = layout.column()
     col.active = layer.enable_masks
 
-    #label = 'Masks'
+    if not specific_mask:
+        #label = 'Masks'
 
-    num_masks = len(layer.masks)
-    num_enabled_masks = len([m for m in layer.masks if m.enable])
+        num_masks = len(layer.masks)
+        num_enabled_masks = len([m for m in layer.masks if m.enable])
 
-    text_mask = pgettext_iface('Mask')
-    if num_masks == 0:
-        #label += ' (0)'
-        label = text_mask # (0)'
-    elif num_enabled_masks == 0:
-        label = text_mask + ' (0)'
-    elif num_enabled_masks == 1:
-        label = text_mask + ' (1)'
-    else:
-        label = pgettext_iface('Masks') + ' ('
-        label += str(num_enabled_masks) + ')'
+        text_mask = pgettext_iface('Mask')
+        if num_masks == 0:
+            #label += ' (0)'
+            label = text_mask # (0)'
+        elif num_enabled_masks == 0:
+            label = text_mask + ' (0)'
+        elif num_enabled_masks == 1:
+            label = text_mask + ' (1)'
+        else:
+            label = pgettext_iface('Masks') + ' ('
+            label += str(num_enabled_masks) + ')'
 
-    if lui.expand_masks and len(layer.masks) > 0:
-        label += ':'
+        if lui.expand_masks and len(layer.masks) > 0:
+            label += ':'
 
-    row = col.row(align=True)
-    rrow = row.row()
-    rrow.alignment = 'LEFT'
-    rrow.scale_x = 0.95
-    if len(layer.masks) > 0:
-        if lui.expand_masks:
-            icon_value = lib.get_icon('uncollapsed_mask')
-        else: icon_value = lib.get_icon('collapsed_mask')
-        rrow.prop(lui, 'expand_masks', text=label, emboss=False, icon_value=icon_value)
-    else: 
-        icon_value = lib.get_icon('mask')
-        rrow.label(text=label, icon_value=icon_value)
-        #rrow.label(text='', icon='MOD_MASK')
+        row = col.row(align=True)
+        rrow = row.row()
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
+        if len(layer.masks) > 0:
+            if lui.expand_masks:
+                icon_value = lib.get_icon('uncollapsed_mask')
+            else: icon_value = lib.get_icon('collapsed_mask')
+            rrow.prop(lui, 'expand_masks', text=label, emboss=False, icon_value=icon_value)
+        else: 
+            icon_value = lib.get_icon('mask')
+            rrow.label(text=label, icon_value=icon_value)
+            #rrow.label(text='', icon='MOD_MASK')
 
-    rrow = row.row()
-    rrow.alignment = 'RIGHT'
+        rrow = row.row()
+        rrow.alignment = 'RIGHT'
 
-    if is_bl_newer_than(2, 80):
-        rrow.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='ADD')
-    else: rrow.menu('NODE_MT_y_add_layer_mask_menu', text='', icon='ZOOMIN')
+        if is_bl_newer_than(2, 80):
+            rrow.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='ADD')
+        else: rrow.menu('NODE_MT_y_add_layer_mask_menu', text='', icon='ZOOMIN')
 
-    if not lui.expand_masks or len(layer.masks) == 0: return
+        if not lui.expand_masks or len(layer.masks) == 0: return
 
     #row = col.row(align=True)
     #row.label(text='', icon='BLANK1')
@@ -2634,6 +2643,8 @@ def draw_layer_masks(context, layout, layer):
         except: 
             ypui.need_update = True
             return
+
+        if specific_mask and specific_mask != mask: continue
 
         mask_image = None
         mask_tree = get_mask_tree(mask)
@@ -2652,7 +2663,8 @@ def draw_layer_masks(context, layout, layer):
             label_text += ' (Alpha)'
 
         mrow = col.row(align=True)
-        mrow.label(text='', icon='BLANK1')
+        if not specific_mask:
+            mrow.label(text='', icon='BLANK1')
         mrow.active = mask.enable
 
         if not maskui.expand_content: # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
@@ -2719,7 +2731,8 @@ def draw_layer_masks(context, layout, layer):
 
         row = col.row(align=True)
         row.active = mask.enable
-        row.label(text='', icon='BLANK1')
+        if not specific_mask:
+            row.label(text='', icon='BLANK1')
         row.label(text='', icon='BLANK1')
         box = row.box()
         rrcol = box.column()
@@ -3035,7 +3048,7 @@ def draw_layer_masks(context, layout, layer):
                         draw_input_prop(splits, mask, 'blur_vector_factor')
                     rrow.prop(mask, 'enable_blur_vector', text='')
 
-        if i < len(layer.masks)-1:
+        if not specific_mask and i < len(layer.masks)-1:
             col.separator()
 
 def draw_layers_ui(context, layout, node):
@@ -3365,6 +3378,9 @@ def draw_layers_ui(context, layout, node):
         row.alert = True
         row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent Sign Hacks is missing!')
         row.alert = False
+
+    # Get active item entity
+    item_entity = ListItem.get_active_item_entity(yp)
 
     # Get layer, image and set context pointer
     layer = None
@@ -3707,17 +3723,37 @@ def draw_layers_ui(context, layout, node):
                 row.operator('object.y_fix_vdm_missmatch_uv')
                 row.alert = False
 
+        specific_ch = None
+        specific_mask = None
+        if ypup.layer_list_mode in {'DYNAMIC', 'BOTH'}:
+
+            # Get active channel item
+            for ch in layer.channels:
+                if ch == item_entity:
+                    specific_ch = ch
+                    break
+
+            # Get active mask item
+            if not specific_ch:
+                for mask in layer.masks:
+                    if mask == item_entity:
+                        specific_mask = mask
+                        break
+
         # Source
-        draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh)
+        if not specific_mask and not specific_ch:
+            draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh)
 
-        # Vector
-        draw_layer_vector(context, col, layer, layer_tree, source, image, vcol, is_a_mesh)
+            # Vector
+            draw_layer_vector(context, col, layer, layer_tree, source, image, vcol, is_a_mesh)
 
-        # Channels
-        draw_layer_channels(context, col, layer, layer_tree, image)
+        if not specific_mask:
+            # Channels
+            draw_layer_channels(context, col, layer, layer_tree, image, specific_ch)
 
-        # Masks
-        draw_layer_masks(context, col, layer)
+        if not specific_ch:
+            # Masks
+            draw_layer_masks(context, col, layer, specific_mask)
 
 def draw_test_ui(context, layout):
     ypup = get_user_preferences()

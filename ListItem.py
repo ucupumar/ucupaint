@@ -277,6 +277,33 @@ def update_list_item_index(self, context):
     if layer_index != -1 and layer_index < len(yp.layers) and yp.active_layer_index != layer_index:
         yp.active_layer_index = layer_index
 
+def get_active_item_entity(yp):
+    if yp.active_item_index >= len(yp.list_items) or len(yp.list_items) == 0:
+        return None
+
+    item = yp.list_items[yp.active_item_index]
+
+    if item.type == 'LAYER':
+        layer_index = item.index
+        if layer_index < len(yp.layers):
+            return yp.layers[layer_index]
+
+    elif item.type == 'MASK':
+        layer_index = item.parent_index
+        if layer_index < len(yp.layers):
+            layer = yp.layers[layer_index]
+            if item.index < len(layer.masks):
+                return layer.masks[item.index]
+
+    elif item.type == 'CHANNEL_OVERRIDE':
+        layer_index = item.parent_index
+        if layer_index < len(yp.layers):
+            layer = yp.layers[layer_index]
+            if item.index < len(layer.channels):
+                return layer.channels[item.index]
+
+    return None
+
 def set_active_entity_item(entity):
     yp = entity.id_data.yp
 
