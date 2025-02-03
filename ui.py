@@ -973,12 +973,17 @@ def draw_root_channels_ui(context, layout, node):
         rrow.alignment = 'LEFT'
         rrow.scale_x = 0.95
         icon_name = lib.channel_custom_icon_dict[channel.type]
-        if chui.expand_content:
-            icon_name = 'uncollapsed_' + icon_name
-        else: icon_name = 'collapsed_' + icon_name
+        #if chui.expand_content:
+        #    icon_name = 'uncollapsed_' + icon_name
+        #else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
         text=channel.name + ' ' + pgettext_iface('Channel')
+        #rrow.prop(chui, 'expand_content', text=text, emboss=False, icon_value=icon_value)
+        icon = 'DOWNARROW_HLT' if chui.expand_content else 'RIGHTARROW'
+        rrow.prop(chui, 'expand_content', text='', emboss=False, icon=icon)
+        #rrow.label(text=text, icon_value=icon_value)
         rrow.prop(chui, 'expand_content', text=text, emboss=False, icon_value=icon_value)
+        #rrow.prop(chui, 'expand_content', text=text, icon_value=icon_value)
 
         #row.label(text=channel.name + ' ' + pgettext_iface('Channel'))
 
@@ -1335,8 +1340,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     row = layout.row(align=True)
     rrow = row.row(align=True)
-    #rrow.alignment = 'LEFT'
-    #rrow.scale_x = 0.95
+    rrow.alignment = 'LEFT'
+    rrow.scale_x = 0.95
     label = ''
     #label += pgettext_iface('Layer') + ': '
     if image:
@@ -1387,7 +1392,9 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     icon = 'DOWNARROW_HLT' if lui.expand_content else 'RIGHTARROW'
     rrow.prop(lui, 'expand_content', text='', emboss=False, icon=icon)
-    rrow.label(text=label, icon_value=icon_value)
+    if is_bl_newer_than(2, 80):
+        rrow.prop(lui, 'expand_content', text=label, emboss=False, icon_value=icon_value)
+    else: rrow.label(text=label, icon_value=icon_value)
 
     row.context_pointer_set('parent', layer)
     row.context_pointer_set('layer', layer)
@@ -1529,14 +1536,17 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
         #else: icon_value = lib.get_icon('collapsed_uv')
         icon_value = lib.get_icon('uv')
         rrow = row.row(align=True)
-        #rrow.alignment = 'LEFT'
-        #rrow.scale_x = 0.95
         #rrow.prop(lui, 'expand_vector', text='Vector:', emboss=False, icon_value=icon_value)
         icon = 'DOWNARROW_HLT' if lui.expand_vector else 'RIGHTARROW'
         label = 'Vector'
         if not lui.expand_vector: label += ':'
         rrow.prop(lui, 'expand_vector', text='', emboss=False, icon=icon)
-        rrow.label(text=label, icon_value=icon_value)
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+            rrow.prop(lui, 'expand_vector', text=label, emboss=False, icon_value=icon_value)
+        else: rrow.label(text=label, icon_value=icon_value)
+
         #else:
         #    row.prop(lui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
@@ -1741,13 +1751,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         else:
             label = pgettext_iface('Channels') + ' (' + str(len(enabled_channels)) + ')'
 
-        if lui.expand_channels:
+        if not lui.expand_channels and len(enabled_channels) == 1:
             label += ':'
         
         row = layout.row(align=True)
         rrow = row.row(align=True)
-        #rrow.alignment = 'LEFT'
-        #rrow.scale_x = 0.95
         #if lui.expand_channels:
         #    icon_value = lib.get_icon('uncollapsed_channels')
         #else: icon_value = lib.get_icon('collapsed_channels')
@@ -1756,7 +1764,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         icon = 'DOWNARROW_HLT' if lui.expand_channels else 'RIGHTARROW'
         rrow.prop(lui, 'expand_channels', text='', emboss=False, icon=icon)
-        rrow.label(text=label, icon_value=icon_value)
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+            rrow.prop(lui, 'expand_channels', text=label, emboss=False, icon_value=icon_value)
+        else: rrow.label(text=label, icon_value=icon_value)
 
         if ch and root_ch:
             rrow = row.row(align=True)
@@ -1817,33 +1829,15 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         row = ccol.row(align=True)
 
-        #expandable = True
-        #expandable = (
-        #        len(ch.modifiers) > 0 or 
-        #        layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'} or 
-        #        root_ch.type == 'NORMAL' or
-        #        ch.show_transition_ramp or
-        #        ch.show_transition_ao or
-        #        showed_bump_ch_found
-        #        )
-
         if not chui.expand_content: # and ch.enable:
-            split = split_layout(row, 0.3)
+            split = split_layout(row, 0.35)
             rrow = split.row(align=True)
-        else: 
-            rrow = row.row(align=True)
+        else: rrow = row.row(align=True)
 
-        #if is_bl_newer_than(2, 80):
-        #    rrow.alignment = 'LEFT'
-        #    rrow.scale_x = 0.95
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
 
-        icon_name = lib.channel_custom_icon_dict[root_ch.type]
-        #if expandable:
-        #    if chui.expand_content:
-        #        icon_name = 'uncollapsed_' + icon_name
-        #    else: icon_name = 'collapsed_' + icon_name
-        channel_icon_value = lib.get_icon(icon_name)
-        #if expandable:
         label = ''
         if root_ch.type == 'NORMAL':
             if chui.expand_content:
@@ -1855,23 +1849,22 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         intensity_value = get_entity_prop_value(ch, 'intensity_value')
         if intensity_value != 1.0:
             label += ' (%.1f)' % intensity_value
-        label += ':'
+        if not chui.expand_content:
+            label += ':'
+
+        icon_name = lib.channel_custom_icon_dict[root_ch.type]
+        #if chui.expand_content:
+        #    icon_name = 'uncollapsed_' + icon_name
+        #else: icon_name = 'collapsed_' + icon_name
+        channel_icon_value = lib.get_icon(icon_name)
 
         icon = 'DOWNARROW_HLT' if chui.expand_content else 'RIGHTARROW'
         #rrow.prop(chui, 'expand_content', text=label, emboss=False, icon_value=channel_icon_value, translate=False)
         rrow.prop(chui, 'expand_content', text='', emboss=False, icon=icon)
 
-        #if is_bl_newer_than(2, 80):
-        #    #rrow.prop(chui, 'expand_content', text=label, emboss=False, icon_value=channel_icon_value, translate=False)
-        #    rrow.prop(chui, 'expand_content', text=label, emboss=False, translate=False)
-        #else: 
-        #    #rrow.label(text=label, icon_value=channel_icon_value, translate=False)
-        if chui.expand_content or specific_ch:
-            rrow.label(text=label, icon_value=channel_icon_value, translate=False)
-        else:
-            rrow.label(text=label, translate=False)
-
-        #else: rrow.label(text='', icon_value=channel_icon_value)
+        if is_bl_newer_than(2, 80):
+            rrow.prop(chui, 'expand_content', text=label, emboss=False, icon_value=channel_icon_value, translate=False)
+        else: rrow.label(text=label, icon_value=channel_icon_value, translate=False)
 
         #if layer.type != 'BACKGROUND':
         if not chui.expand_content: # and ch.enable:
@@ -1969,7 +1962,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if ypui.expand_channels:
             row.prop(ch, 'enable', text='')
 
-        #if not expandable or not chui.expand_content: continue
         if not chui.expand_content: continue
 
         mrow = ccol.row(align=True)
@@ -2649,8 +2641,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
         row = col.row(align=True)
         rrow = row.row(align=True)
-        #rrow.alignment = 'LEFT'
-        #rrow.scale_x = 0.95
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
         icon_value = lib.get_icon('mask')
         if len(layer.masks) > 0:
             #if lui.expand_masks:
@@ -2663,8 +2655,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         else: 
             rrow.label(text='', icon='BLANK1')
         
-        rrow.label(text=label, icon_value=icon_value)
-        #rrow.label(text='', icon='MOD_MASK')
+        #rrow.label(text=label, icon_value=icon_value)
+        rrow.prop(lui, 'expand_masks', text=label, emboss=False, icon_value=icon_value)
 
         rrow = row.row()
         rrow.alignment = 'RIGHT'
@@ -2715,21 +2707,23 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             srow = mrow
 
         rrow = srow.row(align=True)
-        #rrow.alignment = 'LEFT'
-        #rrow.scale_x = 0.95
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
         #if maskui.expand_content:
         #    icon_value = lib.get_icon('uncollapsed_mask')
         #else: icon_value = lib.get_icon('collapsed_mask')
         icon = 'DOWNARROW_HLT' if maskui.expand_content else 'RIGHTARROW'
         rrow.prop(maskui, 'expand_content', text='', emboss=False, icon=icon)
 
-        if maskui.expand_content or specific_mask:
-            icon_value = lib.get_icon('mask')
-            rrow.label(text=label_text, icon_value=icon_value)
-        else: rrow.label(text=label_text)
+        #if maskui.expand_content or specific_mask:
+        icon_value = lib.get_icon('mask')
+        #rrow.label(text=label_text, icon_value=icon_value)
+        rrow.prop(maskui, 'expand_content', text=label_text, emboss=False, icon_value=icon_value)
+        #else: rrow.label(text=label_text)
 
         rrow = srow.row(align=True)
-        #rrow.alignment = 'RIGHT'
+        if maskui.expand_content:
+            rrow.alignment = 'RIGHT'
 
         #if mask.baked_source != '':
         #    rrow.prop(mask, 'use_baked', text='Use Baked', toggle=True)
@@ -3773,7 +3767,9 @@ def draw_layers_ui(context, layout, node):
 
         specific_ch = None
         specific_mask = None
-        if ypup.layer_list_mode in {'DYNAMIC', 'BOTH'}:
+
+        # NOTE: Individual Channel/Mask UI need more experiments and testing
+        if False and ypup.layer_list_mode in {'DYNAMIC', 'BOTH'}:
 
             # Get active channel item
             for ch in layer.channels:
@@ -4272,6 +4268,12 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    #def draw_header_preset(self, context):
+    #    layout = self.layout
+    #    row = layout.row(align=True)
+
+    #    row.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
 
     def draw(self, context):
         main_draw(self, context)
