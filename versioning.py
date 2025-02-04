@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake
+from . import Bake, ListItem
 
 def flip_tangent_sign():
     meshes = []
@@ -803,6 +803,18 @@ def update_routine(name):
         flag1, flag2 = update_yp_tree(ng)
         if flag1: updated_to_tangent_process_300 = True
         if flag2: updated_to_yp_200_displacement = True
+
+        # Fill list items if it's still empty
+        if len(ng.yp.list_items) == 0 and len(ng.yp.layers) > 0:
+            ListItem.refresh_list_items(ng.yp)
+
+            # Override default value is now a factor prop, reenabling override can reset the prop
+            for layer in ng.yp.layers:
+                for i, ch in enumerate(layer.channels):
+                    root_ch = ng.yp.channels[i]
+                    if ch.override and ch.override_type == 'DEFAULT' and root_ch.type == 'VALUE':
+                        ch.override = False
+                        ch.override = True
 
     # Remove tangent sign vertex colors for Blender 3.0+
     if updated_to_tangent_process_300:

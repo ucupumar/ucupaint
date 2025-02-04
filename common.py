@@ -75,6 +75,28 @@ def blend_type_items(self, context):
 
     return items
 
+blend_type_labels = {
+    "MIX" : "Mix",
+    "ADD" : "Add",
+    "SUBTRACT" : "Subtract",
+    "MULTIPLY" : "Multiply",
+    "SCREEN" : "Screen",
+    "OVERLAY" : "Overlay",
+    "DIFFERENCE" : "Difference",
+    "DIVIDE" : "Divide",
+    "DARKEN" : "Darken",
+    "LIGHTEN" : "Lighten",
+    "HUE" : "Hue",
+    "SATURATION" : "Saturation",
+    "VALUE" : "Value",
+    "COLOR" : "Color",
+    "SOFT_LIGHT" : "Soft Light",
+    "LINEAR_LIGHT" : "Linear Light",
+    "DODGE" : "Dodge",
+    "BURN" : "Burn",
+    "EXCLUSION" : "Exclusion",
+}
+
 def mask_blend_type_items(self, context):
     items = [
         ("MIX", "Replace", ""),
@@ -160,6 +182,12 @@ normal_blend_items = (
     ('COMPARE', 'Compare Height', '')
 )
 
+normal_blend_labels = {
+        'MIX' : 'Mix',
+        'OVERLAY' : 'Overlay',
+        'COMPARE' : 'Compare Height',
+        }
+
 normal_space_items = (
     ('TANGENT', 'Tangent Space', 'Tangent space normal mapping'),
     ('OBJECT', 'Object Space', 'Object space normal mapping'),
@@ -173,6 +201,13 @@ height_blend_items = (
     ('COMPARE', 'Compare', ''),
     ('ADD', 'Add', ''),
 )
+
+normal_type_labels = {
+        'BUMP_MAP' : 'Bump',
+        'NORMAL_MAP' : 'Normal',
+        'BUMP_NORMAL_MAP' : 'Bump + Normal',
+        'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
+        }
 
 layer_type_items = (
     ('IMAGE', 'Image', ''),
@@ -254,6 +289,26 @@ layer_type_labels = {
     'COLOR' : 'Solid Color',
     'GROUP' : 'Group',
     'HEMI' : 'Fake Lighting',
+    'GABOR' : 'Gabor',
+}
+
+mask_type_labels = {
+    'IMAGE' : 'Image',
+    'BRICK' : 'Brick',
+    'CHECKER' : 'Checker',
+    'GRADIENT' : 'Gradient',
+    'MAGIC' : 'Magic',
+    'MUSGRAVE' : 'Musgrave',
+    'NOISE' : 'Noise',
+    'VORONOI' : 'Voronoi',
+    'WAVE' : 'Wave',
+    'VCOL' : 'Vertex Color',
+    'HEMI' : 'Fake Lighting',
+    'OBJECT_INDEX' : 'Object Index',
+    'COLOR_ID' : 'Color ID',
+    'BACKFACE' : 'Backface',
+    'EDGE_DETECT' : 'Edge Detect',
+    'MODIFIER' : 'Modifier',
     'GABOR' : 'Gabor',
 }
 
@@ -450,6 +505,7 @@ layer_node_bl_idnames = {
     'BACKFACE' : 'ShaderNodeNewGeometry',
     'EDGE_DETECT' : 'ShaderNodeGroup',
     'GABOR' : 'ShaderNodeTexGabor',
+    'MODIFIER' : 'ShaderNodeGroup',
 }
 
 io_suffix = {
@@ -3878,6 +3934,13 @@ def get_layer_channel_index(layer, ch):
             return i
     return None
 
+def get_layer_channel_type(layer, ch):
+    yp = layer.id_data.yp
+    idx = get_layer_channel_index(layer, ch)
+    if idx != None:
+        return yp.channels[idx].type
+    return None
+
 def is_bump_distance_relevant(layer, ch):
     if layer.type in {'COLOR', 'BACKGROUND'} and ch.enable_transition_bump:
         return False
@@ -5177,6 +5240,12 @@ def get_layer_type_icon(layer_type):
         return 'LAMP'
 
     return 'TEXTURE'
+
+def load_hemi_props(layer, source):
+    norm = source.node_tree.nodes.get('Normal')
+    if norm: norm.outputs[0].default_value = layer.hemi_vector
+    trans = source.node_tree.nodes.get('Vector Transform')
+    if trans: trans.convert_from = layer.hemi_space
 
 def save_hemi_props(layer, source):
     norm = source.node_tree.nodes.get('Normal')

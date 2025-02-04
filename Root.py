@@ -5,7 +5,7 @@ from .common import *
 from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer, Mask, transition, Bake, BakeTarget
+from . import lib, Modifier, Layer, Mask, transition, Bake, BakeTarget, ListItem
 from .input_outputs import *
 
 YP_GROUP_SUFFIX = ' ' + get_addon_title()
@@ -2349,6 +2349,11 @@ class YCleanYPCaches(bpy.types.Operator):
                     if prop.startswith('cache_'):
                         remove_node(layer_tree, ch, prop)
 
+            for mask in layer.masks:
+                for prop in dir(mask):
+                    if prop.startswith('cache_'):
+                        remove_node(layer_tree, mask, prop)
+
         # Remove tangent and bitangent images
         for image in reversed(bpy.data.images):
             if image.name.endswith(CACHE_TANGENT_IMAGE_SUFFIX) or image.name.endswith(CACHE_BITANGENT_IMAGE_SUFFIX):
@@ -3782,6 +3787,29 @@ class YPaint(bpy.types.PropertyGroup):
         description = 'Active layer index',
         default = 0,
         update = update_layer_index
+    )
+
+    # List Items
+    list_items : CollectionProperty(type=ListItem.YListItem)
+
+    active_item_index : IntProperty(
+        name = 'Active Item Index',
+        description = 'Active item index',
+        default = 0,
+        update = ListItem.update_list_item_index
+    )
+
+    enable_expandable_subitems : BoolProperty(
+        name = 'Expandable Subitems',
+        description = 'Subitems (masks and editable custom layer inputs) can have their own item entries',
+        default = False,
+        update = ListItem.update_expand_subitems
+    )
+
+    enable_inline_subitems : BoolProperty(
+        name = 'Inline Subitems',
+        description = 'Subitems (masks and editable custom layer inputs) will have their icons beside layer icon',
+        default = True,
     )
 
     # UVs

@@ -115,6 +115,16 @@ class YPaintPreferences(AddonPreferences):
         description = "Enable automatic UDIM detection. This will automatically check 'Use UDIM Tiles' checkboxes when UDIM is detected",
         default = True
     )
+
+    layer_list_mode : EnumProperty(
+        name = 'Layer Lists Mode',
+        items = (
+            ('DYNAMIC', "Dynamic (Experimental)", 'Dynamic layers list with dropdown support (Experimental)'),
+            ('CLASSIC', "Classic", 'Classic layers list'),
+            ('BOTH', "Dynamic & Classic (For Debugging)", 'Both Dynamic and Classic layers list for debugging'),
+        ),
+        default = 'DYNAMIC'
+    )
     
     # Addon updater preferences.
     auto_check_update : BoolProperty(
@@ -164,6 +174,7 @@ class YPaintPreferences(AddonPreferences):
         if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'default_bake_device')
             self.layout.prop(self, 'icons')
+        self.layout.prop(self, 'layer_list_mode')
 
         self.layout.prop(self, 'default_image_resolution')
         if self.default_image_resolution == 'CUSTOM':
