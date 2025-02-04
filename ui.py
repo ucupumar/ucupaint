@@ -132,6 +132,12 @@ def update_yp_ui():
 
         ypui.halt_prop_update = False
 
+def get_collapse_arrow_icon(collapse=False):
+    if not is_bl_newer_than(2, 80):
+        return 'TRIA_DOWN' if collapse else 'TRIA_RIGHT'
+
+    return 'DOWNARROW_HLT' if collapse else 'RIGHTARROW'
+
 def draw_bake_info(bake_info, layout, entity):
 
     yp = entity.id_data.yp
@@ -783,9 +789,13 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         #    icon_name = 'uncollapsed_' + icon_name
         #else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
-        icon = 'DOWNARROW_HLT' if getattr(btui, 'expand_' + letter) else 'RIGHTARROW'
+        #icon = 'DOWNARROW_HLT' if getattr(btui, 'expand_' + letter) else 'RIGHTARROW'
+        icon = get_collapse_arrow_icon(getattr(btui, 'expand_' + letter))
         row.prop(btui, 'expand_' + letter, text='', emboss=False, icon=icon)
-        row.prop(btui, 'expand_' + letter, text='', emboss=False, icon_value=icon_value)
+        if is_bl_newer_than(2, 80):
+            row.prop(btui, 'expand_' + letter, text='', emboss=False, icon_value=icon_value)
+        else: row.label(text='', icon_value=icon_value)
+
     else:
         row.label(text='', icon='BLANK1')
         row.label(text='', icon_value=lib.get_icon(letter))
@@ -858,10 +868,14 @@ def draw_bake_targets_ui(context, layout, node):
         icon_value = lib.get_icon(icon_name)
 
         row = col.row(align=True)
-        row.alignment = 'LEFT'
-        row.scale_x = 0.95
 
-        icon = 'DOWNARROW_HLT' if btui.expand_content else 'RIGHTARROW'
+        #icon = 'DOWNARROW_HLT' if btui.expand_content else 'RIGHTARROW'
+        icon = get_collapse_arrow_icon(btui.expand_content)
+
+        if is_bl_newer_than(2, 80):
+            row.alignment = 'LEFT'
+            row.scale_x = 0.95
+
         row.prop(btui, 'expand_content', text='', emboss=False, icon=icon)
 
         #row.prop(btui, 'expand_content', text='', emboss=False, icon_value=icon_value)
@@ -872,8 +886,9 @@ def draw_bake_targets_ui(context, layout, node):
             bt_label = bt.name
             if bt.use_float: bt_label += ' (Float)'
 
-        #row.label(text=bt_label, icon_value=icon_value)
-        row.prop(btui, 'expand_content', text=bt_label, emboss=False, icon_value=icon_value)
+        if is_bl_newer_than(2, 80):
+            row.prop(btui, 'expand_content', text=bt_label, emboss=False, icon_value=icon_value)
+        else: row.label(text=bt_label, icon_value=icon_value)
 
         if btui.expand_content:
             row = col.row(align=True)
@@ -989,12 +1004,14 @@ def draw_root_channels_ui(context, layout, node):
         #else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
         text=channel.name + ' ' + pgettext_iface('Channel')
-        #rrow.prop(chui, 'expand_content', text=text, emboss=False, icon_value=icon_value)
-        icon = 'DOWNARROW_HLT' if chui.expand_content else 'RIGHTARROW'
+
+        #icon = 'DOWNARROW_HLT' if chui.expand_content else 'RIGHTARROW'
+        icon = get_collapse_arrow_icon(chui.expand_content)
         rrow.prop(chui, 'expand_content', text='', emboss=False, icon=icon)
-        #rrow.label(text=text, icon_value=icon_value)
-        rrow.prop(chui, 'expand_content', text=text, emboss=False, icon_value=icon_value)
-        #rrow.prop(chui, 'expand_content', text=text, icon_value=icon_value)
+
+        if is_bl_newer_than(2, 80):
+            rrow.prop(chui, 'expand_content', text=text, emboss=False, icon_value=icon_value)
+        else: rrow.label(text=text, icon_value=icon_value)
 
         #row.label(text=channel.name + ' ' + pgettext_iface('Channel'))
 
@@ -1053,7 +1070,8 @@ def draw_root_channels_ui(context, layout, node):
                 #    icon_value = lib.get_icon('uncollapsed_input')
                 #else: icon_value = lib.get_icon('collapsed_input')
                 #brow.prop(chui, 'expand_alpha_settings', text='', emboss=False, icon_value=icon_value)
-                icon = 'DOWNARROW_HLT' if chui.expand_alpha_settings else 'RIGHTARROW'
+                #icon = 'DOWNARROW_HLT' if chui.expand_alpha_settings else 'RIGHTARROW'
+                icon = get_collapse_arrow_icon(chui.expand_alpha_settings)
                 brow.prop(chui, 'expand_alpha_settings', text='', emboss=False, icon=icon)
                 if channel.enable_alpha and not chui.expand_alpha_settings:
                     inp_alpha = node.inputs[channel.io_index+1]
@@ -1135,7 +1153,8 @@ def draw_root_channels_ui(context, layout, node):
                 #    icon_value = lib.get_icon('uncollapsed_input')
                 #else: icon_value = lib.get_icon('collapsed_input')
                 #brow.prop(chui, 'expand_smooth_bump_settings', text='', emboss=False, icon_value=icon_value)
-                icon = 'DOWNARROW_HLT' if chui.expand_smooth_bump_settings else 'RIGHTARROW'
+                #icon = 'DOWNARROW_HLT' if chui.expand_smooth_bump_settings else 'RIGHTARROW'
+                icon = get_collapse_arrow_icon(chui.expand_smooth_bump_settings)
                 brow.prop(chui, 'expand_smooth_bump_settings', text='', emboss=False, icon=icon)
                 #else:
                 #    brow.label(text='', icon_value=lib.get_icon('input'))
@@ -1208,7 +1227,8 @@ def draw_root_channels_ui(context, layout, node):
                     #    icon_value = lib.get_icon('uncollapsed_input')
                     #else: icon_value = lib.get_icon('collapsed_input')
                     #brow.prop(chui, 'expand_parallax_settings', text='', emboss=False, icon_value=icon_value)
-                    icon = 'DOWNARROW_HLT' if chui.expand_parallax_settings else 'RIGHTARROW'
+                    #icon = 'DOWNARROW_HLT' if chui.expand_parallax_settings else 'RIGHTARROW'
+                    icon = get_collapse_arrow_icon(chui.expand_parallax_settings)
                     brow.prop(chui, 'expand_parallax_settings', text='', emboss=False, icon=icon)
 
                     brow.label(text='Parallax:')
@@ -1249,7 +1269,8 @@ def draw_root_channels_ui(context, layout, node):
                 #    icon_value = lib.get_icon('uncollapsed_input')
                 #else: icon_value = lib.get_icon('collapsed_input')
                 #brow.prop(chui, 'expand_subdiv_settings', text='', emboss=False, icon_value=icon_value)
-                icon = 'DOWNARROW_HLT' if chui.expand_subdiv_settings else 'RIGHTARROW'
+                #icon = 'DOWNARROW_HLT' if chui.expand_subdiv_settings else 'RIGHTARROW'
+                icon = get_collapse_arrow_icon(chui.expand_subdiv_settings)
                 brow.prop(chui, 'expand_subdiv_settings', text='', emboss=False, icon=icon)
 
                 brow.label(text='Displacement Setup:')
@@ -1317,7 +1338,8 @@ def draw_root_channels_ui(context, layout, node):
                     #    ch_icon = lib.get_icon('uncollapsed_input')
                     #else: ch_icon = lib.get_icon('collapsed_input')
                     #brow.prop(chui, 'expand_bake_to_vcol_settings', text='', emboss=False, icon_value=ch_icon)
-                    icon = 'DOWNARROW_HLT' if chui.expand_bake_to_vcol_settings else 'RIGHTARROW'
+                    #icon = 'DOWNARROW_HLT' if chui.expand_bake_to_vcol_settings else 'RIGHTARROW'
+                    icon = get_collapse_arrow_icon(chui.expand_bake_to_vcol_settings)
                     brow.prop(chui, 'expand_bake_to_vcol_settings', text='', emboss=False, icon=icon)
 
                     vcols = get_vertex_colors(context.object)
@@ -1401,7 +1423,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         icon_value = lib.get_icon('texture')
         label += layer.name
 
-    icon = 'DOWNARROW_HLT' if lui.expand_content else 'RIGHTARROW'
+    #icon = 'DOWNARROW_HLT' if lui.expand_content else 'RIGHTARROW'
+    icon = get_collapse_arrow_icon(lui.expand_content)
     rrow.prop(lui, 'expand_content', text='', emboss=False, icon=icon)
     if is_bl_newer_than(2, 80):
         rrow.prop(lui, 'expand_content', text=label, emboss=False, icon_value=icon_value)
@@ -1457,7 +1480,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     if layer.type in {'BACKGROUND', 'GROUP'}:
         row.label(text='', icon='BLANK1')
     else:
-        icon = 'DOWNARROW_HLT' if lui.expand_source else 'RIGHTARROW'
+        #icon = 'DOWNARROW_HLT' if lui.expand_source else 'RIGHTARROW'
+        icon = get_collapse_arrow_icon(lui.expand_source)
         row.prop(lui, 'expand_source', text='', emboss=False, icon=icon)
     #else:
     #    if layer.type == 'IMAGE':
@@ -1548,7 +1572,8 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
         icon_value = lib.get_icon('uv')
         rrow = row.row(align=True)
         #rrow.prop(lui, 'expand_vector', text='Vector:', emboss=False, icon_value=icon_value)
-        icon = 'DOWNARROW_HLT' if lui.expand_vector else 'RIGHTARROW'
+        #icon = 'DOWNARROW_HLT' if lui.expand_vector else 'RIGHTARROW'
+        icon = get_collapse_arrow_icon(lui.expand_vector)
         label = 'Vector'
         if not lui.expand_vector: label += ':'
         rrow.prop(lui, 'expand_vector', text='', emboss=False, icon=icon)
@@ -1773,7 +1798,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         icon_value = lib.get_icon('channels')
         #rrow.prop(lui, 'expand_channels', text=label, emboss=False, icon_value=icon_value)
 
-        icon = 'DOWNARROW_HLT' if lui.expand_channels else 'RIGHTARROW'
+        #icon = 'DOWNARROW_HLT' if lui.expand_channels else 'RIGHTARROW'
+        icon = get_collapse_arrow_icon(lui.expand_channels)
         rrow.prop(lui, 'expand_channels', text='', emboss=False, icon=icon)
         if is_bl_newer_than(2, 80):
             rrow.alignment = 'LEFT'
@@ -1869,7 +1895,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         #else: icon_name = 'collapsed_' + icon_name
         channel_icon_value = lib.get_icon(icon_name)
 
-        icon = 'DOWNARROW_HLT' if chui.expand_content else 'RIGHTARROW'
+        #icon = 'DOWNARROW_HLT' if chui.expand_content else 'RIGHTARROW'
+        icon = get_collapse_arrow_icon(chui.expand_content)
         #rrow.prop(chui, 'expand_content', text=label, emboss=False, icon_value=channel_icon_value, translate=False)
         rrow.prop(chui, 'expand_content', text='', emboss=False, icon=icon)
 
@@ -1985,7 +2012,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         # Blend type
         if layer.type != 'BACKGROUND' or root_ch.type == 'NORMAL':
             row = mcol.row(align=True)
-            icon = 'DOWNARROW_HLT' if chui.expand_blend_settings else 'RIGHTARROW'
+            #icon = 'DOWNARROW_HLT' if chui.expand_blend_settings else 'RIGHTARROW'
+            icon = get_collapse_arrow_icon(chui.expand_blend_settings)
             row.prop(chui, 'expand_blend_settings', emboss=False, text='', icon=icon)
             #row.label(text='', icon='BLANK1')
 
@@ -2438,7 +2466,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 row = mcol.row(align=True)
                 if ch.override or input_settings_available:
-                    icon = 'DOWNARROW_HLT' if chui.expand_source else 'RIGHTARROW'
+                    #icon = 'DOWNARROW_HLT' if chui.expand_source else 'RIGHTARROW'
+                    icon = get_collapse_arrow_icon(chui.expand_source)
                     row.prop(chui, 'expand_source', text='', emboss=False, icon=icon)
                 else:
                     row.label(text='', icon='BLANK1')
@@ -2513,7 +2542,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             if not ch.override_1:
                 row.label(text='', icon='BLANK1')
             else:
-                icon = 'DOWNARROW_HLT' if chui.expand_source_1 else 'RIGHTARROW'
+                #icon = 'DOWNARROW_HLT' if chui.expand_source_1 else 'RIGHTARROW'
+                icon = get_collapse_arrow_icon(chui.expand_source_1)
                 row.prop(chui, 'expand_source_1', text='', emboss=False, icon=icon)
 
             label = 'Source:' if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Normal Source:'
@@ -2647,27 +2677,29 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             label = pgettext_iface('Masks') + ' ('
             label += str(num_enabled_masks) + ')'
 
-        if lui.expand_masks and len(layer.masks) > 0:
-            label += ':'
+        #if lui.expand_masks and len(layer.masks) > 0:
+        #    label += ':'
 
         row = col.row(align=True)
         rrow = row.row(align=True)
-        rrow.alignment = 'LEFT'
-        rrow.scale_x = 0.95
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+
         icon_value = lib.get_icon('mask')
         if len(layer.masks) > 0:
             #if lui.expand_masks:
             #    icon_value = lib.get_icon('uncollapsed_mask')
             #else: icon_value = lib.get_icon('collapsed_mask')
-            icon = 'DOWNARROW_HLT' if lui.expand_masks else 'RIGHTARROW'
-            #rrow.prop(lui, 'expand_masks', text=label, emboss=False, icon_value=icon_value)
+            #icon = 'DOWNARROW_HLT' if lui.expand_masks else 'RIGHTARROW'
+            icon = get_collapse_arrow_icon(lui.expand_masks)
             rrow.prop(lui, 'expand_masks', text='', emboss=False, icon=icon)
-            #rrow.label(text=label, icon_value=icon_value)
         else: 
             rrow.label(text='', icon='BLANK1')
         
-        #rrow.label(text=label, icon_value=icon_value)
-        rrow.prop(lui, 'expand_masks', text=label, emboss=False, icon_value=icon_value)
+        if is_bl_newer_than(2, 80):
+            rrow.prop(lui, 'expand_masks', text=label, emboss=False, icon_value=icon_value)
+        else: rrow.label(text=label, icon_value=icon_value)
 
         rrow = row.row()
         rrow.alignment = 'RIGHT'
@@ -2718,19 +2750,20 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             srow = mrow
 
         rrow = srow.row(align=True)
-        rrow.alignment = 'LEFT'
-        rrow.scale_x = 0.95
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
         #if maskui.expand_content:
         #    icon_value = lib.get_icon('uncollapsed_mask')
         #else: icon_value = lib.get_icon('collapsed_mask')
-        icon = 'DOWNARROW_HLT' if maskui.expand_content else 'RIGHTARROW'
+        #icon = 'DOWNARROW_HLT' if maskui.expand_content else 'RIGHTARROW'
+        icon = get_collapse_arrow_icon(maskui.expand_content)
         rrow.prop(maskui, 'expand_content', text='', emboss=False, icon=icon)
 
-        #if maskui.expand_content or specific_mask:
         icon_value = lib.get_icon('mask')
-        #rrow.label(text=label_text, icon_value=icon_value)
-        rrow.prop(maskui, 'expand_content', text=label_text, emboss=False, icon_value=icon_value)
-        #else: rrow.label(text=label_text)
+        if is_bl_newer_than(2, 80):
+            rrow.prop(maskui, 'expand_content', text=label_text, emboss=False, icon_value=icon_value)
+        else: rrow.label(text=label_text, icon_value=icon_value)
 
         rrow = srow.row(align=True)
         if maskui.expand_content:
@@ -2794,7 +2827,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         # Blend row
         rrow = rrcol.row(align=True)
         #rrow.label(text='', icon_value=lib.get_icon('blend'))
-        icon = 'DOWNARROW_HLT' if maskui.expand_channels else 'RIGHTARROW'
+        #icon = 'DOWNARROW_HLT' if maskui.expand_channels else 'RIGHTARROW'
+        icon = get_collapse_arrow_icon(maskui.expand_channels)
         rrow.prop(maskui, 'expand_channels', text='', emboss=False, icon=icon)
         rrow.label(text='Blend:')
         rrow.prop(mask, 'blend_type', text='')
@@ -2886,7 +2920,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         #    rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
 
         if mask.type not in {'BACKFACE', 'MODIFIER'} or (mask.type == 'MODIFIER' and mask.modifier_type in {'CURVE', 'RAMP'}):
-            icon = 'DOWNARROW_HLT' if maskui.expand_source else 'RIGHTARROW'
+            #icon = 'DOWNARROW_HLT' if maskui.expand_source else 'RIGHTARROW'
+            icon = get_collapse_arrow_icon(maskui.expand_source)
             rrow.prop(maskui, 'expand_source', text='', emboss=False, icon=icon)
         else:
             rrow.label(text='', icon='BLANK1')
@@ -2969,7 +3004,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             #else: icon_value = lib.get_icon('collapsed_uv')
             #rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
             if mask.texcoord_type != 'Layer':
-                icon = 'DOWNARROW_HLT' if maskui.expand_vector else 'RIGHTARROW'
+                #icon = 'DOWNARROW_HLT' if maskui.expand_vector else 'RIGHTARROW'
+                icon = get_collapse_arrow_icon(maskui.expand_vector)
                 rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon=icon)
             else: rrow.label(text='', icon='BLANK1')
 
@@ -3832,9 +3868,14 @@ def draw_test_ui(context, layout):
 
         icon = 'TRIA_DOWN' if ypui.show_test else 'TRIA_RIGHT'
         row = layout.row(align=True)
-        row.alignment = 'LEFT'
-        row.scale_x = 0.95
-        row.prop(ypui, 'show_test', emboss=False, text='Test', icon=icon)
+
+        if is_bl_newer_than(2, 80):
+            row.alignment = 'LEFT'
+            row.scale_x = 0.95
+            row.prop(ypui, 'show_test', emboss=False, text='Test', icon=icon)
+        else:
+            row.prop(ypui, 'show_test', emboss=False, text='', icon=icon)
+            row.label(text='Test')
 
         if (ypui.show_test):
             box = layout.box()
@@ -3909,12 +3950,17 @@ def main_draw(self, context):
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
     rrow = row.row(align=True)
-    rrow.alignment = 'LEFT'
-    rrow.scale_x = 0.95
     text_object = pgettext_iface('Object: ')
     if obj: text_object += obj.name
     else: text_object += '-'
-    rrow.prop(ypui, 'show_object', emboss=False, text=text_object, icon=icon)
+
+    if is_bl_newer_than(2, 80):
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
+        rrow.prop(ypui, 'show_object', emboss=False, text=text_object, icon=icon)
+    else:
+        rrow.prop(ypui, 'show_object', emboss=False, text='', icon=icon)
+        rrow.label(text=text_object)
 
     rrow = row.row(align=True)
     rrow.alignment = 'RIGHT'
@@ -3937,12 +3983,17 @@ def main_draw(self, context):
 
     icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
     rrow = row.row(align=True)
-    rrow.alignment = 'LEFT'
-    rrow.scale_x = 0.95
     text_material = pgettext_iface('Material: ')
     if mat: text_material += mat.name
     else: text_material += '-'
-    rrow.prop(ypui, 'show_materials', emboss=False, text=text_material, icon=icon)
+
+    if is_bl_newer_than(2, 80):
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
+        rrow.prop(ypui, 'show_materials', emboss=False, text=text_material, icon=icon)
+    else:
+        rrow.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
+        rrow.label(text=text_material)
 
     # HACK: Load all icons earlier so no missing icons possible (Only for Blender 3.2+)
     if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
@@ -4034,9 +4085,14 @@ def main_draw(self, context):
     icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
     rrow = row.row(align=True)
-    rrow.alignment = 'LEFT'
-    rrow.scale_x = 0.95
-    rrow.prop(ypui, 'show_channels', emboss=False, text='Channels', icon=icon)
+
+    if is_bl_newer_than(2, 80):
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
+        rrow.prop(ypui, 'show_channels', emboss=False, text='Channels', icon=icon)
+    else:
+        rrow.prop(ypui, 'show_channels', emboss=False, text='', icon=icon)
+        rrow.label(text='Channels')
 
     #if (baked_found or yp.use_baked) and not group_tree.users > 1:
     #    rrow = row.row(align=True)
@@ -4053,9 +4109,14 @@ def main_draw(self, context):
     icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
     row = layout.row(align=True)
     rrow = row.row(align=True)
-    rrow.alignment = 'LEFT'
-    rrow.scale_x = 0.95
-    rrow.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
+
+    if is_bl_newer_than(2, 80):
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
+        rrow.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
+    else:
+        rrow.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
+        rrow.label(text='Layers')
 
     height_root_ch = get_root_height_channel(yp)
 
@@ -4098,9 +4159,14 @@ def main_draw(self, context):
     # Custom Bake Targets
     icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.alignment = 'LEFT'
-    row.scale_x = 0.95
-    row.prop(ypui, 'show_bake_targets', emboss=False, text='Custom Bake Targets', icon=icon)
+
+    if is_bl_newer_than(2, 80):
+        row.alignment = 'LEFT'
+        row.scale_x = 0.95
+        row.prop(ypui, 'show_bake_targets', emboss=False, text='Custom Bake Targets', icon=icon)
+    else:
+        row.prop(ypui, 'show_bake_targets', emboss=False, text='', icon=icon)
+        row.label(text='Custom Bake Targets')
 
     if ypui.show_bake_targets:
         draw_bake_targets_ui(context, layout, node)
@@ -4108,9 +4174,14 @@ def main_draw(self, context):
     # Stats
     icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.alignment = 'LEFT'
-    row.scale_x = 0.95
-    row.prop(ypui, 'show_stats', emboss=False, text='Stats', icon=icon)
+
+    if is_bl_newer_than(2, 80):
+        row.alignment = 'LEFT'
+        row.scale_x = 0.95
+        row.prop(ypui, 'show_stats', emboss=False, text='Stats', icon=icon)
+    else:
+        row.prop(ypui, 'show_stats', emboss=False, text='', icon=icon)
+        row.label(text='Stats')
 
     if ypui.show_stats:
 
