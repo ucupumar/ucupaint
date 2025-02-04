@@ -3776,6 +3776,15 @@ def draw_layers_ui(context, layout, node):
                 row.operator('object.y_fix_vdm_missmatch_uv')
                 row.alert = False
 
+        # Check if list items are empty
+        if len(yp.list_items) == 0 and len(yp.layers) > 0:
+            bbox = col.box()
+            cbox = bbox.column()
+            row = cbox.row(align=True)
+            row.alert = True
+            row.operator('node.y_refresh_list_items', icon='FILE_REFRESH', text='Refresh Layer List')
+            row.alert = False
+
         specific_ch = None
         specific_mask = None
 
