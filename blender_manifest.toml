@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "ucupaint"
-version = "2.1.5"
+version = "2.2.0"
 name = "Ucupaint"
 tagline = "Layer based painting for Eevee and Cycles"
 maintainer = "Yusuf Umar <yusufumaris@gmail.com>"
@@ -9,7 +9,7 @@ type = "add-on"
 
 website = "https://ucupumar.github.io/ucupaint-wiki/"
 
-tags = ["Node", "Material", "Paint"]
+tags = ["Node", "Material", "Paint", "Bake"]
 
 blender_version_min = "4.2.0"
 

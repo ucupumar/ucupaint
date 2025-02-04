@@ -123,6 +123,18 @@ def update_tangent_process(tree, lib_name):
         # Create info frames
         create_info_nodes(ng.node_tree)
 
+def check_list_items_then_refresh(yp):
+    if len(yp.list_items) == 0 and len(yp.layers) > 0:
+        ListItem.refresh_list_items(yp)
+
+        # Override default value is now a factor prop, reenabling override can reset the prop
+        for layer in yp.layers:
+            for i, ch in enumerate(layer.channels):
+                root_ch = yp.channels[i]
+                if ch.override and ch.override_type == 'DEFAULT' and root_ch.type == 'VALUE':
+                    ch.override = False
+                    ch.override = True
+
 def update_yp_tree(tree):
     cur_version = get_current_version_str()
     yp = tree.yp
@@ -710,6 +722,16 @@ def update_yp_tree(tree):
                     reconnect_layer_nodes(layer)
                     rearrange_layer_nodes(layer)
 
+    # Version 2.2 has list items for displaying layers
+    if version_tuple(yp.version) < (2, 2, 0):
+        check_list_items_then_refresh(yp)
+
+        # Also when preview mode is on, remember current scene if it uses compositing or not
+        if yp.preview_mode or yp.layer_preview_mode:
+            scene = bpy.context.scene
+            if scene.yp.ori_use_compositing != scene.use_nodes:
+                scene.yp.ori_use_compositing = scene.use_nodes
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
@@ -805,16 +827,7 @@ def update_routine(name):
         if flag2: updated_to_yp_200_displacement = True
 
         # Fill list items if it's still empty
-        if len(ng.yp.list_items) == 0 and len(ng.yp.layers) > 0:
-            ListItem.refresh_list_items(ng.yp)
-
-            # Override default value is now a factor prop, reenabling override can reset the prop
-            for layer in ng.yp.layers:
-                for i, ch in enumerate(layer.channels):
-                    root_ch = ng.yp.channels[i]
-                    if ch.override and ch.override_type == 'DEFAULT' and root_ch.type == 'VALUE':
-                        ch.override = False
-                        ch.override = True
+        check_list_items_then_refresh(ng.yp)
 
     # Remove tangent sign vertex colors for Blender 3.0+
     if updated_to_tangent_process_300:
