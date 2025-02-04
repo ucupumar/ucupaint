@@ -4479,11 +4479,17 @@ def layer_listing(layout, layer, show_expand=False):
     #    source = get_layer_source(layer, layer_tree)
     #    vcol = get_vcol_from_source(obj, source)
 
+    show_inline_subitems = (
+        not show_expand or 
+        (yp.enable_inline_subitems and not (layer.expand_subitems and yp.enable_expandable_subitems)) or 
+        (not yp.enable_inline_subitems and not yp.enable_expandable_subitems)
+        )
+
     all_overrides = []
     selectable_overrides = []
     active_override = None
     override_idx = 0
-    if not show_expand or (yp.enable_inline_subitems and (not layer.expand_subitems or not yp.enable_expandable_subitems)):
+    if show_inline_subitems:
         for i, c in enumerate(layer.channels):
             root_ch = yp.channels[i]
             #if not c.enable: continue
@@ -4500,7 +4506,7 @@ def layer_listing(layout, layer, show_expand=False):
     all_masks = []
     selectable_masks = []
     active_mask = None
-    if not show_expand or (yp.enable_inline_subitems and (not layer.expand_subitems or not yp.enable_expandable_subitems)):
+    if show_inline_subitems:
         for m in layer.masks:
             #if m.type in {'IMAGE', 'VCOL'}:
             if m.enable: selectable_masks.append(m)
@@ -5619,7 +5625,7 @@ class YListItemOptionPopover(bpy.types.Panel):
     bl_description = "List item popover"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
-    bl_ui_units_x = 8
+    bl_ui_units_x = 10
 
     @classmethod
     def poll(cls, context):
@@ -5629,11 +5635,13 @@ class YListItemOptionPopover(bpy.types.Panel):
         col = self.layout.column()
         yp = get_active_ypaint_node().node_tree.yp
 
-        col.label(text='Layer List Options')
+        col.label(text='Layer List Options (Experimental)')
         col.separator()
         
         col.prop(yp, 'enable_expandable_subitems')
-        col.prop(yp, 'enable_inline_subitems')
+        row = col.row()
+        row.active =  yp.enable_expandable_subitems
+        row.prop(yp, 'enable_inline_subitems')
 
 class YLayerChannelNormalBlendPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_y_layer_channel_normal_blend_popover"
