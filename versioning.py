@@ -807,7 +807,14 @@ def update_routine(name):
         # Fill list items if it's still empty
         if len(ng.yp.list_items) == 0 and len(ng.yp.layers) > 0:
             ListItem.refresh_list_items(ng.yp)
-            #check_all_channel_ios(ng.yp, hard_reset=True)
+
+            # Override default value is now a factor prop, reenabling override can reset the prop
+            for layer in ng.yp.layers:
+                for i, ch in enumerate(layer.channels):
+                    root_ch = ng.yp.channels[i]
+                    if ch.override and ch.override_type == 'DEFAULT' and root_ch.type == 'VALUE':
+                        ch.override = False
+                        ch.override = True
 
     # Remove tangent sign vertex colors for Blender 3.0+
     if updated_to_tangent_process_300:
