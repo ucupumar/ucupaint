@@ -779,12 +779,15 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
     row = layout.row(align=True)
     if ch:
         icon_name = letter
-        if getattr(btui, 'expand_' + letter):
-            icon_name = 'uncollapsed_' + icon_name
-        else: icon_name = 'collapsed_' + icon_name
+        #if getattr(btui, 'expand_' + letter):
+        #    icon_name = 'uncollapsed_' + icon_name
+        #else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
+        icon = 'DOWNARROW_HLT' if getattr(btui, 'expand_' + letter) else 'RIGHTARROW'
+        row.prop(btui, 'expand_' + letter, text='', emboss=False, icon=icon)
         row.prop(btui, 'expand_' + letter, text='', emboss=False, icon_value=icon_value)
     else:
+        row.label(text='', icon='BLANK1')
         row.label(text='', icon_value=lib.get_icon(letter))
 
     if btc.channel_name == '':
@@ -849,14 +852,19 @@ def draw_bake_targets_ui(context, layout, node):
         image = image_node.image if image_node and image_node.image else None
 
         icon_name = 'bake'
-        if btui.expand_content:
-            icon_name = 'uncollapsed_' + icon_name
-        else: icon_name = 'collapsed_' + icon_name
+        #if btui.expand_content:
+        #    icon_name = 'uncollapsed_' + icon_name
+        #else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
 
         row = col.row(align=True)
+        row.alignment = 'LEFT'
+        row.scale_x = 0.95
 
-        row.prop(btui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        icon = 'DOWNARROW_HLT' if btui.expand_content else 'RIGHTARROW'
+        row.prop(btui, 'expand_content', text='', emboss=False, icon=icon)
+
+        #row.prop(btui, 'expand_content', text='', emboss=False, icon_value=icon_value)
         if image: 
             bt_label = image.name
             if image.is_float: bt_label += ' (Float)'
@@ -864,7 +872,8 @@ def draw_bake_targets_ui(context, layout, node):
             bt_label = bt.name
             if bt.use_float: bt_label += ' (Float)'
 
-        row.label(text=bt_label)
+        #row.label(text=bt_label, icon_value=icon_value)
+        row.prop(btui, 'expand_content', text=bt_label, emboss=False, icon_value=icon_value)
 
         if btui.expand_content:
             row = col.row(align=True)
@@ -875,6 +884,7 @@ def draw_bake_targets_ui(context, layout, node):
                 draw_bake_target_channel(context, bcol, bt, letter)
 
         row = col.row(align=True)
+        row.label(text='', icon='BLANK1')
         image_name = image.name if image else '-'
 
         row.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
@@ -885,6 +895,7 @@ def draw_bake_targets_ui(context, layout, node):
         
         if not image:
             row = col.row(align=True)
+            row.label(text='', icon='BLANK1')
             row.label(text="Do 'Bake All Channels' to get the image!", icon='ERROR')
 
 def draw_root_channels_ui(context, layout, node):
