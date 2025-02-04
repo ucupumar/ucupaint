@@ -2904,7 +2904,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         if mask_image:
             label = mask_image.name
         elif mask_vcol_name != '':
-            label = mask_vcol.name
+            label = mask_vcol_name
         elif mask.type == 'MODIFIER':
             if mask.modifier_type == 'INVERT': 
                 label = 'Invert'

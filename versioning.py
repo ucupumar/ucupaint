@@ -807,6 +807,7 @@ def update_routine(name):
         # Fill list items if it's still empty
         if len(ng.yp.list_items) == 0 and len(ng.yp.layers) > 0:
             ListItem.refresh_list_items(ng.yp)
+            #check_all_channel_ios(ng.yp, hard_reset=True)
 
     # Remove tangent sign vertex colors for Blender 3.0+
     if updated_to_tangent_process_300:
