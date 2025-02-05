@@ -138,6 +138,23 @@ def get_collapse_arrow_icon(collapse=False):
 
     return 'DOWNARROW_HLT' if collapse else 'RIGHTARROW'
 
+def inbox_dropdown_button(row, item, prop, text, scale_override=0.0):
+    icon = get_collapse_arrow_icon(getattr(item, prop))
+
+    if is_bl_newer_than(2, 80):
+
+        row.alignment = 'LEFT'
+        if is_bl_newer_than(2, 92):
+            row.scale_x = 0.9 if scale_override == 0.0 else scale_override
+        elif is_bl_newer_than(2, 83):
+            row.scale_x = 0.95 #if scale_override == 0.0 else scale_override
+
+        row.prop(item, prop, emboss=False, text=text, icon=icon)
+
+    else:
+        row.prop(item, prop, emboss=False, text='', icon=icon)
+        row.label(text=text)
+
 def draw_bake_info(bake_info, layout, entity):
 
     yp = entity.id_data.yp
@@ -1064,27 +1081,27 @@ def draw_root_channels_ui(context, layout, node):
             # Alpha will also not visible if other channel already enable the alpha
             if ((channel.type == 'RGB' and not any([c for c in yp.channels if c.enable_alpha and c != channel]))
                 or ypup.developer_mode or channel.enable_alpha):
-                brow = bcol.row(align=True)
-                #brow.label(text='', icon_value=lib.get_icon('input'))
-                #if chui.expand_alpha_settings:
-                #    icon_value = lib.get_icon('uncollapsed_input')
-                #else: icon_value = lib.get_icon('collapsed_input')
-                #brow.prop(chui, 'expand_alpha_settings', text='', emboss=False, icon_value=icon_value)
-                #icon = 'DOWNARROW_HLT' if chui.expand_alpha_settings else 'RIGHTARROW'
-                icon = get_collapse_arrow_icon(chui.expand_alpha_settings)
-                brow.prop(chui, 'expand_alpha_settings', text='', emboss=False, icon=icon)
+                brow = bcol.row() #align=True)
+
+                rrow = brow.row(align=True)
                 if channel.enable_alpha and not chui.expand_alpha_settings:
                     inp_alpha = node.inputs[channel.io_index+1]
-                    brow.label(text='Base Alpha:')
+                    inbox_dropdown_button(rrow, chui, 'expand_alpha_settings', 'Base Alpha:')
+
+                    rrow = brow.row(align=True)
                     if len(node.inputs[channel.io_index+1].links)==0:
                         if not yp.use_baked:
-                            brow.prop(inp_alpha, 'default_value', text='')
-                    else: brow.label(text='', icon='LINKED')
-                else: brow.label(text='Alpha:')
+                            rrow.prop(inp_alpha, 'default_value', text='')
+                    else: rrow.label(text='', icon='LINKED')
+                else: 
+                    inbox_dropdown_button(rrow, chui, 'expand_alpha_settings', 'Alpha:')
+                    rrow = brow.row(align=True)
+
+                rrow.alignment = 'RIGHT'
+
                 if not yp.use_baked:
                     brow.prop(channel, 'enable_alpha', text='')
-                else:
-                    brow.label(text='', icon_value=lib.get_icon('texture'))
+                else: brow.label(text='', icon_value=lib.get_icon('texture'))
 
                 if chui.expand_alpha_settings:
                     brow = bcol.row(align=True)
@@ -1148,24 +1165,19 @@ def draw_root_channels_ui(context, layout, node):
 
             if channel.type == 'NORMAL':
                 brow = bcol.row(align=True)
-                #if channel.enable_smooth_bump:
-                #if chui.expand_smooth_bump_settings:
-                #    icon_value = lib.get_icon('uncollapsed_input')
-                #else: icon_value = lib.get_icon('collapsed_input')
-                #brow.prop(chui, 'expand_smooth_bump_settings', text='', emboss=False, icon_value=icon_value)
-                #icon = 'DOWNARROW_HLT' if chui.expand_smooth_bump_settings else 'RIGHTARROW'
-                icon = get_collapse_arrow_icon(chui.expand_smooth_bump_settings)
-                brow.prop(chui, 'expand_smooth_bump_settings', text='', emboss=False, icon=icon)
-                #else:
-                #    brow.label(text='', icon_value=lib.get_icon('input'))
-                if is_bl_newer_than(2, 80):
-                    brow.label(text='Smoother Bump:')
-                else: brow.label(text='Smooth Bump:')
 
+                if is_bl_newer_than(2, 80):
+                    label_text='Smoother Bump:'
+                else: label_text='Smooth Bump:'
+
+                rrow = brow.row(align=True)
+                inbox_dropdown_button(rrow, chui, 'expand_smooth_bump_settings', label_text)
+
+                rrow = brow.row(align=True)
+                rrow.alignment = 'RIGHT'
                 if not yp.use_baked:
                     brow.prop(channel, 'enable_smooth_bump', text='')
-                else:
-                    brow.label(text='', icon_value=lib.get_icon('texture'))
+                else: brow.label(text='', icon_value=lib.get_icon('texture'))
 
                 if chui.expand_smooth_bump_settings: # and channel.enable_smooth_bump:
                     brow = bcol.row(align=True)
@@ -1223,17 +1235,14 @@ def draw_root_channels_ui(context, layout, node):
                     brow = bcol.row(align=True)
                     brow.active = yp.use_baked and not channel.enable_subdiv_setup and not yp.enable_baked_outside
 
-                    #if chui.expand_parallax_settings:
-                    #    icon_value = lib.get_icon('uncollapsed_input')
-                    #else: icon_value = lib.get_icon('collapsed_input')
-                    #brow.prop(chui, 'expand_parallax_settings', text='', emboss=False, icon_value=icon_value)
-                    #icon = 'DOWNARROW_HLT' if chui.expand_parallax_settings else 'RIGHTARROW'
-                    icon = get_collapse_arrow_icon(chui.expand_parallax_settings)
-                    brow.prop(chui, 'expand_parallax_settings', text='', emboss=False, icon=icon)
+                    rrow = brow.row(align=True)
+                    inbox_dropdown_button(rrow, chui, 'expand_parallax_settings', 'Parallax:')
 
-                    brow.label(text='Parallax:')
+                    rrow = brow.row(align=True)
+                    rrow.alignment = 'RIGHT'
                     if not chui.expand_parallax_settings and channel.enable_parallax:
-                        brow.prop(channel, 'baked_parallax_num_of_layers', text='')
+                        rrow.prop(channel, 'baked_parallax_num_of_layers', text='')
+                        brow.separator()
                     brow.prop(channel, 'enable_parallax', text='')
 
                     if chui.expand_parallax_settings:
@@ -1265,15 +1274,11 @@ def draw_root_channels_ui(context, layout, node):
 
                 brow = bcol.row(align=True)
 
-                #if chui.expand_subdiv_settings:
-                #    icon_value = lib.get_icon('uncollapsed_input')
-                #else: icon_value = lib.get_icon('collapsed_input')
-                #brow.prop(chui, 'expand_subdiv_settings', text='', emboss=False, icon_value=icon_value)
-                #icon = 'DOWNARROW_HLT' if chui.expand_subdiv_settings else 'RIGHTARROW'
-                icon = get_collapse_arrow_icon(chui.expand_subdiv_settings)
-                brow.prop(chui, 'expand_subdiv_settings', text='', emboss=False, icon=icon)
+                rrow = brow.row(align=True)
+                inbox_dropdown_button(rrow, chui, 'expand_subdiv_settings', 'Displacement Setup', scale_override=0.925)
 
-                brow.label(text='Displacement Setup:')
+                rrow = brow.row(align=True)
+                rrow.alignment = 'RIGHT'
                 brow.prop(channel, 'enable_subdiv_setup', text='')
 
                 if chui.expand_subdiv_settings:
@@ -1334,18 +1339,16 @@ def draw_root_channels_ui(context, layout, node):
                 if is_bl_newer_than(2, 92):
                     brow = bcol.row(align=True)
 
-                    #if chui.expand_bake_to_vcol_settings:
-                    #    ch_icon = lib.get_icon('uncollapsed_input')
-                    #else: ch_icon = lib.get_icon('collapsed_input')
-                    #brow.prop(chui, 'expand_bake_to_vcol_settings', text='', emboss=False, icon_value=ch_icon)
-                    #icon = 'DOWNARROW_HLT' if chui.expand_bake_to_vcol_settings else 'RIGHTARROW'
-                    icon = get_collapse_arrow_icon(chui.expand_bake_to_vcol_settings)
-                    brow.prop(chui, 'expand_bake_to_vcol_settings', text='', emboss=False, icon=icon)
-
                     vcols = get_vertex_colors(context.object)
                     if yp.use_baked and channel.bake_to_vcol_name in vcols:
-                        brow.label(text='Use Baked Vertex Color:')
-                    else: brow.label(text='Bake To Vertex Color:')
+                        label_text = 'Use Baked Vertex Color'
+                    else: label_text = 'Bake To Vertex Color'
+
+                    rrow = brow.row(align=True)
+                    inbox_dropdown_button(rrow, chui, 'expand_bake_to_vcol_settings', label_text, scale_override=0.95)
+
+                    rrow = brow.row(align=True)
+                    rrow.alignment = 'RIGHT'
                     brow.prop(channel, 'enable_bake_to_vcol', text='')
 
                     if chui.expand_bake_to_vcol_settings:
@@ -1473,29 +1476,16 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         suffix = 'vertex_color'
     else: suffix = 'texture'
 
-    #if lui.expand_source:
-    #    icon_value = lib.get_icon('uncollapsed_' + suffix)
-    #else: icon_value = lib.get_icon('collapsed_' + suffix)
-    #row.prop(lui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+    split = split_layout(row, 0.4, align=False)
+    label_text = pgettext_iface('Layer') + ' '+ pgettext_iface('Source:')
+
+    rrow = split.row(align=True)
     if layer.type in {'BACKGROUND', 'GROUP'}:
-        row.label(text='', icon='BLANK1')
+        rrow.label(text='', icon='BLANK1')
+        rrow.label(text=label_text)
     else:
-        #icon = 'DOWNARROW_HLT' if lui.expand_source else 'RIGHTARROW'
-        icon = get_collapse_arrow_icon(lui.expand_source)
-        row.prop(lui, 'expand_source', text='', emboss=False, icon=icon)
-    #else:
-    #    if layer.type == 'IMAGE':
-    #        icon = 'IMAGE_DATA'
-    #    #elif layer.type == 'VCOL':
-    #    #    icon = 'GROUP_VCOL'
-    #    else:
-    #        icon = 'TEXTURE'
-    #    #icon = 'IMAGE_DATA' if layer.type == 'IMAGE' else 'TEXTURE'
-    #    row.prop(lui, 'expand_source', text='', emboss=True, icon=icon)
-    split = split_layout(row, 0.4)
-    #split.label(text=pgettext_iface('Source:'))
-    #split.label(text='Source:')
-    split.label(text=pgettext_iface('Layer') + ' Source:')
+        inbox_dropdown_button(rrow, lui, 'expand_source', label_text)
+
     menu_label = ''
     if image:
         image_name = image.name
@@ -2012,18 +2002,19 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         # Blend type
         if layer.type != 'BACKGROUND' or root_ch.type == 'NORMAL':
             row = mcol.row(align=True)
-            #icon = 'DOWNARROW_HLT' if chui.expand_blend_settings else 'RIGHTARROW'
-            icon = get_collapse_arrow_icon(chui.expand_blend_settings)
-            row.prop(chui, 'expand_blend_settings', emboss=False, text='', icon=icon)
-            #row.label(text='', icon='BLANK1')
+            split = split_layout(row, 0.375)
 
-            row.label(text='Blend:')
+            rrow = split.row(align=True)
+            inbox_dropdown_button(rrow, chui, 'expand_blend_settings', 'Blend:')
+
+            rrow = split.row(align=True)
+
             if root_ch.type != 'NORMAL':
-                row.prop(ch, 'blend_type', text='')
-            else: row.prop(ch, 'normal_blend_type', text='')
+                rrow.prop(ch, 'blend_type', text='')
+            else: rrow.prop(ch, 'normal_blend_type', text='')
 
             if not chui.expand_blend_settings:
-                draw_input_prop(row, ch, 'intensity_value')
+                draw_input_prop(rrow, ch, 'intensity_value')
 
             else:
 
@@ -2253,86 +2244,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                     #row.label(text='', icon='BLANK1')
 
-            #row = mcol.row(align=True)
-
-            #if chui.expand_bump_settings:
-            #    icon_value = lib.get_icon('uncollapsed_input')
-            #else: icon_value = lib.get_icon('collapsed_input')
-            #row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
-
-            #if layer.type == 'GROUP':
-            #    if chui.expand_bump_settings:
-            #        row.label(text='Group Normal Settings:')
-            #    else: row.label(text='Group Normal Settings')
-            #else:
-            #    split = split_layout(row, 0.275)
-            #    split.label(text='Type:')
-            #    srow = split.row(align=True)
-            #    srow.prop(ch, 'normal_map_type', text='')
-            #    if not chui.expand_bump_settings:
-            #        if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-            #            # Solid color with transition bump always have bump distance value of 0
-            #            ssrow = srow.row(align=True)
-            #            ssrow.active = is_bump_distance_relevant(layer, ch)
-            #            draw_input_prop(ssrow, ch, 'bump_distance')
-            #        elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-            #            draw_input_prop(srow, ch, 'vdisp_strength')
-            #        else:
-            #            draw_input_prop(srow, ch, 'normal_strength')
-
-            #if chui.expand_bump_settings:
-            #    row = mcol.row(align=True)
-            #    row.label(text='', icon='BLANK1')
-
-            #    bbox = row.box()
-            #    #bbox.active = layer.type != 'COLOR'
-            #    #bbox.active = not is_valid_to_remove_bump_nodes(layer, ch)
-            #    cccol = bbox.column(align=True)
-
-            #    #if ch.normal_map_type != 'BUMP_NORMAL_MAP':
-            #    if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump:
-            #        brow = cccol.row(align=True)
-            #        brow.label(text='Write Height:') #, icon_value=lib.get_icon('input'))
-            #        brow.prop(ch, 'write_height', text='')
-
-            #    #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-
-            #    if layer.type != 'GROUP':
-            #        #brow = cccol.row(align=True)
-            #        #brow.active = not ch.enable_transition_bump or ch.normal_map_type != 'NORMAL_MAP'
-            #        if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-            #            brow = cccol.row(align=True)
-            #            brow.active = layer.type != 'COLOR' or not ch.enable_transition_bump
-            #            brow.label(text='Height:') #, icon_value=lib.get_icon('input'))
-            #            brow.active == is_bump_distance_relevant(layer, ch)
-            #            draw_input_prop(brow, ch, 'bump_distance')
-            #            brow = cccol.row(align=True)
-            #            brow.label(text='Midlevel:') 
-            #            draw_input_prop(brow, ch, 'bump_midlevel')
-            #            if root_ch.enable_smooth_bump:
-            #                brow = cccol.row(align=True)
-            #                brow.label(text='Smooth Multiplier:') 
-            #                draw_input_prop(brow, ch, 'bump_smooth_multiplier')
-
-            #        if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}: 
-            #            brow = cccol.row(align=True)
-            #            brow.label(text='Normal Strength:') #, icon_value=lib.get_icon('input'))
-            #            draw_input_prop(brow, ch, 'normal_strength')
-            #        elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-            #            brow = cccol.row(align=True)
-            #            brow.label(text='Strength:') #, icon_value=lib.get_icon('input'))
-            #            draw_input_prop(brow, ch, 'vdisp_strength')
-
-            #            brow = cccol.row(align=True)
-            #            brow.label(text='Flip Y/Z:') #, icon_value=lib.get_icon('input'))
-            #            draw_input_prop(brow, ch, 'vdisp_enable_flip_yz')
-
-                #brow = cccol.row(align=True)
-                #brow.label(text='Invert Backface Normal')
-                #brow.prop(ch, 'invert_backface_normal', text='')
-
-                #row.label(text='', icon='BLANK1')
-
             extra_separator = True
 
         if root_ch.type in {'RGB', 'VALUE'}:
@@ -2449,6 +2360,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         source_1 = layer_tree.nodes.get(ch.source_1)
         cache_1 = layer_tree.nodes.get(ch.cache_1_image)
 
+        split_factor = 0.375 if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 0.475
+
         # Override settings
         if root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP': # or (not source_1 and not cache_1):
 
@@ -2464,17 +2377,18 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 input_settings_available = has_layer_input_options(layer) and (ch.layer_input != 'ALPHA' 
                         and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
 
-                row = mcol.row(align=True)
-                if ch.override or input_settings_available:
-                    #icon = 'DOWNARROW_HLT' if chui.expand_source else 'RIGHTARROW'
-                    icon = get_collapse_arrow_icon(chui.expand_source)
-                    row.prop(chui, 'expand_source', text='', emboss=False, icon=icon)
-                else:
-                    row.label(text='', icon='BLANK1')
+                #row = mcol.row(align=True)
+                srow = split_layout(mcol, split_factor, align=False)
+                row = srow.row(align=True)
 
                 label = 'Source:' if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Bump Source:'
-                row.label(text=label)
+                if ch.override or input_settings_available:
+                    inbox_dropdown_button(row, chui, 'expand_source', label)
+                else:
+                    row.label(text='', icon='BLANK1')
+                    row.label(text=label)
 
+                row = srow.row(align=True)
                 label = get_layer_channel_input_label(layer, ch, source)
                 row.context_pointer_set('parent', ch)
                 if ch.override and ch.override_type == 'DEFAULT' and not ch.expand_source:
@@ -2538,18 +2452,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             draw_modifier_stack(context, ch, root_ch.type, modcol, 
                     ypui.layer_ui.channels[i], layer, use_modifier_1=True)
 
-            row = mcol.row(align=True)
+            srow = split_layout(mcol, split_factor, align=False)
+            row = srow.row(align=True)
+            label = 'Source:' if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Normal Source:'
             if not ch.override_1:
                 row.label(text='', icon='BLANK1')
+                row.label(text=label)
             else:
-                #icon = 'DOWNARROW_HLT' if chui.expand_source_1 else 'RIGHTARROW'
-                icon = get_collapse_arrow_icon(chui.expand_source_1)
-                row.prop(chui, 'expand_source_1', text='', emboss=False, icon=icon)
-
-            label = 'Source:' if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Normal Source:'
-            row.label(text=label)
-
-            #row.prop(ch, 'override_1', text='')
+                inbox_dropdown_button(row, chui, 'expand_source_1', label)
 
             if ch.override_1:
                 if ch.override_1_type == 'IMAGE' and source_1 and source_1.image:
@@ -2561,6 +2471,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     label += ' Distance'
                 else: label += ' Color'
 
+            row = srow.row(align=True)
             row.context_pointer_set('parent', ch)
             if ch.override_1 and ch.override_1_type == 'DEFAULT' and not ch.expand_source_1:
                 split = split_layout(row, 0.55, align=True)
@@ -2825,22 +2736,16 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         row.label(text='', icon='BLANK1')
 
         # Blend row
-        rrow = rrcol.row(align=True)
-        #rrow.label(text='', icon_value=lib.get_icon('blend'))
-        #icon = 'DOWNARROW_HLT' if maskui.expand_channels else 'RIGHTARROW'
-        icon = get_collapse_arrow_icon(maskui.expand_channels)
-        rrow.prop(maskui, 'expand_channels', text='', emboss=False, icon=icon)
-        rrow.label(text='Blend:')
+        srow = split_layout(rrcol, 0.35, align=False)
+        rrow = srow.row(align=True)
+        inbox_dropdown_button(rrow, maskui, 'expand_channels', 'Blend:')
+
+        rrow = srow.row(align=True)
         rrow.prop(mask, 'blend_type', text='')
         if not maskui.expand_channels:
             draw_input_prop(rrow, mask, 'intensity_value')
 
         # Mask Channels row
-        #rrow = rrcol.row(align=True)
-        #icon = 'DOWNARROW_HLT' if maskui.expand_channels else 'RIGHTARROW'
-        #rrow.prop(maskui, 'expand_channels', text='', emboss=False, icon=icon)
-        #rrow.label(text='Channels')
-
         if maskui.expand_channels:
 
             # Channels row
@@ -2876,63 +2781,18 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
         draw_mask_modifier_stack(layer, mask, rrcol, maskui)
 
-        # Input row
-        #if (mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} and (is_bl_newer_than(2, 92) or mask.type != 'VCOL') and
-        #    not (is_bl_newer_than(2, 81) and mask.type == 'VORONOI' and mask.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})
-        #    ):
-        #    rrow = rrcol.row(align=True)
-        #    #rrow.label(text='', icon_value=lib.get_icon('input'))
-        #    rrow.label(text='', icon='BLANK1')
-        #    splits = split_layout(rrow, 0.3)
-        #    splits.active = not mask.use_baked
-        #    splits.label(text='Input:')
-        #    splits.prop(mask, 'source_input', text='')
-
         # Source row
-        rrow = rrcol.row(align=True)
-
-        #if mask.type == 'VCOL':
-        #    rrow.label(text='', icon_value=lib.get_icon('vertex_color'))
-        #elif mask.type == 'BACKFACE':
-        #    rrow.label(text='', icon_value=lib.get_icon('backface'))
-        #elif mask.type == 'MODIFIER' and mask.modifier_type == 'INVERT':
-        #    rrow.label(text='', icon_value=lib.get_icon('modifier'))
-        #else:
-        #    if mask.type == 'IMAGE':
-        #        suffix = 'image' 
-        #    elif mask.type == 'HEMI':
-        #        suffix = 'hemi' 
-        #    elif mask.type == 'OBJECT_INDEX':
-        #        suffix = 'object_index' 
-        #    elif mask.type == 'EDGE_DETECT':
-        #        suffix = 'edge_detect' 
-        #    elif mask.type == 'COLOR_ID':
-        #        suffix = 'color' 
-        #    elif mask.type == 'BACKFACE':
-        #        suffix = 'backface' 
-        #    elif mask.type == 'MODIFIER':
-        #        suffix = 'modifier' 
-        #    else:
-        #        suffix = 'texture' 
-        #    if maskui.expand_source:
-        #        icon_value = lib.get_icon('uncollapsed_' + suffix)
-        #    else: icon_value = lib.get_icon('collapsed_' + suffix)
-        #    rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
-
-        if mask.type not in {'BACKFACE', 'MODIFIER'} or (mask.type == 'MODIFIER' and mask.modifier_type in {'CURVE', 'RAMP'}):
-            #icon = 'DOWNARROW_HLT' if maskui.expand_source else 'RIGHTARROW'
-            icon = get_collapse_arrow_icon(maskui.expand_source)
-            rrow.prop(maskui, 'expand_source', text='', emboss=False, icon=icon)
-        else:
-            rrow.label(text='', icon='BLANK1')
-
-        splits = split_layout(rrow, 0.3)
+        srow = split_layout(rrcol, 0.35, align=False)
+        rrow = srow.row(align=True)
 
         text_source = pgettext_iface('Source: ')
-        #if mask_image:
-        #    rrow.label(text=text_source + mask_image.name)
-        #else: rrow.label(text=text_source + mask.name)
-        splits.label(text=text_source)
+        if mask.type not in {'BACKFACE', 'MODIFIER'} or (mask.type == 'MODIFIER' and mask.modifier_type in {'CURVE', 'RAMP'}):
+            inbox_dropdown_button(rrow, maskui, 'expand_source', text_source)
+        else:
+            rrow.label(text='', icon='BLANK1')
+            rrow.label(text=text_source)
+
+        rrow = srow.row(align=True)
 
         #rrrow = rrow.row(align=True)
         #splits.alignment = 'RIGHT'
@@ -2950,7 +2810,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         else: 
             label = mask_type_labels[mask.type]
 
-        rrrow = splits.row(align=True)
+        rrrow = rrow.row(align=True)
         rrrow.context_pointer_set('mask', mask)
         #rrrow.label(text=label)
         rrrow.menu("NODE_MT_y_mask_type_menu", text=label) #, icon_value=icon_value)
@@ -2997,28 +2857,25 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
         # Vector row
         if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
-            rrow = rrcol.row(align=True)
 
-            #if maskui.expand_vector:
-            #    icon_value = lib.get_icon('uncollapsed_uv')
-            #else: icon_value = lib.get_icon('collapsed_uv')
-            #rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+            srow = split_layout(rrcol, 0.35, align=False)
+            srow.active = not mask.use_baked
+            rrow = srow.row(align=True)
+
+            label_text = 'Vector:'
             if mask.texcoord_type != 'Layer':
-                #icon = 'DOWNARROW_HLT' if maskui.expand_vector else 'RIGHTARROW'
-                icon = get_collapse_arrow_icon(maskui.expand_vector)
-                rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon=icon)
-            else: rrow.label(text='', icon='BLANK1')
-
-            splits = split_layout(rrow, 0.3)
-            splits.active = not mask.use_baked
+                inbox_dropdown_button(rrow, maskui, 'expand_vector', label_text)
+            else: 
+                rrow.label(text='', icon='BLANK1')
+                rrow.label(text=label_text)
 
             mask_src = get_mask_source(mask)
             texcoord = layer_tree.nodes.get(mask.texcoord)
 
-            splits.label(text='Vector:')
+            rrow = srow.row(align=True)
             if mask.texcoord_type == 'UV' and not maskui.expand_vector:
 
-                rrrow = split_layout(splits, 0.35, align=True)
+                rrrow = split_layout(rrow, 0.35, align=True)
                 rrrow.prop(mask, 'texcoord_type', text='')
                 if not maskui.expand_vector:
                     rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
@@ -3027,17 +2884,17 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 #rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
             elif mask.type == 'IMAGE' and mask.texcoord_type in {'Generated', 'Object'} and not maskui.expand_vector:
-                rrrow = split_layout(splits, 0.5, align=True)
+                rrrow = split_layout(rrow, 0.5, align=True)
 
                 rrrow.prop(mask, 'texcoord_type', text='')
                 rrrow.prop(mask_src, 'projection_blend', text='')
             elif mask.texcoord_type == 'Decal' and not maskui.expand_vector:
-                ssplit = split_layout(splits, 0.4, align=True)
+                ssplit = split_layout(rrow, 0.4, align=True)
                 if texcoord:
                     ssplit.prop(mask, 'texcoord_type', text='')
                     ssplit.prop(texcoord, 'object', text='')
             else:
-                splits.prop(mask, 'texcoord_type', text='')
+                rrow.prop(mask, 'texcoord_type', text='')
 
             if maskui.expand_vector and mask.texcoord_type != 'Layer':
                 rrow = rrcol.row(align=True)
