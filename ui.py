@@ -1476,8 +1476,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         suffix = 'vertex_color'
     else: suffix = 'texture'
 
-    split = split_layout(row, 0.4, align=False)
-    label_text = pgettext_iface('Layer') + ' '+ pgettext_iface('Source:')
+    split = split_layout(row, 0.45, align=False)
+    label_text = pgettext_iface('Layer') + ' Source:'
 
     rrow = split.row(align=True)
     if layer.type in {'BACKGROUND', 'GROUP'}:
@@ -1554,15 +1554,10 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 
     # Vector
     if is_layer_using_vector(layer):
-        row = layout.row(align=True)
+        row = layout.row(align=False)
 
-        #if lui.expand_vector:
-        #    icon_value = lib.get_icon('uncollapsed_uv')
-        #else: icon_value = lib.get_icon('collapsed_uv')
         icon_value = lib.get_icon('uv')
         rrow = row.row(align=True)
-        #rrow.prop(lui, 'expand_vector', text='Vector:', emboss=False, icon_value=icon_value)
-        #icon = 'DOWNARROW_HLT' if lui.expand_vector else 'RIGHTARROW'
         icon = get_collapse_arrow_icon(lui.expand_vector)
         label = 'Vector'
         if not lui.expand_vector: label += ':'
@@ -1572,9 +1567,6 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
             rrow.scale_x = 0.95
             rrow.prop(lui, 'expand_vector', text=label, emboss=False, icon_value=icon_value)
         else: rrow.label(text=label, icon_value=icon_value)
-
-        #else:
-        #    row.prop(lui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
         texcoord = layer_tree.nodes.get(layer.texcoord)
 
@@ -1780,15 +1772,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if not lui.expand_channels and len(enabled_channels) == 1:
             label += ':'
         
-        row = layout.row(align=True)
+        row = layout.row(align=False)
         rrow = row.row(align=True)
-        #if lui.expand_channels:
-        #    icon_value = lib.get_icon('uncollapsed_channels')
-        #else: icon_value = lib.get_icon('collapsed_channels')
         icon_value = lib.get_icon('channels')
-        #rrow.prop(lui, 'expand_channels', text=label, emboss=False, icon_value=icon_value)
-
-        #icon = 'DOWNARROW_HLT' if lui.expand_channels else 'RIGHTARROW'
         icon = get_collapse_arrow_icon(lui.expand_channels)
         rrow.prop(lui, 'expand_channels', text='', emboss=False, icon=icon)
         if is_bl_newer_than(2, 80):
