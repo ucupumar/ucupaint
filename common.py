@@ -1,4 +1,4 @@
-import bpy, os, sys, re, numpy, math, pathlib
+import bpy, os, sys, re, numpy, math, pathlib, string, random
 import bpy_extras.image_utils
 from mathutils import *
 from bpy.app.handlers import persistent
@@ -1714,12 +1714,18 @@ def set_default_value(node, input_name_or_index, value):
         debug_name = node.node_tree.name if node.type == 'GROUP' and node.node_tree else node.name
         print("WARNING: Input '" + str(input_name_or_index) + "' in '" + debug_name + "' is not found!")
 
+def id_generator(size=4, chars=string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(chars) for _ in range(size))
+
 def new_node(tree, entity, prop, node_id_name, label=''):
     ''' Create new node '''
     if not hasattr(entity, prop): return
     
     # Create new node
     node = tree.nodes.new(node_id_name)
+
+    # Add random chars to make sure the node is unique
+    node.name += ' ' + id_generator()
 
     # Set node name to object attribute
     setattr(entity, prop, node.name)
