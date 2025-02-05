@@ -1164,37 +1164,38 @@ def draw_root_channels_ui(context, layout, node):
             #    brow.label(text='', icon='BLANK1')
 
             if channel.type == 'NORMAL':
-                brow = bcol.row(align=True)
-
-                if is_bl_newer_than(2, 80):
-                    label_text='Smoother Bump:'
-                else: label_text='Smooth Bump:'
-
-                rrow = brow.row(align=True)
-                inbox_dropdown_button(rrow, chui, 'expand_smooth_bump_settings', label_text)
-
-                rrow = brow.row(align=True)
-                rrow.alignment = 'RIGHT'
-                if not yp.use_baked:
-                    brow.prop(channel, 'enable_smooth_bump', text='')
-                else: brow.label(text='', icon_value=lib.get_icon('texture'))
-
-                if chui.expand_smooth_bump_settings: # and channel.enable_smooth_bump:
+                if ypup.show_experimental or channel.enable_smooth_bump or not is_bl_newer_than(2, 80):
                     brow = bcol.row(align=True)
-                    brow.label(text='', icon='BLANK1')
-                    bbox = brow.box()
-                    bbcol = bbox.column() #align=True)
 
-                    if channel.enable_smooth_bump:
+                    if is_bl_newer_than(2, 80):
+                        label_text='Smoother Bump:'
+                    else: label_text='Smooth Bump:'
+
+                    rrow = brow.row(align=True)
+                    inbox_dropdown_button(rrow, chui, 'expand_smooth_bump_settings', label_text)
+
+                    rrow = brow.row(align=True)
+                    rrow.alignment = 'RIGHT'
+                    if not yp.use_baked:
+                        brow.prop(channel, 'enable_smooth_bump', text='')
+                    else: brow.label(text='', icon_value=lib.get_icon('texture'))
+
+                    if chui.expand_smooth_bump_settings: # and channel.enable_smooth_bump:
+                        brow = bcol.row(align=True)
+                        brow.label(text='', icon='BLANK1')
+                        bbox = brow.box()
+                        bbcol = bbox.column() #align=True)
+
+                        if channel.enable_smooth_bump:
+                            brow = bbcol.row(align=True)
+                            brow.label(text='Main UV:')
+                            #brow.label(text=channel.main_uv)
+                            #brow.prop(channel, 'main_uv', text='')
+                            brow.prop_search(channel, "main_uv", context.object.data, "uv_layers", text='', icon='GROUP_UVS')
+
                         brow = bbcol.row(align=True)
-                        brow.label(text='Main UV:')
-                        #brow.label(text=channel.main_uv)
-                        #brow.prop(channel, 'main_uv', text='')
-                        brow.prop_search(channel, "main_uv", context.object.data, "uv_layers", text='', icon='GROUP_UVS')
-
-                    brow = bbcol.row(align=True)
-                    brow.label(text='Backface Normal Up:')
-                    brow.prop(yp, 'enable_backface_always_up', text='')
+                        brow.label(text='Backface Normal Up:')
+                        brow.prop(yp, 'enable_backface_always_up', text='')
 
                 if channel.enable_smooth_bump:
                     brow = bcol.row(align=True)
