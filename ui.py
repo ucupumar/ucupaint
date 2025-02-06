@@ -817,7 +817,6 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         #    icon_name = 'uncollapsed_' + icon_name
         #else: icon_name = 'collapsed_' + icon_name
         icon_value = lib.get_icon(icon_name)
-        #icon = 'DOWNARROW_HLT' if getattr(btui, 'expand_' + letter) else 'RIGHTARROW'
         icon = get_collapse_arrow_icon(getattr(btui, 'expand_' + letter))
         row.prop(btui, 'expand_' + letter, text='', emboss=False, icon=icon)
         if is_bl_newer_than(2, 80):
@@ -897,7 +896,6 @@ def draw_bake_targets_ui(context, layout, node):
 
         row = col.row(align=True)
 
-        #icon = 'DOWNARROW_HLT' if btui.expand_content else 'RIGHTARROW'
         icon = get_collapse_arrow_icon(btui.expand_content)
 
         if is_bl_newer_than(2, 80):
@@ -1033,7 +1031,6 @@ def draw_root_channels_ui(context, layout, node):
         icon_value = lib.get_icon(icon_name)
         text=channel.name + ' ' + pgettext_iface('Channel')
 
-        #icon = 'DOWNARROW_HLT' if chui.expand_content else 'RIGHTARROW'
         icon = get_collapse_arrow_icon(chui.expand_content)
         rrow.prop(chui, 'expand_content', text='', emboss=False, icon=icon)
 
@@ -1099,16 +1096,20 @@ def draw_root_channels_ui(context, layout, node):
                     inp_alpha = node.inputs[channel.io_index+1]
                     inbox_dropdown_button(rrow, chui, 'expand_alpha_settings', 'Base Alpha:')
 
-                    rrow = brow.row(align=True)
+                    if is_bl_newer_than(2, 80):
+                        rrow = brow.row(align=True) # To make sure next row is aligned right
+                        rrow.alignment = 'RIGHT'
+
                     if len(node.inputs[channel.io_index+1].links)==0:
                         if not yp.use_baked:
-                            rrow.prop(inp_alpha, 'default_value', text='')
-                    else: rrow.label(text='', icon='LINKED')
+                            brow.prop(inp_alpha, 'default_value', text='')
+                    else: brow.label(text='', icon='LINKED')
                 else: 
                     inbox_dropdown_button(rrow, chui, 'expand_alpha_settings', 'Alpha:')
-                    rrow = brow.row(align=True)
 
-                rrow.alignment = 'RIGHT'
+                    if is_bl_newer_than(2, 80):
+                        rrow = brow.row(align=True) # To make sure next row is aligned right
+                        rrow.alignment = 'RIGHT'
 
                 if not yp.use_baked:
                     brow.prop(channel, 'enable_alpha', text='')
@@ -1185,8 +1186,10 @@ def draw_root_channels_ui(context, layout, node):
                     rrow = brow.row(align=True)
                     inbox_dropdown_button(rrow, chui, 'expand_smooth_bump_settings', label_text)
 
-                    rrow = brow.row(align=True)
-                    rrow.alignment = 'RIGHT'
+                    if is_bl_newer_than(2, 80):
+                        rrow = brow.row(align=True) # To make sure next row is aligned right
+                        rrow.alignment = 'RIGHT'
+
                     if not yp.use_baked:
                         brow.prop(channel, 'enable_smooth_bump', text='')
                     else: brow.label(text='', icon_value=lib.get_icon('texture'))
@@ -1250,8 +1253,10 @@ def draw_root_channels_ui(context, layout, node):
                     rrow = brow.row(align=True)
                     inbox_dropdown_button(rrow, chui, 'expand_parallax_settings', 'Parallax:')
 
-                    rrow = brow.row(align=True)
-                    rrow.alignment = 'RIGHT'
+                    if is_bl_newer_than(2, 80):
+                        rrow = brow.row(align=True) # To make sure next row is aligned right
+                        rrow.alignment = 'RIGHT'
+
                     if not chui.expand_parallax_settings and channel.enable_parallax:
                         rrow.prop(channel, 'baked_parallax_num_of_layers', text='')
                         brow.separator()
@@ -1287,10 +1292,12 @@ def draw_root_channels_ui(context, layout, node):
                 brow = bcol.row(align=True)
 
                 rrow = brow.row(align=True)
-                inbox_dropdown_button(rrow, chui, 'expand_subdiv_settings', 'Displacement Setup', scale_override=0.925)
+                inbox_dropdown_button(rrow, chui, 'expand_subdiv_settings', 'Displacement Setup:', scale_override=0.925)
 
-                rrow = brow.row(align=True)
-                rrow.alignment = 'RIGHT'
+                if is_bl_newer_than(2, 80):
+                    rrow = brow.row(align=True) # To make sure next row is aligned right
+                    rrow.alignment = 'RIGHT'
+
                 brow.prop(channel, 'enable_subdiv_setup', text='')
 
                 if chui.expand_subdiv_settings:
@@ -1353,8 +1360,8 @@ def draw_root_channels_ui(context, layout, node):
 
                     vcols = get_vertex_colors(context.object)
                     if yp.use_baked and channel.bake_to_vcol_name in vcols:
-                        label_text = 'Use Baked Vertex Color'
-                    else: label_text = 'Bake To Vertex Color'
+                        label_text = 'Use Baked Vertex Color:'
+                    else: label_text = 'Bake To Vertex Color:'
 
                     rrow = brow.row(align=True)
                     inbox_dropdown_button(rrow, chui, 'expand_bake_to_vcol_settings', label_text, scale_override=0.95)
@@ -1438,7 +1445,6 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         icon_value = lib.get_icon('texture')
         label += layer.name
 
-    #icon = 'DOWNARROW_HLT' if lui.expand_content else 'RIGHTARROW'
     icon = get_collapse_arrow_icon(lui.expand_content)
     rrow.prop(lui, 'expand_content', text='', emboss=False, icon=icon)
     if is_bl_newer_than(2, 80):
@@ -1883,7 +1889,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         #else: icon_name = 'collapsed_' + icon_name
         channel_icon_value = lib.get_icon(icon_name)
 
-        #icon = 'DOWNARROW_HLT' if chui.expand_content else 'RIGHTARROW'
         icon = get_collapse_arrow_icon(chui.expand_content)
         #rrow.prop(chui, 'expand_content', text=label, emboss=False, icon_value=channel_icon_value, translate=False)
         rrow.prop(chui, 'expand_content', text='', emboss=False, icon=icon)
@@ -2602,10 +2607,6 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
         icon_value = lib.get_icon('mask')
         if len(layer.masks) > 0:
-            #if lui.expand_masks:
-            #    icon_value = lib.get_icon('uncollapsed_mask')
-            #else: icon_value = lib.get_icon('collapsed_mask')
-            #icon = 'DOWNARROW_HLT' if lui.expand_masks else 'RIGHTARROW'
             icon = get_collapse_arrow_icon(lui.expand_masks)
             rrow.prop(lui, 'expand_masks', text='', emboss=False, icon=icon)
         else: 
@@ -2667,10 +2668,6 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         if is_bl_newer_than(2, 80):
             rrow.alignment = 'LEFT'
             rrow.scale_x = 0.95
-        #if maskui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_mask')
-        #else: icon_value = lib.get_icon('collapsed_mask')
-        #icon = 'DOWNARROW_HLT' if maskui.expand_content else 'RIGHTARROW'
         icon = get_collapse_arrow_icon(maskui.expand_content)
         rrow.prop(maskui, 'expand_content', text='', emboss=False, icon=icon)
 
