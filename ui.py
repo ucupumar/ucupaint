@@ -671,7 +671,7 @@ def draw_mask_modifier_stack(layer, mask, layout, ui):
             rrow.label(text='', icon_value=lib.get_icon('modifier'))
             rrow.label(text=m.name)
 
-        rrow = row.row(align=True) # To make sure the next row align right
+        if is_bl_newer_than(2, 80): rrow = row.row(align=True) # To make sure the next row align right
 
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('mask', mask)
@@ -745,7 +745,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
             rrow.label(text='', icon_value=lib.get_icon('modifier'))
             rrow.label(text=label)
 
-        rrow = row.row(align=True) # To make sure the next row align right
+        if is_bl_newer_than(2, 80): rrow = row.row(align=True) # To make sure the next row align right
         
         if not modui.expand_content:
 
