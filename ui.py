@@ -2136,7 +2136,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 rrow = brow.row(align=True)
                 inbox_dropdown_button(rrow, chui, 'expand_transition_bump_settings', 'Transition Bump:', scale_override=0.915)
 
-                rrow = brow.row(align=True) # To make sure the next row align right
+                if is_bl_newer_than(2, 80): rrow = brow.row(align=True) # To make sure the next row align right
                 brow.separator()
 
                 if ch.enable_transition_bump and not chui.expand_transition_bump_settings:
@@ -2262,8 +2262,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 else:
                     inbox_dropdown_button(rrow, chui, 'expand_transition_ramp_settings', label_text, scale_override=0.915)
 
-                rrow = row.row(align=True) # To make sure the next row align right
-                #rrow.alignment = 'RIGHT'
+                if is_bl_newer_than(2, 80): rrow = row.row(align=True) # To make sure the next row align right
                 row.separator()
 
                 if ch.enable_transition_ramp and not chui.expand_transition_ramp_settings:
@@ -2312,8 +2311,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 inbox_dropdown_button(rrow, chui, 'expand_transition_ao_settings', 'Transition AO:', scale_override=0.915)
 
-                rrow = row.row(align=True) # To make sure the next row align right
-                #rrow.alignment = 'RIGHT'
+                if is_bl_newer_than(2, 80): rrow = row.row(align=True) # To make sure the next row align right
                 row.separator()
 
                 if ch.enable_transition_ao and not chui.expand_transition_ao_settings:
