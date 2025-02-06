@@ -138,7 +138,7 @@ def get_collapse_arrow_icon(collapse=False):
 
     return 'DOWNARROW_HLT' if collapse else 'RIGHTARROW'
 
-def inbox_dropdown_button(row, item, prop, text, scale_override=0.0):
+def inbox_dropdown_button(row, item, prop, text, scale_override=0.0, icon_value=None):
     icon = get_collapse_arrow_icon(getattr(item, prop))
 
     if is_bl_newer_than(2, 80):
@@ -149,10 +149,14 @@ def inbox_dropdown_button(row, item, prop, text, scale_override=0.0):
         elif is_bl_newer_than(2, 83):
             row.scale_x = 0.95 #if scale_override == 0.0 else scale_override
 
-        row.prop(item, prop, emboss=False, text=text, icon=icon)
+        if icon_value != None:
+            row.prop(item, prop, emboss=False, text=text, icon_value=icon_value)
+        else: row.prop(item, prop, emboss=False, text=text, icon=icon)
 
     else:
-        row.prop(item, prop, emboss=False, text='', icon=icon)
+        if icon_value != None:
+            row.prop(item, prop, emboss=False, text='', icon_value=icon_value)
+        else: row.prop(item, prop, emboss=False, text='', icon=icon)
         row.label(text=text)
 
 def draw_bake_info(bake_info, layout, entity):
@@ -656,15 +660,18 @@ def draw_mask_modifier_stack(layer, mask, layout, ui):
 
         row = layout.row(align=True)
 
+        rrow = row.row(align=True)
+
         if can_be_expanded:
             if modui.expand_content:
                 icon_value = lib.get_icon('uncollapsed_modifier')
             else: icon_value = lib.get_icon('collapsed_modifier')
-            row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            inbox_dropdown_button(rrow, modui, 'expand_content', m.name, icon_value=icon_value)
         else:
-            row.label(text='', icon_value=lib.get_icon('modifier'))
+            rrow.label(text='', icon_value=lib.get_icon('modifier'))
+            rrow.label(text=m.name)
 
-        row.label(text=m.name)
+        rrow = row.row(align=True) # To make sure the next row align right
 
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('mask', mask)
@@ -713,14 +720,6 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         row = layout.row(align=True)
         row.active = layout_active
 
-        if can_be_expanded:
-            if modui.expand_content:
-                icon_value = lib.get_icon('uncollapsed_modifier')
-            else: icon_value = lib.get_icon('collapsed_modifier')
-            row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.label(text='', icon_value=lib.get_icon('modifier'))
-        
         label = m.name
 
         # If parent is layer channel
@@ -734,8 +733,20 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         #    method_name = [mt[1] for mt in math_method_items if mt[0] == m.math_meth][0]
         #    label += ' (' + method_name + ')'
 
-        row.label(text=label)
+        rrow = row.row(align=True)
 
+        if can_be_expanded:
+            if modui.expand_content:
+                icon_value = lib.get_icon('uncollapsed_modifier')
+            else: icon_value = lib.get_icon('collapsed_modifier')
+            #row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            inbox_dropdown_button(rrow, modui, 'expand_content', label, scale_override=0.95, icon_value=icon_value)
+        else:
+            rrow.label(text='', icon_value=lib.get_icon('modifier'))
+            rrow.label(text=label)
+
+        rrow = row.row(align=True) # To make sure the next row align right
+        
         if not modui.expand_content:
 
             if m.type == 'RGB_TO_INTENSITY':
@@ -2097,16 +2108,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     row.label(text='Flip Y/Z:') #, icon_value=lib.get_icon('input'))
                     draw_input_prop(row, ch, 'vdisp_enable_flip_yz')
 
-            # Write height
-            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump:
-                row = mcol.row(align=True)
-                row.label(text='', icon='BLANK1')
-                row.label(text='Write Height:')
-                row.prop(ch, 'write_height', text='')
-
-            #if ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
-            #    mcol.separator()
-
             if root_ch.enable_smooth_bump and image:
 
                 uv_neighbor = layer_tree.nodes.get(layer.uv_neighbor)
@@ -2126,13 +2127,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             if ch.show_transition_bump or ch.enable_transition_bump:
 
                 brow = mcol.row(align=True)
-                if chui.expand_transition_bump_settings:
-                    icon_value = lib.get_icon('uncollapsed_input')
-                else: icon_value = lib.get_icon('collapsed_input')
-                brow.prop(chui, 'expand_transition_bump_settings', text='', emboss=False, icon_value=icon_value)
-                #else:
-                #    brow.prop(chui, 'expand_transition_bump_settings', text='', emboss=True, icon='MOD_MASK')
-                brow.label(text='Transition Bump:')
+
+                rrow = brow.row(align=True)
+                inbox_dropdown_button(rrow, chui, 'expand_transition_bump_settings', 'Transition Bump:', scale_override=0.915)
+
+                rrow = brow.row(align=True) # To make sure the next row align right
+                brow.separator()
 
                 if ch.enable_transition_bump and not chui.expand_transition_bump_settings:
                     draw_input_prop(brow, ch, 'transition_bump_distance')
@@ -2231,6 +2231,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                     #row.label(text='', icon='BLANK1')
 
+            # Write height
+            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump:
+                row = mcol.row(align=True)
+                row.label(text='', icon='BLANK1')
+                row.label(text='Write Height:')
+                row.prop(ch, 'write_height', text='')
+
             extra_separator = True
 
         if root_ch.type in {'RGB', 'VALUE'}:
@@ -2241,14 +2248,19 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 row = mcol.row(align=True)
 
                 tr_ramp = layer_tree.nodes.get(ch.tr_ramp)
+                rrow = row.row(align=True)
+
+                label_text = 'Transition Ramp:'
                 if not tr_ramp:
-                    row.label(text='', icon_value=lib.get_icon('input'))
+                    rrow.label(text='', icon='BLANK1')
+                    rrow.label(text=label_text)
                 else:
-                    if chui.expand_transition_ramp_settings:
-                        icon_value = lib.get_icon('uncollapsed_input')
-                    else: icon_value = lib.get_icon('collapsed_input')
-                    row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=False, icon_value=icon_value)
-                row.label(text='Transition Ramp:')
+                    inbox_dropdown_button(rrow, chui, 'expand_transition_ramp_settings', label_text, scale_override=0.915)
+
+                rrow = row.row(align=True) # To make sure the next row align right
+                #rrow.alignment = 'RIGHT'
+                row.separator()
+
                 if ch.enable_transition_ramp and not chui.expand_transition_ramp_settings:
                     draw_input_prop(row, ch, 'transition_ramp_intensity_value')
 
@@ -2290,11 +2302,15 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 # Transition AO
                 row = mcol.row(align=True)
                 row.active = bump_ch_found #and layer.type != 'BACKGROUND'
-                if chui.expand_transition_ao_settings:
-                    icon_value = lib.get_icon('uncollapsed_input')
-                else: icon_value = lib.get_icon('collapsed_input')
-                row.prop(chui, 'expand_transition_ao_settings', text='', emboss=False, icon_value=icon_value)
-                row.label(text='Transition AO:')
+
+                rrow = row.row(align=True)
+
+                inbox_dropdown_button(rrow, chui, 'expand_transition_ao_settings', 'Transition AO:', scale_override=0.915)
+
+                rrow = row.row(align=True) # To make sure the next row align right
+                #rrow.alignment = 'RIGHT'
+                row.separator()
+
                 if ch.enable_transition_ao and not chui.expand_transition_ao_settings:
                     draw_input_prop(row, ch, 'transition_ao_intensity')
 
@@ -2336,7 +2352,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             if showed_bump_ch_found:
                 row = mcol.row(align=True)
                 row.active = bump_ch_found
-                row.label(text='', icon_value=lib.get_icon('input'))
+                row.label(text='', icon='BLANK1')
                 row.label(text='Transition Factor')
                 draw_input_prop(row, ch, 'transition_bump_fac')
 
