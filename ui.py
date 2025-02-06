@@ -3826,8 +3826,9 @@ def main_draw(self, context):
     if ypui.show_object:
         box = layout.box()
         col = box.column()
-        col.prop(obj, 'pass_index')
-        #row = box.row()
+        row = split_layout(col, 0.6)
+        row.label(text='Object Index:')
+        row.prop(obj, 'pass_index', text='')
 
     # HACK: Create split layout to load all icons (Only for Blender 3.2+)
     if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
