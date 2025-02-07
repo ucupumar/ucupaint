@@ -3490,7 +3490,7 @@ def draw_layers_ui(context, layout, node):
         rcol.separator()
         if is_bl_newer_than(2, 80):
             rcol.popover("NODE_PT_y_list_item_option_popover", text='', icon='OUTLINER')
-        else: rcol.menu("NODE_PT_y_list_item_option_menu", text='', icon='OUTLINER')
+        else: rcol.menu("NODE_PT_y_list_item_option_menu", text='', icon='OOPS')
 
     if layer:
         layer_tree = get_tree(layer)
