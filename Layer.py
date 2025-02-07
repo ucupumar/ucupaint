@@ -1798,8 +1798,6 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
             if image and image_1:
                 break
 
-        #print(images)
-
         if image:
             # Make sure override is on
             if not ch.override_1:
@@ -1811,7 +1809,6 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
                 image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
             else:
                 image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
-                #print(image_node, dirty)
 
             image_node.image = image
             ch.override_1_type = 'IMAGE'
@@ -4166,7 +4163,6 @@ class YReplaceLayerChannelOverride(bpy.types.Operator):
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
     def execute(self, context):
-        #print(context.parent)
         ch = context.parent
         ch.override_type = self.type
         ch.override = True
@@ -4194,7 +4190,6 @@ class YReplaceLayerChannelOverride1(bpy.types.Operator):
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
     def execute(self, context):
-        #print(context.parent)
         ch = context.parent
         ch.override_1_type = self.type
         ch.override_1 = True
@@ -4898,13 +4893,11 @@ class YDuplicateLayer(bpy.types.Operator):
         for i, idx in enumerate(created_ids):
             relevant_id = relevant_ids[i]
             yp.layers.move(idx, relevant_id)
-            print(idx, relevant_id)
 
         # Remap parent index
         for lay in yp.layers:
             if lay.name in parent_dict:
                 lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
-            #print(lay.name, yp.layers[lay.parent_idx].name)
 
         # Remap fcurves
         remap_layer_fcurves(yp, index_dict)
