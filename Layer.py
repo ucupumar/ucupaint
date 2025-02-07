@@ -4898,6 +4898,7 @@ class YDuplicateLayer(bpy.types.Operator):
         for i, idx in enumerate(created_ids):
             relevant_id = relevant_ids[i]
             yp.layers.move(idx, relevant_id)
+            print(idx, relevant_id)
 
         # Remap parent index
         for lay in yp.layers:
@@ -4919,7 +4920,7 @@ class YDuplicateLayer(bpy.types.Operator):
         yp.active_layer_index = yp.active_layer_index
 
         # Update list items
-        ListItem.refresh_list_items(yp, repoint_active=True)
+        ListItem.refresh_list_items(yp)
 
         print('INFO: Layer', source_layer_name, 'is duplicated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
