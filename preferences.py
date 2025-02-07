@@ -119,7 +119,7 @@ class YPaintPreferences(AddonPreferences):
     layer_list_mode : EnumProperty(
         name = 'Layer Lists Mode',
         items = (
-            ('DYNAMIC', "Dynamic (Experimental)", 'Dynamic layers list with dropdown support (Experimental)'),
+            ('DYNAMIC', "Dynamic", 'Dynamic layers list with dropdown support'),
             ('CLASSIC', "Classic", 'Classic layers list'),
             ('BOTH', "Dynamic & Classic (For Debugging)", 'Both Dynamic and Classic layers list for debugging'),
         ),

@@ -3486,9 +3486,11 @@ def draw_layers_ui(context, layout, node):
 
     rcol.menu("NODE_MT_y_layer_list_special_menu", text='', icon='DOWNARROW_HLT')
 
-    if is_bl_newer_than(2, 80) and any_subitem_exists(yp) and ypup.layer_list_mode != 'CLASSIC' :
+    if any_subitem_exists(yp) and ypup.layer_list_mode != 'CLASSIC' :
         rcol.separator()
-        rcol.popover("NODE_PT_y_list_item_option_popover", text='', icon='OUTLINER')
+        if is_bl_newer_than(2, 80):
+            rcol.popover("NODE_PT_y_list_item_option_popover", text='', icon='OUTLINER')
+        else: rcol.menu("NODE_PT_y_list_item_option_menu", text='', icon='OUTLINER')
 
     if layer:
         layer_tree = get_tree(layer)
@@ -5555,6 +5557,19 @@ class YLayerChannelBlendPopover(bpy.types.Panel):
         col.prop(ch, 'blend_type', text='')
         draw_input_prop(col, ch, 'intensity_value', text='')
 
+
+def draw_expandable_list_options(layout):
+    col = layout.column()
+    yp = get_active_ypaint_node().node_tree.yp
+
+    col.label(text='Layer List Options (Experimental)')
+    col.separator()
+    
+    col.prop(yp, 'enable_expandable_subitems')
+    row = col.row()
+    row.active =  yp.enable_expandable_subitems
+    row.prop(yp, 'enable_inline_subitems')
+
 class YListItemOptionPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_y_list_item_option_popover"
     bl_label = "List Item Popover"
@@ -5568,16 +5583,19 @@ class YListItemOptionPopover(bpy.types.Panel):
         return get_active_ypaint_node()
 
     def draw(self, context):
-        col = self.layout.column()
-        yp = get_active_ypaint_node().node_tree.yp
+        draw_expandable_list_options(self.layout)
 
-        col.label(text='Layer List Options (Experimental)')
-        col.separator()
-        
-        col.prop(yp, 'enable_expandable_subitems')
-        row = col.row()
-        row.active =  yp.enable_expandable_subitems
-        row.prop(yp, 'enable_inline_subitems')
+class YListItemOptionMenu(bpy.types.Menu):
+    bl_idname = "NODE_PT_y_list_item_option_menu"
+    bl_label = "List Item Menu"
+    bl_description = "List item menu"
+    
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_expandable_list_options(self.layout)
 
 class YLayerChannelNormalBlendPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_y_layer_channel_normal_blend_popover"
@@ -7448,7 +7466,11 @@ def register():
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.register_class(YPaintAboutMenu)
-    else: bpy.utils.register_class(YPaintAboutPopover)
+        bpy.utils.register_class(YListItemOptionMenu)
+    else: 
+        bpy.utils.register_class(YPaintAboutPopover)
+        bpy.utils.register_class(YListItemOptionPopover)
+
 
     bpy.utils.register_class(YPaintSpecialMenu)
     bpy.utils.register_class(YNewChannelMenu)
@@ -7458,7 +7480,6 @@ def register():
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YLayerChannelBlendMenu)
     bpy.utils.register_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.register_class(YListItemOptionPopover)
     bpy.utils.register_class(YLayerChannelBlendPopover)
     bpy.utils.register_class(YLayerChannelNormalBlendPopover)
     bpy.utils.register_class(YLayerChannelInputMenu)
@@ -7527,7 +7548,10 @@ def unregister():
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(YPaintAboutMenu)
-    else: bpy.utils.unregister_class(YPaintAboutPopover)
+        bpy.utils.unregister_class(YListItemOptionMenu)
+    else: 
+        bpy.utils.unregister_class(YPaintAboutPopover)
+        bpy.utils.unregister_class(YListItemOptionPopover)
 
     bpy.utils.unregister_class(YPaintSpecialMenu)
     bpy.utils.unregister_class(YNewChannelMenu)
@@ -7537,7 +7561,6 @@ def unregister():
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YLayerChannelBlendMenu)
     bpy.utils.unregister_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.unregister_class(YListItemOptionPopover)
     bpy.utils.unregister_class(YLayerChannelBlendPopover)
     bpy.utils.unregister_class(YLayerChannelNormalBlendPopover)
     bpy.utils.unregister_class(YLayerChannelInputMenu)
