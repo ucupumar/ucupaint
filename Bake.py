@@ -7,7 +7,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops
+from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem
 
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
@@ -2492,6 +2492,9 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             # Refresh index routine
             yp.active_layer_index = min(layer_idx, neighbor_idx)
+
+            # Update list items
+            ListItem.refresh_list_items(yp, repoint_active=True)
         else:
             self.report({'ERROR'}, "Merge failed for some reason!")
             return {'CANCELLED'}

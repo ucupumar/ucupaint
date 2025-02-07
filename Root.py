@@ -2240,6 +2240,9 @@ class YFixMissingData(bpy.types.Operator):
             reconnect_layer_nodes(layer)
             rearrange_layer_nodes(layer)
 
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
+
         return {'FINISHED'}
 
 class YRefreshTangentSignVcol(bpy.types.Operator):

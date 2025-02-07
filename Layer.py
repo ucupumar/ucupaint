@@ -3747,9 +3747,6 @@ def remove_layer(yp, index, remove_on_disk=False):
     # Delete the layer
     yp.layers.remove(index)
 
-    # Update list items
-    ListItem.refresh_list_items(yp, repoint_active=True)
-
 def draw_remove_group(self, context):
     col = self.layout.column()
 
@@ -3946,6 +3943,9 @@ class YRemoveLayer(bpy.types.Operator):
 
         # Refresh normal map
         yp.refresh_tree = True
+
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
 
         print('INFO: Layer', layer_name, 'is deleted in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
@@ -4918,6 +4918,9 @@ class YDuplicateLayer(bpy.types.Operator):
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
 
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
+
         print('INFO: Layer', source_layer_name, 'is duplicated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
@@ -5182,6 +5185,9 @@ class YPasteLayer(bpy.types.Operator):
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
+
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
 
         print('INFO: Layer(s) pasted in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
