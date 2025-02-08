@@ -258,8 +258,8 @@ def save_as_udim(image, filepath=''):
             bpy.ops.image.save_as(filepath=bpy.path.abspath(filepath), relative_path=True)
     else: bpy.ops.image.save_as(override, filepath=bpy.path.abspath(filepath), relative_path=True)
 
-def pack_udim(image):
-    # NOTE: Empty tiles can cause error with packing, so there's a need to remove them
+def remove_empty_tiles(image):
+    empties_removed = False
 
     # Check if there's empty tiles
     empty_numbers = []
@@ -273,16 +273,23 @@ def pack_udim(image):
         for number in empty_numbers:
             tile = image.tiles.get(number)
             if tile and tile.number == number:
-                image.tiles.active = tile
-                override = bpy.context.copy()
-                override['edit_image'] = image
-                if is_bl_newer_than(4):
-                    with bpy.context.temp_override(**override):
-                        bpy.ops.image.tile_remove()
-                else: bpy.ops.image.tile_remove(override)
+                image.tiles.remove(tile)
+
+        if len(image.tiles) > 0:
+            image.tiles.active = image.tiles[-1]
+
+        empties_removed = True
+
+    return empties_removed
+
+def pack_udim(image):
+
+    # NOTE: Empty tiles can cause error with packing, so there's a need to remove them
+    if remove_empty_tiles(image):
 
         # Save udim first before packing the image
-        save_udim(image)
+        if image.filepath != '':
+            save_udim(image)
 
     image.pack()
 

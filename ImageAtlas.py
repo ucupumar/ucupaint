@@ -548,6 +548,10 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
             # Get segment
             if image.source == 'TILED':
+
+                # Make sure image has filepath
+                if image.filepath == '': UDIM.initial_pack_udim(image)
+
                 objs = get_all_objects_with_same_materials(mat, True, valid_entities[0].uv_name)
                 tilenums = UDIM.get_tile_numbers(objs, valid_entities[0].uv_name)
                 new_segment = UDIM.get_set_udim_atlas_segment(tilenums, color=image.yui.base_color, colorspace=colorspace, hdr=image.is_float, yp=yp, source_image=image)

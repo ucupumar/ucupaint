@@ -169,21 +169,68 @@ def clean_object_references(image):
     for r in removed_references:
         print('Reference for', r, "is removed because it's no longer found!")
 
+def create_temp_scene():
+    print('INFO: Creating temporary scene for saving some images...')
+    tmpscene = bpy.data.scenes.new('Temp Save Scene')
+
+    try: tmpscene.view_settings.view_transform = 'Standard'
+    except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
+    try: tmpscene.render.image_settings.file_format = 'PNG'
+    except: print('EXCEPTIION: Cannot set file format on temporary save scene!')
+
+    return tmpscene
+
 def save_pack_all(yp):
 
     images = get_yp_images(yp, get_baked_channels=True, check_overlay_normal=True)
     packed_float_images = []
 
-    # Temporary scene for Blender 3.3 hack
+    # Temporary scene for some saving hack
     tmpscene = None
+    temp_udim_dir = UDIM.get_temp_udim_dir()
 
     # Save/pack images
     for image in images:
-        if not image or not image.is_dirty: continue
+        if not image: continue
+
+        # There's a need to check if there's empty tile to make sure the image will be packed correctly
+        # NOTE: There's actually no need to do this for Blender 4.1 onward,
+        # but empty tile will still be removed just in case it will cause unexpected problem
+        force_pack = False
+        if UDIM.is_udim_supported() and image.source == 'TILED' and UDIM.remove_empty_tiles(image) and UDIM.is_using_temp_dir(image):
+            force_pack = True
+
+        if not image.is_dirty and not force_pack: continue
         T = time.time()
-        if image.packed_file or image.filepath == '':
+
+        if image.packed_file or image.filepath == '' or force_pack:
             if is_bl_newer_than(2, 80):
+
+                # HACK: Some cases need images to be saved first before packing on Blender pre 4.1
+                temp_saved = False
+                if force_pack or (UDIM.is_udim_supported() and not is_bl_newer_than(4, 1) and image.source == 'TILED'):
+                    if not tmpscene: tmpscene = create_temp_scene()
+
+                    if image.filepath != '':
+                        path = bpy.path.abspath(image.filepath)
+                    else: path = bpy.path.abspath(UDIM.get_udim_filepath(image.name, temp_udim_dir))
+
+                    image.save_render(path, scene=tmpscene)
+
+                    # Set the filepath to the image
+                    image.filepath = path
+                    try: image.filepath = bpy.path.relpath(path)
+                    except: pass
+
+                    temp_saved = True
+                    
                 image.pack()
+
+                if temp_saved:
+                    # Remove file if they are using temporary directory
+                    if UDIM.is_using_temp_dir(image):
+                        UDIM.remove_udim_files_from_disk(image, temp_udim_dir, True)
+
             else:
                 if image.is_float:
                     pack_float_image(image)
@@ -200,13 +247,7 @@ def save_pack_all(yp):
                 if is_bl_newer_than(3, 3) and image.colorspace_settings.name in {'Linear', get_noncolor_name()}:
 
                     # Create temporary scene
-                    if not tmpscene:
-                        print('INFO: Creating temporary scene for saving some images...')
-                        tmpscene = bpy.data.scenes.new('Temp Save Scene')
-                        try: tmpscene.view_settings.view_transform = 'Standard'
-                        except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
-                        try: tmpscene.render.image_settings.file_format = 'PNG'
-                        except: print('EXCEPTIION: Cannot set file format on temporary save scene!')
+                    if not tmpscene: tmpscene = create_temp_scene()
 
                     # Get image path
                     path = bpy.path.abspath(image.filepath)
@@ -1173,6 +1214,10 @@ class YConvertImageBitDepth(bpy.types.Operator):
 
         # Create new image based on original image but with different bit depth
         if image.source == 'TILED':
+
+            # Make sure image has filepath
+            if image.filepath == '': UDIM.initial_pack_udim(image)
+
             tilenums = [tile.number for tile in image.tiles]
             new_image = bpy.data.images.new(
                 image.name, width=image.size[0], height=image.size[1], 
