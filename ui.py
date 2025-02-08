@@ -1813,7 +1813,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     draw_input_prop(rrow, ch, 'vdisp_strength')
                 else: draw_input_prop(rrow, ch, 'normal_strength')
             else: 
-                #rrow.scale_x = 1.2
+                rrow.scale_x = 1.25
                 rrow.prop(ch, 'blend_type', text='')
 
         if not lui.expand_channels:
