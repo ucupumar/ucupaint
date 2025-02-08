@@ -4145,6 +4145,10 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         reconnect_yp_nodes(layer.id_data)
         rearrange_yp_nodes(layer.id_data)
 
+    # Update UI
+    bpy.context.window_manager.ypui.need_update = True
+    layer.expand_source = layer.type not in {'IMAGE', 'VCOL'}
+
 class YReplaceLayerChannelOverride(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_channel_override"
     bl_label = "Replace Layer Channel Override"

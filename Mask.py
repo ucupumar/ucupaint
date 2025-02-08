@@ -448,6 +448,10 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     reconnect_yp_nodes(mask.id_data)
     rearrange_yp_nodes(mask.id_data)
 
+    # Update UI
+    bpy.context.window_manager.ypui.need_update = True
+    mask.expand_source = mask.type not in {'IMAGE', 'VCOL'}
+
 class YNewLayerMask(bpy.types.Operator):
     bl_idname = "node.y_new_layer_mask"
     bl_label = "New Layer Mask"
