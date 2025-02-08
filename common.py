@@ -2396,7 +2396,7 @@ def change_layer_name(yp, obj, src, layer, texes):
                 new_mask_name = mask.name.replace(old_layer_name, layer.name)
                 if mask.type == 'IMAGE':
                     msrc = get_mask_source(mask)
-                    if msrc.image: 
+                    if msrc.image and not msrc.image.yia.is_image_atlas and not msrc.image.yua.is_udim_atlas: 
                         msrc.image.name = '___TEMP___'
                         msrc.image.name = get_unique_name(new_mask_name, bpy.data.images) 
                 elif mask.type == 'VCOL':
