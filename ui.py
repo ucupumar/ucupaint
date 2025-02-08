@@ -4898,10 +4898,17 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     source = mask_tree.nodes.get(mask.source)
                     if source and source.image:
                         mask_image = source.image
-                        if ypup.use_image_preview and mask_image.preview: 
-                            #if not mask_image.preview: mask_image.preview_ensure()
-                            row.prop(mask_image, 'name', text='', emboss=False, icon_value=mask_image.preview.icon_id)
-                        else: row.prop(mask_image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
+                        if mask_image:
+                            if (mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas): 
+                                if ypup.use_image_preview and mask_image.preview: 
+                                    #if not mask_image.preview: mask_image.preview_ensure()
+                                    row.prop(mask, 'name', text='', emboss=False, icon_value=mask_image.preview.icon_id)
+                                else: row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
+                            else:
+                                if ypup.use_image_preview and mask_image.preview: 
+                                    #if not mask_image.preview: mask_image.preview_ensure()
+                                    row.prop(mask_image, 'name', text='', emboss=False, icon_value=mask_image.preview.icon_id)
+                                else: row.prop(mask_image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
                     else: row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('mask'))
                 elif mask.type == 'VCOL':
                     if mask.source_input in {'ALPHA', 'R', 'G', 'B'}:
