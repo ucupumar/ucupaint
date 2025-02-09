@@ -3039,7 +3039,7 @@ def draw_layers_ui(context, layout, node):
                 col.label(text=root_ch.name + " channel hasn't been baked yet!", icon_value=icon_value)
             else:
                 row = col.row(align=True)
-                title = 'Baked ' + root_ch.name + ':'
+                title = 'Baked ' + root_ch.name
                 row.label(text=title, icon_value=icon_value)
 
                 row.context_pointer_set('root_ch', root_ch)
