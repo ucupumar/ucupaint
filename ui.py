@@ -344,7 +344,9 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
 
 def draw_object_index_props(entity, layout):
     col = layout.column()
-    col.prop(entity, 'object_index')
+    row = split_layout(col, 0.6)
+    row.label(text='Object Index:')
+    row.prop(entity, 'object_index', text='')
 
 def draw_hemi_props(entity, source, layout):
     col = layout.column()
