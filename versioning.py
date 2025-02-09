@@ -732,6 +732,12 @@ def update_yp_tree(tree):
             if scene.yp.ori_use_compositing != scene.use_nodes:
                 scene.yp.ori_use_compositing = scene.use_nodes
 
+        # Collapse layer channel UI when there's no modifiers
+        for layer in yp.layers:
+            for ch in layer.channels:
+                if len(ch.modifiers) == 0:
+                    ch.expand_content = False
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
