@@ -1674,13 +1674,18 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                         mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
                         if layer.enable_uniform_scale:
                             mcol = rrow.column(align=True)
-                            mcol.label(text='Scale:')
+                            mrow = mcol.row()
+                            mrow.label(text='Scale:')
+                            mrow.prop(layer, 'enable_uniform_scale', text='', icon='LOCKED')
                             draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'X')
                             draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Y')
                             draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Z')
                         else:
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                            mcol = rrow.column(align=True)
+                            mrow = mcol.row()
+                            mrow.label(text='Scale:')
+                            mrow.prop(layer, 'enable_uniform_scale', text='', icon='UNLOCKED')
+                            mcol.prop(mapping.inputs[3], 'default_value', text='')
                     else:
                         mcol = rrow.column()
                         mcol.prop(mapping, 'translation')
@@ -1689,13 +1694,6 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                         mcol = rrow.column()
                         mcol.prop(mapping, 'scale')
                 
-                    # Uniform scale
-                    if is_bl_newer_than(2, 81):
-                        rrow = boxcol.row(align=True)
-                        splits = split_layout(rrow, 0.5)
-                        splits.label(text='Uniform Scale:')
-                        rrow.prop(layer, 'enable_uniform_scale', text='')
-
                     if yp.need_temp_uv_refresh:
                         rrow = boxcol.row(align=True)
                         rrow.alert = True
@@ -2955,13 +2953,18 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
                             if mask.enable_uniform_scale:
                                 mcol = rrow.column(align=True)
-                                mcol.label(text='Scale:')
+                                mrow = mcol.row()
+                                mrow.label(text='Scale:')
+                                mrow.prop(mask, 'enable_uniform_scale', text='', icon='LOCKED')
                                 draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'X')
                                 draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Y')
                                 draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Z')
                             else:
-                                mcol = rrow.column()
-                                mcol.prop(mapping.inputs[3], 'default_value', text='Scale')
+                                mcol = rrow.column(align=True)
+                                mrow = mcol.row()
+                                mrow.label(text='Scale:')
+                                mrow.prop(mask, 'enable_uniform_scale', text='', icon='UNLOCKED')
+                                mcol.prop(mapping.inputs[3], 'default_value', text='')
                         else:
                             mcol = rrow.column()
                             mcol.prop(mapping, 'translation')
@@ -2970,13 +2973,6 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             mcol = rrow.column()
                             mcol.prop(mapping, 'scale')
                     
-                        # Uniform scale
-                        if is_bl_newer_than(2, 81):
-                            rrow = boxcol.row(align=True)
-                            splits = split_layout(rrow, 0.5)
-                            splits.label(text='Uniform Scale:')
-                            rrow.prop(mask, 'enable_uniform_scale', text='')
-
                         if mask.type == 'IMAGE' and mask.active_edit and (
                                 yp.need_temp_uv_refresh
                                 ):
