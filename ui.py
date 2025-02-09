@@ -2067,6 +2067,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     # Midlevel
                     row = mcol.row(align=True)
                     row.label(text='', icon='BLANK1')
+                    row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
                     row.label(text='Midlevel:') 
                     draw_input_prop(row, ch, 'bump_midlevel')
 

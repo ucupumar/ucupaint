@@ -735,7 +735,7 @@ def update_yp_tree(tree):
         # Collapse layer channel UI when there's no modifiers
         for layer in yp.layers:
             for ch in layer.channels:
-                if len(ch.modifiers) == 0:
+                if len(ch.modifiers) == 0 and not ch.enable_transition_bump and not ch.enable_transition_ramp and not ch.enable_transition_ao:
                     ch.expand_content = False
 
     # SECTION II: Updates based on the blender version
