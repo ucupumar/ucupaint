@@ -402,6 +402,13 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     if mask.type == 'MODIFIER':
         mask.modifier_type = modifier_type
 
+    mapping = tree.nodes.get(mask.mapping)
+    if is_mapping_possible(new_type):
+        if not mapping:
+            mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
+    else:
+        remove_node(tree, mask, 'mapping')
+
     # Update mask name
     image = None
     if mask.type == 'IMAGE':
@@ -465,13 +472,6 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
 
     # Update group ios
     check_all_layer_channel_io_and_nodes(layer, tree)
-
-    mapping = tree.nodes.get(mask.mapping)
-    if is_mapping_possible(new_type):
-        if not mapping:
-            mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
-    else:
-        remove_node(tree, mask, 'mapping')
 
     # Update linear stuff
     #for i, ch in enumerate(mask.channels):
