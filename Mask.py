@@ -438,6 +438,10 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
         # Set active vertex color
         set_active_vertex_color_by_name(bpy.context.object, source.attribute_name)
 
+    elif mask.type == 'MODIFIER':
+        # Rename mask with modifier types
+        mask.name = get_unique_name(MaskModifier.mask_modifier_type_labels[mask.modifier_type], layer.masks)
+
     elif ori_type in {'IMAGE', 'VCOL'}:
         # Rename mask with texture types
         mask.name = get_unique_name(mask_type_labels[mask.type], layer.masks)

@@ -10,6 +10,12 @@ mask_modifier_type_items = (
     ('CURVE', 'Curve', '', 'MODIFIER', 2),
 )
 
+mask_modifier_type_labels = {
+    'INVERT' : 'Invert',
+    'RAMP' : 'Ramp',
+    'CURVE' : 'Curve',
+}
+
 can_be_expanded = {
     'RAMP',
     'CURVE',
