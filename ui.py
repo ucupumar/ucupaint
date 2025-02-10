@@ -1788,17 +1788,21 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 #label = root_ch.name
                 if root_ch.type == 'NORMAL' and ch.normal_map_type != 'NORMAL_MAP':
                     if ch.normal_map_type == 'BUMP_MAP':
-                        label += ' (Bump)'
-                        #label = 'Bump'
+                        if is_bl_newer_than(2, 80):
+                            label += ' (Bump)'
+                        else: label = 'Bump'
                     elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                        label += ' (Bump + Normal)'
-                        #label = 'Bump + Normal'
+                        if is_bl_newer_than(2, 80):
+                            label += ' (Bump + Normal)'
+                        else: label = 'Bump + Normal'
                     elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                        label += ' (VDM)'
-                        #label = 'VDM'
+                        if is_bl_newer_than(2, 80):
+                            label += ' (VDM)'
+                        else: label = 'VDM'
                 else:
-                    label += ' (' + root_ch.name + ')'
-                    #label = root_ch.name
+                    if is_bl_newer_than(2, 80):
+                        label += ' (' + root_ch.name + ')'
+                    else: label = root_ch.name
 
         else:
             label = pgettext_iface('Channels') + ' (' + str(len(enabled_channels)) + ')'
