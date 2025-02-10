@@ -402,6 +402,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     if mask.type == 'MODIFIER':
         mask.modifier_type = modifier_type
 
+    # Set up mapping
     mapping = tree.nodes.get(mask.mapping)
     if is_mapping_possible(new_type):
         if not mapping:
@@ -463,7 +464,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     #Modifier.check_modifiers_trees(mask)
 
     # Set default UV name when necessary
-    if mask.type not in {'COLOR_ID', 'VCOL', 'HEMI', 'BACKFACE', 'OBJECT_INDEX', 'MODIFIER', 'EDGE_DETECT'} and mask.uv_name == '':
+    if is_mapping_possible(mask.type) and mask.uv_name == '':
         obj = bpy.context.object
         if obj and obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             yp.halt_update = True
