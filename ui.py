@@ -1821,13 +1821,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             rrow = row.row(align=True)
             rrow.alignment = 'RIGHT'
             if root_ch.type == 'NORMAL':
-                rrow.prop(ch, 'normal_blend_type', text='')
-                #rrow.prop(ch, 'normal_map_type', text='')
+                splits = split_layout(rrow, 0.5, align=True)
+                splits.prop(ch, 'normal_blend_type', text='')
                 if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                    draw_input_prop(rrow, ch, 'bump_distance')
+                    draw_input_prop(splits, ch, 'bump_distance')
                 elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                    draw_input_prop(rrow, ch, 'vdisp_strength')
-                else: draw_input_prop(rrow, ch, 'normal_strength')
+                    draw_input_prop(splits, ch, 'vdisp_strength')
+                else: draw_input_prop(splits, ch, 'normal_strength')
             else: 
                 rrow.scale_x = 1.25
                 rrow.prop(ch, 'blend_type', text='')
