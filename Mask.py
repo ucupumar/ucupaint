@@ -451,6 +451,14 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     #    Modifier.enable_modifiers_tree(mask)
     #Modifier.check_modifiers_trees(mask)
 
+    # Set default UV name when necessary
+    if mask.type not in {'COLOR_ID', 'VCOL', 'HEMI', 'BACKFACE', 'OBJECT_INDEX', 'MODIFIER', 'EDGE_DETECT'} and mask.uv_name == '':
+        obj = bpy.context.object
+        if obj and obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
+            yp.halt_update = True
+            mask.uv_name = get_default_uv_name(obj, yp)
+            yp.halt_update = False
+
     # Update group ios
     check_all_layer_channel_io_and_nodes(layer, tree)
 
