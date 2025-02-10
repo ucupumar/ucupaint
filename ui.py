@@ -168,14 +168,24 @@ def draw_bake_info(bake_info, layout, entity):
         layout.label(text='List of Objects:')
         box = layout.box()
         bcol = box.column()
-        for oo in bi.other_objects:
+
+        if is_bl_newer_than(2, 79):
+            num_oos = len([oo for oo in bi.other_objects if oo.object])
+        else: num_oos = len(bi.other_objects)
+
+        if num_oos > 0:
+            for oo in bi.other_objects:
+                if is_bl_newer_than(2,79) and not oo.object: continue
+                brow = bcol.row()
+                brow.context_pointer_set('other_object', oo)
+                brow.context_pointer_set('bake_info', bi)
+                if is_bl_newer_than(2, 79):
+                    brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
+                else: brow.label(text=oo.object_name, icon_value=lib.get_icon('object_index'))
+                brow.operator('node.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
+        else:
             brow = bcol.row()
-            brow.context_pointer_set('other_object', oo)
-            brow.context_pointer_set('bake_info', bi)
-            if is_bl_newer_than(2, 79):
-                brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
-            else: brow.label(text=oo.object_name, icon_value=lib.get_icon('object_index'))
-            brow.operator('node.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
+            brow.label(text='No source objects found!', icon='ERROR')
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
