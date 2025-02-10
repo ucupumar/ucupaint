@@ -4087,25 +4087,27 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     check_uv_nodes(yp)
 
     # Update layer name
+    image = None
     if layer.type == 'IMAGE':
         # Rename layer with image name
         source = get_layer_source(layer)
         if source and source.image:
+            image = source.image
             yp.halt_update = True
-            if source.image.yia.is_image_atlas or source.image.yua.is_udim_atlas:
+            if image.yia.is_image_atlas or image.yua.is_udim_atlas:
                 mat = get_active_material()
                 new_name = mat.name if mat else 'Image'
                 new_name += DEFAULT_NEW_IMG_SUFFIX
 
                 # Set back the mapping
-                if source.image.yia.is_image_atlas:
-                    segment = source.image.yia.segments.get(layer.segment_name)
-                    ImageAtlas.set_segment_mapping(layer, segment, source.image)
+                if image.yia.is_image_atlas:
+                    segment = image.yia.segments.get(layer.segment_name)
+                    ImageAtlas.set_segment_mapping(layer, segment, image)
                 else:
-                    segment = source.image.yua.segments.get(layer.segment_name)
-                    UDIM.set_udim_segment_mapping(layer, segment, source.image)
+                    segment = image.yua.segments.get(layer.segment_name)
+                    UDIM.set_udim_segment_mapping(layer, segment, image)
 
-            else: new_name = source.image.name
+            else: new_name = image.name
             layer.name = get_unique_name(new_name, yp.layers)
             yp.halt_update = False
 
@@ -4147,7 +4149,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Update UI
     bpy.context.window_manager.ypui.need_update = True
-    layer.expand_source = layer.type not in {'IMAGE', 'VCOL'}
+    layer.expand_source = layer.type not in {'IMAGE', 'VCOL'} or (image != None and image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel)
 
 class YReplaceLayerChannelOverride(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_channel_override"

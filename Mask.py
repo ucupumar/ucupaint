@@ -292,12 +292,23 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', mask.path_from_id())
     layer = yp.layers[int(match.group(1))]
 
-    # Remove segment if original mask using image atlas
+    # Check if mask is using image atlas
     if mask.type == 'IMAGE' and mask.segment_name != '':
-        src = get_mask_source(mask)
-        segment = src.image.yia.segments.get(mask.segment_name)
-        segment.unused = True
-        mask.segment_name = ''
+
+        # Replace to non atlas image will remove the segment
+        if new_type == 'IMAGE':
+            src = get_mask_source(mask)
+            if src.image.yia.is_image_atlas:
+                segment = src.image.yia.segments.get(mask.segment_name)
+                segment.unused = True
+            elif src.image.yua.is_udim_atlas:
+                UDIM.remove_udim_atlas_segment_by_name(src.image, mask.segment_name, yp=yp)
+
+            # Set segment name to empty
+            mask.segment_name = ''
+
+        # Reset mapping
+        clear_mapping(mask)
 
     # Save hemi vector
     if mask.type == 'HEMI':
@@ -341,7 +352,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
 
     # Try to get available cache
     cache = None
-    if is_mask_type_cacheable(new_type, modifier_type):
+    if is_mask_type_cacheable(new_type, modifier_type) and mask.type != new_type:
         cache = tree.nodes.get(getattr(mask, get_mask_cache_name(new_type, modifier_type)))
 
     if cache:
@@ -390,6 +401,50 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     # Change mask modifier type
     if mask.type == 'MODIFIER':
         mask.modifier_type = modifier_type
+
+    # Update mask name
+    image = None
+    if mask.type == 'IMAGE':
+        # Rename mask with image name
+        source = get_mask_source(mask)
+        if source and source.image:
+            image = source.image
+            yp.halt_update = True
+            if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+                new_name = 'Mask (' + layer.name + ')'
+
+                # Set back the mapping
+                if image.yia.is_image_atlas:
+                    segment = image.yia.segments.get(mask.segment_name)
+                    ImageAtlas.set_segment_mapping(mask, segment, image)
+                else:
+                    segment = image.yua.segments.get(mask.segment_name)
+                    UDIM.set_udim_segment_mapping(mask, segment, image)
+
+            else: new_name = image.name
+            mask.name = get_unique_name(new_name, layer.masks)
+            yp.halt_update = False
+
+            # Set interpolation to Cubic if normal/height channel is found
+            height_ch = get_height_channel(mask)
+            if height_ch and height_ch.enable:
+                source.interpolation = 'Cubic'
+
+    elif mask.type == 'VCOL':
+        # Rename mask with vcol name
+        source = get_mask_source(mask)
+        if source: mask.name = get_unique_name(source.attribute_name, layer.masks)
+
+        # Set active vertex color
+        set_active_vertex_color_by_name(bpy.context.object, source.attribute_name)
+
+    elif ori_type in {'IMAGE', 'VCOL'}:
+        # Rename mask with texture types
+        mask.name = get_unique_name(mask_type_labels[mask.type], layer.masks)
+
+    elif mask_type_labels[ori_type] in mask.name:  
+        # Rename texture types with another texture types
+        mask.name = get_unique_name(mask.name.replace(mask_type_labels[ori_type], mask_type_labels[mask.type]), layer.masks)
 
     # Enable modifiers tree if generated texture is used
     #if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
@@ -450,7 +505,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
 
     # Update UI
     bpy.context.window_manager.ypui.need_update = True
-    mask.expand_source = mask.type not in {'IMAGE'}
+    mask.expand_source = mask.type not in {'IMAGE'} or (image != None and image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel)
 
 class YNewLayerMask(bpy.types.Operator):
     bl_idname = "node.y_new_layer_mask"

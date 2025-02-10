@@ -164,14 +164,15 @@ def draw_bake_info(bake_info, layout, entity):
     yp = entity.id_data.yp
     bi = bake_info
 
-    if len(bi.other_objects) > 0:
-        layout.label(text='List of Objects:')
-        box = layout.box()
-        bcol = box.column()
+    if bi.bake_type.startswith('OTHER_OBJECT_'):
 
         if is_bl_newer_than(2, 79):
             num_oos = len([oo for oo in bi.other_objects if oo.object])
         else: num_oos = len(bi.other_objects)
+
+        layout.label(text='List of Objects:')
+        box = layout.box()
+        bcol = box.column()
 
         if num_oos > 0:
             for oo in bi.other_objects:
