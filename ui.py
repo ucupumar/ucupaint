@@ -1621,88 +1621,105 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
             row.label(text='', icon='BLANK1')
             bbox = row.box()
             boxcol = bbox.column()
-            if image and (image.yia.is_image_atlas or image.yua.is_udim_atlas):
-                #boxcol.label(text="Transform vector with image atlas is not possible!")
-                pass
-            else:
-                rrow = boxcol.row()
-                rrow.label(text='Coordinate:')
-                rrow.prop(layer, 'texcoord_type', text='')
 
-                if layer.texcoord_type == 'UV':
+            rrow = boxcol.row(align=True)
+            rrow.label(text='', icon='BLANK1')
+            rrow.label(text='Coordinate:')
+            rrow.prop(layer, 'texcoord_type', text='')
+
+            is_using_image_atlas = image and (image.yia.is_image_atlas or image.yua.is_udim_atlas)
+
+            if layer.texcoord_type == 'UV':
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                rrow.label(text='UV Map:')
+                rrrow = rrow.row(align=True)
+                rrrow.scale_x = 1.2
+                rrrow.prop_search(layer, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
+
+            if layer.type == 'IMAGE' and layer.texcoord_type in {'Generated', 'Object'}:
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                splits = split_layout(rrow, 0.5, align=True)
+                splits.label(text='Projection Blend:')
+                splits.prop(layer, 'projection_blend', text='')
+
+            if layer.texcoord_type == 'Decal':
+
+                if texcoord:
                     rrow = boxcol.row(align=True)
-                    rrow.label(text='UV Map:')
-                    rrrow = rrow.row(align=True)
-                    rrrow.scale_x = 1.2
-                    rrrow.prop_search(layer, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                    rrow.label(text='', icon='BLANK1')
+                    splits = split_layout(rrow, 0.45, align=True)
+                    splits.label(text='Decal Object:')
+                    splits.prop(texcoord, 'object', text='')
 
-                    icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-                    rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                splits = split_layout(rrow, 0.5, align=True)
+                splits.label(text='Decal Distance:')
+                draw_input_prop(splits, layer, 'decal_distance_value')
 
-                if layer.type == 'IMAGE' and layer.texcoord_type in {'Generated', 'Object'}:
-                    splits = split_layout(boxcol, 0.5, align=True)
-                    splits.label(text='Projection Blend:')
-                    splits.prop(layer, 'projection_blend', text='')
+                boxcol.context_pointer_set('entity', layer)
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                if is_bl_newer_than(2, 80):
+                    rrow.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                else: rrow.operator('node.y_select_decal_object', icon='EMPTY_DATA')
 
-                if layer.texcoord_type == 'Decal':
-
-                    if texcoord:
-                        splits = split_layout(boxcol, 0.45, align=True)
-                        splits.label(text='Decal Object:')
-                        splits.prop(texcoord, 'object', text='')
-
-                    splits = split_layout(boxcol, 0.5, align=True)
-                    splits.label(text='Decal Distance:')
-                    draw_input_prop(splits, layer, 'decal_distance_value')
-
-                    boxcol.context_pointer_set('entity', layer)
-                    if is_bl_newer_than(2, 80):
-                        boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
-                    else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
-                    boxcol.operator('node.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
-                    
-                if layer.texcoord_type != 'Decal':
-                    mapping = get_layer_mapping(layer)
-
-                    rrow = boxcol.row()
-                    rrow.label(text='Transform:')
-                    rrow.prop(mapping, 'vector_type', text='')
-
-                    rrow = boxcol.row()
-                    if is_bl_newer_than(2, 81):
-                        mcol = rrow.column()
-                        mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
-                        mcol = rrow.column()
-                        mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                        if layer.enable_uniform_scale:
-                            mcol = rrow.column(align=True)
-                            mrow = mcol.row()
-                            mrow.label(text='Scale:')
-                            mrow.prop(layer, 'enable_uniform_scale', text='', icon='LOCKED')
-                            draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'X')
-                            draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Y')
-                            draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Z')
-                        else:
-                            mcol = rrow.column(align=True)
-                            mrow = mcol.row()
-                            mrow.label(text='Scale:')
-                            mrow.prop(layer, 'enable_uniform_scale', text='', icon='UNLOCKED')
-                            mcol.prop(mapping.inputs[3], 'default_value', text='')
-                    else:
-                        mcol = rrow.column()
-                        mcol.prop(mapping, 'translation')
-                        mcol = rrow.column()
-                        mcol.prop(mapping, 'rotation')
-                        mcol = rrow.column()
-                        mcol.prop(mapping, 'scale')
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                rrow.operator('node.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
                 
-                    if yp.need_temp_uv_refresh:
-                        rrow = boxcol.row(align=True)
-                        rrow.alert = True
-                        rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+            if layer.texcoord_type != 'Decal' and not is_using_image_atlas:
+                mapping = get_layer_mapping(layer)
+
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                rrow.label(text='Transform:')
+                rrow.prop(mapping, 'vector_type', text='')
+
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                rrow = rrow.row()
+                if is_bl_newer_than(2, 81):
+                    mcol = rrow.column()
+                    mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
+                    mcol = rrow.column()
+                    mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
+                    if layer.enable_uniform_scale:
+                        mcol = rrow.column(align=True)
+                        mrow = mcol.row()
+                        mrow.label(text='Scale:')
+                        mrow.prop(layer, 'enable_uniform_scale', text='', icon='LOCKED')
+                        draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'X')
+                        draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Y')
+                        draw_input_prop(mcol, layer, 'uniform_scale_value', None, 'Z')
+                    else:
+                        mcol = rrow.column(align=True)
+                        mrow = mcol.row()
+                        mrow.label(text='Scale:')
+                        mrow.prop(layer, 'enable_uniform_scale', text='', icon='UNLOCKED')
+                        mcol.prop(mapping.inputs[3], 'default_value', text='')
+                else:
+                    mcol = rrow.column()
+                    mcol.prop(mapping, 'translation')
+                    mcol = rrow.column()
+                    mcol.prop(mapping, 'rotation')
+                    mcol = rrow.column()
+                    mcol.prop(mapping, 'scale')
+            
+                if yp.need_temp_uv_refresh:
+                    rrow = boxcol.row(align=True)
+                    rrow.label(text='', icon='BLANK1')
+                    rrow.alert = True
+                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
             # Blur row
             rrow = boxcol.row(align=True)
+            rrow.label(text='', icon='BLANK1')
             splits = split_layout(rrow, 0.5)
             splits.label(text='Blur:')
             if layer.enable_blur_vector:
@@ -1779,7 +1796,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
                         label += ' (VDM)'
                         #label = 'VDM'
-                    #label += ' (' + root_ch.name + ')'
                 else:
                     label += ' (' + root_ch.name + ')'
                     #label = root_ch.name
@@ -2903,84 +2919,80 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 boxcol = rrow.column()
                 boxcol.active = not mask.use_baked
 
-                #if mask.texcoord_type == 'Layer':
-                #    boxcol.label(text="Mask is using layer vector", icon='INFO')
-                if mask_image and (mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas):
-                    #boxcol.label(text="Transform vector with image atlas is not possible!")
-                    pass
-                else:
-                    if mask.type == 'IMAGE' and mask.texcoord_type in {'Generated', 'Object'}:
-                        splits = split_layout(boxcol, 0.5, align=True)
-                        splits.label(text='Projection Blend:')
-                        splits.prop(mask_src, 'projection_blend', text='')
+                is_using_image_atlas = mask_image and (mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas)
 
-                    if mask.texcoord_type == 'UV':
-                        rrow = boxcol.row(align=True)
-                        rrow.label(text='UV Map:')
-                        rrrow = rrow.row(align=True)
-                        rrrow.scale_x = 1.2
-                        rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                if mask.type == 'IMAGE' and mask.texcoord_type in {'Generated', 'Object'}:
+                    splits = split_layout(boxcol, 0.5, align=True)
+                    splits.label(text='Projection Blend:')
+                    splits.prop(mask_src, 'projection_blend', text='')
 
-                        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-                        rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
+                if mask.texcoord_type == 'UV':
+                    rrow = boxcol.row(align=True)
+                    rrow.label(text='UV Map:')
+                    rrrow = rrow.row(align=True)
+                    rrrow.scale_x = 1.2
+                    rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
-                    if mask.texcoord_type == 'Decal':
-                        if texcoord:
-                            splits = split_layout(boxcol, 0.45, align=True)
-                            splits.label(text='Decal Object:')
-                            splits.prop(texcoord, 'object', text='')
+                    icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                    rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
 
-                        splits = split_layout(boxcol, 0.5, align=True)
-                        splits.label(text='Decal Distance:')
-                        draw_input_prop(splits, mask, 'decal_distance_value')
+                if mask.texcoord_type == 'Decal':
+                    if texcoord:
+                        splits = split_layout(boxcol, 0.45, align=True)
+                        splits.label(text='Decal Object:')
+                        splits.prop(texcoord, 'object', text='')
 
-                        boxcol.context_pointer_set('entity', mask)
-                        if is_bl_newer_than(2, 80):
-                            boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
-                        else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
-                        boxcol.operator('node.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
+                    splits = split_layout(boxcol, 0.5, align=True)
+                    splits.label(text='Decal Distance:')
+                    draw_input_prop(splits, mask, 'decal_distance_value')
 
-                    if mask.texcoord_type != 'Decal':
-                        mapping = get_mask_mapping(mask)
+                    boxcol.context_pointer_set('entity', mask)
+                    if is_bl_newer_than(2, 80):
+                        boxcol.operator('node.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                    else: boxcol.operator('node.y_select_decal_object', icon='EMPTY_DATA')
+                    boxcol.operator('node.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
 
-                        rrow = boxcol.row()
-                        rrow.label(text='Transform:')
-                        rrow.prop(mapping, 'vector_type', text='')
+                if mask.texcoord_type != 'Decal' and not is_using_image_atlas:
+                    mapping = get_mask_mapping(mask)
 
-                        rrow = boxcol.row()
-                        if is_bl_newer_than(2, 81):
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
-                            mcol = rrow.column()
-                            mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
-                            if mask.enable_uniform_scale:
-                                mcol = rrow.column(align=True)
-                                mrow = mcol.row()
-                                mrow.label(text='Scale:')
-                                mrow.prop(mask, 'enable_uniform_scale', text='', icon='LOCKED')
-                                draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'X')
-                                draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Y')
-                                draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Z')
-                            else:
-                                mcol = rrow.column(align=True)
-                                mrow = mcol.row()
-                                mrow.label(text='Scale:')
-                                mrow.prop(mask, 'enable_uniform_scale', text='', icon='UNLOCKED')
-                                mcol.prop(mapping.inputs[3], 'default_value', text='')
+                    rrow = boxcol.row()
+                    rrow.label(text='Transform:')
+                    rrow.prop(mapping, 'vector_type', text='')
+
+                    rrow = boxcol.row()
+                    if is_bl_newer_than(2, 81):
+                        mcol = rrow.column()
+                        mcol.prop(mapping.inputs[1], 'default_value', text='Offset')
+                        mcol = rrow.column()
+                        mcol.prop(mapping.inputs[2], 'default_value', text='Rotation')
+                        if mask.enable_uniform_scale:
+                            mcol = rrow.column(align=True)
+                            mrow = mcol.row()
+                            mrow.label(text='Scale:')
+                            mrow.prop(mask, 'enable_uniform_scale', text='', icon='LOCKED')
+                            draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'X')
+                            draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Y')
+                            draw_input_prop(mcol, mask, 'uniform_scale_value', None, 'Z')
                         else:
-                            mcol = rrow.column()
-                            mcol.prop(mapping, 'translation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping, 'rotation')
-                            mcol = rrow.column()
-                            mcol.prop(mapping, 'scale')
-                    
-                        if mask.type == 'IMAGE' and mask.active_edit and (
-                                yp.need_temp_uv_refresh
-                                ):
-                            rrow = boxcol.row(align=True)
-                            rrow.alert = True
-                            rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+                            mcol = rrow.column(align=True)
+                            mrow = mcol.row()
+                            mrow.label(text='Scale:')
+                            mrow.prop(mask, 'enable_uniform_scale', text='', icon='UNLOCKED')
+                            mcol.prop(mapping.inputs[3], 'default_value', text='')
+                    else:
+                        mcol = rrow.column()
+                        mcol.prop(mapping, 'translation')
+                        mcol = rrow.column()
+                        mcol.prop(mapping, 'rotation')
+                        mcol = rrow.column()
+                        mcol.prop(mapping, 'scale')
+                
+                    if mask.type == 'IMAGE' and mask.active_edit and (
+                            yp.need_temp_uv_refresh
+                            ):
+                        rrow = boxcol.row(align=True)
+                        rrow.alert = True
+                        rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
             
                 # Blur row
                 if mask.texcoord_type != 'Layer':
