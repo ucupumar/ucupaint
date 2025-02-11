@@ -1,5 +1,6 @@
-import bpy, bmesh, numpy, time
+import bpy, bmesh, numpy, time, os
 from mathutils import *
+from pathlib import Path
 from bpy.props import *
 from .common import *
 
@@ -26,6 +27,98 @@ class YSetActiveVcol(bpy.types.Operator):
 
         self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
         return {'CANCELLED'}
+
+def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
+
+    wmyp = bpy.context.window_manager.ypprops
+
+    # Check asset brush caches first
+    bac = wmyp.brush_asset_caches.get(brush_name)
+    if bac:
+        blend_path = bac.blend_path
+        if blend_path != '': blend_path + os.sep
+        try:
+            bpy.ops.brush.asset_activate(
+                asset_library_type = bac.library_type, 
+                asset_library_identifier = bac.library_name, 
+                relative_asset_identifier = blend_path + "Brush\\" + brush_name
+            )
+            return
+        except Exception as e: print(e) 
+
+    # Try local
+    try:
+        bpy.ops.brush.asset_activate(
+            asset_library_type = 'LOCAL', 
+            asset_library_identifier = "", 
+            relative_asset_identifier = 'Brush\\' + brush_name
+        )
+
+        # Set up the cache for faster loading next time
+        bac = wmyp.brush_asset_caches.add()
+        bac.name = brush_name
+        bac.library_type = 'LOCAL'
+        bac.library_name = ''
+        bac.blend_path = ''
+
+        return
+    except Exception as e: print(e) 
+
+    # Try essential
+    if mode == 'TEXTURE_PAINT': mode_type = 'texture'
+    elif mode == 'VERTEX_PAINT': mode_type = 'vertex'
+    elif mode == 'SCULPT': mode_type = 'sculpt'
+    try:
+        asset_identifier = "brushes\\essentials_brushes-mesh_" + mode_type + ".blend"
+        bpy.ops.brush.asset_activate(
+            asset_library_type = 'ESSENTIALS', 
+            asset_library_identifier = "", 
+            relative_asset_identifier = asset_identifier + "\\Brush\\" + brush_name
+        )
+
+        # Set up the cache for faster loading next time
+        bac = wmyp.brush_asset_caches.add()
+        bac.name = brush_name
+        bac.library_type = 'ESSENTIALS'
+        bac.library_name = ''
+        bac.blend_path = asset_identifier
+
+        return
+    except Exception as e: print(e) 
+
+    # Try other libraries
+
+    # NOTE: This is insanely slow since it scans all asset library blend files for a single brush
+    # but I dunno any other way :(
+    prefs = bpy.context.preferences
+    filepaths = prefs.filepaths
+    asset_libraries = filepaths.asset_libraries
+
+    for asset_library in asset_libraries:
+        library_name = asset_library.name
+        library_path = Path(asset_library.path)
+        blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
+        #print('INFO: Checking library', library_name, 'for brushes')
+        for blend_file in blend_files:
+            with bpy.data.libraries.load(str(blend_file), assets_only=True) as (file_contents, _):
+                if brush_name in file_contents.brushes:
+                    blend_path = str(blend_file).replace(str(library_path) + os.sep, '')
+                    try:
+                        bpy.ops.brush.asset_activate(
+                            asset_library_type = 'CUSTOM', 
+                            asset_library_identifier = library_name, 
+                            relative_asset_identifier = blend_path + "\\Brush\\" + brush_name
+                        )
+
+                        # Set up the cache for faster loading next time
+                        bac = wmyp.brush_asset_caches.add()
+                        bac.name = brush_name
+                        bac.library_type = 'CUSTOM'
+                        bac.library_name = library_name
+                        bac.blend_path = blend_path
+
+                        return
+                    except Exception as e: print(e) 
 
 class YToggleEraser(bpy.types.Operator):
     bl_idname = "paint.y_toggle_eraser"
@@ -84,6 +177,14 @@ class YToggleEraser(bpy.types.Operator):
                 eraser_brush = bpy.data.brushes.new(eraser_name, mode=mode)
             eraser_brush.blend = 'ERASE_ALPHA'
 
+        # Mark eraser brush as asset for Blender 4.3+
+        if is_bl_newer_than(4, 3) and not eraser_brush.asset_data:
+            eraser_brush.asset_mark()
+
+            filepath = get_addon_filepath() + os.sep + 'asset_icons' + os.sep + 'eraser.png'
+            with bpy.context.temp_override(id=eraser_brush):
+                bpy.ops.ed.lib_id_load_custom_preview(filepath=filepath)
+
         if brush == eraser_brush:
 
             if mode == 'VERTEX_PAINT':
@@ -134,15 +235,17 @@ class YToggleEraser(bpy.types.Operator):
             new_brush = eraser_brush
 
         if new_brush:
+            if is_bl_newer_than(4, 3):
+                set_brush_asset(new_brush.name, mode)
+            else:
+                if mode == 'TEXTURE_PAINT':
+                    context.tool_settings.image_paint.brush = new_brush
 
-            if mode == 'TEXTURE_PAINT':
-                context.tool_settings.image_paint.brush = new_brush
+                elif mode == 'VERTEX_PAINT': 
+                    context.tool_settings.vertex_paint.brush = new_brush
 
-            elif mode == 'VERTEX_PAINT': 
-                context.tool_settings.vertex_paint.brush = new_brush
-
-            elif mode == 'SCULPT': 
-                context.tool_settings.sculpt.brush = new_brush
+                elif mode == 'SCULPT': 
+                    context.tool_settings.sculpt.brush = new_brush
 
         return {'FINISHED'}
 
