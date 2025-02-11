@@ -2706,6 +2706,9 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             rrow.prop(maskui, 'expand_content', text=label_text, emboss=False, icon_value=icon_value)
         else: rrow.label(text=label_text, icon_value=icon_value)
 
+        if maskui.expand_content:
+            srow.separator()
+
         rrow = srow.row(align=True)
         if maskui.expand_content:
             rrow.alignment = 'RIGHT'
