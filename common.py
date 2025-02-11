@@ -6810,6 +6810,18 @@ def get_mesh_hash(obj):
     h = hash(vertices_np.tobytes())
     return str(h)
 
+def get_uv_hash(obj, uv_name):
+    if obj.type != 'MESH': return ''
+    uv_layers = get_uv_layers(obj)
+    uv = uv_layers.get(uv_name)
+
+    loop_count = len(obj.data.loops)
+    uv_np = numpy.empty(loop_count * 2, dtype=numpy.float32)
+    uv.data.foreach_get('uv', uv_np)
+
+    h = hash(uv_np.tobytes())
+    return str(h)
+
 def remove_decal_object(tree, entity):
     if not tree: return
     # NOTE: This will remove the texcoord object even if the entity is not using decal

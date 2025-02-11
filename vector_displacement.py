@@ -491,11 +491,29 @@ def get_tangent_bitangent_images(obj, uv_name):
     bitimage = bpy.data.images.get(bitimage_name)
 
     # Check mesh hash
+    hash_invalid = False
     mh = get_mesh_hash(obj)
     if obj.yp.mesh_hash != mh:
         obj.yp.mesh_hash = mh
+        hash_invalid = True
+        #print('Hash invalid because of vertices')
 
-        # Remove current images if hash doesn't match
+    # Check uv hash
+    else:
+        hash_str = get_uv_hash(obj, uv_name)
+        uvh = obj.yp.uv_hashes.get(uv_name)
+        if not uvh or uvh.uv_hash != hash_str:
+
+            if not uvh:
+                uvh = obj.yp.uv_hashes.add()
+                uvh.name = uv_name
+            uvh.uv_hash = hash_str
+
+            hash_invalid = True
+            #print('Hash invalid because of UV')
+
+    # Remove current images if hash doesn't match
+    if hash_invalid:
         if tanimage: bpy.data.images.remove(tanimage)
         if bitimage: bpy.data.images.remove(bitimage)
 

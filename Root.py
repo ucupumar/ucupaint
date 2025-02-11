@@ -4012,6 +4012,10 @@ class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_use_curve_mapping : BoolProperty(default=False)
     ori_use_compositing : BoolProperty(default=False)
 
+class YPaintObjectUVHash(bpy.types.PropertyGroup):
+    name : StringProperty(default='')
+    uv_hash : StringProperty(default='')
+
 class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_subsurf_render_levels : IntProperty(default=1)
     ori_subsurf_levels : IntProperty(default=1)
@@ -4024,6 +4028,7 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_offset_v : FloatProperty(default=0.0)
 
     mesh_hash : StringProperty(default='')
+    uv_hashes : CollectionProperty(type=YPaintObjectUVHash)
 
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min : FloatProperty(default=0.0)
@@ -4229,6 +4234,7 @@ def register():
     bpy.utils.register_class(YPaintTimer)
     bpy.utils.register_class(YPaintWMProps)
     bpy.utils.register_class(YPaintSceneProps)
+    bpy.utils.register_class(YPaintObjectUVHash)
     bpy.utils.register_class(YPaintObjectProps)
     #bpy.utils.register_class(YPaintMeshProps)
 
@@ -4280,6 +4286,7 @@ def unregister():
     bpy.utils.unregister_class(YPaintTimer)
     bpy.utils.unregister_class(YPaintWMProps)
     bpy.utils.unregister_class(YPaintSceneProps)
+    bpy.utils.unregister_class(YPaintObjectUVHash)
     bpy.utils.unregister_class(YPaintObjectProps)
     #bpy.utils.unregister_class(YPaintMeshProps)
 
