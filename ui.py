@@ -1813,7 +1813,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 else:
                     if is_bl_newer_than(2, 80):
                         label += ' (' + root_ch.name + ')'
-                    else: label = root_ch.name
+                    else: label = root_ch.name + ' ' + pgettext_iface('Channel')   
 
         else:
             label = pgettext_iface('Channels') + ' (' + str(len(enabled_channels)) + ')'
