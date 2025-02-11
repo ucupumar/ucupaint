@@ -85,6 +85,7 @@ def add_new_mask(
         source = new_node(tree, mask, 'source', get_vcol_bl_idname(), 'Mask Source')
     elif mask_type == 'MODIFIER':
         source = setup_modifier_mask_source(tree, mask, modifier_type)
+        mask.modifier_type = modifier_type
 
     elif mask.type != 'BACKFACE': source = new_node(tree, mask, 'source', layer_node_bl_idnames[mask_type], 'Mask Source')
 
