@@ -36,7 +36,7 @@ def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
     bac = wmyp.brush_asset_caches.get(brush_name)
     if bac:
         blend_path = bac.blend_path
-        if blend_path != '': blend_path + os.sep
+        if blend_path != '': blend_path += os.sep
         try:
             bpy.ops.brush.asset_activate(
                 asset_library_type = bac.library_type, 
