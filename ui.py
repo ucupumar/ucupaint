@@ -3622,20 +3622,38 @@ def draw_layers_ui(context, layout, node):
                 row = bbox.row(align=True)
                 row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
-        in_texture_paint_mode = obj.mode == 'TEXTURE_PAINT' or (
-                is_bl_newer_than(4, 4) and obj.mode == 'SCULPT' and 
-                # Assuming sculpt texture paint is already stable or enabled in experimental feature
-                (not hasattr(context.preferences.experimental, 'use_sculpt_texture_paint') or context.preferences.experimental.use_sculpt_texture_paint)
-                )
+        # Only works with experimental sculpt texture paint is turned on
+        in_sculpt_texture_paint_mode = obj.mode == 'SCULPT' and (
+            hasattr(context.preferences.experimental, 'use_sculpt_texture_paint') and 
+            context.preferences.experimental.use_sculpt_texture_paint
+            )
 
-        if obj.type == 'MESH' and in_texture_paint_mode and ((layer.type == 'IMAGE' and not mask_image) or (mask_image and mask.source_input == 'ALPHA')) and not override_image:
-            bbox = col.box()
-            row = bbox.row(align=True)
-            row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+        in_texture_paint_mode = obj.mode == 'TEXTURE_PAINT'
+
+        if obj.type == 'MESH' and ((layer.type == 'IMAGE' and not mask_image) or (mask_image and mask.source_input == 'ALPHA')) and not override_image:
+            if is_bl_newer_than(4, 3) and in_texture_paint_mode:
+                brush = context.tool_settings.image_paint.brush
+                if brush.image_tool != 'MASK':
+                    bbox = col.box()
+                    row = bbox.row(align=True)
+                    row.operator('paint.y_toggle_tex_eraser_asset', text='Toggle Eraser')
+            elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
+                bbox = col.box()
+                row = bbox.row(align=True)
+                row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
         ve = context.scene.ve_edit
-        if in_texture_paint_mode:
-            brush = context.tool_settings.image_paint.brush if obj.mode == 'TEXTURE_PAINT' else context.tool_settings.sculpt.brush
+        if is_bl_newer_than(4, 3) and in_texture_paint_mode:
+            brush = context.tool_settings.image_paint.brush
+            if ((mask_image and mask.source_input == 'RGB') or override_image) and (brush.name in tex_eraser_asset_names or brush.blend == 'ERASE_ALPHA'):
+                bbox = col.box()
+                row = bbox.row(align=True)
+                row.alert = True
+                row.operator('paint.y_toggle_tex_eraser_asset', text='Disable Eraser')
+                row.alert = False
+
+        elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
+            brush = context.tool_settings.image_paint.brush if in_texture_paint_mode else context.tool_settings.sculpt.brush
             if ((mask_image and mask.source_input == 'RGB') or override_image) and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)

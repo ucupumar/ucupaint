@@ -573,6 +573,12 @@ eraser_names = {
     'SCULPT' : 'Eraser Paint',
 }
 
+tex_eraser_asset_names = [
+    'Erase Hard',
+    'Erase Hard Pressure',
+    'Erase Soft'
+]
+
 rgba_letters = ['r', 'g', 'b', 'a']
 nsew_letters = ['n', 's', 'e', 'w']
 

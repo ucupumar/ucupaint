@@ -120,6 +120,81 @@ def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
                         return
                     except Exception as e: print(e) 
 
+tex_default_brush_eraser_pairs = {
+    'Paint Hard' : 'Erase Hard',
+    'Paint Soft' : 'Erase Soft',
+    'Paint Hard Pressure' : 'Erase Hard Pressure',
+    'Smear' : 'Erase Soft',
+    'Airbrush' : 'Erase Soft',
+    'Paint Soft Pressure' : 'Erase Soft',
+    'Clone' : 'Erase Hard',
+    'Blur' : 'Erase Soft',
+    'Fill' : 'Erase Hard',
+    'Mask' : 'Erase Soft',
+}
+
+class YToggleTexEraserAsset(bpy.types.Operator):
+    bl_idname = "paint.y_toggle_tex_eraser_asset"
+    bl_label = "Toggle Eraser Brush Asset"
+    bl_description = "Toggle eraser brush asset"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH' and context.object.mode in {'TEXTURE_PAINT'}
+
+    def execute(self, context):
+        ve = context.scene.ve_edit
+        mode = context.object.mode
+
+        # Get current brush
+        brush = context.tool_settings.image_paint.brush
+
+        brush_name = brush.name
+        image_tool = brush.image_tool
+        use_pressure_strength = brush.use_pressure_strength
+        use_pressure_size = brush.use_pressure_size
+
+        # Get eraser name
+        if brush.name not in tex_eraser_asset_names:
+
+            if brush.name in tex_default_brush_eraser_pairs:
+                # Get eraser name based on dictionary
+                new_brush_name = tex_default_brush_eraser_pairs[brush.name]
+            elif brush.image_tool == 'DRAW':
+                # Only toggle erase alpha if the draw brush is custom
+                new_brush_name = brush.name
+            else: 
+                new_brush_name = 'Erase Soft'
+
+            ve.ori_texpaint_brush = brush.name
+            if brush.blend != 'ERASE_ALPHA':
+                ve.ori_texpaint_blending_mode = brush.blend
+
+        # Get original brush name
+        else:
+            new_brush_name = ve.ori_texpaint_brush
+
+        # Toggle 'Erase Alpha' if new brush is the same
+        if brush.name == new_brush_name:
+            brush.blend = ve.ori_texpaint_blending_mode if brush.blend == 'ERASE_ALPHA' else 'ERASE_ALPHA'
+        else:
+            # Set brush asset
+            set_brush_asset(new_brush_name, mode)
+
+            # If original brush name in default erasers, make sure the new brush do not use erase alpha blending
+            brush = context.tool_settings.image_paint.brush
+            if brush_name in tex_eraser_asset_names and brush.blend == 'ERASE_ALPHA' and ve.ori_texpaint_blending_mode not in {'', 'ERASE_ALPHA'}:
+                brush.blend = ve.ori_texpaint_blending_mode 
+
+        # HACK: Default 'Erase Soft' brush has use_pressure_strength turned off, so match it to the previous brush
+        if new_brush_name == 'Erase Soft' and image_tool == 'DRAW':
+            brush = context.tool_settings.image_paint.brush
+            brush.use_pressure_strength = use_pressure_strength
+            brush.use_pressure_size = use_pressure_size
+
+        return {'FINISHED'}
+
 class YToggleEraser(bpy.types.Operator):
     bl_idname = "paint.y_toggle_eraser"
     bl_label = "Toggle Eraser Brush"
@@ -705,6 +780,7 @@ def register():
     bpy.utils.register_class(YVcolFill)
     bpy.utils.register_class(YSelectFacesByVcol)
     bpy.utils.register_class(YVcolFillFaceCustom)
+    bpy.utils.register_class(YToggleTexEraserAsset)
     bpy.utils.register_class(YToggleEraser)
     bpy.utils.register_class(YSetActiveVcol)
 
@@ -717,5 +793,6 @@ def unregister():
     bpy.utils.unregister_class(YVcolFill)
     bpy.utils.unregister_class(YSelectFacesByVcol)
     bpy.utils.unregister_class(YVcolFillFaceCustom)
+    bpy.utils.unregister_class(YToggleTexEraserAsset)
     bpy.utils.unregister_class(YToggleEraser)
     bpy.utils.unregister_class(YSetActiveVcol)
