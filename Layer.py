@@ -1512,7 +1512,7 @@ class YNewLayer(bpy.types.Operator):
         rearrange_yp_nodes(node.node_tree)
 
         # Update UI
-        if self.type not in {'IMAGE', 'VCOL', 'COLOR', 'BACKGROUND'}:
+        if self.type not in {'IMAGE', 'VCOL', 'COLOR', 'BACKGROUND', 'GROUP'}:
             ypui.layer_ui.expand_content = True
             ypui.layer_ui.expand_source = True
         else:
