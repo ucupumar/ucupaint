@@ -349,6 +349,12 @@ def add_new_layer(
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
+    # Make sure new parent subitems is expanded
+    if layer.parent_idx != -1:
+        parent = yp.layers[layer.parent_idx]
+        if not parent.expand_subitems:
+            parent.expand_subitems = True
+
     # Update list items
     ListItem.refresh_list_items(yp)
 
