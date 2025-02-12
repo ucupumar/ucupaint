@@ -3631,12 +3631,14 @@ def draw_layers_ui(context, layout, node):
         in_texture_paint_mode = obj.mode == 'TEXTURE_PAINT'
 
         if obj.type == 'MESH' and ((layer.type == 'IMAGE' and not mask_image) or (mask_image and mask.source_input == 'ALPHA')) and not override_image:
+
             if is_bl_newer_than(4, 3) and in_texture_paint_mode:
                 brush = context.tool_settings.image_paint.brush
                 if brush.image_tool != 'MASK':
                     bbox = col.box()
                     row = bbox.row(align=True)
-                    row.operator('paint.y_toggle_tex_eraser_asset', text='Toggle Eraser')
+                    row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+
             elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
                 bbox = col.box()
                 row = bbox.row(align=True)
@@ -3649,7 +3651,7 @@ def draw_layers_ui(context, layout, node):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
-                row.operator('paint.y_toggle_tex_eraser_asset', text='Disable Eraser')
+                row.operator('paint.y_toggle_eraser', text='Disable Eraser')
                 row.alert = False
 
         elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
