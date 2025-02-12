@@ -133,6 +133,24 @@ tex_default_brush_eraser_pairs = {
     'Mask' : 'Erase Soft',
 }
 
+def set_custom_eraser_brush_icon(eraser_brush):
+    eraser_icon = 'eraser.png' #if is_bl_newer_than(2, 92) else 'eraser_small.png'
+    filepath = get_addon_filepath() + os.sep + 'asset_icons' + os.sep + eraser_icon
+
+    if is_bl_newer_than(2, 92):
+        override = bpy.context.copy()
+        override['id'] = eraser_brush
+        if is_bl_newer_than(4):
+            #with bpy.context.temp_override(id=eraser_brush):
+            with bpy.context.temp_override(**override):
+                bpy.ops.ed.lib_id_load_custom_preview(filepath=filepath)
+        else: bpy.ops.ed.lib_id_load_custom_preview(override, filepath=filepath)
+    else:
+        eraser_brush.icon_filepath = filepath
+
+    if not is_bl_newer_than(4, 3):
+        eraser_brush.use_custom_icon = True
+
 class YToggleEraser(bpy.types.Operator):
     bl_idname = "paint.y_toggle_eraser"
     bl_label = "Toggle Eraser Brush"
@@ -243,10 +261,15 @@ class YToggleEraser(bpy.types.Operator):
         # Mark eraser brush as asset for Blender 4.3+
         if is_bl_newer_than(4, 3) and not eraser_brush.asset_data:
             eraser_brush.asset_mark()
+            set_custom_eraser_brush_icon(eraser_brush)
 
-            filepath = get_addon_filepath() + os.sep + 'asset_icons' + os.sep + 'eraser.png'
-            with bpy.context.temp_override(id=eraser_brush):
-                bpy.ops.ed.lib_id_load_custom_preview(filepath=filepath)
+        # NOTE: Custom brush icon actually works on Blender 2.92+, 
+        # but it can't save the icon to the blend file until Blender 3.6
+        # I decided custom brush icon is only for Blender 4.3+ to avoid unknown behavior
+
+        # Set eraser brush thumbnail
+        #elif is_bl_newer_than(3, 6) and not eraser_brush.use_custom_icon:
+        #    set_custom_eraser_brush_icon(eraser_brush)
 
         if brush == eraser_brush:
 
