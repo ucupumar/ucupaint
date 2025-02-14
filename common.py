@@ -6551,60 +6551,70 @@ def shift_normal_modifier_fcurves_up(parent, start_index=1):
             if m and int(m.group(1)) == i:
                 fc.data_path = fc.data_path.replace('.modifiers_1[' + str(i) + ']', '.modifiers_1[' + str(i-1) + ']')
 
-def shift_channel_fcurves_up(yp, start_index=1):
+def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True):
     tree = yp.id_data
 
+    shifter = -1 if direction == 'UP' else 1
+
     # Tree fcurves
-    fcurves = get_yp_fcurves_and_drivers(yp)
+    if remove_ch_mode:
+        fcurves = get_yp_fcurves_and_drivers(yp)
 
-    for i, root_ch in enumerate(yp.channels):
-        if i < start_index: continue
+        for i, root_ch in enumerate(yp.channels):
+            if i <= start_index: continue
 
-        for fc in fcurves:
+            for fc in fcurves:
 
-            layer, prop_name = get_layer_and_channel_prop_name_from_data_path(yp, i, fc.data_path)
-            if layer and prop_name != '':
+                layer, prop_name = get_layer_and_channel_prop_name_from_data_path(yp, i, fc.data_path)
+                if layer and prop_name != '':
 
-                try: shifted_entity = layer.channels[i-1]
-                except Exception as e:
-                    print(e)
-                    continue
+                    try: shifted_entity = layer.channels[i+shifter]
+                    except Exception as e:
+                        print(e)
+                        continue
 
-                shifted_inp = get_entity_prop_input(shifted_entity, prop_name)
-                if shifted_inp:
+                    shifted_inp = get_entity_prop_input(shifted_entity, prop_name)
+                    if shifted_inp:
 
-                    # Get node input index
-                    node = tree.nodes.get(layer.group_node)
-                    shifted_input_idx = get_node_input_index(node, shifted_inp)
-                    fc.data_path = 'nodes["' + layer.group_node + '"].inputs[' + str(shifted_input_idx) + '].default_value'
+                        # Get node input index
+                        node = tree.nodes.get(layer.group_node)
+                        shifted_input_idx = get_node_input_index(node, shifted_inp)
+                        fc.data_path = 'nodes["' + layer.group_node + '"].inputs[' + str(shifted_input_idx) + '].default_value'
+
+                    else:
+                        fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + '].channels[' + str(i+shifter) + '].' + prop_name
 
                 else:
-                    fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + '].channels[' + str(i-1) + '].' + prop_name
 
-            else:
-
-                m = re.match(r'.*\.channels\[' + str(i) + '\].*', fc.data_path)
-                if m:
-                    fc.data_path = fc.data_path.replace('.channels[' + str(i) + ']', '.channels[' + str(i-1) + ']')
+                    m = re.match(r'.*\.channels\[' + str(i) + '\].*', fc.data_path)
+                    if m:
+                        fc.data_path = fc.data_path.replace('.channels[' + str(i) + ']', '.channels[' + str(i+shifter) + ']')
 
     # Material fcurves
     node = get_active_ypaint_node()
     mat = get_active_material()
     fcurves = get_material_fcurves_and_drivers(mat)
 
-    shifter = 1
-    if start_index < len(yp.channels) and yp.channels[start_index].enable_alpha:
-        shifter += 1
+    if remove_ch_mode and start_index < len(yp.channels) and yp.channels[start_index].enable_alpha and shifter < 0:
+        shifter -= 1
 
-    for i, root_ch in enumerate(yp.channels):
-        if i < start_index: continue
-        io_index = root_ch.io_index
-        for fc in fcurves:
-            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
-            if m:
-                index = int(m.group(1))
-                if index == io_index:
-                    fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(index-shifter) + '].default_value'
+    if shifter > 0:
+
+        for i, root_ch in reversed(list(enumerate(yp.channels))):
+            if i <= start_index: continue
+            io_index = root_ch.io_index
+            for fc in fcurves:
+                m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
+                if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
+    else:
+
+        for i, root_ch in enumerate(yp.channels):
+            if i <= start_index: continue
+            io_index = root_ch.io_index
+            for fc in fcurves:
+                m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
+                if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
+
 
 def shift_mask_fcurves_up(layer, start_index=1):
     tree = layer.id_data

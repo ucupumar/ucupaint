@@ -1471,7 +1471,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         # Remove channel fcurves first
         remove_channel_fcurves(channel)
-        shift_channel_fcurves_up(yp, channel_idx)
+        shift_channel_fcurves(yp, channel_idx, 'UP')
         
         # Delete objects vertex color
         if self.also_del_vcol:
@@ -3091,6 +3091,11 @@ def update_channel_alpha(self, context):
     # Baked outside nodes
     frame = get_node(mat.node_tree, yp.baked_outside_frame)
     tex = get_node(mat.node_tree, self.baked_outside, parent=frame)
+
+    # Shift fcurves
+    if self.enable_alpha:
+        shift_channel_fcurves(yp, get_channel_index(self), 'DOWN', remove_ch_mode=False)
+    else: shift_channel_fcurves(yp, get_channel_index(self), 'UP', remove_ch_mode=False)
 
     # Check any alpha channels
     alpha_chs = []
