@@ -6136,6 +6136,37 @@ def get_action_and_driver_fcurves(obj):
 
     return fcs
 
+def get_material_fcurves(mat):
+    tree = mat.node_tree
+
+    fcurves = []
+
+    if tree.animation_data and tree.animation_data.action:
+        for fc in tree.animation_data.action.fcurves:
+            match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+            if match:
+                fcurves.append(fc)
+
+    return fcurves
+
+def get_material_drivers(mat):
+    tree = mat.node_tree
+
+    drivers = []
+
+    if tree.animation_data:
+        for dr in tree.animation_data.drivers:
+            match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', dr.data_path)
+            if match:
+                drivers.append(dr)
+
+    return drivers
+
+def get_material_fcurves_and_drivers(yp):
+    fcurves = get_material_fcurves(yp)
+    fcurves.extend(get_material_drivers(yp))
+    return fcurves
+
 def get_yp_fcurves(yp):
     tree = yp.id_data
 
@@ -6190,18 +6221,34 @@ def remap_layer_fcurves(yp, index_dict):
 def swap_channel_fcurves(yp, idx0, idx1):
     if idx0 >= len(yp.channels) or idx1 >= len(yp.channels): return
 
+    # Tree fcurves 
     fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
-        m1 = re.match(r'^yp\.channels\[(\d+)\].*', fc.data_path)
-        if m1:
-            index = int(m1.group(1))
+        m = re.match(r'^yp\.channels\[(\d+)\].*', fc.data_path)
+        if m:
+            index = int(m.group(1))
 
             if index == idx0:
                 fc.data_path = fc.data_path.replace('yp.channels[' + str(idx0) + ']', 'yp.channels[' + str(idx1) + ']')
 
             elif index == idx1:
                 fc.data_path = fc.data_path.replace('yp.channels[' + str(idx1) + ']', 'yp.channels[' + str(idx0) + ']')
+
+    # Material fcurves 
+    node = get_active_ypaint_node()
+    mat = get_active_material()
+    fcurves = get_material_fcurves_and_drivers(mat)
+
+    for fc in fcurves:
+        m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+        if m:
+            index = int(m.group(1))
+            if index == idx0:
+                fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(idx1) + '].default_value'
+
+            elif index == idx1:
+                fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(idx0) + '].default_value'
 
 def swap_layer_channel_fcurves(layer, idx0, idx1):
     if idx0 >= len(layer.channels) or idx1 >= len(layer.channels): return
