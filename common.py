@@ -6143,7 +6143,8 @@ def get_yp_fcurves(yp):
 
     if tree.animation_data and tree.animation_data.action:
         for fc in tree.animation_data.action.fcurves:
-            if fc.data_path.startswith('yp.'):
+            match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+            if fc.data_path.startswith('yp.') or match:
                 fcurves.append(fc)
 
     return fcurves
@@ -6155,7 +6156,8 @@ def get_yp_drivers(yp):
 
     if tree.animation_data:
         for dr in tree.animation_data.drivers:
-            if dr.data_path.startswith('yp.'):
+            match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', dr.data_path)
+            if dr.data_path.startswith('yp.') or match:
                 drivers.append(dr)
 
     return drivers
@@ -6186,12 +6188,14 @@ def remap_layer_fcurves(yp, index_dict):
                     swapped_fcurves.append(fc)
 
 def swap_channel_fcurves(yp, idx0, idx1):
+    if idx0 >= len(yp.channels) or idx1 >= len(yp.channels): return
+
     fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
-        m = re.match(r'^yp\.channels\[(\d+)\].*', fc.data_path)
-        if m:
-            index = int(m.group(1))
+        m1 = re.match(r'^yp\.channels\[(\d+)\].*', fc.data_path)
+        if m1:
+            index = int(m1.group(1))
 
             if index == idx0:
                 fc.data_path = fc.data_path.replace('yp.channels[' + str(idx0) + ']', 'yp.channels[' + str(idx1) + ']')
@@ -6200,20 +6204,58 @@ def swap_channel_fcurves(yp, idx0, idx1):
                 fc.data_path = fc.data_path.replace('yp.channels[' + str(idx1) + ']', 'yp.channels[' + str(idx0) + ']')
 
 def swap_layer_channel_fcurves(layer, idx0, idx1):
-    yp = layer.id_data.yp
+    if idx0 >= len(layer.channels) or idx1 >= len(layer.channels): return
+
+    tree = layer.id_data
+    yp = tree.yp
     fcurves = get_yp_fcurves_and_drivers(yp)
+    layer_index = get_layer_index(layer)
+    node = tree.nodes.get(layer.group_node)
+    if not node: return
 
     for fc in fcurves:
-        if layer.path_from_id() not in fc.data_path: continue
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', fc.data_path)
-        if m:
-            index = int(m.group(2))
 
-            if index == idx0:
-                fc.data_path = fc.data_path.replace('.channels[' + str(idx0) + ']', '.channels[' + str(idx1) + ']')
+        m1 = re.match(r'yp\.layers\[' + str(layer_index) + '\]\.channels\[(\d+)\]\.(.+)', fc.data_path)
+        m2 = re.match(r'^nodes\["' + layer.group_node + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
 
-            elif index == idx1:
-                fc.data_path = fc.data_path.replace('.channels[' + str(idx1) + ']', '.channels[' + str(idx0) + ']')
+        index = -1
+        neighbor_idx = -1
+        prop_name = ''
+
+        if m1:
+            index = int(m1.group(1))
+            prop_name = m1.group(2)
+
+        elif m2:
+
+            # Get the input
+            input_index = int(m2.group(1))
+            inp = node.inputs[input_index] if input_index <= len(node.inputs) else None
+
+            if inp:
+
+                # Get the channel index from input name
+                m = re.match(r'\.channels\[(\d+)\]\.(.+)', inp.name)
+                if m:
+                    index = int(m.group(1))
+                    prop_name = m.group(2)
+
+        if index == idx0: neighbor_idx = idx1
+        elif index == idx1: neighbor_idx = idx0
+
+        if neighbor_idx != -1 and prop_name != '':
+
+            # Get neighbor layer channel input
+            neighbor_inp = get_entity_prop_input(layer.channels[neighbor_idx], prop_name)
+
+            if neighbor_inp:
+
+                # Get node input index
+                neighbor_input_idx = get_node_input_index(node, neighbor_inp)
+                fc.data_path = 'nodes["' + layer.group_node + '"].inputs[' + str(neighbor_input_idx) + '].default_value'
+
+            else:
+                fc.data_path = 'yp.layers[' + str(layer_index) + '].channels[' + str(neighbor_idx) + '].' + prop_name
 
 def swap_mask_fcurves(layer, idx0, idx1):
     yp = layer.id_data.yp
