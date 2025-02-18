@@ -2585,3 +2585,9 @@ class BaseBakeOperator():
     def check_operator(self, context):
         if not self.use_custom_resolution:
             self.height = self.width = int(self.image_resolution)
+
+    def is_cycles_exist(self, context):
+        if not hasattr(context.scene, 'cycles'):
+            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in user preferences!")
+            return False
+        return True

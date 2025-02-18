@@ -774,6 +774,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             ccol.prop(self, 'use_image_atlas')
 
     def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
         T = time.time()
         mat = get_active_material()
         node = get_active_ypaint_node()
@@ -2571,6 +2573,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         return segment
 
     def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
 
         if not self.layer:
             self.report({'ERROR'}, "Invalid context!")
