@@ -10,7 +10,7 @@ from ..common import *
 from .downloader import download_stream, get_thread_id, get_thread, get_addon_dir
 from .downloader import threads
 
-from .properties import assets_library, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching, get_cat_asset_lib, get_preview_dir, retrieve_asset_library
+from .properties import assets_library, TexLibProps, DownloadQueue,  get_textures_dir, cancel_searching, get_cat_asset_lib, get_preview_dir, retrieve_asset_library, get_os_config_dir, get_library_name
 
 class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
     """Open Multiple Textures to Layer Ucupaint"""
@@ -248,6 +248,29 @@ class ShowFilePathPreference(Operator):
         bpy.ops.screen.userpref_show('INVOKE_DEFAULT')
         bpy.context.preferences.active_section = 'FILE_PATHS'
         return{'FINISHED'}
+    
+class CreateAssetDirectory(Operator):
+    bl_idname = "texlib.create_dir"
+    bl_label = "Create Asset Directory"
+    
+    def execute(self, context):
+        print("create asset directory "+get_os_config_dir())
+        asset_library_path = get_os_config_dir()
+        # Create the directory if it doesn't exist
+        if not os.path.exists(asset_library_path):
+            os.makedirs(asset_library_path)
+            print(f"Created directory: {asset_library_path}")
+        else:
+            print(f"Directory already exists: {asset_library_path}")
+       
+        # Add a new Asset Library
+        bpy.ops.preferences.asset_library_add(directory=asset_library_path)
+        context.preferences.filepaths.asset_libraries[-1].name = get_library_name()
+        
+        print(f"Added Asset Library: {asset_library_path}")
+        
+        return{'FINISHED'}
+
 
 class ShowLibrary(Operator):
     bl_idname = "texlib.show_lib"
@@ -347,6 +370,7 @@ classes = [
 	TexLibCancelSearch,
 	TexLibRemoveTextureAllAttributes,
     ShowFilePathPreference,
+    CreateAssetDirectory,
     ShowLibrary,
     DebugOp
 ]

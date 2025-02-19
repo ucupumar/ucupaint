@@ -29,8 +29,8 @@ class TexLibBrowser(Panel):
 
         ass_lib = get_asset_lib(context)
         if ass_lib == None:
-            layout.label(text="Create an asset library named "+get_library_name())
-            layout.operator("texlib.show_pref")
+            # layout.label(text="Create an asset library named "+get_library_name())
+            layout.operator("texlib.create_dir")
             return
 
         if search_mode:

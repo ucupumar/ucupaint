@@ -60,6 +60,23 @@ def get_asset_lib(context) -> bpy.types.UserAssetLibrary:
 			return l
 	return None
 
+def get_os_config_dir() -> str:
+	import platform
+
+	# Get the operating system
+	os_name = platform.system()
+
+	print("build_platform", os_name)
+
+	if os_name == 'Linux':
+		default_dir =  os.path.expanduser("~/.config")
+	elif os_name == 'Darwin':
+		default_dir =  os.path.expanduser("~/Library/Application Support")
+	else:
+		default_dir =  os.path.expanduser("~\\AppData\\Roaming")
+
+	return os.path.join(default_dir, get_addon_title(), "Assets")
+
 def get_cat_asset_lib(context) -> str:
 	asset_lib = get_asset_lib(context)
 	if asset_lib == None:
