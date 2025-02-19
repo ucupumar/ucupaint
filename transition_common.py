@@ -17,7 +17,7 @@ def get_transition_fine_bump_distance(distance, is_curved=False):
     return distance * scale
 
 
-def check_transition_bump_influences_to_other_channels(layer, tree=None, target_ch = None):
+def check_transition_bump_influences_to_other_channels(layer, tree=None, target_ch=None):
 
     yp = layer.id_data.yp
 
@@ -43,11 +43,15 @@ def check_transition_bump_influences_to_other_channels(layer, tree=None, target_
 
         if bump_ch and get_channel_enabled(c):
             if bump_ch.transition_bump_flip:
-                im = replace_new_node(tree, c, 'intensity_multiplier', 'ShaderNodeGroup', 
-                        'Intensity Multiplier', lib.INTENSITY_MULTIPLIER_SHARPEN_INVERT)
+                im = replace_new_node(
+                    tree, c, 'intensity_multiplier', 'ShaderNodeGroup', 
+                    'Intensity Multiplier', lib.INTENSITY_MULTIPLIER_SHARPEN_INVERT
+                )
             else:
-                im = replace_new_node(tree, c, 'intensity_multiplier', 'ShaderNodeGroup', 
-                        'Intensity Multiplier', lib.INTENSITY_MULTIPLIER_SHARPEN)
+                im = replace_new_node(
+                    tree, c, 'intensity_multiplier', 'ShaderNodeGroup',
+                    'Intensity Multiplier', lib.INTENSITY_MULTIPLIER_SHARPEN
+                )
 
         else:
             # Remove node if channel is disabled
@@ -87,25 +91,33 @@ def check_transition_ao_nodes(tree, layer, ch, bump_ch=None):
         #if layer.type == 'BACKGROUND' and ch.transition_ao_blend_type == 'MIX':
         if layer.type == 'BACKGROUND' and bump_ch.transition_bump_flip and ch.transition_ao_blend_type == 'MIX':
 
-            tao, dirty = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
-                    'Transition AO', lib.TRANSITION_AO_BG_MIX, return_status=True)
+            tao, dirty = replace_new_node(
+                tree, ch, 'tao', 'ShaderNodeGroup', 'Transition AO',
+                lib.TRANSITION_AO_BG_MIX, return_status=True
+            )
             if dirty: duplicate_lib_node_tree(tao)
 
         #elif layer.type == 'BACKGROUND' or bump_ch.transition_bump_flip:
         elif bump_ch.transition_bump_flip:
 
-            tao, dirty = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
-                    'Transition AO', lib.TRANSITION_AO_FLIP, return_status=True)
+            tao, dirty = replace_new_node(
+                tree, ch, 'tao', 'ShaderNodeGroup', 'Transition AO',
+                lib.TRANSITION_AO_FLIP, return_status=True
+            )
             if dirty: duplicate_lib_node_tree(tao)
 
         elif ch.transition_ao_blend_type == 'MIX' and (
                 layer.parent_idx != -1 or (root_ch.type == 'RGB' and root_ch.enable_alpha)):
-            tao = replace_new_node(tree, ch, 'tao', 
-                    'ShaderNodeGroup', 'Transition AO', lib.TRANSITION_AO_STRAIGHT_OVER)
+            tao = replace_new_node(
+                tree, ch, 'tao', 'ShaderNodeGroup', 'Transition AO',
+                lib.TRANSITION_AO_STRAIGHT_OVER
+            )
 
         else:
-            tao, dirty = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
-                    'Transition AO', lib.TRANSITION_AO, return_status=True)
+            tao, dirty = replace_new_node(
+                tree, ch, 'tao', 'ShaderNodeGroup', 'Transition AO',
+                lib.TRANSITION_AO, return_status=True
+            )
             if dirty: duplicate_lib_node_tree(tao)
 
         # Blend type
@@ -116,7 +128,7 @@ def check_transition_ao_nodes(tree, layer, ch, bump_ch=None):
         set_transition_ao_intensity_link(ch, tree, layer, tao)
 
         if root_ch.colorspace == 'SRGB':
-            tao.inputs['Gamma'].default_value = 1.0/GAMMA
+            tao.inputs['Gamma'].default_value = 1.0 / GAMMA
         else: tao.inputs['Gamma'].default_value = 1.0
 
 def save_ramp(tree, ch):
@@ -155,17 +167,23 @@ def set_transition_ramp_nodes(tree, layer, ch):
     #if bump_ch and (bump_ch.transition_bump_flip or layer.type == 'BACKGROUND'):
     if bump_ch and bump_ch.transition_bump_flip:
 
-        tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
-                'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_FLIP, return_status=True)
+        tr_ramp, dirty = replace_new_node(
+            tree, ch, 'tr_ramp', 'ShaderNodeGroup', 'Transition Ramp',
+            lib.RAMP_FLIP, return_status=True
+        )
         if dirty: duplicate_lib_node_tree(tr_ramp)
 
         if (ch.transition_ramp_blend_type == 'MIX' and 
                 ((root_ch.type == 'RGB' and root_ch.enable_alpha) or layer.parent_idx != -1)):
-            tr_ramp_blend = replace_new_node(tree, ch, 'tr_ramp_blend', 
-                    'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_STRAIGHT_OVER_BLEND)
+            tr_ramp_blend = replace_new_node(
+                tree, ch, 'tr_ramp_blend', 'ShaderNodeGroup', 'Transition Ramp Blend',
+                lib.RAMP_FLIP_STRAIGHT_OVER_BLEND
+            )
         else:
-            tr_ramp_blend, dirty = replace_new_node(tree, ch, 'tr_ramp_blend', 
-                    'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_BLEND, return_status=True)
+            tr_ramp_blend, dirty = replace_new_node(
+                tree, ch, 'tr_ramp_blend', 'ShaderNodeGroup', 'Transition Ramp Blend',
+                lib.RAMP_FLIP_BLEND, return_status=True
+            )
             if dirty: duplicate_lib_node_tree(tr_ramp_blend)
 
             # Get blend node
@@ -175,20 +193,30 @@ def set_transition_ramp_nodes(tree, layer, ch):
     else:
         if layer.type == 'BACKGROUND' and ch.transition_ramp_blend_type == 'MIX':
             if ch.transition_ramp_intensity_unlink:
-                tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
-                        'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_BG_MIX_UNLINK, return_status=True)
+                tr_ramp, dirty = replace_new_node(
+                    tree, ch, 'tr_ramp', 'ShaderNodeGroup', 'Transition Ramp',
+                    lib.RAMP_BG_MIX_UNLINK, return_status=True
+                )
             elif layer.parent_idx != -1:
-                tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
-                        'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_BG_MIX_CHILD, return_status=True)
+                tr_ramp, dirty = replace_new_node(
+                    tree, ch, 'tr_ramp', 'ShaderNodeGroup', 'Transition Ramp',
+                    lib.RAMP_BG_MIX_CHILD, return_status=True
+                )
             else:
-                tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
-                        'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_BG_MIX, return_status=True)
+                tr_ramp, dirty = replace_new_node(
+                    tree, ch, 'tr_ramp', 'ShaderNodeGroup', 'Transition Ramp',
+                    lib.RAMP_BG_MIX, return_status=True
+                )
         elif ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
-            tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
-                    'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_STRAIGHT_OVER, return_status=True)
+            tr_ramp, dirty = replace_new_node(
+                tree, ch, 'tr_ramp', 'ShaderNodeGroup', 'Transition Ramp',
+                lib.RAMP_STRAIGHT_OVER, return_status=True
+            )
         else:
-            tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
-                    'ShaderNodeGroup', 'Transition Ramp', lib.RAMP, return_status=True)
+            tr_ramp, dirty = replace_new_node(
+                tree, ch, 'tr_ramp', 'ShaderNodeGroup', 'Transition Ramp',
+                lib.RAMP, return_status=True
+            )
 
         if dirty: duplicate_lib_node_tree(tr_ramp)
 
@@ -207,7 +235,7 @@ def set_transition_ramp_nodes(tree, layer, ch):
     load_ramp(tree, ch)
 
     if root_ch.colorspace == 'SRGB':
-        tr_ramp.inputs['Gamma'].default_value = 1.0/GAMMA
+        tr_ramp.inputs['Gamma'].default_value = 1.0 / GAMMA
     else: tr_ramp.inputs['Gamma'].default_value = 1.0
 
 def check_transition_ramp_nodes(tree, layer, ch):
@@ -238,13 +266,19 @@ def save_transition_bump_falloff_cache(tree, ch):
     if check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
         cache = tree.nodes.get(ch.cache_falloff_curve)
         if not cache:
-            cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
+            cache = new_node(
+                tree, ch, 'cache_falloff_curve',
+                'ShaderNodeRGBCurve', 'Falloff Curve Cache'
+            )
         curve_ref = tb_falloff.node_tree.nodes.get('_curve')
         copy_node_props(curve_ref, cache)
     elif check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE_SMOOTH):
         cache = tree.nodes.get(ch.cache_falloff_curve)
         if not cache:
-            cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
+            cache = new_node(
+                tree, ch, 'cache_falloff_curve',
+                'ShaderNodeRGBCurve', 'Falloff Curve Cache'
+            )
         ori = tb_falloff.node_tree.nodes.get('_original')
         curve_ref = ori.node_tree.nodes.get('_curve')
         copy_node_props(curve_ref, cache)
@@ -269,18 +303,26 @@ def check_transition_bump_falloff(layer, tree):
 
             if root_ch.enable_smooth_bump:
                 if ch.transition_bump_flip:
-                    tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                            lib.EMULATED_CURVE_SMOOTH_FLIP, hard_replace=True)
+                    tb_falloff = replace_new_node(
+                        tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                        lib.EMULATED_CURVE_SMOOTH_FLIP, hard_replace=True
+                    )
                 else:
-                    tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                            lib.EMULATED_CURVE_SMOOTH, hard_replace=True)
+                    tb_falloff = replace_new_node(
+                        tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                        lib.EMULATED_CURVE_SMOOTH, hard_replace=True
+                    )
             else:
                 if ch.transition_bump_flip:
-                    tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                            lib.EMULATED_CURVE_FLIP, hard_replace=True)
+                    tb_falloff = replace_new_node(
+                        tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff',
+                        lib.EMULATED_CURVE_FLIP, hard_replace=True
+                    )
                 else:
-                    tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                            lib.EMULATED_CURVE, hard_replace=True)
+                    tb_falloff = replace_new_node(
+                        tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                        lib.EMULATED_CURVE, hard_replace=True
+                    )
 
         elif ch.transition_bump_falloff_type == 'CURVE':
             tb_falloff = ori = tree.nodes.get(ch.tb_falloff)
@@ -288,8 +330,10 @@ def check_transition_bump_falloff(layer, tree):
 
                 if not check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE_SMOOTH):
 
-                    tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                            lib.FALLOFF_CURVE_SMOOTH, hard_replace=True)
+                    tb_falloff = replace_new_node(
+                        tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                        lib.FALLOFF_CURVE_SMOOTH, hard_replace=True
+                    )
                     duplicate_lib_node_tree(tb_falloff)
 
                     # Duplicate group inside group
@@ -316,8 +360,10 @@ def check_transition_bump_falloff(layer, tree):
 
             elif not check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
 
-                tb_falloff = ori = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                        lib.FALLOFF_CURVE, hard_replace=True)
+                tb_falloff = ori = replace_new_node(
+                    tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                    lib.FALLOFF_CURVE, hard_replace=True
+                )
                 duplicate_lib_node_tree(tb_falloff)
 
                 # Check cached curve
@@ -399,17 +445,27 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
         tb_inverse.inputs[0].default_value = 1.0
 
     if ch.transition_bump_flip or layer.type == 'BACKGROUND':
-        im = replace_new_node(tree, ch, 'intensity_multiplier', 'ShaderNodeMath', 
-                'Intensity Multiplier')
+        im = replace_new_node(
+            tree, ch, 'intensity_multiplier',
+            'ShaderNodeMath', 'Intensity Multiplier'
+        )
         im.operation = 'MULTIPLY'
         im.use_clamp = True
-        tbim = replace_new_node(tree, ch, 'tb_intensity_multiplier', 'ShaderNodeGroup', 
-                'Intensity Multiplier', lib.INTENSITY_MULTIPLIER_SHARPEN_NO_FACTOR)
+        tbim = replace_new_node(
+            tree, ch, 'tb_intensity_multiplier',
+            'ShaderNodeGroup', 'Intensity Multiplier',
+            lib.INTENSITY_MULTIPLIER_SHARPEN_NO_FACTOR
+        )
     else:
-        im = replace_new_node(tree, ch, 'intensity_multiplier', 'ShaderNodeGroup', 
-                'Intensity Multiplier', lib.INTENSITY_MULTIPLIER_SHARPEN_NO_FACTOR)
-        tbim = replace_new_node(tree, ch, 'tb_intensity_multiplier', 'ShaderNodeMath', 
-                'Intensity Multiplier')
+        im = replace_new_node(
+            tree, ch, 'intensity_multiplier',
+            'ShaderNodeGroup', 'Intensity Multiplier',
+            lib.INTENSITY_MULTIPLIER_SHARPEN_NO_FACTOR
+        )
+        tbim = replace_new_node(
+            tree, ch, 'tb_intensity_multiplier',
+            'ShaderNodeMath', 'Intensity Multiplier'
+        )
         tbim.operation = 'MULTIPLY'
         tbim.use_clamp = True
 

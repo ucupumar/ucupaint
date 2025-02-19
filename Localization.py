@@ -3,11 +3,10 @@ from .common import *
 
 def register_module(*modules: list):
     for module in modules:
-        if bpy.app.version < (4, 0, 0):
-            bpy.app.translations.register(module.__name__, langs)
-        else:
+        if is_bl_newer_than(4):
             langs['zh_HANS'] = langs['zh_CN']
-            bpy.app.translations.register(module.__name__, langs)
+
+        bpy.app.translations.register(module.__name__, langs)
 
 def unregister_module(*modules: list):
     for module in modules:
@@ -15,7 +14,7 @@ def unregister_module(*modules: list):
         
 langs = {
     'zh_CN': {
-        ('*', 'Special node to manage painting layers for Cycles and Eevee materials'): 'ucup',
+        ('*', 'Special node to manage painting layers for Cycles and Eevee materials'): '用于管理 Cycles 和 Eevee 材质绘画层的特殊节点',
         ('*', 'Auto Save/Pack Images'): '自动保存/打包图像',
         ('*', 'Auto save/pack images when saving blend'): '当保存.blend文件时，自动保存/打包图像',
         ('*', 'Force All Images'): '所有图像',

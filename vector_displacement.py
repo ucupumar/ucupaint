@@ -41,6 +41,7 @@ def _remember_before_bake(obj):
     book['ori_use_bake_clear'] = scene.render.use_bake_clear
     book['ori_render_bake_type'] = scene.render.bake_type
     book['ori_bake_margin'] = scene.render.bake_margin
+    book['ori_view_transform'] = scene.view_settings.view_transform
 
     # Remember world settings
     book['ori_distance'] = scene.world.light_settings.distance
@@ -80,6 +81,7 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
     scene.cycles.use_denoising = False
     scene.cycles.bake_type = 'EMIT'
     scene.cycles.device = bake_device
+    scene.view_settings.view_transform = 'Standard' if is_bl_newer_than(2, 80) else 'Default'
     bpy.context.view_layer.material_override = None
 
     # Show viewport and render of object layer collection
@@ -96,7 +98,7 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
     # Set object to active
     bpy.context.view_layer.objects.active = obj
     if obj.mode != 'OBJECT':
-        bpy.ops.object.mode_set(mode = 'OBJECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
 
@@ -129,6 +131,7 @@ def _recover_bake_settings(book, recover_active_uv=False):
     scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
     scene.render.bake.cage_extrusion = book['ori_cage_extrusion']
     scene.render.bake.use_cage = book['ori_use_cage']
+    scene.view_settings.view_transform = book['ori_view_transform']
     bpy.context.view_layer.material_override = book['ori_material_override']
 
     # Multires related
@@ -164,15 +167,15 @@ def get_offset_attributes(base, sclupted_mesh, layer_disabled_mesh=None, intensi
         return None, None
 
     # Get coordinates for each vertices
-    base_arr = numpy.zeros(len(base.data.vertices)*3, dtype=numpy.float32)
+    base_arr = numpy.zeros(len(base.data.vertices) * 3, dtype=numpy.float32)
     base.data.vertices.foreach_get('co', base_arr)
 
-    sculpted_arr = numpy.zeros(len(sclupted_mesh.data.vertices)*3, dtype=numpy.float32)
+    sculpted_arr = numpy.zeros(len(sclupted_mesh.data.vertices) * 3, dtype=numpy.float32)
     sclupted_mesh.data.vertices.foreach_get('co', sculpted_arr)
 
     if layer_disabled_mesh:
 
-        layer_disabled_arr = numpy.zeros(len(layer_disabled_mesh.data.vertices)*3, dtype=numpy.float32)
+        layer_disabled_arr = numpy.zeros(len(layer_disabled_mesh.data.vertices) * 3, dtype=numpy.float32)
         layer_disabled_mesh.data.vertices.foreach_get('co', layer_disabled_arr)
     
         sculpted_arr = numpy.subtract(sculpted_arr, base_arr)
@@ -191,7 +194,7 @@ def get_offset_attributes(base, sclupted_mesh, layer_disabled_mesh=None, intensi
         offset = numpy.divide(offset, intensity)
 
     max_value = numpy.abs(offset).max()  
-    offset.shape = (offset.shape[0]//3, 3)
+    offset.shape = (offset.shape[0] // 3, 3)
     
     # Create new attribute to store the offset
     att = base.data.attributes.get(OFFSET_ATTR)
@@ -246,7 +249,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     temp0 = obj.copy()
     link_object(scene, temp0)
     temp0.data = temp0.data.copy()
-    temp0.location = obj.location + Vector(((obj.dimensions[0]+0.1)*1, 0.0, 0.0))     
+    temp0.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
 
     # Delete multires and shape keys
     set_active_object(temp0)
@@ -276,7 +279,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     temp2 = obj.copy()
     link_object(scene, temp2)
     temp2.data = temp2.data.copy()
-    temp2.location = obj.location + Vector(((obj.dimensions[0]+0.1)*3, 0.0, 0.0))
+    temp2.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 3, 0.0, 0.0))
     
     # Apply multires
     set_active_object(temp2)
@@ -296,7 +299,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
         temp1 = temp0.copy()
         link_object(scene, temp1)
         temp1.data = temp1.data.copy()
-        temp1.location = obj.location + Vector(((obj.dimensions[0]+0.1)*2, 0.0, 0.0))
+        temp1.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 2, 0.0, 0.0))
         set_active_object(temp1)
 
         vdm_loader = get_vdm_loader_geotree(uv_name, layer_disabled_vdm_image, tanimage, bitimage)
@@ -408,9 +411,11 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     else: image_name = obj.name + '_' + uv_name + TEMP_COMBINED_VDM_IMAGE_SUFFIX
 
     # Create combined vdm image
-    image = bpy.data.images.new(name=image_name,
-            width=width, height=height, alpha=False, float_buffer=True)
-    image.generated_color = (0,0,0,1)
+    image = bpy.data.images.new(
+        name=image_name, width=width, height=height,
+        alpha=False, float_buffer=True
+    )
+    image.generated_color = (0, 0, 0, 1)
 
     # Get output node and remember original bsdf input
     mat_out = get_active_mat_output_node(mat.node_tree)
@@ -489,11 +494,28 @@ def get_tangent_bitangent_images(obj, uv_name):
     bitimage = bpy.data.images.get(bitimage_name)
 
     # Check mesh hash
+    hash_invalid = False
     mh = get_mesh_hash(obj)
     if obj.yp.mesh_hash != mh:
         obj.yp.mesh_hash = mh
+        hash_invalid = True
+        #print('Hash invalid because of vertices')
 
-        # Remove current images if hash doesn't match
+    # Check uv hash
+    hash_str = get_uv_hash(obj, uv_name)
+    uvh = obj.yp.uv_hashes.get(uv_name)
+    if not uvh or uvh.uv_hash != hash_str:
+
+        if not uvh:
+            uvh = obj.yp.uv_hashes.add()
+            uvh.name = uv_name
+        uvh.uv_hash = hash_str
+
+        hash_invalid = True
+        #print('Hash invalid because of UV')
+
+    # Remove current images if hash doesn't match
+    if hash_invalid:
         if tanimage: bpy.data.images.remove(tanimage)
         if bitimage: bpy.data.images.remove(bitimage)
 
@@ -509,7 +531,7 @@ def get_tangent_bitangent_images(obj, uv_name):
         link_object(scene, temp)
         temp.data = temp.data.copy()
         context.view_layer.objects.active = temp
-        temp.location += Vector(((obj.dimensions[0]+0.1)*1, 0.0, 0.0))     
+        temp.location += Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
 
         # Set active uv
         uv_layers = get_uv_layers(temp)
@@ -569,9 +591,11 @@ def get_tangent_bitangent_images(obj, uv_name):
         _prepare_bake_settings(book, temp, uv_name)     
 
         if not tanimage:
-            tanimage = bpy.data.images.new(name=tanimage_name,
-                    width=1024, height=1024, alpha=False, float_buffer=True)
-            tanimage.generated_color = (0,0,0,1)
+            tanimage = bpy.data.images.new(
+                name=tanimage_name, width=1024, height=1024,
+                alpha=False, float_buffer=True
+            )
+            tanimage.generated_color = (0, 0, 0, 1)
 
             # Set bake tangent material
             temp.data.materials.clear()
@@ -586,9 +610,11 @@ def get_tangent_bitangent_images(obj, uv_name):
 
         if not bitimage:
 
-            bitimage = bpy.data.images.new(name=bitimage_name,
-                    width=1024, height=1024, alpha=False, float_buffer=True)
-            bitimage.generated_color = (0,0,0,1)
+            bitimage = bpy.data.images.new(
+                name=bitimage_name, width=1024, height=1024,
+                alpha=False, float_buffer=True
+            )
+            bitimage.generated_color = (0, 0, 0, 1)
 
             # Set bake bitangent material
             temp.data.materials.clear()
@@ -604,8 +630,8 @@ def get_tangent_bitangent_images(obj, uv_name):
         # Pack tangent and bitangent images so they won't lost their data
         tanimage.pack()
         bitimage.pack()
-        tanimage.use_fake_user=True
-        bitimage.use_fake_user=True
+        tanimage.use_fake_user = True
+        bitimage.use_fake_user = True
 
         # Revover bake settings
         _recover_bake_settings(book, True)
@@ -730,7 +756,7 @@ class YSculptImage(bpy.types.Operator):
         link_object(scene, temp)
         temp.data = temp.data.copy()
         context.view_layer.objects.active = temp
-        temp.location += Vector(((obj.dimensions[0]+0.1)*1, 0.0, 0.0))     
+        temp.location += Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
 
         # Select temp object
         set_active_object(temp)
@@ -809,7 +835,7 @@ class YSculptImage(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='SCULPT')
 
-        print('INFO: Sculpt mode is entered at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Sculpt mode is entered in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 
@@ -872,7 +898,7 @@ class YApplySculptToImage(bpy.types.Operator):
         if space.type == 'VIEW_3D' and space.shading.type not in {'MATERIAL', 'RENDERED'}:
             space.shading.type = 'MATERIAL'
 
-        print('INFO: Applying sculpt to VDM is done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Applying sculpt to VDM is done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 

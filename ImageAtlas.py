@@ -1,4 +1,4 @@
-import bpy, time, random, numpy, re
+import bpy, time, random, re
 from bpy.props import *
 from .common import *
 from .subtree import *
@@ -55,16 +55,18 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False, name=''):
 
     name = get_unique_name(name, bpy.data.images)
 
-    img = bpy.data.images.new(name=name, 
-            width=size, height=size, alpha=True, float_buffer=hdr)
+    img = bpy.data.images.new(
+        name=name, width=size, height=size,
+        alpha=True, float_buffer=hdr
+    )
 
     if color == 'BLACK':
-        img.generated_color = (0,0,0,1)
+        img.generated_color = (0, 0, 0, 1)
         img.colorspace_settings.name = get_noncolor_name()
     elif color == 'WHITE':
-        img.generated_color = (1,1,1,1)
+        img.generated_color = (1, 1, 1, 1)
         img.colorspace_settings.name = get_noncolor_name()
-    else: img.generated_color = (0,0,0,0)
+    else: img.generated_color = (0, 0, 0, 0)
 
     img.yia.is_image_atlas = True
     img.yia.color = color
@@ -148,7 +150,7 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_fro
         images = bpy.data.images
         name = ''
 
-    # Serach for available image atlas
+    # Search for available image atlas
     for img in images:
         #if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
         if img.yia.is_image_atlas and img.yia.color == color and img.is_float == hdr:
@@ -240,14 +242,14 @@ def replace_segment_with_image(yp, segment, image, uv_name=''):
 #            uv_coords.x += 0.1
 #            #print(uv_coords)
 #
-#        print('INFO: UV Map of', ob.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+#        print('INFO: UV Map of', ob.name, 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 #
 #        return {'FINISHED'}
 
 def get_segment_mapping(segment, image):
 
-    scale_x = segment.width/image.size[0]
-    scale_y = segment.height/image.size[1]
+    scale_x = segment.width / image.size[0]
+    scale_y = segment.height / image.size[1]
 
     offset_x = scale_x * segment.tile_x
     offset_y = scale_y * segment.tile_y
@@ -269,7 +271,7 @@ def set_segment_mapping(entity, segment, image, use_baked=False):
     else: mapping = get_mask_mapping(entity, get_baked=use_baked)
 
     if mapping:
-        if is_greater_than_281():
+        if is_bl_newer_than(2, 81):
             mapping.inputs[3].default_value[0] = scale_x
             mapping.inputs[3].default_value[1] = scale_y
 
@@ -295,14 +297,17 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
 
     #image_atlas_coll : CollectionProperty(type=bpy.types.PropertyGroup)
     color : EnumProperty(
-            name = 'Altas Base Color',
-            items = (('WHITE', 'White', ''),
-                     ('BLACK', 'Black', ''),
-                     ('TRANSPARENT', 'Transparent', '')),
-            default = 'BLACK')
+        name = 'Altas Base Color',
+        items = (
+            ('WHITE', 'White', ''),
+            ('BLACK', 'Black', ''),
+            ('TRANSPARENT', 'Transparent', '')
+        ),
+        default = 'BLACK'
+    )
 
-    width : IntProperty(name='Width', default = 128, min=1, max=4096)
-    height : IntProperty(name='Height', default = 128, min=1, max=4096)
+    width : IntProperty(name='Width', default=128, min=1, max=4096)
+    height : IntProperty(name='Height', default=128, min=1, max=4096)
 
     @classmethod
     def poll(cls, context):
@@ -339,8 +344,8 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
         #    atlas_img = create_image_atlas(color='BLACK', size=1024)
         #else: atlas_img = bpy.data.images.get(self.image_atlas_name)
         segment = get_set_image_atlas_segment(
-                self.width, self.height, self.color, 
-                hdr=False)
+            self.width, self.height, self.color, hdr=False
+        )
 
         atlas_img = segment.id_data
         atlas = atlas_img.yia
@@ -371,15 +376,15 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
 
                 for x in range(start_x, end_x):
                     for i in range(3):
-                        pxs[offset_y + (x*4) + i] = col[i]
-                        pxs[offset_y + (x*4) + 3] = 1.0
+                        pxs[offset_y + (x * 4) + i] = col[i]
+                        pxs[offset_y + (x * 4) + 3] = 1.0
 
             atlas_img.pixels = pxs
 
         # Update image editor
         update_image_editor_image(context, atlas_img)
 
-        print('INFO: Segment is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Segment is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 
@@ -426,7 +431,7 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
 class YBackToOriginalUV(bpy.types.Operator):
     bl_idname = "node.y_back_to_original_uv"
     bl_label = "Back to Original UV"
-    bl_description = "Transformed UV detected, your changes will lost if you edit on this UV.\nClick this button to go back to original UV"
+    bl_description = "Transformed UV detected, your changes will be lost if you edit on this UV.\nClick this button to go back to original UV"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -458,8 +463,8 @@ class YBackToOriginalUV(bpy.types.Operator):
             for uv in uv_layers:
                 if uv.name == src_of_img.uv_name:
 
-                    if uv_layers.src_of_img != uv_layers.get(src_of_img.uv_name):
-                        uv_layers.src_of_img = uv_layers.get(src_of_img.uv_name)
+                    if uv_layers.active != uv_layers.get(src_of_img.uv_name):
+                        uv_layers.active = uv_layers.get(src_of_img.uv_name)
 
                 if uv.name == TEMP_UV:
                     uv_layers.remove(uv)
@@ -486,9 +491,10 @@ class YConvertToImageAtlas(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     all_images : BoolProperty(
-            name = 'All Images',
-            description = 'Convert all images instead of only the active one',
-            default=False)
+        name = 'All Images',
+        description = 'Convert all images instead of only the active one',
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -542,6 +548,10 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
             # Get segment
             if image.source == 'TILED':
+
+                # Make sure image has filepath
+                if image.filepath == '': UDIM.initial_pack_udim(image)
+
                 objs = get_all_objects_with_same_materials(mat, True, valid_entities[0].uv_name)
                 tilenums = UDIM.get_tile_numbers(objs, valid_entities[0].uv_name)
                 new_segment = UDIM.get_set_udim_atlas_segment(tilenums, color=image.yui.base_color, colorspace=colorspace, hdr=image.is_float, yp=yp, source_image=image)
@@ -593,9 +603,10 @@ class YConvertToStandardImage(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     all_images : BoolProperty(
-            name = 'All Images',
-            description = 'Convert all images instead of only the active one',
-            default=False)
+        name = 'All Images',
+        description = 'Convert all images instead of only the active one',
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -634,11 +645,15 @@ class YConvertToStandardImage(bpy.types.Operator):
 
             # Create new image based on image atlas
             if image.yia.is_image_atlas:
-                new_image = bpy.data.images.new(name=entities[i][0].name,
-                        width=segment.width, height=segment.height, alpha=True, float_buffer=image.is_float)
+                new_image = bpy.data.images.new(
+                    name=entities[i][0].name, width=segment.width, height=segment.height,
+                    alpha=True, float_buffer=image.is_float
+                )
             else:
-                new_image = bpy.data.images.new(name=entities[i][0].name,
-                        width=image.size[0], height=image.size[1], alpha=True, float_buffer=image.is_float, tiled=True)
+                new_image = bpy.data.images.new(
+                    name=entities[i][0].name, width=image.size[0], height=image.size[1],
+                    alpha=True, float_buffer=image.is_float, tiled=True
+                )
 
                 atlas_tilenums = UDIM.get_udim_segment_tilenums(segment)
                 index = UDIM.get_udim_segment_index(image, segment)
@@ -721,9 +736,10 @@ class YConvertToStandardImage(bpy.types.Operator):
 class YImageAtlasSegments(bpy.types.PropertyGroup):
 
     name : StringProperty(
-            name='Name',
-            description='Name of Image Atlas Segments',
-            default='')
+        name = 'Name',
+        description = 'Name of Image Atlas Segments',
+        default = ''
+    )
 
     tile_x : IntProperty(default=0)
     tile_y : IntProperty(default=0)
@@ -737,18 +753,22 @@ class YImageAtlasSegments(bpy.types.PropertyGroup):
 
 class YImageAtlas(bpy.types.PropertyGroup):
     name : StringProperty(
-            name='Name',
-            description='Name of Image Atlas',
-            default='')
+        name = 'Name',
+        description = 'Name of Image Atlas',
+        default = ''
+    )
 
     is_image_atlas : BoolProperty(default=False)
 
     color : EnumProperty(
-            name = 'Atlas Base Color',
-            items = (('WHITE', 'White', ''),
-                     ('BLACK', 'Black', ''),
-                     ('TRANSPARENT', 'Transparent', '')),
-            default = 'BLACK')
+        name = 'Atlas Base Color',
+        items = (
+            ('WHITE', 'White', ''),
+            ('BLACK', 'Black', ''),
+            ('TRANSPARENT', 'Transparent', '')
+        ),
+        default = 'BLACK'
+    )
 
     #float_buffer : BoolProperty(default=False)
 

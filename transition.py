@@ -1,4 +1,4 @@
-import bpy
+import bpy, time
 from bpy.props import *
 from .common import *
 from .transition_common import *
@@ -30,7 +30,7 @@ def update_transition_bump_chain(self, context):
     reconnect_layer_nodes(layer) #, mod_reconnect=True)
     rearrange_layer_nodes(layer)
 
-    print('INFO: Transition bump chain is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Transition bump chain is updated in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_transition_bump_curved_offset(self, context):
 
@@ -171,13 +171,14 @@ class YHideTransitionEffect(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
-            name = 'Type',
-            items = (
-                ('BUMP', 'Bump', ''),
-                ('RAMP', 'Ramp', ''),
-                ('AO', 'AO', ''),
-                ),
-            default = 'BUMP')
+        name = 'Type',
+        items = (
+            ('BUMP', 'Bump', ''),
+            ('RAMP', 'Ramp', ''),
+            ('AO', 'AO', ''),
+        ),
+        default = 'BUMP'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -243,8 +244,8 @@ def update_enable_transition_ao(self, context):
     rearrange_layer_nodes(layer)
 
     if ch.enable_transition_ao:
-        print('INFO: Transition AO is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-    else: print('INFO: Transition AO is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Transition AO is enabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    else: print('INFO: Transition AO is disabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_enable_transition_ramp(self, context):
     T = time.time()
@@ -270,8 +271,8 @@ def update_enable_transition_ramp(self, context):
     rearrange_layer_nodes(layer)
 
     if ch.enable_transition_ramp:
-        print('INFO: Transition ramp is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-    else: print('INFO: Transition ramp is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Transition ramp is enabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    else: print('INFO: Transition ramp is disabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_enable_transition_bump(self, context):
     T = time.time()
@@ -299,8 +300,8 @@ def update_enable_transition_bump(self, context):
     rearrange_yp_nodes(self.id_data)
 
     if ch.enable_transition_bump:
-        print('INFO: Transition bump is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-    else: print('INFO: Transition bump is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Transition bump is enabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    else: print('INFO: Transition bump is disabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def register():
     bpy.utils.register_class(YShowTransitionBump)

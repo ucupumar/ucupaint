@@ -1,11 +1,11 @@
-import bpy, time, re, os
+import bpy, time, re
 from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
 from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer, Mask, transition, Bake, ImageAtlas, BakeTarget
+from . import lib, Modifier, Layer, Mask, transition, Bake, BakeTarget, ListItem
 from .input_outputs import *
 
 YP_GROUP_SUFFIX = ' ' + get_addon_title()
@@ -44,7 +44,7 @@ def set_input_default_value(group_node, channel, custom_value=None):
     # Set default value
     if channel.type == 'RGB':
         #group_node.inputs[channel.io_index].default_value = (1,1,1,1)
-        group_node.inputs[channel.name].default_value = (1,1,1,1)
+        group_node.inputs[channel.name].default_value = (1, 1, 1, 1)
 
     if channel.type == 'VALUE':
         #group_node.inputs[channel.io_index].default_value = 0.0
@@ -52,7 +52,7 @@ def set_input_default_value(group_node, channel, custom_value=None):
     if channel.type == 'NORMAL':
         # Use 999 as normal z value so it will fallback to use geometry normal at checking process
         #group_node.inputs[channel.io_index].default_value = (999,999,999)
-        group_node.inputs[channel.name].default_value = (999,999,999)
+        group_node.inputs[channel.name].default_value = (999, 999, 999)
 
         # Update height default value
         io_name = channel.name + io_suffix['HEIGHT']
@@ -130,6 +130,7 @@ def create_new_group_tree(mat):
     group_tree.yp.is_ypaint_node = True
     group_tree.yp.version = get_current_version_str()
     group_tree.yp.blender_version = get_current_blender_version_str()
+    group_tree.yp.enable_baked_outside = get_user_preferences().enable_baked_outside_by_default
 
     # Create IO nodes
     create_essential_nodes(group_tree, True, True, True)
@@ -151,7 +152,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     channel.type = channel_type
 
     # Get last index
-    last_index = len(yp.channels)-1
+    last_index = len(yp.channels) - 1
 
     # Link new channel
     check_yp_channel_nodes(yp)
@@ -165,8 +166,8 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
     else:
-        # NOTE: Smooth bump is no longer enabled by default on Blender 2.80+
-        if is_greater_than_280(): channel.enable_smooth_bump = False
+        # NOTE: Smooth bump is no longer enabled by default in Blender 2.80+
+        if is_bl_newer_than(2, 80): channel.enable_smooth_bump = False
 
     yp.halt_reconnect = False
 
@@ -179,24 +180,28 @@ class YSelectMaterialPolygons(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     new_uv : BoolProperty(
-            name = 'Create New UV',
-            description = 'Create new UV rather than use available one',
-            default = False)
+        name = 'Create New UV',
+        description = 'Create new UV rather than using available one',
+        default = False
+    )
 
     new_uv_name : StringProperty(
-            name='New UV Name', 
-            description="Name of the new uv", 
-            default='UVMap')
+        name = 'New UV Name', 
+        description = 'Name of the new UV',
+        default = 'UVMap'
+    )
 
     uv_map : StringProperty(
-            name='Active UV Map', 
-            description="It will create one if other objects does not have it.\nIf empty, it will use whatever current active uv map for each objects", 
-            default='')
+        name = 'Active UV Map', 
+        description = "It will create one if other objects don't have it.\nIf empty, it will use the current active uv map for each object",
+        default = ''
+    )
 
     set_canvas_to_empty : BoolProperty(
-            name='Set Image Editor to empty',
-            description="Set image editor & canvas image to empty, so it's easier to see",
-            default=True)
+        name = 'Set Image Editor to empty',
+        description = "Set image editor & canvas image to empty, so it's easier to see",
+        default = True
+    )
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
@@ -204,8 +209,12 @@ class YSelectMaterialPolygons(bpy.types.Operator):
     def poll(cls, context):
         return context.object
 
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
     def invoke(self, context, event):
-        if not is_greater_than_280():
+        if not is_bl_newer_than(2, 80):
             self.execute(context)
 
         obj = context.object
@@ -225,6 +234,9 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         for uv in get_uv_layers(obj):
             if not uv.name.startswith(TEMP_UV):
                 self.uv_map_coll.add().name = uv.name
+        
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=400)
 
@@ -240,8 +252,8 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         self.layout.prop(self, "set_canvas_to_empty")
 
     def execute(self, context):
-        if not is_greater_than_280():
-            self.report({'ERROR'}, "This feature only works on Blender 2.8+")
+        if not is_bl_newer_than(2, 80):
+            self.report({'ERROR'}, "This feature only works in Blender 2.8+")
             return {'CANCELLED'}
 
         if (self.new_uv and self.new_uv_name == '') or (not self.new_uv and self.uv_map == ''):
@@ -303,16 +315,18 @@ class YRenameUVMaterial(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     uv_map : StringProperty(
-            name='Target UV Map', 
-            description="Target UV Map that will be renamed", 
-            default='')
+        name = 'Target UV Map', 
+        description = "Target UV Map that will be renamed", 
+        default = ''
+    )
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     new_uv_name : StringProperty(
-            name='New UV Name', 
-            description="New name of for the UV", 
-            default='UVMap')
+        name = 'New UV Name', 
+        description = 'New name for the UV',
+        default = 'UVMap'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -415,13 +429,14 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
-            name = 'Type',
-            items = (('BSDF_PRINCIPLED', 'Principled', ''),
-                     ('BSDF_DIFFUSE', 'Diffuse', ''),
-                     ('EMISSION', 'Emission', ''),
-                     ),
-            default = 'BSDF_PRINCIPLED')
-            #update=update_quick_setup_type)
+        name = 'Type',
+        items = (
+            ('BSDF_PRINCIPLED', 'Principled', ''),
+            ('BSDF_DIFFUSE', 'Diffuse', ''),
+            ('EMISSION', 'Emission', ''),
+        ),
+        default = 'BSDF_PRINCIPLED'
+    )
 
     color : BoolProperty(name='Color', default=True)
     ao : BoolProperty(name='Ambient Occlusion', default=False)
@@ -430,27 +445,34 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     normal : BoolProperty(name='Normal', default=True)
 
     mute_texture_paint_overlay : BoolProperty(
-            name = 'Mute Stencil Mask Opacity',
-            description = 'Set Stencil Mask Opacity found in the 3D Viewport\'s Overlays menu to 0',
-            default = True)
+        name = 'Mute Stencil Mask Opacity',
+        description = 'Set Stencil Mask Opacity found in the 3D Viewport\'s Overlays menu to 0',
+        default = True
+    )
 
     use_linear_blending : BoolProperty(
-            name = 'Use Linear Color Blending',
-            description = 'Use more accurate linear color blending (it will behave differently than Photoshop)',
-            default = True)
+        name = 'Use Linear Color Blending',
+        description = 'Use more accurate linear color blending (it will behave differently than Photoshop)',
+        default = True
+    )
 
     switch_to_material_view : BoolProperty(
-            name = 'Switch to Material View',
-            description = 'Switch to material view so the node setup is automatically visible',
-            default = True)
+        name = 'Switch to Material View',
+        description = 'Switch to material view so the node setup is automatically visible',
+        default = True
+    )
 
-    target_bsdf_name : StringProperty(default = '')
-    not_muted_paint_opacity : BoolProperty(default = False)
-    not_on_material_view : BoolProperty(default = True)
+    target_bsdf_name : StringProperty(default='')
+    not_muted_paint_opacity : BoolProperty(default=False)
+    not_on_material_view : BoolProperty(default=True)
 
     @classmethod
     def poll(cls, context):
         return context.object
+
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
 
     def invoke(self, context, event):
         space = context.space_data
@@ -473,13 +495,16 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             self.normal = False
 
         self.not_muted_paint_opacity = False
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             for area in context.screen.areas:
                 if area.type == 'VIEW_3D':
                     self.not_muted_paint_opacity = area.spaces[0].overlay.texture_paint_mode_opacity > 0.0
                     break
 
-        self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_greater_than_280() and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_greater_than_280() and space.shading.type not in {'MATERIAL', 'RENDERED'}))
+        self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_bl_newer_than(2, 80) and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_bl_newer_than(2, 80) and space.shading.type not in {'MATERIAL', 'RENDERED'}))
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -514,7 +539,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         col.prop(self, 'use_linear_blending')
 
-        if is_greater_than_280() and self.not_muted_paint_opacity:
+        if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity:
             col.prop(self, 'mute_texture_paint_overlay')
 
         if self.not_on_material_view:
@@ -525,7 +550,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         obj = context.object
 
         if not obj.data or not hasattr(obj.data, 'materials'):
-            self.report({'ERROR'}, "Cannot use "+get_addon_title()+" with object '"+obj.name+"'!")
+            self.report({'ERROR'}, "Cannot use " + get_addon_title() + " with object '" + obj.name + "'!")
             return {'CANCELLED'}
 
         mat = get_active_material()
@@ -583,7 +608,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # BSDF node
         if not main_bsdf:
             if self.type == 'BSDF_PRINCIPLED':
-                if not is_greater_than_279():
+                if not is_bl_newer_than(2, 79):
                     main_bsdf = nodes.new('ShaderNodeGroup')
                     main_bsdf.node_tree = get_node_tree_lib(lib.BL278_BSDF)
                 else:
@@ -639,7 +664,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             loc.x += 200
 
         main_bsdf.location = loc.copy()
-        if main_bsdf.type == 'BSDF_PRINCIPLED' and is_greater_than_280():
+        if main_bsdf.type == 'BSDF_PRINCIPLED' and is_bl_newer_than(2, 80):
             loc.x += 270
         else: loc.x += 200
 
@@ -715,7 +740,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 links.new(node.outputs[ch_color.name], inp)
 
         if ch_ao:
-            set_input_default_value(node, ch_ao, (1,1,1))
+            set_input_default_value(node, ch_ao, (1, 1, 1))
 
         if ch_metallic:
             inp = main_bsdf.inputs['Metallic']
@@ -750,14 +775,15 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             #links.new(node.outputs[ch_normal.io_index], inp)
             links.new(node.outputs[ch_normal.name], inp)
 
-        # Disable overlay on Blender 2.8
+        # Disable overlay in Blender 2.8
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
-                if is_greater_than_280() and self.not_muted_paint_opacity and self.mute_texture_paint_overlay:
+                if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity and self.mute_texture_paint_overlay:
                     area.spaces[0].overlay.texture_paint_mode_opacity = 0.0
+                    area.spaces[0].overlay.vertex_paint_mode_opacity = 0.0
 
                 if self.not_on_material_view and self.switch_to_material_view:
-                    if not is_greater_than_280():
+                    if not is_bl_newer_than(2, 80):
                         area.spaces[0].viewport_shade = 'MATERIAL'
                     else: area.spaces[0].shading.type = 'MATERIAL'
 
@@ -784,8 +810,7 @@ class YNewYPaintNode(bpy.types.Operator):
         # convert mouse position to the View2D for later node placement
         if context.region.type == 'WINDOW':
             # convert mouse position to the View2D for later node placement
-            space.cursor_location_from_region(
-                    event.mouse_region_x, event.mouse_region_y)
+            space.cursor_location_from_region(event.mouse_region_x, event.mouse_region_y)
         else:
             space.cursor_location = tree.view_center
 
@@ -793,8 +818,11 @@ class YNewYPaintNode(bpy.types.Operator):
     def poll(cls, context):
         space = context.space_data
         # needs active node editor and a tree to add nodes to
-        return ((space.type == 'NODE_EDITOR') and
-                space.edit_tree and not space.edit_tree.library)
+        return (
+            space.type == 'NODE_EDITOR' and
+            space.edit_tree and
+            not space.edit_tree.library
+        )
 
     def execute(self, context):
         space = context.space_data
@@ -855,9 +883,11 @@ class YNewYPaintNode(bpy.types.Operator):
         return result
 
 def new_channel_items(self, context):
-    items = [('VALUE', 'Value', '', lib.custom_icons[lib.channel_custom_icon_dict['VALUE']].icon_id, 0),
-             ('RGB', 'RGB', '', lib.custom_icons[lib.channel_custom_icon_dict['RGB']].icon_id, 1),
-             ('NORMAL', 'Normal', '', lib.custom_icons[lib.channel_custom_icon_dict['NORMAL']].icon_id, 2)]
+    items = [
+        ('VALUE', 'Value', '', lib.get_icon(lib.channel_custom_icon_dict['VALUE']), 0),
+        ('RGB', 'RGB', '', lib.get_icon(lib.channel_custom_icon_dict['RGB']), 1),
+        ('NORMAL', 'Normal', '', lib.get_icon(lib.channel_custom_icon_dict['NORMAL']), 2)
+    ]
 
     return items
 
@@ -1081,32 +1111,48 @@ class YNewYPaintChannel(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     name : StringProperty(
-            name='Channel Name', 
-            description = 'Name of the channel',
-            default='Albedo')
+        name = 'Channel Name', 
+        description = 'Name of the channel',
+        default = 'Albedo'
+    )
 
     type : EnumProperty(
-            name = 'Channel Type',
-            items = new_channel_items)
+        name = 'Channel Type',
+        items = new_channel_items
+    )
 
     connect_to : StringProperty(name='Connect To', default='', update=update_connect_to)
     input_coll : CollectionProperty(type=YPaintNodeInputCollItem)
 
     colorspace : EnumProperty(
-            name = 'Color Space',
-            description = "Non color won't converted to linear first before blending",
-            items = colorspace_items,
-            default='LINEAR')
+        name = 'Color Space',
+        description = "Non-color won't be converted to linear first before blending",
+        items = colorspace_items,
+        default = 'LINEAR'
+    )
 
     use_clamp : BoolProperty(
-            name='Use Clamp', 
-            description = 'Use clamp of newly the channel',
-            default=True)
+        name = 'Use Clamp', 
+        description = 'Use clamp of newly the channel',
+        default = True
+    )
 
     set_strength_to_one : BoolProperty(
-            name='Set Strength to One', 
-            description = 'Set socket strength to one',
-            default=True)
+        name = 'Set Strength to One', 
+        description = 'Set socket strength to one',
+        default = True
+    )
+
+    blend_method : EnumProperty(
+        name = 'Blend Method', 
+        description = 'Blend method for transparent material',
+        items = (
+            ('CLIP', 'Alpha Clip', ''),
+            ('HASHED', 'Alpha Hashed', ''),
+            ('BLEND', 'Alpha Blend', '')
+        ),
+        default = 'HASHED'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1137,6 +1183,18 @@ class YNewYPaintChannel(bpy.types.Operator):
         return True
 
     def draw(self, context):
+
+        mat = get_active_material()
+
+        # Detect principled alpha
+        is_alpha_channel = False
+        if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
+            item = self.input_coll.get(self.connect_to)
+            if item:
+                target_node = mat.node_tree.nodes.get(item.node_name)
+                if target_node.type == 'BSDF_PRINCIPLED' and item.input_name == 'Alpha':
+                    is_alpha_channel = True
+
         row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
@@ -1144,6 +1202,8 @@ class YNewYPaintChannel(bpy.types.Operator):
         col.label(text='Connect To:')
         if self.type != 'NORMAL':
             col.label(text='Color Space:')
+        if is_alpha_channel:
+            col.label(text='Blend Method:')
         if self.type != 'NORMAL': col.label(text='')
 
         col = row.column(align=False)
@@ -1152,13 +1212,14 @@ class YNewYPaintChannel(bpy.types.Operator):
                 #lib.custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
         if self.type != 'NORMAL':
             col.prop(self, "colorspace", text='')
+        if is_alpha_channel:
+            col.prop(self, 'blend_method', text='')
         if self.type != 'NORMAL': col.prop(self, 'use_clamp')
 
         # Blender 4.0 and above has some default weight and strength set to 0.0
-        if is_greater_than_400():
+        if is_bl_newer_than(4):
             item = self.input_coll.get(self.connect_to)
             if item:
-                mat = get_active_material()
                 target_node = mat.node_tree.nodes.get(item.node_name)
                 if target_node.type == 'BSDF_PRINCIPLED' and item.input_name in {'Emission Color', 'Subsurface Scale'}:
                     col.prop(self, "set_strength_to_one")
@@ -1191,8 +1252,10 @@ class YNewYPaintChannel(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Create new yp channel
-        channel = create_new_yp_channel(group_tree, self.name, self.type, 
-                non_color=self.colorspace == 'LINEAR')
+        channel = create_new_yp_channel(
+            group_tree, self.name, self.type, 
+            non_color = self.colorspace == 'LINEAR'
+        )
 
         # Update io
         check_all_channel_ios(yp, yp_node=node)
@@ -1202,6 +1265,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         inp = None
         strength_inp = None
         input_name = ''
+        set_blend_method = False
         if item:
             target_node = mat.node_tree.nodes.get(item.node_name)
             input_name = item.input_name
@@ -1209,11 +1273,16 @@ class YNewYPaintChannel(bpy.types.Operator):
             mat.node_tree.links.new(node.outputs[channel.name], inp)
 
             # Blender 4.0 and above has some default weight and strength set to 0.0
-            if is_greater_than_400() and target_node.type == 'BSDF_PRINCIPLED':
+            if is_bl_newer_than(4) and target_node.type == 'BSDF_PRINCIPLED':
                 if item.input_name == 'Emission Color':
                     strength_inp = target_node.inputs.get('Emission Strength')
                 elif item.input_name == 'Subsurface Scale':
                     strength_inp = target_node.inputs.get('Subsurface Weight')
+
+            if (is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2) and
+                target_node.type == 'BSDF_PRINCIPLED' and item.input_name == 'Alpha'
+                ):
+                set_blend_method = True
 
         # Set input default value
         if inp and self.type != 'NORMAL': 
@@ -1232,13 +1301,22 @@ class YNewYPaintChannel(bpy.types.Operator):
         if channel.use_clamp != self.use_clamp:
             channel.use_clamp = self.use_clamp
 
+        # Set blend method
+        if set_blend_method:
+            mat.blend_method = self.blend_method
+
         # Change active channel
         last_index = len(yp.channels)-1
         group_tree.yp.active_channel_index = last_index
 
+        # Automatically enable new layer channel for group and background layers
+        for layer in yp.layers:
+            if layer.type in {'GROUP', 'BACKGROUND'}:
+                layer.channels[last_index].enable = True
+
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Channel', channel.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Channel', channel.name, 'is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1250,10 +1328,13 @@ class YMoveYPaintChannel(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     direction : EnumProperty(
-            name = 'Direction',
-            items = (('UP', 'Up', ''),
-                     ('DOWN', 'Down', '')),
-            default = 'UP')
+        name = 'Direction',
+        items = (
+            ('UP', 'Up', ''),
+            ('DOWN', 'Down', '')
+        ),
+        default = 'UP'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1322,7 +1403,7 @@ class YMoveYPaintChannel(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Channel', channel.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Channel', channel.name, 'is moved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1334,9 +1415,10 @@ class YRemoveYPaintChannel(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     also_del_vcol : BoolProperty(
-        name="Also remove baked vertex color",
-        description="Also remove baked vertex color",
-        default=False)
+        name = 'Also remove baked vertex color',
+        description = 'Also remove baked vertex color',
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1389,7 +1471,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         # Remove channel fcurves first
         remove_channel_fcurves(channel)
-        shift_channel_fcurves_up(yp, channel_idx)
+        shift_channel_fcurves(yp, channel_idx, 'UP')
         
         # Delete objects vertex color
         if self.also_del_vcol:
@@ -1564,7 +1646,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Channel', channel_name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Channel', channel_name, 'is moved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1779,6 +1861,43 @@ class YChangeActiveYPaintNode(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def duplicate_mat(mat):
+    # HACK: mat.copy() on Blender 3.0 and newer will make the yp tree used by 3 users (it should be 2 users)
+    # To get around this issue, use a temporary tree that will replace the yp trees before doing mat.copy()
+    if is_bl_newer_than(3):
+
+        yp_trees = {}
+        temp_trees = []
+
+        # Create temporary trees that will replace the yp tree
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node:
+                yp_trees[node.name] = node.node_tree
+
+                temp_tree = node.node_tree.copy()
+                temp_trees.append(temp_tree)
+
+                node.node_tree = temp_tree
+
+        # Duplicate material
+        new_mat = mat.copy()
+
+        # Set back yp tree to original nodes
+        for node_name, tree in yp_trees.items():
+            node = mat.node_tree.nodes.get(node_name)
+            node.node_tree = tree
+
+            node = new_mat.node_tree.nodes.get(node_name)
+            node.node_tree = tree
+
+        # Remove temporary trees
+        for temp_tree in reversed(temp_trees):
+            remove_datablock(bpy.data.node_groups, temp_tree)
+
+        return new_mat
+
+    return mat.copy()
+
 class YDuplicateYPNodes(bpy.types.Operator):
     bl_idname = "node.y_duplicate_yp_nodes"
     bl_label = "Duplicate " + get_addon_title() + " Nodes"
@@ -1786,25 +1905,28 @@ class YDuplicateYPNodes(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     duplicate_node : BoolProperty(
-            name = 'Duplicate this Node',
-            description = 'Duplicate this node',
-            default=False)
+        name = 'Duplicate this Node',
+        description = 'Duplicate this node',
+        default = False
+    )
 
     duplicate_material : BoolProperty(
-            name = 'Also Duplicate Material',
-            description = 'Also Duplicate this node parent materials',
-            default=False)
+        name = 'Also Duplicate Material',
+        description = 'Also Duplicate this node parent materials',
+        default = False
+    )
 
     only_active : BoolProperty(
-            name = 'Only Duplicate on active object',
-            description = 'Only duplicate on active object, rather than all accessible objects using the same material',
-            default=True)
+        name = 'Only Duplicate on active object',
+        description = 'Only duplicate on active object, rather than all accessible objects using the same material',
+        default = True
+    )
 
     ondisk_duplicate : BoolProperty(
-            name = 'Duplicate Images on disk',
-            description = 'Duplicate images on disk, this will create copy of images sourced from external files',
-            default = False
-            )
+        name = 'Duplicate Images on disk',
+        description = 'Duplicate images on disk, this will create copies of images sourced from external files',
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1813,6 +1935,10 @@ class YDuplicateYPNodes(bpy.types.Operator):
         if not group_node: return False
 
         return True
+
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
 
     def invoke(self, context, event):
         group_node = get_active_ypaint_node()
@@ -1824,6 +1950,9 @@ class YDuplicateYPNodes(bpy.types.Operator):
             self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
             if self.any_ondisk_image:
                 break
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -1842,7 +1971,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
         if self.duplicate_material:
 
             # Duplicate the material
-            dup_mat = mat.copy()
+            dup_mat = duplicate_mat(mat)
             for obj in objs:
                 for i, m in enumerate(obj.data.materials):
                     if m == mat:
@@ -1867,6 +1996,10 @@ class YDuplicateYPNodes(bpy.types.Operator):
         group_node = get_active_ypaint_node()
         tree = group_node.node_tree
         yp = tree.yp
+
+        ori_enable_baked_outside = yp.enable_baked_outside
+        if yp.enable_baked_outside:
+            yp.enable_baked_outside = False
 
         # Duplicate all layers
         Layer.duplicate_layer_nodes_and_images(tree, packed_duplicate=True, ondisk_duplicate=self.ondisk_duplicate)
@@ -1919,13 +2052,17 @@ class YDuplicateYPNodes(bpy.types.Operator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
+        # Recover enable baked outside
+        if ori_enable_baked_outside:
+            yp.enable_baked_outside = True
+
         return {'FINISHED'}
 
 def fix_missing_vcol(obj, name, src):
 
     ref_vcol = None
 
-    if is_greater_than_320():
+    if is_bl_newer_than(3, 2):
         # Try to get reference vcol
         mat = get_active_material()
         objs = get_all_objects_with_same_materials(mat)
@@ -1945,11 +2082,13 @@ def fix_missing_vcol(obj, name, src):
     set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 0.0))
 
 def fix_missing_img(name, src, is_mask=False):
-    img = bpy.data.images.new(name=name, 
-            width=1024, height=1024, alpha= not is_mask, float_buffer=False)
+    img = bpy.data.images.new(
+        name=name, width=1024, height=1024,
+        alpha=not is_mask, float_buffer=False
+    )
     if is_mask:
-        img.generated_color = (1,1,1,1)
-    else: img.generated_color = (0,0,0,0)
+        img.generated_color = (1, 1, 1, 1)
+    else: img.generated_color = (0, 0, 0, 0)
     src.image = img
 
 class YOptimizeNormalProcess(bpy.types.Operator):
@@ -2101,12 +2240,15 @@ class YFixMissingData(bpy.types.Operator):
             reconnect_layer_nodes(layer)
             rearrange_layer_nodes(layer)
 
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
+
         return {'FINISHED'}
 
 class YRefreshTangentSignVcol(bpy.types.Operator):
     bl_idname = "node.y_refresh_tangent_sign_vcol"
     bl_label = "Refresh Tangent Sign Vertex Colors"
-    bl_description = "Refresh Tangent Sign Vertex Colors to make it works on Blender 2.8"
+    bl_description = "Refresh Tangent Sign Vertex Colors to make it work in Blender 2.8"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -2148,8 +2290,8 @@ class YRemoveYPaintNode(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
-        self.layout.label(text= "This " + get_addon_title() + " node setup isn't baked yet!")
-        self.layout.label(text= "Are you sure want to delete?")
+        self.layout.label(text="This " + get_addon_title() + " node setup isn't baked yet!")
+        self.layout.label(text="Are you sure want to delete?")
 
     def execute(self, context):
         mat = get_active_material()
@@ -2209,6 +2351,11 @@ class YCleanYPCaches(bpy.types.Operator):
                 for prop in dir(ch):
                     if prop.startswith('cache_'):
                         remove_node(layer_tree, ch, prop)
+
+            for mask in layer.masks:
+                for prop in dir(mask):
+                    if prop.startswith('cache_'):
+                        remove_node(layer_tree, mask, prop)
 
         # Remove tangent and bitangent images
         for image in reversed(bpy.data.images):
@@ -2281,7 +2428,7 @@ def update_channel_name(self, context):
     reconnect_yp_nodes(group_tree)
     rearrange_yp_nodes(group_tree)
 
-    print('INFO: Channel renamed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Channel renamed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
 def get_preview(mat, output=None, advanced=False, normal_viewer=False):
@@ -2297,19 +2444,21 @@ def get_preview(mat, output=None, advanced=False, normal_viewer=False):
     if advanced:
         if normal_viewer:
             preview, dirty = simple_replace_new_node(
-                    tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
-                    lib.ADVANCED_NORMAL_EMISSION_VIEWER,
-                    return_status=True, hard_replace=True)
+                tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
+                lib.ADVANCED_NORMAL_EMISSION_VIEWER,
+                return_status=True, hard_replace=True
+            )
         else:
             preview, dirty = simple_replace_new_node(
-                    tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
-                    lib.ADVANCED_EMISSION_VIEWER,
-                    return_status=True, hard_replace=True)
+                tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
+                lib.ADVANCED_EMISSION_VIEWER,
+                return_status=True, hard_replace=True
+            )
         if dirty:
             duplicate_lib_node_tree(preview)
             #preview.node_tree = preview.node_tree.copy()
             # Set blend method to alpha
-            #if is_greater_than_280():
+            #if is_bl_newer_than(2, 80):
             #    blend_method = mat.blend_method
             #    mat.blend_method = 'HASHED'
             #else:
@@ -2319,13 +2468,15 @@ def get_preview(mat, output=None, advanced=False, normal_viewer=False):
     else:
         if normal_viewer:
             preview, dirty = simple_replace_new_node(
-                    tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
-                    lib.NORMAL_EMISSION_VIEWER,
-                    return_status=True, hard_replace=True)
+                tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
+                lib.NORMAL_EMISSION_VIEWER,
+                return_status=True, hard_replace=True
+            )
         else:
             preview, dirty = simple_replace_new_node(
-                    tree, EMISSION_VIEWER, 'ShaderNodeEmission', 'Emission Viewer', 
-                    return_status=True)
+                tree, EMISSION_VIEWER, 'ShaderNodeEmission', 'Emission Viewer', 
+                return_status = True
+            )
 
     if dirty:
         preview.hide = True
@@ -2335,10 +2486,16 @@ def get_preview(mat, output=None, advanced=False, normal_viewer=False):
 
         # Remember output and original bsdf
         ori_bsdf = output.inputs[0].links[0].from_node
+        ori_socket = output.inputs[0].links[0].from_socket
+        ori_bsdf_output_index = 0
+        for i, outp in enumerate(ori_bsdf.outputs):
+            if outp == ori_socket:
+                ori_bsdf_output_index = i
 
         # Only remember original BSDF if its not the preview node itself
         if ori_bsdf != preview:
             mat.yp.ori_bsdf = ori_bsdf.name
+            mat.yp.ori_bsdf_output_index = ori_bsdf_output_index
 
     return preview
 
@@ -2350,8 +2507,14 @@ def set_srgb_view_transform():
     # Set view transform to srgb
     if scene.yp.ori_view_transform == '' and ypup.make_preview_mode_srgb:
 
+        scene.yp.ori_look = scene.view_settings.look
+        scene.view_settings.look = 'None'
+
+        scene.yp.ori_use_compositing = scene.use_nodes
+        scene.use_nodes = False
+
         scene.yp.ori_view_transform = scene.view_settings.view_transform
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             try: scene.view_settings.view_transform = 'Standard'
             except Exception as e: print(e)
         else: 
@@ -2361,9 +2524,6 @@ def set_srgb_view_transform():
         scene.yp.ori_display_device = scene.display_settings.display_device
         try: scene.display_settings.display_device = 'sRGB'
         except Exception as e: print(e)
-
-        scene.yp.ori_look = scene.view_settings.look
-        scene.view_settings.look = 'None'
 
         scene.yp.ori_exposure = scene.view_settings.exposure
         scene.view_settings.exposure = 0.0
@@ -2386,7 +2546,7 @@ def remove_preview(mat, advanced=False):
         mat.yp.ori_bsdf = ''
 
         if bsdf and output:
-            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+            mat.node_tree.links.new(bsdf.outputs[mat.yp.ori_bsdf_output_index], output.inputs[0])
 
         # Recover view transform
         if scene.yp.ori_view_transform != '':
@@ -2398,6 +2558,7 @@ def remove_preview(mat, advanced=False):
             scene.view_settings.exposure = scene.yp.ori_exposure
             scene.view_settings.gamma = scene.yp.ori_gamma
             scene.view_settings.use_curve_mapping = scene.yp.ori_use_curve_mapping
+            scene.use_nodes = scene.yp.ori_use_compositing
 
 #def update_merge_mask_mode(self, context):
 #    if not self.layer_preview_mode:
@@ -2418,27 +2579,11 @@ def remove_preview(mat, advanced=False):
 #    pass
 
 def layer_preview_mode_type_items(self, context):
-    #node = get_active_ypaint_node()
-    #yp = node.node_tree.yp
-
     items = (
-            ('LAYER', 'Layer', '',  lib.custom_icons['texture'].icon_id, 0),
-            ('MASK', 'Mask', '', lib.custom_icons['mask'].icon_id, 1),
-            ('SPECIFIC_MASK', 'Specific Mask', '', lib.custom_icons['mask'].icon_id, 2)
-            )
-
-    #for i, ch in enumerate(yp.channels):
-    #    #if hasattr(lib, 'custom_icons'):
-    #    if not is_greater_than_280():
-    #        icon_name = lib.channel_custom_icon_dict[ch.type]
-    #        items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
-    #    else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], i))
-
-    ##if hasattr(lib, 'custom_icons'):
-    #if not is_greater_than_280():
-    #    items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
-    #else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
-
+        ('LAYER', 'Layer', '',  lib.get_icon('texture'), 0),
+        ('MASK', 'Mask', '', lib.get_icon('mask'), 1),
+        ('SPECIFIC_MASK', 'Specific Mask', '', lib.get_icon('mask'), 2)
+    )
     return items
 
 def update_layer_preview_mode(self, context):
@@ -2462,7 +2607,6 @@ def update_layer_preview_mode(self, context):
 
     if yp.preview_mode and yp.layer_preview_mode:
         yp.preview_mode = False
-
 
     # Get preview node
     if yp.layer_preview_mode:
@@ -2496,8 +2640,11 @@ def update_layer_preview_mode(self, context):
             # Set gamma
             if 'Gamma' in preview.inputs:
                 if channel.colorspace != 'LINEAR' and not yp.use_linear_blending:
-                    preview.inputs['Gamma'].default_value = 2.2
-                else: preview.inputs['Gamma'].default_value = 1.0
+                    if preview.inputs['Gamma'].default_value != 2.2:
+                        preview.inputs['Gamma'].default_value = 2.2
+                else: 
+                    if preview.inputs['Gamma'].default_value != 1.0:
+                        preview.inputs['Gamma'].default_value = 1.0
 
             # Set channel layer blending
             #mix = preview.node_tree.nodes.get('Mix')
@@ -2572,8 +2719,8 @@ def update_preview_mode(self, context):
             # Cycle outputs
             for i, o in enumerate(outs):
                 if o == from_socket:
-                    if i != len(outs)-1:
-                        tree.links.new(outs[i+1], preview.inputs[0])
+                    if i != len(outs) - 1:
+                        tree.links.new(outs[i + 1], preview.inputs[0])
                     else: tree.links.new(outs[0], preview.inputs[0])
 
         tree.links.new(preview.outputs[0], output.inputs[0])
@@ -2600,14 +2747,14 @@ def update_active_yp_channel(self, context):
             if baked_uv_map: 
                 uv_layers.active = baked_uv_map
                 # NOTE: Blender 2.90 or lower need to use active render so the UV in image editor paint mode is updated
-                if not is_greater_than_291():
+                if not is_bl_newer_than(2, 91):
                     baked_uv_map.active_render = True
 
 def update_layer_index(self, context):
     #T = time.time()
     scene = context.scene
     if hasattr(bpy.context, 'object'): obj = bpy.context.object
-    elif is_greater_than_280(): obj = bpy.context.view_layer.objects.active
+    elif is_bl_newer_than(2, 80): obj = bpy.context.view_layer.objects.active
     if not obj: return
     group_tree = self.id_data
     nodes = group_tree.nodes
@@ -2664,7 +2811,7 @@ def update_channel_colorspace(self, context):
                     rgb2i = nodes.get(mod.rgb2i)
                     if self.colorspace == 'LINEAR':
                         rgb2i.inputs['Gamma'].default_value = 1.0
-                    else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
+                    else: rgb2i.inputs['Gamma'].default_value = 1.0 / GAMMA
 
                 if mod.type == 'COLOR_RAMP':
 
@@ -2677,7 +2824,7 @@ def update_channel_colorspace(self, context):
                     color_ramp_linear = nodes.get(mod.color_ramp_linear)
                     if color_ramp_linear:
                         if self.colorspace == 'SRGB':
-                            color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
+                            color_ramp_linear.inputs[1].default_value = 1.0 / GAMMA
                         else: color_ramp_linear.inputs[1].default_value = 1.0
 
     for layer in yp.layers:
@@ -2712,13 +2859,13 @@ def update_channel_colorspace(self, context):
                     rgb2i = mod_tree.nodes.get(mod.rgb2i)
                     if self.colorspace == 'LINEAR':
                         rgb2i.inputs['Gamma'].default_value = 1.0
-                    else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
+                    else: rgb2i.inputs['Gamma'].default_value = 1.0 / GAMMA
 
                 if mod.type == 'OVERRIDE_COLOR':
                     oc = mod_tree.nodes.get(mod.oc)
                     if self.colorspace == 'LINEAR':
                         oc.inputs['Gamma'].default_value = 1.0
-                    else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
+                    else: oc.inputs['Gamma'].default_value = 1.0 / GAMMA
 
                 if mod.type == 'COLOR_RAMP':
 
@@ -2731,21 +2878,21 @@ def update_channel_colorspace(self, context):
                     color_ramp_linear = mod_tree.nodes.get(mod.color_ramp_linear)
                     if color_ramp_linear:
                         if self.colorspace == 'SRGB':
-                            color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
+                            color_ramp_linear.inputs[1].default_value = 1.0 / GAMMA
                         else: color_ramp_linear.inputs[1].default_value = 1.0
 
         if ch.enable_transition_ramp:
             tr_ramp = tree.nodes.get(ch.tr_ramp)
             if tr_ramp:
                 if self.colorspace == 'SRGB':
-                    tr_ramp.inputs['Gamma'].default_value = 1.0/GAMMA
+                    tr_ramp.inputs['Gamma'].default_value = 1.0 / GAMMA
                 else: tr_ramp.inputs['Gamma'].default_value = 1.0
 
         if ch.enable_transition_ao:
             tao = tree.nodes.get(ch.tao)
             if tao:
                 if self.colorspace == 'SRGB':
-                    tao.inputs['Gamma'].default_value = 1.0/GAMMA
+                    tao.inputs['Gamma'].default_value = 1.0 / GAMMA
                 else: tao.inputs['Gamma'].default_value = 1.0
 
         for mod in ch.modifiers:
@@ -2754,13 +2901,13 @@ def update_channel_colorspace(self, context):
                 rgb2i = tree.nodes.get(mod.rgb2i)
                 if self.colorspace == 'LINEAR':
                     rgb2i.inputs['Gamma'].default_value = 1.0
-                else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
+                else: rgb2i.inputs['Gamma'].default_value = 1.0 / GAMMA
 
             if mod.type == 'OVERRIDE_COLOR':
                 oc = tree.nodes.get(mod.oc)
                 if self.colorspace == 'LINEAR':
                     oc.inputs['Gamma'].default_value = 1.0
-                else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
+                else: oc.inputs['Gamma'].default_value = 1.0 / GAMMA
 
             if mod.type == 'COLOR_RAMP':
 
@@ -2773,7 +2920,7 @@ def update_channel_colorspace(self, context):
                 color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)
                 if color_ramp_linear:
                     if self.colorspace == 'SRGB':
-                        color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
+                        color_ramp_linear.inputs[1].default_value = 1.0 / GAMMA
                     else: color_ramp_linear.inputs[1].default_value = 1.0
 
     check_start_end_root_ch_nodes(group_tree, self)
@@ -2945,6 +3092,11 @@ def update_channel_alpha(self, context):
     frame = get_node(mat.node_tree, yp.baked_outside_frame)
     tex = get_node(mat.node_tree, self.baked_outside, parent=frame)
 
+    # Shift fcurves
+    if self.enable_alpha:
+        shift_channel_fcurves(yp, get_channel_index(self), 'DOWN', remove_ch_mode=False)
+    else: shift_channel_fcurves(yp, get_channel_index(self), 'UP', remove_ch_mode=False)
+
     # Check any alpha channels
     alpha_chs = []
     for ch in yp.channels:
@@ -2954,20 +3106,22 @@ def update_channel_alpha(self, context):
     if not self.enable_alpha:
 
         if not any(alpha_chs):
-            # Set material to use opaque
-            if is_greater_than_280():
-                mat.blend_method = 'OPAQUE'
-                mat.shadow_method = 'OPAQUE'
-            else:
-                mat.game_settings.alpha_blend = 'OPAQUE'
+
+            # Set material to use opaque (only for legacy renderer)
+            if not is_bl_newer_than(4, 2):
+                if is_bl_newer_than(2, 80):
+                    mat.blend_method = 'OPAQUE'
+                    mat.shadow_method = 'OPAQUE'
+                else:
+                    mat.game_settings.alpha_blend = 'OPAQUE'
 
         node = get_active_ypaint_node()
-        inp = node.inputs[self.io_index+1]
+        inp = node.inputs[self.io_index + 1]
 
         if yp.use_baked and yp.enable_baked_outside and tex:
             outp = tex.outputs[1]
         else:
-            outp = node.outputs[self.io_index+1]
+            outp = node.outputs[self.io_index + 1]
 
         # Remember the connections
         if len(inp.links) > 0:
@@ -3003,11 +3157,11 @@ def update_channel_alpha(self, context):
 
         if any(alpha_chs):
 
-            if is_greater_than_420():
+            if is_bl_newer_than(4, 2):
                 # Settings for eevee next
                 mat.use_transparent_shadow = True
 
-            if is_greater_than_280():
+            elif is_bl_newer_than(2, 80):
                 # Settings for eevee legacy
                 mat.blend_method = self.alpha_blend_mode
                 mat.shadow_method = self.alpha_shadow_mode
@@ -3062,7 +3216,7 @@ def update_channel_alpha_blend_mode(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
 
-    if not self.enable_alpha or not is_greater_than_280(): return
+    if not self.enable_alpha or not is_bl_newer_than(2, 80): return
 
     # Set material alpha blend
     mat.blend_method = self.alpha_blend_mode
@@ -3235,133 +3389,160 @@ class YNodeConnections(bpy.types.PropertyGroup):
 
 class YPaintChannel(bpy.types.PropertyGroup):
     name : StringProperty(
-            name='Channel Name', 
-            description = 'Name of the channel',
-            default='Albedo',
-            update=update_channel_name, get=get_channel_name, set=set_channel_name)
+        name = 'Channel Name', 
+        description = 'Name of the channel',
+        default = 'Albedo',
+        update = update_channel_name,
+        get = get_channel_name,
+        set = set_channel_name
+    )
 
     type : EnumProperty(
-            name = 'Channel Type',
-            items = (('VALUE', 'Value', ''),
-                     ('RGB', 'RGB', ''),
-                     ('NORMAL', 'Normal', '')),
-            default = 'RGB')
+        name = 'Channel Type',
+        items = (
+            ('VALUE', 'Value', ''),
+            ('RGB', 'RGB', ''),
+            ('NORMAL', 'Normal', '')
+        ),
+        default = 'RGB'
+    )
 
     enable_smooth_bump : BoolProperty(
-            name = 'Enable Smooth Bump',
-            description = 'Enable smooth bump map.\nLooks better but bump height scaling will be different than standard bump map.\nSmooth bump map -> Texture space.\nStandard bump map -> World space',
-            default=True,
-            update=update_enable_smooth_bump)
+        name = 'Enable Smooth Bump',
+        description = 'Enable smooth bump map.\nLooks better but bump height scaling will be different than standard bump map.\nSmooth bump map -> Texture space.\nStandard bump map -> World space',
+        default = True,
+        update = update_enable_smooth_bump
+    )
 
     use_clamp : BoolProperty(
-            name = 'Use Clamp',
-            description = 'Clamp result to 0..1 range.\nDisabling this will make the baked channel uses float image',
-            default = True,
-            update=update_channel_use_clamp)
+        name = 'Use Clamp',
+        description = 'Clamp result to 0..1 range.\nDisabling this will make the baked channel uses float image',
+        default = True,
+        update = update_channel_use_clamp
+    )
 
     # Input output index
     io_index : IntProperty(default=-1)
 
     # Alpha for transparent materials
     enable_alpha : BoolProperty(
-            name = 'Enable Alpha Blend on Channel',
-            description = 'Enable alpha blend on channel',
-            default=False, update=update_channel_alpha)
+        name = 'Enable Alpha Blend on Channel',
+        description = 'Enable alpha blend on channel',
+        default = False,
+        update = update_channel_alpha
+    )
 
     alpha_blend_mode : EnumProperty(
-            name = 'Alpha Blend Mode',
-            description = 'This will change your material blend mode if alpha is enabled',
-            items = (
-                ('CLIP', 'Alpha Clip', ''),
-                ('HASHED', 'Alpha Hashed', ''),
-                ('BLEND', 'Alpha Blend', ''),
-                ),
-            default = 'HASHED',
-            update=update_channel_alpha_blend_mode
-            )
+        name = 'Alpha Blend Mode',
+        description = 'This will change your material blend mode if alpha is enabled',
+        items = (
+            ('CLIP', 'Alpha Clip', ''),
+            ('HASHED', 'Alpha Hashed', ''),
+            ('BLEND', 'Alpha Blend', ''),
+        ),
+        default = 'HASHED',
+        update = update_channel_alpha_blend_mode
+    )
 
     alpha_shadow_mode : EnumProperty(
-            name = 'Alpha Shadow Mode',
-            description = 'This will change your material shadow mode if alpha is enabled',
-            items = (
-                ('NONE', 'None', ''),
-                ('OPAQUE', 'Opaque', ''),
-                ('HASHED', 'Alpha Hashed', ''),
-                ('CLIP', 'Alpha Clip', ''),
-                ),
-            default = 'HASHED',
-            update=update_channel_alpha_blend_mode
-            )
+        name = 'Alpha Shadow Mode',
+        description = 'This will change your material shadow mode if alpha is enabled',
+        items = (
+            ('NONE', 'None', ''),
+            ('OPAQUE', 'Opaque', ''),
+            ('HASHED', 'Alpha Hashed', ''),
+            ('CLIP', 'Alpha Clip', ''),
+        ),
+        default = 'HASHED',
+        update = update_channel_alpha_blend_mode
+    )
 
     # Backface mode for alpha
     backface_mode : EnumProperty(
-            name = 'Backface Mode',
-            description = 'Backface mode',
-            items = (
-                ('BOTH', 'Both', ''),
-                ('FRONT_ONLY', 'Front Only / Backface Culling', ''),
-                ('BACK_ONLY', 'Back Only', ''),
-                ),
-            default = 'BOTH', update=update_backface_mode)
+        name = 'Backface Mode',
+        description = 'Backface mode',
+        items = (
+            ('BOTH', 'Both', ''),
+            ('FRONT_ONLY', 'Front Only / Backface Culling', ''),
+            ('BACK_ONLY', 'Back Only', ''),
+        ),
+        default = 'BOTH',
+        update = update_backface_mode
+    )
 
-    enable_bake_to_vcol : BoolProperty(name='Enable Bake to Vertex Color',
-            description='Enable vertex color as bake target',
-            default=False, update=Bake.update_enable_bake_to_vcol)
+    enable_bake_to_vcol : BoolProperty(
+        name = 'Enable Bake to Vertex Color',
+        description = 'Enable vertex color as bake target',
+        default = False,
+        update = Bake.update_enable_bake_to_vcol
+    )
 
     bake_to_vcol_alpha : BoolProperty(
-            name='Bake To Vertex Color Alpha', 
-            description='When enabled, the channel are baked only to Alpha with vertex color', 
-            default=False)
+        name = 'Bake To Vertex Color Alpha', 
+        description = 'When enabled, the channel are baked only to Alpha with vertex color', 
+        default = False
+    )
 
     bake_to_vcol_name : StringProperty(
-            name='Target Vertex Color Name',
-            description='Target Vertex Color Name',
-            default='', get=get_channel_vcol_name, set=set_channel_vcol_name)
+        name = 'Target Vertex Color Name',
+        description = 'Target Vertex Color Name',
+        default = '',
+        get = get_channel_vcol_name,
+        set = set_channel_vcol_name
+    )
 
     # Displacement for normal channel
     enable_parallax : BoolProperty(
-            name = 'Enable Parallax Mapping',
-            description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
-            default=False, update=update_channel_parallax)
+        name = 'Enable Parallax Mapping',
+        description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
+        default = False,
+        update = update_channel_parallax
+    )
 
     #parallax_num_of_layers : IntProperty(default=8, min=4, max=128,
     #        update=update_parallax_num_of_layers)
     parallax_num_of_layers : EnumProperty(
-            name = 'Parallax Mapping Number of Layers',
-            description = 'Parallax Mapping Number of Layers',
-            items = (('4', '4', ''),
-                     ('8', '8', ''),
-                     ('16', '16', ''),
-                     ('24', '24', ''),
-                     ('32', '32', ''),
-                     ('64', '64', ''),
-                     ('96', '96', ''),
-                     ('128', '128', ''),
-                     ),
-            default='8',
-            update=update_parallax_num_of_layers)
+        name = 'Parallax Mapping Number of Layers',
+        description = 'Parallax Mapping Number of Layers',
+        items = (
+            ('4', '4', ''),
+            ('8', '8', ''),
+            ('16', '16', ''),
+            ('24', '24', ''),
+            ('32', '32', ''),
+            ('64', '64', ''),
+            ('96', '96', ''),
+            ('128', '128', ''),
+        ),
+        default = '8',
+        update = update_parallax_num_of_layers
+    )
 
     baked_parallax_num_of_layers : EnumProperty(
-            name = 'Baked Parallax Mapping Number of Layers',
-            description = 'Baked Parallax Mapping Number of Layers',
-            items = (('4', '4', ''),
-                     ('8', '8', ''),
-                     ('16', '16', ''),
-                     ('24', '24', ''),
-                     ('32', '32', ''),
-                     ('64', '64', ''),
-                     ('96', '96', ''),
-                     ('128', '128', ''),
-                     ('192', '192', ''),
-                     ('256', '256', ''),
-                     ),
-            default='32',
-            update=update_parallax_num_of_layers)
+        name = 'Baked Parallax Mapping Number of Layers',
+        description = 'Baked Parallax Mapping Number of Layers',
+        items = (
+            ('4', '4', ''),
+            ('8', '8', ''),
+            ('16', '16', ''),
+            ('24', '24', ''),
+            ('32', '32', ''),
+            ('64', '64', ''),
+            ('96', '96', ''),
+            ('128', '128', ''),
+            ('192', '192', ''),
+            ('256', '256', ''),
+        ),
+        default = '32',
+        update = update_parallax_num_of_layers
+    )
 
     disable_global_baked : BoolProperty(
-            name = 'Disable Global Baked', 
-            description = 'Disable baked image for this channel if global baked is on',
-            default=False, update=update_channel_disable_global_baked)
+        name = 'Disable Global Baked', 
+        description = 'Disable baked image for this channel if global baked is on',
+        default = False,
+        update = update_channel_disable_global_baked
+    )
 
     #use_baked : BoolProperty(
     #        name = 'Use Baked Image', 
@@ -3374,24 +3555,36 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # To mark if channel needed to be baked or not
     no_layer_using : BoolProperty(default=True)
 
-    parallax_rim_hack : BoolProperty(default=False, 
-            update=update_parallax_rim_hack)
+    parallax_rim_hack : BoolProperty(
+        default = False, 
+        update = update_parallax_rim_hack
+    )
 
-    parallax_rim_hack_hardness : FloatProperty(default=1.0, min=1.0, max=100.0, 
-            update=update_parallax_rim_hack)
+    parallax_rim_hack_hardness : FloatProperty(
+        default=1.0, min=1.0, max=100.0, 
+        update = update_parallax_rim_hack
+    )
 
-    parallax_height_tweak : FloatProperty(subtype='FACTOR', default=1.0, min=0.0, max=1.0,
-            update=update_parallax_height_tweak)
+    parallax_height_tweak : FloatProperty(
+        subtype = 'FACTOR',
+        default=1.0, min=0.0, max=1.0,
+        update = update_parallax_height_tweak
+    )
 
     # Currently unused
-    parallax_ref_plane : FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
-            update=update_displacement_ref_plane)
+    parallax_ref_plane : FloatProperty(
+        subtype = 'FACTOR',
+        default=0.5, min=0.0, max=1.0,
+        update = update_displacement_ref_plane
+    )
 
     # Real displacement using height map
     enable_subdiv_setup : BoolProperty(
-            name = 'Enable Displacement Setup',
-            description = 'Enable displacement setup. Only works with Cycles or Eevee Next.',
-            default=False, update=Bake.update_enable_subdiv_setup)
+        name = 'Enable Displacement Setup',
+        description = 'Enable displacement setup. Only works with Cycles or Eevee Next.',
+        default = False,
+        update = Bake.update_enable_subdiv_setup
+    )
 
     #subdiv_standard_type : EnumProperty(
     #        name = 'Subdivision Standard Type',
@@ -3405,17 +3598,18 @@ class YPaintChannel(bpy.types.PropertyGroup):
     #        )
 
     subdiv_adaptive : BoolProperty(
-            name = 'Use Adaptive Subdivision',
-            description = 'Use Adaptive Subdivision (only works on Cycles)',
-            default=False, update=Bake.update_subdiv_setup
-            )
+        name = 'Use Adaptive Subdivision',
+        description = 'Use Adaptive Subdivision (only works with Cycles)',
+        default = False,
+        update = Bake.update_subdiv_setup
+    )
     
     subdiv_on_max_polys : IntProperty(
-            name = 'Subdiv On Max Polygons',
-            description = 'Max Polygons (in thousand) when displacement setup is on',
-            default=1000, min=1, max=10000, 
-            update=Bake.update_subdiv_max_polys
-            )
+        name = 'Subdiv On Max Polygons',
+        description = 'Max Polygons (in thousand) when displacement setup is on',
+        default=1000, min=1, max=10000, 
+        update = Bake.update_subdiv_max_polys
+    )
 
     #subdiv_on_level : IntProperty(
     #        name = 'Subdiv On Level',
@@ -3431,55 +3625,60 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     # Depcrecated
     subdiv_tweak : FloatProperty(
-            name = 'Subdiv Tweak',
-            description = 'Tweak displacement height',
-            default=1.0, min=-1000.0, max=1000.0
-            )
+        name = 'Subdiv Tweak',
+        description = 'Tweak displacement height',
+        default=1.0, min=-1000.0, max=1000.0
+    )
 
     height_tweak : FloatProperty(
-            name = 'Height Tweak',
-            description = 'Multiply height value',
-            default=1.0, min=-1000.0, max=1000.0
-            )
+        name = 'Height Tweak',
+        description = 'Multiply height value',
+        default=1.0, min=-1000.0, max=1000.0
+    )
 
     enable_height_tweak : BoolProperty(
-            name = 'Height Tweak',
-            description = 'Tweak displacement height',
-            default=False,
-            update=update_enable_height_tweak
-            )
+        name = 'Height Tweak',
+        description = 'Tweak displacement height',
+        default = False,
+        update = update_enable_height_tweak
+    )
 
     enable_smooth_normal_tweak : BoolProperty(
-            name = 'Smooth Normal Tweak',
-            description = 'Tweak smooth normal',
-            default=False,
-            update=update_enable_height_tweak
-            )
+        name = 'Smooth Normal Tweak',
+        description = 'Tweak smooth normal',
+        default = False,
+        update = update_enable_height_tweak
+    )
 
     smooth_normal_tweak : FloatProperty(
-            name = 'Smooth Normal Tweak',
-            description = 'Tweak smooth normal value',
-            default=1.0, min=-1000.0, max=1000.0
-            )
+        name = 'Smooth Normal Tweak',
+        description = 'Tweak smooth normal value',
+        default=1.0, min=-1000.0, max=1000.0
+    )
 
-    subdiv_global_dicing : FloatProperty(subtype='PIXEL', default=1.0, min=0.5, max=1000,
-            update=Bake.update_subdiv_global_dicing)
+    subdiv_global_dicing : FloatProperty(
+        subtype = 'PIXEL',
+        default=1.0, min=0.5, max=1000,
+        update = Bake.update_subdiv_global_dicing
+    )
 
     subdiv_subsurf_only : BoolProperty(
-            name = 'Use Subsurf Modifier Only',
-            description = 'Ignore Multires and use subsurf modifier exclusively (useful if you already baked the multires to layer)',
-            default=False, update=Bake.update_subdiv_setup
-            )
+        name = 'Use Subsurf Modifier Only',
+        description = 'Ignore Multires and use subsurf modifier exclusively (useful if you already baked the multires to layer)',
+        default = False,
+        update = Bake.update_subdiv_setup
+    )
 
     # Main uv is used for normal calculation of normal channel
     main_uv : StringProperty(default='', update=update_channel_main_uv)
 
     colorspace : EnumProperty(
-            name = 'Color Space',
-            description = "Non color won't converted to linear first before blending",
-            items = colorspace_items,
-            default='LINEAR',
-            update=update_channel_colorspace)
+        name = 'Color Space',
+        description = "Non-color won't be converted to linear first before blending",
+        items = colorspace_items,
+        default = 'LINEAR',
+        update = update_channel_colorspace
+    )
 
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
     active_modifier_index : IntProperty(default=0)
@@ -3574,51 +3773,88 @@ class YPaint(bpy.types.PropertyGroup):
     is_ypaint_layer_node : BoolProperty(default=False)
     version : StringProperty(default='')
     blender_version : StringProperty(default='1.0.0')
+
     is_unstable : BoolProperty(
-            name= 'Unstable Save Flag',
-            description= 'Flag to check if the node saved using unstable (Alpha/Beta) version',
-            default=False)
+        name = 'Unstable Save Flag',
+        description = 'Flag to check if the node saved using unstable (Alpha/Beta) version',
+        default = False
+    )
 
     # Channels
     channels : CollectionProperty(type=YPaintChannel)
+
     active_channel_index : IntProperty(
-            name = 'Active Channel Index',
-            description = 'Active channel index',
-            default=0, update=update_active_yp_channel)
+        name = 'Active Channel Index',
+        description = 'Active channel index',
+        default = 0,
+        update = update_active_yp_channel
+    )
 
     # Layers
     layers : CollectionProperty(type=Layer.YLayer)
+
     active_layer_index : IntProperty(
-            name = 'Active Layer Index',
-            description = 'Active layer index',
-            default=0, update=update_layer_index)
+        name = 'Active Layer Index',
+        description = 'Active layer index',
+        default = 0,
+        update = update_layer_index
+    )
+
+    # List Items
+    list_items : CollectionProperty(type=ListItem.YListItem)
+
+    active_item_index : IntProperty(
+        name = 'Active Item Index',
+        description = 'Active item index',
+        default = 0,
+        update = ListItem.update_list_item_index
+    )
+
+    enable_expandable_subitems : BoolProperty(
+        name = 'Expandable Subitems',
+        description = 'Subitems (masks and editable custom layer inputs) can have their own item entries',
+        default = False,
+        update = ListItem.update_expand_subitems
+    )
+
+    enable_inline_subitems : BoolProperty(
+        name = 'Inline Subitems',
+        description = 'Subitems (masks and editable custom layer inputs) will have their icons beside layer icon',
+        default = True,
+    )
 
     # UVs
     uvs : CollectionProperty(type=YPaintUV)
 
     # Bake Targets
     bake_targets : CollectionProperty(type=BakeTarget.YBakeTarget)
+
     active_bake_target_index : IntProperty(
-            name = 'Active Bake Target Index',
-            description = 'Active bake target index',
-            default=0, update=BakeTarget.update_active_bake_target_index)
+        name = 'Active Bake Target Index',
+        description = 'Active bake target index',
+        default = 0,
+        update = BakeTarget.update_active_bake_target_index
+    )
 
     # Temp channels to remember last channel selected when adding new layer
     #temp_channels = CollectionProperty(type=YChannelUI)
     preview_mode : BoolProperty(
-            name= 'Enable Channel Preview Mode',
-            description= 'Enable channel preview mode',
-            default=False, update=update_preview_mode)
+        name = 'Enable Channel Preview Mode',
+        description = 'Enable channel preview mode',
+        default = False,
+        update = update_preview_mode
+    )
 
     # Disable all vector displacement layers when sculpt mode is on
     sculpt_mode : BoolProperty(default=False, update=update_sculpt_mode)
 
     # Layer Preview Mode
     layer_preview_mode : BoolProperty(
-            name= 'Enable Layer Preview Mode',
-            description= 'Enable layer preview mode',
-            default=False,
-            update=update_layer_preview_mode)
+        name = 'Enable Layer Preview Mode',
+        description = 'Enable layer preview mode',
+        default = False,
+        update = update_layer_preview_mode
+    )
 
     # Mask Preview Mode
     #mask_preview_mode : BoolProperty(
@@ -3628,41 +3864,46 @@ class YPaint(bpy.types.PropertyGroup):
     #        update=update_mask_preview_mode)
 
     layer_preview_mode_type : EnumProperty(
-            name= 'Layer Preview Mode Type',
-            description = 'Layer preview mode type',
-            #items = (('LAYER', 'Layer', '', lib.get_icon('mask'), 0),
-            #         ('MASK', 'Mask', '', lib.get_icon('mask'), 1),
-            #         ('SPECIFIC_MASK', 'Specific Mask', '', lib.get_icon('mask'), 2),
-            #         ),
-            #items = (('LAYER', 'Layer', '', 'TEXTURE', 0),
-            #         ('MASK', 'Mask', '', 'MOD_MASK', 1),
-            #         ('SPECIFIC_MASK', 'Specific Mask', '', 'MOD_MASK', 2),
-            #         ),
-            items = (('LAYER', 'Layer', ''),
-                     ('ALPHA', 'Alpha', ''),
-                     ('SPECIFIC_MASK', 'Active Mask / Override', ''),
-                     ),
-            #items = layer_preview_mode_type_items,
-            default = 'LAYER',
-            update=update_layer_preview_mode
-            )
+        name = 'Layer Preview Mode Type',
+        description = 'Layer preview mode type',
+        #items = (('LAYER', 'Layer', '', lib.get_icon('mask'), 0),
+        #         ('MASK', 'Mask', '', lib.get_icon('mask'), 1),
+        #         ('SPECIFIC_MASK', 'Specific Mask', '', lib.get_icon('mask'), 2),
+        #         ),
+        #items = (('LAYER', 'Layer', '', 'TEXTURE', 0),
+        #         ('MASK', 'Mask', '', 'MOD_MASK', 1),
+        #         ('SPECIFIC_MASK', 'Specific Mask', '', 'MOD_MASK', 2),
+        #         ),
+        items = (
+            ('LAYER', 'Layer', ''),
+            ('ALPHA', 'Alpha', ''),
+            ('SPECIFIC_MASK', 'Active Mask / Override', ''),
+        ),
+        #items = layer_preview_mode_type_items,
+        default = 'LAYER',
+        update = update_layer_preview_mode
+    )
 
     # Mode exclusively for merging mask
     #merge_mask_mode = BoolProperty(default=False,
     #        update=update_merge_mask_mode)
 
     # Toggle to use baked results or not
-    use_baked : BoolProperty(default=False, 
-            name = 'Use Baked',
-            description = 'Use baked channels rather than layer channels',
-            update=Bake.update_use_baked)
+    use_baked : BoolProperty(
+        default = False, 
+        name = 'Use Baked',
+        description = 'Use baked channels rather than layer channels',
+        update = Bake.update_use_baked
+    )
 
     baked_uv_name : StringProperty(default='')
 
     enable_baked_outside : BoolProperty(
-            name= 'Enable Baked Outside',
-            description= 'Create baked texture nodes outside of main node\n(Can be useful for exporting material to other application)',
-            default=False, update=Bake.update_enable_baked_outside)
+        name = 'Enable Baked Outside',
+        description = 'Create baked texture nodes outside of main node\n(Can be useful for exporting material to other application)',
+        default = False,
+        update = Bake.update_enable_baked_outside
+    )
     
     # Outside nodes
     baked_outside_uv : StringProperty(default='')
@@ -3672,9 +3913,11 @@ class YPaint(bpy.types.PropertyGroup):
 
     # Flip backface
     enable_backface_always_up : BoolProperty(
-            name= 'Make backface normal always up',
-            description= 'Make sure normal will face toward camera even at backface\n(Need Normal channel with smooth bump on to enable this feature)',
-            default=True, update=update_flip_backface)
+        name = 'Make backface normal always up',
+        description = 'Make sure normal will face toward camera even at backface\n(Need Normal channel with smooth bump on to enable this feature)',
+        default = True,
+        update = update_flip_backface
+    )
 
     # Layer alpha Viewer Mode
     #enable_layer_alpha_viewer : BoolProperty(
@@ -3700,9 +3943,11 @@ class YPaint(bpy.types.PropertyGroup):
     #        default='SLOW_TOGGLE')
 
     enable_tangent_sign_hacks : BoolProperty(
-            name = 'Enable Tangent Sign VCol Hacks for Blender 2.80+ Cycles',
-            description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
-            default=False, update=update_enable_tangent_sign_hacks)
+        name = 'Enable Tangent Sign VCol Hacks for Blender 2.80+ Cycles',
+        description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
+        default = False,
+        update = update_enable_tangent_sign_hacks
+    )
 
     # When enabled, alpha can create some node setup, disable this to avoid that
     alpha_auto_setup : BoolProperty(default=True)
@@ -3721,9 +3966,11 @@ class YPaint(bpy.types.PropertyGroup):
 
     # Use linear color blending
     use_linear_blending : BoolProperty(
-            name = 'Use Linear Color Blending',
-            description = 'Use more accurate linear color blending (it will behave differently than Photoshop)',
-            default=False, update=update_use_linear_blending)
+        name = 'Use Linear Color Blending',
+        description = 'Use more accurate linear color blending (it will behave differently than Photoshop)',
+        default = False,
+        update = update_use_linear_blending
+    )
 
     # Index pointer to the UI
     #ui_index : IntProperty(default=0)
@@ -3735,11 +3982,18 @@ class YPaint(bpy.types.PropertyGroup):
 
 class YPaintMaterialProps(bpy.types.PropertyGroup):
     ori_bsdf : StringProperty(default='')
+    ori_bsdf_output_index : IntProperty(default=0)
     #ori_blend_method : StringProperty(default='')
     active_ypaint_node : StringProperty(default='')
 
 class YPaintTimer(bpy.types.PropertyGroup):
     time : StringProperty(default='')
+
+class YPaintBrushAssetCache(bpy.types.PropertyGroup):
+    name : StringProperty(default='')
+    library_type : StringProperty(default='')
+    library_name : StringProperty(default='')
+    blend_path : StringProperty(default='')
 
 class YPaintWMProps(bpy.types.PropertyGroup):
     clipboard_tree : StringProperty(default='')
@@ -3756,6 +4010,12 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     custom_srgb_name : StringProperty(default='')
     custom_noncolor_name : StringProperty(default='')
 
+    test_result_run : IntProperty(default=0)
+    test_result_error : IntProperty(default=0)
+    test_result_failed : IntProperty(default=0)
+
+    brush_asset_caches : CollectionProperty(type=YPaintBrushAssetCache)
+
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
@@ -3763,6 +4023,11 @@ class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_gamma : FloatProperty(default=1.0)
     ori_look : StringProperty(default='')
     ori_use_curve_mapping : BoolProperty(default=False)
+    ori_use_compositing : BoolProperty(default=False)
+
+class YPaintObjectUVHash(bpy.types.PropertyGroup):
+    name : StringProperty(default='')
+    uv_hash : StringProperty(default='')
 
 class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_subsurf_render_levels : IntProperty(default=1)
@@ -3776,6 +4041,7 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_offset_v : FloatProperty(default=0.0)
 
     mesh_hash : StringProperty(default='')
+    uv_hashes : CollectionProperty(type=YPaintObjectUVHash)
 
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min : FloatProperty(default=0.0)
@@ -3835,7 +4101,7 @@ def ypaint_last_object_update(scene):
             if yp.use_baked and len(yp.channels) > 0:
                 update_active_yp_channel(yp, bpy.context)
 
-            elif len(yp.layers) > 0 :
+            elif len(yp.layers) > 0:
                 try: set_active_paint_slot_entity(yp)
                 except: print('EXCEPTIION: Cannot set image canvas!')
 
@@ -3846,7 +4112,7 @@ def ypaint_last_object_update(scene):
 
         if obj.mode == 'TEXTURE_PAINT' or ypwm.last_mode == 'TEXTURE_PAINT':
             ypwm.last_mode = obj.mode
-            if yp and len(yp.layers) > 0 :
+            if yp and len(yp.layers) > 0:
                 image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
                 # Store original uv mirror offsets
@@ -3856,7 +4122,7 @@ def ypaint_last_object_update(scene):
                         try: 
                             obj.yp.ori_mirror_offset_u = mirror.mirror_offset_u
                             obj.yp.ori_mirror_offset_v = mirror.mirror_offset_v
-                            if is_greater_than_280():
+                            if is_bl_newer_than(2, 80):
                                 obj.yp.ori_offset_u = mirror.offset_u
                                 obj.yp.ori_offset_v = mirror.offset_v
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
@@ -3979,8 +4245,10 @@ def register():
     bpy.utils.register_class(YPaint)
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
+    bpy.utils.register_class(YPaintBrushAssetCache)
     bpy.utils.register_class(YPaintWMProps)
     bpy.utils.register_class(YPaintSceneProps)
+    bpy.utils.register_class(YPaintObjectUVHash)
     bpy.utils.register_class(YPaintObjectProps)
     #bpy.utils.register_class(YPaintMeshProps)
 
@@ -3994,7 +4262,7 @@ def register():
     #bpy.types.Mesh.yp = PointerProperty(type=YPaintMeshProps)
 
     # Handlers
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.append(ypaint_last_object_update)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
@@ -4030,13 +4298,15 @@ def unregister():
     bpy.utils.unregister_class(YPaint)
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)
+    bpy.utils.unregister_class(YPaintBrushAssetCache)
     bpy.utils.unregister_class(YPaintWMProps)
     bpy.utils.unregister_class(YPaintSceneProps)
+    bpy.utils.unregister_class(YPaintObjectUVHash)
     bpy.utils.unregister_class(YPaintObjectProps)
     #bpy.utils.unregister_class(YPaintMeshProps)
 
     # Remove handlers
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.remove(ypaint_last_object_update)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)

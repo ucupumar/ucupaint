@@ -1,5 +1,6 @@
-import bpy, bmesh, numpy, time, time
+import bpy, bmesh, numpy, time, os
 from mathutils import *
+from pathlib import Path
 from bpy.props import *
 from .common import *
 
@@ -27,6 +28,129 @@ class YSetActiveVcol(bpy.types.Operator):
         self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
         return {'CANCELLED'}
 
+def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
+
+    wmyp = bpy.context.window_manager.ypprops
+
+    # Check asset brush caches first
+    bac = wmyp.brush_asset_caches.get(brush_name)
+    if bac:
+        blend_path = bac.blend_path
+        if blend_path != '': blend_path += os.sep
+        try:
+            bpy.ops.brush.asset_activate(
+                asset_library_type = bac.library_type, 
+                asset_library_identifier = bac.library_name, 
+                relative_asset_identifier = blend_path + "Brush\\" + brush_name
+            )
+            return
+        except Exception as e: print(e) 
+
+    # Try local
+    try:
+        bpy.ops.brush.asset_activate(
+            asset_library_type = 'LOCAL', 
+            asset_library_identifier = "", 
+            relative_asset_identifier = 'Brush\\' + brush_name
+        )
+
+        # Set up the cache for faster loading next time
+        bac = wmyp.brush_asset_caches.add()
+        bac.name = brush_name
+        bac.library_type = 'LOCAL'
+        bac.library_name = ''
+        bac.blend_path = ''
+
+        return
+    except Exception as e: print(e) 
+
+    # Try essential
+    if mode == 'TEXTURE_PAINT': mode_type = 'texture'
+    elif mode == 'VERTEX_PAINT': mode_type = 'vertex'
+    elif mode == 'SCULPT': mode_type = 'sculpt'
+    try:
+        asset_identifier = "brushes\\essentials_brushes-mesh_" + mode_type + ".blend"
+        bpy.ops.brush.asset_activate(
+            asset_library_type = 'ESSENTIALS', 
+            asset_library_identifier = "", 
+            relative_asset_identifier = asset_identifier + "\\Brush\\" + brush_name
+        )
+
+        # Set up the cache for faster loading next time
+        bac = wmyp.brush_asset_caches.add()
+        bac.name = brush_name
+        bac.library_type = 'ESSENTIALS'
+        bac.library_name = ''
+        bac.blend_path = asset_identifier
+
+        return
+    except Exception as e: print(e) 
+
+    # Try other libraries
+
+    # NOTE: This is insanely slow since it scans all asset library blend files for a single brush
+    # but I dunno any other way :(
+    prefs = bpy.context.preferences
+    filepaths = prefs.filepaths
+    asset_libraries = filepaths.asset_libraries
+
+    for asset_library in asset_libraries:
+        library_name = asset_library.name
+        library_path = Path(asset_library.path)
+        blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
+        #print('INFO: Checking library', library_name, 'for brushes')
+        for blend_file in blend_files:
+            with bpy.data.libraries.load(str(blend_file), assets_only=True) as (file_contents, _):
+                if brush_name in file_contents.brushes:
+                    blend_path = str(blend_file).replace(str(library_path) + os.sep, '')
+                    try:
+                        bpy.ops.brush.asset_activate(
+                            asset_library_type = 'CUSTOM', 
+                            asset_library_identifier = library_name, 
+                            relative_asset_identifier = blend_path + "\\Brush\\" + brush_name
+                        )
+
+                        # Set up the cache for faster loading next time
+                        bac = wmyp.brush_asset_caches.add()
+                        bac.name = brush_name
+                        bac.library_type = 'CUSTOM'
+                        bac.library_name = library_name
+                        bac.blend_path = blend_path
+
+                        return
+                    except Exception as e: print(e) 
+
+tex_default_brush_eraser_pairs = {
+    'Paint Hard' : 'Erase Hard',
+    'Paint Soft' : 'Erase Soft',
+    'Paint Hard Pressure' : 'Erase Hard Pressure',
+    'Smear' : 'Erase Soft',
+    'Airbrush' : 'Erase Soft',
+    'Paint Soft Pressure' : 'Erase Soft',
+    'Clone' : 'Erase Hard',
+    'Blur' : 'Erase Soft',
+    'Fill' : 'Erase Hard',
+    'Mask' : 'Erase Soft',
+}
+
+def set_custom_eraser_brush_icon(eraser_brush):
+    eraser_icon = 'eraser.png' #if is_bl_newer_than(2, 92) else 'eraser_small.png'
+    filepath = get_addon_filepath() + os.sep + 'asset_icons' + os.sep + eraser_icon
+
+    if is_bl_newer_than(2, 92):
+        override = bpy.context.copy()
+        override['id'] = eraser_brush
+        if is_bl_newer_than(4):
+            #with bpy.context.temp_override(id=eraser_brush):
+            with bpy.context.temp_override(**override):
+                bpy.ops.ed.lib_id_load_custom_preview(filepath=filepath)
+        else: bpy.ops.ed.lib_id_load_custom_preview(override, filepath=filepath)
+    else:
+        eraser_brush.icon_filepath = filepath
+
+    if not is_bl_newer_than(4, 3):
+        eraser_brush.use_custom_icon = True
+
 class YToggleEraser(bpy.types.Operator):
     bl_idname = "paint.y_toggle_eraser"
     bl_label = "Toggle Eraser Brush"
@@ -42,15 +166,76 @@ class YToggleEraser(bpy.types.Operator):
         ve = context.scene.ve_edit
         mode = context.object.mode
 
+        # Blender 4.3+ texture paint will switch between available brush asset
+        if mode == 'TEXTURE_PAINT' and is_bl_newer_than(4, 3):
+            # Get current brush
+            brush = context.tool_settings.image_paint.brush
+
+            brush_name = brush.name
+            image_tool = brush.image_tool
+            use_pressure_strength = brush.use_pressure_strength
+            use_pressure_size = brush.use_pressure_size
+
+            # Get eraser name
+            if brush.name not in tex_eraser_asset_names:
+
+                if brush.name in tex_default_brush_eraser_pairs:
+                    # Get eraser name based on dictionary
+                    new_brush_name = tex_default_brush_eraser_pairs[brush.name]
+                elif brush.image_tool == 'DRAW':
+                    # Only toggle erase alpha if the draw brush is custom
+                    new_brush_name = brush.name
+                else: 
+                    new_brush_name = 'Erase Soft'
+
+                ve.ori_texpaint_brush = brush.name
+                if brush.blend != 'ERASE_ALPHA':
+                    ve.ori_texpaint_blending_mode = brush.blend
+
+            # Get original brush name
+            else:
+                new_brush_name = ve.ori_texpaint_brush
+
+            # Toggle 'Erase Alpha' if new brush is the same
+            if brush.name == new_brush_name:
+                brush.blend = ve.ori_texpaint_blending_mode if brush.blend == 'ERASE_ALPHA' else 'ERASE_ALPHA'
+            else:
+                # Set brush asset
+                set_brush_asset(new_brush_name, mode)
+
+                # If original brush name in default erasers, make sure the new brush do not use erase alpha blending
+                brush = context.tool_settings.image_paint.brush
+                if brush_name in tex_eraser_asset_names and brush.blend == 'ERASE_ALPHA' and ve.ori_texpaint_blending_mode not in {'', 'ERASE_ALPHA'}:
+                    brush.blend = ve.ori_texpaint_blending_mode 
+
+            # HACK: Default 'Erase Soft' brush has use_pressure_strength turned off, so match it to the previous brush
+            if new_brush_name == 'Erase Soft' and image_tool == 'DRAW':
+                brush = context.tool_settings.image_paint.brush
+                brush.use_pressure_strength = use_pressure_strength
+                brush.use_pressure_size = use_pressure_size
+
+            return {'FINISHED'}
+
         if mode == 'TEXTURE_PAINT':
             brush = context.tool_settings.image_paint.brush
-            draw_brush = bpy.data.brushes.get('TexDraw')
-        elif mode == 'VERTEX_PAINT' and is_greater_than_280(): 
+            draw_brush_name = 'Paint Soft' if is_bl_newer_than(4, 3) else 'TexDraw'
+            draw_brush = bpy.data.brushes.get(draw_brush_name)
+        elif mode == 'VERTEX_PAINT' and is_bl_newer_than(2, 80): 
             brush = context.tool_settings.vertex_paint.brush
-            draw_brush = bpy.data.brushes.get('Draw')
-        elif mode == 'SCULPT' and is_greater_than_320(): 
+            draw_brush_name = 'Paint Soft' if is_bl_newer_than(4, 3) else 'Draw'
+            draw_brush = bpy.data.brushes.get(draw_brush_name)
+        elif mode == 'SCULPT' and is_bl_newer_than(3, 2): 
             brush = context.tool_settings.sculpt.brush
-            draw_brush = bpy.data.brushes.get('Paint')
+            draw_brush_name = 'Paint Blend' if is_bl_newer_than(4, 3) else 'Paint'
+            draw_brush = bpy.data.brushes.get(draw_brush_name)
+
+            # Sometime Blender 4.3+ need paint tool to be selected first
+            if not draw_brush and is_bl_newer_than(4, 3):
+                if ve.ori_sculpt_tool == '': 
+                    ve.ori_sculpt_tool = get_active_tool_idname()
+                bpy.ops.wm.tool_set_by_id(name="builtin_brush.paint")
+                draw_brush = bpy.data.brushes.get(draw_brush_name)
+
             if not draw_brush:
                 draw_brushes = [d for d in bpy.data.brushes if d.use_paint_sculpt and d.sculpt_tool == 'PAINT']
                 if draw_brushes: draw_brush = draw_brushes[0]
@@ -58,9 +243,9 @@ class YToggleEraser(bpy.types.Operator):
                     self.report({'ERROR'}, "Cannot find a paint brush!")
                     return {'CANCELLED'}
         else:
-            self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
+            self.report({'ERROR'}, "There's no need to use this operator in this blender version!")
             return {'CANCELLED'}
-
+        
         # Get eraser brush
         eraser_name = eraser_names[mode]
         eraser_brush = bpy.data.brushes.get(eraser_name)
@@ -72,6 +257,19 @@ class YToggleEraser(bpy.types.Operator):
             else:
                 eraser_brush = bpy.data.brushes.new(eraser_name, mode=mode)
             eraser_brush.blend = 'ERASE_ALPHA'
+
+        # Mark eraser brush as asset for Blender 4.3+
+        if is_bl_newer_than(4, 3) and not eraser_brush.asset_data:
+            eraser_brush.asset_mark()
+            set_custom_eraser_brush_icon(eraser_brush)
+
+        # NOTE: Custom brush icon actually works on Blender 2.92+, 
+        # but it can't save the icon to the blend file until Blender 3.6
+        # I decided custom brush icon is only for Blender 4.3+ to avoid unknown behavior
+
+        # Set eraser brush thumbnail
+        #elif is_bl_newer_than(3, 6) and not eraser_brush.use_custom_icon:
+        #    set_custom_eraser_brush_icon(eraser_brush)
 
         if brush == eraser_brush:
 
@@ -89,7 +287,7 @@ class YToggleEraser(bpy.types.Operator):
                     new_brush.blend = ve.ori_texpaint_blending_mode
                 elif mode == 'SCULPT':
                     new_brush.blend = ve.ori_sculpt_blending_mode
-            else:
+            elif draw_brush:
                 new_brush = draw_brush
                 new_brush.blend = 'MIX'
 
@@ -100,8 +298,11 @@ class YToggleEraser(bpy.types.Operator):
                 ve.ori_texpaint_brush = ''
                 ve.ori_texpaint_blending_mode = ''
             elif mode == 'SCULPT':
+                if ve.ori_sculpt_tool != '': 
+                    bpy.ops.wm.tool_set_by_id(name=ve.ori_sculpt_tool)
                 ve.ori_sculpt_brush = ''
                 ve.ori_sculpt_blending_mode = ''
+                ve.ori_sculpt_tool = ''
 
         else:
 
@@ -114,16 +315,23 @@ class YToggleEraser(bpy.types.Operator):
             if mode == 'SCULPT':
                 ve.ori_sculpt_brush = brush.name
                 ve.ori_sculpt_blending_mode = brush.blend
+                if is_bl_newer_than(4, 3): # and ve.ori_sculpt_tool == '': 
+                    ve.ori_sculpt_tool = get_active_tool_idname()
 
             new_brush = eraser_brush
 
         if new_brush:
-            if mode == 'TEXTURE_PAINT':
-                context.tool_settings.image_paint.brush = new_brush
-            elif mode == 'VERTEX_PAINT': 
-                context.tool_settings.vertex_paint.brush = new_brush
-            elif mode == 'SCULPT': 
-                context.tool_settings.sculpt.brush = new_brush
+            if is_bl_newer_than(4, 3):
+                set_brush_asset(new_brush.name, mode)
+            else:
+                if mode == 'TEXTURE_PAINT':
+                    context.tool_settings.image_paint.brush = new_brush
+
+                elif mode == 'VERTEX_PAINT': 
+                    context.tool_settings.vertex_paint.brush = new_brush
+
+                elif mode == 'SCULPT': 
+                    context.tool_settings.sculpt.brush = new_brush
 
         return {'FINISHED'}
 
@@ -134,11 +342,12 @@ class YSelectFacesByVcol(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     color : FloatVectorProperty(
-            name='Color', size=4,
-            subtype='COLOR',
-            default=(1.0, 0.0, 1.0, 1.0),
-            min=0.0, max=1.0,
-            )
+        name = 'Color',
+        size = 4,
+        subtype = 'COLOR',
+        default = (1.0, 0.0, 1.0, 1.0),
+        min=0.0, max=1.0,
+    )
 
     #deselect : BoolProperty(
     #        name='Deselect Faces',
@@ -150,7 +359,7 @@ class YSelectFacesByVcol(bpy.types.Operator):
         obj = context.object
         if not obj or obj.type != 'MESH' or not any(get_vertex_colors(obj)): return False
 
-        if is_greater_than_320():
+        if is_bl_newer_than(3, 2):
             vcol = obj.data.color_attributes.active_color
             if not vcol or vcol.domain != 'CORNER':
                 return False
@@ -163,10 +372,10 @@ class YSelectFacesByVcol(bpy.types.Operator):
         mat = context.object.active_material
         vcol_name = get_active_vertex_color(context.object).name
         target = Color((self.color[0], self.color[1], self.color[2]))
-        if not is_greater_than_320():
+        if not is_bl_newer_than(3, 2):
             target = linear_to_srgb(target)
 
-        if mat.users > 1 and is_greater_than_280():
+        if mat.users > 1 and is_bl_newer_than(2, 80):
             objs = get_all_objects_with_same_materials(mat, mesh_only=True)
         else: objs = [context.object]
 
@@ -221,18 +430,19 @@ class YVcolFillFaceCustom(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     color : FloatVectorProperty(
-            name='Color ID', size=4,
-            subtype='COLOR',
-            default=(1.0, 0.0, 1.0, 1.0),
-            min=0.0, max=1.0,
-            )
+        name = 'Color ID',
+        size = 4,
+        subtype = 'COLOR',
+        default = (1.0, 0.0, 1.0, 1.0),
+        min=0.0, max=1.0,
+    )
 
     @classmethod
     def poll(cls, context):
         obj = context.object
         if not obj or obj.type != 'MESH' or not any(get_vertex_colors(obj)): return False
 
-        if is_greater_than_320():
+        if is_bl_newer_than(3, 2):
             vcol = obj.data.color_attributes.active_color
             if not vcol or vcol.domain != 'CORNER':
                 return False
@@ -243,9 +453,9 @@ class YVcolFillFaceCustom(bpy.types.Operator):
         T = time.time()
 
         # Experiment with numpy
-        use_numpy = True #is_greater_than_280()
+        use_numpy = True #is_bl_newer_than(2, 80)
 
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             objs = context.objects_in_mode
 
             # Set the same vertex color for all objects first
@@ -280,10 +490,10 @@ class YVcolFillFaceCustom(bpy.types.Operator):
                 continue
 
             color = Color((self.color[0], self.color[1], self.color[2]))
-            if not is_greater_than_320():
+            if not is_bl_newer_than(3, 2):
                 color = linear_to_srgb(color)
 
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 color = (color[0], color[1], color[2], self.color[3])
 
             # HACK: Sometimes color assigned are different so read the assigned color and write it back to mask color id
@@ -294,13 +504,13 @@ class YVcolFillFaceCustom(bpy.types.Operator):
                     color = (written_col[0], written_col[1], written_col[2])
                                 
                     set_entity_prop_value(context.mask, 'color_id', Color(color))
-                    if not is_greater_than_320():
+                    if not is_bl_newer_than(3, 2):
                         set_entity_prop_value(context.mask, 'color_id', srgb_to_linear(get_mask_color_id_color(context.mask)))
-                    if is_greater_than_280():
+                    if is_bl_newer_than(2, 80):
                         color = (written_col[0], written_col[1], written_col[2], written_col[3])
 
                 # Blender 2.80+ has alpha channel on vertex color
-                dimension = 4 if is_greater_than_280() else 3
+                dimension = 4 if is_bl_newer_than(2, 80) else 3
 
                 if use_numpy:
                     nvcol = numpy.zeros(len(vcol.data) * dimension, dtype=numpy.float32)
@@ -314,7 +524,7 @@ class YVcolFillFaceCustom(bpy.types.Operator):
 
             bpy.ops.object.mode_set(mode='EDIT')
 
-        print('VCOL: Fill Color ID is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print('VCOL: Fill Color ID is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
@@ -325,22 +535,23 @@ class YVcolFill(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     color_option : EnumProperty(
-            name = 'Color Option',
-            description = 'Color Option',
-            items = (
-                ('WHITE', 'White', ''),
-                ('BLACK', 'Black', ''),
-                #('TRANSPARENT', 'Transparent', ''),
-                ('CUSTOM', 'Custom', ''),
-                ),
-            default='WHITE')
+        name = 'Color Option',
+        description = 'Color Option',
+        items = (
+            ('WHITE', 'White', ''),
+            ('BLACK', 'Black', ''),
+            #('TRANSPARENT', 'Transparent', ''),
+            ('CUSTOM', 'Custom', ''),
+        ),
+        default='WHITE'
+    )
 
     @classmethod
     def poll(cls, context):
         obj = context.object
         if not obj or obj.type != 'MESH' or not any(get_vertex_colors(obj)): return False
 
-        if is_greater_than_320():
+        if is_bl_newer_than(3, 2):
             vcol = obj.data.color_attributes.active_color
             if not vcol or vcol.domain not in {'CORNER', 'POINT'}:
                 return False
@@ -351,9 +562,9 @@ class YVcolFill(bpy.types.Operator):
         T = time.time()
 
         # Experiment with numpy
-        use_numpy = True #is_greater_than_280()
+        use_numpy = True #is_bl_newer_than(2, 80)
 
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             objs = context.objects_in_mode
         else: objs = [context.object]
 
@@ -393,20 +604,20 @@ class YVcolFill(bpy.types.Operator):
             alpha = context.scene.ve_edit.color[3]
 
             if self.color_option == 'WHITE':
-                color = (1,1,1)
+                color = (1, 1, 1)
                 alpha = 1.0
             elif self.color_option == 'BLACK':
-                color = (0,0,0)
+                color = (0, 0, 0)
                 alpha = 1.0
-            elif not is_greater_than_320():
+            elif not is_bl_newer_than(3, 2):
                 color = linear_to_srgb(color)
 
             # Blender 2.80+ has alpha channel on vertex color
-            dimension = 4 if is_greater_than_280() else 3
-            if is_greater_than_280():
+            dimension = 4 if is_bl_newer_than(2, 80) else 3
+            if is_bl_newer_than(2, 80):
                 color = (color[0], color[1], color[2], alpha)
 
-            if is_greater_than_320() and vcol.domain == 'POINT':
+            if is_bl_newer_than(3, 2) and vcol.domain == 'POINT':
                 if use_numpy:
                     nvcol = numpy.zeros(len(vcol.data) * dimension, dtype=numpy.float32)
                     vcol.data.foreach_get('color', nvcol)
@@ -446,7 +657,7 @@ class YVcolFill(bpy.types.Operator):
 
             bpy.ops.object.mode_set(mode='EDIT')
 
-        print('VCOL: Fill vertex color is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print('VCOL: Fill vertex color is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
@@ -475,14 +686,14 @@ def vcol_editor_draw(self, context):
 
         row = col.row()
         rcol = row.column()
-        if is_greater_than_320():
+        if is_bl_newer_than(3, 2):
             rcol.template_list("MESH_UL_color_attributes", "vcols", mesh, 
                     "color_attributes", vcols, "active_color_index", rows=2)
             rcol = row.column(align=True)
             rcol.operator("geometry.color_attribute_add", icon='ADD', text="")
             rcol.operator("geometry.color_attribute_remove", icon='REMOVE', text="")
         else:
-            if is_greater_than_280():
+            if is_bl_newer_than(2, 80):
                 rcol.template_list("MESH_UL_vcols", "vcols", mesh, 
                         "vertex_colors", vcols, "active_index", rows=3)
                 rcol = row.column(align=True)
@@ -500,7 +711,7 @@ def vcol_editor_draw(self, context):
     ccol = col.column(align=True)
     ccol.operator("mesh.y_vcol_fill", icon='BRUSH_DATA', text='Fill with White').color_option = 'WHITE'
     ccol.operator("mesh.y_vcol_fill", icon='BRUSH_DATA', text='Fill with Black').color_option = 'BLACK'
-    #if is_greater_than_280():
+    #if is_bl_newer_than(2, 80):
     #    ccol.operator("mesh.y_vcol_fill", icon='BRUSH_DATA', text='Fill with Black').color_option = 'TRANSPARENT'
 
     col.separator()
@@ -550,11 +761,14 @@ class VIEW3D_PT_y_vcol_editor_tools(bpy.types.Panel):
         vcol_editor_draw(self, context)
 
 class YVcolEditorProps(bpy.types.PropertyGroup):
-    color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0)
+    color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(1.0, 1.0, 1.0, 1.0), min=0.0, max=1.0)
     #palette : PointerProperty(type=bpy.types.Palette)
 
-    show_vcol_list : BoolProperty(name='Show Vertex Color List',
-            description='Show vertex color list', default=True)
+    show_vcol_list : BoolProperty(
+        name = 'Show Vertex Color List',
+        description = 'Show vertex color list',
+        default = True
+    )
 
     ori_blending_mode : StringProperty(default='')
     ori_brush : StringProperty(default='')
@@ -564,10 +778,11 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
 
     ori_sculpt_blending_mode : StringProperty(default='')
     ori_sculpt_brush : StringProperty(default='')
+    ori_sculpt_tool : StringProperty(default='')
 
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
-    if not is_greater_than_280():
+    if not is_bl_newer_than(2, 80):
         bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.register_class(YVcolEditorProps)
 
@@ -581,7 +796,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
-    if not is_greater_than_280():
+    if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.unregister_class(YVcolEditorProps)
 

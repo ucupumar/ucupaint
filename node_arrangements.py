@@ -1,4 +1,3 @@
-import bpy, time
 from mathutils import *
 from .common import *
 
@@ -6,42 +5,46 @@ NO_MODIFIER_Y_OFFSET = 200
 FINE_BUMP_Y_OFFSET = 300
 
 default_y_offsets = {
-        'RGB' : 165,
-        'VALUE' : 220,
-        'NORMAL' : 155,
-        }
+    'RGB' : 165,
+    'VALUE' : 220,
+    'NORMAL' : 155,
+}
 
 mod_y_offsets = {
-        'INVERT' : 330,
-        'RGB_TO_INTENSITY' : 280,
-        'INTENSITY_TO_RGB' : 280,
-        'OVERRIDE_COLOR' : 280,
-        'COLOR_RAMP' : 315,
-        'RGB_CURVE' : 390,
-        'HUE_SATURATION' : 265,
-        'BRIGHT_CONTRAST' : 220,
-        'MULTIPLIER' :  350,
-        'MATH' : 350
-        }
+    'INVERT' : 330,
+    'RGB_TO_INTENSITY' : 280,
+    'INTENSITY_TO_RGB' : 280,
+    'OVERRIDE_COLOR' : 280,
+    'COLOR_RAMP' : 315,
+    'RGB_CURVE' : 390,
+    'HUE_SATURATION' : 265,
+    'BRIGHT_CONTRAST' : 220,
+    'MULTIPLIER' :  350,
+    'MATH' : 350
+}
 
 value_mod_y_offsets = {
-        'INVERT' : 270,
-        'MULTIPLIER' :  270,
-        'MATH' : 270
-        }
+    'INVERT' : 270,
+    'MULTIPLIER' :  270,
+    'MATH' : 270
+}
 
 def get_mod_y_offsets(mod, is_value=False):
     if is_value and mod.type in value_mod_y_offsets:
         return value_mod_y_offsets[mod.type]
     return mod_y_offsets[mod.type]
 
-def check_set_node_loc(tree, node_name, loc, hide=False):
+def check_set_node_loc(tree, node_name, loc, hide=False, parent_unset=False):
     node = tree.nodes.get(node_name)
     if node:
         if node.location != loc:
             node.location = loc
         if node.hide != hide:
             node.hide = hide
+
+        if parent_unset and node.parent != None:
+            node.parent = None
+
         return True
     return False
 
@@ -113,7 +116,7 @@ def clean_unused_frames(tree):
         if frame not in parents:
             tree.nodes.remove(frame)
 
-    #print('INFO: Unused frames cleaned at ', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    #print('INFO: Unused frames cleaned in ', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def rearrange_yp_frame_nodes(yp):
     tree = yp.id_data
@@ -223,6 +226,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
             check_set_node_parent(tree, ch.max_height_calc, frame)
 
+            check_set_node_parent(tree, ch.normal_map_proc, frame)
             check_set_node_parent(tree, ch.normal_proc, frame)
             check_set_node_parent(tree, ch.normal_flip, frame)
 
@@ -258,6 +262,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, mask.source_w, frame)
 
         check_set_node_parent(tree, mask.blur_vector, frame)
+        check_set_node_parent(tree, mask.separate_color_channels, frame)
         check_set_node_parent(tree, mask.decal_process, frame)
         check_set_node_parent(tree, mask.decal_alpha, frame)
         check_set_node_parent(tree, mask.decal_alpha_n, frame)
@@ -482,7 +487,7 @@ def rearrange_source_tree_nodes(layer):
     else:
         if check_set_node_loc(source_tree, layer.mod_group, loc, True):
             mod_group = source_tree.nodes.get(layer.mod_group)
-            arrange_modifier_nodes(mod_group.node_tree, layer, loc=Vector((0,0)))
+            arrange_modifier_nodes(mod_group.node_tree, layer, loc=Vector((0, 0)))
             loc.y -= 40
         if check_set_node_loc(source_tree, layer.mod_group_1, loc, True):
             loc.y += 40
@@ -510,6 +515,9 @@ def rearrange_mask_tree_nodes(mask):
         loc.y = 0
 
     if check_set_node_loc(tree, mask.linear, loc):
+        loc.x += 180
+    
+    if check_set_node_loc(tree, mask.separate_color_channels, loc):
         loc.x += 180
 
     arrange_mask_modifier_nodes(tree, mask, loc)
@@ -650,6 +658,14 @@ def rearrange_layer_nodes(layer, tree=None):
     cache_found = False
 
     # Layer Caches
+    if check_set_node_loc(tree, layer.cache_image, loc, hide=False):
+        loc.y -= 270
+        cache_found = True
+
+    if check_set_node_loc(tree, layer.cache_vcol, loc, hide=False):
+        loc.y -= 200
+        cache_found = True
+
     if check_set_node_loc(tree, layer.cache_color, loc, hide=False):
         loc.y -= 200
         cache_found = True
@@ -741,6 +757,57 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.y -= 270
             cache_found = True
 
+    # Mask caches
+    for mask in layer.masks:
+
+        if check_set_node_loc(tree, mask.cache_modifier_ramp, loc, hide=False, parent_unset=True):
+            loc.y -= 250
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_modifier_curve, loc, hide=False, parent_unset=True):
+            loc.y -= 270
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_image, loc, hide=False, parent_unset=True):
+            loc.y -= 270
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_vcol, loc, hide=False, parent_unset=True):
+            loc.y -= 200
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_brick, loc, hide=False, parent_unset=True):
+            loc.y -= 400
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_checker, loc, hide=False, parent_unset=True):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_gradient, loc, hide=False, parent_unset=True):
+            loc.y -= 140
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_magic, loc, hide=False, parent_unset=True):
+            loc.y -= 180
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_musgrave, loc, hide=False, parent_unset=True):
+            loc.y -= 270
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_noise, loc, hide=False, parent_unset=True):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_voronoi, loc, hide=False, parent_unset=True):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_wave, loc, hide=False, parent_unset=True):
+            loc.y -= 260
+            cache_found = True
+
     if cache_found or start: loc.x += 350
     if start: loc.y = -(len(start.outputs) * 40)
     else: loc.y = 0
@@ -783,6 +850,8 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.y -= 270
             elif layer.type == 'NOISE':
                 loc.y -= 170
+            elif layer.type == 'GABOR':
+                loc.y -= 170
             elif layer.type == 'VORONOI':
                 loc.y -= 190
             else:
@@ -823,6 +892,8 @@ def rearrange_layer_nodes(layer, tree=None):
                 elif ch.override_type == 'MUSGRAVE':
                     loc.y -= 270
                 elif ch.override_type == 'NOISE':
+                    loc.y -= 170
+                elif ch.override_type == 'GABOR':
                     loc.y -= 170
                 elif ch.override_type == 'VORONOI':
                     loc.y -= 190
@@ -949,12 +1020,14 @@ def rearrange_layer_nodes(layer, tree=None):
         # Modifier loop
         if ch.mod_group != '':
             mod_group = nodes.get(ch.mod_group)
-            arrange_modifier_nodes(mod_group.node_tree, ch, Vector((0,0)))
+            arrange_modifier_nodes(mod_group.node_tree, ch, Vector((0, 0)))
             check_set_node_loc(tree, ch.mod_group, loc, hide=True)
             loc.y -= 40
         else:
-            loc, mod_offset_y = arrange_modifier_nodes(tree, ch, loc, 
-                    is_value = root_ch.type == 'VALUE', return_y_offset = True)
+            loc, mod_offset_y = arrange_modifier_nodes(
+                tree, ch, loc, is_value=root_ch.type == 'VALUE',
+                return_y_offset = True
+            )
 
             if offset_y < mod_offset_y:
                 offset_y = mod_offset_y
@@ -996,8 +1069,10 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x = start_x
                 loc.y -= offset_y
 
-            loc, mod_offset_y = arrange_modifier_nodes(tree, ch, loc, 
-                    is_value = root_ch.type == 'VALUE', return_y_offset = True, use_modifier_1=True)
+            loc, mod_offset_y = arrange_modifier_nodes(
+                tree, ch, loc, is_value=root_ch.type == 'VALUE',
+                return_y_offset=True, use_modifier_1=True
+            )
 
             offset_y = mod_offset_y
 
@@ -1017,7 +1092,7 @@ def rearrange_layer_nodes(layer, tree=None):
 
         # If next channel had modifier
         if i+1 < len(layer.channels):
-            next_ch = layer.channels[i+1]
+            next_ch = layer.channels[i + 1]
             if len(next_ch.modifiers) > 0 and next_ch.mod_group == '':
                 loc.y -= 35
 
@@ -1142,6 +1217,9 @@ def rearrange_layer_nodes(layer, tree=None):
         #    loc.y -= 180
 
         loc.y = 0
+
+        loc.x += 270
+        check_set_node_loc(tree, mask.separate_color_channels, loc)
 
         if mask.group_node == '' and len(mask.modifiers) > 0:
             loc.x += 270
@@ -1441,6 +1519,9 @@ def rearrange_layer_nodes(layer, tree=None):
             if check_set_node_loc(tree, ch.max_height_calc, loc):
                 loc.x += 200
 
+            if check_set_node_loc(tree, ch.normal_map_proc, loc):
+                loc.x += 200
+
             if check_set_node_loc(tree, ch.normal_proc, loc):
                 loc.x += 200
 
@@ -1462,7 +1543,7 @@ def rearrange_layer_nodes(layer, tree=None):
                 (ch.enable_transition_ramp and not flip_bump and ch.transition_ramp_intensity_unlink 
                 and ch.transition_ramp_blend_type == 'MIX') or
                 (layer.parent_idx != -1 and layer.type == 'BACKGROUND' and ch.transition_ramp_blend_type == 'MIX')
-                ):
+            ):
             if check_set_node_loc(tree, ch.tr_ramp, loc):
                 loc.x += 200
                 #y_offset += 60
@@ -1918,8 +1999,11 @@ def rearrange_yp_nodes(group_tree):
 
         loc.x = ori_x
 
-        loc, offset_y = arrange_modifier_nodes(group_tree, channel, loc, 
-                is_value = channel.type == 'VALUE', return_y_offset = True)
+        loc, offset_y = arrange_modifier_nodes(
+            group_tree, channel, loc, 
+            is_value = channel.type == 'VALUE',
+            return_y_offset = True
+        )
 
         if loc.x > farthest_x: farthest_x = loc.x
         loc.y -= offset_y

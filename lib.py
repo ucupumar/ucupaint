@@ -1,4 +1,4 @@
-import bpy, time, os
+import bpy, os
 from .common import *
 from mathutils import *
 
@@ -128,15 +128,10 @@ HEIGHT_COMPARE_SMOOTH = '~yPL Height Compare Smooth'
 STRAIGHT_OVER_HEIGHT_COMPARE = '~yPL Straight Over Height Compare'
 STRAIGHT_OVER_HEIGHT_COMPARE_SMOOTH = '~yPL Straight Over Height Compare Smooth'
 
-NORMAL_PROCESS = '~yPL Normal Process'
-NORMAL_PROCESS_GROUP = '~yPL Normal Process Group'
-NORMAL_PROCESS_SMOOTH = '~yPL Normal Process Smooth'
-NORMAL_PROCESS_SMOOTH_GROUP = '~yPL Normal Process Smooth Group'
-
-NORMAL_MAP_PROCESS = '~yPL Normal Map Process'
-NORMAL_MAP_PROCESS_TRANSITION = '~yPL Normal Map Process Transition'
-NORMAL_MAP_PROCESS_SMOOTH = '~yPL Normal Map Process Smooth'
-NORMAL_MAP_PROCESS_SMOOTH_TRANSITION = '~yPL Normal Map Process Smooth Transition'
+BUMP_2_NORMAL = '~yPL Bump to Normal'
+BUMP_2_NORMAL_SMOOTH = '~yPL Bump to Normal Smooth'
+GROUP_BUMP_2_NORMAL = '~yPL Group Bump to Normal'
+GROUP_BUMP_2_NORMAL_SMOOTH = '~yPL Group Bump to Normal Smooth'
 
 NORMAL_EMISSION_VIEWER = '~yPL Normal Emission Viewer'
 ADVANCED_EMISSION_VIEWER = '~yPL Advanced Emission Viewer'
@@ -224,16 +219,25 @@ GLTF_SETTINGS = 'glTF Settings'
 BL278_BSDF = 'bsdf278'
 
 channel_custom_icon_dict = {
-        'RGB' : 'rgb_channel',
-        'VALUE' : 'value_channel',
-        'NORMAL' : 'vector_channel',
-        }
+    'RGB' : 'rgb_channel',
+    'VALUE' : 'value_channel',
+    'NORMAL' : 'vector_channel',
+}
 
-channel_icon_dict = {
-        'RGB' : 'KEYTYPE_KEYFRAME_VEC',
-        'VALUE' : 'HANDLETYPE_FREE_VEC',
-        'NORMAL' : 'KEYTYPE_BREAKDOWN_VEC',
-        }
+def get_icon_folder():
+    if not is_bl_newer_than(2, 80):
+        icon_set = 'legacy'
+    else:
+        icons = get_user_preferences().icons 
+
+        if icons == 'DEFAULT':
+            bg_color = bpy.context.preferences.themes[0].preferences.space.back
+            is_dark_theme = bg_color[0] + bg_color[1] + bg_color[2] < 1.5
+            icon_set = 'light' if is_dark_theme else 'dark'
+        else:
+            icon_set = 'legacy'
+
+    return get_addon_filepath() + 'icons' + os.sep + icon_set.lower() + os.sep
 
 def load_custom_icons():
     import bpy.utils.previews
@@ -241,11 +245,18 @@ def load_custom_icons():
     if not hasattr(bpy.utils, 'previews'): return
     global custom_icons
     custom_icons = bpy.utils.previews.new()
-    folder = get_addon_filepath() + 'icons' + os.sep
+
+    folder = get_icon_folder()
 
     for f in os.listdir(folder):
         icon_name = f.replace('_icon.png', '')
         custom_icons.load(icon_name, folder + f, 'IMAGE')
+
+def unload_custom_icons():
+    global custom_icons
+    if hasattr(bpy.utils, 'previews'):
+        bpy.utils.previews.remove(custom_icons)
+        custom_icons = None
 
 def get_icon(custom_icon_name):
     return custom_icons[custom_icon_name].icon_id
@@ -412,6 +423,4 @@ def register():
     load_custom_icons()
 
 def unregister():
-    global custom_icons
-    if hasattr(bpy.utils, 'previews'):
-        bpy.utils.previews.remove(custom_icons)
+    unload_custom_icons()

@@ -4,12 +4,11 @@ from .common import *
 from .modifier_common import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib
 
 normalmap_modifier_type_items = (
-        ('INVERT', 'Invert', 'Invert', 'MODIFIER', 0),
-        ('MATH', 'Math', '', 'MODIFIER', 1),
-        )
+    ('INVERT', 'Invert', 'Invert', 'MODIFIER', 0),
+    ('MATH', 'Math', '', 'MODIFIER', 1),
+)
 
 def add_new_normalmap_modifier(ch, layer, modifier_type):
     tree = get_tree(layer)
@@ -34,7 +33,8 @@ class YNewNormalmapModifier(bpy.types.Operator):
     type : EnumProperty(
         name = 'Modifier Type',
         items = normalmap_modifier_type_items,
-        default = 'INVERT')
+        default = 'INVERT'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -71,15 +71,21 @@ class YMoveNormalMapModifier(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     direction : EnumProperty(
-            name = 'Direction',
-            items = (('UP', 'Up', ''),
-                     ('DOWN', 'Down', '')),
-            default = 'UP')
+        name = 'Direction',
+        items = (
+            ('UP', 'Up', ''),
+            ('DOWN', 'Down', '')
+        ),
+        default = 'UP'
+    )
 
     @classmethod
     def poll(cls, context):
-        return (get_active_ypaint_node() and 
-                hasattr(context, 'parent') and hasattr(context, 'modifier'))
+        return (
+            get_active_ypaint_node() and 
+            hasattr(context, 'parent') and
+            hasattr(context, 'modifier')
+        )
 
     def execute(self, context):
         node = get_active_ypaint_node()
@@ -272,7 +278,8 @@ class YNormalMapModifier(bpy.types.PropertyGroup):
     type : EnumProperty(
         name = 'Modifier Type',
         items = normalmap_modifier_type_items,
-        default = 'INVERT')
+        default = 'INVERT'
+    )
 
     # Invert toggles
     invert_r_enable : BoolProperty(default=True, update=update_invert_channel)
@@ -289,7 +296,8 @@ class YNormalMapModifier(bpy.types.PropertyGroup):
         name = 'Method',
         items = math_method_items,
         default = "MULTIPLY",
-        update = update_math_method)
+        update = update_math_method
+    )
 
     affect_alpha : BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
     use_clamp : BoolProperty(name='Use Clamp', default=False, update=update_use_clamp)

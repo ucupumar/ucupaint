@@ -7,7 +7,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, image_ops
+from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem
 
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
@@ -85,19 +85,18 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
             col = (0.73, 0.73, 0.73, 1.0)
         elif 'AO' in image.name:
             col = (1.0, 1.0, 1.0, 1.0)
-        elif m2: # Possible mask base color
-            if index == 0:
-                col = (0.0, 0.0, 0.0, 1.0)
-            else:
-                col = (1.0, 1.0, 1.0, 1.0)
+        elif m2: 
+            col = get_image_mask_base_color(entity, image, index)
         else:
             col = (0.0, 0.0, 0.0, 0.0)
             use_alpha = True
 
     # Create temp image as bake target
     if len(tilenums) > 1 or (segment and image.source == 'TILED'):
-        temp_image = bpy.data.images.new(name='__TEMP',
-                width=width, height=height, alpha=True, float_buffer=image.is_float, tiled=True)
+        temp_image = bpy.data.images.new(
+            name='__TEMP', width=width, height=height,
+            alpha=True, float_buffer=image.is_float, tiled=True
+        )
 
         # Fill tiles
         for tilenum in tilenums:
@@ -109,8 +108,10 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         else: UDIM.initial_pack_udim(temp_image, col, image.name)
 
     else:
-        temp_image = bpy.data.images.new(name='__TEMP',
-                width=width, height=height, alpha=True, float_buffer=image.is_float)
+        temp_image = bpy.data.images.new(
+            name='__TEMP', width=width, height=height,
+            alpha=True, float_buffer=image.is_float
+        )
 
     temp_image.colorspace_settings.name = image.colorspace_settings.name
     temp_image.generated_color = col
@@ -128,7 +129,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
     # Copy mapping
     mapp = mat.node_tree.nodes.new('ShaderNodeMapping')
 
-    if is_greater_than_281():
+    if is_bl_newer_than(2, 81):
         mapp.inputs[1].default_value[0] = mapping.inputs[1].default_value[0]
         mapp.inputs[1].default_value[1] = mapping.inputs[1].default_value[1]
         mapp.inputs[1].default_value[2] = mapping.inputs[1].default_value[2]
@@ -229,10 +230,12 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         UDIM.remove_udim_atlas_segment_by_name(image, segment.name, yp)
 
         # Create new segment
-        new_segment = UDIM.get_set_udim_atlas_segment(tilenums, 
-                width=width, height=height, color=col, 
-                colorspace=image.colorspace_settings.name, hdr=image.is_float, yp=yp, 
-                source_image=temp_image, source_tilenums=tilenums)
+        new_segment = UDIM.get_set_udim_atlas_segment(
+            tilenums, 
+            width=width, height=height, color=col, 
+            colorspace=image.colorspace_settings.name, hdr=image.is_float, yp=yp, 
+            source_image=temp_image, source_tilenums=tilenums
+        )
 
         # Set image
         if image != new_segment.id_data:
@@ -251,8 +254,8 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         # Remove temp image
         remove_datablock(bpy.data.images, temp_image, user=tex, user_prop='image')
 
-    # HACK: Pack and refresh to update image on Blender 2.77 and lower
-    if not is_greater_than_278() and (image.packed_file or image.filepath == ''):
+    # HACK: Pack and refresh to update image in Blender 2.77 and lower
+    if not is_bl_newer_than(2, 78) and (image.packed_file or image.filepath == ''):
         if image.is_float:
             image_ops.pack_float_image(image)
         else: image.pack(as_png=True)
@@ -384,13 +387,17 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    remove_from_uv : BoolProperty(name='Delete From UV',
-            description = "Remove 'From UV' from objects",
-            default=False)
+    remove_from_uv : BoolProperty(
+        name = 'Delete From UV',
+        description = "Remove 'From UV' from objects",
+        default = False
+    )
 
-    reorder_uv_list : BoolProperty(name='Reorder UV',
-            description = "Reorder 'To UV' so it will have the same index as 'From UV'",
-            default=True)
+    reorder_uv_list : BoolProperty(
+        name = 'Reorder UV',
+        description = "Reorder 'To UV' so it will have the same index as 'From UV'",
+        default = True
+    )
 
     @classmethod
     def poll(cls, context):
@@ -445,7 +452,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
 
-        if is_greater_than_310():
+        if is_bl_newer_than(3, 1):
             split = split_layout(col, 0.4, align=True)
             split.prop(self, 'margin', text='')
             split.prop(self, 'margin_type', text='')
@@ -458,6 +465,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'reorder_uv_list')
 
     def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
 
         T = time.time()
 
@@ -485,9 +493,10 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
 
         # Prepare bake settings
         book = remember_before_bake(yp)
-        prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device, margin_type=self.margin_type
-                )
+        prepare_bake_settings(
+            book, objs, yp, samples=self.samples, margin=self.margin, 
+            uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device, margin_type=self.margin_type
+        )
         
         # Get entites to transfer
         entities = get_entities_to_transfer(yp, self.from_uv_map, self.uv_map)
@@ -533,7 +542,11 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
-        print('INFO: All layer and masks that using', self.from_uv_map, 'is transferred to', self.uv_map, 'at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print(
+            'INFO: All layers and masks using', self.from_uv_map,
+            'are transferred to', self.uv_map,
+            'in', '{:0.2f}'.format(time.time() - T), 'seconds!'
+        )
 
         return {'FINISHED'}
 
@@ -591,7 +604,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
 
-        if is_greater_than_310():
+        if is_bl_newer_than(3, 1):
             split = split_layout(col, 0.4, align=True)
             split.prop(self, 'margin', text='')
             split.prop(self, 'margin_type', text='')
@@ -599,6 +612,8 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'margin', text='')
 
     def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
         T = time.time()
 
         if not hasattr(self, 'entity'):
@@ -622,9 +637,10 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
 
         # Prepare bake settings
         book = remember_before_bake(yp)
-        prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device, margin_type=self.margin_type
-                )
+        prepare_bake_settings(
+            book, objs, yp, samples=self.samples, margin=self.margin, 
+            uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device, margin_type=self.margin_type
+        )
 
         if self.entity.type == 'IMAGE':
             # Set other entites uv that using the same image or segment
@@ -643,7 +659,12 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
-        print('INFO:', self.entity.name, 'UV is transferred from', self.entity.uv_name, 'to', self.uv_map, 'at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print(
+            'INFO:', self.entity.name,
+            'UV is transferred from', self.entity.uv_name,
+            'to', self.uv_map,
+            'in', '{:0.2f}'.format(time.time() - T), 'seconds!'
+        )
 
         return {'FINISHED'}
 
@@ -678,17 +699,21 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
     layer_name : StringProperty(default='')
     image_name : StringProperty(default='')
 
-    width : IntProperty(name='Width', default = 1024, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1024, min=1, max=16384)
+    width : IntProperty(name='Width', default=1024, min=1, max=16384)
+    height : IntProperty(name='Height', default=1024, min=1, max=16384)
 
-    all_tiles : BoolProperty(name='Resize All Tiles',
-            description='Resize all tiles (when using UDIM atlas, only segment tiles will be resized)',
-            default=False)
+    all_tiles : BoolProperty(
+        name = 'Resize All Tiles',
+        description = 'Resize all tiles (when using UDIM atlas, only segment tiles will be resized)',
+        default = False
+    )
 
-    tile_number : EnumProperty(name='Tile Number',
-            description='Tile number that will be resized',
-            items = UDIM.udim_tilenum_items,
-            update=update_resize_image_tile_number)
+    tile_number : EnumProperty(
+        name = 'Tile Number',
+        description = 'Tile number that will be resized',
+        items = UDIM.udim_tilenum_items,
+        update = update_resize_image_tile_number
+    )
 
     @classmethod
     def poll(cls, context):
@@ -727,7 +752,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
         col.label(text='Height:')
 
         if image:
-            if image.yia.is_image_atlas or not is_greater_than_281():
+            if image.yia.is_image_atlas or not is_bl_newer_than(2, 81):
                 col.label(text='Samples:')
 
             if image.source == 'TILED':
@@ -741,7 +766,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'height', text='')
 
         if image:
-            if image.yia.is_image_atlas or not is_greater_than_281():
+            if image.yia.is_image_atlas or not is_bl_newer_than(2, 81):
                 col.prop(self, 'samples', text='')
 
             if image.source == 'TILED':
@@ -752,6 +777,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
                     col.prop(self, 'tile_number', text='')
 
     def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
 
         yp = get_active_ypaint_node().node_tree.yp
         entity, image = get_resize_image_entity_and_image(self, context)
@@ -782,7 +808,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
         space = None
         ori_space_image = None
 
-        if not image.yia.is_image_atlas and is_greater_than_281():
+        if not image.yia.is_image_atlas and is_bl_newer_than(2, 81):
 
             tilenums = [int(self.tile_number)]
             if image.source == 'TILED' and self.all_tiles:
@@ -807,7 +833,10 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
             bpy.context.area.ui_type = ori_ui_type
 
         else:
-            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, bake_device=self.bake_device, yp=yp)
+            scaled_img, new_segment = resize_image(
+                image, self.width, self.height, image.colorspace_settings.name,
+                self.samples, 0, segment, bake_device=self.bake_device, yp=yp
+            )
 
             if new_segment:
                 entity.segment_name = new_segment.name
@@ -831,43 +860,54 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
     bl_options = {'REGISTER', 'UNDO'}
 
     all_materials : BoolProperty(
-            name='Bake All Materials',
-            description='Bake all materials with ucupaint nodes rather than just the active one',
-            default=False)
+        name = 'Bake All Materials',
+        description = 'Bake all materials with ucupaint nodes rather than just the active one',
+        default = False
+    )
 
     vcol_name : StringProperty(
-            name='Target Vertex Color Name', 
-            description="Target vertex color name, it will create one if it doesn't exists",
-            default='')
+        name = 'Target Vertex Color Name', 
+        description = "Target vertex color name, it will create one if it doesn't exist",
+        default = ''
+    )
     
     add_emission : BoolProperty(
-            name='Add Emission', 
-            description='Add the result with Emission Channel', 
-            default=False)
+        name = 'Add Emission', 
+        description = 'Add the result with Emission Channel', 
+        default = False
+    )
 
     emission_multiplier : FloatProperty(
-            name='Emission Multiplier',
-            description='Emission multiplier so the emission can be more visible on the result',
-            default=1.0, min=0.0)
+        name = 'Emission Multiplier',
+        description = 'Emission multiplier so the emission can be more visible on the result',
+        default=1.0, min=0.0
+    )
 
     force_first_index : BoolProperty(
-            name='Force First Index', 
-            description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
-            default=True)
+        name = 'Force First Index', 
+        description = "Force target vertex color to be first on the vertex colors list (useful for exporting)",
+        default = True
+    )
 
     include_alpha : BoolProperty(
-            name='Include Alpha',
-            description="Bake channel alpha to result (need channel enable alpha)",
-            default=False)
+        name = 'Include Alpha',
+        description = "Bake channel alpha to result (need channel enable alpha)",
+        default = False
+    )
 
     bake_to_alpha_only : BoolProperty(
-            name='Bake To Alpha Only',
-            description="Bake value into the alpha",
-            default=False)
+        name = 'Bake To Alpha Only',
+        description = "Bake value into the alpha",
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
+    
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
 
     def invoke(self, context, event):
         self.invoke_operator(context)
@@ -878,7 +918,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
 
         self.vcol_name = 'Baked ' + channel.name
 
-        # Add emission will only availabel if it's on Color channel
+        # Add emission will only be available if it's on Color channel
         self.show_emission_option = False
         if channel.name == 'Color':
             for ch in yp.channels:
@@ -894,6 +934,9 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         self.show_bake_to_alpha_only_option = False
         if channel.type == 'VALUE':
             self.show_bake_to_alpha_only_option = True
+
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -913,7 +956,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         if self.show_bake_to_alpha_only_option:
             col.label(text='Bake to Alpha:')
 
-        if not is_version_320():
+        if not is_bl_equal(3, 2):
             col.label(text='Force First Index:')
 
         col = row.column(align=True)
@@ -927,11 +970,13 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         if self.show_bake_to_alpha_only_option:
             col.prop(self, 'bake_to_alpha_only', text='')
 
-        if not is_version_320():
+        if not is_bl_equal(3, 2):
             col.prop(self, 'force_first_index', text='')
 
     def execute(self, context):
-        if not is_greater_than_292():
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        if not is_bl_newer_than(2, 92):
             self.report({'ERROR'}, "You need at least Blender 2.92 to use this feature!")
             return {'CANCELLED'}
 
@@ -960,7 +1005,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
                 meshes = []
                 for ob in get_scene_objects():
                     if ob.type != 'MESH': continue
-                    if is_greater_than_280() and ob.hide_viewport: continue
+                    if is_bl_newer_than(2, 80) and ob.hide_viewport: continue
                     #if not in_renderable_layer_collection(ob): continue
                     if len(ob.data.polygons) == 0: continue
                     for i, m in enumerate(ob.data.materials):
@@ -993,14 +1038,14 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
                     vcol_name = vcol.name
 
                     # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-                    if self.force_first_index and not is_version_320():
+                    if self.force_first_index and not is_bl_equal(3, 2):
                         move_vcol(ob, get_vcol_index(ob, vcol.name), 0)
 
                     # Get the newly created vcol to avoid pointer error
                     vcol = vcols.get(vcol_name)
                     set_active_vertex_color(ob, vcol)
 
-                # Multi materials setup
+                # Multi-material setup
                 ori_mat_ids = {}
                 for ob in objs:
 
@@ -1017,7 +1062,10 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
                             p.material_index = active_mat_id
 
                 # Prepare bake settings
-                prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device=self.bake_device, bake_target='VERTEX_COLORS')
+                prepare_bake_settings(
+                    book, objs, yp, disable_problematic_modifiers=True,
+                    bake_device=self.bake_device, bake_target='VERTEX_COLORS'
+                )
 
                 # Get extra channel
                 extra_channel = None
@@ -1025,7 +1073,10 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
                     extra_channel = yp.channels.get('Emission')
 
                 # Bake channel
-                bake_to_vcol(mat, node, channel, objs, extra_channel, self.emission_multiplier, self.include_alpha or self.bake_to_alpha_only, self.vcol_name)
+                bake_to_vcol(
+                    mat, node, channel, objs, extra_channel, self.emission_multiplier,
+                    self.include_alpha or self.bake_to_alpha_only, self.vcol_name
+                )
 
                 for ob in objs:
                     # Recover material index
@@ -1043,15 +1094,20 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
     bl_idname = "node.y_delete_baked_channel_images"
     bl_label = "Delete All Baked Channel Images"
     bl_description = "Delete all baked channel images"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     also_del_vcol : BoolProperty(
-        name="Also delete the vertex color",
-        default=False)
+        name = "Also delete the vertex color",
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
 
     def invoke(self, context, event):
         node = get_active_ypaint_node()
@@ -1060,12 +1116,13 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 
         self.any_channel_use_baked_vcol = False
 
-        for ch in yp.channels:
-            baked_vcol_node = tree.nodes.get(ch.baked_vcol)
-            self.baked_vcol_name = baked_vcol_node.attribute_name if baked_vcol_node else ''
-            if self.baked_vcol_name != '':
-                self.any_channel_use_baked_vcol = True
-                return context.window_manager.invoke_props_dialog(self, width=320)
+        if not get_user_preferences().skip_property_popups or event.shift:
+            for ch in yp.channels:
+                baked_vcol_node = tree.nodes.get(ch.baked_vcol)
+                self.baked_vcol_name = baked_vcol_node.attribute_name if baked_vcol_node else ''
+                if self.baked_vcol_name != '':
+                    self.any_channel_use_baked_vcol = True
+                    return context.window_manager.invoke_props_dialog(self, width=320)
 
         self.also_del_vcol = False
         return self.execute(context)
@@ -1119,9 +1176,10 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 def update_bake_channel_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
 
-    mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
-    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 def bake_vcol_channel_items(self, context):
     node = get_active_ypaint_node()
@@ -1137,10 +1195,8 @@ def bake_vcol_channel_items(self, context):
         # Add two spaces to prevent text from being translated
         text_ch_name = ch.name + '  '
         # Index plus one, minus one when read
-        if hasattr(lib, 'custom_icons'):
-            icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i + 2), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i + 2))
-        else: items.append((str(i + 2), text_ch_name, '', lib.channel_icon_dict[ch.type], i + 2))
+        icon_name = lib.channel_custom_icon_dict[ch.type]
+        items.append((str(i + 2), text_ch_name, '', lib.get_icon(icon_name), i + 2))
 
     return items
 
@@ -1154,63 +1210,85 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     interpolation : EnumProperty(
-            name = 'Image Interpolation Type',
-            description = 'Image interpolation type',
-            items = interpolation_type_items,
-            default = 'Linear')
+        name = 'Image Interpolation Type',
+        description = 'Image interpolation type',
+        items = interpolation_type_items,
+        default = 'Linear'
+    )
 
     #hdr : BoolProperty(name='32 bit Float', default=False)
 
-    only_active_channel : BoolProperty(name = 'Only Bake Active Channel',
-            description = 'Only bake active channel',
-            default = False)
+    only_active_channel : BoolProperty(
+        name = 'Only Bake Active Channel',
+        description = 'Only bake active channel',
+        default = False
+    )
 
-    fxaa : BoolProperty(name='Use FXAA', 
-            description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
-            default=True)
+    fxaa : BoolProperty(
+        name = 'Use FXAA', 
+        description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
+        default = True
+    )
 
     aa_level : IntProperty(
-        name='Anti Aliasing Level',
-        description='Super Sample Anti Aliasing Level (1=off)',
-        default=1, min=1, max=2)
+        name = 'Anti Aliasing Level',
+        description = 'Super Sample Anti Aliasing Level (1=off)',
+        default=1, min=1, max=2
+    )
 
-    denoise : BoolProperty(name='Use Denoise', 
-            description = "Use Denoise on baked images",
-            default=False)
+    denoise : BoolProperty(
+        name = 'Use Denoise', 
+        description = "Use Denoise on baked images",
+        default = False
+    )
 
     force_bake_all_polygons : BoolProperty(
-            name='Force Bake all Polygons',
-            description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
-            default=False)
+        name = 'Force Bake all Polygons',
+        description = 'Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
+        default = False
+    )
 
-    enable_bake_as_vcol : BoolProperty(name='Enable Bake As VCol',
-            description='Has any channel enabled Bake As Vertex Color',
-            default=False)
+    enable_bake_as_vcol : BoolProperty(
+        name = 'Enable Bake As VCol',
+        description = 'Has any channel enabled Bake As Vertex Color',
+        default = False
+    )
 
     vcol_force_first_ch_idx : EnumProperty(
-                name='Force First Vertex Color Channel',
-                description='Force the first channel after baking the Vertex Color',
-                items=bake_vcol_channel_items)
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
+        items = bake_vcol_channel_items
+    )
 
     vcol_force_first_ch_idx_bool : BoolProperty(
-                name='Force First Vertex Color Channel',
-                description='Force the first channel after baking the Vertex Color',
-                default=False)
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
+        default = False
+    )
 
     use_udim : BoolProperty(
-            name = 'Use UDIM Tiles',
-            description='Use UDIM Tiles',
-            default=False)
+        name = 'Use UDIM Tiles',
+        description = 'Use UDIM Tiles',
+        default = False
+    )
 
     use_float_for_normal : BoolProperty(
-            name = 'Use Float for Normal',
-            description='Use float image for baked normal',
-            default=False)
+        name = 'Use Float for Normal',
+        description = 'Use float image for baked normal',
+        default = False
+    )
 
     use_float_for_displacement : BoolProperty(
-            name = 'Use Float for Displacement',
-            description='Use float image for baked displacement',
-            default=False)
+        name = 'Use Float for Displacement',
+        description = 'Use float image for baked displacement',
+        default = False
+    )
+    
+    bake_disabled_layers : BoolProperty(
+        name = 'Bake Disabled Layers',  
+        description = 'Take disabled layers into account when baking',
+        default = False
+    )
 
     @classmethod
     def poll(cls, context):
@@ -1280,9 +1358,13 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if self.vcol_force_first_ch_idx == '':
             self.vcol_force_first_ch_idx = 'Do Nothing'
 
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
+        self.check_operator(context)
         return True
 
     def draw(self, context):
@@ -1297,14 +1379,18 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         col = row.column() #align=True)
 
         ccol = col.column(align=True)
-        ccol.label(text='Width:')
-        ccol.label(text='Height:')
+        ccol.label(text='')
+        if self.use_custom_resolution == False:
+            ccol.label(text='Resolution:')
+        if self.use_custom_resolution == True:
+            ccol.label(text='Width:')
+            ccol.label(text='Height:')
 
         ccol.separator()
         ccol.label(text='Samples:')
         ccol.label(text='AA Level:')
 
-        if is_greater_than_310():
+        if is_bl_newer_than(3, 1):
             ccol.separator()
         ccol.label(text='Margin:')
 
@@ -1314,7 +1400,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         col.separator()
 
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             col.label(text='Bake Device:')
         col.label(text='Interpolation:')
         col.label(text='UV Map:')
@@ -1323,26 +1409,32 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
         active_channel = None
-        if self.only_active_channel and not is_version_320():
+        if self.only_active_channel and not is_bl_equal(3, 2):
             active_channel = self.channels[0]
             if active_channel.enable_bake_to_vcol:
                 ccol.separator()
                 ccol.label(text='')
-        elif self.enable_bake_as_vcol and not is_version_320():
+        elif self.enable_bake_as_vcol and not is_bl_equal(3, 2):
             ccol.separator()
             ccol.label(text='Force First Vcol:')
 
         col = row.column()
 
+        col.prop(self, 'use_custom_resolution')
+        crow = col.row(align=True)
         ccol = col.column(align=True)
-        ccol.prop(self, 'width', text='')
-        ccol.prop(self, 'height', text='')
+
+        if self.use_custom_resolution == False:
+            crow.prop(self, 'image_resolution', expand= True,)
+        elif self.use_custom_resolution == True:
+            ccol.prop(self, 'width', text='')
+            ccol.prop(self, 'height', text='')
 
         ccol.separator()
         ccol.prop(self, 'samples', text='')
         ccol.prop(self, 'aa_level', text='')
 
-        if is_greater_than_310():
+        if is_bl_newer_than(3, 1):
             ccol.separator()
             split = split_layout(ccol, 0.4, align=True)
             split.prop(self, 'margin', text='')
@@ -1358,7 +1450,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         col.separator()
 
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             col.prop(self, 'bake_device', text='')
         col.prop(self, 'interpolation', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
@@ -1369,7 +1461,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if active_channel and active_channel.enable_bake_to_vcol:
             ccol.separator()
             ccol.prop(self, 'vcol_force_first_ch_idx_bool', text='Force First Vcol')
-        elif self.enable_bake_as_vcol and not is_version_320():
+        elif self.enable_bake_as_vcol and not is_bl_equal(3, 2):
             ccol.separator()
             ccol.prop(self, 'vcol_force_first_ch_idx', text='')
 
@@ -1378,11 +1470,13 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if UDIM.is_udim_supported():
             ccol.prop(self, 'use_udim')
         ccol.prop(self, 'fxaa', text='Use FXAA')
-        if is_greater_than_281():
+        if is_bl_newer_than(2, 81):
             ccol.prop(self, 'denoise', text='Use Denoise')
         ccol.prop(self, 'force_bake_all_polygons')
+        ccol.prop(self, 'bake_disabled_layers')
 
     def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
 
         T = time.time()
 
@@ -1393,11 +1487,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         obj = context.object
         mat = obj.active_material
 
-        if is_greater_than_280() and (obj.hide_viewport or obj.hide_render):
+        if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
             self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
             return {'CANCELLED'}
 
-        if not is_greater_than_280() and obj.hide_render:
+        if not is_bl_newer_than(2, 80) and obj.hide_render:
             self.report({'ERROR'}, "Please unhide render of the active object!")
             return {'CANCELLED'}
 
@@ -1410,7 +1504,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             meshes = []
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
-                if is_greater_than_280() and ob.hide_viewport: continue
+                if is_bl_newer_than(2, 80) and ob.hide_viewport: continue
                 if ob.hide_render: continue
                 #if not in_renderable_layer_collection(ob): continue
                 if len(get_uv_layers(ob)) == 0: continue
@@ -1426,12 +1520,18 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             self.report({'ERROR'}, "No valid objects to bake!")
             return {'CANCELLED'}
 
+        # UV data should be accessible when there's multiple materials in single object, so object mode is necessary
+        ori_edit_mode = False
+        if len(obj.data.materials) > 1 and obj.mode == 'EDIT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+            ori_edit_mode = True
+
         book = remember_before_bake(yp)
 
         height_ch = get_root_height_channel(yp)
 
         tangent_sign_calculation = False
-        if BL28_HACK and height_ch and is_greater_than_280() and not is_greater_than_300() and obj in objs:
+        if BL28_HACK and height_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
 
             if len(yp.uvs) > MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
                 self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(yp.uvs)) + " vertex color(s) to bake proper normal!")
@@ -1450,8 +1550,6 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         vcol = refresh_tangent_sign_vcol(obj, uv.name)
                         if vcol: tansign.attribute_name = vcol.name
 
-        #return {'FINISHED'}
-
         # Disable use baked first
         if yp.use_baked:
             yp.use_baked = False
@@ -1461,15 +1559,15 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ori_loop_locs = {}
         for ob in objs:
 
-            # Get uv map
-            uv_layers = get_uv_layers(ob)
-            uvl = uv_layers.get(self.uv_map)
-
             # Need to assign all polygon to active material if there are multiple materials
             ori_mat_ids[ob.name] = []
             ori_loop_locs[ob.name] = []
 
             if len(ob.data.materials) > 1:
+
+                # Get uv map
+                uv_layers = get_uv_layers(ob)
+                uvl = uv_layers.get(self.uv_map)
 
                 active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat][0]
                 for p in ob.data.polygons:
@@ -1488,7 +1586,6 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     ori_mat_ids[ob.name].append(p.material_index)
                     p.material_index = active_mat_id
 
-        
         # Check if any objects use geometry nodes to output uv
         any_uv_geonodes = False
         for o in objs:
@@ -1510,21 +1607,32 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         height = self.height * self.aa_level
 
         # Prepare bake settings
-        prepare_bake_settings(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, 
-                bake_device=self.bake_device, margin_type=self.margin_type)
+        prepare_bake_settings(
+            book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, 
+            bake_device=self.bake_device, margin_type=self.margin_type
+        )
 
         # Get tilenums
         tilenums = UDIM.get_tile_numbers(objs, self.uv_map) if self.use_udim else [1001]
+
+        # Enable disabled layers if needed
+        disabled_layers = []
+        if self.bake_disabled_layers:
+            disabled_layers = [layer for layer in yp.layers if not layer.enable]
+            for layer in disabled_layers:
+                layer.enable = True 
 
         # Bake channels
         for ch in self.channels:
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 use_hdr = not ch.use_clamp
-                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
-                             tilenums=tilenums, interpolation=self.interpolation, 
-                             use_float_for_displacement=self.use_float_for_displacement, 
-                             use_float_for_normal=self.use_float_for_normal)
+                bake_channel(
+                    self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
+                    tilenums=tilenums, interpolation=self.interpolation, 
+                    use_float_for_displacement=self.use_float_for_displacement, 
+                    use_float_for_normal=self.use_float_for_normal
+                )
 
         # Process baked images
         baked_images = []
@@ -1534,13 +1642,16 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             if baked and baked.image:
 
                 # Denoise
-                if self.denoise and is_greater_than_281() and ch.type != 'NORMAL':
+                if self.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':
                     denoise_image(baked.image)
 
                 # AA process
                 if self.aa_level > 1:
-                    resize_image(baked.image, self.width, self.height, 
-                            baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+                    resize_image(
+                        baked.image, self.width, self.height, 
+                        baked.image.colorspace_settings.name,
+                        alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                    )
 
                 # FXAA doesn't work with hdr image
                 if self.fxaa and ch.use_clamp:
@@ -1554,13 +1665,16 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 if baked_disp and baked_disp.image:
 
                     # Denoise
-                    if self.denoise and is_greater_than_281():
+                    if self.denoise and is_bl_newer_than(2, 81):
                         denoise_image(baked_disp.image)
 
                     # AA process
                     if self.aa_level > 1:
-                        resize_image(baked_disp.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+                        resize_image(
+                            baked_disp.image, self.width, self.height, 
+                            baked.image.colorspace_settings.name,
+                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                        )
 
                     # FXAA
                     if self.fxaa and not baked_disp.image.is_float:
@@ -1573,8 +1687,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                     # AA process
                     if self.aa_level > 1:
-                        resize_image(baked_normal_overlay.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+                        resize_image(
+                            baked_normal_overlay.image, self.width, self.height, 
+                            baked.image.colorspace_settings.name,
+                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                        )
                     # FXAA
                     if self.fxaa:
                         fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
@@ -1586,8 +1703,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                     # AA process
                     if self.aa_level > 1:
-                        resize_image(baked_vdisp.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+                        resize_image(
+                            baked_vdisp.image, self.width, self.height, 
+                            baked.image.colorspace_settings.name,
+                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                        )
 
                     baked_images.append(baked_vdisp.image)
 
@@ -1647,8 +1767,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 if not btimg:
                     # Set new bake target image
                     if len(tilenums) > 1:
-                        btimg = bpy.data.images.new(name=bt.name, width=self.width, height=self.height, 
-                                alpha=True, tiled=True, float_buffer=bt.use_float)
+                        btimg = bpy.data.images.new(
+                            name=bt.name, width=self.width, height=self.height, 
+                            alpha=True, tiled=True, float_buffer=bt.use_float
+                        )
                         btimg.colorspace_settings.name = get_noncolor_name()
                         btimg.filepath = filepath
 
@@ -1658,8 +1780,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                         UDIM.initial_pack_udim(btimg, color)
                     else:
-                        btimg = bpy.data.images.new(name=bt.name,
-                            width=self.width, height=self.height, alpha=True, float_buffer=bt.use_float)
+                        btimg = bpy.data.images.new(
+                            name=bt.name, width=self.width, height=self.height,
+                            alpha=True, float_buffer=bt.use_float
+                        )
                         btimg.colorspace_settings.name = get_noncolor_name()
                         btimg.filepath = filepath
                         btimg.generated_color = color
@@ -1708,7 +1832,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                                     UDIM.swap_tile(baked.image, 1001, tilenum)
 
                                 # Copy pixels
-                                copy_image_channel_pixels(baked.image, btimg, src_idx=subidx, dest_idx=i, invert_value=btc.invert_value)
+                                copy_image_channel_pixels(
+                                    baked.image, btimg, src_idx=subidx,
+                                    dest_idx=i, invert_value=btc.invert_value
+                                )
 
                                 # Swap tile again to recover
                                 if tilenum != 1001:
@@ -1727,6 +1854,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Recover bake settings
         recover_bake_settings(book, yp)
+
+        # Recover disabled layers
+        if self.bake_disabled_layers:
+            for layer in disabled_layers:
+                layer.enable = False
 
         # Return to original objects
         if ori_objs: objs = ori_objs
@@ -1748,11 +1880,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 if uvl:
                     for i, p in enumerate(ob.data.polygons):
                         for j, li in enumerate(p.loop_indices):
-                            #print(ori_loop_locs[ob.name][i][j])
                             uvl.data[li].uv = ori_loop_locs[ob.name][i][j]
 
         # Bake vcol
-        if is_greater_than_292():
+        if is_bl_newer_than(2, 92):
             is_do_nothing = True
             is_sort_by_channel = False
             if self.only_active_channel:
@@ -1775,7 +1906,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     real_force_first_ch_idx = -1
             # used to sort by channel
             current_vcol_order = 0
-            prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device=self.bake_device, bake_target='VERTEX_COLORS')
+            prepare_bake_settings(
+                book, objs, yp, disable_problematic_modifiers=True,
+                bake_device=self.bake_device, bake_target='VERTEX_COLORS'
+            )
             for ch in self.channels:
                 if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
                     # Check vertex color
@@ -1797,7 +1931,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         vcol_name = vcol.name
 
                         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-                        if not is_version_320() and not is_do_nothing:
+                        if not is_bl_equal(3, 2) and not is_do_nothing:
                             if is_sort_by_channel or (real_force_first_ch_idx >= 0 and yp.channels[real_force_first_ch_idx] == ch):
                                 move_vcol(ob, get_vcol_index(ob, vcol.name), current_vcol_order)
 
@@ -1842,7 +1976,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         check_start_end_root_ch_nodes(tree)
 
         # Recover hack
-        if BL28_HACK and height_ch and tangent_sign_calculation and is_greater_than_280() and not is_greater_than_300():
+        if BL28_HACK and height_ch and tangent_sign_calculation and is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
             print('INFO: Recovering tangent sign after bake...')
             # Refresh tangent sign hacks
             update_enable_tangent_sign_hacks(yp, context)
@@ -1851,6 +1985,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
 
+        # Revert back to edit mode
+        if ori_edit_mode:
+            bpy.ops.object.mode_set(mode='EDIT')
+        
         # Refresh active channel index
         yp.active_channel_index = yp.active_channel_index
 
@@ -1868,7 +2006,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             for o in temp_objs:
                 remove_mesh_obj(o)
 
-        print('INFO:', tree.name, 'channels is baked at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print('INFO:', tree.name, 'channels are baked in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
@@ -1884,10 +2022,8 @@ def merge_channel_items(self, context):
     counter = 0
     for i, ch in enumerate(yp.channels):
         if not layer.channels[i].enable: continue
-        if hasattr(lib, 'custom_icons'):
-            icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, counter))
-        else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], counter))
+        icon_name = lib.channel_custom_icon_dict[ch.type]
+        items.append((str(i), ch.name, '', lib.get_icon(icon_name), counter))
         counter += 1
 
     return items
@@ -2012,26 +2148,31 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
     bl_options = {'REGISTER', 'UNDO'}
 
     direction : EnumProperty(
-            name = 'Direction',
-            items = (('UP', 'Up', ''),
-                     ('DOWN', 'Down', '')),
-            default = 'UP')
+        name = 'Direction',
+        items = (
+            ('UP', 'Up', ''),
+            ('DOWN', 'Down', '')
+        ),
+        default = 'UP'
+    )
 
     channel_idx : EnumProperty(
-            name = 'Channel',
-            description = 'Channel for merge reference',
-            items = merge_channel_items)
-            #update=update_channel_idx_new_layer)
+        name = 'Channel',
+        description = 'Channel for merge reference',
+        items = merge_channel_items
+    )
 
     apply_modifiers : BoolProperty(
-            name = 'Apply Layer Modifiers',
-            description = 'Apply layer modifiers',
-            default = False)
+        name = 'Apply Layer Modifiers',
+        description = 'Apply layer modifiers',
+        default = False
+    )
 
     apply_neighbor_modifiers : BoolProperty(
-            name = 'Apply Neighbor Modifiers',
-            description = 'Apply neighbor modifiers',
-            default = True)
+        name = 'Apply Neighbor Modifiers',
+        description = 'Apply neighbor modifiers',
+        default = True
+    )
 
     #height_aware : BoolProperty(
     #        name = 'Height Aware',
@@ -2041,8 +2182,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
-        return (context.object and group_node and len(group_node.node_tree.yp.layers) > 0 
-                and len(group_node.node_tree.yp.channels) > 0)
+        return (
+            context.object and group_node
+                and len(group_node.node_tree.yp.layers) > 0 
+                and len(group_node.node_tree.yp.channels) > 0
+        )
 
     def invoke(self, context, event):
         self.invoke_operator(context)
@@ -2110,6 +2254,12 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
                 self.channel_idx = str(i)
                 break
 
+        # Check if there's any unsaved images
+        self.any_dirty_images = any_dirty_images_inside_layer(neighbor_layer) or any_dirty_images_inside_layer(layer)
+
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
@@ -2125,7 +2275,22 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'apply_modifiers', text='')
         col.prop(self, 'apply_neighbor_modifiers', text='')
 
+        if self.legacy_on_non_object_mode:
+            col = self.layout.column(align=True)
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure you want to continue?", icon='BLANK1')
+        elif self.any_dirty_images:
+            col = self.layout.column(align=True)
+            col.label(text="Unsaved data will be LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure you want to continue?", icon='BLANK1')
+
     def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        if hasattr(self, 'error_message') and self.error_message != '':
+            self.report({'ERROR'}, self.error_message)
+            return {'CANCELLED'}
+
         T = time.time()
 
         wm = context.window_manager
@@ -2136,10 +2301,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         mat = obj.active_material
         scene = context.scene
         objs = get_all_objects_with_same_materials(mat, True)
-
-        if self.error_message != '':
-            self.report({'ERROR'}, self.error_message)
-            return {'CANCELLED'}
 
         # Localize variables
         layer = self.layer
@@ -2168,9 +2329,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
 
             book = remember_before_bake(yp)
-            prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
-                    uv_map=layer.uv_name, bake_type='EMIT', bake_device=self.bake_device
-                    )
+            prepare_bake_settings(
+                book, objs, yp, samples=1, margin=5, 
+                uv_map=layer.uv_name, bake_type='EMIT',
+                bake_device = self.bake_device
+            )
 
             # Merge objects if necessary
             temp_objs = []
@@ -2294,8 +2457,8 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
                 if upper_vcol and lower_vcol:
 
-                    cols = numpy.zeros(len(obj.data.loops)*4, dtype=numpy.float32)
-                    cols.shape = (cols.shape[0]//4, 4)
+                    cols = numpy.zeros(len(obj.data.loops) * 4, dtype=numpy.float32)
+                    cols.shape = (cols.shape[0] // 4, 4)
 
                     for i, l in enumerate(obj.data.loops):
                         cols[i] = blend_color_mix_byte(lower_vcol.data[i].color, upper_vcol.data[i].color, 
@@ -2337,6 +2500,9 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             # Refresh index routine
             yp.active_layer_index = min(layer_idx, neighbor_idx)
+
+            # Update list items
+            ListItem.refresh_list_items(yp, repoint_active=True)
         else:
             self.report({'ERROR'}, "Merge failed for some reason!")
             return {'CANCELLED'}
@@ -2347,25 +2513,72 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_merge_mask"
     bl_label = "Merge mask"
     bl_description = "Merge Mask"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
-            name = 'Direction',
-            items = (('UP', 'Up', ''),
-                     ('DOWN', 'Down', '')),
-            default = 'UP')
+        name = 'Direction',
+        items = (
+            ('UP', 'Up', ''),
+            ('DOWN', 'Down', '')
+        ),
+        default = 'UP'
+    )
 
     @classmethod
     def poll(cls, context):
-        return get_active_ypaint_node() and hasattr(context, 'mask') and hasattr(context, 'layer')
+        return get_active_ypaint_node()
 
     def invoke(self, context, event):
         self.invoke_operator(context)
+
+        layer = self.layer = context.layer
+        mask = self.mask = context.mask
+
+        # Get neighbor mask
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        index = int(m.group(2))
+        if self.direction == 'UP':
+            try: neighbor_mask = layer.masks[index - 1]
+            except: neighbor_mask = None
+        else:
+            try: neighbor_mask = layer.masks[index + 1]
+            except: neighbor_mask = None
+
+        # Blender 2.7x has no global undo between modes
+        self.legacy_on_non_object_mode = not is_bl_newer_than(2, 80) and context.object.mode != 'OBJECT'
+
+        # Check for any dirty images
+        self.any_dirty_images = False
+        if neighbor_mask:
+            source = get_mask_source(mask)
+            image = source.image if mask.type == 'IMAGE' else None
+            neighbor_image = get_mask_source(neighbor_mask).image if neighbor_mask.type == 'IMAGE' else None
+
+            if (image and image.is_dirty) or (neighbor_image and neighbor_image.is_dirty):
+                self.any_dirty_images = True
+
+        if self.any_dirty_images or self.legacy_on_non_object_mode:
+            return context.window_manager.invoke_props_dialog(self, width=300)
+
         return self.execute(context)
 
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        if self.legacy_on_non_object_mode:
+            col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
+            col.label(text="Are you sure you want to continue?", icon='BLANK1')
+        else:
+            col.label(text="Unsaved data will be LOST if you UNDO this operation.", icon='ERROR')
+            col.label(text="Are you sure you want to continue?", icon='BLANK1')
+
+    def check(self, context):
+        return True
+
     def execute(self, context):
-        mask = context.mask
-        layer = context.layer
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        mask = self.mask
+        layer = self.layer
         yp = layer.id_data.yp
         obj = context.object
         mat = obj.active_material
@@ -2382,10 +2595,11 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
         # Get neighbor index
         if self.direction == 'UP' and index > 0:
-            neighbor_idx = index-1
+            neighbor_idx = index - 1
         elif self.direction == 'DOWN' and index < num_masks-1:
-            neighbor_idx = index+1
+            neighbor_idx = index + 1
         else:
+            self.report({'ERROR'}, "No valid neighbor mask!")
             return {'CANCELLED'}
 
         if mask.type != 'IMAGE':
@@ -2405,8 +2619,10 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             width = segment.width
             height = segment.height
 
-            img = bpy.data.images.new(name='__TEMP',
-                    width=width, height=height, alpha=True, float_buffer=source.image.is_float)
+            img = bpy.data.images.new(
+                name='__TEMP', width=width, height=height,
+                alpha=True, float_buffer=source.image.is_float
+            )
 
             if source.image.yia.color == 'WHITE':
                 img.generated_color = (1.0, 1.0, 1.0, 1.0)
@@ -2450,9 +2666,11 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         objs = get_all_objects_with_same_materials(mat, True)
 
         book = remember_before_bake(yp)
-        prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
-                uv_map=mask.uv_name, bake_type='EMIT', bake_device=self.bake_device
-                )
+        prepare_bake_settings(
+            book, objs, yp, samples=1, margin=5, 
+            uv_map=mask.uv_name, bake_type='EMIT',
+            bake_device = self.bake_device
+        )
 
         # Combine objects if possible
         temp_objs = []
@@ -2483,8 +2701,8 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         # Copy results to original image
         copy_image_pixels(img, source.image, segment)
 
-        # HACK: Pack and refresh to update image on Blender 2.77 and lower
-        if not is_greater_than_278() and (source.image.packed_file or source.image.filepath == ''):
+        # HACK: Pack and refresh to update image in Blender 2.77 and lower
+        if not is_bl_newer_than(2, 78) and (source.image.packed_file or source.image.filepath == ''):
             if source.image.is_float:
                 image_ops.pack_float_image(source.image)
             else: source.image.pack(as_png=True)
@@ -2542,7 +2760,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_bake_temp_image"
     bl_label = "Bake temporary image of layer"
-    bl_description = "Bake temporary image of layer, can be useful to prefent glitch on cycles"
+    bl_description = "Bake temporary image of layer, can be useful to prefent glitching with cycles"
     bl_options = {'REGISTER', 'UNDO'}
 
     uv_map : StringProperty(default='')
@@ -2583,6 +2801,9 @@ class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
         if len(self.uv_map_coll) > 0:
             self.uv_map = self.uv_map_coll[0].name
 
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
@@ -2611,7 +2832,7 @@ class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
 
-        if is_greater_than_310():
+        if is_bl_newer_than(3, 1):
             split = split_layout(col, 0.4, align=True)
             split.prop(self, 'margin', text='')
             split.prop(self, 'margin_type', text='')
@@ -2619,6 +2840,7 @@ class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'margin', text='')
 
     def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
 
         if not hasattr(self, 'parent'):
             self.report({'ERROR'}, "Context is incorrect!")
@@ -2630,7 +2852,11 @@ class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
             return {'CANCELLED'}
 
         # Bake temp image
-        image = temp_bake(context, entity, self.width, self.height, self.hdr, self.samples , self.margin, self.uv_map, margin_type=self.margin_type, bake_device=self.bake_device)
+        image = temp_bake(
+            context, entity, self.width, self.height, self.hdr, self.samples,
+            self.margin, self.uv_map, margin_type=self.margin_type,
+            bake_device=self.bake_device
+        )
 
         return {'FINISHED'}
 
@@ -2660,7 +2886,7 @@ def copy_default_value(inp_source, inp_target):
     elif isinstance(inp_target.default_value, float) and isinstance(inp_source.default_value, float):
         inp_target.default_value = inp_source.default_value
     elif isinstance(inp_target.default_value, float):
-        avg = sum([inp_source.default_value[i] for i in range(3)])/3
+        avg = sum([inp_source.default_value[i] for i in range(3)]) / 3
         inp_target.default_value = avg
     elif isinstance(inp_source.default_value, float):
         for i in range(3):
@@ -2670,6 +2896,7 @@ def update_enable_baked_outside(self, context):
     tree = self.id_data
     yp = tree.yp
     node = get_active_ypaint_node()
+    if not node: return
     mat = get_active_material()
     scene = context.scene
     ypup = get_user_preferences()
@@ -2772,7 +2999,7 @@ def update_enable_baked_outside(self, context):
                     max_x = loc_x
                     loc_x -= 280
 
-                if not is_greater_than_280() and baked.image.colorspace_settings.name != get_srgb_name():
+                if not is_bl_newer_than(2, 80) and baked.image.colorspace_settings.name != get_srgb_name():
                     tex.color_space = 'NONE'
 
                 if outp_alpha:
@@ -2818,7 +3045,7 @@ def update_enable_baked_outside(self, context):
                             tex_normal_overlay.parent = frame
                             mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
 
-                            if not is_greater_than_280() and baked_normal_overlay.image.colorspace_settings.name != get_srgb_name():
+                            if not is_bl_newer_than(2, 80) and baked_normal_overlay.image.colorspace_settings.name != get_srgb_name():
                                 tex_normal_overlay.color_space = 'NONE'
 
                             if ch.enable_subdiv_setup:
@@ -2855,7 +3082,7 @@ def update_enable_baked_outside(self, context):
                         tex_disp.interpolation = 'Cubic'
                         mtree.links.new(uv.outputs[0], tex_disp.inputs[0])
 
-                        if not is_greater_than_280() and baked_disp.image.colorspace_settings.name != get_srgb_name():
+                        if not is_bl_newer_than(2, 80) and baked_disp.image.colorspace_settings.name != get_srgb_name():
                             tex_disp.color_space = 'NONE'
 
                         loc_x += 280
@@ -2904,7 +3131,7 @@ def update_enable_baked_outside(self, context):
                         tex_vdisp.interpolation = 'Cubic'
                         mtree.links.new(uv.outputs[0], tex_vdisp.inputs[0])
 
-                        if not is_greater_than_280() and baked_vdisp.image.colorspace_settings.name != get_srgb_name():
+                        if not is_bl_newer_than(2, 80) and baked_vdisp.image.colorspace_settings.name != get_srgb_name():
                             tex_vdisp.color_space = 'NONE'
 
                         loc_x += 280
@@ -2935,7 +3162,7 @@ def update_enable_baked_outside(self, context):
 
                 # Create GLTF material output node so AO can be included in Blender's automated ORM texture
                 if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO', 'Specular', 'Specular Color', 'Thickness'}:
-                    node_name = lib.GLTF_MATERIAL_OUTPUT if is_greater_than_340() else lib.GLTF_SETTINGS
+                    node_name = lib.GLTF_MATERIAL_OUTPUT if is_bl_newer_than(3, 4) else lib.GLTF_SETTINGS
                     gltf_outp = mtree.nodes.get(node_name)
                     if not gltf_outp:
                         gltf_outp = mtree.nodes.new('ShaderNodeGroup')
@@ -3039,7 +3266,6 @@ def update_enable_baked_outside(self, context):
 
             # Delete nodes inside frames
             if baked_outside_frame:
-                
                 remove_node(mtree, ch, 'baked_outside', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_vcol', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_disp', parent=baked_outside_frame)
@@ -3150,7 +3376,7 @@ def update_enable_bake_to_vcol(self, context):
     update_use_baked(self, context)
 
 def is_node_a_displacement(node, is_vector_disp=False):
-    if not is_greater_than_280():
+    if not is_bl_newer_than(2, 80):
         if is_vector_disp: return None
         return node.type == 'GROUP' and node.node_tree and node.node_tree.name == lib.BL27_DISP
 
@@ -3179,7 +3405,7 @@ def get_closest_disp_node_backward(node, socket_name='', is_vector_disp=False):
     return None
 
 def create_displacement_node(tree, connect_to=None):
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         disp = tree.nodes.new('ShaderNodeDisplacement')
     else:
         # Set displacement mode
@@ -3193,7 +3419,7 @@ def create_displacement_node(tree, connect_to=None):
 
 def create_vector_displacement_node(tree, connect_to=None):
     vdisp = None
-    if is_greater_than_280():
+    if is_bl_newer_than(2, 80):
         vdisp = tree.nodes.new('ShaderNodeVectorDisplacement')
 
     if vdisp and connect_to:
@@ -3223,7 +3449,7 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
     if set_one or set_outside:
         
         # Set add vector node
-        if is_greater_than_280() and ((not disp and not vdisp) or (disp and not vdisp) or (not disp and vdisp)):
+        if is_bl_newer_than(2, 80) and ((not disp and not vdisp) or (disp and not vdisp) or (not disp and vdisp)):
             add_disp = mat.node_tree.nodes.new('ShaderNodeVectorMath')
 
             add_disp.location.x = output_mat.location.x
@@ -3333,8 +3559,8 @@ def check_subdiv_setup(height_ch):
     # Scene and material displacement settings
     if height_ch.enable_subdiv_setup:
 
-        # Displacement only works with experimental feature set on Blender 2.79
-        if height_ch.subdiv_adaptive or not is_greater_than_280():
+        # Displacement only works with experimental feature set in Blender 2.79
+        if height_ch.subdiv_adaptive or not is_bl_newer_than(2, 80):
             scene.cycles.feature_set = 'EXPERIMENTAL'
 
         if height_ch.subdiv_adaptive:
@@ -3346,18 +3572,18 @@ def check_subdiv_setup(height_ch):
             #mat.displacement_method = 'BOTH'
             mat.displacement_method = 'DISPLACEMENT'
 
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             #mat.cycles.displacement_method = 'BOTH'
             mat.cycles.displacement_method = 'DISPLACEMENT'
         else: mat.cycles.displacement_method = 'TRUE'
         
         # Displacement method is inside object data for Blender 2.77 and below 
-        if not is_greater_than_278():
+        if not is_bl_newer_than(2, 78):
             for obj in objs:
                 if obj.data and hasattr(obj.data, 'cycles'):
                     obj.data.cycles.displacement_method = 'TRUE'
 
-        if not yp.enable_baked_outside:
+        if not yp.use_baked or not yp.enable_baked_outside:
             check_displacement_node(mat, node, set_one=True)
 
     # Outside nodes connection set
@@ -3526,7 +3752,7 @@ def setup_subdiv_to_max_polys(obj, max_polys, subsurf=None):
         if level > subsurf.total_levels: 
             set_active_object(obj)
             for i in range(level - subsurf.total_levels):
-                if not is_greater_than_290():
+                if not is_bl_newer_than(2, 90):
                     bpy.ops.object.multires_subdivide(modifier=subsurf.name)
                 else:
                     if is_mesh_flat_shaded(obj.data):
@@ -3546,7 +3772,7 @@ def get_objs_size_proportions(objs):
     
     for obj in objs:
         sorted_dim = sorted(obj.dimensions, reverse=True)
-        # Object size is only measured on its largest 2 dimensions because this should works on a plane too
+        # Object size is only measured on its largest 2 dimensions because this should work on a plane too
         size = sorted_dim[0] * sorted_dim[1]
         sizes.append(size)
 

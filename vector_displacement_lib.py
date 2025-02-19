@@ -699,7 +699,7 @@ def get_vdm_loader_geotree(uv_name='', vdm_image=None, tangent_image=None, bitan
         offset_capture.domain = 'CORNER'
 
         # Capture items is manually defined in Blender 4.2
-        if is_greater_than_420():
+        if is_bl_newer_than(4, 2):
             offset_capture.capture_items.new('VECTOR', 'Vector')
         else: offset_capture.data_type = 'FLOAT_VECTOR'
 

@@ -1,10 +1,15 @@
 import bpy
 from bpy.props import *
-from bpy.types import Operator, AddonPreferences
+from bpy.types import AddonPreferences
 from bpy.app.handlers import persistent
 from . import image_ops
 from .common import *
-from . import addon_updater_ops
+from .lib import *
+from .UDIM import *
+
+def update_icons(self, context):
+    unload_custom_icons()
+    load_custom_icons()
 
 class YPaintPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
@@ -12,94 +17,145 @@ class YPaintPreferences(AddonPreferences):
     bl_idname = __package__
 
     default_new_image_size : IntProperty(
-            name = 'Default New Image Size',
-            description = 'Default new image size',
-            default = 1024,
-            min=64, max=4096)
+        name = 'Custom Default Image Size',
+        description = 'Default new image size',
+        default=1024, min=64, max=16384
+    )
 
     image_atlas_size : IntProperty(
-            name = 'Image Atlas Size',
-            description = 'Image Atlas Size',
-            default = 8192,
-            min=2048, max=16384)
+        name = 'Image Atlas Size',
+        description = 'Image Atlas Size',
+        default=8192, min=2048, max=16384
+    )
 
     hdr_image_atlas_size : IntProperty(
-            name = 'HDR Image Atlas Size',
-            description = 'HDR Image Atlas Size',
-            default = 4096,
-            min=1024, max=8192)
+        name = 'HDR Image Atlas Size',
+        description = 'HDR Image Atlas Size',
+        default=4096, min=1024, max=8192
+    )
 
     unique_image_atlas_per_yp : BoolProperty(
-            name = 'Use unique Image Atlas per ' + get_addon_title() + ' tree',
-            description = 'Try to use different image atlas per ' + get_addon_title() + ' tree',
-            default = True)
+        name = 'Use unique Image Atlas per ' + get_addon_title() + ' tree',
+        description = 'Try to use different image atlas per ' + get_addon_title() + ' tree',
+        default = True
+    )
 
     developer_mode : BoolProperty(
-            name = 'Developer Mode',
-            description = 'Developer mode will shows several menu intented for developer only',
-            default = False)
+        name = 'Developer Mode',
+        description = 'Developer mode will shows several menu intented for developer only',
+        default = False
+    )
 
     show_experimental : BoolProperty(
-            name = 'Show Experimental Features',
-            description = 'Show unfinished experimental features',
-            default = False)
+        name = 'Show Experimental Features',
+        description = 'Show unfinished experimental features',
+        default = False
+    )
 
     use_image_preview : BoolProperty(
-            name = 'Use Image Preview/Thumbnail',
-            description = 'Use image preview or thumbnail on the layers list',
-            default = False)
+        name = 'Use Image Preview/Thumbnail',
+        description = 'Use image preview or thumbnail on the layers list',
+        default = False
+    )
+
+    skip_property_popups : BoolProperty(
+        name = 'Skip Property Popups (Hold Shift to Show)',
+        description = 'Don\'t show property popups unless Shift key is pressed. Will use last invokation properties if skipped',
+        default = False
+    )
+
+    icons : EnumProperty(
+        name = 'Icons',
+        description = 'Icon set',
+        items = (
+            ('DEFAULT', 'Default', 'Icon set from the current Blender version'),
+            ('LEGACY', 'Legacy', 'Icon set from the old Blender version')
+        ),
+        default = 'DEFAULT',
+        update = update_icons
+    )
 
     make_preview_mode_srgb : BoolProperty(
-            name = 'Make Preview Mode use sRGB',
-            description = 'Make sure preview mode use sRGB color',
-            default = True)
+        name = 'Make Preview Mode use sRGB',
+        description = 'Make sure preview mode use sRGB color',
+        default = True
+    )
 
     parallax_without_baked : BoolProperty(
-            name = 'Parallax Without Use Baked',
-            description = 'Make it possible to use parallax without using baked textures (currently VERY SLOW)',
-            default = False)
+        name = 'Parallax Without Use Baked',
+        description = 'Make it possible to use parallax without using baked textures (currently VERY SLOW)',
+        default = False
+    )
 
     default_bake_device : EnumProperty(
-            name = 'Default Bake Device',
-            description = 'Default bake device',
-            items = (('DEFAULT', 'Default', 'Use last selected bake device'),
-                     ('CPU', 'CPU', 'Use CPU by default'),
-                     ('GPU', 'GPU Compute', 'Use GPU by default')),
-            default='DEFAULT'
-            )
+        name = 'Bake Device',
+        description = 'Default bake device',
+        items = (
+            ('DEFAULT', 'Default', 'Use last selected bake device'),
+            ('CPU', 'CPU', 'Use CPU by default'),
+            ('GPU', 'GPU Compute', 'Use GPU by default')
+        ),
+        default = 'DEFAULT'
+    )
+
+    enable_baked_outside_by_default : BoolProperty(
+        name = 'Enable Baked Outside by default',
+        description = "Enable baked outside by default when creating new " + get_addon_title() + " node.\n(Useful for creating game assets)",
+        default = False
+    )
+
+    enable_uniform_uv_scale_by_default : BoolProperty(
+        name = 'Enable Uniform UV Scale by default',
+        description = "Enable uniform UV scale by default in Layer and Mask UVs. This will make all scale axes have the same value",
+        default = False
+    )
+
+    enable_auto_udim_detection : BoolProperty(
+        name = 'Enable Auto UDIM Detection',
+        description = "Enable automatic UDIM detection. This will automatically check 'Use UDIM Tiles' checkboxes when UDIM is detected",
+        default = True
+    )
+
+    layer_list_mode : EnumProperty(
+        name = 'Layer Lists Mode',
+        items = (
+            ('DYNAMIC', "Dynamic", 'Dynamic layers list with dropdown support'),
+            ('CLASSIC', "Classic", 'Classic layers list'),
+            ('BOTH', "Dynamic & Classic (For Debugging)", 'Both Dynamic and Classic layers list for debugging'),
+        ),
+        default = 'DYNAMIC'
+    )
     
     # Addon updater preferences.
     auto_check_update : BoolProperty(
-        name="Auto-check for Update",
-        description="If enabled, auto-check for updates using an interval",
-        default=True)
+        name = 'Auto-check for Update',
+        description = 'If enabled, auto-check for updates using an interval',
+        default = True
+    )
     
     updater_interval_months : IntProperty(
-        name='Months',
-        description="Number of months between checking for updates",
-        default=0,
-        min=0)
+        name = 'Months',
+        description = 'Number of months between checking for updates',
+        default=0, min=0
+    )
     
     updater_interval_days : IntProperty(
-        name='Days',
-        description="Number of days between checking for updates",
-        default=1,
-        min=0,
-        max=31)
+        name = 'Days',
+        description = 'Number of days between checking for updates',
+        default=1, min=0, max=31
+    )
     
     updater_interval_hours : IntProperty(
-        name='Hours',
-        description="Number of hours between checking for updates",
-        default=0,
-        min=0,
-        max=23)
+        name = 'Hours',
+        description = 'Number of hours between checking for updates',
+        default=0, min=0, max=23
+    )
     
     updater_interval_minutes : IntProperty(
-        name='Minutes',
-        description="Number of minutes between checking for updates",
-        default=1,
-        min=0,
-        max=59)
+        name = 'Minutes',
+        description = 'Number of minutes between checking for updates',
+        default=1, min=0, max=59
+    )
 
     library_location : StringProperty(
             name = 'Texture library path',
@@ -107,16 +163,39 @@ class YPaintPreferences(AddonPreferences):
             subtype='DIR_PATH',
             )
 
+    default_image_resolution : EnumProperty(
+        name = 'Default Image Size',
+        items = (
+            ('DEFAULT', "Default", 'Use the last selected image size'),
+            ('512', "512", 'Always use a 512x512 image by default'),
+            ('1024', "1024", 'Always use a 1024x1024 image by default'),
+            ('2048', "2048", 'Always use a 2048x2048 image by default'),
+            ('4096', "4096", 'Always use a 4096x4096 image by default'),
+            ('CUSTOM', "Custom Resolution", 'Use a custom resolution by default')
+        ),
+        default = 'DEFAULT'
+    )
+    
     def draw(self, context):
-        if is_greater_than_280():
+        if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'default_bake_device')
+            self.layout.prop(self, 'icons')
+        self.layout.prop(self, 'layer_list_mode')
 
-        self.layout.prop(self, 'default_new_image_size')
+        self.layout.prop(self, 'default_image_resolution')
+        if self.default_image_resolution == 'CUSTOM':
+            self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')
         self.layout.prop(self, 'make_preview_mode_srgb')
         self.layout.prop(self, 'use_image_preview')
+        self.layout.prop(self, 'skip_property_popups')
+        self.layout.prop(self, 'enable_baked_outside_by_default')
+        if is_bl_newer_than(2, 81):
+            self.layout.prop(self, 'enable_uniform_uv_scale_by_default')
+        if is_udim_supported():
+            self.layout.prop(self, 'enable_auto_udim_detection')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')
