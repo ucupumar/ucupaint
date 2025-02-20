@@ -1856,6 +1856,7 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
+    
 
 class BaseMultipleImagesLayer():
     # File related
