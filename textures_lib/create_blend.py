@@ -103,6 +103,12 @@ new_material.asset_data.description = "Material by ambientcg.com"
 override = bpy.context.copy()
 override["id"] = new_material
 
+thumbnail_file = os.path.join(dir_target, arg_dict["id"]+".png")
+print("thumbfile: ", thumbnail_file)
+
+with bpy.context.temp_override(**override):
+    bpy.ops.ed.lib_id_load_custom_preview(filepath=thumbnail_file)
+
 bpy.ops.mesh.primitive_plane_add(size=2)
 obj = bpy.context.active_object
 obj.name = arg_dict["id"]

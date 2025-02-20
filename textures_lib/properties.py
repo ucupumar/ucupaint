@@ -21,7 +21,7 @@ def load_per_material(file_name:str, material_item):
 	loaded = previews_collection.load(item, file_name, 'IMAGE', force_reload=True)
 
 	previews_collection.preview_items[my_id] = (my_id, item, "", loaded.icon_id, len(previews_collection.preview_items))
-	material_item.thumb = loaded.icon_id
+	# material_item.thumb = loaded.icon_id
 
 	
 def cancel_searching(context):
