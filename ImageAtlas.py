@@ -733,7 +733,7 @@ class YConvertToStandardImage(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YImageAtlasSegments(bpy.types.PropertyGroup):
+class YImageAtlasSegment(bpy.types.PropertyGroup):
 
     name : StringProperty(
         name = 'Name',
@@ -772,7 +772,7 @@ class YImageAtlas(bpy.types.PropertyGroup):
 
     #float_buffer : BoolProperty(default=False)
 
-    segments : CollectionProperty(type=YImageAtlasSegments)
+    segments : CollectionProperty(type=YImageAtlasSegment)
 
 def register():
     #bpy.utils.register_class(YUVTransformTest)
@@ -783,7 +783,7 @@ def register():
     bpy.utils.register_class(YConvertToStandardImage)
     #bpy.utils.register_class(YImageSegmentOtherObject)
     #bpy.utils.register_class(YImageSegmentBakeInfoProps)
-    bpy.utils.register_class(YImageAtlasSegments)
+    bpy.utils.register_class(YImageAtlasSegment)
     bpy.utils.register_class(YImageAtlas)
 
     bpy.types.Image.yia = PointerProperty(type=YImageAtlas)
@@ -797,5 +797,5 @@ def unregister():
     bpy.utils.unregister_class(YConvertToStandardImage)
     #bpy.utils.unregister_class(YImageSegmentOtherObject)
     #bpy.utils.unregister_class(YImageSegmentBakeInfoProps)
-    bpy.utils.unregister_class(YImageAtlasSegments)
+    bpy.utils.unregister_class(YImageAtlasSegment)
     bpy.utils.unregister_class(YImageAtlas)
