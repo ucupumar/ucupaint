@@ -60,7 +60,7 @@ class TexLibCancelDownload(Operator):
             return {'CANCELLED'}
         thread.cancel = True
 
-        texlib:TexLibProps = context.scene.texlib
+        texlib:TexLibProps = context.window_manager.ytexlib
         dwn:DownloadQueue
         for dwn in texlib.downloads:
             if dwn.asset_id ==  self.id and dwn.asset_attribute == self.attribute:
@@ -102,7 +102,7 @@ class TexLibRemoveTextureAttribute(Operator):
             # remove parent folder if empty
             if not os.listdir(dir_up):
                 os.rmdir(dir_up)
-                my_list = context.scene.texlib.downloaded_material_items
+                my_list = context.window_manager.ytexlib.downloaded_material_items
                 my_list.remove(my_list.find(self.id))
 
             retrieve_asset_library(context)
@@ -185,7 +185,7 @@ class TexLibDownload(Operator):
 
         new_thread.start()
 
-        texlib:TexLibProps = context.scene.texlib
+        texlib:TexLibProps = context.window_manager.ytexlib
         new_dwn:DownloadQueue = texlib.downloads.add()
         new_dwn.asset_cat_id = cat_id
         if len(asset_item.tags) > 0:
@@ -226,7 +226,7 @@ class TexLibRemoveTextureAllAttributes(Operator):
     def execute(self, context):
         dir = get_textures_dir(context) + self.id 
         print("item", self.id, " | file ", dir)
-        my_list = context.scene.texlib.downloaded_material_items
+        my_list = context.window_manager.ytexlib.downloaded_material_items
         my_list.remove(my_list.find(self.id))
         # remove folder
         if os.path.exists(dir):

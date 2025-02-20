@@ -26,8 +26,7 @@ class TexLibBrowser(Panel):
 
     def draw(self, context):
         layout = self.layout
-        scene = context.scene
-        texlib:TexLibProps = scene.texlib
+        texlib:TexLibProps = context.window_manager.ytexlib
 
         ass_lib = get_asset_lib(context)
         if ass_lib == None:

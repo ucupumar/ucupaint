@@ -74,11 +74,11 @@ def monitor_downloads():
 		print("no context")
 		return 2
 
-	scn = bpy.context.scene
+	wm = bpy.context.window_manager
 
 	from .properties import TexLibProps
 
-	txlb:TexLibProps = scn.texlib
+	txlb:TexLibProps = wm.ytexlib
 	downloads = txlb.downloads
 
 	if len(downloads) == 0 and not searching:

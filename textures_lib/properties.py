@@ -30,7 +30,7 @@ def cancel_searching(context):
 	if thread_search != None:
 		thread_search.cancel = True
 		
-	texlib:TexLibProps = context.scene.texlib
+	texlib:TexLibProps = context.window_manager.ytexlib
 	
 	searching_dwn = texlib.searching_download
 	searching_dwn.alive = False
@@ -124,8 +124,7 @@ def retrieve_asset_library(context:Context):
 	if asset_path == None:
 		return None
 
-	scene = context.scene
-	txlib:TexLibProps = scene.texlib
+	txlib:TexLibProps = context.window_manager.ytexlib
 
 	print("asset_lib=", asset_path)
 	txlib.library_items.clear()
@@ -148,8 +147,7 @@ def retrieve_asset_library(context:Context):
 
 def searching_material(context:Context, keyword:str, search_ambientcg:bool = True, search_polyhaven:bool = True):
 
-	scene = context.scene
-	txlib:TexLibProps = scene.texlib
+	txlib:TexLibProps = context.window_manager.ytexlib
 
 	thread_search = get_searching_thread()
 
@@ -239,7 +237,7 @@ def update_input_search(self, context):
 	
 	self.input_last = self.input_search
 
-	txlib:TexLibProps = context.scene.texlib
+	txlib:TexLibProps = context.window_manager.ytexlib
 	txlib.material_items.clear()
 	txlib.search_items.clear()
 
@@ -339,7 +337,7 @@ def register():
 	for cl in classes:
 		bpy.utils.register_class(cl)
 
-	Scene.texlib = PointerProperty(type= TexLibProps)
+	bpy.types.WindowManager.ytexlib = PointerProperty(type= TexLibProps)
 
 	global previews_collection
 	previews_collection = bpy.utils.previews.new()
@@ -347,23 +345,11 @@ def register():
 
 	if read_asset_info(bpy.context):
 		load_previews(bpy.context)
-	
-	# retrieve_asset_library(bpy.context)
-
-	# from .data import SourceType
-	# for idx, lb in enumerate(assets_library):
-	# 	item = assets_library[lb]
-	# 	if item.source_type == SourceType.SOURCE_POLYHAVEN:
-	# 		print(item.id, item.name, item.thumbnail, item.source_type)
-	# 		for at in item.attributes:
-	# 			print(">>", at)
-	# 			for tx in item.attributes[at].textures:
-	# 				print(">>>",tx.file_name, tx.size)
 
 
 def unregister():
 	for cl in classes:
 		bpy.utils.unregister_class(cl)
 
-	del bpy.types.Scene.texlib
+	del bpy.types.WindowManager.ytexlib
 	bpy.utils.previews.remove(previews_collection)
