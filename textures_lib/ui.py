@@ -11,27 +11,35 @@ from .operators import TexLibAddToUcupaint, TexLibCancelDownload, TexLibDownload
 
 from .downloader import texture_exist, get_thread, get_thread_id
 
+from ..common import get_user_preferences
+
 class TexLibBrowser(Panel):
     bl_label = "Texlib Browser"
     bl_idname = "TEXLIB_PT_Browser"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Ucupaint"
-    
+
+    @classmethod
+    def poll(cls, context):
+        return get_user_preferences().show_texlib_browser
 
     def draw(self, context):
         layout = self.layout
         scene = context.scene
         texlib:TexLibProps = scene.texlib
 
-        layout.prop(texlib, "mode_asset", expand=True)
-        search_mode = texlib.mode_asset == "SEARCH"
-
         ass_lib = get_asset_lib(context)
         if ass_lib == None:
             # layout.label(text="Create an asset library named "+get_library_name())
-            layout.operator("texlib.create_dir")
+            row = layout.row()
+            row.alert = True
+            row.operator("texlib.create_dir", icon="ERROR")
             return
+        
+        layout.prop(texlib, "mode_asset", expand=True)
+
+        search_mode = texlib.mode_asset == "SEARCH"
 
         if search_mode:
             self.draw_search(context, texlib)

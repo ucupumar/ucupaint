@@ -251,7 +251,7 @@ class ShowFilePathPreference(Operator):
     
 class CreateAssetDirectory(Operator):
     bl_idname = "texlib.create_dir"
-    bl_label = "Create Asset Directory"
+    bl_label = "Setup Asset Directory"
     
     def execute(self, context):
         print("create asset directory "+get_os_config_dir())

@@ -52,7 +52,7 @@ def get_preview_dir(context) -> str:
 def get_library_name():
 	from ..common import get_addon_title
 
-	return get_addon_title()+"Assets"
+	return get_addon_title()+" Assets"
 	
 def get_asset_lib(context) -> bpy.types.UserAssetLibrary:
 	for l in context.preferences.filepaths.asset_libraries:

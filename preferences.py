@@ -52,6 +52,12 @@ class YPaintPreferences(AddonPreferences):
         default = False
     )
 
+    show_texlib_browser : BoolProperty(
+        name = 'Show Textures Library Browser (Experimental)',
+        description = 'Show textures library browser (experimental)',
+        default = False
+    )
+
     use_image_preview : BoolProperty(
         name = 'Use Image Preview/Thumbnail',
         description = 'Use image preview or thumbnail on the layers list',
@@ -197,6 +203,7 @@ class YPaintPreferences(AddonPreferences):
         if is_udim_supported():
             self.layout.prop(self, 'enable_auto_udim_detection')
         self.layout.prop(self, 'show_experimental')
+        self.layout.prop(self, 'show_texlib_browser')
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')
 
