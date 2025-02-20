@@ -161,8 +161,8 @@ class TexLibBrowser(Panel):
         layout = self.layout
 
         if sel_index >= len(my_list):
-            layout.operator("texlib.show_lib")
-            return
+            sel_index = len(my_list) - 1
+
         selected:MaterialItem = my_list[sel_index]
     
         layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "library_items", texlib, "library_index")
