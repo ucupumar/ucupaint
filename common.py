@@ -4174,6 +4174,7 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+    if not tree: return
     layer_node = layer.id_data.nodes.get(layer.group_node)
 
     height_proc = tree.nodes.get(height_ch.height_proc)

@@ -887,6 +887,8 @@ def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
 
         else:
             return
+    
+    if not parent_tree: return
 
     # Get modifier group
     mod_group = parent_tree.nodes.get(parent.mod_group)
