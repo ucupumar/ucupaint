@@ -2101,6 +2101,9 @@ class BaseMultipleImagesLayer():
                         img_name = os.path.splitext(bpy.path.basename(image.filepath))[0].lower()
                     else: img_name = image.name.lower()
 
+                    # Remove trailing digits and spaces from the filename
+                    img_name = re.sub(r'[\d\s]+$', '', img_name)
+
                     # Check if synonym is in image name
                     if self.is_synonym_in_image_name(syname, img_name):
 
