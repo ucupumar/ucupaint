@@ -43,17 +43,21 @@ if "bpy" in locals():
     imp.reload(Bake)
     imp.reload(BakeToLayer)
     imp.reload(Root)
-    imp.reload(textures_lib)
     imp.reload(versioning)
     imp.reload(addon_updater_ops)
     imp.reload(Test)
+    imp.reload(downloader)
+    imp.reload(properties)
+    imp.reload(operators)
+    imp.reload(tex_ui)
 else:
     from . import Localization
     from . import image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
     from . import vector_displacement_lib, vector_displacement
-    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, textures_lib, versioning
+    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
     from . import addon_updater_ops
     from . import Test
+    from .textures_lib import downloader, properties, operators, ui as tex_ui
 
 import bpy 
 
@@ -80,10 +84,13 @@ def register():
     Bake.register()
     BakeToLayer.register()
     Root.register()
-    textures_lib.register()
     versioning.register()
     addon_updater_ops.register()
     Test.register()
+    downloader.register()
+    properties.register()
+    operators.register()
+    tex_ui.register()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is registered!')
 
@@ -110,10 +117,13 @@ def unregister():
     Bake.unregister()
     BakeToLayer.unregister()
     Root.unregister()
-    textures_lib.unregister()
     versioning.unregister()
     addon_updater_ops.unregister()
     Test.unregister()
+    downloader.unregister()
+    properties.unregister()
+    operators.unregister()
+    tex_ui.unregister()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is unregistered!')
 
