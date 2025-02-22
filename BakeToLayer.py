@@ -2120,7 +2120,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         rdict = bake_to_entity(bprops, overwrite_img, segment)
 
         if rdict['message'] != '':
-            self.report({'ERROR'}, message)
+            self.report({'ERROR'}, rdict['message'])
             return {'CANCELLED'}
 
         active_id = rdict['active_id']
