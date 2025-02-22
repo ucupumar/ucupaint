@@ -140,105 +140,105 @@ def update_bake_to_layer_uv_map(self, context):
         objs = get_all_objects_with_same_materials(mat)
         self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
-def bake_to_entity(bprops):
+def get_bakeable_objects_and_meshes(mat, cage_object=None):
+    objs = []
+    meshes = []
+
+    for ob in get_scene_objects():
+        if ob.type != 'MESH': continue
+        if hasattr(ob, 'hide_viewport') and ob.hide_viewport: continue
+        if len(get_uv_layers(ob)) == 0: continue
+        if len(ob.data.polygons) == 0: continue
+        if cage_object and cage_object == ob: continue
+
+        # Do not bake objects with hide_render on
+        if ob.hide_render: continue
+        if not in_renderable_layer_collection(ob): continue
+
+        for i, m in enumerate(ob.data.materials):
+            if m == mat:
+                ob.active_material_index = i
+                if ob not in objs and ob.data not in meshes:
+                    objs.append(ob)
+                    meshes.append(ob.data)
+
+    return objs, meshes
+
+def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     T = time.time()
     mat = get_active_material()
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
     tree = node.node_tree
-    ypui = bpy.context.window_manager.ypui
     scene = bpy.context.scene
     obj = bpy.context.object
     ypup = get_user_preferences()
     channel_idx = int(bprops['channel_idx']) if len(yp.channels) > 0 else -1
 
-    active_layer = None
-    if len(yp.layers) > 0:
-        active_layer = yp.layers[yp.active_layer_index]
+    rdict = {}
+    rdict['message'] = ''
 
     if bprops['type'] == 'SELECTED_VERTICES' and obj.mode != 'EDIT':
-        return "Should be in edit mode!"
+        rdict['message'] = "Should be in edit mode!"
+        return rdict
 
-    if bprops['target_type'] == 'MASK' and not active_layer:
-        return "Mask need active layer!"
-
-    if (bprops['overwrite_choice'] or bprops['overwrite_current']) and bprops['overwrite_name'] == '':
-        return  "Overwrite layer/mask cannot be empty!"
+    if bprops['target_type'] == 'MASK' and len(yp.layers) == 0:
+        rdict['message'] = "Mask need active layer!"
+        return rdict
 
     if bprops['type'] in {'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
-        return "Blender 2.80+ is needed to use this feature!"
+        rdict['message'] = "Blender 2.80+ is needed to use this feature!"
+        return rdict
 
     if bprops['type'] in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_bl_newer_than(2, 80):
-        return "Blender 2.80+ is needed to use this feature!"
+        rdict['message'] = "Blender 2.80+ is needed to use this feature!"
+        return rdict
 
-    if (hasattr(bpy.context.object, 'hide_viewport') and bpy.context.object.hide_viewport) or bpy.context.object.hide_render:
-        return "Please unhide render and viewport of active object!"
+    if (hasattr(obj, 'hide_viewport') and obj.hide_viewport) or obj.hide_render:
+        rdict['message'] = "Please unhide render and viewport of active object!"
+        return rdict
 
     if bprops['type'] == 'FLOW' and (bprops['uv_map'] == '' or bprops['uv_map_1'] == '' or bprops['uv_map'] == bprops['uv_map_1']):
-        return "UVMap and Straight UVMap are cannot be the same or empty!"
+        rdict['message'] = "UVMap and Straight UVMap are cannot be the same or empty!"
+        return rdict
 
+    # Get bake object
     cage_object = None
     if bprops['type'].startswith('OTHER_OBJECT_') and bprops['cage_object_name'] != '':
         cage_object = bpy.data.objects.get(bprops['cage_object_name'])
         if cage_object:
 
             if any([mod for mod in cage_object.modifiers if mod.type not in {'ARMATURE'}]) or any([mod for mod in obj.modifiers if mod.type not in {'ARMATURE'}]):
-                return "Mesh modifiers is not working with cage object for now!"
+                rdict['message'] = "Mesh modifiers is not working with cage object for now!"
+                return rdict
 
             if len(cage_object.data.polygons) != len(obj.data.polygons):
-                return "Invalid cage object, the cage mesh must have the same number of faces as the active object!"
-
-    # Get all objects using material
-    if bprops['type'].startswith('MULTIRES_') and not get_multires_modifier(bpy.context.object):
-        objs = []
-        meshes = []
-        multires_count = 0
-    else:
-        objs = [bpy.context.object]
-        meshes = [bpy.context.object.data]
-        multires_count = 1
+                rdict['message'] = "Invalid cage object, the cage mesh must have the same number of faces as the active object!"
+                return rdict
 
     if mat.users > 1:
-        # Emptying the lists again in case active object is problematic
-        objs = []
-        meshes = []
-        for ob in get_scene_objects():
-            if ob.type != 'MESH': continue
-            if hasattr(ob, 'hide_viewport') and ob.hide_viewport: continue
-            if len(get_uv_layers(ob)) == 0: continue
-            if len(ob.data.polygons) == 0: continue
-            if cage_object and cage_object == ob: continue
+        objs, meshes = get_bakeable_objects_and_meshes(mat, cage_object)
+    else:
+        objs = [obj]
+        meshes = [obj.data]
 
-            # Do not bake objects with hide_render on
-            if ob.hide_render: continue
-            if not in_renderable_layer_collection(ob): continue
-
-            if bprops['type'].startswith('MULTIRES_') and get_multires_modifier(ob):
+    # Count multires objects
+    multires_count = 0
+    if bprops['type'].startswith('MULTIRES_'):
+        for ob in objs:
+            if get_multires_modifier(ob):
                 multires_count += 1
 
-            for i, m in enumerate(ob.data.materials):
-                if m == mat:
-                    ob.active_material_index = i
-                    if ob not in objs and ob.data not in meshes:
-                        objs.append(ob)
-                        meshes.append(ob.data)
-
     if not objs or (bprops['type'].startswith('MULTIRES_') and multires_count == 0):
-        return "No valid objects found to bake!"
+        rdict['message'] = "No valid objects found to bake!"
+        return rdict
 
     do_overwrite = False
-    overwrite_img = None
-    if (bprops['overwrite_choice'] or bprops['overwrite_current']) and bprops['overwrite_image_name'] != '':
-        overwrite_img = bpy.data.images.get(bprops['overwrite_image_name'])
-        do_overwrite = True
-
-    segment = None
+    overwrite_image_name = ''
     if overwrite_img:
-        if overwrite_img.yia.is_image_atlas:
-            segment = overwrite_img.yia.segments.get(bprops['overwrite_segment_name'])
-        elif overwrite_img.yua.is_udim_atlas:
-            segment = overwrite_img.yua.segments.get(bprops['overwrite_segment_name'])
+        do_overwrite = True
+        overwrite_image_name = overwrite_img.name
 
     # Get other objects for other object baking
     other_objs = []
@@ -278,8 +278,11 @@ def bake_to_entity(bprops):
 
         if not other_objs:
             if overwrite_img:
-                return "No source objects found! They're probably deleted!"
-            else: return "Source objects must be selected and it should have different material!"
+                rdict['message'] = "No source objects found! They're probably deleted!"
+                return rdict
+            else: 
+                rdict['message'] = "Source objects must be selected and it should have different material!"
+                return rdict
 
     # Get tile numbers
     tilenums = [1001]
@@ -375,10 +378,10 @@ def bake_to_entity(bprops):
 
         if is_bl_newer_than(2, 80):
             edit_objs = [o for o in objs if o.mode == 'EDIT']
-        else: edit_objs = [bpy.context.object]
+        else: edit_objs = [obj]
 
-        for obj in edit_objs:
-            mesh = obj.data
+        for ob in edit_objs:
+            mesh = ob.data
             bm = bmesh.from_edit_mesh(mesh)
 
             bm.verts.ensure_lookup_table()
@@ -398,21 +401,18 @@ def bake_to_entity(bprops):
                     if vert.select:
                         v_indices.append(vert.index)
 
-            obj_vertex_indices[obj.name] = v_indices
+            obj_vertex_indices[ob.name] = v_indices
 
         bpy.ops.object.mode_set(mode = 'OBJECT')
-        for obj in objs:
+        for ob in objs:
             try:
-                vcol = new_vertex_color(obj, TEMP_VCOL)
-                set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 1.0))
-                set_active_vertex_color(obj, vcol)
+                vcol = new_vertex_color(ob, TEMP_VCOL)
+                set_obj_vertex_colors(ob, vcol.name, (0.0, 0.0, 0.0, 1.0))
+                set_active_vertex_color(ob, vcol)
             except: pass
         bpy.ops.object.mode_set(mode = 'EDIT')
         bpy.ops.mesh.y_vcol_fill(color_option ='WHITE')
-        #return {'FINISHED'}
         bpy.ops.object.mode_set(mode = 'OBJECT')
-
-    #return {'FINISHED'}
 
     # Check if there's channel using alpha
     alpha_outp = None
@@ -483,13 +483,13 @@ def bake_to_entity(bprops):
         print('BAKE TO LAYER: Applying subsurf/multires for Cavity bake...')
 
         # Set vertex color for cavity
-        for obj in objs:
+        for ob in objs:
 
-            set_active_object(obj)
+            set_active_object(ob)
 
             if bprops['subsurf_influence'] or bprops['use_baked_disp']:
                 need_to_be_applied_modifiers = []
-                for m in obj.modifiers:
+                for m in ob.modifiers:
                     if m.type in {'SUBSURF', 'MULTIRES'} and m.levels > 0 and m.show_viewport:
 
                         # Set multires to the highest level
@@ -504,7 +504,7 @@ def bake_to_entity(bprops):
 
                 # Apply shape keys and modifiers
                 if any(need_to_be_applied_modifiers):
-                    if obj.data.shape_keys:
+                    if ob.data.shape_keys:
                         if is_bl_newer_than(3, 3):
                             bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
                         else: bpy.ops.object.shape_key_remove(all=True)
@@ -514,9 +514,9 @@ def bake_to_entity(bprops):
 
             # Create new vertex color for dirt
             try:
-                vcol = new_vertex_color(obj, TEMP_VCOL)
-                set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0, 1.0))
-                set_active_vertex_color(obj, vcol)
+                vcol = new_vertex_color(ob, TEMP_VCOL)
+                set_obj_vertex_colors(ob, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                set_active_vertex_color(ob, vcol)
             except: pass
 
             bpy.ops.paint.vertex_color_dirt(dirt_angle=math.pi / 2)
@@ -526,13 +526,13 @@ def bake_to_entity(bprops):
     # Setup for flow
     if bprops['type'] == 'FLOW':
         bpy.ops.object.mode_set(mode = 'OBJECT')
-        for obj in objs:
-            uv_layers = get_uv_layers(obj)
+        for ob in objs:
+            uv_layers = get_uv_layers(ob)
             main_uv = uv_layers.get(bprops['uv_map'])
             straight_uv = uv_layers.get(bprops['uv_map_1'])
 
             if main_uv and straight_uv:
-                flow_vcol = get_flow_vcol(obj, main_uv, straight_uv)
+                flow_vcol = get_flow_vcol(ob, main_uv, straight_uv)
 
     # Flip normals setup
     if bprops['flip_normals']:
@@ -550,9 +550,9 @@ def bake_to_entity(bprops):
             for o in other_objs:
                 o.select_set(True)
         else:
-            for obj in objs:
-                if obj in other_objs: continue
-                bpy.context.scene.objects.active = obj
+            for ob in objs:
+                if ob in other_objs: continue
+                scene.objects.active = ob
                 bpy.ops.object.mode_set(mode='EDIT')
                 bpy.ops.mesh.reveal()
                 bpy.ops.mesh.select_all(action='SELECT')
@@ -569,43 +569,43 @@ def bake_to_entity(bprops):
     # Do not disable modifiers for surface based bake types
     disable_problematic_modifiers = bprops['type'] not in {'CAVITY', 'POINTINESS', 'BEVEL_NORMAL', 'BEVEL_MASK'}
 
-    for obj in objs:
+    for ob in objs:
 
         # Disable few modifiers
-        ori_mods[obj.name] = [m.show_render for m in obj.modifiers]
-        ori_viewport_mods[obj.name] = [m.show_viewport for m in obj.modifiers]
+        ori_mods[ob.name] = [m.show_render for m in ob.modifiers]
+        ori_viewport_mods[ob.name] = [m.show_viewport for m in ob.modifiers]
         if bprops['type'].startswith('MULTIRES_'):
-            mul = get_multires_modifier(obj)
+            mul = get_multires_modifier(ob)
             multires_index = 99
             if mul:
-                for i, m in enumerate(obj.modifiers):
+                for i, m in enumerate(ob.modifiers):
                     if m == mul: multires_index = i
                     if i > multires_index: 
                         m.show_render = False
                         m.show_viewport = False
-        elif disable_problematic_modifiers and obj not in other_objs:
-            for m in get_problematic_modifiers(obj):
+        elif disable_problematic_modifiers and ob not in other_objs:
+            for m in get_problematic_modifiers(ob):
                 m.show_render = False
 
-        ori_mat_ids[obj.name] = []
-        ori_loop_locs[obj.name] = []
+        ori_mat_ids[ob.name] = []
+        ori_loop_locs[ob.name] = []
 
         if bprops['subsurf_influence'] and not bprops['use_baked_disp'] and not bprops['type'].startswith('MULTIRES_'):
-            for m in obj.modifiers:
+            for m in ob.modifiers:
                 if m.type == 'MULTIRES':
-                    ori_multires_levels[obj.name] = m.render_levels
+                    ori_multires_levels[ob.name] = m.render_levels
                     m.render_levels = m.total_levels
                     break
 
-        if len(obj.data.materials) > 1:
-            active_mat_id = [i for i, m in enumerate(obj.data.materials) if m == mat]
+        if len(ob.data.materials) > 1:
+            active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat]
             if active_mat_id: active_mat_id = active_mat_id[0]
             else: continue
 
-            uv_layers = get_uv_layers(obj)
+            uv_layers = get_uv_layers(ob)
             uvl = uv_layers.get(bprops['uv_map'])
 
-            for p in obj.data.polygons:
+            for p in ob.data.polygons:
 
                 # Set uv location to (0,0) if not using current material
                 if uvl and not bprops['force_bake_all_polygons']:
@@ -615,13 +615,11 @@ def bake_to_entity(bprops):
                         if p.material_index != active_mat_id:
                             uvl.data[li].uv = Vector((0.0, 0.0))
 
-                    ori_loop_locs[obj.name].append(uv_locs)
+                    ori_loop_locs[ob.name].append(uv_locs)
 
                 # Need to assign all polygon to active material if there are multiple materials
-                ori_mat_ids[obj.name].append(p.material_index)
+                ori_mat_ids[ob.name].append(p.material_index)
                 p.material_index = active_mat_id
-
-    #return {'FINISHED'}
 
     # Create bake nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -651,11 +649,11 @@ def bake_to_entity(bprops):
         if alpha_outp:
             src = None
 
-            if hasattr(bpy.context.scene.cycles, 'use_fast_gi'):
-                bpy.context.scene.cycles.use_fast_gi = True
+            if hasattr(scene.cycles, 'use_fast_gi'):
+                scene.cycles.use_fast_gi = True
 
-            if bpy.context.scene.world:
-                bpy.context.scene.world.light_settings.distance = bprops['ao_distance']
+            if scene.world:
+                scene.world.light_settings.distance = bprops['ao_distance']
         # When there is no alpha channel use combined render bake, which has better denoising
         else:
             src = mat.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
@@ -901,7 +899,7 @@ def bake_to_entity(bprops):
         # Set image filepath if overwrite image is found
         if do_overwrite:
             # Get overwrite image again to avoid pointer error
-            overwrite_img = bpy.data.images.get(bprops['overwrite_image_name'])
+            overwrite_img = bpy.data.images.get(overwrite_image_name)
             #if idx == 0:
             if idx == min(ch_ids):
                 if not overwrite_img.packed_file and overwrite_img.filepath != '':
@@ -1087,7 +1085,7 @@ def bake_to_entity(bprops):
             if do_overwrite:
 
                 # Get overwrite image again to avoid pointer error
-                overwrite_img = bpy.data.images.get(bprops['overwrite_image_name'])
+                overwrite_img = bpy.data.images.get(overwrite_image_name)
 
                 active_id = yp.active_layer_index
 
@@ -1099,13 +1097,13 @@ def bake_to_entity(bprops):
                 elif segment: entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
                 else: entities = get_entities_with_specific_image(yp, image)
 
-                for entity in entities:
+                for ent in entities:
                     if new_segment_created:
-                        entity.segment_name = segment.name
-                        ImageAtlas.set_segment_mapping(entity, segment, image)
+                        ent.segment_name = segment.name
+                        ImageAtlas.set_segment_mapping(ent, segment, image)
 
-                    if entity.uv_name != bprops['uv_map']:
-                        entity.uv_name = bprops['uv_map']
+                    if ent.uv_name != bprops['uv_map']:
+                        ent.uv_name = bprops['uv_map']
 
                 if bprops['target_type'] == 'LAYER':
                     layer_ids = [i for i, l in enumerate(yp.layers) if l in entities]
@@ -1159,6 +1157,8 @@ def bake_to_entity(bprops):
 
 
             else:
+                active_layer = yp.layers[yp.active_layer_index]
+
                 mask_name = image.name if not bprops['use_image_atlas'] else bprops['name']
 
                 if bprops['use_image_atlas']:
@@ -1266,11 +1266,11 @@ def bake_to_entity(bprops):
 
             # Collect object to bake info
             for obj_name, v_indices in obj_vertex_indices.items():
-                obj = bpy.data.objects.get(obj_name)
+                ob = bpy.data.objects.get(obj_name)
                 bso = bi.selected_objects.add()
                 if is_bl_newer_than(2, 79):
-                    bso.object = obj
-                bso.object_name = obj.name
+                    bso.object = ob
+                bso.object_name = ob.name
 
                 # Collect selected vertex data to bake info
                 for vi in v_indices:
@@ -1308,45 +1308,43 @@ def bake_to_entity(bprops):
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
-    #return {'FINISHED'}
-
-    for obj in objs:
+    for ob in objs:
         # Recover modifiers
-        for i, m in enumerate(obj.modifiers):
-            #print(obj.name, i)
-            if i >= len(ori_mods[obj.name]): break
-            if ori_mods[obj.name][i] != m.show_render:
-                m.show_render = ori_mods[obj.name][i]
-            if i >= len(ori_viewport_mods[obj.name]): break
-            if ori_viewport_mods[obj.name][i] != m.show_render:
-                m.show_viewport = ori_viewport_mods[obj.name][i]
+        for i, m in enumerate(ob.modifiers):
+            #print(ob.name, i)
+            if i >= len(ori_mods[ob.name]): break
+            if ori_mods[ob.name][i] != m.show_render:
+                m.show_render = ori_mods[ob.name][i]
+            if i >= len(ori_viewport_mods[ob.name]): break
+            if ori_viewport_mods[ob.name][i] != m.show_render:
+                m.show_viewport = ori_viewport_mods[ob.name][i]
 
         # Recover multires levels
-        for m in obj.modifiers:
-            if m.type == 'MULTIRES' and obj.name in ori_multires_levels:
-                m.render_levels = ori_multires_levels[obj.name]
+        for m in ob.modifiers:
+            if m.type == 'MULTIRES' and ob.name in ori_multires_levels:
+                m.render_levels = ori_multires_levels[ob.name]
                 break
 
         # Recover material index
-        if ori_mat_ids[obj.name]:
-            for i, p in enumerate(obj.data.polygons):
-                if ori_mat_ids[obj.name][i] != p.material_index:
-                    p.material_index = ori_mat_ids[obj.name][i]
+        if ori_mat_ids[ob.name]:
+            for i, p in enumerate(ob.data.polygons):
+                if ori_mat_ids[ob.name][i] != p.material_index:
+                    p.material_index = ori_mat_ids[ob.name][i]
 
-        if ori_loop_locs[obj.name]:
+        if ori_loop_locs[ob.name]:
 
             # Get uv map
-            uv_layers = get_uv_layers(obj)
+            uv_layers = get_uv_layers(ob)
             uvl = uv_layers.get(bprops['uv_map'])
 
             # Recover uv locations
             if uvl:
-                for i, p in enumerate(obj.data.polygons):
+                for i, p in enumerate(ob.data.polygons):
                     for j, li in enumerate(p.loop_indices):
-                        uvl.data[li].uv = ori_loop_locs[obj.name][i][j]
+                        uvl.data[li].uv = ori_loop_locs[ob.name][i][j]
 
         # Delete temp vcol
-        vcols = get_vertex_colors(obj)
+        vcols = get_vertex_colors(ob)
         if vcols:
             vcol = vcols.get(TEMP_VCOL)
             if vcol: vcols.remove(vcol)
@@ -1370,9 +1368,9 @@ def bake_to_entity(bprops):
             for o in other_objs:
                 o.select_set(True)
         else:
-            for obj in objs:
-                if obj in other_objs: continue
-                bpy.context.scene.objects.active = obj
+            for ob in objs:
+                if ob in other_objs: continue
+                scene.objects.active = ob
                 bpy.ops.object.mode_set(mode='EDIT')
                 bpy.ops.mesh.reveal()
                 bpy.ops.mesh.select_all(action='SELECT')
@@ -1385,8 +1383,8 @@ def bake_to_entity(bprops):
 
     # Remove flow vcols
     if bprops['type'] == 'FLOW':
-        for obj in objs:
-            vcols = get_vertex_colors(obj)
+        for ob in objs:
+            vcols = get_vertex_colors(ob)
             flow_vcol = vcols.get(FLOW_VCOL)
             if flow_vcol:
                 vcols.remove(flow_vcol)
@@ -1399,30 +1397,14 @@ def bake_to_entity(bprops):
         for o in temp_objs:
             remove_mesh_obj(o)
 
-    #return {'FINISHED'}
-
     # Check linear nodes becuse sometimes bake results can be linear or srgb
     check_yp_linear_nodes(yp, reconnect=True)
 
     # Reconnect and rearrange nodes
-    #reconnect_yp_layer_nodes(node.node_tree)
-    reconnect_yp_nodes(node.node_tree)
-    rearrange_yp_nodes(node.node_tree)
-
-    # Refresh active index (only when not overwriting current entity)
-    #if active_id != yp.active_layer_index:
-    if active_id != None and not bprops['overwrite_current']:
-        yp.active_layer_index = active_id
-    elif image:
-        update_image_editor_image(bpy.context, image)
-
-    # Expand image source to show rebake button
-    if bprops['target_type'] == 'MASK':
-        ypui.layer_ui.expand_masks = True
-    else:
-        ypui.layer_ui.expand_content = True
-        ypui.layer_ui.expand_source = True
-    ypui.need_update = True
+    if not do_overwrite:
+        #reconnect_yp_layer_nodes(node.node_tree)
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
 
     # Refresh mapping and stuff
     #yp.active_layer_index = yp.active_layer_index
@@ -1430,7 +1412,10 @@ def bake_to_entity(bprops):
     if image: print('BAKE TO LAYER: Baking', image.name, 'is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
     else: print('BAKE TO LAYER: No image created! Executed in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
-    return ''
+    rdict['active_id'] = active_id
+    rdict['image'] = image
+
+    return rdict
 
 class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "node.y_bake_to_layer"
@@ -2068,15 +2053,95 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
 
-        bprops = {}
-        for prop in self.properties.keys():
-            try: bprops[prop] = getattr(self, prop)
-            except Exception as e: print(e)
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
-        message = bake_to_entity(bprops)
-        if message != '':
+        if (self.overwrite_choice or self.overwrite_current) and self.overwrite_name == '':
+            self.report({'ERROR'}, "Overwrite layer/mask cannot be empty!")
+            return {'CANCELLED'}
+
+        # Get overwrite image
+        overwrite_img = None
+        segment = None
+        if (self.overwrite_choice or self.overwrite_current) and self.overwrite_image_name != '':
+            overwrite_img = bpy.data.images.get(self.overwrite_image_name)
+
+            if overwrite_img.yia.is_image_atlas:
+                segment = overwrite_img.yia.segments.get(self.overwrite_segment_name)
+            elif overwrite_img.yua.is_udim_atlas:
+                segment = overwrite_img.yua.segments.get(self.overwrite_segment_name)
+
+        bprops = {}
+        #for prop in self.properties.keys():
+        #    try: bprops[prop] = getattr(self, prop)
+        #    except Exception as e: print(e)
+
+        bprops['bake_device'] = self.bake_device
+        bprops['samples'] = self.samples
+        bprops['margin'] = self.margin
+        bprops['margin_type'] = self.margin_type
+        bprops['width'] = self.width
+        bprops['height'] = self.height
+        bprops['image_resolution'] = self.image_resolution
+        bprops['use_custom_resolution'] = self.use_custom_resolution
+        bprops['name'] = self.name
+        bprops['uv_map'] = self.uv_map
+        bprops['uv_map_1'] = self.uv_map_1
+        bprops['interpolation'] = self.interpolation
+        #bprops['overwrite_choice'] = self.overwrite_choice
+        #bprops['overwrite_current'] = self.overwrite_current
+        #bprops['overwrite_name'] = self.overwrite_name
+        #bprops['overwrite_image_name'] = self.overwrite_image_name
+        #bprops['overwrite_segment_name'] = self.overwrite_segment_name
+        bprops['type'] = self.type
+        bprops['cage_object_name'] = self.cage_object_name
+        bprops['cage_extrusion'] = self.cage_extrusion
+        bprops['max_ray_distance'] = self.max_ray_distance
+        bprops['ao_distance'] = self.ao_distance
+        bprops['bevel_samples'] = self.bevel_samples
+        bprops['bevel_radius'] = self.bevel_radius
+        bprops['multires_base'] = self.multires_base
+        bprops['target_type'] = self.target_type
+        bprops['fxaa'] = self.fxaa
+        bprops['ssaa'] = self.ssaa
+        bprops['denoise'] = self.denoise
+        bprops['channel_idx'] = self.channel_idx
+        bprops['blend_type'] = self.blend_type
+        bprops['normal_blend_type'] = self.normal_blend_type
+        bprops['normal_map_type'] = self.normal_map_type
+        bprops['hdr'] = self.hdr
+        bprops['use_baked_disp'] = self.use_baked_disp
+        bprops['flip_normals'] = self.flip_normals
+        bprops['only_local'] = self.only_local
+        bprops['subsurf_influence'] = self.subsurf_influence
+        bprops['force_bake_all_polygons'] = self.force_bake_all_polygons
+        bprops['use_image_atlas'] = self.use_image_atlas
+        bprops['use_udim'] = self.use_udim
+
+        rdict = bake_to_entity(bprops, overwrite_img, segment)
+
+        if rdict['message'] != '':
             self.report({'ERROR'}, message)
             return {'CANCELLED'}
+
+        active_id = rdict['active_id']
+        image = rdict['image']
+
+        # Refresh active index (only when not overwriting current entity)
+        #if active_id != yp.active_layer_index:
+        if active_id != None and not self.overwrite_current:
+            yp.active_layer_index = active_id
+        elif image:
+            update_image_editor_image(context, image)
+
+        # Expand image source to show rebake button
+        ypui = context.window_manager.ypui
+        if self.target_type == 'MASK':
+            ypui.layer_ui.expand_masks = True
+        else:
+            ypui.layer_ui.expand_content = True
+            ypui.layer_ui.expand_source = True
+        ypui.need_update = True
 
         return {'FINISHED'}
 
