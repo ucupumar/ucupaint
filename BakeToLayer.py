@@ -1404,10 +1404,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     check_yp_linear_nodes(yp, reconnect=True)
 
     # Reconnect and rearrange nodes
-    if not do_overwrite:
-        #reconnect_yp_layer_nodes(node.node_tree)
-        reconnect_yp_nodes(node.node_tree)
-        rearrange_yp_nodes(node.node_tree)
+    #reconnect_yp_layer_nodes(node.node_tree)
+    reconnect_yp_nodes(node.node_tree)
+    rearrange_yp_nodes(node.node_tree)
 
     # Refresh mapping and stuff
     #yp.active_layer_index = yp.active_layer_index
