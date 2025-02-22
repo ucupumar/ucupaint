@@ -140,16 +140,16 @@ def update_bake_to_layer_uv_map(self, context):
         objs = get_all_objects_with_same_materials(mat)
         self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
-def bake_to_entity(context, bprops):
+def bake_to_entity(bprops):
 
     T = time.time()
     mat = get_active_material()
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
     tree = node.node_tree
-    ypui = context.window_manager.ypui
-    scene = context.scene
-    obj = context.object
+    ypui = bpy.context.window_manager.ypui
+    scene = bpy.context.scene
+    obj = bpy.context.object
     ypup = get_user_preferences()
     channel_idx = int(bprops['channel_idx']) if len(yp.channels) > 0 else -1
 
@@ -172,7 +172,7 @@ def bake_to_entity(context, bprops):
     if bprops['type'] in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_bl_newer_than(2, 80):
         return "Blender 2.80+ is needed to use this feature!"
 
-    if (hasattr(context.object, 'hide_viewport') and context.object.hide_viewport) or context.object.hide_render:
+    if (hasattr(bpy.context.object, 'hide_viewport') and bpy.context.object.hide_viewport) or bpy.context.object.hide_render:
         return "Please unhide render and viewport of active object!"
 
     if bprops['type'] == 'FLOW' and (bprops['uv_map'] == '' or bprops['uv_map_1'] == '' or bprops['uv_map'] == bprops['uv_map_1']):
@@ -190,13 +190,13 @@ def bake_to_entity(context, bprops):
                 return "Invalid cage object, the cage mesh must have the same number of faces as the active object!"
 
     # Get all objects using material
-    if bprops['type'].startswith('MULTIRES_') and not get_multires_modifier(context.object):
+    if bprops['type'].startswith('MULTIRES_') and not get_multires_modifier(bpy.context.object):
         objs = []
         meshes = []
         multires_count = 0
     else:
-        objs = [context.object]
-        meshes = [context.object.data]
+        objs = [bpy.context.object]
+        meshes = [bpy.context.object.data]
         multires_count = 1
 
     if mat.users > 1:
@@ -246,7 +246,7 @@ def bake_to_entity(context, bprops):
     if bprops['type'].startswith('OTHER_OBJECT_'):
 
         # Get other objects based on selected objects with different material
-        for o in context.selected_objects:
+        for o in bpy.context.selected_objects:
             if o in objs or not o.data or not hasattr(o.data, 'materials'): continue
             if mat.name not in o.data.materials:
                 other_objs.append(o)
@@ -370,12 +370,12 @@ def bake_to_entity(context, bprops):
     fill_mode = 'FACE'
     obj_vertex_indices = {}
     if bprops['type'] == 'SELECTED_VERTICES':
-        if context.tool_settings.mesh_select_mode[0] or context.tool_settings.mesh_select_mode[1]:
+        if bpy.context.tool_settings.mesh_select_mode[0] or bpy.context.tool_settings.mesh_select_mode[1]:
             fill_mode = 'VERTEX'
 
         if is_bl_newer_than(2, 80):
             edit_objs = [o for o in objs if o.mode == 'EDIT']
-        else: edit_objs = [context.object]
+        else: edit_objs = [bpy.context.object]
 
         for obj in edit_objs:
             mesh = obj.data
@@ -552,7 +552,7 @@ def bake_to_entity(context, bprops):
         else:
             for obj in objs:
                 if obj in other_objs: continue
-                context.scene.objects.active = obj
+                bpy.context.scene.objects.active = obj
                 bpy.ops.object.mode_set(mode='EDIT')
                 bpy.ops.mesh.reveal()
                 bpy.ops.mesh.select_all(action='SELECT')
@@ -651,11 +651,11 @@ def bake_to_entity(context, bprops):
         if alpha_outp:
             src = None
 
-            if hasattr(context.scene.cycles, 'use_fast_gi'):
-                context.scene.cycles.use_fast_gi = True
+            if hasattr(bpy.context.scene.cycles, 'use_fast_gi'):
+                bpy.context.scene.cycles.use_fast_gi = True
 
-            if context.scene.world:
-                context.scene.world.light_settings.distance = bprops['ao_distance']
+            if bpy.context.scene.world:
+                bpy.context.scene.world.light_settings.distance = bprops['ao_distance']
         # When there is no alpha channel use combined render bake, which has better denoising
         else:
             src = mat.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
@@ -1113,7 +1113,7 @@ def bake_to_entity(context, bprops):
                         active_id = layer_ids[0]
 
                     # Refresh uv
-                    refresh_temp_uv(context.object, yp.layers[active_id])
+                    refresh_temp_uv(bpy.context.object, yp.layers[active_id])
 
                     # Refresh Neighbor UV resolution
                     set_uv_neighbor_resolution(yp.layers[active_id])
@@ -1126,7 +1126,7 @@ def bake_to_entity(context, bprops):
                         masks[0].active_edit = True
 
                         # Refresh uv
-                        refresh_temp_uv(context.object, masks[0])
+                        refresh_temp_uv(bpy.context.object, masks[0])
 
                         # Refresh Neighbor UV resolution
                         set_uv_neighbor_resolution(masks[0])
@@ -1152,7 +1152,7 @@ def bake_to_entity(context, bprops):
                     ImageAtlas.set_segment_mapping(layer, segment, image)
 
                 # Refresh uv
-                refresh_temp_uv(context.object, layer)
+                refresh_temp_uv(bpy.context.object, layer)
 
                 # Refresh Neighbor UV resolution
                 set_uv_neighbor_resolution(layer)
@@ -1179,7 +1179,7 @@ def bake_to_entity(context, bprops):
                     ImageAtlas.set_segment_mapping(mask, segment, image)
 
                 # Refresh uv
-                refresh_temp_uv(context.object, mask)
+                refresh_temp_uv(bpy.context.object, mask)
 
                 # Refresh Neighbor UV resolution
                 set_uv_neighbor_resolution(mask)
@@ -1227,11 +1227,10 @@ def bake_to_entity(context, bprops):
         if not bi.is_baked: bi.is_baked = True
         if bi.bake_type != bprops['type']: bi.bake_type = bprops['type']
         for attr in dir(bi):
-            #if attr in dir(self):
             if attr.startswith('__'): continue
             if attr.startswith('bl_'): continue
             if attr in {'rna_type'}: continue
-            try: setattr(bi, attr, getattr(bprops, attr))
+            try: setattr(bi, attr, bprops[attr])
             except: pass
 
         if other_objs:
@@ -1373,7 +1372,7 @@ def bake_to_entity(context, bprops):
         else:
             for obj in objs:
                 if obj in other_objs: continue
-                context.scene.objects.active = obj
+                bpy.context.scene.objects.active = obj
                 bpy.ops.object.mode_set(mode='EDIT')
                 bpy.ops.mesh.reveal()
                 bpy.ops.mesh.select_all(action='SELECT')
@@ -1415,7 +1414,7 @@ def bake_to_entity(context, bprops):
     if active_id != None and not bprops['overwrite_current']:
         yp.active_layer_index = active_id
     elif image:
-        update_image_editor_image(context, image)
+        update_image_editor_image(bpy.context, image)
 
     # Expand image source to show rebake button
     if bprops['target_type'] == 'MASK':
@@ -2074,7 +2073,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             try: bprops[prop] = getattr(self, prop)
             except Exception as e: print(e)
 
-        message = bake_to_entity(context, bprops)
+        message = bake_to_entity(bprops)
         if message != '':
             self.report({'ERROR'}, message)
             return {'CANCELLED'}
