@@ -170,10 +170,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     mat = get_active_material()
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
-    tree = node.node_tree
     scene = bpy.context.scene
     obj = bpy.context.object
-    ypup = get_user_preferences()
     channel_idx = int(bprops['channel_idx']) if len(yp.channels) > 0 else -1
 
     rdict = {}
@@ -200,7 +198,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         return rdict
 
     if bprops['type'] == 'FLOW' and (bprops['uv_map'] == '' or bprops['uv_map_1'] == '' or bprops['uv_map'] == bprops['uv_map_1']):
-        rdict['message'] = "UVMap and Straight UVMap are cannot be the same or empty!"
+        rdict['message'] = "UVMap and Straight UVMap cannot be the same or empty!"
         return rdict
 
     # Get cage object
@@ -221,7 +219,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         objs, meshes = get_bakeable_objects_and_meshes(mat, cage_object)
     else:
         objs = [obj]
-        meshes = [obj.data]
 
     # Count multires objects
     multires_count = 0
@@ -2178,42 +2175,23 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
                 m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity_path)
                 m2 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity_path)
 
-                name = image.name
+                bake_properties = {}
+                for attr in dir(bi):
+                    if attr.startswith('__'): continue
+                    if attr.startswith('bl_'): continue
+                    if attr in {'rna_type'}: continue
+                    try: bake_properties[attr] = getattr(bi, attr)
+                    except: pass
 
-                bake_properties = {
+                bake_properties.update({
                     'type': bi.bake_type,
-                    'name': name,
-                    'channel_idx': str(0),
-                    'samples': bi.samples,
-                    'margin': bi.margin,
-                    'margin_type': bi.margin_type,
-                    'flip_normals': bi.flip_normals,
-                    'only_local': bi.only_local,
-                    'force_bake_all_polygons': bi.force_bake_all_polygons,
-                    'fxaa': bi.fxaa,
-                    'ssaa': bi.ssaa,
-                    'denoise': bi.denoise,
-                    'bake_device': bi.bake_device,
-                    'use_baked_disp': bi.use_baked_disp,
-                    'cage_object_name': bi.cage_object_name,
-                    'cage_extrusion': bi.cage_extrusion,
-                    'max_ray_distance': bi.max_ray_distance,
+                    'target_type': 'LAYER' if m1 or m2 else 'MASK',
+                    'name': image.name,
+                    'channel_idx': '0',
                     'width': image.size[0],
                     'height': image.size[1],
-                    'image_resolution': bi.image_resolution,
-                    'use_custom_resolution': bi.use_custom_resolution,
-                    'interpolation': bi.interpolation,
-                    'multires_base': bi.multires_base,
-                    'hdr': bi.hdr,
-                    'ao_distance': bi.ao_distance,
-                    'bevel_samples': bi.bevel_samples,
-                    'bevel_radius': bi.bevel_radius,
-                    'use_image_atlas': bi.use_image_atlas,
-                    'use_udim': bi.use_udim,
-                    'uv_map': entity.uv_name,
-                    'subsurf_influence': False,
-                    'target_type': 'LAYER' if m1 or m2 else 'MASK'
-                }
+                    'uv_map': entity.uv_name
+                })
 
                 bake_to_entity(bprops=bake_properties, overwrite_img=image)
 
