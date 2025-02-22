@@ -2144,6 +2144,79 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         return {'FINISHED'}
 
+class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
+    bl_idname = "node.y_rebake_baked_images"
+    bl_label = "Rebake All Baked Images"
+    bl_description = "Rebake all of the baked images in all layers"
+    bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+    
+    def execute(self, context): 
+        T = time.time()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        entities, images, _, _ = get_yp_entities_images_and_segments(yp)
+
+        for i, image in enumerate(images):
+            if image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel:
+                ents = entities[i]
+                entity = ents[0]
+                entity_path = entity.path_from_id()
+
+                override = bpy.context.copy()
+
+                m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity_path)
+                # m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity_path)
+                m2 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity_path)
+
+                # if m1: 
+                #     layer = yp.layers[int(m1.group(1))]
+                #     override['layer'] = layer
+                #     override['mask'] = entity
+                # elif m2: 
+                #     layer = yp.layers[int(m2.group(1))]
+                #     override['layer'] = layer
+                #     override['channel'] = entity
+
+                if m2:
+                    layer = yp.layers[int(m2.group(1))]
+                    override['entity'] = layer
+                else: override['entity'] = entity
+
+                bi = image.y_bake_info
+                override['bake_info'] = bi
+                # override['parent'] = get_parent(layer)
+                # override['image'] = image
+                # override['root_ch'] = yp.channels[yp.active_channel_index]
+                # override['other_object'] = None
+
+                # if bi.bake_type == 'SELECTED_VERTICES':
+                    # if bpy.context.mode != 'EDIT':
+                    #     prev_mode = bpy.context.mode
+                    #     bpy.ops.object.mode_set(mode='EDIT')
+
+                    # if is_bl_newer_than(4):
+                    #     with bpy.context.temp_override(**override):
+                    #         bpy.ops.node.y_try_to_select_baked_vertex('INVOKE_DEFAULT')
+                    # else: bpy.ops.node.y_try_to_select_baked_vertex(override)
+
+                    # if prev_mode != None:
+                    #     bpy.ops.object.mode_set(mode=prev_mode)
+
+                target_type = 'LAYER' if m1 or m2 else 'MASK'
+
+                if is_bl_newer_than(4):
+                    with bpy.context.temp_override(**override):
+                        bpy.ops.node.y_bake_to_layer('INVOKE_DEFAULT', type=bi.bake_type, target_type=target_type, overwrite_current=True)
+                else: bpy.ops.node.y_bake_to_layer(override, type=bi.bake_type, target_type=target_type, overwrite_current=True)
+
+        print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        return {'FINISHED'}
+
 def bake_as_image(
         objs, mat, entity, name, width=1024, height=1024, hdr=False,
         samples=1, margin=5, uv_name='', bake_device='CPU', 
@@ -2910,6 +2983,7 @@ class YRemoveBakedEntity(bpy.types.Operator):
 def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YBakeEntityToImage)
+    bpy.utils.register_class(YRebakeBakedImages)
     bpy.utils.register_class(YRemoveBakeInfoOtherObject)
     bpy.utils.register_class(YTryToSelectBakedVertexSelect)
     bpy.utils.register_class(YRemoveBakedEntity)
@@ -2917,6 +2991,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YBakeEntityToImage)
+    bpy.utils.unregister_class(YRebakeBakedImages)
     bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
     bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
     bpy.utils.unregister_class(YRemoveBakedEntity)
