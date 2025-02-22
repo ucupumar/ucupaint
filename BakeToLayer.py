@@ -203,7 +203,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         rdict['message'] = "UVMap and Straight UVMap are cannot be the same or empty!"
         return rdict
 
-    # Get bake object
+    # Get cage object
     cage_object = None
     if bprops['type'].startswith('OTHER_OBJECT_') and bprops['cage_object_name'] != '':
         cage_object = bpy.data.objects.get(bprops['cage_object_name'])
