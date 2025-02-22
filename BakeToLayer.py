@@ -1787,8 +1787,11 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
                     yp.halt_update = True
                     layer = Layer.add_new_layer(
-                        node.node_tree, layer_name, 'IMAGE', channel_idx, self.blend_type, 
-                        self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, None, segment,
+                        group_tree=node.node_tree, layer_name=layer_name,
+                        layer_type='IMAGE', channel_idx=channel_idx,
+                        blend_type=self.blend_type, normal_blend_type=self.normal_blend_type,
+                        normal_map_type=self.normal_map_type, texcoord_type='UV',
+                        uv_name=self.uv_map, image=image, vcol=None, segment=segment,
                         interpolation = self.interpolation,
                         normal_space = 'OBJECT' if self.type == 'OBJECT_SPACE_NORMAL' else 'TANGENT'
                     )
