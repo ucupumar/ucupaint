@@ -575,6 +575,12 @@ class YNewLayerMask(bpy.types.Operator):
         default=(1.0, 0.0, 1.0), min=0.0, max=1.0,
     )
 
+    color_id_fill : BoolProperty(
+        name = 'Fill Selected Geometry with Color ID',
+        description = 'Fill selected geometry with color ID',
+        default = True
+    )
+
     hdr : BoolProperty(name='32 bit Float', default=False)
 
     texcoord_type : EnumProperty(
@@ -772,6 +778,8 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'COLOR_ID':
             col.label(text='Color ID:')
+            if obj.mode == 'EDIT':
+                col.label(text='Fill Selected:')
 
         if is_bl_newer_than(3, 2) and self.type == 'VCOL':
             col.label(text='Domain:')
@@ -821,6 +829,8 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'COLOR_ID':
             col.prop(self, 'color_id', text='')
+            if obj.mode == 'EDIT':
+                col.prop(self, 'color_id_fill', text='')
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
@@ -892,11 +902,17 @@ class YNewLayerMask(bpy.types.Operator):
         if same_name:
             if self.type == 'IMAGE':
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
+                return {'CANCELLED'}
             elif self.type == 'VCOL':
                 self.report({'ERROR'}, "Vertex Color named '" + self.name +"' is already available!")
-            else: self.report({'ERROR'}, "Mask named '" + self.name +"' is already available!")
-            return {'CANCELLED'}
-        
+                return {'CANCELLED'}
+            elif self.options.is_repeat:
+                # Remove the mask before re-adding it on operator repeat
+                remove_mask(layer, same_name[0], obj)
+            else:
+                self.report({'ERROR'}, "Mask named '" + self.name +"' is already available!")
+                return {'CANCELLED'}
+
         alpha = False
         img = None
         vcol = None
@@ -972,6 +988,10 @@ class YNewLayerMask(bpy.types.Operator):
 
             elif self.type == 'COLOR_ID':
                 check_colorid_vcol(objs)
+
+                # Fill selected geometry if in edit mode
+                if self.color_id_fill and bpy.context.mode == 'EDIT_MESH':
+                    bpy.ops.mesh.y_vcol_fill_face_custom(color=(self.color_id[0], self.color_id[1], self.color_id[2], 1.0))
 
         # Voronoi and noise mask will use grayscale value by default
         source_input = 'RGB' if self.type not in {'VORONOI', 'NOISE'} else 'ALPHA'

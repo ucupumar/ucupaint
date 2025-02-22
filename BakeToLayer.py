@@ -1138,8 +1138,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
                 yp.halt_update = True
                 layer = Layer.add_new_layer(
-                    node.node_tree, layer_name, 'IMAGE', channel_idx, bprops['blend_type'], 
-                    bprops['normal_blend_type'], bprops['normal_map_type'], 'UV', bprops['uv_map'], image, None, segment,
+                    group_tree=node.node_tree, layer_name=layer_name,
+                    layer_type='IMAGE', channel_idx=channel_idx,
+                    blend_type=bprops['blend_type'], normal_blend_type=bprops['normal_blend_type'],
+                    normal_map_type=bprops['normal_map_type'], texcoord_type='UV',
+                    uv_name=bprops['uv_map'], image=image, vcol=None, segment=segment,
                     interpolation = bprops['interpolation'],
                     normal_space = 'OBJECT' if bprops['type'] == 'OBJECT_SPACE_NORMAL' else 'TANGENT'
                 )
