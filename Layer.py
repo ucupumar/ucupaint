@@ -54,7 +54,8 @@ def add_new_layer(
         mask_texcoord_type='UV', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name='', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space='WORLD', hemi_use_prev_normal=True,
-        mask_color_id=(1, 0, 1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
+        mask_color_id=(1, 0, 1), mask_color_id_fill=True,
+        mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha=False, use_udim_for_mask=False,
         interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05,
         normal_space = 'TANGENT'
@@ -289,6 +290,10 @@ def add_new_layer(
 
             elif mask_type == 'COLOR_ID':
                 check_colorid_vcol(objs)
+
+                # Fill selected geometry if in edit mode
+                if mask_color_id_fill and bpy.context.mode == 'EDIT_MESH':
+                    bpy.ops.mesh.y_vcol_fill_face_custom(color=(mask_color_id[0], mask_color_id[1], mask_color_id[2], 1.0))
 
         mask = Mask.add_new_mask(
             layer, mask_name, mask_type, mask_texcoord_type,
@@ -903,6 +908,12 @@ class YNewLayer(bpy.types.Operator):
         subtype = 'COLOR',
         default=(1.0, 0.0, 1.0), min=0.0, max=1.0
     )
+
+    mask_color_id_fill : BoolProperty(
+        name = 'Fill Selected Geometry with Color ID',
+        description = 'Fill selected geometry with color ID',
+        default = True
+    )
     
     mask_image_filepath : StringProperty(
         name = 'Mask Image Path',
@@ -1221,6 +1232,8 @@ class YNewLayer(bpy.types.Operator):
                 col.label(text='Mask Type:')
                 if self.mask_type == 'COLOR_ID':
                     col.label(text='Mask Color ID:')
+                    if obj.mode == 'EDIT':
+                        col.label(text='Fill Selected:')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.label(text='Edge Detect Radius:')
                 else:
@@ -1316,6 +1329,8 @@ class YNewLayer(bpy.types.Operator):
                 col.prop(self, 'mask_type', text='')
                 if self.mask_type == 'COLOR_ID':
                     col.prop(self, 'mask_color_id', text='')
+                    if obj.mode == 'EDIT':
+                        col.prop(self, 'mask_color_id_fill', text='')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.prop(self, 'mask_edge_detect_radius', text='')
                 else:
@@ -1494,7 +1509,7 @@ class YNewLayer(bpy.types.Operator):
             self.add_mask, self.mask_type, self.mask_image_filepath, self.mask_relative,
             self.mask_texcoord_type, self.mask_color, self.mask_use_hdr, self.mask_uv_name,
             self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-            self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id,
+            self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id, self.mask_color_id_fill,
             self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha,
             self.use_udim_for_mask,
             self.interpolation, self.mask_interpolation,
