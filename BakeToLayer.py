@@ -2166,56 +2166,56 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
 
         for i, image in enumerate(images):
             if image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel:
-                ents = entities[i]
-                entity = ents[0]
+                bi = image.y_bake_info
+
+                # Skip outdated bake type
+                if bi.bake_type == 'SELECTED_VERTICES':
+                    continue
+
+                entity = entities[i][0]
                 entity_path = entity.path_from_id()
 
-                override = bpy.context.copy()
-
                 m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity_path)
-                # m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity_path)
                 m2 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity_path)
 
-                # if m1: 
-                #     layer = yp.layers[int(m1.group(1))]
-                #     override['layer'] = layer
-                #     override['mask'] = entity
-                # elif m2: 
-                #     layer = yp.layers[int(m2.group(1))]
-                #     override['layer'] = layer
-                #     override['channel'] = entity
+                name = image.name
 
-                if m2:
-                    layer = yp.layers[int(m2.group(1))]
-                    override['entity'] = layer
-                else: override['entity'] = entity
+                bake_properties = {
+                    'type': bi.bake_type,
+                    'name': name,
+                    'channel_idx': str(0),
+                    'samples': bi.samples,
+                    'margin': bi.margin,
+                    'margin_type': bi.margin_type,
+                    'flip_normals': bi.flip_normals,
+                    'only_local': bi.only_local,
+                    'force_bake_all_polygons': bi.force_bake_all_polygons,
+                    'fxaa': bi.fxaa,
+                    'ssaa': bi.ssaa,
+                    'denoise': bi.denoise,
+                    'bake_device': bi.bake_device,
+                    'use_baked_disp': bi.use_baked_disp,
+                    'cage_object_name': bi.cage_object_name,
+                    'cage_extrusion': bi.cage_extrusion,
+                    'max_ray_distance': bi.max_ray_distance,
+                    'width': image.size[0],
+                    'height': image.size[1],
+                    'image_resolution': bi.image_resolution,
+                    'use_custom_resolution': bi.use_custom_resolution,
+                    'interpolation': bi.interpolation,
+                    'multires_base': bi.multires_base,
+                    'hdr': bi.hdr,
+                    'ao_distance': bi.ao_distance,
+                    'bevel_samples': bi.bevel_samples,
+                    'bevel_radius': bi.bevel_radius,
+                    'use_image_atlas': bi.use_image_atlas,
+                    'use_udim': bi.use_udim,
+                    'uv_map': entity.uv_name,
+                    'subsurf_influence': False,
+                    'target_type': 'LAYER' if m1 or m2 else 'MASK'
+                }
 
-                bi = image.y_bake_info
-                override['bake_info'] = bi
-                # override['parent'] = get_parent(layer)
-                # override['image'] = image
-                # override['root_ch'] = yp.channels[yp.active_channel_index]
-                # override['other_object'] = None
-
-                # if bi.bake_type == 'SELECTED_VERTICES':
-                    # if bpy.context.mode != 'EDIT':
-                    #     prev_mode = bpy.context.mode
-                    #     bpy.ops.object.mode_set(mode='EDIT')
-
-                    # if is_bl_newer_than(4):
-                    #     with bpy.context.temp_override(**override):
-                    #         bpy.ops.node.y_try_to_select_baked_vertex('INVOKE_DEFAULT')
-                    # else: bpy.ops.node.y_try_to_select_baked_vertex(override)
-
-                    # if prev_mode != None:
-                    #     bpy.ops.object.mode_set(mode=prev_mode)
-
-                target_type = 'LAYER' if m1 or m2 else 'MASK'
-
-                if is_bl_newer_than(4):
-                    with bpy.context.temp_override(**override):
-                        bpy.ops.node.y_bake_to_layer('INVOKE_DEFAULT', type=bi.bake_type, target_type=target_type, overwrite_current=True)
-                else: bpy.ops.node.y_bake_to_layer(override, type=bi.bake_type, target_type=target_type, overwrite_current=True)
+                bake_to_entity(bprops=bake_properties, overwrite_img=image)
 
         print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
         return {'FINISHED'}
