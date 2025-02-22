@@ -745,9 +745,11 @@ class YNewVDMLayer(bpy.types.Operator):
         yp.halt_update = True
 
         layer = add_new_layer(
-            node.node_tree, self.name, 'IMAGE', 
-            channel_idx, 'MIX', self.blend_type, 
-            'VECTOR_DISPLACEMENT_MAP', 'UV', self.uv_map, img,
+            group_tree=node.node_tree, layer_name=self.name,
+            layer_type='IMAGE', channel_idx=channel_idx,
+            blend_type='MIX', normal_blend_type=self.blend_type, 
+            normal_map_type='VECTOR_DISPLACEMENT_MAP',
+            texcoord_type='UV', uv_name=self.uv_map, image=img,
             interpolation = 'Cubic'
         )
 
@@ -2177,9 +2179,12 @@ class BaseMultipleImagesLayer():
                 yp.halt_update = True
                                                  
                 layer = add_new_layer(
-                    node.node_tree, image.name, 'IMAGE', 
-                    int(ch_idx), 'MIX', 'MIX', 
-                    normal_map_type, self.texcoord_type, self.uv_map, image, None, None, (1, 1, 1), 
+                    group_tree=node.node_tree, layer_name=image.name,
+                    layer_type='IMAGE', channel_idx=int(ch_idx),
+                    blend_type='MIX', normal_blend_type='MIX', 
+                    normal_map_type=normal_map_type, texcoord_type=self.texcoord_type,
+                    uv_name=self.uv_map, image=image,
+                    vcol=None, segment=None, solid_color=(1, 1, 1), 
                     add_mask=self.add_mask, mask_type=self.mask_type, mask_color=self.mask_color, mask_use_hdr=self.mask_use_hdr, 
                     mask_uv_name=self.mask_uv_name, mask_width=self.mask_width, mask_height=self.mask_height, 
                     use_image_atlas_for_mask=self.use_image_atlas_for_mask, use_udim_for_mask=self.use_udim_for_mask
@@ -2795,9 +2800,12 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                 except: pass
 
             add_new_layer(
-                node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
-                self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
-                image, None, None, interpolation=self.interpolation, normal_space=self.normal_space
+                group_tree=node.node_tree, layer_name=image.name,
+                layer_type='IMAGE', channel_idx=int(self.channel_idx),
+                blend_type=self.blend_type, normal_blend_type=self.normal_blend_type,
+                normal_map_type=self.normal_map_type, texcoord_type=self.texcoord_type,
+                uv_name = self.uv_map, image=image, vcol=None, segment=None,
+                interpolation=self.interpolation, normal_space=self.normal_space
             )
 
         node.node_tree.yp.halt_update = False
@@ -3313,9 +3321,12 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                     set_active_vertex_color(o, other_v)
 
         add_new_layer(
-            node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
-            self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map, 
-            image, vcol, None, interpolation=self.interpolation, normal_space=self.normal_space
+            group_tree=node.node_tree, layer_name=name,
+            layer_type=self.type, channel_idx=int(self.channel_idx),
+            blend_type=self.blend_type, normal_blend_type=self.normal_blend_type,
+            normal_map_type=self.normal_map_type, texcoord_type=self.texcoord_type,
+            uv_name=self.uv_map, image=image, vcol=vcol, segment=None,
+            interpolation=self.interpolation, normal_space=self.normal_space
         )
 
         node.node_tree.yp.halt_update = False
