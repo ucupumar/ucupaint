@@ -172,7 +172,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     yp = node.node_tree.yp
     scene = bpy.context.scene
     obj = bpy.context.object
-    channel_idx = int(bprops['channel_idx']) if len(yp.channels) > 0 else -1
+    channel_idx = int(bprops['channel_idx']) if 'channel_idx' in bprops and len(yp.channels) > 0 else -1
 
     rdict = {}
     rdict['message'] = ''
@@ -2187,7 +2187,6 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
                     'type': bi.bake_type,
                     'target_type': 'LAYER' if m1 or m2 else 'MASK',
                     'name': image.name,
-                    'channel_idx': '0',
                     'width': image.size[0],
                     'height': image.size[1],
                     'uv_map': entity.uv_name
