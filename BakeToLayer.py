@@ -170,11 +170,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     mat = get_active_material()
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
-    tree = node.node_tree
     scene = bpy.context.scene
     obj = bpy.context.object
-    ypup = get_user_preferences()
-    channel_idx = int(bprops['channel_idx']) if len(yp.channels) > 0 else -1
+    channel_idx = int(bprops['channel_idx']) if 'channel_idx' in bprops and len(yp.channels) > 0 else -1
 
     rdict = {}
     rdict['message'] = ''
@@ -200,7 +198,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         return rdict
 
     if bprops['type'] == 'FLOW' and (bprops['uv_map'] == '' or bprops['uv_map_1'] == '' or bprops['uv_map'] == bprops['uv_map_1']):
-        rdict['message'] = "UVMap and Straight UVMap are cannot be the same or empty!"
+        rdict['message'] = "UVMap and Straight UVMap cannot be the same or empty!"
         return rdict
 
     # Get cage object
@@ -221,7 +219,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         objs, meshes = get_bakeable_objects_and_meshes(mat, cage_object)
     else:
         objs = [obj]
-        meshes = [obj.data]
 
     # Count multires objects
     multires_count = 0
@@ -2123,7 +2120,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         rdict = bake_to_entity(bprops, overwrite_img, segment)
 
         if rdict['message'] != '':
-            self.report({'ERROR'}, message)
+            self.report({'ERROR'}, rdict['message'])
             return {'CANCELLED'}
 
         active_id = rdict['active_id']
@@ -2145,6 +2142,59 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             ypui.layer_ui.expand_source = True
         ypui.need_update = True
 
+        return {'FINISHED'}
+
+class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
+    bl_idname = "node.y_rebake_baked_images"
+    bl_label = "Rebake All Baked Images"
+    bl_description = "Rebake all of the baked images in all layers"
+    bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+    
+    def execute(self, context): 
+        T = time.time()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        entities, images, _, _ = get_yp_entities_images_and_segments(yp)
+
+        for i, image in enumerate(images):
+            if image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel:
+                bi = image.y_bake_info
+
+                # Skip outdated bake type
+                if bi.bake_type == 'SELECTED_VERTICES':
+                    continue
+
+                entity = entities[i][0]
+                entity_path = entity.path_from_id()
+
+                m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity_path)
+                m2 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity_path)
+
+                bake_properties = {}
+                for attr in dir(bi):
+                    if attr.startswith('__'): continue
+                    if attr.startswith('bl_'): continue
+                    if attr in {'rna_type'}: continue
+                    try: bake_properties[attr] = getattr(bi, attr)
+                    except: pass
+
+                bake_properties.update({
+                    'type': bi.bake_type,
+                    'target_type': 'LAYER' if m1 or m2 else 'MASK',
+                    'name': image.name,
+                    'width': image.size[0],
+                    'height': image.size[1],
+                    'uv_map': entity.uv_name
+                })
+
+                bake_to_entity(bprops=bake_properties, overwrite_img=image)
+
+        print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
         return {'FINISHED'}
 
 def bake_as_image(
@@ -2913,6 +2963,7 @@ class YRemoveBakedEntity(bpy.types.Operator):
 def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YBakeEntityToImage)
+    bpy.utils.register_class(YRebakeBakedImages)
     bpy.utils.register_class(YRemoveBakeInfoOtherObject)
     bpy.utils.register_class(YTryToSelectBakedVertexSelect)
     bpy.utils.register_class(YRemoveBakedEntity)
@@ -2920,6 +2971,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YBakeEntityToImage)
+    bpy.utils.unregister_class(YRebakeBakedImages)
     bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
     bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
     bpy.utils.unregister_class(YRemoveBakedEntity)
