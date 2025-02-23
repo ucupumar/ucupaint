@@ -779,7 +779,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'COLOR_ID':
             col.label(text='Color ID:')
             if obj.mode == 'EDIT':
-                col.label(text='Fill Selected:')
+                col.label(text='')
 
         if is_bl_newer_than(3, 2) and self.type == 'VCOL':
             col.label(text='Domain:')
@@ -830,7 +830,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'COLOR_ID':
             col.prop(self, 'color_id', text='')
             if obj.mode == 'EDIT':
-                col.prop(self, 'color_id_fill', text='')
+                col.prop(self, 'color_id_fill', text='Fill Selected Faces')
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')

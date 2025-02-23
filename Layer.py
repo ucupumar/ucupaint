@@ -1235,7 +1235,7 @@ class YNewLayer(bpy.types.Operator):
                 if self.mask_type == 'COLOR_ID':
                     col.label(text='Mask Color ID:')
                     if obj.mode == 'EDIT':
-                        col.label(text='Fill Selected:')
+                        col.label(text='')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.label(text='Edge Detect Radius:')
                 else:
@@ -1332,7 +1332,7 @@ class YNewLayer(bpy.types.Operator):
                 if self.mask_type == 'COLOR_ID':
                     col.prop(self, 'mask_color_id', text='')
                     if obj.mode == 'EDIT':
-                        col.prop(self, 'mask_color_id_fill', text='')
+                        col.prop(self, 'mask_color_id_fill', text='Fill Selected Faces')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.prop(self, 'mask_edge_detect_radius', text='')
                 else:
