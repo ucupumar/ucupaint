@@ -2159,11 +2159,21 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        entities, images, _, _ = get_yp_entities_images_and_segments(yp)
+        entities, images, segment_names, _ = get_yp_entities_images_and_segments(yp)
 
         for i, image in enumerate(images):
-            if image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel:
-                bi = image.y_bake_info
+
+            if image.yia.is_image_atlas:
+                segment = image.yia.segments.get(segment_names[i])
+            elif image.yua.is_udim_atlas: 
+                segment = image.yua.segments.get(segment_names[i])
+            else: segment = None
+
+            if ((segment and segment.bake_info.is_baked and not segment.bake_info.is_baked_channel) or 
+                (not segment and image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel)
+                ):
+
+                bi = image.y_bake_info if not segment else segment.bake_info
 
                 # Skip outdated bake type
                 if bi.bake_type == 'SELECTED_VERTICES':
@@ -2187,12 +2197,12 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
                     'type': bi.bake_type,
                     'target_type': 'LAYER' if m1 or m2 else 'MASK',
                     'name': image.name,
-                    'width': image.size[0],
-                    'height': image.size[1],
+                    'width': image.size[0] if not segment else segment.width,
+                    'height': image.size[1] if not segment else segment.height,
                     'uv_map': entity.uv_name
                 })
 
-                bake_to_entity(bprops=bake_properties, overwrite_img=image)
+                bake_to_entity(bprops=bake_properties, overwrite_img=image, segment=segment)
 
         print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
         return {'FINISHED'}
