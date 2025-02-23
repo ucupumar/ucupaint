@@ -5883,8 +5883,10 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         col.operator('node.y_copy_layer', text='Copy All Layers', icon='COPYDOWN').all_layers = True
         col.operator('node.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN')
 
+        col.separator()
+        col.operator('node.y_rebake_baked_images', text='Rebake All Baked Images', icon_value=lib.get_icon('bake'))
+
         if UDIM.is_udim_supported():
-            col.separator()
             col.operator('node.y_refill_udim_tiles', text='Refill UDIM Tiles', icon_value=lib.get_icon('uv'))
 
         #col.prop(yp, 'layer_preview_mode', text='Layer Only Viewer')
