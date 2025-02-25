@@ -13,7 +13,7 @@ TEMP_VCOL = '__temp__vcol__'
 TEMP_EMISSION = '_TEMP_EMI_'
 
 class YTryToSelectBakedVertexSelect(bpy.types.Operator):
-    bl_idname = "node.y_try_to_select_baked_vertex"
+    bl_idname = "material.y_try_to_select_baked_vertex"
     bl_label = "Try to reselect baked selected vertex"
     bl_description = "Try to reselect baked selected vertex. It might give you wrong results if mesh number of vertex changed"
     bl_options = {'REGISTER', 'UNDO'}
@@ -108,7 +108,7 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveBakeInfoOtherObject(bpy.types.Operator):
-    bl_idname = "node.y_remove_bake_info_other_object"
+    bl_idname = "material.y_remove_bake_info_other_object"
     bl_label = "Remove other object info"
     bl_description = "Remove other object bake info, so it won't be automatically baked anymore if you choose to rebake"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1417,7 +1417,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     return rdict
 
 class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_bake_to_layer"
+    bl_idname = "material.y_bake_to_layer"
     bl_label = "Bake To Layer"
     bl_description = "Bake something as layer/mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2145,7 +2145,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_rebake_baked_images"
+    bl_idname = "material.y_rebake_baked_images"
     bl_label = "Rebake All Baked Images"
     bl_description = "Rebake all of the baked images in all layers"
     bl_options = {'REGISTER'}
@@ -2387,7 +2387,7 @@ def bake_as_image(
     return image
 
 class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_bake_entity_to_image"
+    bl_idname = "material.y_bake_entity_to_image"
     bl_label = "Bake Layer/Mask To Image"
     bl_description = "Bake Layer/Mask to an image"
     bl_options = {'UNDO'}
@@ -2903,7 +2903,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         return {"FINISHED"}
 
 class YRemoveBakedEntity(bpy.types.Operator):
-    bl_idname = "node.y_remove_baked_entity"
+    bl_idname = "material.y_remove_baked_entity"
     bl_label = "Remove Baked Layer/Mask"
     bl_description = "Remove baked layer/mask"
     bl_options = {'REGISTER', 'UNDO'}

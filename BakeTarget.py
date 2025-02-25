@@ -119,7 +119,7 @@ def update_new_bake_target_preset(self, context):
     self.name = get_unique_name(tree_name + suffix, bpy.data.images)
 
 class YNewBakeTarget(bpy.types.Operator):
-    bl_idname = "node.y_new_bake_target"
+    bl_idname = "material.y_new_bake_target"
     bl_label = "New Bake Target"
     bl_description = "New bake target"
     bl_options = {'REGISTER', 'UNDO'}
@@ -221,7 +221,7 @@ class YNewBakeTarget(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveBakeTarget(bpy.types.Operator):
-    bl_idname = "node.y_remove_bake_target"
+    bl_idname = "material.y_remove_bake_target"
     bl_label = "Remove Bake Target"
     bl_description = "Remove bake target"
     bl_options = {'REGISTER', 'UNDO'}

@@ -22,14 +22,14 @@ def get_texdir():
 class TestPrincipled(unittest.TestCase):
     def test_00_principled(self):
         # Quick Setup
-        bpy.ops.node.y_quick_ypaint_node_setup(type='BSDF_PRINCIPLED')
+        bpy.ops.material.y_quick_ypaint_node_setup(type='BSDF_PRINCIPLED')
         
         # Get yp
         yp = get_yp()
         self.assertTrue(yp != None)
 
     def test_99_remove_yp_node(self):
-        bpy.ops.node.y_remove_yp_node()
+        bpy.ops.material.y_remove_yp_node()
 
         # Get yp
         yp = get_yp()
@@ -38,7 +38,7 @@ class TestPrincipled(unittest.TestCase):
 class TestNewLayer(TestPrincipled):
     def test_01_new_layer(self):
         # Add new image layer
-        bpy.ops.node.y_new_layer(name='Image', uv_map='UVMap')
+        bpy.ops.material.y_new_layer(name='Image', uv_map='UVMap')
 
         yp = get_yp()
         self.assertTrue(len(yp.layers) == 1)
@@ -46,7 +46,7 @@ class TestNewLayer(TestPrincipled):
 class TestNewLayerWithMask(TestPrincipled):
     def test_01_new_layer_with_mask(self):
         # Add new solid color layer with image mask
-        bpy.ops.node.y_new_layer(name='Solid Color', type='COLOR', uv_map='UVMap', add_mask=True, mask_uv_name='UVMap')
+        bpy.ops.material.y_new_layer(name='Solid Color', type='COLOR', uv_map='UVMap', add_mask=True, mask_uv_name='UVMap')
 
         yp = get_yp()
         self.assertTrue(len(yp.layers) == 1)
@@ -56,7 +56,7 @@ class TestOpenImageAsLayer(TestPrincipled):
         texdir = get_texdir()
 
         # Open image as layer
-        bpy.ops.node.y_open_image_to_layer(
+        bpy.ops.material.y_open_image_to_layer(
             files = [{"name":"blender_color.png"}], 
             directory = texdir,
             uv_map="UVMap"
@@ -70,7 +70,7 @@ class TestOpenImagesToSingleLayerWithMask(TestPrincipled):
         texdir = get_texdir()
 
         # Open images to single layer with white mask
-        bpy.ops.node.y_open_images_to_single_layer(
+        bpy.ops.material.y_open_images_to_single_layer(
             files = [
                 {"name":"blender_color.png"},
                 {"name":"blender_metallic.png"},
@@ -91,7 +91,7 @@ class TestNewMask(TestOpenImageAsLayer):
     def test_02_new_mask(self):
 
         # New layer mask
-        bpy.ops.node.y_new_layer_mask(name='Image Mask', uv_name='UVMap', color_option='WHITE')
+        bpy.ops.material.y_new_layer_mask(name='Image Mask', uv_name='UVMap', color_option='WHITE')
 
         layer = get_active_layer()
         self.assertTrue(len(layer.masks) == 1)
@@ -121,7 +121,7 @@ class TestDuplicateLayer(TestNewLayer):
     def test_02_duplicate_layer(self):
 
         # Duplicate Layer
-        bpy.ops.node.y_duplicate_layer()
+        bpy.ops.material.y_duplicate_layer()
 
         yp = get_yp()
         self.assertTrue(len(yp.layers) == 2)

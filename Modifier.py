@@ -117,7 +117,7 @@ def add_new_modifier(parent, modifier_type):
     return m
 
 class YNewYPaintModifier(bpy.types.Operator):
-    bl_idname = "node.y_new_ypaint_modifier"
+    bl_idname = "material.y_new_ypaint_modifier"
     bl_label = "New " + get_addon_title() + " Modifier"
     bl_description = "New " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -179,7 +179,7 @@ class YNewYPaintModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveYPaintModifier(bpy.types.Operator):
-    bl_idname = "node.y_move_ypaint_modifier"
+    bl_idname = "material.y_move_ypaint_modifier"
     bl_label = "Move " + get_addon_title() + " Modifier"
     bl_description = "Move " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -244,7 +244,7 @@ class YMoveYPaintModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveYPaintModifier(bpy.types.Operator):
-    bl_idname = "node.y_remove_ypaint_modifier"
+    bl_idname = "material.y_remove_ypaint_modifier"
     bl_label = "Remove " + get_addon_title() + " Modifier"
     bl_description = "Remove " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
