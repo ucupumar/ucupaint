@@ -1870,7 +1870,7 @@ class YChangeActiveYPaintNode(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def duplicate_mat(mat):
+def duplicate_mat(mat, new_name=None):
     # HACK: mat.copy() on Blender 3.0 and newer will make the yp tree used by 3 users (it should be 2 users)
     # To get around this issue, use a temporary tree that will replace the yp trees before doing mat.copy()
     if is_bl_newer_than(3):
@@ -1890,6 +1890,8 @@ def duplicate_mat(mat):
 
         # Duplicate material
         new_mat = mat.copy()
+        if new_name:
+            new_mat.name = new_name
 
         # Set back yp tree to original nodes
         for node_name, tree in yp_trees.items():
@@ -1912,6 +1914,11 @@ class YDuplicateYPNodes(bpy.types.Operator):
     bl_label = "Duplicate " + get_addon_title() + " Nodes"
     bl_description = get_addon_title() + " doesn't work with more than one user! Duplicate to make it single user"
     bl_options = {'REGISTER', 'UNDO'}
+
+    new_name: StringProperty(
+        name = 'New Name',
+        description = 'New name for material and tree',
+    )
 
     duplicate_node : BoolProperty(
         name = 'Duplicate this Node',
@@ -1939,7 +1946,6 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        mat = get_active_material()
         group_node = get_active_ypaint_node()
         if not group_node: return False
 
@@ -1952,6 +1958,8 @@ class YDuplicateYPNodes(bpy.types.Operator):
     def invoke(self, context, event):
         group_node = get_active_ypaint_node()
         yp = group_node.node_tree.yp
+
+        self.new_name = group_node.node_tree.name
 
         self.any_ondisk_image = False
 
@@ -1966,9 +1974,20 @@ class YDuplicateYPNodes(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
-        self.layout.prop(self, 'only_active', text='Only Active Object')
+        row = split_layout(self.layout, 0.35)
+
+        col = row.column()
+        col.label(text='New Name:')
+        col.label(text='')
         if self.any_ondisk_image:
-            self.layout.prop(self, 'ondisk_duplicate')
+            col.label(text='')
+
+        col = row.column()
+        col.prop(self, 'new_name', text='')
+        col.separator()
+        col.prop(self, 'only_active', text='Only Active Object')
+        if self.any_ondisk_image:
+            col.prop(self, 'ondisk_duplicate')
 
     def execute(self, context):
 
@@ -1980,7 +1999,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
         if self.duplicate_material:
 
             # Duplicate the material
-            dup_mat = duplicate_mat(mat)
+            dup_mat = duplicate_mat(mat, self.new_name)
             for obj in objs:
                 for i, m in enumerate(obj.data.materials):
                     if m == mat:
@@ -2000,8 +2019,9 @@ class YDuplicateYPNodes(bpy.types.Operator):
             for tree_name, node in tree_dict.items():
                 tree = bpy.data.node_groups.get(tree_name)
                 node.node_tree = tree.copy()
+                if self.new_name:
+                    node.node_tree.name = self.new_name
 
-        ypui = context.window_manager.ypui
         group_node = get_active_ypaint_node()
         tree = group_node.node_tree
         yp = tree.yp
