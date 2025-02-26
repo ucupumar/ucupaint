@@ -1814,8 +1814,8 @@ class YFixMissingUV(bpy.types.Operator):
 
 class YRenameYPaintTree(bpy.types.Operator):
     bl_idname = "wm.y_rename_ypaint_tree"
-    bl_label = "Rename " + get_addon_title() + " Group Name"
-    bl_description = "Rename " + get_addon_title() + " Group Name"
+    bl_label = "Rename " + get_addon_title() + " Tree"
+    bl_description = "Rename " + get_addon_title() + " Tree"
     bl_options = {'REGISTER', 'UNDO'}
 
     name : StringProperty(name='New Name', description='New Name', default='')
