@@ -37,8 +37,14 @@ def get_mod_y_offsets(mod, is_value=False):
 def check_set_node_loc(tree, node_name, loc, hide=False, parent_unset=False):
     node = tree.nodes.get(node_name)
     if node:
-        if node.location != loc:
+        # Blender 4.4+ has new parent and node calculation
+        if is_bl_newer_than(4, 4) and node.parent != None:
+            if node.location != loc - node.parent.location:
+                node.location = loc - node.parent.location
+
+        elif node.location != loc:
             node.location = loc
+
         if node.hide != hide:
             node.hide = hide
 
