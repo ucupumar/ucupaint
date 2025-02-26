@@ -522,7 +522,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     mask.expand_source = mask.type not in {'IMAGE'} or (image != None and image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel)
 
 class YNewLayerMask(bpy.types.Operator):
-    bl_idname = "material.y_new_layer_mask"
+    bl_idname = "wm.y_new_layer_mask"
     bl_label = "New Layer Mask"
     bl_description = "New Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1024,7 +1024,7 @@ class YNewLayerMask(bpy.types.Operator):
 
 class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
     """Open Image as Mask"""
-    bl_idname = "material.y_open_image_as_mask"
+    bl_idname = "wm.y_open_image_as_mask"
     bl_label = "Open Image as Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1282,7 +1282,7 @@ def update_available_data_name_as_mask(self, context):
     self.source_input = 'RGB'
 
 class YOpenAvailableDataAsMask(bpy.types.Operator):
-    bl_idname = "material.y_open_available_data_as_mask"
+    bl_idname = "wm.y_open_available_data_as_mask"
     bl_label = "Open available data as Layer Mask"
     bl_description = "Open available data as Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1552,7 +1552,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveLayerMask(bpy.types.Operator):
-    bl_idname = "material.y_move_layer_mask"
+    bl_idname = "wm.y_move_layer_mask"
     bl_label = "Move Layer Mask"
     bl_description = "Move layer mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1625,7 +1625,7 @@ class YMoveLayerMask(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveLayerMask(bpy.types.Operator):
-    bl_idname = "material.y_remove_layer_mask"
+    bl_idname = "wm.y_remove_layer_mask"
     bl_label = "Remove Layer Mask"
     bl_description = "Remove Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1722,7 +1722,7 @@ class YRemoveLayerMask(bpy.types.Operator):
         return {'FINISHED'}
 
 class YReplaceMaskType(bpy.types.Operator):
-    bl_idname = "material.y_replace_mask_type"
+    bl_idname = "wm.y_replace_mask_type"
     bl_label = "Replace Mask Type"
     bl_description = "Replace Mask Type"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1812,7 +1812,7 @@ class YReplaceMaskType(bpy.types.Operator):
 
 class YFixEdgeDetectAO(bpy.types.Operator):
     """Eevee Ambient Occlusion must be enabled to make edge detect mask to work"""
-    bl_idname = "material.y_fix_edge_detect_ao"
+    bl_idname = "wm.y_fix_edge_detect_ao"
     bl_label = "Fix Edge Detect Mask AO"
     bl_options = {'REGISTER', 'UNDO'}
 

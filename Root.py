@@ -174,7 +174,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     return channel
 
 class YSelectMaterialPolygons(bpy.types.Operator):
-    bl_idname = "material.y_select_all_material_polygons"
+    bl_idname = "wm.y_select_all_material_polygons"
     bl_label = "Select All Material Polygons"
     bl_description = "Select all polygons using this material"
     bl_options = {'REGISTER', 'UNDO'}
@@ -309,7 +309,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRenameUVMaterial(bpy.types.Operator):
-    bl_idname = "material.y_rename_uv_using_the_same_material"
+    bl_idname = "wm.y_rename_uv_using_the_same_material"
     bl_label = "Rename UV that using same Material"
     bl_description = "Rename UV on objects that used the same material"
     bl_options = {'REGISTER', 'UNDO'}
@@ -423,7 +423,7 @@ class YRenameUVMaterial(bpy.types.Operator):
         return {'FINISHED'}
 
 class YQuickYPaintNodeSetup(bpy.types.Operator):
-    bl_idname = "material.y_quick_ypaint_node_setup"
+    bl_idname = "wm.y_quick_ypaint_node_setup"
     bl_label = "Quick " + get_addon_title() + " Node Setup"
     bl_description = "Quick " + get_addon_title() + " Node Setup"
     bl_options = {'REGISTER', 'UNDO'}
@@ -797,7 +797,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         return {'FINISHED'}
 
 class YNewYPaintNode(bpy.types.Operator):
-    bl_idname = "material.y_add_new_ypaint_node"
+    bl_idname = "wm.y_add_new_ypaint_node"
     bl_label = "Add new " + get_addon_title() + " Node"
     bl_description = "Add new " + get_addon_title() + " node"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1033,7 +1033,7 @@ def do_alpha_setup(mat, node, channel):
             tree.links.new(alpha_output, target_socket)
 
 class YConnectYPaintChannelAlpha(bpy.types.Operator):
-    bl_idname = "material.y_connect_ypaint_channel_alpha"
+    bl_idname = "wm.y_connect_ypaint_channel_alpha"
     bl_label = "Connect " + get_addon_title() + " Channel Alpha"
     bl_description = "Connect " + get_addon_title() + " channel alpha to other nodes"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1043,7 +1043,7 @@ class YConnectYPaintChannelAlpha(bpy.types.Operator):
         return {'FINISHED'}
 
 class YConnectYPaintChannel(bpy.types.Operator):
-    bl_idname = "material.y_connect_ypaint_channel"
+    bl_idname = "wm.y_connect_ypaint_channel"
     bl_label = "Connect " + get_addon_title() + " Channel"
     bl_description = "Connect " + get_addon_title() + " channel to other nodes"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1105,7 +1105,7 @@ class YConnectYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YNewYPaintChannel(bpy.types.Operator):
-    bl_idname = "material.y_add_new_ypaint_channel"
+    bl_idname = "wm.y_add_new_ypaint_channel"
     bl_label = "Add new " + get_addon_title() + " Channel"
     bl_description = "Add new " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1322,7 +1322,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveYPaintChannel(bpy.types.Operator):
-    bl_idname = "material.y_move_ypaint_channel"
+    bl_idname = "wm.y_move_ypaint_channel"
     bl_label = "Move " + get_addon_title() + " Channel"
     bl_description = "Move " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1409,7 +1409,7 @@ class YMoveYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveYPaintChannel(bpy.types.Operator):
-    bl_idname = "material.y_remove_ypaint_channel"
+    bl_idname = "wm.y_remove_ypaint_channel"
     bl_label = "Remove " + get_addon_title() + " Channel"
     bl_description = "Remove " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1652,7 +1652,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YAddSimpleUVs(bpy.types.Operator):
-    bl_idname = "material.y_add_simple_uvs"
+    bl_idname = "wm.y_add_simple_uvs"
     bl_label = "Add simple UVs"
     bl_description = "Add Simple UVs"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1675,7 +1675,7 @@ class YAddSimpleUVs(bpy.types.Operator):
         return {'FINISHED'}
 
 class YFixChannelMissmatch(bpy.types.Operator):
-    bl_idname = "material.y_fix_channel_missmatch"
+    bl_idname = "wm.y_fix_channel_missmatch"
     bl_label = "Fix Channels Mistmatch"
     bl_description = "Fix channels missmatch because of error"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1698,7 +1698,7 @@ class YFixChannelMissmatch(bpy.types.Operator):
         return {'FINISHED'}
 
 class YFixMissingUV(bpy.types.Operator):
-    bl_idname = "material.y_fix_missing_uv"
+    bl_idname = "wm.y_fix_missing_uv"
     bl_label = "Fix missing UV"
     bl_description = "Fix missing UV"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1804,7 +1804,7 @@ class YFixMissingUV(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRenameYPaintTree(bpy.types.Operator):
-    bl_idname = "material.y_rename_ypaint_tree"
+    bl_idname = "wm.y_rename_ypaint_tree"
     bl_label = "Rename " + get_addon_title() + " Group Name"
     bl_description = "Rename " + get_addon_title() + " Group Name"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1832,7 +1832,7 @@ class YRenameYPaintTree(bpy.types.Operator):
         return {'FINISHED'}
 
 class YChangeActiveYPaintNode(bpy.types.Operator):
-    bl_idname = "material.y_change_active_ypaint_node"
+    bl_idname = "wm.y_change_active_ypaint_node"
     bl_label = "Change Active " + get_addon_title() + " Node"
     bl_description = "Change Active " + get_addon_title() + " Node"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1899,7 +1899,7 @@ def duplicate_mat(mat):
     return mat.copy()
 
 class YDuplicateYPNodes(bpy.types.Operator):
-    bl_idname = "material.y_duplicate_yp_nodes"
+    bl_idname = "wm.y_duplicate_yp_nodes"
     bl_label = "Duplicate " + get_addon_title() + " Nodes"
     bl_description = get_addon_title() + " doesn't work with more than one user! Duplicate to make it single user"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2092,7 +2092,7 @@ def fix_missing_img(name, src, is_mask=False):
     src.image = img
 
 class YOptimizeNormalProcess(bpy.types.Operator):
-    bl_idname = "material.y_optimize_normal_process"
+    bl_idname = "wm.y_optimize_normal_process"
     bl_label = "Optimize Normal Process"
     bl_description = "Optimize normal process by not processing normal input when it's not connected"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2118,7 +2118,7 @@ class YOptimizeNormalProcess(bpy.types.Operator):
         return {'FINISHED'}
 
 class YFixMissingData(bpy.types.Operator):
-    bl_idname = "material.y_fix_missing_data"
+    bl_idname = "wm.y_fix_missing_data"
     bl_label = "Fix Missing Data"
     bl_description = "Fix missing image/vertex color data"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2246,7 +2246,7 @@ class YFixMissingData(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRefreshTangentSignVcol(bpy.types.Operator):
-    bl_idname = "material.y_refresh_tangent_sign_vcol"
+    bl_idname = "wm.y_refresh_tangent_sign_vcol"
     bl_label = "Refresh Tangent Sign Vertex Colors"
     bl_description = "Refresh Tangent Sign Vertex Colors to make it work in Blender 2.8"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2267,7 +2267,7 @@ class YRefreshTangentSignVcol(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveYPaintNode(bpy.types.Operator):
-    bl_idname = "material.y_remove_yp_node"
+    bl_idname = "wm.y_remove_yp_node"
     bl_label = "Remove " + get_addon_title() + " Node"
     bl_description = "Remove " + get_addon_title() + " node, but keep all baked channel image(s)"""
     bl_options = {'REGISTER', 'UNDO'}
@@ -2326,7 +2326,7 @@ class YRemoveYPaintNode(bpy.types.Operator):
         return {'FINISHED'}
 
 class YCleanYPCaches(bpy.types.Operator):
-    bl_idname = "material.y_clean_yp_caches"
+    bl_idname = "wm.y_clean_yp_caches"
     bl_label = "Clean " + get_addon_title() + " Caches"
     bl_description = "Clean " + get_addon_title() + " caches"""
     bl_options = {'REGISTER', 'UNDO'}

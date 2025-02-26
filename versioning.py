@@ -1349,7 +1349,7 @@ def update_node_tree_libs(name):
     print('INFO: ' + get_addon_title() + ' Node group libraries are checked in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 class YUpdateYPTrees(bpy.types.Operator):
-    bl_idname = "material.y_update_yp_trees"
+    bl_idname = "wm.y_update_yp_trees"
     bl_label = "Update " + get_addon_title() + " Node Groups"
     bl_description = "Update " + get_addon_title() + " node groups to newest version"
     bl_options = {'REGISTER', 'UNDO'}

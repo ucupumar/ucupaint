@@ -216,7 +216,7 @@ def replace_segment_with_image(yp, segment, image, uv_name=''):
     return entities
 
 #class YUVTransformTest(bpy.types.Operator):
-#    bl_idname = "material.y_uv_transform_test"
+#    bl_idname = "wm.y_uv_transform_test"
 #    bl_label = "UV Transform Test"
 #    bl_description = "UV Transform Test"
 #    bl_options = {'REGISTER', 'UNDO'}
@@ -285,7 +285,7 @@ def set_segment_mapping(entity, segment, image, use_baked=False):
             mapping.translation[1] = offset_y
 
 class YNewImageAtlasSegmentTest(bpy.types.Operator):
-    bl_idname = "material.y_new_image_atlas_segment_test"
+    bl_idname = "wm.y_new_image_atlas_segment_test"
     bl_label = "New Image Atlas Segment Test"
     bl_description = "New Image Atlas segment test"
     bl_options = {'REGISTER', 'UNDO'}
@@ -389,7 +389,7 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRefreshTransformedLayerUV(bpy.types.Operator):
-    bl_idname = "material.y_refresh_transformed_uv"
+    bl_idname = "wm.y_refresh_transformed_uv"
     bl_label = "Refresh Layer UV with Custom Transformation"
     bl_description = "Refresh layer UV with custom transformation"
     bl_options = {'REGISTER', 'UNDO'}
@@ -429,7 +429,7 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
         return {'FINISHED'}
 
 class YBackToOriginalUV(bpy.types.Operator):
-    bl_idname = "material.y_back_to_original_uv"
+    bl_idname = "wm.y_back_to_original_uv"
     bl_label = "Back to Original UV"
     bl_description = "Transformed UV detected, your changes will be lost if you edit on this UV.\nClick this button to go back to original UV"
     bl_options = {'REGISTER', 'UNDO'}
@@ -485,7 +485,7 @@ class YBackToOriginalUV(bpy.types.Operator):
         return {'FINISHED'}
 
 class YConvertToImageAtlas(bpy.types.Operator):
-    bl_idname = "material.y_convert_to_image_atlas"
+    bl_idname = "wm.y_convert_to_image_atlas"
     bl_label = "Convert Image to Image Atlas"
     bl_description = "Convert image to image atlas (useful to avoid material texture limit)"
     bl_options = {'REGISTER', 'UNDO'}
@@ -597,7 +597,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
         return {'FINISHED'}
 
 class YConvertToStandardImage(bpy.types.Operator):
-    bl_idname = "material.y_convert_to_standard_image"
+    bl_idname = "wm.y_convert_to_standard_image"
     bl_label = "Convert Image Atlas to standard image"
     bl_description = "Convert image atlas to standard image"
     bl_options = {'REGISTER', 'UNDO'}

@@ -25,7 +25,7 @@ def add_new_normalmap_modifier(ch, layer, modifier_type):
     check_modifier_nodes(m, tree)
 
 class YNewNormalmapModifier(bpy.types.Operator):
-    bl_idname = "material.y_new_normalmap_modifier"
+    bl_idname = "wm.y_new_normalmap_modifier"
     bl_label = "New Normal Map Modifier"
     bl_description = "New Normal Map Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -65,7 +65,7 @@ class YNewNormalmapModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveNormalMapModifier(bpy.types.Operator):
-    bl_idname = "material.y_move_normalmap_modifier"
+    bl_idname = "wm.y_move_normalmap_modifier"
     bl_label = "Move " + get_addon_title() + " Modifier"
     bl_description = "Move " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -133,7 +133,7 @@ class YMoveNormalMapModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveNormalMapModifier(bpy.types.Operator):
-    bl_idname = "material.y_remove_normalmap_modifier"
+    bl_idname = "wm.y_remove_normalmap_modifier"
     bl_label = "Remove " + get_addon_title() + " Modifier"
     bl_description = "Remove " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}

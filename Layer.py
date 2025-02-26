@@ -367,7 +367,7 @@ def add_new_layer(
 
 class YRefreshNeighborUV(bpy.types.Operator):
     """Refresh Neighbor UV"""
-    bl_idname = "material.y_refresh_neighbor_uv"
+    bl_idname = "wm.y_refresh_neighbor_uv"
     bl_label = "Refresh Neighbor UV"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -381,7 +381,7 @@ class YRefreshNeighborUV(bpy.types.Operator):
 
 class YUseLinearColorSpace(bpy.types.Operator):
     """This addon need to linear color space image to works properly"""
-    bl_idname = "material.y_use_linear_color_space"
+    bl_idname = "wm.y_use_linear_color_space"
     bl_label = "Use Linear Color Space"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -396,7 +396,7 @@ class YUseLinearColorSpace(bpy.types.Operator):
         return {'FINISHED'}
 
 class YNewVcolToOverrideChannel(bpy.types.Operator):
-    bl_idname = "material.y_new_vcol_to_override_channel"
+    bl_idname = "wm.y_new_vcol_to_override_channel"
     bl_label = "New Vertex Color To Override Channel Layer"
     bl_description = "New Vertex Color To Override Channel Layer"
     bl_options = {'UNDO'}
@@ -558,7 +558,7 @@ def update_channel_idx_new_layer(self, context):
         self.interpolation = 'Cubic'
 
 class YNewVDMLayer(bpy.types.Operator):
-    bl_idname = "material.y_new_vdm_layer"
+    bl_idname = "wm.y_new_vdm_layer"
     bl_label = "New VDM Layer"
     bl_description = "New Vector Displacement Layer"
     bl_options = {'UNDO'}
@@ -784,7 +784,7 @@ class YNewVDMLayer(bpy.types.Operator):
         return {'FINISHED'}
 
 class YNewLayer(bpy.types.Operator):
-    bl_idname = "material.y_new_layer"
+    bl_idname = "wm.y_new_layer"
     bl_label = "New Layer"
     bl_description = "New Layer"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1567,7 +1567,7 @@ class YNewLayer(bpy.types.Operator):
 
 class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
     """Open Image to Override Channel"""
-    bl_idname = "material.y_open_image_to_override_layer_channel"
+    bl_idname = "wm.y_open_image_to_override_layer_channel"
     bl_label = "Open Image to Override Channel Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1724,7 +1724,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
 
 class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
     """Open Image to Override 1 Channel"""
-    bl_idname = "material.y_open_image_to_override_1_layer_channel"
+    bl_idname = "wm.y_open_image_to_override_1_layer_channel"
     bl_label = "Open Image to Override 1 Channel Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -2387,7 +2387,7 @@ def search_for_images(tree):
     return images
 
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
-    bl_idname = "material.y_open_images_from_material_to_single_layer"
+    bl_idname = "wm.y_open_images_from_material_to_single_layer"
     bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
     bl_description = "Open images inside material node tree to single " + get_addon_title() + " layer"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2538,7 +2538,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         node = get_active_ypaint_node()
         quick_setup_happen = False
         if not node:
-            bpy.ops.material.y_quick_ypaint_node_setup()
+            bpy.ops.wm.y_quick_ypaint_node_setup()
             quick_setup_happen = True
 
         failed = False
@@ -2552,13 +2552,13 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
         if failed:
             if quick_setup_happen:
-                bpy.ops.material.y_remove_yp_node()
+                bpy.ops.wm.y_remove_yp_node()
             return {'CANCELLED'}
 
         return {'FINISHED'}
 
 class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
-    bl_idname = "material.y_open_images_to_single_layer"
+    bl_idname = "wm.y_open_images_to_single_layer"
     bl_label = "Open Images to single Layer"
     bl_description = "Open images to single layer"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2589,7 +2589,7 @@ class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleIma
 
 class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     """Open Image to Layer"""
-    bl_idname = "material.y_open_image_to_layer"
+    bl_idname = "wm.y_open_image_to_layer"
     bl_label = "Open Image to Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -2827,7 +2827,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
 class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
     """Open Available Data to Override 1 Channel Layer"""
-    bl_idname = "material.y_open_available_data_to_override_1_channel"
+    bl_idname = "wm.y_open_available_data_to_override_1_channel"
     bl_label = "Open Available Data to Override 1 Channel Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -2941,7 +2941,7 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
 
 class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
     """Open Available Data to Override Channel Layer"""
-    bl_idname = "material.y_open_available_data_to_override_channel"
+    bl_idname = "wm.y_open_available_data_to_override_channel"
     bl_label = "Open Available Data to Override Channel Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -3121,7 +3121,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
 
 class YOpenAvailableDataToLayer(bpy.types.Operator):
     """Open Available Data to Layer"""
-    bl_idname = "material.y_open_available_data_to_layer"
+    bl_idname = "wm.y_open_available_data_to_layer"
     bl_label = "Open Available Data to Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -3347,7 +3347,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveInOutLayerGroup(bpy.types.Operator):
-    bl_idname = "material.y_move_in_out_layer_group"
+    bl_idname = "wm.y_move_in_out_layer_group"
     bl_label = "Move In/Out Layer Group"
     bl_description = "Move in or out layer group"
     bl_options = {'REGISTER', 'UNDO'}
@@ -3481,7 +3481,7 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveLayer(bpy.types.Operator):
-    bl_idname = "material.y_move_layer"
+    bl_idname = "wm.y_move_layer"
     bl_label = "Move Layer"
     bl_description = "Move layer"
     bl_options = {'REGISTER', 'UNDO'}
@@ -3640,23 +3640,23 @@ class YMoveLayer(bpy.types.Operator):
 def draw_move_up_in_layer_group(self, context):
     col = self.layout.column()
 
-    c = col.operator("material.y_move_layer", text='Move Up (Skip Group)', icon='TRIA_UP')
+    c = col.operator("wm.y_move_layer", text='Move Up (Skip Group)', icon='TRIA_UP')
     c.direction = 'UP'
 
-    c = col.operator("material.y_move_in_out_layer_group", text='Move Inside Group', icon='TRIA_UP')
+    c = col.operator("wm.y_move_in_out_layer_group", text='Move Inside Group', icon='TRIA_UP')
     c.direction = 'UP'
 
 def draw_move_down_in_layer_group(self, context):
     col = self.layout.column()
 
-    c = col.operator("material.y_move_layer", text='Move Down (Skip Group)', icon='TRIA_DOWN')
+    c = col.operator("wm.y_move_layer", text='Move Down (Skip Group)', icon='TRIA_DOWN')
     c.direction = 'DOWN'
 
-    c = col.operator("material.y_move_in_out_layer_group", text='Move Inside Group', icon='TRIA_DOWN')
+    c = col.operator("wm.y_move_in_out_layer_group", text='Move Inside Group', icon='TRIA_DOWN')
     c.direction = 'DOWN'
 
 class YMoveInOutLayerGroupMenu(bpy.types.Operator):
-    bl_idname = "material.y_move_in_out_layer_group_menu"
+    bl_idname = "wm.y_move_in_out_layer_group_menu"
     bl_label = "Move In/Out Layer Group"
     bl_description = "Move inside or outside layer group"
     bl_options = {'UNDO'}
@@ -3682,7 +3682,7 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
         wm = bpy.context.window_manager
 
         if self.move_out:
-            bpy.ops.material.y_move_in_out_layer_group(direction=self.direction)
+            bpy.ops.wm.y_move_in_out_layer_group(direction=self.direction)
         else:
             if self.direction == 'UP':
                 wm.popup_menu(draw_move_up_in_layer_group, title="Options")
@@ -3782,11 +3782,11 @@ def remove_layer(yp, index, remove_on_disk=False):
 def draw_remove_group(self, context):
     col = self.layout.column()
 
-    c = col.operator("material.y_remove_layer", text='Remove parent only', icon='PANEL_CLOSE')
+    c = col.operator("wm.y_remove_layer", text='Remove parent only', icon='PANEL_CLOSE')
     c.remove_children = False
     c.remove_on_disk = False
 
-    c = col.operator("material.y_remove_layer", text='Remove parent with all of its children', icon='PANEL_CLOSE')
+    c = col.operator("wm.y_remove_layer", text='Remove parent with all of its children', icon='PANEL_CLOSE')
     c.remove_children = True
     c.remove_on_disk = False
 
@@ -3794,12 +3794,12 @@ def draw_remove_group(self, context):
         col.separator()
         col.alert = True
         col.label(text='Danger Zone', icon='ERROR')
-        c = col.operator("material.y_remove_layer", text='Remove parent with all of its children and files on disk (WARNING: NO PROMPT & NO UNDO!)', icon='PANEL_CLOSE')
+        c = col.operator("wm.y_remove_layer", text='Remove parent with all of its children and files on disk (WARNING: NO PROMPT & NO UNDO!)', icon='PANEL_CLOSE')
         c.remove_children = True
         c.remove_on_disk = True
 
 class YRemoveLayerMenu(bpy.types.Operator):
-    bl_idname = "material.y_remove_layer_menu"
+    bl_idname = "wm.y_remove_layer_menu"
     bl_label = "Remove Layer Menu"
     bl_description = "Remove Layer Menu"
     #bl_options = {'REGISTER', 'UNDO'}
@@ -3815,7 +3815,7 @@ class YRemoveLayerMenu(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveLayer(bpy.types.Operator):
-    bl_idname = "material.y_remove_layer"
+    bl_idname = "wm.y_remove_layer"
     bl_label = "Remove Layer"
     bl_description = "Remove Layer"
     bl_options = {'UNDO'}
@@ -4187,7 +4187,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     layer.expand_source = layer.type not in {'IMAGE', 'VCOL'} or (image != None and image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel)
 
 class YReplaceLayerChannelOverride(bpy.types.Operator):
-    bl_idname = "material.y_replace_layer_channel_override"
+    bl_idname = "wm.y_replace_layer_channel_override"
     bl_label = "Replace Layer Channel Override"
     bl_description = "Replace Layer Channel Override"
     bl_options = {'REGISTER', 'UNDO'}
@@ -4214,7 +4214,7 @@ class YReplaceLayerChannelOverride(bpy.types.Operator):
         return {'FINISHED'}
 
 class YReplaceLayerChannelOverride1(bpy.types.Operator):
-    bl_idname = "material.y_replace_layer_channel_override_1"
+    bl_idname = "wm.y_replace_layer_channel_override_1"
     bl_label = "Replace Layer Channel Normal Override"
     bl_description = "Replace Layer Channel Normal Override"
     bl_options = {'REGISTER', 'UNDO'}
@@ -4241,7 +4241,7 @@ class YReplaceLayerChannelOverride1(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveLayerChannelOverrideSource(bpy.types.Operator):
-    bl_idname = "material.y_remove_channel_override_source"
+    bl_idname = "wm.y_remove_channel_override_source"
     bl_label = "Replace Layer Channel Override Source"
     bl_description = "Replace Layer Channel Override Source"
     bl_options = {'REGISTER', 'UNDO'}
@@ -4261,7 +4261,7 @@ class YRemoveLayerChannelOverrideSource(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveLayerChannelOverride1Source(bpy.types.Operator):
-    bl_idname = "material.y_remove_channel_override_1_source"
+    bl_idname = "wm.y_remove_channel_override_1_source"
     bl_label = "Replace Layer Channel Normal Override Source"
     bl_description = "Replace Layer Channel Normal Override Source"
     bl_options = {'REGISTER', 'UNDO'}
@@ -4281,7 +4281,7 @@ class YRemoveLayerChannelOverride1Source(bpy.types.Operator):
         return {'FINISHED'}
 
 class YSetLayerChannelNormalBlendType(bpy.types.Operator):
-    bl_idname = "material.y_set_layer_channel_normal_blend_type"
+    bl_idname = "wm.y_set_layer_channel_normal_blend_type"
     bl_label = "Set Layer Channel Normal Blend Type"
     bl_description = "Set layer channel normal blend type"
     bl_options = {'UNDO'}
@@ -4305,7 +4305,7 @@ class YSetLayerChannelNormalBlendType(bpy.types.Operator):
         return {'FINISHED'}
 
 class YSetLayerChannelBlendType(bpy.types.Operator):
-    bl_idname = "material.y_set_layer_channel_blend_type"
+    bl_idname = "wm.y_set_layer_channel_blend_type"
     bl_label = "Set Layer Channel Blend Type"
     bl_description = "Set layer channel blend type"
     bl_options = {'UNDO'}
@@ -4329,7 +4329,7 @@ class YSetLayerChannelBlendType(bpy.types.Operator):
         return {'FINISHED'}
 
 class YSetLayerChannelInput(bpy.types.Operator):
-    bl_idname = "material.y_set_layer_channel_input"
+    bl_idname = "wm.y_set_layer_channel_input"
     bl_label = "Set Layer Channel Input"
     bl_description = "Set layer channel input"
     bl_options = {'UNDO'}
@@ -4381,7 +4381,7 @@ class YSetLayerChannelInput(bpy.types.Operator):
         return {'FINISHED'}
 
 class YReplaceLayerType(bpy.types.Operator):
-    bl_idname = "material.y_replace_layer_type"
+    bl_idname = "wm.y_replace_layer_type"
     bl_label = "Replace Layer Type"
     bl_description = "Replace Layer Type"
     bl_options = {'REGISTER', 'UNDO'}
@@ -4776,7 +4776,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
                     already_copied_ids.append(j)
 
 class YDuplicateLayer(bpy.types.Operator):
-    bl_idname = "material.y_duplicate_layer"
+    bl_idname = "wm.y_duplicate_layer"
     bl_label = "Duplicate layer"
     bl_description = "Duplicate Layer"
     bl_options = {'UNDO'}
@@ -4962,7 +4962,7 @@ class YDuplicateLayer(bpy.types.Operator):
         return {'FINISHED'}
 
 class YCopyLayer(bpy.types.Operator):
-    bl_idname = "material.y_copy_layer"
+    bl_idname = "wm.y_copy_layer"
     bl_label = "Copy Layer"
     bl_description = "Copy Layer"
     bl_options = {'REGISTER', 'UNDO'}
@@ -4991,7 +4991,7 @@ class YCopyLayer(bpy.types.Operator):
         return {'FINISHED'}
 
 class YPasteLayer(bpy.types.Operator):
-    bl_idname = "material.y_paste_layer"
+    bl_idname = "wm.y_paste_layer"
     bl_label = "Paste Layer"
     bl_description = "Paste Layer"
     bl_options = {'UNDO'}
@@ -5230,7 +5230,7 @@ class YPasteLayer(bpy.types.Operator):
         return {'FINISHED'}
 
 class YSelectDecalObject(bpy.types.Operator):
-    bl_idname = "material.y_select_decal_object"
+    bl_idname = "wm.y_select_decal_object"
     bl_label = "Select Decal Object"
     bl_description = "Select Decal Object"
     bl_options = {'REGISTER', 'UNDO'}
@@ -5268,7 +5268,7 @@ class YSelectDecalObject(bpy.types.Operator):
         return {'FINISHED'}
 
 class YSetDecalObjectPositionToCursor(bpy.types.Operator):
-    bl_idname = "material.y_set_decal_object_position_to_sursor"
+    bl_idname = "wm.y_set_decal_object_position_to_sursor"
     bl_label = "Set Decal Position to Cursor"
     bl_description = "Set the position of the decal object to the 3D cursor"
     bl_options = {'REGISTER', 'UNDO'}

@@ -127,7 +127,7 @@ def show_transition(self, context, ttype):
 
 class YShowTransitionBump(bpy.types.Operator):
     """Use transition bump (This will affect other channels)"""
-    bl_idname = "material.y_show_transition_bump"
+    bl_idname = "wm.y_show_transition_bump"
     bl_label = "Show Transition Bump"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -140,7 +140,7 @@ class YShowTransitionBump(bpy.types.Operator):
 
 class YShowTransitionRamp(bpy.types.Operator):
     """Use transition ramp (Works best if there's transition bump enabled on other channel)"""
-    bl_idname = "material.y_show_transition_ramp"
+    bl_idname = "wm.y_show_transition_ramp"
     bl_label = "Show Transition Ramp"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -153,7 +153,7 @@ class YShowTransitionRamp(bpy.types.Operator):
 
 class YShowTransitionAO(bpy.types.Operator):
     """Use transition AO (Only works if there's transition bump enabled on other channel)"""
-    bl_idname = "material.y_show_transition_ao"
+    bl_idname = "wm.y_show_transition_ao"
     bl_label = "Show Transition AO"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -166,7 +166,7 @@ class YShowTransitionAO(bpy.types.Operator):
 
 class YHideTransitionEffect(bpy.types.Operator):
     """Remove transition Effect"""
-    bl_idname = "material.y_hide_transition_effect"
+    bl_idname = "wm.y_hide_transition_effect"
     bl_label = "Hide Transition Effect"
     bl_options = {'REGISTER', 'UNDO'}
 
