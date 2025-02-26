@@ -117,13 +117,12 @@ def check_yp_channel_nodes(yp, reconnect=False):
         reconnect_yp_nodes(yp.id_data)
         rearrange_yp_nodes(yp.id_data)
 
-def create_new_group_tree(mat):
+def create_new_group_tree(mat, name=None):
 
     #ypup = bpy.context.user_preferences.addons[__name__].preferences
 
-    # Group name is based from the material
-    #group_name = mat.name + YP_GROUP_SUFFIX
-    group_name = YP_GROUP_PREFIX + mat.name
+    # Group name is based on material unless specified
+    group_name = name or YP_GROUP_PREFIX + mat.name
 
     # Create new group tree
     group_tree = bpy.data.node_groups.new(group_name, 'ShaderNodeTree')
@@ -428,6 +427,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     bl_description = "Quick " + get_addon_title() + " Node Setup"
     bl_options = {'REGISTER', 'UNDO'}
 
+    tree_name : StringProperty(
+        name = 'Tree Name'
+    )
+
     type : EnumProperty(
         name = 'Type',
         items = (
@@ -481,6 +484,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         valid_bsdf_types = ['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']
 
+        # Set the tree name
+        mat = get_active_material()
+        self.tree_name = YP_GROUP_PREFIX + (mat.name if mat else obj.name)
+
         # Get target bsdf
         self.target_bsdf_name = ''
         output = get_material_output(mat)
@@ -515,6 +522,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         row = split_layout(self.layout, 0.35)
 
         col = row.column()
+        col.label(text='Tree Name:')
         col.label(text='Type:')
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
@@ -527,6 +535,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ccol.label(text='')
 
         col = row.column()
+        col.prop(self, 'tree_name', text='')
         col.prop(self, 'type', text='')
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
@@ -556,7 +565,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         mat = get_active_material()
 
         if not mat:
-            mat = bpy.data.materials.new(obj.name)
+            mat = bpy.data.materials.new(self.tree_name)
             mat.use_nodes = True
 
             if len(obj.material_slots) > 0:
@@ -598,7 +607,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         loc = Vector((0, 0))
 
         # Create new group node
-        group_tree = create_new_group_tree(mat)
+        group_tree = create_new_group_tree(mat, self.tree_name)
         node = nodes.new(type='ShaderNodeGroup')
         node.node_tree = group_tree
         node.select = True
