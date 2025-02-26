@@ -431,6 +431,12 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         name = 'Tree Name'
     )
 
+    set_material_name_to_tree_name : BoolProperty(
+        name = 'Set Material Name to Tree Name',
+        description = 'Set material name to tree name',
+        default = False
+    )
+
     type : EnumProperty(
         name = 'Type',
         items = (
@@ -535,7 +541,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ccol.label(text='')
 
         col = row.column()
-        col.prop(self, 'tree_name', text='')
+        rrow = col.row(align=True)
+        rrow.prop(self, 'tree_name', text='')
+        rrow.prop(self, 'set_material_name_to_tree_name', text='', icon='MATERIAL')
         col.prop(self, 'type', text='')
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
@@ -565,7 +573,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         mat = get_active_material()
 
         if not mat:
-            mat = bpy.data.materials.new(self.tree_name)
+            material_name = self.tree_name if self.set_material_name_to_tree_name else obj.name
+            mat = bpy.data.materials.new(material_name)
             mat.use_nodes = True
 
             if len(obj.material_slots) > 0:
@@ -577,6 +586,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             # Remove default nodes
             for n in mat.node_tree.nodes:
                 mat.node_tree.nodes.remove(n)
+        elif self.set_material_name_to_tree_name:
+            mat.name = self.tree_name
 
         if not mat.node_tree:
             mat.use_nodes = True
@@ -1819,6 +1830,7 @@ class YRenameYPaintTree(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     name : StringProperty(name='New Name', description='New Name', default='')
+    rename_active_material : BoolProperty(name='Also Rename Active Material', description='Also rename active material', default=False)
 
     @classmethod
     def poll(cls, context):
@@ -1832,12 +1844,17 @@ class YRenameYPaintTree(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
-        self.layout.prop(self, 'name')
+        row = self.layout.row(align=True)
+        row.prop(self, 'name')
+        row.prop(self, 'rename_active_material', text='', icon='MATERIAL')
 
     def execute(self, context):
         node = get_active_ypaint_node()
         tree = node.node_tree
         tree.name = self.name
+        if self.rename_active_material:
+            mat = get_active_material()
+            mat.name = self.name
         return {'FINISHED'}
 
 class YChangeActiveYPaintNode(bpy.types.Operator):
