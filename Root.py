@@ -1828,6 +1828,7 @@ class YRenameYPaintTree(bpy.types.Operator):
     bl_label = "Rename " + get_addon_title() + " Tree"
     bl_description = "Rename " + get_addon_title() + " Tree"
     bl_options = {'REGISTER', 'UNDO'}
+    bl_property = 'name'
 
     name : StringProperty(name='New Name', description='New Name', default='')
     rename_active_material : BoolProperty(name='Also Rename Active Material', description='Also rename active material', default=False)
