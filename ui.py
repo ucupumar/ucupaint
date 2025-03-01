@@ -5448,15 +5448,16 @@ class YNewLayerMenu(bpy.types.Menu):
         c.target_type = 'LAYER'
         c.overwrite_current = False
 
-        c = col.operator("wm.y_bake_to_layer", text='Bevel Normal')
-        c.type = 'BEVEL_NORMAL'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
+        if is_bl_newer_than(2, 80):
+            c = col.operator("wm.y_bake_to_layer", text='Bevel Normal')
+            c.type = 'BEVEL_NORMAL'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
 
-        c = col.operator("wm.y_bake_to_layer", text='Bevel Grayscale')
-        c.type = 'BEVEL_MASK'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
+            c = col.operator("wm.y_bake_to_layer", text='Bevel Grayscale')
+            c.type = 'BEVEL_MASK'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
 
         # NOTE: Blender 2.76 does not bake to object space normal correctly
         if is_bl_newer_than(2, 77):

@@ -431,9 +431,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         name = 'Tree Name'
     )
 
-    set_material_name_to_tree_name : BoolProperty(
-        name = 'Set Material Name to Tree Name',
-        description = 'Set material name to tree name',
+    set_material_name_from_tree_name : BoolProperty(
+        name = 'Also Set Material Name',
+        description = 'Also set material name from tree name',
         default = False
     )
 
@@ -529,6 +529,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         col = row.column()
         col.label(text='Tree Name:')
+        col.separator()
         col.label(text='Type:')
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
@@ -543,7 +544,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         col = row.column()
         rrow = col.row(align=True)
         rrow.prop(self, 'tree_name', text='')
-        rrow.prop(self, 'set_material_name_to_tree_name', text='', icon='MATERIAL')
+        rrow.prop(self, 'set_material_name_from_tree_name', text='', icon='MATERIAL_DATA')
+        col.separator()
         col.prop(self, 'type', text='')
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
@@ -573,7 +575,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         mat = get_active_material()
 
         if not mat:
-            material_name = self.tree_name if self.set_material_name_to_tree_name else obj.name
+            material_name = self.tree_name if self.set_material_name_from_tree_name else obj.name
             mat = bpy.data.materials.new(material_name)
             mat.use_nodes = True
 
@@ -586,7 +588,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             # Remove default nodes
             for n in mat.node_tree.nodes:
                 mat.node_tree.nodes.remove(n)
-        elif self.set_material_name_to_tree_name:
+        elif self.set_material_name_from_tree_name:
             mat.name = self.tree_name
 
         if not mat.node_tree:
@@ -1908,8 +1910,6 @@ def duplicate_mat(mat, new_name=None):
 
         # Duplicate material
         new_mat = mat.copy()
-        if new_name:
-            new_mat.name = new_name
 
         # Set back yp tree to original nodes
         for node_name, tree in yp_trees.items():
@@ -1922,10 +1922,13 @@ def duplicate_mat(mat, new_name=None):
         # Remove temporary trees
         for temp_tree in reversed(temp_trees):
             remove_datablock(bpy.data.node_groups, temp_tree)
+    else:
+        new_mat = mat.copy()
 
-        return new_mat
+    if new_name:
+        new_mat.name = new_name
 
-    return mat.copy()
+    return new_mat
 
 class YDuplicateYPNodes(bpy.types.Operator):
     bl_idname = "wm.y_duplicate_yp_nodes"
@@ -1933,9 +1936,15 @@ class YDuplicateYPNodes(bpy.types.Operator):
     bl_description = get_addon_title() + " doesn't work with more than one user! Duplicate to make it single user"
     bl_options = {'REGISTER', 'UNDO'}
 
-    new_name: StringProperty(
+    new_name : StringProperty(
         name = 'New Name',
-        description = 'New name for material and tree',
+        description = 'New name for duplicated tree',
+    )
+
+    set_material_name_from_tree_name : BoolProperty(
+        name = 'Also Set Material Name',
+        description = 'Also set duplicated material name from duplicated tree name',
+        default = False
     )
 
     duplicate_node : BoolProperty(
@@ -1977,7 +1986,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
         group_node = get_active_ypaint_node()
         yp = group_node.node_tree.yp
 
-        self.new_name = group_node.node_tree.name
+        self.new_name = get_unique_name(group_node.node_tree.name, bpy.data.node_groups)
 
         self.any_ondisk_image = False
 
@@ -1996,13 +2005,16 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         col = row.column()
         col.label(text='New Name:')
+
         col.label(text='')
         if self.any_ondisk_image:
             col.label(text='')
 
         col = row.column()
-        col.prop(self, 'new_name', text='')
-        col.separator()
+        row = col.row(align=True)
+        row.prop(self, 'new_name', text='')
+        row.prop(self, 'set_material_name_from_tree_name', text='', icon='MATERIAL_DATA')
+
         col.prop(self, 'only_active', text='Only Active Object')
         if self.any_ondisk_image:
             col.prop(self, 'ondisk_duplicate')
@@ -2016,8 +2028,11 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         if self.duplicate_material:
 
+            # Get new material name
+            new_mat_name = self.new_name if self.set_material_name_from_tree_name else get_unique_name(mat.name, bpy.data.materials)
+
             # Duplicate the material
-            dup_mat = duplicate_mat(mat, self.new_name)
+            dup_mat = duplicate_mat(mat, new_mat_name)
             for obj in objs:
                 for i, m in enumerate(obj.data.materials):
                     if m == mat:
