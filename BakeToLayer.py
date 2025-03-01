@@ -172,24 +172,24 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     yp = node.node_tree.yp
     scene = bpy.context.scene
     obj = bpy.context.object
-    channel_idx = int(bprops['channel_idx']) if 'channel_idx' in bprops and len(yp.channels) > 0 else -1
+    channel_idx = int(bprops.channel_idx) if 'channel_idx' in bprops and len(yp.channels) > 0 else -1
 
     rdict = {}
     rdict['message'] = ''
 
-    if bprops['type'] == 'SELECTED_VERTICES' and obj.mode != 'EDIT':
+    if bprops.type == 'SELECTED_VERTICES' and obj.mode != 'EDIT':
         rdict['message'] = "Should be in edit mode!"
         return rdict
 
-    if bprops['target_type'] == 'MASK' and len(yp.layers) == 0:
+    if bprops.target_type == 'MASK' and len(yp.layers) == 0:
         rdict['message'] = "Mask need active layer!"
         return rdict
 
-    if bprops['type'] in {'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
+    if bprops.type in {'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
         rdict['message'] = "Blender 2.80+ is needed to use this feature!"
         return rdict
 
-    if bprops['type'] in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_bl_newer_than(2, 80):
+    if bprops.type in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_bl_newer_than(2, 80):
         rdict['message'] = "Blender 2.80+ is needed to use this feature!"
         return rdict
 
@@ -197,14 +197,14 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         rdict['message'] = "Please unhide render and viewport of active object!"
         return rdict
 
-    if bprops['type'] == 'FLOW' and (bprops['uv_map'] == '' or bprops['uv_map_1'] == '' or bprops['uv_map'] == bprops['uv_map_1']):
+    if bprops.type == 'FLOW' and (bprops.uv_map == '' or bprops.uv_map_1 == '' or bprops.uv_map == bprops.uv_map_1):
         rdict['message'] = "UVMap and Straight UVMap cannot be the same or empty!"
         return rdict
 
     # Get cage object
     cage_object = None
-    if bprops['type'].startswith('OTHER_OBJECT_') and bprops['cage_object_name'] != '':
-        cage_object = bpy.data.objects.get(bprops['cage_object_name'])
+    if bprops.type.startswith('OTHER_OBJECT_') and bprops.cage_object_name != '':
+        cage_object = bpy.data.objects.get(bprops.cage_object_name)
         if cage_object:
 
             if any([mod for mod in cage_object.modifiers if mod.type not in {'ARMATURE'}]) or any([mod for mod in obj.modifiers if mod.type not in {'ARMATURE'}]):
@@ -215,19 +215,18 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 rdict['message'] = "Invalid cage object, the cage mesh must have the same number of faces as the active object!"
                 return rdict
 
+    objs = [obj]
     if mat.users > 1:
         objs, meshes = get_bakeable_objects_and_meshes(mat, cage_object)
-    else:
-        objs = [obj]
 
     # Count multires objects
     multires_count = 0
-    if bprops['type'].startswith('MULTIRES_'):
+    if bprops.type.startswith('MULTIRES_'):
         for ob in objs:
             if get_multires_modifier(ob):
                 multires_count += 1
 
-    if not objs or (bprops['type'].startswith('MULTIRES_') and multires_count == 0):
+    if not objs or (bprops.type.startswith('MULTIRES_') and multires_count == 0):
         rdict['message'] = "No valid objects found to bake!"
         return rdict
 
@@ -240,7 +239,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     # Get other objects for other object baking
     other_objs = []
     
-    if bprops['type'].startswith('OTHER_OBJECT_'):
+    if bprops.type.startswith('OTHER_OBJECT_'):
 
         # Get other objects based on selected objects with different material
         for o in bpy.context.selected_objects:
@@ -270,7 +269,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         if o and o not in other_objs:
                             other_objs.append(o)
 
-        if bprops['type'] == 'OTHER_OBJECT_CHANNELS':
+        if bprops.type == 'OTHER_OBJECT_CHANNELS':
             ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_channels(yp, other_objs)
 
         if not other_objs:
@@ -283,34 +282,34 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     # Get tile numbers
     tilenums = [1001]
-    if bprops['use_udim']:
-        tilenums = UDIM.get_tile_numbers(objs, bprops['uv_map'])
+    if bprops.use_udim:
+        tilenums = UDIM.get_tile_numbers(objs, bprops.uv_map)
 
     # Remember things
     book = remember_before_bake(yp, mat=mat)
 
     # FXAA doesn't work with hdr image
     # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
-    use_fxaa = not bprops['hdr'] and bprops['fxaa'] and not bprops['type'].startswith('OTHER_OBJECT_')
+    use_fxaa = not bprops.hdr and bprops.fxaa and not bprops.type.startswith('OTHER_OBJECT_')
 
     # For now SSAA only works with other object baking
-    use_ssaa = bprops['ssaa'] and bprops['type'].startswith('OTHER_OBJECT_')
+    use_ssaa = bprops.ssaa and bprops.type.startswith('OTHER_OBJECT_')
 
     # Denoising only available for AO bake for now
-    use_denoise = bprops['denoise'] and bprops['type'] in {'AO', 'BEVEL_MASK'} and is_bl_newer_than(2, 81)
+    use_denoise = bprops.denoise and bprops.type in {'AO', 'BEVEL_MASK'} and is_bl_newer_than(2, 81)
 
     # SSAA will multiply size by 2 then resize it back
     if use_ssaa:
-        width = bprops['width'] * 2
-        height = bprops['height'] * 2
+        width = bprops.width * 2
+        height = bprops.height * 2
     else:
-        width = bprops['width']
-        height = bprops['height']
+        width = bprops.width
+        height = bprops.height
 
     # If use baked disp, need to bake normal and height map first
     subdiv_setup_changes = False
     height_root_ch = get_root_height_channel(yp)
-    if height_root_ch and bprops['use_baked_disp'] and not bprops['type'].startswith('MULTIRES_'):
+    if height_root_ch and bprops.use_baked_disp and not bprops.type.startswith('MULTIRES_'):
 
         if not height_root_ch.enable_subdiv_setup:
             height_root_ch.enable_subdiv_setup = True
@@ -320,21 +319,21 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     temp_objs = []
 
     # Sometimes Cavity bake will create temporary objects
-    if (bprops['type'] == 'CAVITY' and (bprops['subsurf_influence'] or bprops['use_baked_disp'])):
+    if (bprops.type == 'CAVITY' and (bprops.subsurf_influence or bprops.use_baked_disp)):
 
         # NOTE: Baking cavity with subdiv setup can only happen if there's only one object and no UDIM
-        if is_bl_newer_than(4, 2) and len(objs) == 1 and not bprops['use_udim'] and height_root_ch and height_root_ch.enable_subdiv_setup:
+        if is_bl_newer_than(4, 2) and len(objs) == 1 and not bprops.use_udim and height_root_ch and height_root_ch.enable_subdiv_setup:
 
             # Check if there's VDM layer
             vdm_layer = get_first_vdm_layer(yp)
-            vdm_uv_name = vdm_layer.uv_name if vdm_layer else bprops['uv_map']
+            vdm_uv_name = vdm_layer.uv_name if vdm_layer else bprops.uv_map
 
             # Get baked combined vdm image
-            combined_vdm_image = vector_displacement.get_combined_vdm_image(objs[0], vdm_uv_name, width=bprops['width'], height=bprops['height'])
+            combined_vdm_image = vector_displacement.get_combined_vdm_image(objs[0], vdm_uv_name, width=bprops.width, height=bprops.height)
 
             # Bake tangent and bitangent
             # NOTE: Only bake the first object tangent since baking combined mesh can cause memory leak at the moment
-            tanimage, bitimage = vector_displacement.get_tangent_bitangent_images(objs[0], bprops['uv_map'])
+            tanimage, bitimage = vector_displacement.get_tangent_bitangent_images(objs[0], bprops.uv_map)
 
             # Duplicate object
             objs = temp_objs = [get_merged_mesh_objects(scene, objs, True, disable_problematic_modifiers=False)]
@@ -342,7 +341,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             # Use VDM loader geometry nodes
             # NOTE: Geometry nodes currently does not support UDIM, so using UDIM will cause wrong bake result
             set_active_object(objs[0])
-            vdm_loader = vector_displacement_lib.get_vdm_loader_geotree(bprops['uv_map'], combined_vdm_image, tanimage, bitimage, 1.0)
+            vdm_loader = vector_displacement_lib.get_vdm_loader_geotree(bprops.uv_map, combined_vdm_image, tanimage, bitimage, 1.0)
             bpy.ops.object.modifier_add(type='NODES')
             geomod = objs[0].modifiers[-1]
             geomod.node_group = vdm_loader
@@ -356,7 +355,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             objs = temp_objs = get_duplicated_mesh_objects(scene, objs, True)
 
     # Join objects then extend with other objects
-    elif bprops['type'].startswith('OTHER_OBJECT_'):
+    elif bprops.type.startswith('OTHER_OBJECT_'):
         if len(objs) > 1:
             objs = [get_merged_mesh_objects(scene, objs)]
             temp_objs = objs.copy()
@@ -364,12 +363,12 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         objs.extend(other_objs)
 
     # Join objects if the number of objects is higher than one
-    elif not bprops['type'].startswith('MULTIRES_') and len(objs) > 1 and not is_join_objects_problematic(yp):
+    elif not bprops.type.startswith('MULTIRES_') and len(objs) > 1 and not is_join_objects_problematic(yp):
         objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
 
     fill_mode = 'FACE'
     obj_vertex_indices = {}
-    if bprops['type'] == 'SELECTED_VERTICES':
+    if bprops.type == 'SELECTED_VERTICES':
         if bpy.context.tool_settings.mesh_select_mode[0] or bpy.context.tool_settings.mesh_select_mode[1]:
             fill_mode = 'VERTEX'
 
@@ -419,27 +418,27 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             if alpha_outp: break
 
     # Prepare bake settings
-    if bprops['type'] == 'AO':
+    if bprops.type == 'AO':
         if alpha_outp:
             # If there's alpha channel use standard AO bake, which has lesser quality denoising
             bake_type = 'AO'
         else: 
             # When there is no alpha channel use combined render bake, which has better denoising
             bake_type = 'COMBINED'
-    elif bprops['type'] == 'MULTIRES_NORMAL':
+    elif bprops.type == 'MULTIRES_NORMAL':
         bake_type = 'NORMALS'
-    elif bprops['type'] == 'MULTIRES_DISPLACEMENT':
+    elif bprops.type == 'MULTIRES_DISPLACEMENT':
         bake_type = 'DISPLACEMENT'
-    elif bprops['type'] in {'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
+    elif bprops.type in {'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
         bake_type = 'NORMAL'
     else: 
         bake_type = 'EMIT'
 
     # If use only local, hide other objects
-    hide_other_objs = bprops['type'] != 'AO' or bprops['only_local']
+    hide_other_objs = bprops.type != 'AO' or bprops.only_local
 
     # Fit tilesize to bake resolution if samples is equal 1
-    if bprops['samples'] <= 1:
+    if bprops.samples <= 1:
         tile_x = width
         tile_y = height
     else:
@@ -447,34 +446,34 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         tile_y = 256
 
     # Cage object only used for other object baking
-    cage_object_name = bprops['cage_object_name'] if bprops['type'].startswith('OTHER_OBJECT_') else ''
+    cage_object_name = bprops.cage_object_name if bprops.type.startswith('OTHER_OBJECT_') else ''
 
     prepare_bake_settings(
-        book, objs, yp, samples=bprops['samples'], margin=bprops['margin'], 
-        uv_map=bprops['uv_map'], bake_type=bake_type, #disable_problematic_modifiers=True, 
-        bake_device=bprops['bake_device'], hide_other_objs=hide_other_objs, 
-        bake_from_multires=bprops['type'].startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
-        use_selected_to_active=bprops['type'].startswith('OTHER_OBJECT_'),
-        max_ray_distance=bprops['max_ray_distance'], cage_extrusion=bprops['cage_extrusion'],
-        source_objs=other_objs, use_denoising=False, margin_type=bprops['margin_type'],
+        book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
+        uv_map=bprops.uv_map, bake_type=bake_type, #disable_problematic_modifiers=True, 
+        bake_device=bprops.bake_device, hide_other_objs=hide_other_objs, 
+        bake_from_multires=bprops.type.startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
+        use_selected_to_active=bprops.type.startswith('OTHER_OBJECT_'),
+        max_ray_distance=bprops.max_ray_distance, cage_extrusion=bprops.cage_extrusion,
+        source_objs=other_objs, use_denoising=False, margin_type=bprops.margin_type,
         cage_object_name = cage_object_name,
-        normal_space = 'OBJECT' if bprops['type'] == 'OBJECT_SPACE_NORMAL' else 'TANGENT'
+        normal_space = 'OBJECT' if bprops.type == 'OBJECT_SPACE_NORMAL' else 'TANGENT'
     )
     # Set multires level
     #ori_multires_levels = {}
-    if bprops['type'].startswith('MULTIRES_'): #or bprops['type'] == 'AO':
+    if bprops.type.startswith('MULTIRES_'): #or bprops.type == 'AO':
         for ob in objs:
             mod = get_multires_modifier(ob)
 
             #mod.render_levels = mod.total_levels
-            if mod and bprops['type'].startswith('MULTIRES_'):
-                mod.render_levels = bprops['multires_base']
-                mod.levels = bprops['multires_base']
+            if mod and bprops.type.startswith('MULTIRES_'):
+                mod.render_levels = bprops.multires_base
+                mod.levels = bprops.multires_base
 
             #ori_multires_levels[ob.name] = mod.render_levels
 
     # Setup for cavity
-    if bprops['type'] == 'CAVITY':
+    if bprops.type == 'CAVITY':
 
         tt = time.time()
         print('BAKE TO LAYER: Applying subsurf/multires for Cavity bake...')
@@ -484,7 +483,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
             set_active_object(ob)
 
-            if bprops['subsurf_influence'] or bprops['use_baked_disp']:
+            if bprops.subsurf_influence or bprops.use_baked_disp:
                 need_to_be_applied_modifiers = []
                 for m in ob.modifiers:
                     if m.type in {'SUBSURF', 'MULTIRES'} and m.levels > 0 and m.show_viewport:
@@ -521,18 +520,18 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         print('BAKE TO LAYER: Applying subsurf/multires is done in', '{:0.2f}'.format(time.time() - tt), 'seconds!')
 
     # Setup for flow
-    if bprops['type'] == 'FLOW':
+    if bprops.type == 'FLOW':
         bpy.ops.object.mode_set(mode = 'OBJECT')
         for ob in objs:
             uv_layers = get_uv_layers(ob)
-            main_uv = uv_layers.get(bprops['uv_map'])
-            straight_uv = uv_layers.get(bprops['uv_map_1'])
+            main_uv = uv_layers.get(bprops.uv_map)
+            straight_uv = uv_layers.get(bprops.uv_map_1)
 
             if main_uv and straight_uv:
                 flow_vcol = get_flow_vcol(ob, main_uv, straight_uv)
 
     # Flip normals setup
-    if bprops['flip_normals']:
+    if bprops.flip_normals:
         #ori_mode[obj.name] = obj.mode
         if is_bl_newer_than(2, 80):
             # Deselect other objects first
@@ -564,14 +563,14 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     ori_multires_levels = {}
 
     # Do not disable modifiers for surface based bake types
-    disable_problematic_modifiers = bprops['type'] not in {'CAVITY', 'POINTINESS', 'BEVEL_NORMAL', 'BEVEL_MASK'}
+    disable_problematic_modifiers = bprops.type not in {'CAVITY', 'POINTINESS', 'BEVEL_NORMAL', 'BEVEL_MASK'}
 
     for ob in objs:
 
         # Disable few modifiers
         ori_mods[ob.name] = [m.show_render for m in ob.modifiers]
         ori_viewport_mods[ob.name] = [m.show_viewport for m in ob.modifiers]
-        if bprops['type'].startswith('MULTIRES_'):
+        if bprops.type.startswith('MULTIRES_'):
             mul = get_multires_modifier(ob)
             multires_index = 99
             if mul:
@@ -587,7 +586,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         ori_mat_ids[ob.name] = []
         ori_loop_locs[ob.name] = []
 
-        if bprops['subsurf_influence'] and not bprops['use_baked_disp'] and not bprops['type'].startswith('MULTIRES_'):
+        if bprops.subsurf_influence and not bprops.use_baked_disp and not bprops.type.startswith('MULTIRES_'):
             for m in ob.modifiers:
                 if m.type == 'MULTIRES':
                     ori_multires_levels[ob.name] = m.render_levels
@@ -600,12 +599,12 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             else: continue
 
             uv_layers = get_uv_layers(ob)
-            uvl = uv_layers.get(bprops['uv_map'])
+            uvl = uv_layers.get(bprops.uv_map)
 
             for p in ob.data.polygons:
 
                 # Set uv location to (0,0) if not using current material
-                if uvl and not bprops['force_bake_all_polygons']:
+                if uvl and not bprops.force_bake_all_polygons:
                     uv_locs = []
                     for li in p.loop_indices:
                         uv_locs.append(uvl.data[li].uv.copy())
@@ -625,11 +624,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     geometry = None
     vector_math = None
     vector_math_1 = None
-    if bprops['type'] == 'BEVEL_NORMAL':
+    if bprops.type == 'BEVEL_NORMAL':
         #bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
         normal_bake = mat.node_tree.nodes.new('ShaderNodeGroup')
         normal_bake.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
-    elif bprops['type'] == 'BEVEL_MASK':
+    elif bprops.type == 'BEVEL_MASK':
         geometry = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
         vector_math = mat.node_tree.nodes.new('ShaderNodeVectorMath')
         vector_math.operation = 'CROSS_PRODUCT'
@@ -641,7 +640,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     output = get_active_mat_output_node(mat.node_tree)
     ori_bsdf = output.inputs[0].links[0].from_socket
 
-    if bprops['type'] == 'AO':
+    if bprops.type == 'AO':
         # If there's alpha channel use standard AO bake, which has lesser quality denoising
         if alpha_outp:
             src = None
@@ -650,13 +649,13 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 scene.cycles.use_fast_gi = True
 
             if scene.world:
-                scene.world.light_settings.distance = bprops['ao_distance']
+                scene.world.light_settings.distance = bprops.ao_distance
         # When there is no alpha channel use combined render bake, which has better denoising
         else:
             src = mat.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
 
             if 'Distance' in src.inputs:
-                src.inputs['Distance'].default_value = bprops['ao_distance']
+                src.inputs['Distance'].default_value = bprops.ao_distance
 
             # Links
             if not is_bl_newer_than(2, 80):
@@ -665,14 +664,14 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 mat.node_tree.links.new(src.outputs['AO'], bsdf.inputs[0])
                 mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-    elif bprops['type'] == 'POINTINESS':
+    elif bprops.type == 'POINTINESS':
         src = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
 
         # Links
         mat.node_tree.links.new(src.outputs['Pointiness'], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-    elif bprops['type'] == 'CAVITY':
+    elif bprops.type == 'CAVITY':
         src = mat.node_tree.nodes.new('ShaderNodeGroup')
         src.node_tree = get_node_tree_lib(lib.CAVITY)
 
@@ -683,36 +682,36 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-    elif bprops['type'] == 'DUST':
+    elif bprops.type == 'DUST':
         src = mat.node_tree.nodes.new('ShaderNodeGroup')
         src.node_tree = get_node_tree_lib(lib.DUST)
 
         mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-    elif bprops['type'] == 'PAINT_BASE':
+    elif bprops.type == 'PAINT_BASE':
         src = mat.node_tree.nodes.new('ShaderNodeGroup')
         src.node_tree = get_node_tree_lib(lib.PAINT_BASE)
 
         mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-    elif bprops['type'] == 'BEVEL_NORMAL':
+    elif bprops.type == 'BEVEL_NORMAL':
         src = mat.node_tree.nodes.new('ShaderNodeBevel')
 
-        src.samples = bprops['bevel_samples']
-        src.inputs[0].default_value = bprops['bevel_radius']
+        src.samples = bprops.bevel_samples
+        src.inputs[0].default_value = bprops.bevel_radius
 
         #mat.node_tree.links.new(src.outputs[0], bsdf.inputs['Normal'])
         mat.node_tree.links.new(src.outputs[0], normal_bake.inputs[0])
         mat.node_tree.links.new(normal_bake.outputs[0], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-    elif bprops['type'] == 'BEVEL_MASK':
+    elif bprops.type == 'BEVEL_MASK':
         src = mat.node_tree.nodes.new('ShaderNodeBevel')
 
-        src.samples = bprops['bevel_samples']
-        src.inputs[0].default_value = bprops['bevel_radius']
+        src.samples = bprops.bevel_samples
+        src.inputs[0].default_value = bprops.bevel_radius
 
         mat.node_tree.links.new(geometry.outputs['Normal'], vector_math.inputs[0])
         mat.node_tree.links.new(src.outputs[0], vector_math.inputs[1])
@@ -724,7 +723,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             mat.node_tree.links.new(vector_math.outputs[1], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-    elif bprops['type'] == 'SELECTED_VERTICES':
+    elif bprops.type == 'SELECTED_VERTICES':
         if is_bl_newer_than(2, 80):
             src = mat.node_tree.nodes.new('ShaderNodeVertexColor')
             src.layer_name = TEMP_VCOL
@@ -734,7 +733,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-    elif bprops['type'] == 'FLOW':
+    elif bprops.type == 'FLOW':
         # Set vcol
         src = mat.node_tree.nodes.new('ShaderNodeAttribute')
         src.attribute_name = FLOW_VCOL
@@ -754,7 +753,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     ori_from_nodes = {}
     ori_from_sockets = {}
 
-    if bprops['type'] == 'OTHER_OBJECT_CHANNELS':
+    if bprops.type == 'OTHER_OBJECT_CHANNELS':
         ch_ids = [i for i, coo in enumerate(ch_other_objects) if len(coo) > 0]
 
         # Get all other materials
@@ -793,10 +792,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     for idx in ch_ids:
 
         # Image name and colorspace
-        image_name = bprops['name']
+        image_name = bprops.name
         colorspace = get_srgb_name()
 
-        if bprops['type'] == 'OTHER_OBJECT_CHANNELS':
+        if bprops.type == 'OTHER_OBJECT_CHANNELS':
 
             root_ch = yp.channels[idx]
             image_name += ' ' + yp.channels[idx].name
@@ -844,37 +843,37 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
             colorspace = get_noncolor_name() if root_ch.colorspace == 'LINEAR' else get_srgb_name()
 
-        elif bprops['type'] in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
+        elif bprops.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
             colorspace = get_noncolor_name()
 
         # Using float image will always make the image linear/non-color
-        if bprops['hdr']:
+        if bprops.hdr:
             colorspace = get_noncolor_name() 
 
         # Base color of baked image
-        if bprops['type'] == 'AO':
+        if bprops.type == 'AO':
             color = [1.0, 1.0, 1.0, 1.0] 
-        elif bprops['type'] in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
-            if bprops['hdr']:
+        elif bprops.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
+            if bprops.hdr:
                 color = [0.7354, 0.7354, 1.0, 1.0]
             else:
                 color = [0.5, 0.5, 1.0, 1.0] 
-        elif bprops['type'] == 'FLOW':
+        elif bprops.type == 'FLOW':
             color = [0.5, 0.5, 0.0, 1.0]
         else:
-            if bprops['hdr']:
+            if bprops.hdr:
                 color = [0.7354, 0.7354, 0.7354, 1.0]
             else: color = [0.5, 0.5, 0.5, 1.0]
 
         # Make image transparent if its baked from other objects
-        if bprops['type'].startswith('OTHER_OBJECT_'):
+        if bprops.type.startswith('OTHER_OBJECT_'):
             color[3] = 0.0
 
         # New target image
-        if bprops['use_udim']:
+        if bprops.use_udim:
             image = bpy.data.images.new(
                 name=image_name, width=width, height=height, 
-                alpha=True, float_buffer=bprops['hdr'], tiled=True
+                alpha=True, float_buffer=bprops.hdr, tiled=True
             )
 
             # Fill tiles
@@ -887,7 +886,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         else:
             image = bpy.data.images.new(
                 name=image_name, width=width, height=height,
-                alpha=True, float_buffer=bprops['hdr']
+                alpha=True, float_buffer=bprops.hdr
             )
 
         image.generated_color = color
@@ -919,7 +918,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
         # Bake!
         try:
-            if bprops['type'].startswith('MULTIRES_'):
+            if bprops.type.startswith('MULTIRES_'):
                 bpy.ops.object.bake_image()
             else:
                 if bake_type != 'EMIT':
@@ -928,12 +927,12 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         except Exception as e:
 
             # Try to use CPU if GPU baking is failed
-            if bprops['bake_device'] == 'GPU':
+            if bprops.bake_device == 'GPU':
                 print('EXCEPTIION: GPU baking failed! Trying to use CPU...')
-                bprops['bake_device'] = 'CPU'
+                bprops.bake_device = 'CPU'
                 scene.cycles.device = 'CPU'
 
-                if bprops['type'].startswith('MULTIRES_'):
+                if bprops.type.startswith('MULTIRES_'):
                     bpy.ops.object.bake_image()
                 else:
                     if bake_type != 'EMIT':
@@ -942,13 +941,13 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             else:
                 print('EXCEPTIION:', e)
 
-        if use_fxaa: fxaa_image(image, False, bake_device=bprops['bake_device'])
+        if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
 
         # Bake other object alpha
-        if bprops['type'] in {'OTHER_OBJECT_NORMAL', 'OTHER_OBJECT_CHANNELS'}:
+        if bprops.type in {'OTHER_OBJECT_NORMAL', 'OTHER_OBJECT_CHANNELS'}:
             
             alpha_found = False
-            if bprops['type'] == 'OTHER_OBJECT_CHANNELS':
+            if bprops.type == 'OTHER_OBJECT_CHANNELS':
 
                 # Set emission connection
                 for j, m in enumerate(ch_other_mats[idx]):
@@ -1000,11 +999,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         UDIM.swap_tile(temp_img, 1001, tilenum)
 
                     # Copy alpha to RGB channel, so it can be fxaa-ed
-                    if bprops['type'] == 'OTHER_OBJECT_NORMAL':
+                    if bprops.type == 'OTHER_OBJECT_NORMAL':
                         copy_image_channel_pixels(temp_img, temp_img, 3, 0)
 
                     # FXAA alpha
-                    fxaa_image(temp_img, False, bprops['bake_device'], first_tile_only=True)
+                    fxaa_image(temp_img, False, bprops.bake_device, first_tile_only=True)
 
                     # Copy alpha to actual image
                     copy_image_channel_pixels(temp_img, image, 0, 3)
@@ -1020,8 +1019,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         # Back to original size if using SSA
         if use_ssaa:
             image, temp_segment = resize_image(
-                image, bprops['width'], bprops['height'], image.colorspace_settings.name,
-                alpha_aware=True, bake_device=bprops['bake_device']
+                image, bprops.width, bprops.height, image.colorspace_settings.name,
+                alpha_aware=True, bake_device=bprops.bake_device
             )
 
         # Denoise AO image
@@ -1030,33 +1029,33 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
         new_segment_created = False
 
-        if bprops['use_image_atlas']:
+        if bprops.use_image_atlas:
 
             need_to_create_new_segment = False
             if segment:
                 ia_image = segment.id_data
-                if bprops['use_udim']:
-                    need_to_create_new_segment = ia_image.is_float != bprops['hdr']
+                if bprops.use_udim:
+                    need_to_create_new_segment = ia_image.is_float != bprops.hdr
                     if need_to_create_new_segment:
                         UDIM.remove_udim_atlas_segment_by_name(ia_image, segment.name, yp)
                 else:
-                    need_to_create_new_segment = bprops['width'] != segment.width or bprops['height'] != segment.height or ia_image.is_float != bprops['hdr']
+                    need_to_create_new_segment = bprops.width != segment.width or bprops.height != segment.height or ia_image.is_float != bprops.hdr
                     if need_to_create_new_segment:
                         segment.unused = True
 
             if not segment or need_to_create_new_segment:
 
-                if bprops['use_udim']:
+                if bprops.use_udim:
                     segment = UDIM.get_set_udim_atlas_segment(
-                        tilenums, color=(0, 0, 0, 0), colorspace=get_srgb_name(), hdr=bprops['hdr'], yp=yp
+                        tilenums, color=(0, 0, 0, 0), colorspace=get_srgb_name(), hdr=bprops.hdr, yp=yp
                     )
                 else:
                     # Clearing unused image atlas segments
-                    img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', bprops['width'], bprops['height'], bprops['hdr'])
+                    img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', bprops.width, bprops.height, bprops.hdr)
                     if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
                     segment = ImageAtlas.get_set_image_atlas_segment(
-                        bprops['width'], bprops['height'], 'TRANSPARENT', bprops['hdr'], yp=yp
+                        bprops.width, bprops.height, 'TRANSPARENT', bprops.hdr, yp=yp
                     )
 
                 new_segment_created = True
@@ -1064,7 +1063,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             ia_image = segment.id_data
 
             # Set baked image to segment
-            if bprops['use_udim']:
+            if bprops.use_udim:
                 offset = get_udim_segment_mapping_offset(segment) * 10
                 copy_dict = {}
                 for tilenum in tilenums:
@@ -1087,10 +1086,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 active_id = yp.active_layer_index
 
                 if overwrite_img != image:
-                    if segment and not bprops['use_image_atlas']:
+                    if segment and not bprops.use_image_atlas:
                         entities = ImageAtlas.replace_segment_with_image(yp, segment, image)
                         segment = None
-                    else: entities = replace_image(overwrite_img, image, yp, bprops['uv_map'])
+                    else: entities = replace_image(overwrite_img, image, yp, bprops.uv_map)
                 elif segment: entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
                 else: entities = get_entities_with_specific_image(yp, image)
 
@@ -1099,10 +1098,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         ent.segment_name = segment.name
                         ImageAtlas.set_segment_mapping(ent, segment, image)
 
-                    if ent.uv_name != bprops['uv_map']:
-                        ent.uv_name = bprops['uv_map']
+                    if ent.uv_name != bprops.uv_map:
+                        ent.uv_name = bprops.uv_map
 
-                if bprops['target_type'] == 'LAYER':
+                if bprops.target_type == 'LAYER':
                     layer_ids = [i for i, l in enumerate(yp.layers) if l in entities]
                     if entities and yp.active_layer_index not in layer_ids:
                         active_id = layer_ids[0]
@@ -1113,7 +1112,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     # Refresh Neighbor UV resolution
                     set_uv_neighbor_resolution(yp.layers[active_id])
 
-                elif bprops['target_type'] == 'MASK':
+                elif bprops.target_type == 'MASK':
                     masks = []
                     for l in yp.layers:
                         masks.extend([m for m in l.masks if m in entities])
@@ -1126,22 +1125,22 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         # Refresh Neighbor UV resolution
                         set_uv_neighbor_resolution(masks[0])
 
-            elif bprops['target_type'] == 'LAYER':
+            elif bprops.target_type == 'LAYER':
 
-                layer_name = image.name if not bprops['use_image_atlas'] else bprops['name']
+                layer_name = image.name if not bprops.use_image_atlas else bprops.name
 
-                if bprops['use_image_atlas']:
+                if bprops.use_image_atlas:
                     layer_name = get_unique_name(layer_name, yp.layers)
 
                 yp.halt_update = True
                 layer = Layer.add_new_layer(
                     group_tree=node.node_tree, layer_name=layer_name,
                     layer_type='IMAGE', channel_idx=channel_idx,
-                    blend_type=bprops['blend_type'], normal_blend_type=bprops['normal_blend_type'],
+                    blend_type=bprops.blend_type, normal_blend_type=bprops.normal_blend_type,
                     normal_map_type=bprops['normal_map_type'], texcoord_type='UV',
-                    uv_name=bprops['uv_map'], image=image, vcol=None, segment=segment,
-                    interpolation = bprops['interpolation'],
-                    normal_space = 'OBJECT' if bprops['type'] == 'OBJECT_SPACE_NORMAL' else 'TANGENT'
+                    uv_name=bprops.uv_map, image=image, vcol=None, segment=segment,
+                    interpolation = bprops.interpolation,
+                    normal_space = 'OBJECT' if bprops.type == 'OBJECT_SPACE_NORMAL' else 'TANGENT'
                 )
                 yp.halt_update = False
                 active_id = yp.active_layer_index
@@ -1159,13 +1158,13 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             else:
                 active_layer = yp.layers[yp.active_layer_index]
 
-                mask_name = image.name if not bprops['use_image_atlas'] else bprops['name']
+                mask_name = image.name if not bprops.use_image_atlas else bprops.name
 
-                if bprops['use_image_atlas']:
+                if bprops.use_image_atlas:
                     mask_name = get_unique_name(mask_name, active_layer.masks)
 
                 mask = Mask.add_new_mask(
-                    active_layer, mask_name, 'IMAGE', 'UV', bprops['uv_map'],
+                    active_layer, mask_name, 'IMAGE', 'UV', bprops.uv_map,
                     image, None, segment
                 )
                 mask.active_edit = True
@@ -1216,7 +1215,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 
             # Set image to source
             source.image = image
-            source.interpolation = bprops['interpolation']
+            source.interpolation = bprops.interpolation
 
             # Remove image if it's not used anymore
             if old_image: safe_remove_image(old_image)
@@ -1225,7 +1224,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         bi = segment.bake_info if segment else image.y_bake_info
 
         if not bi.is_baked: bi.is_baked = True
-        if bi.bake_type != bprops['type']: bi.bake_type = bprops['type']
+        if bi.bake_type != bprops.type: bi.bake_type = bprops.type
         for attr in dir(bi):
             if attr.startswith('__'): continue
             if attr.startswith('bl_'): continue
@@ -1256,7 +1255,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 if ooo not in other_objs:
                     bi.other_objects.remove(i)
 
-        if bprops['type'] == 'SELECTED_VERTICES':
+        if bprops.type == 'SELECTED_VERTICES':
             #fill_mode = 'FACE'
             #obj_vertex_indices = {}
             bi.selected_face_mode = True if fill_mode == 'FACE' else False
@@ -1278,7 +1277,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     bvi.index = vi
 
     # Recover other yps
-    if bprops['type'] == 'OTHER_OBJECT_CHANNELS':
+    if bprops.type == 'OTHER_OBJECT_CHANNELS':
         for m in all_other_mats:
             # Set back original socket
             mout = get_material_output(m)
@@ -1335,7 +1334,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
             # Get uv map
             uv_layers = get_uv_layers(ob)
-            uvl = uv_layers.get(bprops['uv_map'])
+            uvl = uv_layers.get(bprops.uv_map)
 
             # Recover uv locations
             if uvl:
@@ -1350,7 +1349,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             if vcol: vcols.remove(vcol)
 
     # Recover flip normals setup
-    if bprops['flip_normals']:
+    if bprops.flip_normals:
         #bpy.ops.object.mode_set(mode = 'EDIT')
         #bpy.ops.mesh.flip_normals()
         #bpy.ops.mesh.select_all(action='DESELECT')
@@ -1382,7 +1381,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         height_root_ch.enable_subdiv_setup = not height_root_ch.enable_subdiv_setup
 
     # Remove flow vcols
-    if bprops['type'] == 'FLOW':
+    if bprops.type == 'FLOW':
         for ob in objs:
             vcols = get_vertex_colors(ob)
             flow_vcol = vcols.get(FLOW_VCOL)
@@ -1415,6 +1414,62 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     rdict['image'] = image
 
     return rdict
+
+def get_bake_properties_from_self(self):
+
+    bprops = dotdict()
+
+    # NOTE: Getting props from keys doesn't work
+    #for prop in self.properties.keys():
+    #    try: bprops[prop] = getattr(self, prop)
+    #    except Exception as e: print(e)
+
+    props = [
+        'bake_device',
+        'samples',
+        'margin',
+        'margin_type',
+        'width',
+        'height',
+        'image_resolution',
+        'use_custom_resolution',
+        'name',
+        'uv_map',
+        'uv_map_1',
+        'interpolation',
+        'type',
+        'cage_object_name',
+        'cage_extrusion',
+        'max_ray_distance',
+        'ao_distance',
+        'bevel_samples',
+        'bevel_radius',
+        'multires_base',
+        'target_type',
+        'fxaa',
+        'ssaa',
+        'denoise',
+        'channel_idx',
+        'blend_type',
+        'normal_blend_type',
+        'normal_map_type',
+        'hdr',
+        'use_baked_disp',
+        'flip_normals',
+        'only_local',
+        'subsurf_influence',
+        'force_bake_all_polygons',
+        'use_image_atlas',
+        'use_udim',
+        'blur',
+        'blur_factor'
+    ]
+
+    for prop in props:
+        if hasattr(self, prop):
+            bprops[prop] = getattr(self, prop)
+
+    return bprops
 
 class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_to_layer"
@@ -2070,52 +2125,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             elif overwrite_img.yua.is_udim_atlas:
                 segment = overwrite_img.yua.segments.get(self.overwrite_segment_name)
 
-        bprops = {}
-        #for prop in self.properties.keys():
-        #    try: bprops[prop] = getattr(self, prop)
-        #    except Exception as e: print(e)
 
-        bprops['bake_device'] = self.bake_device
-        bprops['samples'] = self.samples
-        bprops['margin'] = self.margin
-        bprops['margin_type'] = self.margin_type
-        bprops['width'] = self.width
-        bprops['height'] = self.height
-        bprops['image_resolution'] = self.image_resolution
-        bprops['use_custom_resolution'] = self.use_custom_resolution
-        bprops['name'] = self.name
-        bprops['uv_map'] = self.uv_map
-        bprops['uv_map_1'] = self.uv_map_1
-        bprops['interpolation'] = self.interpolation
-        #bprops['overwrite_choice'] = self.overwrite_choice
-        #bprops['overwrite_current'] = self.overwrite_current
-        #bprops['overwrite_name'] = self.overwrite_name
-        #bprops['overwrite_image_name'] = self.overwrite_image_name
-        #bprops['overwrite_segment_name'] = self.overwrite_segment_name
-        bprops['type'] = self.type
-        bprops['cage_object_name'] = self.cage_object_name
-        bprops['cage_extrusion'] = self.cage_extrusion
-        bprops['max_ray_distance'] = self.max_ray_distance
-        bprops['ao_distance'] = self.ao_distance
-        bprops['bevel_samples'] = self.bevel_samples
-        bprops['bevel_radius'] = self.bevel_radius
-        bprops['multires_base'] = self.multires_base
-        bprops['target_type'] = self.target_type
-        bprops['fxaa'] = self.fxaa
-        bprops['ssaa'] = self.ssaa
-        bprops['denoise'] = self.denoise
-        bprops['channel_idx'] = self.channel_idx
-        bprops['blend_type'] = self.blend_type
-        bprops['normal_blend_type'] = self.normal_blend_type
-        bprops['normal_map_type'] = self.normal_map_type
-        bprops['hdr'] = self.hdr
-        bprops['use_baked_disp'] = self.use_baked_disp
-        bprops['flip_normals'] = self.flip_normals
-        bprops['only_local'] = self.only_local
-        bprops['subsurf_influence'] = self.subsurf_influence
-        bprops['force_bake_all_polygons'] = self.force_bake_all_polygons
-        bprops['use_image_atlas'] = self.use_image_atlas
-        bprops['use_udim'] = self.use_udim
+        # Get bake properties
+        bprops = get_bake_properties_from_self(self)
 
         rdict = bake_to_entity(bprops, overwrite_img, segment)
 
@@ -2144,77 +2156,56 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         return {'FINISHED'}
 
-class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "wm.y_rebake_baked_images"
-    bl_label = "Rebake All Baked Images"
-    bl_description = "Rebake all of the baked images in all layers"
-    bl_options = {'REGISTER'}
+def put_image_to_image_atlas(yp, image, tilenums=[]):
 
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node() and context.object.type == 'MESH'
-    
-    def execute(self, context): 
-        T = time.time()
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+    if image.source == 'TILED':
+        segment = UDIM.get_set_udim_atlas_segment(
+            tilenums, color=(0, 0, 0, 1), colorspace=get_noncolor_name(), hdr=image.is_float, yp=yp
+        )
+    else:
+        # Clearing unused image atlas segments
+        img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', image.size[0], image.size[1], image.is_float)
+        if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
-        entities, images, segment_names, _ = get_yp_entities_images_and_segments(yp)
+        segment = ImageAtlas.get_set_image_atlas_segment(
+            image.size[0], image.size[1], 'BLACK', image.is_float, yp=yp
+        )
 
-        for i, image in enumerate(images):
+    ia_image = segment.id_data
 
-            if image.yia.is_image_atlas:
-                segment = image.yia.segments.get(segment_names[i])
-            elif image.yua.is_udim_atlas: 
-                segment = image.yua.segments.get(segment_names[i])
-            else: segment = None
+    # Set baked image to segment
+    if image.source == 'TILED':
+        offset = get_udim_segment_mapping_offset(segment) * 10
+        copy_dict = {}
+        for tilenum in tilenums:
+            copy_dict[tilenum] = tilenum + offset
+        UDIM.copy_tiles(image, ia_image, copy_dict)
+    else: copy_image_pixels(image, ia_image, segment)
 
-            if ((segment and segment.bake_info.is_baked and not segment.bake_info.is_baked_channel) or 
-                (not segment and image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel)
-                ):
+    # Remove original baked image
+    remove_datablock(bpy.data.images, image)
 
-                bi = image.y_bake_info if not segment else segment.bake_info
+    return ia_image, segment
 
-                # Skip outdated bake type
-                if bi.bake_type == 'SELECTED_VERTICES':
-                    continue
+def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
-                entity = entities[i][0]
-                entity_path = entity.path_from_id()
-
-                m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity_path)
-                m2 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity_path)
-
-                bake_properties = {}
-                for attr in dir(bi):
-                    if attr.startswith('__'): continue
-                    if attr.startswith('bl_'): continue
-                    if attr in {'rna_type'}: continue
-                    try: bake_properties[attr] = getattr(bi, attr)
-                    except: pass
-
-                bake_properties.update({
-                    'type': bi.bake_type,
-                    'target_type': 'LAYER' if m1 or m2 else 'MASK',
-                    'name': image.name,
-                    'width': image.size[0] if not segment else segment.width,
-                    'height': image.size[1] if not segment else segment.height,
-                    'uv_map': entity.uv_name
-                })
-
-                bake_to_entity(bprops=bake_properties, overwrite_img=image, segment=segment)
-
-        print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
-        return {'FINISHED'}
-
-def bake_as_image(
-        objs, mat, entity, name, width=1024, height=1024, hdr=False,
-        samples=1, margin=5, uv_name='', bake_device='CPU', 
-        use_udim=False, tilenums=[1001], fxaa=True, blur=False, blur_factor=0.5,
-        denoise=False, disable_modifiers=True, margin_type='ADJACENT_FACES'
-    ):
+    rdict = {}
+    rdict['message'] = ''
 
     yp = entity.id_data.yp
+    mat = get_active_material()
+    objs = [bpy.context.object]
+    if mat.users > 1:
+        objs, _ = get_bakeable_objects_and_meshes(mat)
+
+    if not objs:
+        rdict['message'] = "No valid objects found to bake!"
+        return rdict
+
+    # Get tile numbers
+    tilenums = [1001]
+    if bprops.use_udim:
+        tilenums = UDIM.get_tile_numbers(objs, bprops.uv_map)
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
@@ -2222,6 +2213,7 @@ def bake_as_image(
     ori_use_baked = False
     ori_enabled_mods = []
     #ori_enable_blur = False
+    modifiers_disabled = False
     if m1: 
         layer = yp.layers[int(m1.group(1))]
         mask = None
@@ -2234,24 +2226,26 @@ def bake_as_image(
             ori_use_baked = True
             mask.use_baked = False
 
-        # Disable modifiers
-        if disable_modifiers:
+        # Setting image to entity will disable modifiers
+        if set_image_to_entity:
             for mod in mask.modifiers:
                 if mod.enable:
                     ori_enabled_mods.append(mod)
                     mod.enable = False
+            modifiers_disabled = True
             #ori_enable_blur = mask.enable_blur_vector
             #mask.enable_blur_vector = False
 
     else: 
-        return None
+        rdict['message'] = "Wrong entity!"
+        return rdict
 
     # Remember things
     book = remember_before_bake(yp)
 
     # FXAA doesn't work with hdr image
     # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
-    use_fxaa = not hdr and fxaa
+    use_fxaa = not bprops.hdr and bprops.fxaa
 
     # Preview setup
     ori_channel_index = yp.active_channel_index
@@ -2293,9 +2287,9 @@ def bake_as_image(
             m.show_render = False
 
     prepare_bake_settings(
-        book, objs, yp, samples=samples, margin=margin, 
-        uv_map=uv_name, bake_type='EMIT', bake_device=bake_device, 
-        margin_type = margin_type
+        book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
+        uv_map=bprops.uv_map, bake_type='EMIT', bake_device=bprops.bake_device, 
+        margin_type = bprops.margin_type
     )
 
     # Create bake nodes
@@ -2311,23 +2305,23 @@ def bake_as_image(
         colorspace = get_srgb_name()
 
     # Create image
-    if use_udim:
+    if bprops.use_udim:
         image = bpy.data.images.new(
-            name=name, width=width, height=height,
-            alpha=True, float_buffer=hdr, tiled=True
+            name=bprops.name, width=bprops.width, height=bprops.height,
+            alpha=True, float_buffer=bprops.hdr, tiled=True
         )
 
         # Fill tiles
         for tilenum in tilenums:
-            UDIM.fill_tile(image, tilenum, color, width, height)
+            UDIM.fill_tile(image, tilenum, color, bprops.width, bprops.height)
         UDIM.initial_pack_udim(image, color)
 
         # Remember base color
         image.yia.color = color_str
     else:
         image = bpy.data.images.new(
-            name=name, width=width, height=height,
-            alpha=True, float_buffer=hdr
+            name=bprops.name, width=bprops.width, height=bprops.height,
+            alpha=True, float_buffer=bprops.hdr
         )
 
     image.generated_color = color
@@ -2340,12 +2334,12 @@ def bake_as_image(
     # Bake!
     bpy.ops.object.bake()
 
-    if blur: 
+    if bprops.blur: 
         samples = 4096 if is_bl_newer_than(3) else 128
-        blur_image(image, False, bake_device=bake_device, factor=blur_factor, samples=samples)
-    if denoise:
+        blur_image(image, False, bake_device=bprops.bake_device, factor=bprops.blur_factor, samples=samples)
+    if bprops.denoise:
         denoise_image(image)
-    if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
+    if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
 
     # Remove temp bake nodes
     simple_remove_node(mat.node_tree, tex, remove_data=False)
@@ -2374,7 +2368,7 @@ def bake_as_image(
     if yp.layer_preview_mode_type != ori_layer_preview_mode_type:
         yp.layer_preview_mode_type = ori_layer_preview_mode_type
 
-    if disable_modifiers:
+    if modifiers_disabled:
         for mod in ori_enabled_mods:
             mod.enable = True
 
@@ -2384,7 +2378,101 @@ def bake_as_image(
     if mask and ori_use_baked:
         mask.use_baked = True
 
-    return image
+    # Set up image atlas segment
+    segment = None
+    if bprops.use_image_atlas:
+        image, segment = put_image_to_image_atlas(yp, image, tilenums)
+
+    if set_image_to_entity:
+
+        if mask:
+            yp.halt_update = True
+
+            mask_tree = get_mask_tree(mask)
+
+            baked_source = mask_tree.nodes.get(mask.baked_source)
+            if baked_source:
+                overwrite_image = baked_source.image
+                overwrite_image_name = overwrite_image.name
+
+                # Remove old segment
+                if mask.baked_segment_name != '':
+                    if overwrite_image.yia.is_image_atlas:
+                        old_segment = overwrite_image.yia.segments.get(mask.baked_segment_name)
+                        old_segment.unused = True
+                    elif overwrite_image.yua.is_udim_atlas:
+                        UDIM.remove_udim_atlas_segment_by_name(overwrite_image, mask.baked_segment_name, yp=yp)
+
+                # Remove node first to also remove its data
+                remove_node(mask_tree, mask, 'baked_source')
+
+                # Rename image if it's not image atlas
+                if mask.baked_segment_name == '' and overwrite_image_name == bprops.name:
+                    image.name = bprops.name
+
+                # Remove baked segment name since the data is removed
+                if mask.baked_segment_name != '':
+                    entity.baked_segment_name = ''
+
+            # Set bake info to image/segment
+            bi = segment.bake_info if segment else image.y_bake_info
+
+            bi.is_baked = True
+            for attr in dir(bi):
+                if attr.startswith('__'): continue
+                if attr.startswith('bl_'): continue
+                if attr in {'rna_type'}: continue
+                try: setattr(bi, attr, bprops[attr])
+                except: pass
+
+            # Create new node
+            baked_source = new_node(mask_tree, mask, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
+
+            # Set image to baked node
+            baked_source.image = image
+
+            # Set mask props
+            mask.baked_uv_name = bprops.uv_map
+            mask.use_baked = True
+
+            yp.halt_update = False
+
+        else:
+            # TODO: Bake layer as image(s)
+            pass
+
+        if m1 or m2:
+
+            layer_tree = get_tree(layer)
+
+            if segment:
+                # Set up baked mapping
+                mapping = check_new_node(layer_tree, entity, 'baked_mapping', 'ShaderNodeMapping', 'Baked Mapping')
+                clear_mapping(entity, use_baked=True)
+                ImageAtlas.set_segment_mapping(entity, segment, image, use_baked=True)
+
+                # Set baked segment name to entity
+                entity.baked_segment_name = segment.name
+            else:
+                remove_node(layer_tree, entity, 'baked_mapping')
+
+            # Refresh uv
+            refresh_temp_uv(bpy.context.object, entity)
+
+            # Refresh Neighbor UV resolution
+            set_uv_neighbor_resolution(entity)
+
+            # Update global uv
+            check_uv_nodes(yp)
+
+            # Update layer tree inputs
+            check_all_layer_channel_io_and_nodes(layer)
+            check_start_end_root_ch_nodes(yp.id_data)
+
+    rdict['image'] = image
+    rdict['segment'] = segment
+
+    return rdict
 
 class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_entity_to_image"
@@ -2660,45 +2748,6 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         col.prop(self, 'use_image_atlas')
 
-    def get_image_atlas_segment(self, context):
-        yp = self.yp
-
-        segment = None
-
-        # Create new segment
-        if self.use_image_atlas:
-
-            if self.use_udim:
-                segment = UDIM.get_set_udim_atlas_segment(
-                    self.tilenums, color=(0, 0, 0, 1), colorspace=get_noncolor_name(), hdr=self.hdr, yp=yp
-                )
-            else:
-                # Clearing unused image atlas segments
-                img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)
-                if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
-
-                segment = ImageAtlas.get_set_image_atlas_segment(
-                    self.width, self.height, 'BLACK', self.hdr, yp=yp
-                )
-
-            ia_image = segment.id_data
-
-            # Set baked image to segment
-            if self.use_udim:
-                offset = get_udim_segment_mapping_offset(segment) * 10
-                copy_dict = {}
-                for tilenum in self.tilenums:
-                    copy_dict[tilenum] = tilenum + offset
-                UDIM.copy_tiles(self.image, ia_image, copy_dict)
-            else: copy_image_pixels(self.image, ia_image, segment)
-            temp_img = self.image
-            self.image = ia_image
-
-            # Remove original baked image
-            remove_datablock(bpy.data.images, temp_img)
-
-        return segment
-
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
 
@@ -2715,56 +2764,28 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             return {'CANCELLED'}
 
         T = time.time()
-        mat = get_active_material()
         node = get_active_ypaint_node()
         self.yp = yp = node.node_tree.yp
         tree = node.node_tree
         layer_tree = get_tree(self.layer)
 
-        objs = [context.object]
-        meshes = [context.object.data]
-
-        if mat.users > 1:
-            for ob in get_scene_objects():
-                if ob.type != 'MESH': continue
-                if hasattr(ob, 'hide_viewport') and ob.hide_viewport: continue
-                if len(get_uv_layers(ob)) == 0: continue
-                if len(ob.data.polygons) == 0: continue
-
-                # Do not bake objects with hide_render on
-                if ob.hide_render: continue
-                if not in_renderable_layer_collection(ob): continue
-
-                for i, m in enumerate(ob.data.materials):
-                    if m == mat:
-                        ob.active_material_index = i
-                        if ob not in objs and ob.data not in meshes:
-                            objs.append(ob)
-                            meshes.append(ob.data)
-
-        if not objs:
-            self.report({'ERROR'}, "No valid objects found to bake!")
-            return {'CANCELLED'}
-
         # Entity checking
         entity = self.mask if self.mask else self.layer
 
-        # Get tile numbers
-        self.tilenums = [1001]
-        if self.use_udim:
-            self.tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
+        # Get bake properties
+        bprops = get_bake_properties_from_self(self)
 
-        self.image = bake_as_image(
-            objs, mat, entity, self.name, width=self.width, height=self.height, hdr=self.hdr, 
-            samples=self.samples, margin=self.margin, uv_name=self.uv_map, bake_device=self.bake_device, 
-            use_udim=self.use_udim, tilenums=self.tilenums, fxaa=self.fxaa,
-            blur=self.blur, blur_factor=self.blur_factor, denoise=self.denoise,
-            disable_modifiers=not self.duplicate_entity, margin_type=self.margin_type
-        )
+        # Bake entity to image
+        rdict = bake_entity_as_image(entity, bprops, set_image_to_entity=not self.duplicate_entity)
 
-        # Get segment
-        segment = self.get_image_atlas_segment(context)
+        if rdict['message'] != '':
+            self.report({'ERROR'}, rdict['message'])
+            return {'CANCELLED'}
 
+        image = rdict['image']
+        segment = rdict['segment']
+
+        # Duplicate entity
         if self.duplicate_entity:
 
             if self.mask:
@@ -2774,10 +2795,10 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                     self.mask.enable = False
 
                 # New entity name
-                new_entity_name = get_unique_name(self.name, self.entities) if self.use_image_atlas else self.image.name
+                new_entity_name = get_unique_name(self.name, self.entities) if self.use_image_atlas else image.name
 
                 # Create new mask
-                mask = Mask.add_new_mask(self.layer, new_entity_name, 'IMAGE', 'UV', self.uv_map, self.image, None, segment)
+                mask = Mask.add_new_mask(self.layer, new_entity_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
 
                 # Set mask properties
                 mask.intensity_value = self.mask.intensity_value
@@ -2792,7 +2813,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                 mask = self.layer.masks[self.index+1]
 
                 if segment:
-                    ImageAtlas.set_segment_mapping(mask, segment, self.image)
+                    ImageAtlas.set_segment_mapping(mask, segment, image)
                     mask.segment_name = segment.name
 
                 # Refresh uv
@@ -2807,88 +2828,6 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             else:
                 # TODO: Duplicate layer as image(s)
                 pass
-        else:
-            if self.mask:
-                yp.halt_update = True
-
-                mask = self.mask
-                mask_tree = get_mask_tree(mask)
-
-                baked_source = mask_tree.nodes.get(mask.baked_source)
-                if baked_source:
-                    overwrite_image = baked_source.image
-                    overwrite_image_name = overwrite_image.name
-
-                    # Remove old segment
-                    if mask.baked_segment_name != '':
-                        if overwrite_image.yia.is_image_atlas:
-                            old_segment = overwrite_image.yia.segments.get(mask.baked_segment_name)
-                            old_segment.unused = True
-                        elif overwrite_image.yua.is_udim_atlas:
-                            UDIM.remove_udim_atlas_segment_by_name(overwrite_image, mask.baked_segment_name, yp=yp)
-
-                    # Remove node first to also remove its data
-                    remove_node(mask_tree, mask, 'baked_source')
-
-                    # Rename image if it's not image atlas
-                    if mask.baked_segment_name == '' and overwrite_image_name == self.name:
-                        self.image.name = self.name
-
-                    # Remove baked segment name since the data is removed
-                    if mask.baked_segment_name != '':
-                        entity.baked_segment_name = ''
-
-                # Set bake info to image/segment
-                bi = segment.bake_info if segment else self.image.y_bake_info
-
-                bi.is_baked = True
-                for attr in dir(bi):
-                    #if attr in dir(self):
-                    if attr.startswith('__'): continue
-                    if attr.startswith('bl_'): continue
-                    if attr in {'rna_type'}: continue
-                    try: setattr(bi, attr, getattr(self, attr))
-                    except: pass
-
-                # Create new node
-                baked_source = new_node(mask_tree, mask, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
-
-                # Set image to baked node
-                baked_source.image = self.image
-
-                # Set mask props
-                mask.baked_uv_name = self.uv_map
-                mask.use_baked = True
-
-                yp.halt_update = False
-
-            else:
-                # TODO: Bake layer as image(s)
-                pass
-
-            if segment:
-                # Set up baked mapping
-                mapping = check_new_node(layer_tree, entity, 'baked_mapping', 'ShaderNodeMapping', 'Baked Mapping')
-                clear_mapping(entity, use_baked=True)
-                ImageAtlas.set_segment_mapping(entity, segment, self.image, use_baked=True)
-
-                # Set baked segment name to entity
-                entity.baked_segment_name = segment.name
-            else:
-                remove_node(layer_tree, entity, 'baked_mapping')
-
-            # Refresh uv
-            refresh_temp_uv(context.object, entity)
-
-            # Refresh Neighbor UV resolution
-            set_uv_neighbor_resolution(entity)
-
-            # Update global uv
-            check_uv_nodes(yp)
-
-            # Update layer tree inputs
-            check_all_layer_channel_io_and_nodes(self.layer)
-            check_start_end_root_ch_nodes(node.node_tree)
 
         # Make current mask active
         if self.mask:
@@ -2970,18 +2909,83 @@ class YRemoveBakedEntity(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
+    bl_idname = "wm.y_rebake_baked_images"
+    bl_label = "Rebake All Baked Images"
+    bl_description = "Rebake all of the baked images in all layers"
+    bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+    
+    def execute(self, context): 
+        T = time.time()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        entities, images, segment_names, _ = get_yp_entities_images_and_segments(yp)
+
+        for i, image in enumerate(images):
+
+            if image.yia.is_image_atlas:
+                segment = image.yia.segments.get(segment_names[i])
+            elif image.yua.is_udim_atlas: 
+                segment = image.yua.segments.get(segment_names[i])
+            else: segment = None
+
+            if ((segment and segment.bake_info.is_baked and not segment.bake_info.is_baked_channel) or 
+                (not segment and image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel)
+                ):
+
+                bi = image.y_bake_info if not segment else segment.bake_info
+
+                # Skip outdated bake type
+                if bi.bake_type == 'SELECTED_VERTICES':
+                    continue
+
+                entity = entities[i][0]
+                entity_path = entity.path_from_id()
+
+                m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity_path)
+                m2 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity_path)
+
+                bake_properties = dotdict()
+                for attr in dir(bi):
+                    if attr.startswith('__'): continue
+                    if attr.startswith('bl_'): continue
+                    if attr in {'rna_type'}: continue
+                    try: bake_properties[attr] = getattr(bi, attr)
+                    except: pass
+
+                bake_properties.update({
+                    'type': bi.bake_type,
+                    'target_type': 'LAYER' if m1 or m2 else 'MASK',
+                    'name': image.name,
+                    'width': image.size[0] if not segment else segment.width,
+                    'height': image.size[1] if not segment else segment.height,
+                    'uv_map': entity.uv_name if not entity.use_baked else entity.baked_uv_name
+                })
+
+                if not entity.use_baked:
+                    bake_to_entity(bprops=bake_properties, overwrite_img=image, segment=segment)
+                else: bake_entity_as_image(entity, bprops=bake_properties, set_image_to_entity=True)
+
+        print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YBakeEntityToImage)
-    bpy.utils.register_class(YRebakeBakedImages)
     bpy.utils.register_class(YRemoveBakeInfoOtherObject)
     bpy.utils.register_class(YTryToSelectBakedVertexSelect)
     bpy.utils.register_class(YRemoveBakedEntity)
+    bpy.utils.register_class(YRebakeBakedImages)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YBakeEntityToImage)
-    bpy.utils.unregister_class(YRebakeBakedImages)
     bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
     bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
     bpy.utils.unregister_class(YRemoveBakedEntity)
+    bpy.utils.unregister_class(YRebakeBakedImages)

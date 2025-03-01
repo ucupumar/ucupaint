@@ -595,6 +595,12 @@ GAMMA = 2.2
 
 valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
 def version_tuple(version_string):
     return tuple(map(int, version_string.split('.'))) if version_string != '' else (0, 0, 0)
 
