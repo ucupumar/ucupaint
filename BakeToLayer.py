@@ -2473,6 +2473,10 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         # Set image to baked node
         baked_source.image = image
 
+        height_ch = get_height_channel(layer)
+        if height_ch and height_ch.enable:
+            baked_source.interpolation = 'Cubic'
+
         # Set entity props
         entity.baked_uv_name = bprops.uv_map
         entity.use_baked = True
@@ -2609,25 +2613,22 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         else: 
             return self.execute(context)
 
-        overwrite_image = None
-        if self.mask:
-            mask_tree = get_mask_tree(self.mask)
-            baked_source = mask_tree.nodes.get(self.mask.baked_source)
-            if baked_source and baked_source.image:
-                overwrite_image = baked_source.image
+        if self.mask: source_tree = get_mask_tree(self.mask)
+        else: source_tree = get_source_tree(self.layer)
+        baked_source = source_tree.nodes.get(self.entity.baked_source)
 
-            if overwrite_image:
-                self.name = overwrite_image.name
-            else:
-                self.name = self.mask.name
-                if not self.name.endswith(' Image'):
-                    self.name += ' Image'
-                self.name = get_unique_name(self.name, self.layer.masks)
+        overwrite_image = None
+        if baked_source and baked_source.image:
+            overwrite_image = baked_source.image
+
+        if overwrite_image and not overwrite_image.yia.is_image_atlas and not overwrite_image.yua.is_udim_atlas:
+            self.name = overwrite_image.name
         else:
-            self.name = self.layer.name
+            self.name = self.entity.name
             if not self.name.endswith(' Image'):
                 self.name += ' Image'
-            self.name = get_unique_name(self.name, yp.layers)
+
+            self.name = get_unique_name(self.name, bpy.data.images)
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
@@ -2678,16 +2679,19 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             if len(self.uv_map_coll) > 0:
                 self.uv_map = self.uv_map_coll[0].name
 
+            if self.entity.type in {'EDGE_DETECT', 'HEMI'}:
+                self.hdr = True
+                self.fxaa = False
+            else: 
+                self.hdr = False
+                self.fxaa = True
+
             # Auto set some props for some types
             if self.entity.type == 'EDGE_DETECT':
                 self.samples = 32
-                self.hdr = True
-                self.fxaa = False
                 self.denoise = True
             else:
                 self.samples = 1
-                self.hdr = False
-                self.fxaa = True
                 self.denoise = False
 
         if get_user_preferences().skip_property_popups and not event.shift:

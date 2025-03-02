@@ -4397,10 +4397,10 @@ def update_layer_images_interpolation(layer, interpolation='Linear', from_interp
             if from_interpolation == '' or source.interpolation == from_interpolation:
                 source.interpolation = interpolation
 
-        baked_source = get_layer_source(layer, get_baked=True)
-        if baked_source and baked_source.image: 
-            if from_interpolation == '' or baked_source.interpolation == from_interpolation:
-                baked_source.interpolation = interpolation
+    baked_source = get_layer_source(layer, get_baked=True)
+    if baked_source and baked_source.image: 
+        if from_interpolation == '' or baked_source.interpolation == from_interpolation:
+            baked_source.interpolation = interpolation
 
     height_ch = get_height_channel(layer)
     if height_ch:

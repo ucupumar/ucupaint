@@ -2899,7 +2899,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             if mask.baked_source == '' and mask.type in {'EDGE_DETECT'}:
                 rrrow = rrcol.row(align=True)
                 rrrow.label(text='', icon='BLANK1')
-                rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[mask.type]+' to Image', icon_value=lib.get_icon('bake'))
+                rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[mask.type]+' as Image', icon_value=lib.get_icon('bake'))
 
             elif mask.baked_source != '':
                 rrrow = rrcol.row(align=True)
