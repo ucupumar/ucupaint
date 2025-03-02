@@ -1584,7 +1584,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             rrrow.prop(layer, 'use_baked', text='Use Baked', toggle=True)
 
             icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
-            rrrow.operator("wm.y_remove_baked_entity", text='', icon='TRASH')
+            rrrow.operator("wm.y_remove_baked_entity", text='', icon=icon)
 
     layout.separator()
 
@@ -2907,7 +2907,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 rrrow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
                 rrrow.prop(mask, 'use_baked', text='Use Baked', toggle=True)
                 icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
-                rrrow.operator("wm.y_remove_baked_entity", text='', icon='TRASH')
+                rrrow.operator("wm.y_remove_baked_entity", text='', icon=icon)
 
             if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
                 rrcol.separator()
