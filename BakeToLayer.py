@@ -2258,6 +2258,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     changed_layer_channel_index = -1
     ori_layer_channel_intensity_value = 1.0
     ori_layer_channel_blend_type = 'MIX'
+    ori_layer_channel_override = None
     ori_layer_enable_masks = None
 
     # Make sure layer is enabled
@@ -2304,6 +2305,11 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
                     changed_layer_channel_index = i
                     ori_layer_channel_blend_type = ch.blend_type
                     ch.blend_type = 'MIX'
+
+                if ch.override:
+                    changed_layer_channel_index = i
+                    ori_layer_channel_override = True
+                    ch.override = False
 
                 break
 
@@ -2410,6 +2416,9 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
         if ori_layer_channel_blend_type != 'MIX':
             ch.blend_type = ori_layer_channel_blend_type
+
+        if ori_layer_channel_override != None and ch.override != ori_layer_channel_override:
+            ch.override = ori_layer_channel_override
 
     if ori_layer_intensity_value != 1.0:
         set_entity_prop_value(layer, 'intensity_value', ori_layer_intensity_value)
