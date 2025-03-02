@@ -2258,6 +2258,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     changed_layer_channel_index = -1
     ori_layer_channel_intensity_value = 1.0
     ori_layer_channel_blend_type = 'MIX'
+    ori_layer_enable_masks = None
 
     # Make sure layer is enabled
     layer.enable = True
@@ -2266,11 +2267,15 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         ori_layer_intensity_value = layer_opacity
         set_entity_prop_value(layer, 'intensity_value', 1.0)
 
-    # Set up active edit
     if mask: 
+        # Set up active edit
         mask.enable = True
         mask.active_edit = True
     else:
+        # Disable masks
+        ori_layer_enable_masks = layer.enable_masks
+        if layer.enable_masks:
+            layer.enable_masks = False
         for m in layer.masks:
             if m.active_edit: m.active_edit = False
 
@@ -2408,6 +2413,9 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
     if ori_layer_intensity_value != 1.0:
         set_entity_prop_value(layer, 'intensity_value', ori_layer_intensity_value)
+
+    if ori_layer_enable_masks != None and layer.enable_masks != ori_layer_enable_masks:
+        layer.enable_masks = ori_layer_enable_masks
 
     if modifiers_disabled:
         for mod in ori_enabled_mods:
