@@ -1552,26 +1552,36 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         #bbox = row.box()
         rrcol = row.column()
 
+        ccol = rrcol.column()
+        ccol.active = not layer.use_baked
+
         if layer.use_temp_bake:
-            rrcol.context_pointer_set('parent', layer)
-            rrcol.operator('wm.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
+            ccol.context_pointer_set('parent', layer)
+            ccol.operator('wm.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
         elif image:
-            draw_image_props(context, source, rrcol, layer, show_flip_y=True, show_datablock=False)
+            draw_image_props(context, source, ccol, layer, show_flip_y=True, show_datablock=False)
 
             # NOTE: Divide rgb by alpha is mostly useless for image layer, 
             # so it's hidden under experimental feature unless the user ever enabled it before
             if hasattr(layer, 'divide_rgb_by_alpha') and (layer.divide_rgb_by_alpha or ypup.show_experimental):
-                rrrow = rrcol.row(align=True)
+                rrrow = ccol.row(align=True)
                 rrrow.label(text='Divide RGB by Alpha:')
                 rrrow.prop(layer, 'divide_rgb_by_alpha', text='')
 
         elif layer.type == 'COLOR':
-            draw_solid_color_props(layer, source, rrcol)
+            draw_solid_color_props(layer, source, ccol)
         elif layer.type == 'VCOL':
-            draw_vcol_props(rrcol, vcol, layer)
+            draw_vcol_props(ccol, vcol, layer)
         elif layer.type == 'HEMI':
-            draw_hemi_props(layer, source, rrcol)
-        else: draw_tex_props(source, rrcol, entity=layer)
+            draw_hemi_props(layer, source, ccol)
+        else: draw_tex_props(source, ccol, entity=layer)
+
+        if layer.baked_source != '':
+            rrcol.context_pointer_set('entity', layer)
+            rrcol.context_pointer_set('layer', layer)
+            rrrow = rrcol.row(align=True)
+            rrrow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
+            rrrow.prop(layer, 'use_baked', text='Use Baked', toggle=True)
 
     layout.separator()
 
@@ -1585,7 +1595,11 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 
     # Vector
     if is_layer_using_vector(layer):
-        row = layout.row(align=False)
+
+        col = layout.column()
+        col.active = not layer.use_baked
+
+        row = col.row(align=False)
 
         icon_value = lib.get_icon('uv')
         rrow = row.row(align=True)
@@ -1628,7 +1642,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
         #    rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
 
         if lui.expand_vector:
-            row = layout.row(align=True)
+            row = col.row(align=True)
             row.label(text='', icon='BLANK1')
             bbox = row.box()
             boxcol = bbox.column()
@@ -6341,9 +6355,8 @@ class YLayerMaskMenu(bpy.types.Menu):
         col.context_pointer_set('entity', mask)
         col.operator('wm.y_bake_entity_to_image', icon_value=lib.get_icon('bake'), text='Bake as Image')
         if mask.baked_source != '':
-            if is_bl_newer_than(2, 80):
-                col.operator('wm.y_remove_baked_entity', text='Remove Baked Image', icon='REMOVE')
-            else: col.operator('wm.y_remove_baked_entity', text='Remove Baked Image', icon='ZOOMOUT')
+            icon = 'REMOVE' if is_bl_newer_than(2, 80) else 'ZOOMOUT'
+            col.operator('wm.y_remove_baked_entity', text='Remove Baked Image', icon=icon)
 
         col.separator()
 
@@ -6942,6 +6955,15 @@ class YLayerSpecialMenu(bpy.types.Menu):
                 col.operator('wm.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
             else:
                 col.operator('wm.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
+
+            #col.separator()
+            col.context_pointer_set('entity', context.parent)
+            col.context_pointer_set('layer', context.parent)
+            col.operator('wm.y_bake_entity_to_image', icon_value=lib.get_icon('bake'), text='Bake Layer as Image')
+
+            if context.parent.baked_source != '':
+                icon = 'REMOVE' if is_bl_newer_than(2, 80) else 'ZOOMOUT'
+                col.operator('wm.y_remove_baked_entity', text='Remove Baked Layer Image', icon=icon)
 
         #col = row.column()
         #col.label(text='Options:')

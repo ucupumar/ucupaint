@@ -6518,6 +6518,31 @@ def update_layer_uniform_scale_enabled(self, context):
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
+def update_layer_use_baked(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    layer = self
+    yp = self.id_data.yp
+    tree = get_tree(layer)
+
+    # Update global uv
+    check_uv_nodes(yp)
+
+    # Update layer tree inputs
+    check_all_layer_channel_io_and_nodes(layer)
+    check_start_end_root_ch_nodes(self.id_data)
+
+    # Refresh active image by setting active layer
+    if get_layer_index(layer) == yp.active_layer_index:
+        yp.active_layer_index = yp.active_layer_index
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
 class YLayer(bpy.types.PropertyGroup):
     name : StringProperty(
         name = 'Layer Name',
@@ -6728,7 +6753,8 @@ class YLayer(bpy.types.PropertyGroup):
     use_baked : BoolProperty(
         name = 'Use Baked',
         description = 'Use baked layer image',
-        default = False
+        default = False,
+        update = update_layer_use_baked
     )
 
     # Sources

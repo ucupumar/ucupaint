@@ -472,12 +472,20 @@ def rearrange_source_tree_nodes(layer):
         #loc.y += 390
 
     loc.y = 0
+    bookmark_x = loc.x
 
     #if check_set_node_loc(source_tree, layer.mapping, loc):
     #    loc.x += 380
 
     if check_set_node_loc(source_tree, layer.source, loc):
         loc.x += 280
+
+    if layer.baked_source != '':
+        loc.x = bookmark_x
+        loy.y -= 320
+        check_set_node_loc(source_tree, layer.baked_source, loc)
+        loc.x += 280
+        loc.y = 0
 
     if check_set_node_loc(source_tree, layer.divider_alpha, loc):
         loc.x += 200
@@ -862,6 +870,9 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.y -= 190
             else:
                 loc.y -= 320
+
+    if check_set_node_loc(tree, layer.baked_source, loc, hide=False):
+        loc.y -= 320
 
     if check_set_node_loc(tree, layer.source_n, loc, hide=True):
         loc.y -= 40

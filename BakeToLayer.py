@@ -2212,6 +2212,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
     ori_use_baked = False
     ori_enabled_mods = []
+
     #ori_enable_blur = False
     modifiers_disabled = False
     if m1: 
@@ -2221,24 +2222,24 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         layer = yp.layers[int(m2.group(1))]
         mask = layer.masks[int(m2.group(2))]
 
-        # Disable use baked first
-        if mask.use_baked: 
-            ori_use_baked = True
-            mask.use_baked = False
-
-        # Setting image to entity will disable modifiers
-        if set_image_to_entity:
-            for mod in mask.modifiers:
-                if mod.enable:
-                    ori_enabled_mods.append(mod)
-                    mod.enable = False
-            modifiers_disabled = True
-            #ori_enable_blur = mask.enable_blur_vector
-            #mask.enable_blur_vector = False
-
     else: 
         rdict['message'] = "Wrong entity!"
         return rdict
+
+    # Disable use baked first
+    if entity.use_baked: 
+        ori_use_baked = True
+        entity.use_baked = False
+
+    # Setting image to entity will disable modifiers
+    if set_image_to_entity:
+        for mod in entity.modifiers:
+            if mod.enable:
+                ori_enabled_mods.append(mod)
+                mod.enable = False
+        modifiers_disabled = True
+        #ori_enable_blur = entity.enable_blur_vector
+        #entity.enable_blur_vector = False
 
     # Remember things
     book = remember_before_bake(yp)
@@ -2247,18 +2248,33 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
     use_fxaa = not bprops.hdr and bprops.fxaa
 
-    # Preview setup
+    # Remember before doing preview
     ori_channel_index = yp.active_channel_index
     ori_preview_mode = yp.preview_mode
     ori_layer_preview_mode = yp.layer_preview_mode
     ori_layer_preview_mode_type = yp.layer_preview_mode_type
 
-    layer.enable = True
+    ori_layer_intensity_value = 1.0
+    changed_layer_channel_index = -1
+    ori_layer_channel_intensity_value = 1.0
+    ori_layer_channel_blend_type = 'MIX'
 
+    # Make sure layer is enabled
+    layer.enable = True
+    layer_opacity = get_entity_prop_value(layer, 'intensity_value')
+    if layer_opacity != 1.0:
+        ori_layer_intensity_value = layer_opacity
+        set_entity_prop_value(layer, 'intensity_value', 1.0)
+
+    # Set up active edit
     if mask: 
         mask.enable = True
         mask.active_edit = True
+    else:
+        for m in layer.masks:
+            if m.active_edit: m.active_edit = False
 
+    # Preview setup
     yp.layer_preview_mode_type = 'SPECIFIC_MASK' if mask else 'LAYER'
     yp.layer_preview_mode = True
 
@@ -2271,6 +2287,19 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         else:
             if ch.enable:
                 yp.active_channel_index = i
+
+                # Make sure intensity value is 1.0
+                intensity_value = get_entity_prop_value(ch, 'intensity_value')
+                if intensity_value != 1.0:
+                    changed_layer_channel_index = i
+                    ori_layer_channel_intensity_value = intensity_value
+                    set_entity_prop_value(ch, 'intensity_value', 1.0)
+
+                if ch.blend_type != 'MIX':
+                    changed_layer_channel_index = i
+                    ori_layer_channel_blend_type = ch.blend_type
+                    ch.blend_type = 'MIX'
+
                 break
 
     # Modifier setups
@@ -2368,6 +2397,18 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     if yp.layer_preview_mode_type != ori_layer_preview_mode_type:
         yp.layer_preview_mode_type = ori_layer_preview_mode_type
 
+    if changed_layer_channel_index != -1:
+        ch = layer.channels[changed_layer_channel_index]
+
+        if ori_layer_channel_intensity_value != 1.0:
+            set_entity_prop_value(ch, 'intensity_value', ori_layer_channel_intensity_value)
+
+        if ori_layer_channel_blend_type != 'MIX':
+            ch.blend_type = ori_layer_channel_blend_type
+
+    if ori_layer_intensity_value != 1.0:
+        set_entity_prop_value(layer, 'intensity_value', ori_layer_intensity_value)
+
     if modifiers_disabled:
         for mod in ori_enabled_mods:
             mod.enable = True
@@ -2375,8 +2416,8 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         #if ori_enable_blur:
         #    mask.enable_blur_vector = True
 
-    if mask and ori_use_baked:
-        mask.use_baked = True
+    if ori_use_baked:
+        entity.use_baked = True
 
     # Set up image atlas segment
     segment = None
@@ -2385,89 +2426,82 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
     if set_image_to_entity:
 
-        if mask:
-            yp.halt_update = True
+        layer_tree = get_tree(layer)
+        if mask: source_tree = get_mask_tree(mask)
+        else: source_tree = get_source_tree(layer)
 
-            mask_tree = get_mask_tree(mask)
+        yp.halt_update = True
 
-            baked_source = mask_tree.nodes.get(mask.baked_source)
-            if baked_source:
-                overwrite_image = baked_source.image
-                overwrite_image_name = overwrite_image.name
+        baked_source = source_tree.nodes.get(entity.baked_source)
+        if baked_source:
+            overwrite_image = baked_source.image
+            overwrite_image_name = overwrite_image.name
 
-                # Remove old segment
-                if mask.baked_segment_name != '':
-                    if overwrite_image.yia.is_image_atlas:
-                        old_segment = overwrite_image.yia.segments.get(mask.baked_segment_name)
-                        old_segment.unused = True
-                    elif overwrite_image.yua.is_udim_atlas:
-                        UDIM.remove_udim_atlas_segment_by_name(overwrite_image, mask.baked_segment_name, yp=yp)
+            # Remove old segment
+            if entity.baked_segment_name != '':
+                if overwrite_image.yia.is_image_atlas:
+                    old_segment = overwrite_image.yia.segments.get(entity.baked_segment_name)
+                    old_segment.unused = True
+                elif overwrite_image.yua.is_udim_atlas:
+                    UDIM.remove_udim_atlas_segment_by_name(overwrite_image, entity.baked_segment_name, yp=yp)
 
-                # Remove node first to also remove its data
-                remove_node(mask_tree, mask, 'baked_source')
+            # Remove node first to also remove its data
+            remove_node(source_tree, entity, 'baked_source')
 
-                # Rename image if it's not image atlas
-                if mask.baked_segment_name == '' and overwrite_image_name == bprops.name:
-                    image.name = bprops.name
+            # Rename image if it's not image atlas
+            if entity.baked_segment_name == '' and overwrite_image_name == bprops.name:
+                image.name = bprops.name
 
-                # Remove baked segment name since the data is removed
-                if mask.baked_segment_name != '':
-                    entity.baked_segment_name = ''
+            # Remove baked segment name since the data is removed
+            if entity.baked_segment_name != '':
+                entity.baked_segment_name = ''
 
-            # Set bake info to image/segment
-            bi = segment.bake_info if segment else image.y_bake_info
+        # Set bake info to image/segment
+        bi = segment.bake_info if segment else image.y_bake_info
 
-            bi.is_baked = True
-            for attr in dir(bi):
-                if attr.startswith('__'): continue
-                if attr.startswith('bl_'): continue
-                if attr in {'rna_type'}: continue
-                try: setattr(bi, attr, bprops[attr])
-                except: pass
+        bi.is_baked = True
+        for attr in dir(bi):
+            if attr.startswith('__'): continue
+            if attr.startswith('bl_'): continue
+            if attr in {'rna_type'}: continue
+            try: setattr(bi, attr, bprops[attr])
+            except: pass
 
-            # Create new node
-            baked_source = new_node(mask_tree, mask, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
+        # Create new node
+        baked_source = new_node(source_tree, entity, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
 
-            # Set image to baked node
-            baked_source.image = image
+        # Set image to baked node
+        baked_source.image = image
 
-            # Set mask props
-            mask.baked_uv_name = bprops.uv_map
-            mask.use_baked = True
+        # Set entity props
+        entity.baked_uv_name = bprops.uv_map
+        entity.use_baked = True
 
-            yp.halt_update = False
+        yp.halt_update = False
 
+        if segment:
+            # Set up baked mapping
+            mapping = check_new_node(layer_tree, entity, 'baked_mapping', 'ShaderNodeMapping', 'Baked Mapping')
+            clear_mapping(entity, use_baked=True)
+            ImageAtlas.set_segment_mapping(entity, segment, image, use_baked=True)
+
+            # Set baked segment name to entity
+            entity.baked_segment_name = segment.name
         else:
-            # TODO: Bake layer as image(s)
-            pass
+            remove_node(layer_tree, entity, 'baked_mapping')
 
-        if m1 or m2:
+        # Refresh uv
+        refresh_temp_uv(bpy.context.object, entity)
 
-            layer_tree = get_tree(layer)
+        # Refresh Neighbor UV resolution
+        set_uv_neighbor_resolution(entity)
 
-            if segment:
-                # Set up baked mapping
-                mapping = check_new_node(layer_tree, entity, 'baked_mapping', 'ShaderNodeMapping', 'Baked Mapping')
-                clear_mapping(entity, use_baked=True)
-                ImageAtlas.set_segment_mapping(entity, segment, image, use_baked=True)
+        # Update global uv
+        check_uv_nodes(yp)
 
-                # Set baked segment name to entity
-                entity.baked_segment_name = segment.name
-            else:
-                remove_node(layer_tree, entity, 'baked_mapping')
-
-            # Refresh uv
-            refresh_temp_uv(bpy.context.object, entity)
-
-            # Refresh Neighbor UV resolution
-            set_uv_neighbor_resolution(entity)
-
-            # Update global uv
-            check_uv_nodes(yp)
-
-            # Update layer tree inputs
-            check_all_layer_channel_io_and_nodes(layer)
-            check_start_end_root_ch_nodes(yp.id_data)
+        # Update layer tree inputs
+        check_all_layer_channel_io_and_nodes(layer)
+        check_start_end_root_ch_nodes(yp.id_data)
 
     rdict['image'] = image
     rdict['segment'] = segment
@@ -2755,9 +2789,9 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             self.report({'ERROR'}, "Invalid context!")
             return {'CANCELLED'}
 
-        if self.layer and not self.mask:
-            self.report({'ERROR'}, "This feature is not implemented yet!")
-            return {'CANCELLED'}
+        #if self.layer and not self.mask:
+        #    self.report({'ERROR'}, "This feature is not implemented yet!")
+        #    return {'CANCELLED'}
 
         if self.uv_map == '':
             self.report({'ERROR'}, "UV Map cannot be empty!")
@@ -2829,9 +2863,11 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                 # TODO: Duplicate layer as image(s)
                 pass
 
-        # Make current mask active
+        # Make current entity active to update image
         if self.mask:
             self.mask.active_edit = True
+        elif get_layer_index(self.layer) == yp.active_layer_index:
+            yp.active_layer_index = yp.active_layer_index
 
         reconnect_layer_nodes(self.layer)
         rearrange_layer_nodes(self.layer)
