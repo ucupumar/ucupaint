@@ -5621,8 +5621,8 @@ def get_all_baked_channel_images(tree):
 
     return images
 
-def is_layer_using_vector(layer):
-    if layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
+def is_layer_using_vector(layer, exclude_baked=False):
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
         return True
 
     for ch in layer.channels:

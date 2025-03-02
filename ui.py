@@ -1583,6 +1583,9 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             rrrow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
             rrrow.prop(layer, 'use_baked', text='Use Baked', toggle=True)
 
+            icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
+            rrrow.operator("wm.y_remove_baked_entity", text='', icon='TRASH')
+
     layout.separator()
 
 def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
@@ -1594,7 +1597,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
     scene = context.scene
 
     # Vector
-    if is_layer_using_vector(layer):
+    if is_layer_using_vector(layer, exclude_baked=True):
 
         col = layout.column()
         col.active = not layer.use_baked
@@ -2892,12 +2895,19 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 draw_vcol_props(rbcol, entity=mask, show_divide_rgb_alpha=False, show_source_input=True)
             else: draw_tex_props(mask_source, rbcol, entity=mask, show_source_input=True)
 
-            if mask.baked_source != '':
-                rrcol.context_pointer_set('entity', mask)
+            rrcol.context_pointer_set('entity', mask)
+            if mask.baked_source == '' and mask.type in {'EDGE_DETECT'}:
+                rrrow = rrcol.row(align=True)
+                rrrow.label(text='', icon='BLANK1')
+                rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[mask.type]+' to Image', icon_value=lib.get_icon('bake'))
+
+            elif mask.baked_source != '':
                 rrrow = rrcol.row(align=True)
                 rrrow.label(text='', icon='BLANK1')
                 rrrow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
                 rrrow.prop(mask, 'use_baked', text='Use Baked', toggle=True)
+                icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
+                rrrow.operator("wm.y_remove_baked_entity", text='', icon='TRASH')
 
             if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
                 rrcol.separator()
@@ -6354,9 +6364,6 @@ class YLayerMaskMenu(bpy.types.Menu):
 
         col.context_pointer_set('entity', mask)
         col.operator('wm.y_bake_entity_to_image', icon_value=lib.get_icon('bake'), text='Bake as Image')
-        if mask.baked_source != '':
-            icon = 'REMOVE' if is_bl_newer_than(2, 80) else 'ZOOMOUT'
-            col.operator('wm.y_remove_baked_entity', text='Remove Baked Image', icon=icon)
 
         col.separator()
 
@@ -6960,10 +6967,6 @@ class YLayerSpecialMenu(bpy.types.Menu):
             col.context_pointer_set('entity', context.parent)
             col.context_pointer_set('layer', context.parent)
             col.operator('wm.y_bake_entity_to_image', icon_value=lib.get_icon('bake'), text='Bake Layer as Image')
-
-            if context.parent.baked_source != '':
-                icon = 'REMOVE' if is_bl_newer_than(2, 80) else 'ZOOMOUT'
-                col.operator('wm.y_remove_baked_entity', text='Remove Baked Layer Image', icon=icon)
 
         #col = row.column()
         #col.label(text='Options:')
