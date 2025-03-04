@@ -3827,6 +3827,7 @@ def main_draw(self, context):
     scene = context.scene
     obj = context.object
     mat = obj.active_material
+    ypup = get_user_preferences()
     #slot = context.material_slot
     #space = context.space_data
 
@@ -3994,6 +3995,15 @@ def main_draw(self, context):
         col.label(text=group_tree.name + ' (' + yp.version + ')', icon_value=lib.get_icon('nodetree'))
         col.operator("wm.y_update_yp_trees", text='Update node to version ' + get_current_version_str(), icon='ERROR')
         return
+
+    if ypup.developer_mode:
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and height_root_ch.enable_smooth_bump:
+            col = layout.column()
+            col.alert = True
+            col.label(text='Smooth(er) bump is no longer supported!', icon='ERROR')
+            col.operator("wm.y_update_remove_smooth_bump", text='Remove Smooth Bump')
+            #return
 
     #layout.label(text='Active: ' + node.node_tree.name, icon_value=lib.get_icon('nodetree'))
     row = layout.row(align=True)

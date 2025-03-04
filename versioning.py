@@ -236,7 +236,7 @@ def update_yp_tree(tree):
                     reconnect_layer_nodes(layer)
                     rearrange_layer_nodes(layer)
 
-    # Version 0.9.4 and above will replace multipier modifier with math modifier
+    # Version 0.9.4 and above will replace multiplier modifier with math modifier
     if version_tuple(yp.version) < (0, 9, 4):
 
         mods = []
@@ -1363,14 +1363,75 @@ class YUpdateYPTrees(bpy.types.Operator):
         update_routine('')
         return {'FINISHED'}
 
+class YUpdateRemoveSmoothBump(bpy.types.Operator):
+    bl_idname = "wm.y_update_remove_smooth_bump"
+    bl_label = "Remove Smooth Bump"
+    bl_description = "Smooth(er) bump is no longer supported, remove it to continue"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        #update_node_tree_libs('')
+        #update_routine('')
+
+        for ng in bpy.data.node_groups:
+            if not hasattr(ng, 'yp'): continue
+            if not ng.yp.is_ypaint_node: continue
+
+            yp = ng.yp
+
+            height_root_ch = get_root_height_channel(yp)
+            if height_root_ch and height_root_ch.enable_smooth_bump:
+
+                # Get object dimension and volume
+                dimension = None
+                volume = None
+                mats = get_materials_using_yp(yp)
+                mat = mats[0] if len(mats) > 0 else None
+                if mat:
+                    objs = get_all_objects_with_same_materials(mat)
+                    if objs:
+                        dimensions = 0
+                        volumes = 0
+                        for obj in objs:
+                            volumes += (obj.dimensions.x + obj.dimensions.y + obj.dimensions.z) / 3
+                            dimensions += obj.dimensions.x * obj.dimensions.y * obj.dimensions.z
+                        dimension = dimensions / len(objs)
+                        volume = volumes / len(objs)
+                
+                for layer in yp.layers:
+                    height_ch = get_height_channel(layer)
+                    if height_ch and dimension != None and volume != None:
+
+                        # NOTE: Smooth bump is originally tested on default cube, which has volume of 8 blender units and dimension of 2
+                        if layer.type == 'IMAGE':
+                            multiplier = dimension / 2
+                        else: 
+                            multiplier = volume / 8
+
+                        height = get_entity_prop_value(height_ch, 'bump_distance')
+                        set_entity_prop_value(height_ch, 'bump_distance', height * multiplier)
+                        height = get_entity_prop_value(height_ch, 'transition_bump_distance')
+                        set_entity_prop_value(height_ch, 'transition_bump_distance', height * multiplier)
+
+                height_root_ch.enable_smooth_bump = False
+                print("INFO: Smooth bump on "+ng.name+" is now disabled!")
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YUpdateYPTrees)
+    bpy.utils.register_class(YUpdateRemoveSmoothBump)
 
     bpy.app.handlers.load_post.append(update_node_tree_libs)
     bpy.app.handlers.load_post.append(update_routine)
 
 def unregister():
     bpy.utils.unregister_class(YUpdateYPTrees)
+    bpy.utils.unregister_class(YUpdateRemoveSmoothBump)
 
     bpy.app.handlers.load_post.remove(update_node_tree_libs)
     bpy.app.handlers.load_post.remove(update_routine)
