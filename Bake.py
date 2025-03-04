@@ -3515,7 +3515,7 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
 
         if set_one:
             # Create links
-            if vdisp: create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
+            if vdisp and vdisp_outp: create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
             if disp:
                 create_link(mat.node_tree, height_outp, disp.inputs['Height'])
                 create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])

@@ -1189,7 +1189,7 @@ def draw_root_channels_ui(context, layout, node):
             #    brow.label(text='', icon='BLANK1')
 
             if channel.type == 'NORMAL':
-                if ypup.show_experimental or channel.enable_smooth_bump or not is_bl_newer_than(2, 80):
+                if ypup.show_experimental or channel.enable_smooth_bump: # or not is_bl_newer_than(2, 80):
                     brow = bcol.row(align=True)
 
                     if is_bl_newer_than(2, 80):

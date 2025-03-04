@@ -204,9 +204,18 @@ def update_yp_tree(tree):
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
                 mod_ids = []
+                multp_ids = []
                 for j, mod in enumerate(ch.modifiers):
                     if mod.type == 'OVERRIDE_COLOR':
                         mod_ids.append(j)
+                    elif mod.type == 'MULTIPLIER':
+                        multp_ids.append(j)
+
+                # HACK: Disable multiply modifiers if override color is found because some old blend file has wrong color
+                if mod_ids and multp_ids:
+                    for j in multp_ids:
+                        mod = ch.modifiers[j]
+                        mod.enable = False
 
                 for j in reversed(mod_ids):
                     mod = ch.modifiers[j]
@@ -274,6 +283,20 @@ def update_yp_tree(tree):
 
             mtree = get_mod_tree(parent)
 
+            # Get original values
+            r_val = mod.multiplier_r_val
+            g_val = mod.multiplier_g_val
+            b_val = mod.multiplier_b_val
+            a_val = mod.multiplier_a_val
+            use_clamp = mod.use_clamp
+            multp = mtree.nodes.get(mod.multiplier)
+            if multp:
+                if 'Clamp' in multp.inputs: use_clamp = multp.inputs['Clamp'].default_value > 0.5
+                if 'Multiply R' in multp.inputs: r_val = multp.inputs['Multiply R'].default_value
+                if 'Multiply G' in multp.inputs: g_val = multp.inputs['Multiply G'].default_value
+                if 'Multiply B' in multp.inputs: b_val = multp.inputs['Multiply B'].default_value
+                if 'Multiply A' in multp.inputs: a_val = multp.inputs['Multiply A'].default_value
+
             mod.name = 'Math'
             mod.type = 'MATH'
             remove_node(mtree, mod, 'multiplier')
@@ -289,15 +312,19 @@ def update_yp_tree(tree):
             mod.affect_alpha = True
             math.node_tree.nodes.get('Mix.A').mute = False
 
-            mod.math_a_val = mod.multiplier_a_val
-            mod.math_r_val = mod.multiplier_r_val
-            math.node_tree.nodes.get('Math.R').use_clamp = mod.use_clamp
-            math.node_tree.nodes.get('Math.A').use_clamp = mod.use_clamp
+            mod.math_r_val = math.inputs[2].default_value = r_val
+
+            math.node_tree.nodes.get('Math.R').use_clamp = use_clamp
+            math.node_tree.nodes.get('Math.A').use_clamp = use_clamp
             if ch_type != 'VALUE':
-                mod.math_g_val = mod.multiplier_g_val
-                mod.math_b_val = mod.multiplier_b_val
-                math.node_tree.nodes.get('Math.G').use_clamp = mod.use_clamp
-                math.node_tree.nodes.get('Math.B').use_clamp = mod.use_clamp
+                mod.math_g_val = math.inputs[3].default_value = g_val
+                mod.math_b_val = math.inputs[4].default_value = b_val
+                mod.math_a_val = math.inputs[5].default_value = a_val
+
+                math.node_tree.nodes.get('Math.G').use_clamp = use_clamp
+                math.node_tree.nodes.get('Math.B').use_clamp = use_clamp
+            else:
+                mod.math_a_val = math.inputs[3].default_value = a_val
 
         if mods:
             for layer in yp.layers:
@@ -1401,15 +1428,30 @@ class YUpdateRemoveSmoothBump(bpy.types.Operator):
                             dimensions += obj.dimensions.x * obj.dimensions.y * obj.dimensions.z
                         dimension = dimensions / len(objs)
                         volume = volumes / len(objs)
+
+                    # Check if material use subsurface scattering
+                    sss_enabled = False
+                    outp = get_material_output(mat)
+                    bsdf = get_closest_bsdf_backward(outp, ['BSDF_PRINCIPLED'])
+                    if bsdf:
+                        inp = bsdf.inputs.get('Subsurface Weight') if is_bl_newer_than(4) else bsdf.inputs.get('Subsurface')
+                        if inp and (inp.default_value > 0.0 or len(inp.links) > 0):
+                            sss_enabled = True
                 
                 for layer in yp.layers:
                     height_ch = get_height_channel(layer)
                     if height_ch and dimension != None and volume != None:
 
                         # NOTE: Smooth bump is originally tested on default cube, which has volume of 8 blender units and dimension of 2
-                        if layer.type == 'IMAGE':
+                        # These values are fine tuned to closer results based on old models
+                        multiplier = 1
+                        if layer.type == 'COLOR' and height_ch.enable_transition_bump and sss_enabled:
+                            multiplier = volume / 16
+                        elif layer.type == 'IMAGE' and not height_root_ch.enable_subdiv_setup:
                             multiplier = dimension / 2
-                        else: 
+                        elif layer.type == 'NOISE' and sss_enabled: 
+                            multiplier = volume / 32
+                        elif layer.type != 'IMAGE': 
                             multiplier = volume / 8
 
                         height = get_entity_prop_value(height_ch, 'bump_distance')
