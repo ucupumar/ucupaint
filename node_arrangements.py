@@ -712,6 +712,10 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 170
         cache_found = True
 
+    if check_set_node_loc(tree, layer.cache_gabor, loc, hide=False):
+        loc.y -= 170
+        cache_found = True
+
     if check_set_node_loc(tree, layer.cache_wave, loc, hide=False):
         loc.y -= 260
         cache_found = True
@@ -760,6 +764,10 @@ def rearrange_layer_nodes(layer, tree=None):
             cache_found = True
 
         if check_set_node_loc(tree, ch.cache_voronoi, loc, hide=False):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_gabor, loc, hide=False):
             loc.y -= 170
             cache_found = True
 
@@ -815,6 +823,10 @@ def rearrange_layer_nodes(layer, tree=None):
             cache_found = True
 
         if check_set_node_loc(tree, mask.cache_voronoi, loc, hide=False, parent_unset=True):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, mask.cache_gabor, loc, hide=False, parent_unset=True):
             loc.y -= 170
             cache_found = True
 
