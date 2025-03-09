@@ -706,6 +706,10 @@ class YPaintModifier(bpy.types.PropertyGroup):
 
     expand_content : BoolProperty(default=True)
 
+class YPaintModifierGroupNode(bpy.types.PropertyGroup):
+    # Name of the modifier group node
+    name : StringProperty(default='')
+
 def check_yp_modifier_linear_nodes(yp):
     for ch in yp.channels:
         check_modifiers_trees(ch)
@@ -716,6 +720,95 @@ def check_yp_modifier_linear_nodes(yp):
             check_modifiers_trees(ch)
         #for mask in layer.masks:
         #    check_modifiers_trees(mask)
+
+def create_modifier_tree(name):
+
+    # Create modifier tree
+    mod_tree = bpy.data.node_groups.new('~yP Modifiers ' + name, 'ShaderNodeTree')
+
+    new_tree_input(mod_tree, 'RGB', 'NodeSocketColor')
+    new_tree_input(mod_tree, 'Alpha', 'NodeSocketFloat')
+    new_tree_output(mod_tree, 'RGB', 'NodeSocketColor')
+    new_tree_output(mod_tree, 'Alpha', 'NodeSocketFloat')
+
+    # New inputs and outputs
+    mod_tree_start = mod_tree.nodes.new('NodeGroupInput')
+    mod_tree_start.name = MOD_TREE_START
+    mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
+    mod_tree_end.name = MOD_TREE_END
+
+    return mod_tree
+
+def check_layer_modifier_tree(layer):
+
+    if layer.source_group != '':
+        layer_tree = get_source_tree(layer)
+    else: layer_tree = get_tree(layer)
+
+    # Get socket name used by the channel inputs
+    socket_names = []
+    for ch in layer.channels:
+        if not ch.enable: continue
+        socket_name = get_channel_input_socket_name(layer, ch)
+        #socket_name = ch.socket_input_name
+        if socket_name not in socket_names:
+            socket_names.append(socket_name)
+
+    num_groups = len(layer.mod_groups)
+    num_socs = len(socket_names)
+
+    # Get first group tree
+    mod_group = layer_tree.nodes.get(layer.mod_groups[0].name) if num_groups > 0 else None
+    mod_tree = mod_group.node_tree if mod_group else None
+
+    if num_socs > 1 and len(layer.modifiers) > 0:
+        # Refresh groups
+        if num_socs != num_groups:
+
+            if not mod_tree:
+                mod_tree = create_modifier_tree(layer.name)
+
+                # Move modifiers to modifier tree
+                for mod in layer.modifiers:
+                    check_modifier_nodes(mod, mod_tree, layer_tree)
+
+            if num_socs > num_groups:
+                # Create new mod groups
+                for i in range(num_groups, num_socs):
+                    mg = layer.mod_groups.add()
+                    mgn = new_node(layer_tree, mg, 'name', 'ShaderNodeGroup', 'modifier_group_' + str(i))
+                    mgn.node_tree = mod_tree
+
+            elif num_socs < num_groups:
+                # Remove excess mod groups
+                for i in reversed(range(num_socs, num_groups)):
+                    mg = layer.mod_groups[i]
+                    remove_node(layer_tree, mg, 'name')
+                    layer.mod_groups.remove(i)
+
+        elif mod_tree:
+            # Update modifiers
+            for mod in layer.modifiers:
+                check_modifier_nodes(mod, mod_tree)
+
+    else:
+        if num_groups > 0:
+
+            # Copy modifier nodes into the layer tree
+            if mod_tree:
+                for mod in layer.modifiers:
+                    check_modifier_nodes(mod, layer_tree, mod_tree)
+
+            # Remove mod groups
+            if hasattr(layer, 'mod_groups'):
+                for mg in layer.mod_groups:
+                    remove_node(layer_tree, mg, 'name')
+                layer.mod_groups.clear()
+
+        else:
+            # Update modifiers
+            for mod in layer.modifiers:
+                check_modifier_nodes(mod, layer_tree)
 
 def check_modifiers_trees(parent, rearrange=False):
     group_tree = parent.id_data
@@ -744,6 +837,8 @@ def check_modifiers_trees(parent, rearrange=False):
     elif match2:
         layer = parent
         name = layer.name
+        check_layer_modifier_tree(layer)
+        return
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'}:
             enable_tree = True
         if layer.source_group != '':
@@ -758,7 +853,10 @@ def check_modifiers_trees(parent, rearrange=False):
         enable_tree = False
 
     mod_group = None
-    if hasattr(parent, 'mod_group'):
+    if hasattr(parent, 'mod_groups'):
+        if len(parent.mod_groups) > 0:
+            mod_group = parent_tree.nodes.get(parent.mod_groups[0].name)
+    elif hasattr(parent, 'mod_group'):
         mod_group = parent_tree.nodes.get(parent.mod_group)
 
     if enable_tree:
@@ -813,41 +911,52 @@ def enable_modifiers_tree(parent, parent_tree=None, name='', is_layer=False, rea
     if len(parent.modifiers) == 0:
         return 
 
-    # Check if modifier tree already available
-    if parent.mod_group != '': 
-        return 
-
-    # Create modifier tree
-    mod_tree = bpy.data.node_groups.new('~yP Modifiers ' + name, 'ShaderNodeTree')
-
-    new_tree_input(mod_tree, 'RGB', 'NodeSocketColor')
-    new_tree_input(mod_tree, 'Alpha', 'NodeSocketFloat')
-    new_tree_output(mod_tree, 'RGB', 'NodeSocketColor')
-    new_tree_output(mod_tree, 'Alpha', 'NodeSocketFloat')
-
-    # New inputs and outputs
-    mod_tree_start = mod_tree.nodes.new('NodeGroupInput')
-    mod_tree_start.name = MOD_TREE_START
-    mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
-    mod_tree_end.name = MOD_TREE_END
-
-    # Create main modifier group
-    mod_group = new_node(parent_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
-    mod_group.node_tree = mod_tree
-
     if not is_layer:
-        # Create modifier group neighbor
-        mod_n = new_node(parent_tree, parent, 'mod_n', 'ShaderNodeGroup', 'mod_n')
-        mod_s = new_node(parent_tree, parent, 'mod_s', 'ShaderNodeGroup', 'mod_s')
-        mod_e = new_node(parent_tree, parent, 'mod_e', 'ShaderNodeGroup', 'mod_e')
-        mod_w = new_node(parent_tree, parent, 'mod_w', 'ShaderNodeGroup', 'mod_w')
-        mod_n.node_tree = mod_tree
-        mod_s.node_tree = mod_tree
-        mod_e.node_tree = mod_tree
-        mod_w.node_tree = mod_tree
+
+        # Check if modifier tree already available
+        if parent.mod_group != '': 
+            return 
+
+        mod_tree = create_modifier_tree(name)
+
+        # Create main modifier group
+        mod_group = new_node(parent_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
+        mod_group.node_tree = mod_tree
+
+        if not is_layer:
+            # Create modifier group neighbor
+            mod_n = new_node(parent_tree, parent, 'mod_n', 'ShaderNodeGroup', 'mod_n')
+            mod_s = new_node(parent_tree, parent, 'mod_s', 'ShaderNodeGroup', 'mod_s')
+            mod_e = new_node(parent_tree, parent, 'mod_e', 'ShaderNodeGroup', 'mod_e')
+            mod_w = new_node(parent_tree, parent, 'mod_w', 'ShaderNodeGroup', 'mod_w')
+            mod_n.node_tree = mod_tree
+            mod_s.node_tree = mod_tree
+            mod_e.node_tree = mod_tree
+            mod_w.node_tree = mod_tree
+        else:
+            mod_group_1 = new_node(parent_tree, parent, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
+            mod_group_1.node_tree = mod_tree
+
     else:
-        mod_group_1 = new_node(parent_tree, parent, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
-        mod_group_1.node_tree = mod_tree
+
+        # Check number of groups needed
+        source = parent_tree.nodes.get(parent.source)
+        num_socs = len([outp for outp in source.outputs if outp.enabled])
+
+        #if len(parent.mod_groups) != num_socs:
+
+            # Remove curent mod groups first
+            #for mg in parent.mod_groups:
+            #    remove_node(parent_tree, mg, 'name')
+            #parent.mod_groups.clear()
+
+        mod_tree = create_modifier_tree(name)
+
+        # Create new mod groups
+        for i in range(num_socs):
+            mg = parent.mod_groups.add()
+            mgn = new_node(parent_tree, mg, 'name', 'ShaderNodeGroup', 'modifier_group_' + str(i))
+            mgn.node_tree = mod_tree
 
     for mod in parent.modifiers:
         check_modifier_nodes(mod, mod_tree, parent_tree)
@@ -909,14 +1018,22 @@ def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
         remove_node(parent_tree, parent, 'mod_w')
         remove_node(parent_tree, parent, 'mod_group_1')
 
+    # Remove mod groups
+    if hasattr(parent, 'mod_groups'):
+        for mg in parent.mod_groups:
+            remove_node(parent_tree, mg, 'name')
+        parent.mod_groups.clear()
+
 def register():
     bpy.utils.register_class(YNewYPaintModifier)
     bpy.utils.register_class(YMoveYPaintModifier)
     bpy.utils.register_class(YRemoveYPaintModifier)
     bpy.utils.register_class(YPaintModifier)
+    bpy.utils.register_class(YPaintModifierGroupNode)
 
 def unregister():
     bpy.utils.unregister_class(YNewYPaintModifier)
     bpy.utils.unregister_class(YMoveYPaintModifier)
     bpy.utils.unregister_class(YRemoveYPaintModifier)
     bpy.utils.unregister_class(YPaintModifier)
+    bpy.utils.unregister_class(YPaintModifierGroupNode)
