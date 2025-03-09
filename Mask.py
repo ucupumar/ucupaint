@@ -365,7 +365,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
 
         if new_type == 'MODIFIER':
             source = setup_modifier_mask_source(tree, mask, modifier_type)
-        else: source = new_node(tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
+        elif new_type != 'BACKFACE': source = new_node(tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
 
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
