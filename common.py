@@ -595,6 +595,12 @@ GAMMA = 2.2
 
 valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
 def version_tuple(version_string):
     return tuple(map(int, version_string.split('.'))) if version_string != '' else (0, 0, 0)
 
@@ -4174,6 +4180,7 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+    if not tree: return
     layer_node = layer.id_data.nodes.get(layer.group_node)
 
     height_proc = tree.nodes.get(height_ch.height_proc)
@@ -4390,10 +4397,10 @@ def update_layer_images_interpolation(layer, interpolation='Linear', from_interp
             if from_interpolation == '' or source.interpolation == from_interpolation:
                 source.interpolation = interpolation
 
-        baked_source = get_layer_source(layer, get_baked=True)
-        if baked_source and baked_source.image: 
-            if from_interpolation == '' or baked_source.interpolation == from_interpolation:
-                baked_source.interpolation = interpolation
+    baked_source = get_layer_source(layer, get_baked=True)
+    if baked_source and baked_source.image: 
+        if from_interpolation == '' or baked_source.interpolation == from_interpolation:
+            baked_source.interpolation = interpolation
 
     height_ch = get_height_channel(layer)
     if height_ch:
@@ -5614,8 +5621,8 @@ def get_all_baked_channel_images(tree):
 
     return images
 
-def is_layer_using_vector(layer):
-    if layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
+def is_layer_using_vector(layer, exclude_baked=False):
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
         return True
 
     for ch in layer.channels:

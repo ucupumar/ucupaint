@@ -213,7 +213,7 @@ class YListItem(bpy.types.PropertyGroup):
     )
 
 class YRefreshListItems(bpy.types.Operator):
-    bl_idname = "node.y_refresh_list_items"
+    bl_idname = "wm.y_refresh_list_items"
     bl_label = "Refresh List Items"
     bl_description = "Refresh List Items"
     bl_options = {'REGISTER', 'UNDO'}

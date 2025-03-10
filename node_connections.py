@@ -1748,6 +1748,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         reconnect_source_internal_nodes(layer)
     else: source = nodes.get(layer.source)
 
+    baked_source = None
+    if layer.use_baked:
+        baked_source = nodes.get(layer.baked_source)
+
     # Direction sources
     source_n = nodes.get(layer.source_n)
     source_s = nodes.get(layer.source_s)
@@ -1818,9 +1822,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Find override channels
     #using_vector = is_channel_override_using_vector(layer)
 
+    baked_vector = None
+    if layer.use_baked:
+        baked_vector = get_essential_node(tree, TREE_START).get(layer.baked_uv_name + io_suffix['UV'])
+
+    if baked_vector and baked_source:
+        create_link(tree, baked_vector, baked_source.inputs[0])
+
     # Texcoord
     vector = None
-    #if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'} or using_vector:
     if is_layer_using_vector(layer):
         if layer.texcoord_type == 'UV':
             vector = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['UV'])
@@ -1851,38 +1861,43 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 else:
                     break_link(tree, uniform_scale_value, mapping.inputs[3])
 
-    if vector and layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
-        create_link(tree, vector, source.inputs[0])
+    if vector:
+        if 'Vector' in source.inputs:
+            create_link(tree, vector, source.inputs['Vector'])
 
-        if uv_neighbor: 
-            create_link(tree, vector, uv_neighbor.inputs[0])
+        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
 
-            if tangent and 'Tangent' in uv_neighbor.inputs:
-                create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
-                create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
+            if uv_neighbor: 
+                create_link(tree, vector, uv_neighbor.inputs[0])
 
-            if layer_tangent:
-                if 'Entity Tangent' in uv_neighbor.inputs:
-                    create_link(tree, layer_tangent, uv_neighbor.inputs['Entity Tangent'])
-                    create_link(tree, layer_bitangent, uv_neighbor.inputs['Entity Bitangent'])
+                if tangent and 'Tangent' in uv_neighbor.inputs:
+                    create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
+                    create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
 
-                if 'Mask Tangent' in uv_neighbor.inputs:
-                    create_link(tree, layer_tangent, uv_neighbor.inputs['Mask Tangent'])
-                    create_link(tree, layer_bitangent, uv_neighbor.inputs['Mask Bitangent'])
+                if layer_tangent:
+                    if 'Entity Tangent' in uv_neighbor.inputs:
+                        create_link(tree, layer_tangent, uv_neighbor.inputs['Entity Tangent'])
+                        create_link(tree, layer_bitangent, uv_neighbor.inputs['Entity Bitangent'])
 
-            #if 'Tangent' in uv_neighbor.inputs:
-            #    create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
-            #if 'Bitangent' in uv_neighbor.inputs:
-            #    create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
+                    if 'Mask Tangent' in uv_neighbor.inputs:
+                        create_link(tree, layer_tangent, uv_neighbor.inputs['Mask Tangent'])
+                        create_link(tree, layer_bitangent, uv_neighbor.inputs['Mask Bitangent'])
 
-            if source_n: create_link(tree, uv_neighbor.outputs['n'], source_n.inputs[0])
-            if source_s: create_link(tree, uv_neighbor.outputs['s'], source_s.inputs[0])
-            if source_e: create_link(tree, uv_neighbor.outputs['e'], source_e.inputs[0])
-            if source_w: create_link(tree, uv_neighbor.outputs['w'], source_w.inputs[0])
+                #if 'Tangent' in uv_neighbor.inputs:
+                #    create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
+                #if 'Bitangent' in uv_neighbor.inputs:
+                #    create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
+
+                if source_n: create_link(tree, uv_neighbor.outputs['n'], source_n.inputs[0])
+                if source_s: create_link(tree, uv_neighbor.outputs['s'], source_s.inputs[0])
+                if source_e: create_link(tree, uv_neighbor.outputs['e'], source_e.inputs[0])
+                if source_w: create_link(tree, uv_neighbor.outputs['w'], source_w.inputs[0])
 
 
     # RGB
-    if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS' and 'Radius' in source.outputs:
+    if baked_source:
+        start_rgb = baked_source.outputs[0]
+    elif is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS' and 'Radius' in source.outputs:
         start_rgb = source.outputs['Radius']
     else: start_rgb = source.outputs[0]
 
@@ -1891,7 +1906,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         start_rgb_1 = source.outputs[1]
 
     # Alpha
-    if layer.type == 'IMAGE' or source_group:
+    if baked_source:
+        start_alpha = baked_source.outputs[1]
+    elif layer.type == 'IMAGE' or source_group:
         start_alpha = source.outputs[1]
     elif layer.type == 'VCOL' and 'Alpha' in source.outputs:
         start_alpha = source.outputs['Alpha']
@@ -2359,7 +2376,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Get source output index
         source_index = 0
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+        if not layer.use_baked and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             # Noise and voronoi output has flipped order since Blender 2.81
             if is_bl_newer_than(2, 81) and (layer.type == 'NOISE' or (layer.type == 'VORONOI' and layer.voronoi_feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})):
                 if ch.layer_input == 'RGB':

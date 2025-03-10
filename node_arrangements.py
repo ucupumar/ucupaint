@@ -37,8 +37,14 @@ def get_mod_y_offsets(mod, is_value=False):
 def check_set_node_loc(tree, node_name, loc, hide=False, parent_unset=False):
     node = tree.nodes.get(node_name)
     if node:
-        if node.location != loc:
+        # Blender 4.4+ has new parent and node calculation
+        if is_bl_newer_than(4, 4) and node.parent != None:
+            if node.location != loc - node.parent.location:
+                node.location = loc - node.parent.location
+
+        elif node.location != loc:
             node.location = loc
+
         if node.hide != hide:
             node.hide = hide
 
@@ -466,12 +472,20 @@ def rearrange_source_tree_nodes(layer):
         #loc.y += 390
 
     loc.y = 0
+    bookmark_x = loc.x
 
     #if check_set_node_loc(source_tree, layer.mapping, loc):
     #    loc.x += 380
 
     if check_set_node_loc(source_tree, layer.source, loc):
         loc.x += 280
+
+    if layer.baked_source != '':
+        loc.x = bookmark_x
+        loy.y -= 320
+        check_set_node_loc(source_tree, layer.baked_source, loc)
+        loc.x += 280
+        loc.y = 0
 
     if check_set_node_loc(source_tree, layer.divider_alpha, loc):
         loc.x += 200
@@ -698,6 +712,10 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 170
         cache_found = True
 
+    if check_set_node_loc(tree, layer.cache_gabor, loc, hide=False):
+        loc.y -= 170
+        cache_found = True
+
     if check_set_node_loc(tree, layer.cache_wave, loc, hide=False):
         loc.y -= 260
         cache_found = True
@@ -746,6 +764,10 @@ def rearrange_layer_nodes(layer, tree=None):
             cache_found = True
 
         if check_set_node_loc(tree, ch.cache_voronoi, loc, hide=False):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_gabor, loc, hide=False):
             loc.y -= 170
             cache_found = True
 
@@ -804,6 +826,10 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.y -= 170
             cache_found = True
 
+        if check_set_node_loc(tree, mask.cache_gabor, loc, hide=False, parent_unset=True):
+            loc.y -= 170
+            cache_found = True
+
         if check_set_node_loc(tree, mask.cache_wave, loc, hide=False, parent_unset=True):
             loc.y -= 260
             cache_found = True
@@ -856,6 +882,9 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.y -= 190
             else:
                 loc.y -= 320
+
+    if check_set_node_loc(tree, layer.baked_source, loc, hide=False):
+        loc.y -= 320
 
     if check_set_node_loc(tree, layer.source_n, loc, hide=True):
         loc.y -= 40
