@@ -249,6 +249,7 @@ def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False)
             return
 
     layer_tree = get_tree(layer)
+    if not layer_tree: return
 
     #if ch.override_type not in {'DEFAULT'}:
     source_group = layer_tree.nodes.get(ch.source_group)
@@ -580,6 +581,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+    if not tree: return False
 
     need_reconnect = False
 

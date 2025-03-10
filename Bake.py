@@ -378,7 +378,7 @@ def get_entities_to_transfer(yp, from_uv_map, to_uv_map):
     return entities
 
 class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_transfer_some_layer_uv"
+    bl_idname = "wm.y_transfer_some_layer_uv"
     bl_label = "Transfer Some Layer UV"
     bl_description = "Transfer some layers/masks UV by baking it to other uv (this will take quite some time to finish)"
     bl_options = {'REGISTER', 'UNDO'}
@@ -551,7 +551,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_transfer_layer_uv"
+    bl_idname = "wm.y_transfer_layer_uv"
     bl_label = "Transfer Layer UV"
     bl_description = "Transfer Layer UV by baking it to other uv (this will take quite some time to finish)"
     bl_options = {'REGISTER', 'UNDO'}
@@ -691,7 +691,7 @@ def update_resize_image_tile_number(self, context):
             self.height = tile.size[1]
 
 class YResizeImage(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_resize_image"
+    bl_idname = "wm.y_resize_image"
     bl_label = "Resize Image Layer/Mask"
     bl_description = "Resize image of layer or mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -855,7 +855,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
 
 class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
     """Bake Channel to Vertex Color"""
-    bl_idname = "node.y_bake_channel_to_vcol"
+    bl_idname = "wm.y_bake_channel_to_vcol"
     bl_label = "Bake channel to vertex color"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1091,7 +1091,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YDeleteBakedChannelImages(bpy.types.Operator):
-    bl_idname = "node.y_delete_baked_channel_images"
+    bl_idname = "wm.y_delete_baked_channel_images"
     bl_label = "Delete All Baked Channel Images"
     bl_description = "Delete all baked channel images"
     bl_options = {'UNDO'}
@@ -1202,7 +1202,7 @@ def bake_vcol_channel_items(self, context):
 
 class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     """Bake Channels to Image(s)"""
-    bl_idname = "node.y_bake_channels"
+    bl_idname = "wm.y_bake_channels"
     bl_label = "Bake channels to Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -2142,7 +2142,7 @@ def remove_layer_modifiers_and_transforms(layer):
         Mask.remove_mask(layer, m, bpy.context.object)
 
 class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_merge_layer"
+    bl_idname = "wm.y_merge_layer"
     bl_label = "Merge layer"
     bl_description = "Merge Layer"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2510,7 +2510,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YMergeMask(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_merge_mask"
+    bl_idname = "wm.y_merge_mask"
     bl_label = "Merge mask"
     bl_description = "Merge Mask"
     bl_options = {'UNDO'}
@@ -2758,7 +2758,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_bake_temp_image"
+    bl_idname = "wm.y_bake_temp_image"
     bl_label = "Bake temporary image of layer"
     bl_description = "Bake temporary image of layer, can be useful to prefent glitching with cycles"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2861,7 +2861,7 @@ class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YDisableTempImage(bpy.types.Operator):
-    bl_idname = "node.y_disable_temp_image"
+    bl_idname = "wm.y_disable_temp_image"
     bl_label = "Disable Baked temporary image of layer"
     bl_description = "Disable bake temporary image of layer"
     bl_options = {'REGISTER', 'UNDO'}
@@ -3515,7 +3515,7 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
 
         if set_one:
             # Create links
-            if vdisp: create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
+            if vdisp and vdisp_outp: create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
             if disp:
                 create_link(mat.node_tree, height_outp, disp.inputs['Height'])
                 create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])

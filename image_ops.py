@@ -314,7 +314,7 @@ def save_pack_all(yp):
 
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
-    bl_idname = "node.y_invert_image"
+    bl_idname = "wm.y_invert_image"
     bl_label = "Invert Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -351,7 +351,7 @@ class YInvertImage(bpy.types.Operator):
 
 class YRefreshImage(bpy.types.Operator):
     """Reload Image"""
-    bl_idname = "node.y_reload_image"
+    bl_idname = "wm.y_reload_image"
     bl_label = "Reload Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -372,7 +372,7 @@ class YRefreshImage(bpy.types.Operator):
 
 class YPackImage(bpy.types.Operator):
     """Pack Image"""
-    bl_idname = "node.y_pack_image"
+    bl_idname = "wm.y_pack_image"
     bl_label = "Pack Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -442,7 +442,7 @@ class YPackImage(bpy.types.Operator):
 
 class YSaveImage(bpy.types.Operator):
     """Save Image"""
-    bl_idname = "node.y_save_image"
+    bl_idname = "wm.y_save_image"
     bl_label = "Save Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -594,7 +594,7 @@ def remove_unpacked_image_path(image, filepath, default_dir, default_dir_found, 
 
 class YSaveAllBakedImages(bpy.types.Operator):
     """Save All Baked Images to directory"""
-    bl_idname = "node.y_save_all_baked_images"
+    bl_idname = "wm.y_save_all_baked_images"
     bl_label = "Save All Baked Images"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -817,7 +817,7 @@ def get_file_format_items():
 
 class YSaveAsImage(bpy.types.Operator, ExportHelper):
     """Save As Image"""
-    bl_idname = "node.y_save_as_image"
+    bl_idname = "wm.y_save_as_image"
     bl_label = "Save As Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1175,7 +1175,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
 class YSavePackAll(bpy.types.Operator):
     """Save and Pack All Image Layers"""
-    bl_idname = "node.y_save_pack_all"
+    bl_idname = "wm.y_save_pack_all"
     bl_label = "Save and Pack All Image Layers"
     bl_options = {'REGISTER', 'UNDO'}
 

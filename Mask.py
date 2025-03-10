@@ -365,7 +365,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
 
         if new_type == 'MODIFIER':
             source = setup_modifier_mask_source(tree, mask, modifier_type)
-        else: source = new_node(tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
+        elif new_type != 'BACKFACE': source = new_node(tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
 
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
@@ -522,7 +522,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
     mask.expand_source = mask.type not in {'IMAGE'} or (image != None and image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel)
 
 class YNewLayerMask(bpy.types.Operator):
-    bl_idname = "node.y_new_layer_mask"
+    bl_idname = "wm.y_new_layer_mask"
     bl_label = "New Layer Mask"
     bl_description = "New Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -573,6 +573,12 @@ class YNewLayerMask(bpy.types.Operator):
         size = 3,
         subtype = 'COLOR',
         default=(1.0, 0.0, 1.0), min=0.0, max=1.0,
+    )
+
+    color_id_fill : BoolProperty(
+        name = 'Fill Selected Geometry with Color ID',
+        description = 'Fill selected geometry with color ID',
+        default = True
     )
 
     hdr : BoolProperty(name='32 bit Float', default=False)
@@ -772,6 +778,8 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'COLOR_ID':
             col.label(text='Color ID:')
+            if obj.mode == 'EDIT':
+                col.label(text='')
 
         if is_bl_newer_than(3, 2) and self.type == 'VCOL':
             col.label(text='Domain:')
@@ -821,6 +829,8 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'COLOR_ID':
             col.prop(self, 'color_id', text='')
+            if obj.mode == 'EDIT':
+                col.prop(self, 'color_id_fill', text='Fill Selected Faces')
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
@@ -892,11 +902,17 @@ class YNewLayerMask(bpy.types.Operator):
         if same_name:
             if self.type == 'IMAGE':
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
+                return {'CANCELLED'}
             elif self.type == 'VCOL':
                 self.report({'ERROR'}, "Vertex Color named '" + self.name +"' is already available!")
-            else: self.report({'ERROR'}, "Mask named '" + self.name +"' is already available!")
-            return {'CANCELLED'}
-        
+                return {'CANCELLED'}
+            elif self.options.is_repeat:
+                # Remove the mask before re-adding it on operator repeat
+                remove_mask(layer, same_name[0], obj)
+            else:
+                self.report({'ERROR'}, "Mask named '" + self.name +"' is already available!")
+                return {'CANCELLED'}
+
         alpha = False
         img = None
         vcol = None
@@ -973,6 +989,10 @@ class YNewLayerMask(bpy.types.Operator):
             elif self.type == 'COLOR_ID':
                 check_colorid_vcol(objs)
 
+                # Fill selected geometry if in edit mode
+                if self.color_id_fill and bpy.context.mode == 'EDIT_MESH':
+                    bpy.ops.mesh.y_vcol_fill_face_custom(color=(self.color_id[0], self.color_id[1], self.color_id[2], 1.0))
+
         # Voronoi and noise mask will use grayscale value by default
         source_input = 'RGB' if self.type not in {'VORONOI', 'NOISE'} else 'ALPHA'
 
@@ -1004,7 +1024,7 @@ class YNewLayerMask(bpy.types.Operator):
 
 class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
     """Open Image as Mask"""
-    bl_idname = "node.y_open_image_as_mask"
+    bl_idname = "wm.y_open_image_as_mask"
     bl_label = "Open Image as Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1262,7 +1282,7 @@ def update_available_data_name_as_mask(self, context):
     self.source_input = 'RGB'
 
 class YOpenAvailableDataAsMask(bpy.types.Operator):
-    bl_idname = "node.y_open_available_data_as_mask"
+    bl_idname = "wm.y_open_available_data_as_mask"
     bl_label = "Open available data as Layer Mask"
     bl_description = "Open available data as Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1532,7 +1552,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveLayerMask(bpy.types.Operator):
-    bl_idname = "node.y_move_layer_mask"
+    bl_idname = "wm.y_move_layer_mask"
     bl_label = "Move Layer Mask"
     bl_description = "Move layer mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1605,7 +1625,7 @@ class YMoveLayerMask(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveLayerMask(bpy.types.Operator):
-    bl_idname = "node.y_remove_layer_mask"
+    bl_idname = "wm.y_remove_layer_mask"
     bl_label = "Remove Layer Mask"
     bl_description = "Remove Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1702,7 +1722,7 @@ class YRemoveLayerMask(bpy.types.Operator):
         return {'FINISHED'}
 
 class YReplaceMaskType(bpy.types.Operator):
-    bl_idname = "node.y_replace_mask_type"
+    bl_idname = "wm.y_replace_mask_type"
     bl_label = "Replace Mask Type"
     bl_description = "Replace Mask Type"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1792,7 +1812,7 @@ class YReplaceMaskType(bpy.types.Operator):
 
 class YFixEdgeDetectAO(bpy.types.Operator):
     """Eevee Ambient Occlusion must be enabled to make edge detect mask to work"""
-    bl_idname = "node.y_fix_edge_detect_ao"
+    bl_idname = "wm.y_fix_edge_detect_ao"
     bl_label = "Fix Edge Detect Mask AO"
     bl_options = {'REGISTER', 'UNDO'}
 
