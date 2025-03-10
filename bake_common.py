@@ -339,7 +339,7 @@ def prepare_other_objs_channels(yp, other_objs):
 
             for mat in o.data.materials:
                 if mat == None: continue
-                if mat in mats: continue
+                #if mat in mats: continue
                 if not mat.use_nodes: continue
 
                 # Get material output

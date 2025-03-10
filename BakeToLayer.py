@@ -822,7 +822,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 bake_type = 'EMIT'
 
                 # Set emission connection
+                connected_mats = []
                 for j, m in enumerate(ch_other_mats[idx]):
+                    if m in connected_mats: continue
                     default = ch_other_defaults[idx][j]
                     socket = ch_other_sockets[idx][j]
 
@@ -840,6 +842,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                             m.node_tree.links.remove(l)
                     elif socket:
                         m.node_tree.links.new(socket, temp_emi.inputs[0])
+
+                    connected_mats.append(m)
 
             colorspace = get_noncolor_name() if root_ch.colorspace == 'LINEAR' else get_srgb_name()
 
