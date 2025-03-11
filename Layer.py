@@ -2057,6 +2057,7 @@ class BaseMultipleImagesLayer():
         dx_image = None
         gl_image = None
         for image in images:
+            if not image: continue
 
             # Get filename without extension
             name = os.path.splitext(os.path.basename(image.filepath))[0]
