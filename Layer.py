@@ -2053,11 +2053,17 @@ class BaseMultipleImagesLayer():
         valid_images = []
         valid_synonyms = []
 
+        # Filter image to make sure it's not empty
+        filtered_images = []
+        for image in images:
+            if not image: continue
+            filtered_images.append(image)
+        images = filtered_images
+
         # Check for DirectX and OpenGL images
         dx_image = None
         gl_image = None
         for image in images:
-            if not image: continue
 
             # Get filename without extension
             name = os.path.splitext(os.path.basename(image.filepath))[0]
