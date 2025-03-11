@@ -2467,7 +2467,8 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
                     UDIM.remove_udim_atlas_segment_by_name(overwrite_image, entity.baked_segment_name, yp=yp)
 
             # Remove node first to also remove its data
-            remove_node(source_tree, entity, 'baked_source')
+            remove_data = False if segment else True # Do not remove image atlas image since it can be use multiple times
+            remove_node(source_tree, entity, 'baked_source', remove_data=remove_data)
 
             # Rename image if it's not image atlas
             if entity.baked_segment_name == '' and overwrite_image_name == bprops.name:
