@@ -472,6 +472,11 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
             mask.uv_name = get_default_uv_name(obj, yp)
             yp.halt_update = False
 
+    # Always remove baked mask when changing type
+    if mask.use_baked:
+        mask.use_baked = False
+        remove_node(tree, mask, 'baked_source')
+
     # Update group ios
     check_all_layer_channel_io_and_nodes(layer, tree)
 
