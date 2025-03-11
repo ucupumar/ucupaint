@@ -1670,7 +1670,7 @@ def reconnect_source_internal_nodes(layer):
     if flip_y:
         rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
 
-    if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+    if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT'}:
         rgb_1 = source.outputs[1]
         alpha = get_essential_node(tree, ONE_VALUE)[0]
         alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
@@ -1687,7 +1687,7 @@ def reconnect_source_internal_nodes(layer):
         create_link(tree, rgb_1, end.inputs[2])
         create_link(tree, alpha_1, end.inputs[3])
 
-    if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+    if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT'}:
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha)
 
@@ -1712,7 +1712,7 @@ def reconnect_mask_internal_nodes(mask, mask_source_index=0):
 
     if mask.type == 'MODIFIER' and mask.modifier_type in {'INVERT', 'CURVE'}:
         create_link(tree, start.outputs[0], source.inputs[1])
-    elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
+    elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'EDGE_DETECT'}:
         create_link(tree, start.outputs[0], source.inputs[0])
 
     val = source.outputs[mask_source_index]
@@ -1865,7 +1865,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if 'Vector' in source.inputs:
             create_link(tree, vector, source.inputs['Vector'])
 
-        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT'}:
 
             if uv_neighbor: 
                 create_link(tree, vector, uv_neighbor.inputs[0])
@@ -1902,7 +1902,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     else: start_rgb = source.outputs[0]
 
     start_rgb_1 = None
-    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'} and len(source.outputs) > 1:
+    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT'} and len(source.outputs) > 1:
         start_rgb_1 = source.outputs[1]
 
     # Alpha
@@ -1926,7 +1926,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if linear: start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
         if flip_y: start_rgb = create_link(tree, start_rgb, flip_y.inputs[0])[0]
 
-    if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+    if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT'}:
         start_rgb_1 = source_group.outputs[2]
         start_alpha_1 = source_group.outputs[3]
 
@@ -1944,15 +1944,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 tree, layer, start_rgb, start_alpha, mod_group
             )
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT'}:
             mod_group_1 = nodes.get(layer.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
                 tree, layer, source.outputs[1], get_essential_node(tree, ONE_VALUE)[0], mod_group_1
             )
 
     # UV neighbor vertex color
-    if layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'} and uv_neighbor:
-        if layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+    if layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT'} and uv_neighbor:
+        if layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT'}:
             create_link(tree, start_rgb, uv_neighbor.inputs[0])
 
         if tangent and bitangent:
@@ -2376,7 +2376,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Get source output index
         source_index = 0
-        if not layer.use_baked and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+        if not layer.use_baked and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT'}:
             # Noise and voronoi output has flipped order since Blender 2.81
             if is_bl_newer_than(2, 81) and (layer.type == 'NOISE' or (layer.type == 'VORONOI' and layer.voronoi_feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})):
                 if ch.layer_input == 'RGB':
@@ -2691,7 +2691,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 alpha_e = source_e.outputs[source_index+1]
                 alpha_w = source_w.outputs[source_index+1]
 
-            elif layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and uv_neighbor:
+            elif layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT'} and uv_neighbor:
                 rgb_n = uv_neighbor.outputs['n']
                 rgb_s = uv_neighbor.outputs['s']
                 rgb_e = uv_neighbor.outputs['e']

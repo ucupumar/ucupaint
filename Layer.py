@@ -58,7 +58,7 @@ def add_new_layer(
         mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha=False, use_udim_for_mask=False,
         interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05,
-        normal_space = 'TANGENT'
+        normal_space = 'TANGENT', edge_detect_radius=0.05
     ):
 
     yp = group_tree.yp
@@ -176,6 +176,9 @@ def add_new_layer(
         load_hemi_props(layer, source)
         layer.hemi_space = hemi_space
         layer.hemi_use_prev_normal = hemi_use_prev_normal
+
+    elif layer_type == 'EDGE_DETECT':
+        Mask.setup_edge_detect_source(layer, source, edge_detect_radius)
 
     # Add texcoord node
     #texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
@@ -1007,6 +1010,12 @@ class YNewLayer(bpy.types.Operator):
     )
 
     # For edge detection
+    edge_detect_radius : FloatProperty(
+        name = 'Detect Mask Radius',
+        description = 'Edge detect radius',
+        default=0.05, min=0.0, max=10.0
+    )
+
     mask_edge_detect_radius : FloatProperty(
         name = 'Edge Detect Mask Radius',
         description = 'Edge detect mask radius',
@@ -1080,7 +1089,7 @@ class YNewLayer(bpy.types.Operator):
         self.normal_map_type = 'BUMP_MAP'
 
         # Fake lighting default blend type is add
-        if self.type == 'HEMI':
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
             self.blend_type = 'ADD'
         else: self.blend_type = 'MIX'
 
@@ -1210,6 +1219,9 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='Space:')
             col.label(text='')
 
+        if self.type == 'EDGE_DETECT':
+            col.label(text='Edge Detect Radius:')
+
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
             col.label(text='')
             col.label(text='Resolution:')
@@ -1222,7 +1234,7 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='')
             col.label(text='Interpolation:')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT'}:
             col.label(text='Vector:')
 
         if self.type in {'VCOL'}:
@@ -1294,6 +1306,10 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
             col.prop(self, 'hemi_use_prev_normal')
+
+        if self.type == 'EDGE_DETECT':
+            col.prop(self, 'edge_detect_radius', text='')
+
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
@@ -1309,7 +1325,7 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'hdr')
             col.prop(self, 'interpolation', text='')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -1506,16 +1522,18 @@ class YNewLayer(bpy.types.Operator):
         layer = add_new_layer(
             node.node_tree, self.name, self.type, 
             channel_idx, self.blend_type, self.normal_blend_type, 
-            self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol, segment,
-            self.solid_color,
-            self.add_mask, self.mask_type, self.mask_image_filepath, self.mask_relative,
-            self.mask_texcoord_type, self.mask_color, self.mask_use_hdr, self.mask_uv_name,
-            self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-            self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id, self.mask_color_id_fill,
-            self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha,
-            self.use_udim_for_mask,
-            self.interpolation, self.mask_interpolation,
-            self.mask_edge_detect_radius
+            self.normal_map_type, self.texcoord_type, uv_name=self.uv_map, 
+            image=img, vcol=vcol, segment=segment, solid_color=self.solid_color,
+            add_mask=self.add_mask, mask_type=self.mask_type, 
+            mask_image_filepath=self.mask_image_filepath, mask_relative=self.mask_relative,
+            mask_texcoord_type=self.mask_texcoord_type, mask_color=self.mask_color, 
+            mask_use_hdr=self.mask_use_hdr, mask_uv_name=self.mask_uv_name,
+            mask_width=self.mask_width, mask_height=self.mask_height, use_image_atlas_for_mask=self.use_image_atlas_for_mask, 
+            hemi_space=self.hemi_space, hemi_use_prev_normal=self.hemi_use_prev_normal, 
+            mask_color_id=self.mask_color_id, mask_color_id_fill=self.mask_color_id_fill,
+            mask_vcol_data_type=self.mask_vcol_data_type, mask_vcol_domain=self.mask_vcol_domain, use_divider_alpha=self.use_divider_alpha,
+            use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
+            mask_edge_detect_radius=self.mask_edge_detect_radius, edge_detect_radius=self.edge_detect_radius
         )
 
         if segment:
@@ -6525,6 +6543,14 @@ def update_layer_uniform_scale_enabled(self, context):
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
+def update_layer_edge_detect_radius(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    layer = self
+
+    source = get_layer_source(layer)
+    if source: source.inputs[0].default_value = self.edge_detect_radius
+
 def update_layer_use_baked(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -6615,6 +6641,14 @@ class YLayer(bpy.types.PropertyGroup):
         default=0.0, min=0.0, max=1.0,
         subtype = 'FACTOR',
         update = update_projection_blend
+    )
+
+    # For edge detection
+    edge_detect_radius : FloatProperty(
+        name = 'Edge Detect Radius',
+        description = 'Edge detect radius',
+        default=0.05, min=0.0, max=10.0,
+        update = update_layer_edge_detect_radius
     )
 
     # Specific for voronoi

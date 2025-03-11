@@ -32,13 +32,13 @@ def setup_object_idx_source(mask, source, object_index=None):
 
     source.inputs[0].default_value = object_index
 
-def setup_edge_detect_source(mask, source, edge_detect_radius=None):
+def setup_edge_detect_source(entity, source, edge_detect_radius=None):
     source.node_tree = get_node_tree_lib(lib.EDGE_DETECT)
     if edge_detect_radius != None:
-        source.inputs[0].default_value = mask.edge_detect_radius = edge_detect_radius
-    else: source.inputs[0].default_value = mask.edge_detect_radius
+        source.inputs[0].default_value = entity.edge_detect_radius = edge_detect_radius
+    else: source.inputs[0].default_value = entity.edge_detect_radius
 
-    # Enable AO to see edge detect mask
+    # Enable AO to see edge detect entity
     scene = bpy.context.scene
     if not scene.eevee.use_gtao: scene.eevee.use_gtao = True
 

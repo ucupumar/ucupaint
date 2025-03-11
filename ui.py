@@ -1503,6 +1503,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         suffix = 'color'
     elif layer.type == 'HEMI':
         suffix = 'hemi'
+    elif layer.type == 'EDGE_DETECT':
+        suffix = 'edge_detect'
     elif layer.type == 'VCOL':
         suffix = 'vertex_color'
     else: suffix = 'texture'
@@ -1537,6 +1539,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             icon_value = lib.get_icon('group')
         elif layer.type == 'HEMI':
             icon_value = lib.get_icon('hemi')
+        elif layer.type == 'EDGE_DETECT':
+            icon_value = lib.get_icon('edge_detect')
         else: icon_value = lib.get_icon('texture')
 
     #if layer.type == 'COLOR' and not lui.expand_source:
@@ -1574,9 +1578,15 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             draw_vcol_props(ccol, vcol, layer)
         elif layer.type == 'HEMI':
             draw_hemi_props(layer, source, ccol)
+        elif layer.type == 'EDGE_DETECT':
+            draw_edge_detect_props(layer, source, ccol)
         else: draw_tex_props(source, ccol, entity=layer)
 
-        if layer.baked_source != '':
+        if layer.baked_source == '' and layer.type in {'EDGE_DETECT', 'HEMI'}:
+            rrrow = rrcol.row(align=True)
+            rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[layer.type]+' as Image', icon_value=lib.get_icon('bake'))
+
+        elif layer.baked_source != '':
             rrcol.context_pointer_set('entity', layer)
             rrcol.context_pointer_set('layer', layer)
             rrrow = rrcol.row(align=True)
@@ -2896,7 +2906,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             else: draw_tex_props(mask_source, rbcol, entity=mask, show_source_input=True)
 
             rrcol.context_pointer_set('entity', mask)
-            if mask.baked_source == '' and mask.type in {'EDGE_DETECT'}:
+            if mask.baked_source == '' and mask.type in {'EDGE_DETECT', 'HEMI'}:
                 rrrow = rrcol.row(align=True)
                 rrrow.label(text='', icon='BLANK1')
                 rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[mask.type]+' as Image', icon_value=lib.get_icon('bake'))
@@ -5454,6 +5464,7 @@ class YNewLayerMenu(bpy.types.Menu):
 
         col.separator()
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
+        col.operator("wm.y_new_layer", icon_value=lib.get_icon('edge_detect'), text='Edge Detect').type = 'EDGE_DETECT'
 
         col = row.column()
         col.label(text='Bake as Layer:')
@@ -5724,7 +5735,7 @@ class YLayerChannelNormalBlendPopover(bpy.types.Panel):
         draw_input_prop(col, ch, 'intensity_value', text='')
 
 def has_layer_input_options(layer):
-    return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'} and not 
+    return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE', 'EDGE_DETECT'} and not 
         (is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}))
 
 class YLayerChannelInputMenu(bpy.types.Menu):

@@ -225,6 +225,7 @@ layer_type_items = (
     ('GROUP', 'Group', ''),
     ('HEMI', 'Fake Lighting', ''),
     ('GABOR', 'Gabor', ''),
+    ('EDGE_DETECT', 'Edge Detect', ''),
 )
 
 mask_type_items = (
@@ -290,6 +291,7 @@ layer_type_labels = {
     'GROUP' : 'Group',
     'HEMI' : 'Fake Lighting',
     'GABOR' : 'Gabor',
+    'EDGE_DETECT' : 'Edge Detect',
 }
 
 mask_type_labels = {
@@ -4899,11 +4901,11 @@ def is_uv_input_needed(layer, uv_name):
         if layer.baked_source != '' and layer.use_baked and layer.baked_uv_name == uv_name:
             return True
 
-            if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-                return True
+        if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
+            return True
 
         if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
+            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT'}:
                 return True
 
             for i, ch in enumerate(layer.channels):
@@ -5585,7 +5587,7 @@ def check_need_prev_normal(layer):
 
     # Check if previous normal is needed
     need_prev_normal = False
-    if layer.type == 'HEMI' and layer.hemi_use_prev_normal and height_root_ch:
+    if layer.type in 'HEMI' and layer.hemi_use_prev_normal and height_root_ch:
         need_prev_normal = True
 
     # Also check mask
@@ -5622,7 +5624,7 @@ def get_all_baked_channel_images(tree):
     return images
 
 def is_layer_using_vector(layer, exclude_baked=False):
-    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
         return True
 
     for ch in layer.channels:

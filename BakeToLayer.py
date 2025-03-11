@@ -2627,6 +2627,9 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             self.mask = None
             self.index = int(m1.group(1))
             self.entities = yp.layers
+
+            # NOTE: Duplicate entity currently doesn't work on layer so make sure to disable it
+            self.duplicate_entity = False
         elif m2: 
             self.layer = yp.layers[int(m2.group(1))]
             self.mask = self.layer.masks[int(m2.group(2))]
@@ -2800,7 +2803,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         if self.mask:
             col.prop(self, 'duplicate_entity', text='Duplicate Mask')
-        else: col.prop(self, 'duplicate_entity', text='Disable Layer')
+        #else: col.prop(self, 'duplicate_entity', text='Disable Layer')
         if self.duplicate_entity:
             if self.mask:
                 col.prop(self, 'disable_current', text='Disable Current Mask')
