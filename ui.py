@@ -235,8 +235,10 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
                 unlink_op = 'wm.y_remove_channel_override_1_source'
             else: unlink_op = 'wm.y_remove_channel_override_source'
 
-    if image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel:
-        bi = image.y_bake_info
+    bi = image.y_bake_info
+    if (bi.is_baked and not bi.is_baked_channel and 
+        (not bi.is_baked_entity or bi.bake_type in {'BEVEL_MASK'}) # NOTE: Some baked type can come from entity
+    ):
         #if image.yia.is_image_atlas or image.yua.is_udim_atlas:
         #    col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
         #elif show_datablock: col.template_ID(source, "image", unlink=unlink_op)

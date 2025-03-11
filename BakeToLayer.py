@@ -2482,12 +2482,18 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         bi = segment.bake_info if segment else image.y_bake_info
 
         bi.is_baked = True
+        bi.is_baked_entity = True
         for attr in dir(bi):
             if attr.startswith('__'): continue
             if attr.startswith('bl_'): continue
             if attr in {'rna_type'}: continue
             try: setattr(bi, attr, bprops[attr])
             except: pass
+
+        # Set bake type for some types
+        if entity.type == 'EDGE_DETECT':
+            bi.bake_type = 'BEVEL_MASK'
+            bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
 
         # Create new node
         baked_source = new_node(source_tree, entity, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
