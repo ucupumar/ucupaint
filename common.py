@@ -226,6 +226,7 @@ layer_type_items = (
     ('HEMI', 'Fake Lighting', ''),
     ('GABOR', 'Gabor', ''),
     ('EDGE_DETECT', 'Edge Detect', ''),
+    ('AO', 'Ambient Occlusion', ''),
 )
 
 mask_type_items = (
@@ -246,6 +247,7 @@ mask_type_items = (
     ('EDGE_DETECT', 'Edge Detect', ''),
     ('MODIFIER', 'Modifier', ''),
     ('GABOR', 'Gabor', ''),
+    ('AO', 'Ambient Occlusion', ''),
 )
 
 channel_override_type_items = (
@@ -292,6 +294,7 @@ layer_type_labels = {
     'HEMI' : 'Fake Lighting',
     'GABOR' : 'Gabor',
     'EDGE_DETECT' : 'Edge Detect',
+    'AO' : 'Ambient Occlusion',
 }
 
 mask_type_labels = {
@@ -312,6 +315,7 @@ mask_type_labels = {
     'EDGE_DETECT' : 'Edge Detect',
     'MODIFIER' : 'Modifier',
     'GABOR' : 'Gabor',
+    'AO' : 'Ambient Occlusion',
 }
 
 bake_type_items = (
@@ -508,6 +512,7 @@ layer_node_bl_idnames = {
     'EDGE_DETECT' : 'ShaderNodeGroup',
     'GABOR' : 'ShaderNodeTexGabor',
     'MODIFIER' : 'ShaderNodeGroup',
+    'AO' : 'ShaderNodeAmbientOcclusion',
 }
 
 io_suffix = {
@@ -3127,7 +3132,7 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'} 
 
 def clear_mapping(entity, use_baked=False):
 
@@ -4905,7 +4910,7 @@ def is_uv_input_needed(layer, uv_name):
             return True
 
         if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT'}:
+            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'}:
                 return True
 
             for i, ch in enumerate(layer.channels):
@@ -4925,7 +4930,7 @@ def is_uv_input_needed(layer, uv_name):
             if not get_mask_enabled(mask): continue
             if mask.use_baked and mask.baked_source != '' and mask.baked_uv_name == uv_name:
                 return True
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}: continue
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'}: continue
             if (not mask.use_baked or mask.baked_source == '') and mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
 
@@ -4975,7 +4980,7 @@ def is_entity_need_tangent_input(entity, uv_name):
                     return True
 
                 # Fake neighbor need tangent
-                if height_root_ch.enable_smooth_bump and entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT'} and not entity.use_baked:
+                if height_root_ch.enable_smooth_bump and entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT', 'AO'} and not entity.use_baked:
                     return True
 
             elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
@@ -5587,13 +5592,13 @@ def check_need_prev_normal(layer):
 
     # Check if previous normal is needed
     need_prev_normal = False
-    if layer.type in {'HEMI', 'EDGE_DETECT'} and layer.hemi_use_prev_normal and height_root_ch:
+    if layer.type in {'HEMI', 'EDGE_DETECT', 'AO'} and layer.hemi_use_prev_normal and height_root_ch:
         need_prev_normal = True
 
     # Also check mask
     if not need_prev_normal:
         for mask in layer.masks:
-            if mask.type in {'HEMI', 'EDGE_DETECT'} and mask.hemi_use_prev_normal and height_root_ch:
+            if mask.type in {'HEMI', 'EDGE_DETECT', 'AO'} and mask.hemi_use_prev_normal and height_root_ch:
                 need_prev_normal = True
                 break
 
@@ -5624,7 +5629,7 @@ def get_all_baked_channel_images(tree):
     return images
 
 def is_layer_using_vector(layer, exclude_baked=False):
-    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
         return True
 
     for ch in layer.channels:
@@ -5638,7 +5643,7 @@ def is_layer_using_vector(layer, exclude_baked=False):
     return False
 
 def is_mask_using_vector(mask):
-    if mask.use_baked or mask.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+    if mask.use_baked or mask.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
         return True
 
     return False

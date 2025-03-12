@@ -295,7 +295,7 @@ def is_mask_type_cacheable(mask_type, modifier_type=''):
     if mask_type == 'MODIFIER':
         return modifier_type in {'RAMP', 'CURVE'}
 
-    return mask_type not in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'EDGE_DETECT', 'BACKFACE'}
+    return mask_type not in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'EDGE_DETECT', 'BACKFACE', 'AO'}
 
 def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_type='INVERT'):
 
@@ -817,7 +817,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='')
 
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
             col.label(text='Vector:')
             if self.type == 'IMAGE':
                 if UDIM.is_udim_supported():
@@ -872,7 +872,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
 
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':

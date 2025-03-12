@@ -1099,6 +1099,8 @@ class YNewLayer(bpy.types.Operator):
         # Fake lighting default blend type is add
         if self.type in {'HEMI', 'EDGE_DETECT'}:
             self.blend_type = 'ADD'
+        if self.type == 'AO':
+            self.blend_type = 'MULTIPLY'
         else: self.blend_type = 'MIX'
 
         # Disable use previous normal for edge detect since it has very little effect
@@ -1458,8 +1460,8 @@ class YNewLayer(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Edge Detect mask is only possible in Blender 2.93 or above
-        if not is_bl_newer_than(2, 93) and self.add_mask and self.mask_type == 'EDGE_DETECT':
-            self.report({'ERROR'}, "Edge detect mask is only supported in Blender 2.93 or above!")
+        if not is_bl_newer_than(2, 93) and (self.type in {'EDGE_DETECT', 'AO'} or self.add_mask and self.mask_type == 'EDGE_DETECT'):
+            self.report({'ERROR'}, "Realtime layer/mask mask is only supported in Blender 2.93 or above!")
             return {'CANCELLED'}
 
         # Clearing unused image atlas segments
@@ -4089,7 +4091,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     source = source_tree.nodes.get(layer.source)
 
     # Save source to cache
-    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT'} and layer.type != new_type:
+    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'} and layer.type != new_type:
         setattr(layer, 'cache_' + layer.type.lower(), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
@@ -4100,7 +4102,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Try to get available cache
     cache = None
-    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
+    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
         cache = tree.nodes.get(getattr(layer, 'cache_' + new_type.lower()))
 
     if cache:

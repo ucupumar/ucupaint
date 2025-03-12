@@ -648,6 +648,25 @@ def draw_edge_detect_props(layer, source, layout):
     row.label(text='Use Previous Normal:')
     row.prop(layer, 'hemi_use_prev_normal', text='')
 
+def draw_ao_props(layer, source, layout):
+    col = layout.column()
+
+    row = col.row()
+    row.label(text='Distance:')
+    row.prop(source.inputs['Distance'], 'default_value', text='')
+
+    row = col.row()
+    row.label(text='Samples:')
+    row.prop(source, 'samples', text='')
+
+    row = col.row()
+    row.label(text='Inside:')
+    row.prop(source, 'inside', text='')
+
+    row = col.row()
+    row.label(text='Only Local:')
+    row.prop(source, 'only_local', text='')
+
 def draw_inbetween_modifier_mask_props(layer, source, layout):
     col = layout.column()
     if layer.modifier_type == 'CURVE':
@@ -1509,7 +1528,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         suffix = 'color'
     elif layer.type == 'HEMI':
         suffix = 'hemi'
-    elif layer.type == 'EDGE_DETECT':
+    elif layer.type in {'EDGE_DETECT', 'AO'}:
         suffix = 'edge_detect'
     elif layer.type == 'VCOL':
         suffix = 'vertex_color'
@@ -1545,7 +1564,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             icon_value = lib.get_icon('group')
         elif layer.type == 'HEMI':
             icon_value = lib.get_icon('hemi')
-        elif layer.type == 'EDGE_DETECT':
+        elif layer.type in {'EDGE_DETECT', 'AO'}:
             icon_value = lib.get_icon('edge_detect')
         else: icon_value = lib.get_icon('texture')
 
@@ -1586,9 +1605,11 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             draw_hemi_props(layer, source, ccol)
         elif layer.type == 'EDGE_DETECT':
             draw_edge_detect_props(layer, source, ccol)
+        elif layer.type == 'AO':
+            draw_ao_props(layer, source, ccol)
         else: draw_tex_props(source, ccol, entity=layer)
 
-        if layer.baked_source == '' and layer.type in {'EDGE_DETECT', 'HEMI'}:
+        if layer.baked_source == '' and layer.type in {'EDGE_DETECT', 'HEMI', 'AO'}:
             rrrow = rrcol.row(align=True)
             rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[layer.type]+' as Image', icon_value=lib.get_icon('bake'))
 
@@ -2905,6 +2926,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 draw_colorid_props(mask, mask_source, rbcol)
             elif mask.type == 'EDGE_DETECT':
                 draw_edge_detect_props(mask, mask_source, rbcol)
+            elif mask.type == 'AO':
+                draw_ao_props(mask, mask_source, rbcol)
             elif mask.type == 'MODIFIER':
                 draw_inbetween_modifier_mask_props(mask, mask_source, rbcol)
             elif mask.type == 'VCOL':
@@ -2912,7 +2935,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             else: draw_tex_props(mask_source, rbcol, entity=mask, show_source_input=True)
 
             rrcol.context_pointer_set('entity', mask)
-            if mask.baked_source == '' and mask.type in {'EDGE_DETECT', 'HEMI'}:
+            if mask.baked_source == '' and mask.type in {'EDGE_DETECT', 'HEMI', 'AO'}:
                 rrrow = rrcol.row(align=True)
                 rrrow.label(text='', icon='BLANK1')
                 rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[mask.type]+' as Image', icon_value=lib.get_icon('bake'))
@@ -2925,11 +2948,11 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
                 rrrow.operator("wm.y_remove_baked_entity", text='', icon=icon)
 
-            if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+            if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
                 rrcol.separator()
 
         # Vector row
-        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
 
             srow = split_layout(rrcol, 0.35, align=False)
             srow.active = not mask.use_baked
@@ -3356,14 +3379,14 @@ def draw_layers_ui(context, layout, node):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER'} and layer.uv_name != '':
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER', 'AO'} and layer.uv_name != '':
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
                     #entities.append(layer.name)
 
             for mask in layer.masks:
-                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} and mask.uv_name != '':
+                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'} and mask.uv_name != '':
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
@@ -3588,7 +3611,7 @@ def draw_layers_ui(context, layout, node):
             edge_detect_found = False
             for l in yp.layers:
                 for m in l.masks:
-                    if m.type == 'EDGE_DETECT' and get_mask_enabled(m, l):
+                    if m.type in {'EDGE_DETECT', 'AO'} and get_mask_enabled(m, l):
                         edge_detect_found = True
                         break
             if edge_detect_found:
@@ -4713,7 +4736,7 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon_value=lib.get_icon('hemi'))
             elif m.type == 'OBJECT_INDEX':
                 row.label(text='', icon_value=lib.get_icon('object_index'))
-            elif m.type == 'EDGE_DETECT':
+            elif m.type in {'EDGE_DETECT', 'AO'}:
                 row.label(text='', icon_value=lib.get_icon('edge_detect'))
             elif m.type == 'COLOR_ID':
                 row.label(text='', icon_value=lib.get_icon('color'))
@@ -4741,7 +4764,7 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
             elif m.type == 'OBJECT_INDEX':
                 row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('object_index'))
-            elif m.type == 'EDGE_DETECT':
+            elif m.type in {'EDGE_DETECT', 'AO'}:
                 row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
             elif m.type == 'COLOR_ID':
                 row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('color'))
@@ -5017,7 +5040,7 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('hemi'))
                 elif mask.type == 'OBJECT_INDEX':
                     row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('object_index'))
-                elif mask.type == 'EDGE_DETECT':
+                elif mask.type in {'EDGE_DETECT', 'AO'}:
                     row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
                 elif mask.type == 'COLOR_ID':
                     row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('color'))
@@ -5471,7 +5494,9 @@ class YNewLayerMenu(bpy.types.Menu):
         col.separator()
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
         if is_bl_newer_than(2, 93):
-            col.operator("wm.y_new_layer", icon_value=lib.get_icon('edge_detect'), text='Edge Detect').type = 'EDGE_DETECT'
+            col.separator()
+            col.operator("wm.y_new_layer", icon_value=lib.get_icon('edge_detect'), text='Ambient Occlusion').type = 'AO'
+            col.operator("wm.y_new_layer", text='Edge Detect').type = 'EDGE_DETECT'
 
         col = row.column()
         col.label(text='Bake as Layer:')
@@ -5742,7 +5767,7 @@ class YLayerChannelNormalBlendPopover(bpy.types.Panel):
         draw_input_prop(col, ch, 'intensity_value', text='')
 
 def has_layer_input_options(layer):
-    return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE', 'EDGE_DETECT'} and not 
+    return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE', 'EDGE_DETECT', 'AO'} and not 
         (is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}))
 
 class YLayerChannelInputMenu(bpy.types.Menu):
@@ -6326,7 +6351,9 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         new_mask_button(col, 'wm.y_new_layer_mask', 'Object Index', otype='OBJECT_INDEX', lib_icon='object_index')
         new_mask_button(col, 'wm.y_new_layer_mask', 'Backface', otype='BACKFACE', lib_icon='backface')
         if is_bl_newer_than(2, 93):
-            new_mask_button(col, 'wm.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT', lib_icon='edge_detect')
+            col.separator()
+            new_mask_button(col, 'wm.y_new_layer_mask', 'Ambient Occlusion', otype='AO', lib_icon='edge_detect')
+            new_mask_button(col, 'wm.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT')
 
         col = row.column(align=True)
         col.label(text='Bake as Mask:')
@@ -6812,6 +6839,9 @@ class YLayerTypeMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if layer.type == 'HEMI' else 'RADIOBUT_OFF'
         col.operator("wm.y_replace_layer_type", icon=icon, text='Fake Lighting').type = 'HEMI'
 
+        icon = 'RADIOBUT_ON' if layer.type == 'AO' else 'RADIOBUT_OFF'
+        col.operator("wm.y_replace_layer_type", icon=icon, text='Ambient Occlusion').type = 'AO'
+
         icon = 'RADIOBUT_ON' if layer.type == 'EDGE_DETECT' else 'RADIOBUT_OFF'
         col.operator("wm.y_replace_layer_type", icon=icon, text='Edge Detect').type = 'EDGE_DETECT'
 
@@ -6932,6 +6962,9 @@ class YMaskTypeMenu(bpy.types.Menu):
 
         icon = 'RADIOBUT_ON' if mask.type == 'BACKFACE' else 'RADIOBUT_OFF'
         col.operator("wm.y_replace_mask_type", icon=icon, text='Backface').type = 'BACKFACE'
+
+        icon = 'RADIOBUT_ON' if mask.type == 'AO' else 'RADIOBUT_OFF'
+        col.operator("wm.y_replace_mask_type", icon=icon, text='Ambient Occlusion').type = 'AO'
 
         icon = 'RADIOBUT_ON' if mask.type == 'EDGE_DETECT' else 'RADIOBUT_OFF'
         col.operator("wm.y_replace_mask_type", icon=icon, text='Edge Detect').type = 'EDGE_DETECT'

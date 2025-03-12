@@ -2494,6 +2494,8 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         if entity.type == 'EDGE_DETECT':
             bi.bake_type = 'BEVEL_MASK'
             bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
+        elif entity.type == 'AO':
+            bi.bake_type = 'AO'
 
         # Create new node
         baked_source = new_node(source_tree, entity, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
@@ -2710,7 +2712,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             if len(self.uv_map_coll) > 0:
                 self.uv_map = self.uv_map_coll[0].name
 
-            if self.entity.type in {'EDGE_DETECT', 'HEMI'}:
+            if self.entity.type in {'EDGE_DETECT', 'HEMI', 'AO'}:
                 self.hdr = True
                 self.fxaa = False
             else: 
@@ -2718,7 +2720,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                 self.fxaa = True
 
             # Auto set some props for some types
-            if self.entity.type == 'EDGE_DETECT':
+            if self.entity.type in {'EDGE_DETECT', 'AO'}:
                 self.samples = 32
                 self.denoise = True
             else:
