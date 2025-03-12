@@ -1101,6 +1101,13 @@ class YNewLayer(bpy.types.Operator):
             self.blend_type = 'ADD'
         else: self.blend_type = 'MIX'
 
+        # Disable use previous normal for edge detect since it has very little effect
+        if self.type == 'EDGE_DETECT':
+            self.hemi_use_prev_normal = False
+
+        if self.add_mask and self.mask_type == 'EDGE_DETECT':
+            self.mask_use_prev_normal = False
+
         # Layer name
         self.name = get_unique_name(name, items)
 
@@ -1226,11 +1233,11 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'HEMI':
             col.label(text='Space:')
 
-        if self.type in {'HEMI', 'EDGE_DETECT'}:
-            col.label(text='')
-
         if self.type == 'EDGE_DETECT':
             col.label(text='Edge Detect Radius:')
+
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
+            col.label(text='')
 
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
             col.label(text='')
@@ -1316,12 +1323,11 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
 
-        if self.type in {'HEMI', 'EDGE_DETECT'}:
-            col.prop(self, 'hemi_use_prev_normal')
-
         if self.type == 'EDGE_DETECT':
             col.prop(self, 'edge_detect_radius', text='')
-            col.label(text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
+            col.prop(self, 'hemi_use_prev_normal')
 
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
             crow = col.row(align=True)

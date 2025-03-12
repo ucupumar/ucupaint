@@ -5470,7 +5470,8 @@ class YNewLayerMenu(bpy.types.Menu):
 
         col.separator()
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
-        col.operator("wm.y_new_layer", icon_value=lib.get_icon('edge_detect'), text='Edge Detect').type = 'EDGE_DETECT'
+        if is_bl_newer_than(2, 93):
+            col.operator("wm.y_new_layer", icon_value=lib.get_icon('edge_detect'), text='Edge Detect').type = 'EDGE_DETECT'
 
         col = row.column()
         col.label(text='Bake as Layer:')

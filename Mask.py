@@ -716,6 +716,10 @@ class YNewLayerMask(bpy.types.Operator):
                 self.color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
                 if not is_colorid_already_being_used(yp, self.color_id): break
 
+        # Disable use previous normal for edge detect since it has very little effect
+        if self.type == 'EDGE_DETECT':
+            self.hemi_use_prev_normal = False
+
         # Make sure decal is off when adding non mappable mask
         if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
             self.texcoord_type = 'UV'
@@ -804,11 +808,11 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'HEMI':
             col.label(text='Space:')
 
-        if self.type in {'HEMI', 'EDGE_DETECT'}:
-            col.label(text='')
-
         if self.type == 'EDGE_DETECT':
             col.label(text='Radius:')
+
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
+            col.label(text='')
 
         if self.type == 'IMAGE':
             col.label(text='')
@@ -853,11 +857,11 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
 
-        if self.type in {'HEMI', 'EDGE_DETECT'}:
-            col.prop(self, 'hemi_use_prev_normal')
-
         if self.type == 'EDGE_DETECT':
             col.prop(self, 'edge_detect_radius', text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
+            col.prop(self, 'hemi_use_prev_normal')
 
         if is_bl_newer_than(3, 2) and self.type == 'VCOL':
             crow = col.row(align=True)
