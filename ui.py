@@ -3658,7 +3658,7 @@ def draw_layers_ui(context, layout, node):
 
             if is_bl_newer_than(4, 3) and in_texture_paint_mode:
                 brush = context.tool_settings.image_paint.brush
-                if brush.image_tool != 'MASK':
+                if brush and brush.image_tool != 'MASK':
                     bbox = col.box()
                     row = bbox.row(align=True)
                     row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
@@ -3671,7 +3671,7 @@ def draw_layers_ui(context, layout, node):
         ve = context.scene.ve_edit
         if is_bl_newer_than(4, 3) and in_texture_paint_mode:
             brush = context.tool_settings.image_paint.brush
-            if ((mask_image and mask.source_input == 'RGB') or override_image) and (brush.name in tex_eraser_asset_names or brush.blend == 'ERASE_ALPHA'):
+            if brush and ((mask_image and mask.source_input == 'RGB') or override_image) and (brush.name in tex_eraser_asset_names or brush.blend == 'ERASE_ALPHA'):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -3680,7 +3680,7 @@ def draw_layers_ui(context, layout, node):
 
         elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
             brush = context.tool_settings.image_paint.brush if in_texture_paint_mode else context.tool_settings.sculpt.brush
-            if ((mask_image and mask.source_input == 'RGB') or override_image) and brush.name == eraser_names[obj.mode]:
+            if brush and ((mask_image and mask.source_input == 'RGB') or override_image) and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -3689,7 +3689,7 @@ def draw_layers_ui(context, layout, node):
 
         elif obj.mode == 'VERTEX_PAINT' and is_bl_newer_than(2, 80): 
             brush = context.tool_settings.vertex_paint.brush
-            if mask_vcol and mask.source_input == 'RGB' and brush.name == eraser_names[obj.mode]:
+            if brush and mask_vcol and mask.source_input == 'RGB' and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -3698,7 +3698,7 @@ def draw_layers_ui(context, layout, node):
 
         elif obj.mode == 'SCULPT' and is_bl_newer_than(3, 2): 
             brush = context.tool_settings.sculpt.brush
-            if mask_vcol and mask.source_input == 'RGB' and brush.name == eraser_names[obj.mode]:
+            if brush and mask_vcol and mask.source_input == 'RGB' and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
