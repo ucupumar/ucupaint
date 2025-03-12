@@ -33,14 +33,24 @@ def setup_object_idx_source(mask, source, object_index=None):
     source.inputs[0].default_value = object_index
 
 def setup_edge_detect_source(entity, source, edge_detect_radius=None):
-    source.node_tree = get_node_tree_lib(lib.EDGE_DETECT)
+    if entity.hemi_use_prev_normal:
+        lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL
+    else: lib_name = lib.EDGE_DETECT
+
+    ori_lib = source.node_tree
+    if not ori_lib or ori_lib.name != lib_name:
+        source.node_tree = get_node_tree_lib(lib_name)
+        if ori_lib and ori_lib.users == 0:
+            remove_datablock(bpy.data.node_groups, ori_lib)
+
     if edge_detect_radius != None:
         source.inputs[0].default_value = entity.edge_detect_radius = edge_detect_radius
     else: source.inputs[0].default_value = entity.edge_detect_radius
 
     # Enable AO to see edge detect entity
     scene = bpy.context.scene
-    if not scene.eevee.use_gtao: scene.eevee.use_gtao = True
+    if is_bl_newer_than(2, 80) and hasattr(scene.eevee, 'use_gtao') and not scene.eevee.use_gtao: 
+        scene.eevee.use_gtao = True
 
 def setup_modifier_mask_source(tree, mask, modifier_type):
     source = None
@@ -111,6 +121,7 @@ def add_new_mask(
         setup_color_id_source(mask, source, color_id)
 
     if mask_type == 'EDGE_DETECT':
+        mask.hemi_use_prev_normal = hemi_use_prev_normal
         setup_edge_detect_source(mask, source, edge_detect_radius)
 
     if is_mapping_possible(mask_type):
@@ -792,6 +803,8 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.label(text='Space:')
+
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
             col.label(text='')
 
         if self.type == 'EDGE_DETECT':
@@ -839,6 +852,8 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
             col.prop(self, 'hemi_use_prev_normal')
 
         if self.type == 'EDGE_DETECT':
@@ -2092,6 +2107,10 @@ def update_mask_hemi_use_prev_normal(self, context):
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
+
+    if self.type == 'EDGE_DETECT':
+        source = get_mask_source(self)
+        setup_edge_detect_source(self, source)
 
     check_layer_tree_ios(layer, tree)
     check_layer_bump_process(layer, tree)

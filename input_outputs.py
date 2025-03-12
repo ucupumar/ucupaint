@@ -879,6 +879,11 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if is_bl_newer_than(2, 81) and layer.enable_uniform_scale and is_layer_using_vector(layer):
             dirty = create_prop_input(layer, 'uniform_scale_value', valid_inputs, input_index, dirty)
             input_index += 1
+
+        # Edge Detect
+        if layer.type == 'EDGE_DETECT':
+            dirty = create_prop_input(layer, 'edge_detect_radius', valid_inputs, input_index, dirty)
+            input_index += 1
         
         # Channel prop inputs
         for i, ch in enumerate(layer.channels):

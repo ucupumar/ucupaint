@@ -644,6 +644,10 @@ def draw_edge_detect_props(layer, source, layout):
     row.label(text='Radius:')
     draw_input_prop(row, layer, 'edge_detect_radius')
 
+    row = col.row()
+    row.label(text='Use Previous Normal:')
+    row.prop(layer, 'hemi_use_prev_normal', text='')
+
 def draw_inbetween_modifier_mask_props(layer, source, layout):
     col = layout.column()
     if layer.modifier_type == 'CURVE':

@@ -2346,7 +2346,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     else: 
         color = (0, 0, 0, 0)
         color_str = 'TRANSPARENT'
-        colorspace = get_srgb_name()
+        colorspace = get_noncolor_name() if bprops.hdr else get_srgb_name()
 
     # Create image
     if bprops.use_udim:

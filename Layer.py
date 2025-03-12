@@ -58,7 +58,7 @@ def add_new_layer(
         mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha=False, use_udim_for_mask=False,
         interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05,
-        normal_space = 'TANGENT', edge_detect_radius=0.05
+        normal_space = 'TANGENT', edge_detect_radius=0.05, mask_use_prev_normal=True
     ):
 
     yp = group_tree.yp
@@ -178,6 +178,7 @@ def add_new_layer(
         layer.hemi_use_prev_normal = hemi_use_prev_normal
 
     elif layer_type == 'EDGE_DETECT':
+        layer.hemi_use_prev_normal = hemi_use_prev_normal
         Mask.setup_edge_detect_source(layer, source, edge_detect_radius)
 
     # Add texcoord node
@@ -302,7 +303,8 @@ def add_new_layer(
             layer, mask_name, mask_type, mask_texcoord_type,
             mask_uv_name, mask_image, mask_vcol, mask_segment,
             interpolation=mask_interpolation, color_id=mask_color_id,
-            edge_detect_radius=mask_edge_detect_radius
+            edge_detect_radius=mask_edge_detect_radius,
+            hemi_use_prev_normal=mask_use_prev_normal
         )
         mask.active_edit = True
 
@@ -1022,6 +1024,12 @@ class YNewLayer(bpy.types.Operator):
         default=0.05, min=0.0, max=10.0
     )
 
+    mask_use_prev_normal : BoolProperty(
+        name = 'Use previous Normal for Mask',
+        description = 'Take account previous Normal for mask',
+        default = True
+    )
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     image_resolution : EnumProperty(
@@ -1217,6 +1225,8 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.label(text='Space:')
+
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
             col.label(text='')
 
         if self.type == 'EDGE_DETECT':
@@ -1305,10 +1315,13 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
             col.prop(self, 'hemi_use_prev_normal')
 
         if self.type == 'EDGE_DETECT':
             col.prop(self, 'edge_detect_radius', text='')
+            col.label(text='')
 
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
             crow = col.row(align=True)
@@ -1351,6 +1364,7 @@ class YNewLayer(bpy.types.Operator):
                         col.prop(self, 'mask_color_id_fill', text='Fill Selected Faces')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.prop(self, 'mask_edge_detect_radius', text='')
+                    col.prop(self, 'mask_use_prev_normal', text='Use Previous Normal')
                 else:
                     if self.mask_type == 'IMAGE':
                         if self.mask_image_filepath:
@@ -1533,7 +1547,8 @@ class YNewLayer(bpy.types.Operator):
             mask_color_id=self.mask_color_id, mask_color_id_fill=self.mask_color_id_fill,
             mask_vcol_data_type=self.mask_vcol_data_type, mask_vcol_domain=self.mask_vcol_domain, use_divider_alpha=self.use_divider_alpha,
             use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
-            mask_edge_detect_radius=self.mask_edge_detect_radius, edge_detect_radius=self.edge_detect_radius
+            mask_edge_detect_radius=self.mask_edge_detect_radius, edge_detect_radius=self.edge_detect_radius,
+            mask_use_prev_normal=self.mask_use_prev_normal
         )
 
         if segment:
@@ -5744,6 +5759,10 @@ def update_hemi_use_prev_normal(self, context):
     if yp.halt_update: return
     layer = self
     tree = get_tree(layer)
+
+    if layer.type == 'EDGE_DETECT':
+        source = get_layer_source(layer)
+        Mask.setup_edge_detect_source(layer, source)
 
     check_layer_tree_ios(layer, tree)
     check_layer_bump_process(layer, tree)

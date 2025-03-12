@@ -1814,7 +1814,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if tangent and 'Tangent' in bump_process.inputs: create_link(tree, tangent, bump_process.inputs['Tangent'])
         if bitangent and 'Bitangent' in bump_process.inputs: create_link(tree, bitangent, bump_process.inputs['Bitangent'])
 
-    if layer.type == 'HEMI':
+    # Edge Detect related
+    elif layer.type == 'EDGE_DETECT':
+        edge_detect_radius_val = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'edge_detect_radius'))
+        if edge_detect_radius_val and 'Radius' in source.inputs:
+            create_link(tree, edge_detect_radius_val, source.inputs['Radius'])
+
+    if layer.type in {'HEMI', 'EDGE_DETECT'}:
         if layer.hemi_use_prev_normal and bump_process:
             create_link(tree, bump_process.outputs['Normal'], source.inputs['Normal'])
         elif 'Normal' in source.inputs: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], source.inputs['Normal'])
@@ -2091,7 +2097,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, edge_detect_radius_val, mask_source.inputs['Radius'])
 
         # Hemi related
-        if mask.type == 'HEMI' and not mask.use_baked: #and 'Normal' in mask_source.inputs:
+        if mask.type in {'HEMI', 'EDGE_DETECT'} and not mask.use_baked: #and 'Normal' in mask_source.inputs:
             if mask.hemi_use_prev_normal and bump_process:
                 create_link(tree, bump_process.outputs['Normal'], mask_source.inputs['Normal'])
             elif 'Normal' in mask_source.inputs: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], mask_source.inputs['Normal'])
