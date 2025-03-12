@@ -6807,6 +6807,9 @@ class YLayerTypeMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if layer.type == 'HEMI' else 'RADIOBUT_OFF'
         col.operator("wm.y_replace_layer_type", icon=icon, text='Fake Lighting').type = 'HEMI'
 
+        icon = 'RADIOBUT_ON' if layer.type == 'EDGE_DETECT' else 'RADIOBUT_OFF'
+        col.operator("wm.y_replace_layer_type", icon=icon, text='Edge Detect').type = 'EDGE_DETECT'
+
 class YMaskTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_mask_type_menu"
     bl_label = "Mask Type Menu"

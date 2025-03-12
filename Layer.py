@@ -4068,7 +4068,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     source = source_tree.nodes.get(layer.source)
 
     # Save source to cache
-    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI'} and layer.type != new_type:
+    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT'} and layer.type != new_type:
         setattr(layer, 'cache_' + layer.type.lower(), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
@@ -4079,7 +4079,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Try to get available cache
     cache = None
-    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
+    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
         cache = tree.nodes.get(getattr(layer, 'cache_' + new_type.lower()))
 
     if cache:
@@ -4104,12 +4104,20 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
             load_hemi_props(layer, source)
 
+        elif new_type == 'EDGE_DETECT':
+            Mask.setup_edge_detect_source(layer, source)
+
     # Change layer type
     ori_type = layer.type
     layer.type = new_type
 
     # Check modifiers tree
     Modifier.check_modifiers_trees(layer)
+
+    # Always remove baked layer when changing type
+    if layer.use_baked:
+        layer.use_baked = False
+        remove_node(tree, layer, 'baked_source')
 
     # Update group ios
     check_all_layer_channel_io_and_nodes(layer, tree)
