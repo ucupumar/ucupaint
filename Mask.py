@@ -47,10 +47,7 @@ def setup_edge_detect_source(entity, source, edge_detect_radius=None):
         source.inputs[0].default_value = entity.edge_detect_radius = edge_detect_radius
     else: source.inputs[0].default_value = entity.edge_detect_radius
 
-    # Enable AO to see edge detect entity
-    scene = bpy.context.scene
-    if is_bl_newer_than(2, 80) and hasattr(scene.eevee, 'use_gtao') and not scene.eevee.use_gtao: 
-        scene.eevee.use_gtao = True
+    enable_eevee_ao()
 
 def setup_modifier_mask_source(tree, mask, modifier_type):
     source = None
@@ -127,6 +124,7 @@ def add_new_mask(
     elif mask_type == 'AO':
         mask.hemi_use_prev_normal = hemi_use_prev_normal
         mask.ao_distance = ao_distance
+        enable_eevee_ao()
 
     if is_mapping_possible(mask_type):
         mask.uv_name = uv_name
@@ -409,6 +407,9 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
 
         elif new_type == 'EDGE_DETECT':
             setup_edge_detect_source(mask, source)
+
+        elif new_type == 'AO':
+            enable_eevee_ao()
 
     # Change mask type
     ori_type = mask.type

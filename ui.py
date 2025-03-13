@@ -3612,14 +3612,17 @@ def draw_layers_ui(context, layout, node):
 
         # Check if AO is enabled or not
         scene = bpy.context.scene
-        if is_bl_newer_than(2, 93) and not scene.eevee.use_gtao and scene.render.engine != 'BLENDER_EEVEE_NEXT':
-            edge_detect_found = False
+        if is_bl_newer_than(2, 93) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao:
+            ao_found = False
             for l in yp.layers:
+                if l.type in {'EDGE_DETECT', 'AO'} and l.enable:
+                    ao_found = True
+                    break
                 for m in l.masks:
                     if m.type in {'EDGE_DETECT', 'AO'} and get_mask_enabled(m, l):
-                        edge_detect_found = True
+                        ao_found = True
                         break
-            if edge_detect_found:
+            if ao_found:
                 col.alert = True
                 col.operator('wm.y_fix_edge_detect_ao', text='Fix EEVEE Edge Detect AO', icon='ERROR')
                 col.alert = False

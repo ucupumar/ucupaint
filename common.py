@@ -7108,3 +7108,10 @@ def load_image(path, directory, check_existing=True):
 def get_active_tool_idname():
     tools = bpy.context.workspace.tools
     return tools.from_space_view3d_mode(bpy.context.mode).idname
+
+def enable_eevee_ao():
+    # Enable Eevee AO to make edge detect entity works
+    scene = bpy.context.scene
+    if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao: 
+        scene.eevee.use_gtao = True
+

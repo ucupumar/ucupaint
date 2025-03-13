@@ -185,6 +185,7 @@ def add_new_layer(
     elif layer_type == 'AO':
         layer.hemi_use_prev_normal = hemi_use_prev_normal
         layer.ao_distance = ao_distance
+        enable_eevee_ao()
 
     # Add texcoord node
     #texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
@@ -4146,6 +4147,9 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
         elif new_type == 'EDGE_DETECT':
             Mask.setup_edge_detect_source(layer, source)
+
+        elif new_type == 'AO':
+            enable_eevee_ao()
 
     # Change layer type
     ori_type = layer.type
