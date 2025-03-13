@@ -1670,7 +1670,7 @@ def reconnect_source_internal_nodes(layer):
     if flip_y:
         rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
 
-    if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT'}:
+    if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
         rgb_1 = source.outputs[1]
         alpha = get_essential_node(tree, ONE_VALUE)[0]
         alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
@@ -1687,7 +1687,7 @@ def reconnect_source_internal_nodes(layer):
         create_link(tree, rgb_1, end.inputs[2])
         create_link(tree, alpha_1, end.inputs[3])
 
-    if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT'}:
+    if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha)
 
@@ -1712,7 +1712,7 @@ def reconnect_mask_internal_nodes(mask, mask_source_index=0):
 
     if mask.type == 'MODIFIER' and mask.modifier_type in {'INVERT', 'CURVE'}:
         create_link(tree, start.outputs[0], source.inputs[1])
-    elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'EDGE_DETECT'}:
+    elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
         create_link(tree, start.outputs[0], source.inputs[0])
 
     val = source.outputs[mask_source_index]
@@ -1820,11 +1820,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if edge_detect_radius_val and 'Radius' in source.inputs:
             create_link(tree, edge_detect_radius_val, source.inputs['Radius'])
 
+    # AO Related
     elif layer.type == 'AO':
         ao_distance_val = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'ao_distance'))
         if ao_distance_val and 'Distance' in source.inputs:
             create_link(tree, ao_distance_val, source.inputs['Distance'])
 
+    # Use previous normal
     if layer.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
         if layer.hemi_use_prev_normal and bump_process:
             create_link(tree, bump_process.outputs['Normal'], source.inputs['Normal'])
@@ -2101,6 +2103,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if edge_detect_radius_val and 'Radius' in mask_source.inputs:
                 create_link(tree, edge_detect_radius_val, mask_source.inputs['Radius'])
 
+        # AO related
         elif mask.type == 'AO':
             ao_distance_val = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'ao_distance'))
             if ao_distance_val and 'Distance' in mask_source.inputs:
@@ -2121,7 +2124,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Mask start
         mask_vector = None
         mask_uv_name = mask.uv_name if not mask.use_baked or mask.baked_uv_name == '' else mask.baked_uv_name
-        if mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
+        if mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
             if mask.use_baked or mask.texcoord_type == 'UV':
                 mask_vector = get_essential_node(tree, TREE_START).get(mask_uv_name + io_suffix['UV'])
             elif mask.texcoord_type == 'Decal':
@@ -2169,7 +2172,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mask_uv_neighbor = nodes.get(mask.uv_neighbor) if mask.texcoord_type != 'Layer' else uv_neighbor
         if mask_uv_neighbor:
 
-            if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
+            if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
                 create_link(tree, mask_val, mask_uv_neighbor.inputs[0])
             else:
                 if mask_vector and mask.texcoord_type != 'Layer':
@@ -2275,7 +2278,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 create_link(tree, mask_val, mask_mix.inputs[mmixcol1])
                 if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-                    if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
+                    if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
                         if mask_uv_neighbor:
                             if 'Color2 n' in mask_mix.inputs:
                                 create_link(tree, mask_uv_neighbor.outputs['n'], mask_mix.inputs['Color2 n'])
@@ -2392,7 +2395,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Get source output index
         source_index = 0
-        if not layer.use_baked and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT'}:
+        if not layer.use_baked and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
             # Noise and voronoi output has flipped order since Blender 2.81
             if is_bl_newer_than(2, 81) and (layer.type == 'NOISE' or (layer.type == 'VORONOI' and layer.voronoi_feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})):
                 if ch.layer_input == 'RGB':
@@ -2707,7 +2710,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 alpha_e = source_e.outputs[source_index+1]
                 alpha_w = source_w.outputs[source_index+1]
 
-            elif layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT'} and uv_neighbor:
+            elif layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor:
                 rgb_n = uv_neighbor.outputs['n']
                 rgb_s = uv_neighbor.outputs['s']
                 rgb_e = uv_neighbor.outputs['e']

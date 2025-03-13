@@ -2082,7 +2082,7 @@ def update_mask_uv_name(self, context):
     tree = get_tree(layer)
     mask = self
 
-    if mask.type in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'} or mask.texcoord_type != 'UV':
+    if mask.type in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'} or mask.texcoord_type != 'UV':
         return
 
     # Cannot use temp uv as standard uv

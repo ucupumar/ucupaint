@@ -655,9 +655,10 @@ def draw_ao_props(layer, source, layout):
     row.label(text='Distance:')
     draw_input_prop(row, layer, 'ao_distance')
 
-    row = col.row()
-    row.label(text='Samples:')
-    row.prop(source, 'samples', text='')
+    # NOTE: AO samples is a bit irrelevant
+    #row = col.row()
+    #row.label(text='Samples:')
+    #row.prop(source, 'samples', text='')
 
     row = col.row()
     row.label(text='Inside:')
@@ -2794,7 +2795,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 mask_icon = 'hemi'
             elif mask.type == 'OBJECT_INDEX':
                 mask_icon = 'object_index'
-            elif mask.type == 'EDGE_DETECT':
+            elif mask.type in {'EDGE_DETECT', 'AO'}:
                 mask_icon = 'edge_detect'
             elif mask.type == 'COLOR_ID':
                 mask_icon = 'color'
