@@ -653,7 +653,7 @@ def draw_ao_props(layer, source, layout):
 
     row = col.row()
     row.label(text='Distance:')
-    row.prop(source.inputs['Distance'], 'default_value', text='')
+    draw_input_prop(row, layer, 'ao_distance')
 
     row = col.row()
     row.label(text='Samples:')
@@ -664,8 +664,12 @@ def draw_ao_props(layer, source, layout):
     row.prop(source, 'inside', text='')
 
     row = col.row()
-    row.label(text='Only Local:')
+    row.label(text='Only Local (Cycles Only):')
     row.prop(source, 'only_local', text='')
+
+    row = col.row()
+    row.label(text='Use Previous Normal:')
+    row.prop(layer, 'hemi_use_prev_normal', text='')
 
 def draw_inbetween_modifier_mask_props(layer, source, layout):
     col = layout.column()

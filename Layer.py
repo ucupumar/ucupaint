@@ -58,7 +58,8 @@ def add_new_layer(
         mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha=False, use_udim_for_mask=False,
         interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05,
-        normal_space = 'TANGENT', edge_detect_radius=0.05, mask_use_prev_normal=True
+        normal_space = 'TANGENT', edge_detect_radius=0.05, mask_use_prev_normal=True,
+        ao_distance=1.0
     ):
 
     yp = group_tree.yp
@@ -180,6 +181,10 @@ def add_new_layer(
     elif layer_type == 'EDGE_DETECT':
         layer.hemi_use_prev_normal = hemi_use_prev_normal
         Mask.setup_edge_detect_source(layer, source, edge_detect_radius)
+
+    elif layer_type == 'AO':
+        layer.hemi_use_prev_normal = hemi_use_prev_normal
+        layer.ao_distance = ao_distance
 
     # Add texcoord node
     #texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
@@ -1030,6 +1035,12 @@ class YNewLayer(bpy.types.Operator):
         default = True
     )
 
+    ao_distance : FloatProperty(
+        name = 'Ambient Occlusion Distance',
+        description = 'Ambient occlusion distance',
+        default=1.0, min=0.0, max=10.0
+    )
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     image_resolution : EnumProperty(
@@ -1238,7 +1249,10 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'EDGE_DETECT':
             col.label(text='Edge Detect Radius:')
 
-        if self.type in {'HEMI', 'EDGE_DETECT'}:
+        if self.type == 'AO':
+            col.label(text='AO Distance:')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
             col.label(text='')
 
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
@@ -1253,7 +1267,7 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='')
             col.label(text='Interpolation:')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO'}:
             col.label(text='Vector:')
 
         if self.type in {'VCOL'}:
@@ -1328,7 +1342,10 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'EDGE_DETECT':
             col.prop(self, 'edge_detect_radius', text='')
 
-        if self.type in {'HEMI', 'EDGE_DETECT'}:
+        if self.type == 'AO':
+            col.prop(self, 'ao_distance', text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
             col.prop(self, 'hemi_use_prev_normal')
 
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
@@ -1346,7 +1363,7 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'hdr')
             col.prop(self, 'interpolation', text='')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -1556,7 +1573,7 @@ class YNewLayer(bpy.types.Operator):
             mask_vcol_data_type=self.mask_vcol_data_type, mask_vcol_domain=self.mask_vcol_domain, use_divider_alpha=self.use_divider_alpha,
             use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
             mask_edge_detect_radius=self.mask_edge_detect_radius, edge_detect_radius=self.edge_detect_radius,
-            mask_use_prev_normal=self.mask_use_prev_normal
+            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance
         )
 
         if segment:
@@ -6684,6 +6701,13 @@ class YLayer(bpy.types.PropertyGroup):
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0,
         update = update_layer_edge_detect_radius
+    )
+
+    # For AO
+    ao_distance : FloatProperty(
+        name = 'Ambient Occlusion Distance',
+        description = 'Ambient occlusion distance',
+        default=1.0, min=0.0, max=10.0
     )
 
     # Specific for voronoi

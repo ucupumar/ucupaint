@@ -885,6 +885,11 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             dirty = create_prop_input(layer, 'edge_detect_radius', valid_inputs, input_index, dirty)
             input_index += 1
         
+        # AO
+        elif layer.type == 'AO':
+            dirty = create_prop_input(layer, 'ao_distance', valid_inputs, input_index, dirty)
+            input_index += 1
+
         # Channel prop inputs
         for i, ch in enumerate(layer.channels):
             if not get_channel_enabled(ch): continue
@@ -1023,6 +1028,11 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             # Edge Detect
             elif mask.type == 'EDGE_DETECT':
                 dirty = create_prop_input(mask, 'edge_detect_radius', valid_inputs, input_index, dirty)
+                input_index += 1
+
+            # AO
+            elif mask.type == 'AO':
+                dirty = create_prop_input(mask, 'ao_distance', valid_inputs, input_index, dirty)
                 input_index += 1
 
     # Tree input and outputs

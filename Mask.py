@@ -68,7 +68,7 @@ def add_new_mask(
         layer, name, mask_type, texcoord_type, uv_name, image=None, vcol=None, segment=None,
         object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False,
         color_id=(1, 0, 1), source_input='RGB', edge_detect_radius=0.05,
-        modifier_type='INVERT', interpolation='Linear'
+        modifier_type='INVERT', interpolation='Linear', ao_distance=1.0
     ):
     yp = layer.id_data.yp
     yp.halt_update = True
@@ -114,15 +114,19 @@ def add_new_mask(
         mask.hemi_space = hemi_space
         mask.hemi_use_prev_normal = hemi_use_prev_normal
 
-    if mask_type == 'OBJECT_INDEX':
+    elif mask_type == 'OBJECT_INDEX':
         setup_object_idx_source(mask, source, object_index)
 
-    if mask_type == 'COLOR_ID':
+    elif mask_type == 'COLOR_ID':
         setup_color_id_source(mask, source, color_id)
 
-    if mask_type == 'EDGE_DETECT':
+    elif mask_type == 'EDGE_DETECT':
         mask.hemi_use_prev_normal = hemi_use_prev_normal
         setup_edge_detect_source(mask, source, edge_detect_radius)
+
+    elif mask_type == 'AO':
+        mask.hemi_use_prev_normal = hemi_use_prev_normal
+        mask.ao_distance = ao_distance
 
     if is_mapping_possible(mask_type):
         mask.uv_name = uv_name
@@ -642,7 +646,17 @@ class YNewLayerMask(bpy.types.Operator):
         default=0, min=0
     )
 
-    edge_detect_radius : FloatProperty(default=0.05, min=0.0, max=10.0)
+    edge_detect_radius : FloatProperty(
+        name = 'Detect Mask Radius',
+        description = 'Edge detect radius',
+        default=0.05, min=0.0, max=10.0
+    )
+
+    ao_distance : FloatProperty(
+        name = 'Ambient Occlusion Distance',
+        description = 'Ambient occlusion distance',
+        default=1.0, min=0.0, max=10.0
+    )
 
     vcol_data_type : EnumProperty(
         name = 'Vertex Color Data Type',
@@ -811,7 +825,10 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'EDGE_DETECT':
             col.label(text='Radius:')
 
-        if self.type in {'HEMI', 'EDGE_DETECT'}:
+        if self.type == 'AO':
+            col.label(text='AO Distance:')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
             col.label(text='')
 
         if self.type == 'IMAGE':
@@ -860,7 +877,10 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'EDGE_DETECT':
             col.prop(self, 'edge_detect_radius', text='')
 
-        if self.type in {'HEMI', 'EDGE_DETECT'}:
+        if self.type == 'AO':
+            col.prop(self, 'ao_distance', text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
             col.prop(self, 'hemi_use_prev_normal')
 
         if is_bl_newer_than(3, 2) and self.type == 'VCOL':
@@ -1024,7 +1044,7 @@ class YNewLayerMask(bpy.types.Operator):
         mask = add_new_mask(
             layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
             self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, edge_detect_radius=self.edge_detect_radius,
-            modifier_type=self.modifier_type, interpolation=self.interpolation
+            modifier_type=self.modifier_type, interpolation=self.interpolation, ao_distance=self.ao_distance
         )
 
         # Enable edit mask
@@ -2527,6 +2547,13 @@ class YLayerMask(bpy.types.PropertyGroup):
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0,
         update = update_mask_edge_detect_radius
+    )
+
+    # For AO
+    ao_distance : FloatProperty(
+        name = 'Ambient Occlusion Distance',
+        description = 'Ambient occlusion distance',
+        default=1.0, min=0.0, max=10.0
     )
 
     # Specific for voronoi
