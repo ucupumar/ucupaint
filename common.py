@@ -7117,5 +7117,5 @@ def enable_eevee_ao():
 
 def is_image_available_to_open(image):
     # NOTE: Baked entity image is not available to open for now
-    return image.yia.is_image_atlas and not image.yua.is_udim_atlas and not image.y_bake_info.is_baked_entity and image.name not in {'Render Result', 'Viewer Node'}
+    return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and not image.y_bake_info.is_baked_entity and image.name not in {'Render Result', 'Viewer Node'}
 
