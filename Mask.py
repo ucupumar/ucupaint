@@ -32,15 +32,22 @@ def setup_object_idx_source(mask, source, object_index=None):
 
     source.inputs[0].default_value = object_index
 
-def setup_edge_detect_source(mask, source, edge_detect_radius=None):
-    source.node_tree = get_node_tree_lib(lib.EDGE_DETECT)
-    if edge_detect_radius != None:
-        source.inputs[0].default_value = mask.edge_detect_radius = edge_detect_radius
-    else: source.inputs[0].default_value = mask.edge_detect_radius
+def setup_edge_detect_source(entity, source, edge_detect_radius=None):
+    if entity.hemi_use_prev_normal:
+        lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL
+    else: lib_name = lib.EDGE_DETECT
 
-    # Enable AO to see edge detect mask
-    scene = bpy.context.scene
-    if not scene.eevee.use_gtao: scene.eevee.use_gtao = True
+    ori_lib = source.node_tree
+    if not ori_lib or ori_lib.name != lib_name:
+        source.node_tree = get_node_tree_lib(lib_name)
+        if ori_lib and ori_lib.users == 0:
+            remove_datablock(bpy.data.node_groups, ori_lib)
+
+    if edge_detect_radius != None:
+        source.inputs[0].default_value = entity.edge_detect_radius = edge_detect_radius
+    else: source.inputs[0].default_value = entity.edge_detect_radius
+
+    enable_eevee_ao()
 
 def setup_modifier_mask_source(tree, mask, modifier_type):
     source = None
@@ -58,7 +65,7 @@ def add_new_mask(
         layer, name, mask_type, texcoord_type, uv_name, image=None, vcol=None, segment=None,
         object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False,
         color_id=(1, 0, 1), source_input='RGB', edge_detect_radius=0.05,
-        modifier_type='INVERT', interpolation='Linear'
+        modifier_type='INVERT', interpolation='Linear', ao_distance=1.0
     ):
     yp = layer.id_data.yp
     yp.halt_update = True
@@ -104,14 +111,20 @@ def add_new_mask(
         mask.hemi_space = hemi_space
         mask.hemi_use_prev_normal = hemi_use_prev_normal
 
-    if mask_type == 'OBJECT_INDEX':
+    elif mask_type == 'OBJECT_INDEX':
         setup_object_idx_source(mask, source, object_index)
 
-    if mask_type == 'COLOR_ID':
+    elif mask_type == 'COLOR_ID':
         setup_color_id_source(mask, source, color_id)
 
-    if mask_type == 'EDGE_DETECT':
+    elif mask_type == 'EDGE_DETECT':
+        mask.hemi_use_prev_normal = hemi_use_prev_normal
         setup_edge_detect_source(mask, source, edge_detect_radius)
+
+    elif mask_type == 'AO':
+        mask.hemi_use_prev_normal = hemi_use_prev_normal
+        mask.ao_distance = ao_distance
+        enable_eevee_ao()
 
     if is_mapping_possible(mask_type):
         mask.uv_name = uv_name
@@ -284,7 +297,7 @@ def is_mask_type_cacheable(mask_type, modifier_type=''):
     if mask_type == 'MODIFIER':
         return modifier_type in {'RAMP', 'CURVE'}
 
-    return mask_type not in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'EDGE_DETECT', 'BACKFACE'}
+    return mask_type not in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'EDGE_DETECT', 'BACKFACE', 'AO'}
 
 def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_type='INVERT'):
 
@@ -394,6 +407,9 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
 
         elif new_type == 'EDGE_DETECT':
             setup_edge_detect_source(mask, source)
+
+        elif new_type == 'AO':
+            enable_eevee_ao()
 
     # Change mask type
     ori_type = mask.type
@@ -631,7 +647,17 @@ class YNewLayerMask(bpy.types.Operator):
         default=0, min=0
     )
 
-    edge_detect_radius : FloatProperty(default=0.05, min=0.0, max=10.0)
+    edge_detect_radius : FloatProperty(
+        name = 'Detect Mask Radius',
+        description = 'Edge detect radius',
+        default=0.05, min=0.0, max=10.0
+    )
+
+    ao_distance : FloatProperty(
+        name = 'Ambient Occlusion Distance',
+        description = 'Ambient occlusion distance',
+        default=1.0, min=0.0, max=10.0
+    )
 
     vcol_data_type : EnumProperty(
         name = 'Vertex Color Data Type',
@@ -704,6 +730,10 @@ class YNewLayerMask(bpy.types.Operator):
                 # Use color id tolerance value as lowest value to avoid pure black color
                 self.color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
                 if not is_colorid_already_being_used(yp, self.color_id): break
+
+        # Disable use previous normal for edge detect since it has very little effect
+        if self.type == 'EDGE_DETECT':
+            self.hemi_use_prev_normal = False
 
         # Make sure decal is off when adding non mappable mask
         if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
@@ -792,15 +822,20 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.label(text='Space:')
-            col.label(text='')
 
         if self.type == 'EDGE_DETECT':
             col.label(text='Radius:')
 
+        if self.type == 'AO':
+            col.label(text='AO Distance:')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
+            col.label(text='')
+
         if self.type == 'IMAGE':
             col.label(text='')
 
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
             col.label(text='Vector:')
             if self.type == 'IMAGE':
                 if UDIM.is_udim_supported():
@@ -839,10 +874,15 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
-            col.prop(self, 'hemi_use_prev_normal')
 
         if self.type == 'EDGE_DETECT':
             col.prop(self, 'edge_detect_radius', text='')
+
+        if self.type == 'AO':
+            col.prop(self, 'ao_distance', text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
+            col.prop(self, 'hemi_use_prev_normal')
 
         if is_bl_newer_than(3, 2) and self.type == 'VCOL':
             crow = col.row(align=True)
@@ -853,7 +893,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
 
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -1005,7 +1045,7 @@ class YNewLayerMask(bpy.types.Operator):
         mask = add_new_mask(
             layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
             self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, edge_detect_radius=self.edge_detect_radius,
-            modifier_type=self.modifier_type, interpolation=self.interpolation
+            modifier_type=self.modifier_type, interpolation=self.interpolation, ao_distance=self.ao_distance
         )
 
         # Enable edit mask
@@ -1392,7 +1432,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             imgs = bpy.data.images
             baked_channel_images = get_all_baked_channel_images(layer.id_data)
             for img in imgs:
-                if not img.yia.is_image_atlas and img not in baked_channel_images and img != layer_image and img not in mask_images and img.name not in {'Render Result', 'Viewer Node'}:
+                if is_image_available_to_open(img) and img not in baked_channel_images and img != layer_image and img not in mask_images:
                     self.image_coll.add().name = img.name
 
             # Make sure default image is available in the collection and update the source input based on the default name
@@ -2043,7 +2083,7 @@ def update_mask_uv_name(self, context):
     tree = get_tree(layer)
     mask = self
 
-    if mask.type in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'} or mask.texcoord_type != 'UV':
+    if mask.type in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'} or mask.texcoord_type != 'UV':
         return
 
     # Cannot use temp uv as standard uv
@@ -2092,6 +2132,10 @@ def update_mask_hemi_use_prev_normal(self, context):
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
+
+    if self.type == 'EDGE_DETECT':
+        source = get_mask_source(self)
+        setup_edge_detect_source(self, source)
 
     check_layer_tree_ios(layer, tree)
     check_layer_bump_process(layer, tree)
@@ -2504,6 +2548,13 @@ class YLayerMask(bpy.types.PropertyGroup):
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0,
         update = update_mask_edge_detect_radius
+    )
+
+    # For AO
+    ao_distance : FloatProperty(
+        name = 'Ambient Occlusion Distance',
+        description = 'Ambient occlusion distance',
+        default=1.0, min=0.0, max=10.0
     )
 
     # Specific for voronoi

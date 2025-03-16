@@ -58,7 +58,8 @@ def add_new_layer(
         mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha=False, use_udim_for_mask=False,
         interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05,
-        normal_space = 'TANGENT'
+        normal_space = 'TANGENT', edge_detect_radius=0.05, mask_use_prev_normal=True,
+        ao_distance=1.0
     ):
 
     yp = group_tree.yp
@@ -176,6 +177,15 @@ def add_new_layer(
         load_hemi_props(layer, source)
         layer.hemi_space = hemi_space
         layer.hemi_use_prev_normal = hemi_use_prev_normal
+
+    elif layer_type == 'EDGE_DETECT':
+        layer.hemi_use_prev_normal = hemi_use_prev_normal
+        Mask.setup_edge_detect_source(layer, source, edge_detect_radius)
+
+    elif layer_type == 'AO':
+        layer.hemi_use_prev_normal = hemi_use_prev_normal
+        layer.ao_distance = ao_distance
+        enable_eevee_ao()
 
     # Add texcoord node
     #texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
@@ -299,7 +309,8 @@ def add_new_layer(
             layer, mask_name, mask_type, mask_texcoord_type,
             mask_uv_name, mask_image, mask_vcol, mask_segment,
             interpolation=mask_interpolation, color_id=mask_color_id,
-            edge_detect_radius=mask_edge_detect_radius
+            edge_detect_radius=mask_edge_detect_radius,
+            hemi_use_prev_normal=mask_use_prev_normal
         )
         mask.active_edit = True
 
@@ -1007,10 +1018,28 @@ class YNewLayer(bpy.types.Operator):
     )
 
     # For edge detection
+    edge_detect_radius : FloatProperty(
+        name = 'Detect Mask Radius',
+        description = 'Edge detect radius',
+        default=0.05, min=0.0, max=10.0
+    )
+
     mask_edge_detect_radius : FloatProperty(
         name = 'Edge Detect Mask Radius',
         description = 'Edge detect mask radius',
         default=0.05, min=0.0, max=10.0
+    )
+
+    mask_use_prev_normal : BoolProperty(
+        name = 'Use previous Normal for Mask',
+        description = 'Take account previous Normal for mask',
+        default = True
+    )
+
+    ao_distance : FloatProperty(
+        name = 'Ambient Occlusion Distance',
+        description = 'Ambient occlusion distance',
+        default=1.0, min=0.0, max=10.0
     )
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -1080,9 +1109,18 @@ class YNewLayer(bpy.types.Operator):
         self.normal_map_type = 'BUMP_MAP'
 
         # Fake lighting default blend type is add
-        if self.type == 'HEMI':
+        if self.type in {'HEMI', 'EDGE_DETECT'}:
             self.blend_type = 'ADD'
+        if self.type == 'AO':
+            self.blend_type = 'MULTIPLY'
         else: self.blend_type = 'MIX'
+
+        # Disable use previous normal for edge detect since it has very little effect
+        if self.type == 'EDGE_DETECT':
+            self.hemi_use_prev_normal = False
+
+        if self.add_mask and self.mask_type == 'EDGE_DETECT':
+            self.mask_use_prev_normal = False
 
         # Layer name
         self.name = get_unique_name(name, items)
@@ -1208,6 +1246,14 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.label(text='Space:')
+
+        if self.type == 'EDGE_DETECT':
+            col.label(text='Edge Detect Radius:')
+
+        if self.type == 'AO':
+            col.label(text='AO Distance:')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
             col.label(text='')
 
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
@@ -1222,7 +1268,7 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='')
             col.label(text='Interpolation:')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO'}:
             col.label(text='Vector:')
 
         if self.type in {'VCOL'}:
@@ -1293,7 +1339,16 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
+
+        if self.type == 'EDGE_DETECT':
+            col.prop(self, 'edge_detect_radius', text='')
+
+        if self.type == 'AO':
+            col.prop(self, 'ao_distance', text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
             col.prop(self, 'hemi_use_prev_normal')
+
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
@@ -1309,7 +1364,7 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'hdr')
             col.prop(self, 'interpolation', text='')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -1335,6 +1390,7 @@ class YNewLayer(bpy.types.Operator):
                         col.prop(self, 'mask_color_id_fill', text='Fill Selected Faces')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.prop(self, 'mask_edge_detect_radius', text='')
+                    col.prop(self, 'mask_use_prev_normal', text='Use Previous Normal')
                 else:
                     if self.mask_type == 'IMAGE':
                         if self.mask_image_filepath:
@@ -1422,8 +1478,8 @@ class YNewLayer(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Edge Detect mask is only possible in Blender 2.93 or above
-        if not is_bl_newer_than(2, 93) and self.add_mask and self.mask_type == 'EDGE_DETECT':
-            self.report({'ERROR'}, "Edge detect mask is only supported in Blender 2.93 or above!")
+        if not is_bl_newer_than(2, 93) and (self.type in {'EDGE_DETECT', 'AO'} or self.add_mask and self.mask_type == 'EDGE_DETECT'):
+            self.report({'ERROR'}, "Realtime layer/mask mask is only supported in Blender 2.93 or above!")
             return {'CANCELLED'}
 
         # Clearing unused image atlas segments
@@ -1506,16 +1562,19 @@ class YNewLayer(bpy.types.Operator):
         layer = add_new_layer(
             node.node_tree, self.name, self.type, 
             channel_idx, self.blend_type, self.normal_blend_type, 
-            self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol, segment,
-            self.solid_color,
-            self.add_mask, self.mask_type, self.mask_image_filepath, self.mask_relative,
-            self.mask_texcoord_type, self.mask_color, self.mask_use_hdr, self.mask_uv_name,
-            self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-            self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id, self.mask_color_id_fill,
-            self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha,
-            self.use_udim_for_mask,
-            self.interpolation, self.mask_interpolation,
-            self.mask_edge_detect_radius
+            self.normal_map_type, self.texcoord_type, uv_name=self.uv_map, 
+            image=img, vcol=vcol, segment=segment, solid_color=self.solid_color,
+            add_mask=self.add_mask, mask_type=self.mask_type, 
+            mask_image_filepath=self.mask_image_filepath, mask_relative=self.mask_relative,
+            mask_texcoord_type=self.mask_texcoord_type, mask_color=self.mask_color, 
+            mask_use_hdr=self.mask_use_hdr, mask_uv_name=self.mask_uv_name,
+            mask_width=self.mask_width, mask_height=self.mask_height, use_image_atlas_for_mask=self.use_image_atlas_for_mask, 
+            hemi_space=self.hemi_space, hemi_use_prev_normal=self.hemi_use_prev_normal, 
+            mask_color_id=self.mask_color_id, mask_color_id_fill=self.mask_color_id_fill,
+            mask_vcol_data_type=self.mask_vcol_data_type, mask_vcol_domain=self.mask_vcol_domain, use_divider_alpha=self.use_divider_alpha,
+            use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
+            mask_edge_detect_radius=self.mask_edge_detect_radius, edge_detect_radius=self.edge_detect_radius,
+            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance
         )
 
         if segment:
@@ -2857,7 +2916,7 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
         imgs = bpy.data.images
         baked_channel_images = get_all_baked_channel_images(node.node_tree)
         for img in imgs:
-            if not img.yia.is_image_atlas and img not in baked_channel_images and img.name not in {'Render Result', 'Viewer Node'}:
+            if is_image_available_to_open(img) and img not in baked_channel_images:
                 self.image_coll.add().name = img.name
 
         return context.window_manager.invoke_props_dialog(self)
@@ -2984,7 +3043,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             imgs = bpy.data.images
             baked_channel_images = get_all_baked_channel_images(node.node_tree)
             for img in imgs:
-                if not img.yia.is_image_atlas and img not in baked_channel_images and img.name not in {'Render Result', 'Viewer Node'}:
+                if is_image_available_to_open(img) and img not in baked_channel_images:
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
@@ -3224,7 +3283,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             imgs = bpy.data.images
             baked_channel_images = get_all_baked_channel_images(node.node_tree)
             for img in imgs:
-                if not img.yia.is_image_atlas and img not in baked_channel_images and img.name not in {'Render Result', 'Viewer Node'}:
+                if is_image_available_to_open(img) and img not in baked_channel_images:
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
@@ -4050,7 +4109,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     source = source_tree.nodes.get(layer.source)
 
     # Save source to cache
-    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI'} and layer.type != new_type:
+    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'} and layer.type != new_type:
         setattr(layer, 'cache_' + layer.type.lower(), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
@@ -4061,7 +4120,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Try to get available cache
     cache = None
-    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
+    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
         cache = tree.nodes.get(getattr(layer, 'cache_' + new_type.lower()))
 
     if cache:
@@ -4086,12 +4145,23 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
             load_hemi_props(layer, source)
 
+        elif new_type == 'EDGE_DETECT':
+            Mask.setup_edge_detect_source(layer, source)
+
+        elif new_type == 'AO':
+            enable_eevee_ao()
+
     # Change layer type
     ori_type = layer.type
     layer.type = new_type
 
     # Check modifiers tree
     Modifier.check_modifiers_trees(layer)
+
+    # Always remove baked layer when changing type
+    if layer.use_baked:
+        layer.use_baked = False
+        remove_node(tree, layer, 'baked_source')
 
     # Update group ios
     check_all_layer_channel_io_and_nodes(layer, tree)
@@ -5719,6 +5789,10 @@ def update_hemi_use_prev_normal(self, context):
     layer = self
     tree = get_tree(layer)
 
+    if layer.type == 'EDGE_DETECT':
+        source = get_layer_source(layer)
+        Mask.setup_edge_detect_source(layer, source)
+
     check_layer_tree_ios(layer, tree)
     check_layer_bump_process(layer, tree)
 
@@ -6525,6 +6599,14 @@ def update_layer_uniform_scale_enabled(self, context):
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
+def update_layer_edge_detect_radius(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    layer = self
+
+    source = get_layer_source(layer)
+    if source: source.inputs[0].default_value = self.edge_detect_radius
+
 def update_layer_use_baked(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -6615,6 +6697,21 @@ class YLayer(bpy.types.PropertyGroup):
         default=0.0, min=0.0, max=1.0,
         subtype = 'FACTOR',
         update = update_projection_blend
+    )
+
+    # For edge detection
+    edge_detect_radius : FloatProperty(
+        name = 'Edge Detect Radius',
+        description = 'Edge detect radius',
+        default=0.05, min=0.0, max=10.0,
+        update = update_layer_edge_detect_radius
+    )
+
+    # For AO
+    ao_distance : FloatProperty(
+        name = 'Ambient Occlusion Distance',
+        description = 'Ambient occlusion distance',
+        default=1.0, min=0.0, max=10.0
     )
 
     # Specific for voronoi

@@ -765,6 +765,44 @@ def update_yp_tree(tree):
                 if len(ch.modifiers) == 0 and not ch.enable_transition_bump and not ch.enable_transition_ramp and not ch.enable_transition_ao:
                     ch.expand_content = False
 
+    # Version 2.2.1 has flag prop for baked entity
+    if version_tuple(yp.version) < (2, 2, 1):
+        for layer in yp.layers:
+            source = get_layer_source(layer, get_baked=True)
+            if source and source.image:
+                image = source.image
+                if not image.yia.is_image_atlas and not image.yua.is_udim_atlas:
+                    image.y_bake_info.is_baked_entity = True
+                    print('INFO: Image '+image.name+' is marked as baked entity image!')
+                else:
+                    if image.yia.is_image_atlas:
+                        segment = image.yia.segments.get(layer.baked_segment_name)
+                    elif image.yua.is_udim_atlas: 
+                        segment = image.yua.segments.get(layer.baked_segment_name)
+                    else: segment = None
+
+                    if segment:
+                        segment.bake_info.is_baked_entity = True
+                        print('INFO: One image segment from '+image.name+' is marked as baked entity image!')
+
+            for mask in layer.masks:
+                source = get_mask_source(mask, get_baked=True)
+                if source and source.image:
+                    image = source.image
+                    if not image.yia.is_image_atlas and not image.yua.is_udim_atlas:
+                        image.y_bake_info.is_baked_entity = True
+                        print('INFO: Image '+image.name+' is marked as baked entity image!')
+                    else:
+                        if image.yia.is_image_atlas:
+                            segment = image.yia.segments.get(mask.baked_segment_name)
+                        elif image.yua.is_udim_atlas: 
+                            segment = image.yua.segments.get(mask.baked_segment_name)
+                        else: segment = None
+
+                        if segment:
+                            segment.bake_info.is_baked_entity = True
+                            print('INFO: One image segment from '+image.name+' is marked as baked entity image!')
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

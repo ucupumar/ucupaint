@@ -2346,7 +2346,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     else: 
         color = (0, 0, 0, 0)
         color_str = 'TRANSPARENT'
-        colorspace = get_srgb_name()
+        colorspace = get_noncolor_name() if bprops.hdr else get_srgb_name()
 
     # Create image
     if bprops.use_udim:
@@ -2482,12 +2482,23 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         bi = segment.bake_info if segment else image.y_bake_info
 
         bi.is_baked = True
+        bi.is_baked_entity = True
         for attr in dir(bi):
             if attr.startswith('__'): continue
             if attr.startswith('bl_'): continue
             if attr in {'rna_type'}: continue
             try: setattr(bi, attr, bprops[attr])
             except: pass
+
+        # Set bake type for some types
+        if entity.type == 'EDGE_DETECT':
+            bi.bake_type = 'BEVEL_MASK'
+            bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
+        elif entity.type == 'AO':
+            source = get_entity_source(entity)
+            bi.bake_type = 'AO'
+            bi.ao_distance = get_entity_prop_value(entity, 'ao_distance')
+            bi.only_local = source.only_local
 
         # Create new node
         baked_source = new_node(source_tree, entity, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
@@ -2627,6 +2638,9 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             self.mask = None
             self.index = int(m1.group(1))
             self.entities = yp.layers
+
+            # NOTE: Duplicate entity currently doesn't work on layer so make sure to disable it
+            self.duplicate_entity = False
         elif m2: 
             self.layer = yp.layers[int(m2.group(1))]
             self.mask = self.layer.masks[int(m2.group(2))]
@@ -2646,9 +2660,10 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         if overwrite_image and not overwrite_image.yia.is_image_atlas and not overwrite_image.yua.is_udim_atlas:
             self.name = overwrite_image.name
         else:
-            self.name = self.entity.name
-            if not self.name.endswith(' Image'):
-                self.name += ' Image'
+            name = node.node_tree.name.replace(get_addon_title()+' ', '')
+            self.name = name + ' ' + self.entity.name
+            #if not self.name.endswith(' Image'):
+            #    self.name += ' Image'
 
             self.name = get_unique_name(self.name, bpy.data.images)
 
@@ -2701,7 +2716,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             if len(self.uv_map_coll) > 0:
                 self.uv_map = self.uv_map_coll[0].name
 
-            if self.entity.type in {'EDGE_DETECT', 'HEMI'}:
+            if self.entity.type in {'EDGE_DETECT', 'HEMI', 'AO'}:
                 self.hdr = True
                 self.fxaa = False
             else: 
@@ -2709,7 +2724,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                 self.fxaa = True
 
             # Auto set some props for some types
-            if self.entity.type == 'EDGE_DETECT':
+            if self.entity.type in {'EDGE_DETECT', 'AO'}:
                 self.samples = 32
                 self.denoise = True
             else:
@@ -2800,7 +2815,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         if self.mask:
             col.prop(self, 'duplicate_entity', text='Duplicate Mask')
-        else: col.prop(self, 'duplicate_entity', text='Disable Layer')
+        #else: col.prop(self, 'duplicate_entity', text='Disable Layer')
         if self.duplicate_entity:
             if self.mask:
                 col.prop(self, 'disable_current', text='Disable Current Mask')
