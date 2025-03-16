@@ -7115,3 +7115,7 @@ def enable_eevee_ao():
     if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao: 
         scene.eevee.use_gtao = True
 
+def is_image_available_to_open(image):
+    # NOTE: Baked entity image is not available to open for now
+    return image.yia.is_image_atlas and not image.yua.is_udim_atlas and not image.y_bake_info.is_baked_entity and image.name not in {'Render Result', 'Viewer Node'}
+

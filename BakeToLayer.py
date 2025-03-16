@@ -2495,7 +2495,10 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
             bi.bake_type = 'BEVEL_MASK'
             bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
         elif entity.type == 'AO':
+            source = get_entity_source(entity)
             bi.bake_type = 'AO'
+            bi.ao_distance = get_entity_prop_value(entity, 'ao_distance')
+            bi.only_local = source.only_local
 
         # Create new node
         baked_source = new_node(source_tree, entity, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
@@ -2657,9 +2660,10 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         if overwrite_image and not overwrite_image.yia.is_image_atlas and not overwrite_image.yua.is_udim_atlas:
             self.name = overwrite_image.name
         else:
-            self.name = self.entity.name
-            if not self.name.endswith(' Image'):
-                self.name += ' Image'
+            name = node.node_tree.name.replace(get_addon_title()+' ', '')
+            self.name = name + ' ' + self.entity.name
+            #if not self.name.endswith(' Image'):
+            #    self.name += ' Image'
 
             self.name = get_unique_name(self.name, bpy.data.images)
 
