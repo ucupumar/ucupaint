@@ -4671,6 +4671,7 @@ def set_active_paint_slot_entity(yp):
     obj = bpy.context.object
     scene = bpy.context.scene
     root_tree = yp.id_data
+    wmyp = bpy.context.window_manager.ypprops
 
     # Multiple materials will use single active image instead active material image
     # since it's the only way texture paint mode won't mess with other material image
@@ -4801,8 +4802,10 @@ def set_active_paint_slot_entity(yp):
             if img == None: continue
             if img.name == image.name:
                 mat.paint_active_slot = idx
+                # HACK: Just in case paint slot does not update
+                wmyp.correct_paint_image_name = img.name
                 break
-
+        
     else:
         scene.tool_settings.image_paint.mode = 'IMAGE'
         scene.tool_settings.image_paint.canvas = image
