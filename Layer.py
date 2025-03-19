@@ -1774,6 +1774,9 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
                 if ch.normal_map_type == 'NORMAL_MAP':
                     ch.normal_map_type = 'BUMP_MAP'
 
+        # Update list items
+        ListItem.refresh_list_items(yp)
+
         # Update UI
         wm.ypui.need_update = True
         print('INFO: Image(s) opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -1925,6 +1928,9 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         elif image:
             if ch.normal_map_type == 'BUMP_MAP':
                 ch.normal_map_type = 'NORMAL_MAP'
+
+        # Update list items
+        ListItem.refresh_list_items(yp)
 
         # Update UI
         wm.ypui.need_update = True
@@ -2998,6 +3004,9 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
             ch.override_1_type = 'IMAGE'
             ch.active_edit_1 = True
 
+        # Update list items
+        ListItem.refresh_list_items(yp)
+
         # Update UI
         wm.ypui.need_update = True
         print('INFO: Data is opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -3177,6 +3186,9 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         else:
             ch.override_type = self.type
             ch.active_edit = self.type in {'IMAGE', 'VCOL'}
+
+        # Update list items
+        ListItem.refresh_list_items(yp)
 
         # Update UI
         wm.ypui.need_update = True
