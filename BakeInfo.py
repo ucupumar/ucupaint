@@ -171,6 +171,18 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         default = False
     )
 
+    use_dithering : BoolProperty(
+        name = 'Use Dithering',
+        description = 'Use dithering for less banding color',
+        default = False
+    )
+
+    dither_intensity : FloatProperty(
+        name = 'Dither Intensity',
+        description = 'Amount of dithering noise added to the rendered image to break up banding',
+        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
+    )
+
     bake_disabled_layers : BoolProperty(
         name = 'Bake Disabled Layers',  
         description = 'Take disabled layers into account when baking',

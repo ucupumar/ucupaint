@@ -1283,6 +1283,18 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         description = 'Use float image for baked displacement',
         default = False
     )
+
+    use_dithering : BoolProperty(
+        name = 'Use Dithering',
+        description = 'Use dithering for less banding color',
+        default = False
+    )
+
+    dither_intensity : FloatProperty(
+        name = 'Dither Intensity',
+        description = 'Amount of dithering noise added to the rendered image to break up banding',
+        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
+    )
     
     bake_disabled_layers : BoolProperty(
         name = 'Bake Disabled Layers',  
@@ -1472,6 +1484,16 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ccol.prop(self, 'fxaa', text='Use FXAA')
         if is_bl_newer_than(2, 81):
             ccol.prop(self, 'denoise', text='Use Denoise')
+
+        any_color_channel = any([c for c in self.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+        if any_color_channel:
+            if not self.use_dithering:
+                ccol.prop(self, 'use_dithering', text='Use Dithering')
+            if self.use_dithering:
+                row = split_layout(ccol, 0.55)
+                row.prop(self, 'use_dithering', text='Use Dithering')
+                row.prop(self, 'dither_intensity', text='')
+
         ccol.prop(self, 'force_bake_all_polygons')
         ccol.prop(self, 'bake_disabled_layers')
 
@@ -1626,7 +1648,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         for ch in self.channels:
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
-                use_hdr = not ch.use_clamp
+                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
                 bake_channel(
                     self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
                     tilenums=tilenums, interpolation=self.interpolation, 
@@ -1640,6 +1662,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
             baked = tree.nodes.get(ch.baked)
             if baked and baked.image:
+
+                # Dithering
+                if ch.type == 'RGB' and ch.colorspace == 'SRGB' and self.use_dithering and ch.use_clamp:
+                    dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=ch.enable_alpha)
 
                 # Denoise
                 if self.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':

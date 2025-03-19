@@ -3,7 +3,7 @@ from bpy.props import *
 from .common import *
 from .input_outputs import *
 from .node_connections import *
-from . import lib, Layer, ImageAtlas, UDIM
+from . import lib, Layer, ImageAtlas, UDIM, image_ops
 
 BL28_HACK = True
 
@@ -1003,6 +1003,122 @@ def denoise_image(image):
     print('DENOISE:', image.name, 'denoise pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
     return image
 
+def dither_image(image, dither_intensity=1.0, alpha_aware=True):
+    if not image.is_float:
+        print('DITHER: Cannot dither image \''+image.name+'\' since it\'s not a float image')
+        return
+
+    T = time.time()
+    print('DITHER: Doing dithering pass on', image.name + '...')
+
+    # Preparing settings
+    book = prepare_composite_settings(use_hdr=image.is_float)
+    scene = bpy.context.scene
+
+    # Set render to byte image
+    scene.render.image_settings.file_format = 'PNG'
+    scene.render.image_settings.color_mode = 'RGBA'
+    scene.render.image_settings.color_depth = '8'
+    scene.render.dither_intensity = dither_intensity
+
+    # Set up compositor
+    tree = scene.node_tree
+    composite = [n for n in tree.nodes if n.type == 'COMPOSITE'][0]
+    image_node = tree.nodes.new('CompositorNodeImage')
+    image_node.image = image
+
+    if image.source == 'TILED':
+        tilenums = [tile.number for tile in image.tiles]
+    else: tilenums = [1001]
+
+    prefix_filename = 'DITHER_RENDER___'
+    temp_images = []
+    temp_filepaths = []
+
+    # Render dithered byte images
+    for i, tilenum in enumerate(tilenums):
+
+        # Swap tile to 1001 to access the data
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+        # Get temporary filepath
+        filepath = os.path.join(tempfile.gettempdir(), prefix_filename+str(tilenum)+'.png')
+        temp_filepaths.append(filepath)
+
+        # Set render resolution
+        scene.render.resolution_x = image.size[0]
+        scene.render.resolution_y = image.size[1]
+
+        # Connect image's rgb
+        tree.links.new(image_node.outputs[0], composite.inputs[0])
+
+        # Disable alpha is necesarry if image has alpha
+        if alpha_aware:
+            composite.use_alpha = False
+
+        # Render image!
+        bpy.ops.render.render()
+
+        # Save the image
+        render_result = next(img for img in bpy.data.images if img.type == "RENDER_RESULT")
+        render_result.save_render(filepath)
+        temp_image = bpy.data.images.load(filepath)
+        temp_images.append(temp_image)
+
+        if alpha_aware:
+            composite.use_alpha = True
+
+            # Render alpha image!
+            bpy.ops.render.render()
+
+            # Save alpha image
+            alpha_filepath = os.path.join(tempfile.gettempdir(), prefix_filename+str(tilenum)+'_ALPHA.png')
+            render_result = next(img for img in bpy.data.images if img.type == "RENDER_RESULT")
+            render_result.save_render(alpha_filepath)
+            alpha_image = bpy.data.images.load(alpha_filepath)
+
+            copy_image_channel_pixels(alpha_image, temp_image, 3, 3)
+
+            # Remove alpha image
+            remove_datablock(bpy.data.images, alpha_image)
+            os.remove(alpha_filepath)
+
+        # Swap back the tile
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+    # Convert input image to byte
+    image = image_ops.toggle_image_bit_depth(image, no_copy=True, force_srgb=True)
+
+    # Copy images
+    for i, tilenum in enumerate(tilenums):
+
+        # Swap tile to 1001 to access the data
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+        # Get temporary image
+        temp_image = temp_images[i]
+        filepath = temp_filepaths[i]
+
+        # Copy image pixels
+        copy_image_pixels(temp_image, image)
+
+        # Remove temp image
+        remove_datablock(bpy.data.images, temp_image)
+        os.remove(filepath)
+
+        # Swap back the tile
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+    # Recover settings
+    recover_composite_settings(book)
+
+    print('DENOISE:', image.name, 'dithering pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    return image
+
 def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CPU'):
     T = time.time()
     print('BLUR: Doing Blur pass on', image.name + '...')
@@ -1589,7 +1705,8 @@ def bake_channel(
             # Create new udim image
             img = bpy.data.images.new(
                 name=img_name, width=width, height=height,
-                alpha=True, tiled=True
+                alpha=True, tiled=True,
+                float_buffer = (root_ch.type == 'NORMAL' and use_float_for_normal) or use_hdr
             )
 
             # Fill tiles
@@ -1607,7 +1724,8 @@ def bake_channel(
         else:
             # Create new standard image
             img = bpy.data.images.new(
-                name=img_name, width=width, height=height, alpha=True
+                name=img_name, width=width, height=height, alpha=True,
+                float_buffer = (root_ch.type == 'NORMAL' and use_float_for_normal) or use_hdr
             )
             img.generated_type = 'BLANK'
 
@@ -1622,10 +1740,6 @@ def bake_channel(
                 (not use_udim and '.<UDIM>.' not in filepath)
             ):
             img.filepath = filepath
-
-        # Use hdr
-        if (root_ch.type == 'NORMAL' and use_float_for_normal) or use_hdr:
-            img.use_generated_float = True
 
         # Set colorspace to linear
         if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL' or (root_ch.type != 'NORMAL' and use_hdr):
