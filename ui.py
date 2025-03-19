@@ -4118,7 +4118,8 @@ def main_draw(self, context):
 
     if (baked_found or yp.use_baked) and not group_tree.users > 1:
         rrow = row.row(align=True)
-        rrow.alignment = 'RIGHT'
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'RIGHT'
         rrow.operator('wm.y_bake_channels', text='Rebake', icon_value=lib.get_icon('bake')).only_active_channel = False
         rrow.separator()
         rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')

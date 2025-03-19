@@ -855,7 +855,7 @@ def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     book['ori_scene_name'] = bpy.context.scene.name
 
     # Remember active object and view layer
-    book['ori_viewlayer'] = bpy.context.window.view_layer.name if bpy.context.window.view_layer and is_bl_newer_than(2, 80) else ''
+    book['ori_viewlayer'] = bpy.context.window.view_layer.name if is_bl_newer_than(2, 80) and bpy.context.window.view_layer else ''
     book['ori_object'] = bpy.context.object.name if bpy.context.object else ''
 
     # Check if original viewport is using camera view
@@ -864,7 +864,9 @@ def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
 
     # Create new temporary scene
     scene = bpy.data.scenes.new(name='TEMP_COMPOSITE_SCENE')
-    bpy.context.window.scene = scene
+    if is_bl_newer_than(2, 80):
+        bpy.context.window.scene = scene
+    else: bpy.context.screen.scene = scene
 
     # Set up render settings
     scene.cycles.samples = 1
@@ -912,7 +914,9 @@ def recover_composite_settings(book):
 
     # Go back to original scene
     scene = bpy.data.scenes.get(book['ori_scene_name'])
-    bpy.context.window.scene = scene
+    if is_bl_newer_than(2, 80):
+        bpy.context.window.scene = scene
+    else: bpy.context.screen.scene = scene
 
     # Recover camera view
     if book['ori_camera_view']:
