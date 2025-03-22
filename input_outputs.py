@@ -844,6 +844,9 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     
     trans_bump_ch = get_transition_bump_channel(layer)
 
+    # Get alpha and color pair channel
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
     # Rename fcurve and driver data path before rearranging the inputs
     if root_tree.animation_data:
         # Example: nodes["Group.003"].inputs[9].default_value'
@@ -892,16 +895,19 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
         # Channel prop inputs
         for i, ch in enumerate(layer.channels):
-            if not get_channel_enabled(ch): continue
+            channel_enabled = get_channel_enabled(ch) or (alpha_ch == ch and get_channel_enabled(color_ch))
+            if not channel_enabled: continue
 
             root_ch = yp.channels[i]
 
             # Get default value
             default_value = ch.intensity_value
 
-            # Create intensity socket
-            dirty = create_prop_input(ch, 'intensity_value', valid_inputs, input_index, dirty)
-            input_index += 1
+            # Alpha channel won't use intensity_value prop input if color channel is enabled
+            if alpha_ch != ch or (alpha_ch == ch and not get_channel_enabled(color_ch)):
+                # Create intensity socket
+                dirty = create_prop_input(ch, 'intensity_value', valid_inputs, input_index, dirty)
+                input_index += 1
 
             # Override values
             if ch.override and ch.override_type == 'DEFAULT':
@@ -1038,7 +1044,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        channel_enabled = get_channel_enabled(ch, layer, root_ch)
+        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch))
 
         force_normal_input = root_ch.type == 'NORMAL' and need_prev_normal and layer_enabled
 
