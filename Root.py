@@ -4081,6 +4081,8 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 
     correct_paint_image_name : StringProperty(default='')
 
+    clipboard_bake: CollectionProperty(type=BakeTarget.YBakeTarget)
+
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')

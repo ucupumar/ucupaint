@@ -273,6 +273,39 @@ class YCopyBakeTarget(bpy.types.Operator):
         yp = node.node_tree.yp
         wmp = context.window_manager.ypprops
 
+        bake_target = yp.bake_targets[yp.active_bake_target_index]
+
+        wmp.clipboard_bake.clear()
+        new_bake:YBakeTarget = wmp.clipboard_bake.add()
+
+        new_bake.name = bake_target.name
+        new_bake.use_float = bake_target.use_float
+        new_bake.data_type = bake_target.data_type
+        
+        new_bake.r.channel_name = bake_target.r.channel_name
+        new_bake.r.subchannel_index = bake_target.r.subchannel_index
+        new_bake.r.default_value = bake_target.r.default_value
+        new_bake.r.normal_type = bake_target.r.normal_type
+        new_bake.r.invert_value = bake_target.r.invert_value
+
+        new_bake.g.channel_name = bake_target.g.channel_name
+        new_bake.g.subchannel_index = bake_target.g.subchannel_index
+        new_bake.g.default_value = bake_target.g.default_value
+        new_bake.g.normal_type = bake_target.g.normal_type
+        new_bake.g.invert_value = bake_target.g.invert_value
+
+        new_bake.b.channel_name = bake_target.b.channel_name
+        new_bake.b.subchannel_index = bake_target.b.subchannel_index
+        new_bake.b.default_value = bake_target.b.default_value
+        new_bake.b.normal_type = bake_target.b.normal_type
+        new_bake.b.invert_value = bake_target.b.invert_value
+
+        new_bake.a.channel_name = bake_target.a.channel_name
+        new_bake.a.subchannel_index = bake_target.a.subchannel_index
+        new_bake.a.default_value = bake_target.a.default_value
+        new_bake.a.normal_type = bake_target.a.normal_type
+        new_bake.a.invert_value = bake_target.a.invert_value
+
         return {'FINISHED'}
 
 class YPasteBakeTarget(bpy.types.Operator):
@@ -283,18 +316,50 @@ class YPasteBakeTarget(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        wmp = context.window_manager.ypprops
+
         node = get_active_ypaint_node()
-        return context.object and node
+        return context.object and node and len(wmp.clipboard_bake) > 0
 
     def execute(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         wmp = context.window_manager.ypprops
 
-        # layer = yp.layers[yp.active_layer_index]
+        bake_target = wmp.clipboard_bake[0]
 
-        # wmp.clipboard_tree = node.node_tree.name
-        # wmp.clipboard_layer = layer.name if not self.all_layers else ''
+        new_bake = yp.bake_targets.add()
+        new_bake.name = bake_target.name
+        new_bake.use_float = bake_target.use_float
+        new_bake.data_type = bake_target.data_type
+
+        new_bake.name = bake_target.name
+        new_bake.use_float = bake_target.use_float
+        new_bake.data_type = bake_target.data_type
+        
+        new_bake.r.channel_name = bake_target.r.channel_name
+        new_bake.r.subchannel_index = bake_target.r.subchannel_index
+        new_bake.r.default_value = bake_target.r.default_value
+        new_bake.r.normal_type = bake_target.r.normal_type
+        new_bake.r.invert_value = bake_target.r.invert_value
+
+        new_bake.g.channel_name = bake_target.g.channel_name
+        new_bake.g.subchannel_index = bake_target.g.subchannel_index
+        new_bake.g.default_value = bake_target.g.default_value
+        new_bake.g.normal_type = bake_target.g.normal_type
+        new_bake.g.invert_value = bake_target.g.invert_value
+
+        new_bake.b.channel_name = bake_target.b.channel_name
+        new_bake.b.subchannel_index = bake_target.b.subchannel_index
+        new_bake.b.default_value = bake_target.b.default_value
+        new_bake.b.normal_type = bake_target.b.normal_type
+        new_bake.b.invert_value = bake_target.b.invert_value
+
+        new_bake.a.channel_name = bake_target.a.channel_name
+        new_bake.a.subchannel_index = bake_target.a.subchannel_index
+        new_bake.a.default_value = bake_target.a.default_value
+        new_bake.a.normal_type = bake_target.a.normal_type
+        new_bake.a.invert_value = bake_target.a.invert_value
 
         return {'FINISHED'}
 
