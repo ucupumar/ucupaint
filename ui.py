@@ -5351,8 +5351,9 @@ class YBakeListSpecialMenu(bpy.types.Menu):
         row = self.layout.row()
         col = row.column()
 
-        col.operator('wm.y_copy_bake_target', text='Copy Bake Target', icon='COPYDOWN')
-        col.operator('wm.y_paste_bake_target', text='Paste Bake Target', icon='PASTEDOWN')
+        col.operator('wm.y_copy_bake_target', icon='COPYDOWN')
+        col.operator('wm.y_paste_bake_target', icon='PASTEDOWN').paste_as_new = True
+        col.operator('wm.y_paste_bake_target', text="Paste Bake Target Values", icon='PASTEDOWN').paste_as_new = False
 
 class YBakeTargetMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_bake_target_menu"

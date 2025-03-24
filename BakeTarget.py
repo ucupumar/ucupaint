@@ -310,25 +310,41 @@ class YCopyBakeTarget(bpy.types.Operator):
 
 class YPasteBakeTarget(bpy.types.Operator):
     bl_idname = "wm.y_paste_bake_target"
-    bl_label = "Paste Bake Target"
+    bl_label = "Paste Bake Target As New"
     bl_description = "Paste Bake Target"
     bl_options = {'UNDO'}
+
+    paste_as_new: BoolProperty(
+        name = 'Paste As New Bake Target',
+        default = True
+    )
 
     @classmethod
     def poll(cls, context):
         wmp = context.window_manager.ypprops
-
         node = get_active_ypaint_node()
-        return context.object and node and len(wmp.clipboard_bake) > 0
+        yp = node.node_tree.yp
+        
+        has_clipboard = len(wmp.clipboard_bake) > 0
+
+        return context.object and node and has_clipboard
 
     def execute(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         wmp = context.window_manager.ypprops
 
+        if not self.paste_as_new and (yp.active_bake_target_index < 0 or yp.active_bake_target_index >= len(yp.bake_targets) or len(yp.bake_targets) == 0):
+            self.report({'ERROR'}, "Cannot paste values, no bake target selected")
+            return {'CANCELLED'}
+
         bake_target = wmp.clipboard_bake[0]
 
-        new_bake = yp.bake_targets.add()
+        if self.paste_as_new:
+            new_bake = yp.bake_targets.add()
+        else:
+            new_bake = yp.bake_targets[yp.active_bake_target_index]
+            
         new_bake.name = bake_target.name
         new_bake.use_float = bake_target.use_float
         new_bake.data_type = bake_target.data_type
