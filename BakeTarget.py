@@ -253,14 +253,63 @@ class YRemoveBakeTarget(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YCopyBakeTarget(bpy.types.Operator):
+    bl_idname = "wm.y_copy_bake_target"
+    bl_label = "Copy Bake Target"
+    bl_description = "Copy Bake Target"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+
+        group_tree = node.node_tree
+        yp = group_tree.yp
+        
+        return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0 
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        wmp = context.window_manager.ypprops
+
+        return {'FINISHED'}
+
+class YPasteBakeTarget(bpy.types.Operator):
+    bl_idname = "wm.y_paste_bake_target"
+    bl_label = "Paste Bake Target"
+    bl_description = "Paste Bake Target"
+    bl_options = {'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        return context.object and node
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        wmp = context.window_manager.ypprops
+
+        # layer = yp.layers[yp.active_layer_index]
+
+        # wmp.clipboard_tree = node.node_tree.name
+        # wmp.clipboard_layer = layer.name if not self.all_layers else ''
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YNewBakeTarget)
     bpy.utils.register_class(YRemoveBakeTarget)
     bpy.utils.register_class(YBakeTargetChannel)
     bpy.utils.register_class(YBakeTarget)
-
+    bpy.utils.register_class(YCopyBakeTarget)
+    bpy.utils.register_class(YPasteBakeTarget)
+    
 def unregister():
     bpy.utils.unregister_class(YNewBakeTarget)
     bpy.utils.unregister_class(YRemoveBakeTarget)
     bpy.utils.unregister_class(YBakeTargetChannel)
     bpy.utils.unregister_class(YBakeTarget)
+    bpy.utils.unregister_class(YCopyBakeTarget)
+    bpy.utils.unregister_class(YPasteBakeTarget)
