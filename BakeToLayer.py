@@ -1951,7 +1951,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             else:
                 col.label(text='Name:')
 
-                if self.target_type == 'LAYER':
+                # Other object channels always bakes all channels
+                if self.target_type == 'LAYER' and self.type != 'OTHER_OBJECT_CHANNELS':
                     col.label(text='Channel:')
                     if channel and channel.type == 'NORMAL':
                         col.label(text='Type:')
@@ -2021,7 +2022,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             else:
                 col.prop(self, 'name', text='')
 
-                if self.target_type == 'LAYER':
+                # Other object channels always bakes all channels
+                if self.target_type == 'LAYER' and self.type != 'OTHER_OBJECT_CHANNELS':
                     rrow = col.row(align=True)
                     rrow.prop(self, 'channel_idx', text='')
                     if channel:
