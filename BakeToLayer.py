@@ -754,7 +754,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     ori_from_sockets = {}
 
     if bprops.type == 'OTHER_OBJECT_CHANNELS':
-        ch_ids = [i for i, coo in enumerate(ch_other_objects) if len(coo) > 0]
+        if channel_idx == -1:
+            ch_ids = [i for i, coo in enumerate(ch_other_objects) if len(coo) > 0]
+        else:
+            ch_ids = [channel_idx]
 
         # Get all other materials
         for oo in other_objs:
@@ -1758,6 +1761,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 self.margin = 0
 
         elif self.type == 'OTHER_OBJECT_CHANNELS':
+            self.channel_idx = str(-1)
             self.subsurf_influence = False
             self.use_image_atlas = False
             self.margin = 0
@@ -1959,6 +1963,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text='Name:')
 
         if self.type.startswith('OTHER_OBJECT_'):
+            if self.type == 'OTHER_OBJECT_CHANNELS' and self.overwrite_current:
+                col.label(text='Channel:')
             col.label(text='Cage Object:')
             col.label(text='Cage Extrusion:')
             if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
@@ -2034,6 +2040,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text=self.overwrite_name)
 
         if self.type.startswith('OTHER_OBJECT_'):
+            if self.type == 'OTHER_OBJECT_CHANNELS' and self.overwrite_current:
+                col.prop(self, 'channel_idx', text='')
             col.prop_search(self, "cage_object_name", self, "cage_object_coll", text='', icon='OBJECT_DATA')
             rrow = col.row(align=True)
             rrow.active = self.cage_object_name == ''
