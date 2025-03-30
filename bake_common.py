@@ -879,6 +879,7 @@ def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     scene.render.pixel_aspect_y = 1.0
     scene.use_nodes = True
     scene.view_settings.view_transform = 'Standard' if is_bl_newer_than(2, 80) else 'Default'
+    scene.render.dither_intensity = 0.0
 
     # Float/HDR image related
     scene.render.image_settings.file_format = 'OPEN_EXR' if use_hdr else 'PNG'

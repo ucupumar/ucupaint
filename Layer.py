@@ -1731,6 +1731,11 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
             if not ch.override:
                 ch.override = True
 
+            # Set relative
+            if self.relative:
+                try: image.filepath = bpy.path.relpath(image.filepath)
+                except: pass
+
             # Update image cache
             if ch.override_type == 'IMAGE':
                 source_tree = get_channel_source_tree(ch, layer)
@@ -1748,6 +1753,11 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
 
             if not ch.override_1:
                 ch.override_1 = True
+
+            # Set relative
+            if self.relative:
+                try: image_1.filepath = bpy.path.relpath(image_1.filepath)
+                except: pass
 
             # Update image 1 cache
             if ch.override_1_type == 'IMAGE':
@@ -1888,6 +1898,11 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
             if not ch.override_1:
                 ch.override_1 = True
 
+            # Set relative
+            if self.relative:
+                try: image.filepath = bpy.path.relpath(image.filepath)
+                except: pass
+
             # Update image cache
             if ch.override_1_type == 'IMAGE':
                 source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
@@ -1904,6 +1919,11 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
             # Make sure override is on
             if not ch.override:
                 ch.override = True
+
+            # Set relative
+            if self.relative:
+                try: image_1.filepath = bpy.path.relpath(image_1.filepath)
+                except: pass
 
             # Update image 1 cache
             if ch.override_type == 'IMAGE':
@@ -4568,6 +4588,11 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
     img_nodes = []
     imgs = []
 
+    vcol_users = []
+    vcol_user_types = []
+    vcol_nodes = []
+    vcol_names = []
+
     for layer in yp.layers:
         if specific_layer and layer != specific_layer: continue
 
@@ -4634,18 +4659,37 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
                 img_users.append(layer)
                 img_nodes.append(source)
                 imgs.append(img)
+
+        elif layer.type == 'VCOL':
+            vcol_name = source.attribute_name
+            if vcol_name != '':
+                vcol_users.append(layer)
+                vcol_user_types.append('LAYER')
+                vcol_nodes.append(source)
+                vcol_names.append(vcol_name)
+
         elif layer.type == 'HEMI':
             duplicate_lib_node_tree(source)
 
         # Duplicate override channel
         for ch in layer.channels:
-            if ch.override and ch.override_type == 'IMAGE':
+            if ch.override:
                 ch_source = get_channel_source(ch, layer)
-                img = ch_source.image
-                if img:
-                    img_users.append(ch)
-                    img_nodes.append(ch_source)
-                    imgs.append(img)
+
+                if ch.override_type == 'IMAGE':
+                    img = ch_source.image
+                    if img:
+                        img_users.append(ch)
+                        img_nodes.append(ch_source)
+                        imgs.append(img)
+
+                elif ch.override_type == 'VCOL':
+                    vcol_name = ch_source.attribute_name
+                    if vcol_name != '':
+                        vcol_users.append(ch)
+                        vcol_user_types.append('CHANNEL')
+                        vcol_nodes.append(ch_source)
+                        vcol_names.append(vcol_name)
 
             if ch.override_1 and ch.override_1_type == 'IMAGE':
                 ch_source = get_channel_source_1(ch, layer)
@@ -4696,6 +4740,13 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
                     img_users.append(mask)
                     img_nodes.append(mask_source)
                     imgs.append(img)
+            elif mask.type == 'VCOL':
+                vcol_name = mask_source.attribute_name
+                if vcol_name != '':
+                    vcol_users.append(mask)
+                    vcol_user_types.append('MASK')
+                    vcol_nodes.append(mask_source)
+                    vcol_names.append(vcol_name)
             elif mask.type == 'HEMI':
                 duplicate_lib_node_tree(mask_source)
 
@@ -4738,6 +4789,40 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
                     for n in tb_falloff.node_tree.nodes:
                         if n.type == 'GROUP' and n != ori:
                             n.node_tree = ori.node_tree
+
+    # Copy vertex color on layer and masks
+    objs = get_all_objects_with_same_materials(get_active_material())
+    for i, vcol_name in enumerate(vcol_names):
+
+        # Get all available vcol names across all objects
+        all_vcol_names = []
+        for obj in objs:
+            vcols = get_vertex_colors(obj)
+            for vcol in vcols:
+                if vcol.name not in all_vcol_names:
+                    all_vcol_names.append(vcol.name)
+        
+        # Get new name based on already available vcol names
+        new_vcol_name = get_unique_name(vcol_name, all_vcol_names)
+
+        # Duplicate vertex color
+        for obj in objs:
+            vcols = get_vertex_colors(obj)
+            vcol = vcols.get(vcol_name)
+            if vcol:
+                new_vcol = new_vertex_color(obj, new_vcol_name, vcol.data_type, vcol.domain)
+                if duplicate_blank:
+                    if vcol_user_types[i] == 'LAYER':
+                        set_obj_vertex_colors(obj, new_vcol_name, (0.0, 0.0, 0.0, 0.0))
+                    else: set_obj_vertex_colors(obj, new_vcol_name, (0.0, 0.0, 0.0, 1.0))
+                else:
+                    copy_vertex_color_data(obj, vcol_name, new_vcol_name)
+
+        # Set new vertex color to node and user
+        vcol_nodes[i].attribute_name = new_vcol_name
+        yp.halt_update = True
+        vcol_users[i].name = new_vcol_name
+        yp.halt_update = False
 
     # Make all images single user
     #if packed_duplicate:

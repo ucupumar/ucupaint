@@ -1684,7 +1684,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         height_root_ch = get_root_height_channel(yp)
 
         # Set default float image
-        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT', 'BEVEL_MASK'}:
+        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT'}:
             self.hdr = True
         else:
             self.hdr = False
@@ -1951,7 +1951,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             else:
                 col.label(text='Name:')
 
-                if self.target_type == 'LAYER':
+                # Other object channels always bakes all channels
+                if self.target_type == 'LAYER' and self.type != 'OTHER_OBJECT_CHANNELS':
                     col.label(text='Channel:')
                     if channel and channel.type == 'NORMAL':
                         col.label(text='Type:')
@@ -2021,7 +2022,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             else:
                 col.prop(self, 'name', text='')
 
-                if self.target_type == 'LAYER':
+                # Other object channels always bakes all channels
+                if self.target_type == 'LAYER' and self.type != 'OTHER_OBJECT_CHANNELS':
                     rrow = col.row(align=True)
                     rrow.prop(self, 'channel_idx', text='')
                     if channel:
@@ -2717,10 +2719,10 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                 self.uv_map = self.uv_map_coll[0].name
 
             if self.entity.type in {'EDGE_DETECT', 'HEMI', 'AO'}:
-                self.hdr = True
+                #self.hdr = True
                 self.fxaa = False
             else: 
-                self.hdr = False
+                #self.hdr = False
                 self.fxaa = True
 
             # Auto set some props for some types
