@@ -2427,6 +2427,29 @@ def change_layer_name(yp, obj, src, layer, texes):
 
     yp.halt_update = False
 
+def copy_vertex_color_data(obj, source_name, dest_name):
+    if obj.type != 'MESH': return
+
+    #ori_mode = None
+    if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+        #ori_mode = obj.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    vcols = get_vertex_colors(obj)
+    source = vcols.get(source_name)
+    dest = vcols.get(dest_name)
+
+    if not source or not dest: return
+
+    num_channels = 4 if is_bl_newer_than(2, 80) else 3
+
+    arr = numpy.zeros(len(source.data) * num_channels)
+    source.data.foreach_get('color', arr)
+    dest.data.foreach_set('color', arr) #.T.ravel())
+
+    #if ori_mode:
+    #    bpy.ops.object.mode_set(mode=ori_mode)
+
 def set_obj_vertex_colors(obj, vcol_name, color):
     if obj.type != 'MESH': return
 
