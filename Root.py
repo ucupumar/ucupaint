@@ -3540,6 +3540,13 @@ class YPaintChannel(bpy.types.PropertyGroup):
         update = Bake.update_enable_bake_to_vcol
     )
 
+    use_baked_vcol : BoolProperty(
+        name = 'Use Baked Vertex Color',
+        description = 'Use baked vertex color',
+        default = False,
+        update = Bake.update_enable_bake_to_vcol
+    )
+
     bake_to_vcol_alpha : BoolProperty(
         name = 'Bake To Vertex Color Alpha', 
         description = 'When enabled, the channel are baked only to Alpha with vertex color', 
@@ -3795,6 +3802,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     expand_bake_to_vcol_settings : BoolProperty(default=False)
     expand_input_bump_settings : BoolProperty(default=False)
     expand_smooth_bump_settings : BoolProperty(default=False)
+    expand_baked_data : BoolProperty(default=False)
 
     # Connection related
     ori_alpha_to : CollectionProperty(type=YNodeConnections)

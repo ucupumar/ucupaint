@@ -1645,7 +1645,14 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 layer.enable = True 
 
         # Bake channels
+        baked_exists = []
         for ch in self.channels:
+
+            # Check if baked node exists
+            baked = tree.nodes.get(ch.baked)
+            if baked: baked_exists.append(True)
+            else: baked_exists.append(False)
+
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
@@ -1658,10 +1665,14 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Process baked images
         baked_images = []
-        for ch in self.channels:
+        for i, ch in enumerate(self.channels):
 
             baked = tree.nodes.get(ch.baked)
             if baked and baked.image:
+
+                # Only expand baked data when baked is just created
+                if not baked_exists[i]:
+                    ch.expand_baked_data = True
 
                 # Dithering
                 if ch.type == 'RGB' and ch.colorspace == 'SRGB' and self.use_dithering and ch.use_clamp:
@@ -1968,6 +1979,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     baked = tree.nodes.get(ch.baked_vcol)
                     if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
                         baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
+                        # Set channel to use baked vertex color only when baked_vcol is just created
+                        ch.use_baked_vcol = True
+
                     set_source_vcol_name(baked, ch.bake_to_vcol_name)
                     for ob in objs:
                         # Recover material index
@@ -2018,9 +2032,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         # Refresh active channel index
         yp.active_channel_index = yp.active_channel_index
 
+        # Update UI
+        ypui = context.window_manager.ypui
+        ypui.need_update = True
+
         # If bake target ui is visible, refresh bake target index to show up the image result
         if len(yp.bake_targets) > 0:
-            ypui = context.window_manager.ypui
             if ypui.show_bake_targets:
                 yp.active_bake_target_index = yp.active_bake_target_index
 
