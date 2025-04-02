@@ -803,6 +803,16 @@ def update_yp_tree(tree):
                             segment.bake_info.is_baked_entity = True
                             print('INFO: One image segment from '+image.name+' is marked as baked entity image!')
 
+        for ch in yp.channels:
+
+            # Use baked vcol is now has it's own property
+            if ch.enable_bake_to_vcol:
+                ch.use_baked_vcol = True
+
+            # Now baked channel data can be expanded
+            baked = tree.nodes.get(ch.baked)
+            if baked: ch.expand_baked_data = True
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
