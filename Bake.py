@@ -1336,7 +1336,16 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # List of channels that will be baked
         if self.only_active_channel and yp.active_channel_index < len(yp.channels):
-            self.channels = [yp.channels[yp.active_channel_index]]
+            active_ch = yp.channels[yp.active_channel_index]
+            self.channels = [active_ch]
+
+            # Add alpha/color channel pair
+            color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+            if active_ch == color_ch:
+                self.channels.append(alpha_ch)
+            elif active_ch == alpha_ch:
+                self.channels.append(color_ch)
+
         else: self.channels = yp.channels
 
         self.enable_bake_as_vcol = False
@@ -1644,9 +1653,17 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             for layer in disabled_layers:
                 layer.enable = True 
 
+        # Get color and alpha channel
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
         # Bake channels
         baked_exists = []
         for ch in self.channels:
+
+            # Remove baked node if alpha channel will be combined to color channel
+            if alpha_ch == ch and alpha_ch.alpha_combine_to_baked_color:
+                remove_node(tree, alpha_ch, 'baked')
+                continue
 
             # Check if baked node exists
             baked = tree.nodes.get(ch.baked)

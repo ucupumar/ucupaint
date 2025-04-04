@@ -3534,6 +3534,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
         default=''
     )
 
+    alpha_combine_to_baked_color : BoolProperty(
+        name = 'Combine Alpha to Baked Color',
+        description = 'Combine bake result of color and alpha channel',
+        default = True
+    )
+
     alpha_blend_mode : EnumProperty(
         name = 'Alpha Blend Mode',
         description = 'This will change your material blend mode if alpha is enabled',

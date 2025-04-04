@@ -335,7 +335,12 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     valid_inputs = []
     valid_outputs = []
 
+    # Get alpha and color pair channel
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
     for ch in yp.channels:
+
+        is_alpha_ch = ch.enable_alpha or (alpha_ch and ch == alpha_ch)
 
         if ch.type == 'VALUE':
             create_input(
@@ -378,7 +383,8 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
             input_index += 1
             output_index += 1
 
-            # Backface mode
+        # Backface mode
+        if is_alpha_ch:
             if ch.backface_mode != 'BOTH':
                 end_backface = check_new_node(group_tree, ch, 'end_backface', 'ShaderNodeMath', 'Backface')
                 end_backface.use_clamp = True
@@ -388,8 +394,8 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
             elif ch.backface_mode == 'BACK_ONLY':
                 end_backface.operation = 'MULTIPLY'
 
-        if not ch.enable_alpha or ch.backface_mode == 'BOTH':
-                remove_node(group_tree, ch, 'end_backface')
+        if not is_alpha_ch or ch.backface_mode == 'BOTH':
+            remove_node(group_tree, ch, 'end_backface')
 
         # Displacement IO
         if ch.type == 'NORMAL' and (ch.enable_subdiv_setup or force_height_io):

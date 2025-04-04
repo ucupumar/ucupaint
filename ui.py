@@ -1104,6 +1104,8 @@ def draw_root_channels_ui(context, layout, node):
             box = row.box()
             bcol = box.column()
 
+            is_alpha_channel = channel.type == 'VALUE' and channel.is_alpha
+
             # Modifier stack ui will only active when use_baked is off
             baked = nodes.get(channel.baked)
             layout_active = not yp.use_baked or not baked
@@ -1213,7 +1215,7 @@ def draw_root_channels_ui(context, layout, node):
 
                     #bbcol.separator()
 
-            if channel.type == 'VALUE' and channel.is_alpha:
+            if is_alpha_channel:
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or channel.no_layer_using
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -1221,7 +1223,18 @@ def draw_root_channels_ui(context, layout, node):
                 brow.label(text='Color Channel:')
                 brow.prop_search(channel, "alpha_pair_name", yp, "channels", text='')
 
-            if channel.type in {'RGB', 'VALUE'}:
+                brow = bcol.row(align=True)
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Combine to Baked Color:')
+                brow.prop(channel, 'alpha_combine_to_baked_color', text='')
+
+                brow = bcol.row(align=True)
+                brow.active = not (yp.use_baked and yp.enable_baked_outside)
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Backface Mode:')
+                brow.prop(channel, 'backface_mode', text='')
+
+            if channel.type in {'RGB', 'VALUE'} and not is_alpha_channel:
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or channel.no_layer_using
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -1401,7 +1414,7 @@ def draw_root_channels_ui(context, layout, node):
                         brow.label(text='Subsurf Only:')
                         brow.prop(channel, 'subdiv_subsurf_only', text='')
 
-            if channel.type in {'RGB', 'VALUE'}:
+            if channel.type in {'RGB', 'VALUE'} and not is_alpha_channel:
                 brow = bcol.row(align=True)
                 #brow.label(text='', icon_value=lib.get_icon('input'))
                 brow.label(text='', icon='BLANK1')

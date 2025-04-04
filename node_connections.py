@@ -975,6 +975,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     baked_parallax = tree.nodes.get(BAKED_PARALLAX)
     baked_parallax_filter = tree.nodes.get(BAKED_PARALLAX_FILTER)
 
+    # Get color and alpha channel
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
     # UVs
 
     uv_maps = {}
@@ -1450,10 +1453,17 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 rgb = baked.outputs[0]
 
                 #if ch.type == 'RGB' and ch.enable_alpha:
-                if is_channel_alpha_enabled(ch):
+                if ch.enable_alpha:
                     alpha = baked.outputs[1]
 
                 create_link(tree, baked_uv_map, baked.inputs[0])
+
+            # Use baked color alpha if alpha and color channels are combined
+            elif alpha_ch == ch and ch.alpha_combine_to_baked_color:
+
+                baked_color = nodes.get(color_ch.baked)
+                if baked_color:
+                    rgb = baked_color.outputs[1]
 
             if ch.type == 'NORMAL':
                 baked_normal = nodes.get(ch.baked_normal)
@@ -1506,7 +1516,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     max_height = end_max_height.outputs[0]
 
         if end_backface:
-            alpha = create_link(tree, alpha, end_backface.inputs[0])[0]
+            if alpha_ch and alpha_ch == ch:
+                rgb = create_link(tree, rgb, end_backface.inputs[0])[0]
+            else: alpha = create_link(tree, alpha, end_backface.inputs[0])[0]
             #create_link(tree, geometry.outputs['Backfacing'], end_backface.inputs[1])
             create_link(tree, get_essential_node(tree, GEOMETRY)['Backfacing'], end_backface.inputs[1])
 
