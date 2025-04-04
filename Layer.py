@@ -1736,6 +1736,10 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
+            # Set colorspace
+            if root_ch.colorspace == 'LINEAR' and not image.is_dirty:
+                image.colorspace_settings.name = get_noncolor_name()
+
             # Update image cache
             if ch.override_type == 'IMAGE':
                 source_tree = get_channel_source_tree(ch, layer)
@@ -1758,6 +1762,10 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
             if self.relative:
                 try: image_1.filepath = bpy.path.relpath(image_1.filepath)
                 except: pass
+
+            # Set colorspace
+            if not image_1.is_dirty:
+                image_1.colorspace_settings.name = get_noncolor_name()
 
             # Update image 1 cache
             if ch.override_1_type == 'IMAGE':
@@ -1903,6 +1911,10 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
+            # Set colorspace
+            if not image.is_dirty:
+                image.colorspace_settings.name = get_noncolor_name()
+
             # Update image cache
             if ch.override_1_type == 'IMAGE':
                 source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
@@ -1924,6 +1936,10 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
             if self.relative:
                 try: image_1.filepath = bpy.path.relpath(image_1.filepath)
                 except: pass
+
+            # Set colorspace
+            if not image_1.is_dirty:
+                image_1.colorspace_settings.name = get_noncolor_name()
 
             # Update image 1 cache
             if ch.override_type == 'IMAGE':
