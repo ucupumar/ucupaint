@@ -3266,14 +3266,13 @@ def draw_layers_ui(context, layout, node):
 
                             btimages.append(btimg)
 
-        col = box.column(align=False)
+        row = box.row(align=True)
         icon = 'FILE_TICK'
-        col.operator('wm.y_save_all_baked_images', text='Save All Baked Images to...', icon=icon).copy = False
-        col.operator('wm.y_save_all_baked_images', text='Save All Baked Image Copies to...', icon=icon).copy = True
+        row.operator('wm.y_save_all_baked_images', text='Save As All...', icon=icon).copy = False
+        row.operator('wm.y_save_all_baked_images', text='Save Copies All...', icon=icon).copy = True
 
         icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
-        col.separator()
-        col.operator('wm.y_delete_baked_channel_images', text='Delete All Baked Images', icon=icon)
+        row.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
 
         return
 
