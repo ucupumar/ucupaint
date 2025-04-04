@@ -3271,7 +3271,7 @@ def draw_layers_ui(context, layout, node):
         row.operator('wm.y_save_all_baked_images', text='Save As All...', icon=icon).copy = False
         row.operator('wm.y_save_all_baked_images', text='Save Copies All...', icon=icon).copy = True
 
-        icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
+        icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
         row.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
 
         return
