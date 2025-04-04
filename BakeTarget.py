@@ -253,14 +253,144 @@ class YRemoveBakeTarget(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YCopyBakeTarget(bpy.types.Operator):
+    bl_idname = "wm.y_copy_bake_target"
+    bl_label = "Copy Bake Target"
+    bl_description = "Copy Bake Target"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+
+        group_tree = node.node_tree
+        yp = group_tree.yp
+        
+        return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0 
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        wmp = context.window_manager.ypprops
+
+        bake_target = yp.bake_targets[yp.active_bake_target_index]
+
+        wmp.clipboard_bake.clear()
+        new_bake:YBakeTarget = wmp.clipboard_bake.add()
+
+        new_bake.name = bake_target.name
+        new_bake.use_float = bake_target.use_float
+        new_bake.data_type = bake_target.data_type
+        
+        new_bake.r.channel_name = bake_target.r.channel_name
+        new_bake.r.subchannel_index = bake_target.r.subchannel_index
+        new_bake.r.default_value = bake_target.r.default_value
+        new_bake.r.normal_type = bake_target.r.normal_type
+        new_bake.r.invert_value = bake_target.r.invert_value
+
+        new_bake.g.channel_name = bake_target.g.channel_name
+        new_bake.g.subchannel_index = bake_target.g.subchannel_index
+        new_bake.g.default_value = bake_target.g.default_value
+        new_bake.g.normal_type = bake_target.g.normal_type
+        new_bake.g.invert_value = bake_target.g.invert_value
+
+        new_bake.b.channel_name = bake_target.b.channel_name
+        new_bake.b.subchannel_index = bake_target.b.subchannel_index
+        new_bake.b.default_value = bake_target.b.default_value
+        new_bake.b.normal_type = bake_target.b.normal_type
+        new_bake.b.invert_value = bake_target.b.invert_value
+
+        new_bake.a.channel_name = bake_target.a.channel_name
+        new_bake.a.subchannel_index = bake_target.a.subchannel_index
+        new_bake.a.default_value = bake_target.a.default_value
+        new_bake.a.normal_type = bake_target.a.normal_type
+        new_bake.a.invert_value = bake_target.a.invert_value
+
+        return {'FINISHED'}
+
+class YPasteBakeTarget(bpy.types.Operator):
+    bl_idname = "wm.y_paste_bake_target"
+    bl_label = "Paste Bake Target As New"
+    bl_description = "Paste Bake Target"
+    bl_options = {'UNDO'}
+
+    paste_as_new: BoolProperty(
+        name = 'Paste As New Bake Target',
+        default = True
+    )
+
+    @classmethod
+    def poll(cls, context):
+        wmp = context.window_manager.ypprops
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        
+        has_clipboard = len(wmp.clipboard_bake) > 0
+
+        return context.object and node and has_clipboard
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        wmp = context.window_manager.ypprops
+
+        if not self.paste_as_new and (yp.active_bake_target_index < 0 or yp.active_bake_target_index >= len(yp.bake_targets) or len(yp.bake_targets) == 0):
+            self.report({'ERROR'}, "Cannot paste values, no bake target selected")
+            return {'CANCELLED'}
+
+        bake_target = wmp.clipboard_bake[0]
+
+        if self.paste_as_new:
+            new_bake = yp.bake_targets.add()
+        else:
+            new_bake = yp.bake_targets[yp.active_bake_target_index]
+            
+        new_bake.name = bake_target.name
+        new_bake.use_float = bake_target.use_float
+        new_bake.data_type = bake_target.data_type
+
+        new_bake.name = bake_target.name
+        new_bake.use_float = bake_target.use_float
+        new_bake.data_type = bake_target.data_type
+        
+        new_bake.r.channel_name = bake_target.r.channel_name
+        new_bake.r.subchannel_index = bake_target.r.subchannel_index
+        new_bake.r.default_value = bake_target.r.default_value
+        new_bake.r.normal_type = bake_target.r.normal_type
+        new_bake.r.invert_value = bake_target.r.invert_value
+
+        new_bake.g.channel_name = bake_target.g.channel_name
+        new_bake.g.subchannel_index = bake_target.g.subchannel_index
+        new_bake.g.default_value = bake_target.g.default_value
+        new_bake.g.normal_type = bake_target.g.normal_type
+        new_bake.g.invert_value = bake_target.g.invert_value
+
+        new_bake.b.channel_name = bake_target.b.channel_name
+        new_bake.b.subchannel_index = bake_target.b.subchannel_index
+        new_bake.b.default_value = bake_target.b.default_value
+        new_bake.b.normal_type = bake_target.b.normal_type
+        new_bake.b.invert_value = bake_target.b.invert_value
+
+        new_bake.a.channel_name = bake_target.a.channel_name
+        new_bake.a.subchannel_index = bake_target.a.subchannel_index
+        new_bake.a.default_value = bake_target.a.default_value
+        new_bake.a.normal_type = bake_target.a.normal_type
+        new_bake.a.invert_value = bake_target.a.invert_value
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YNewBakeTarget)
     bpy.utils.register_class(YRemoveBakeTarget)
     bpy.utils.register_class(YBakeTargetChannel)
     bpy.utils.register_class(YBakeTarget)
-
+    bpy.utils.register_class(YCopyBakeTarget)
+    bpy.utils.register_class(YPasteBakeTarget)
+    
 def unregister():
     bpy.utils.unregister_class(YNewBakeTarget)
     bpy.utils.unregister_class(YRemoveBakeTarget)
     bpy.utils.unregister_class(YBakeTargetChannel)
     bpy.utils.unregister_class(YBakeTarget)
+    bpy.utils.unregister_class(YCopyBakeTarget)
+    bpy.utils.unregister_class(YPasteBakeTarget)
