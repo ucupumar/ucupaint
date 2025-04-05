@@ -2379,6 +2379,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if alpha_ch_source:
                     alpha = alpha_ch_source.outputs[0]
 
+                if vector and 'Vector' in alpha_ch_source.inputs:
+                    create_link(tree, vector, alpha_ch_source.inputs['Vector'])
+
         ch_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'intensity_value'))
         prev_rgb = get_essential_node(tree, TREE_START).get(root_ch.name)
         if alpha_ch and ch == color_ch:
