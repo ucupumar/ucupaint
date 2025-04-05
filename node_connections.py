@@ -1458,8 +1458,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 create_link(tree, baked_uv_map, baked.inputs[0])
 
-            # Use baked color alpha if alpha and color channels are combined
-            elif alpha_ch == ch and ch.alpha_combine_to_baked_color:
+            # Use baked color alpha if baked alpha is not found
+            elif alpha_ch == ch:
 
                 baked_color = nodes.get(color_ch.baked)
                 if baked_color:

@@ -1224,15 +1224,18 @@ def draw_root_channels_ui(context, layout, node):
                 brow.prop_search(channel, "alpha_pair_name", yp, "channels", text='')
 
                 brow = bcol.row(align=True)
-                brow.label(text='', icon='BLANK1')
-                brow.label(text='Combine to Baked Color:')
-                brow.prop(channel, 'alpha_combine_to_baked_color', text='')
-
-                brow = bcol.row(align=True)
                 brow.active = not (yp.use_baked and yp.enable_baked_outside)
                 brow.label(text='', icon='BLANK1')
                 brow.label(text='Backface Mode:')
                 brow.prop(channel, 'backface_mode', text='')
+
+                brow = bcol.row(align=True)
+                brow.active = not yp.use_baked
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Combine to Baked Color:')
+                if yp.use_baked:
+                    brow.label(text='', icon_value=lib.get_icon('texture'))
+                else: brow.prop(channel, 'alpha_combine_to_baked_color', text='')
 
             if channel.type in {'RGB', 'VALUE'} and not is_alpha_channel:
                 brow = bcol.row(align=True)
@@ -3181,6 +3184,8 @@ def draw_layers_ui(context, layout, node):
     if yp.use_baked:
         col = box.column(align=False)
 
+        root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+
         for i, root_ch in enumerate(yp.channels):
 
             try: nchui = ypui.channels[i]
@@ -3234,7 +3239,9 @@ def draw_layers_ui(context, layout, node):
             bcol = bbox.column(align=True)
 
             if no_baked_data:
-                bcol.label(text=root_ch.name + " channel hasn't been baked yet!", icon='ERROR')
+                if root_ch == root_alpha_ch:
+                    bcol.label(text=root_ch.name + " channel is combined to "+root_color_ch.name+" bake result!", icon='INFO')
+                else: bcol.label(text=root_ch.name + " channel hasn't been baked yet!", icon='ERROR')
                 continue
 
             row = bcol.row(align=True)
