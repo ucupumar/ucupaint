@@ -975,6 +975,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     baked_parallax = tree.nodes.get(BAKED_PARALLAX)
     baked_parallax_filter = tree.nodes.get(BAKED_PARALLAX_FILTER)
 
+    # Get color and alpha channel
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
     # UVs
 
     uv_maps = {}
@@ -1184,6 +1187,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             node = nodes.get(layer.group_node)
             layer_ch = layer.channels[i]
 
+            # Get alpha channel
+            layer_color_ch, layer_alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
+            if layer_ch != layer_alpha_ch:
+                layer_ch_enable = layer_ch.enable
+            else: layer_ch_enable = layer_color_ch.enable or layer_alpha_ch.enable
+
             #is_hidden = not layer.enable or is_parent_hidden(layer)
 
             if yp.layer_preview_mode: # and yp.layer_preview_mode_type == 'LAYER':
@@ -1224,9 +1234,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             need_prev_normal = check_need_prev_normal(layer)
 
-            #if yp.disable_quick_toggle and not layer_ch.enable:
-            #if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch.enable:
-            if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch.enable:
+            #if yp.disable_quick_toggle and not layer_ch_enable:
+            #if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch_enable:
+            if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch_enable:
                 continue
 
             # UV inputs
@@ -1448,6 +1458,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 create_link(tree, baked_uv_map, baked.inputs[0])
 
+            # Use baked color alpha if baked alpha is not found
+            elif alpha_ch == ch:
+
+                baked_color = nodes.get(color_ch.baked)
+                if baked_color:
+                    rgb = baked_color.outputs[1]
+
             if ch.type == 'NORMAL':
                 baked_normal = nodes.get(ch.baked_normal)
                 baked_normal_overlay = nodes.get(ch.baked_normal_overlay)
@@ -1499,7 +1516,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     max_height = end_max_height.outputs[0]
 
         if end_backface:
-            alpha = create_link(tree, alpha, end_backface.inputs[0])[0]
+            if alpha_ch and alpha_ch == ch:
+                rgb = create_link(tree, rgb, end_backface.inputs[0])[0]
+            else: alpha = create_link(tree, alpha, end_backface.inputs[0])[0]
             #create_link(tree, geometry.outputs['Backfacing'], end_backface.inputs[1])
             create_link(tree, get_essential_node(tree, GEOMETRY)['Backfacing'], end_backface.inputs[1])
 
@@ -1510,7 +1529,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     rgb = baked_vcol.outputs['Alpha']
                 else:
                     rgb = baked_vcol.outputs['Color']
-                if ch.enable_alpha:
+                if is_channel_alpha_enabled(ch):
                     alpha = baked_vcol.outputs['Alpha']
 
         #print(rgb)
@@ -2313,14 +2332,30 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Parent flag
     has_parent = layer.parent_idx != -1
 
-    # Layer Channels
-    for i, ch in enumerate(layer.channels):
+    # Get color and alpha channel
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    alpha_ch_rgb = None
 
+    # Make sure alpha channel in earlier list so the output can be used with color channel
+    if color_ch and alpha_ch:
+        layer_channels = [alpha_ch, color_ch]
+        for ch in layer.channels:
+            if ch not in layer_channels:
+                layer_channels.append(ch)
+    else:
+        layer_channels = layer.channels
+
+    # Layer Channels
+    for ch in layer_channels:
+
+        i = get_layer_channel_index(layer, ch)
         root_ch = yp.channels[i]
 
+        # Alpha channel will get ignored if color channel is also enabled
+        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch))
 
         #if yp.disable_quick_toggle and not ch.enable: continue
-        if not get_channel_enabled(ch, layer, root_ch):
+        if not channel_enabled:
             
             # Disabled channel layer preview
             if yp.layer_preview_mode:
@@ -2345,9 +2380,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         alpha = start_alpha
         bg_alpha = None
 
+        # Use alpha channel output as alpha of color channel
+        if ch == color_ch and alpha_ch_rgb:
+            alpha = alpha_ch_rgb
+
         ch_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'intensity_value'))
         prev_rgb = get_essential_node(tree, TREE_START).get(root_ch.name)
-        prev_alpha = get_essential_node(tree, TREE_START).get(root_ch.name + io_suffix['ALPHA'])
+        if alpha_ch and ch == color_ch:
+            alpha_idx = get_layer_channel_index(layer, alpha_ch)
+            root_alpha_ch = yp.channels[alpha_idx]
+            prev_alpha = get_essential_node(tree, TREE_START).get(root_alpha_ch.name)
+        else:
+            prev_alpha = get_essential_node(tree, TREE_START).get(root_ch.name + io_suffix['ALPHA'])
 
         prev_vdisp = None
         next_vdisp = None
@@ -2408,6 +2452,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 source_index = 2
 
         rgb_before_override = rgb
+
+        # Use layer alpha as rgb of alpha channel if color channel is enabled
+        if ch == alpha_ch and get_channel_enabled(color_ch):
+            rgb = alpha
 
         # Channel Override 
         if ch.override and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
@@ -2608,7 +2656,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Pass alpha to layer intensity
         if layer_intensity and layer_intensity_value:
-            ch_intensity = create_link(tree, ch_intensity, layer_intensity.inputs[0])[0]
+            if ch_intensity: ch_intensity = create_link(tree, ch_intensity, layer_intensity.inputs[0])[0]
             create_link(tree, layer_intensity_value, layer_intensity.inputs[1])
 
         # Bookmark alpha before intensity because it can be useful
@@ -3624,7 +3672,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # End node
         next_rgb = get_essential_node(tree, TREE_END).get(root_ch.name)
-        next_alpha = get_essential_node(tree, TREE_END).get(root_ch.name + io_suffix['ALPHA'])
+        if alpha_ch and ch == color_ch:
+            alpha_idx = get_layer_channel_index(layer, alpha_ch)
+            root_alpha_ch = yp.channels[alpha_idx]
+            next_alpha = get_essential_node(tree, TREE_END).get(root_alpha_ch.name)
+        else: next_alpha = get_essential_node(tree, TREE_END).get(root_ch.name + io_suffix['ALPHA'])
 
         # Background layer only know mix
         if layer.type == 'BACKGROUND':
@@ -3633,6 +3685,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if root_ch.type == 'NORMAL':
                 blend_type = ch.normal_blend_type
             else: blend_type = ch.blend_type
+
+        # Get output of alpha channel before blend node
+        if ch == alpha_ch:
+            alpha_ch_rgb = rgb
 
         if blend:
             bcol0, bcol1, bout = get_mix_color_indices(blend)
@@ -3645,7 +3701,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if (
                     #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
-                    (blend_type in {'MIX', 'COMPARE'} and (has_parent or root_ch.enable_alpha))
+                    (blend_type in {'MIX', 'COMPARE'} and (has_parent or is_channel_alpha_enabled(root_ch)))
                     or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 ):
 
@@ -3685,7 +3741,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         if next_alpha:
             if not blend or (
-                (blend_type != 'MIX' and (has_parent or root_ch.enable_alpha))
+                (blend_type != 'MIX' and (has_parent or is_channel_alpha_enabled(root_ch)))
                 and not (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 ):
                 if prev_alpha and next_alpha: create_link(tree, prev_alpha, next_alpha)
