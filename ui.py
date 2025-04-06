@@ -1138,6 +1138,8 @@ def draw_root_channels_ui(context, layout, node):
             box = row.box()
             bcol = box.column()
 
+            is_alpha_channel = channel.type == 'VALUE' and channel.is_alpha
+
             # Modifier stack ui will only active when use_baked is off
             baked = nodes.get(channel.baked)
             layout_active = not yp.use_baked or not baked
@@ -1247,7 +1249,29 @@ def draw_root_channels_ui(context, layout, node):
 
                     #bbcol.separator()
 
-            if channel.type in {'RGB', 'VALUE'}:
+            if is_alpha_channel:
+                brow = bcol.row(align=True)
+                brow.active = not yp.use_baked or channel.no_layer_using
+                #brow.label(text='', icon_value=lib.get_icon('input'))
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Color Channel:')
+                brow.prop_search(channel, "alpha_pair_name", yp, "channels", text='')
+
+                brow = bcol.row(align=True)
+                brow.active = not (yp.use_baked and yp.enable_baked_outside)
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Backface Mode:')
+                brow.prop(channel, 'backface_mode', text='')
+
+                brow = bcol.row(align=True)
+                brow.active = not yp.use_baked
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Combine to Baked Color:')
+                if yp.use_baked:
+                    brow.label(text='', icon_value=lib.get_icon('texture'))
+                else: brow.prop(channel, 'alpha_combine_to_baked_color', text='')
+
+            if channel.type in {'RGB', 'VALUE'} and not is_alpha_channel:
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or channel.no_layer_using
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -1427,7 +1451,7 @@ def draw_root_channels_ui(context, layout, node):
                         brow.label(text='Subsurf Only:')
                         brow.prop(channel, 'subdiv_subsurf_only', text='')
 
-            if channel.type in {'RGB', 'VALUE'}:
+            if channel.type in {'RGB', 'VALUE'} and not is_alpha_channel:
                 brow = bcol.row(align=True)
                 #brow.label(text='', icon_value=lib.get_icon('input'))
                 brow.label(text='', icon='BLANK1')
@@ -1852,6 +1876,8 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 def get_layer_channel_input_label(layer, ch, source=None):
     yp = layer.id_data.yp
 
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
     if ch.override:
         if not source: source = get_channel_source(ch, layer)
         label = 'Custom'
@@ -1874,7 +1900,9 @@ def get_layer_channel_input_label(layer, ch, source=None):
     else:
         label = 'Layer'
 
-        if ch.layer_input == 'RGB':
+        if ch == alpha_ch and color_ch.enable:
+            label += ' Alpha'
+        elif ch.layer_input == 'RGB':
             if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
                 label += ' Distance'
             else: label += ' Color'
@@ -1894,7 +1922,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
     ypup = get_user_preferences()
     lui = ypui.layer_ui
     
-    enabled_channels = [c for c in layer.channels if c.enable]
+    # Get alpha and color pair channel
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
+    enabled_channels = [c for c in layer.channels if c.enable or (c == alpha_ch and color_ch.enable)]
+
     root_ch = None
     ch = None
 
@@ -1904,6 +1936,16 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if len(enabled_channels) == 0:
             #label += ' (0)'
             pass
+        elif color_ch and color_ch.enable and len(enabled_channels) == 2:
+            if lui.expand_channels:
+                label = pgettext_iface('Channels') + ' (2)'
+            else:
+                ch = color_ch
+                ch_idx = get_layer_channel_index(layer, ch)
+                root_ch = yp.channels[ch_idx]
+                if is_bl_newer_than(2, 80):
+                    label += ' (' + root_ch.name + ')'
+                else: label = root_ch.name + ' ' + pgettext_iface('Channel')   
         elif len(enabled_channels) == 1:
             if lui.expand_channels:
                 label += ' (1)'
@@ -1986,11 +2028,16 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
     extra_separator = False
     for i, ch in enumerate(layer.channels):
 
-        if not ypui.expand_channels and not ch.enable:
+        ch_enabled = ch.enable or (alpha_ch == ch and color_ch.enable)
+
+        if not ypui.expand_channels and not ch_enabled:
             continue
 
         if specific_ch and ch != specific_ch:
             continue
+
+        #if ch == alpha_ch and color_ch.enable:
+        #    continue
 
         root_ch = yp.channels[i]
         ch_count += 1
@@ -2001,7 +2048,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             return
 
         ccol = rcol.column()
-        ccol.active = ch.enable
+        ccol.active = ch.enable or (alpha_ch == ch and color_ch.enable)
         ccol.context_pointer_set('channel', ch)
 
         row = ccol.row(align=True)
@@ -2046,32 +2093,40 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             rrow.prop(chui, 'expand_content', text=label, emboss=False, icon_value=channel_icon_value, translate=False)
         else: rrow.label(text=label, icon_value=channel_icon_value, translate=False)
 
+        # Alpha channel with color channel enabled will not show blend and opacity options
+        show_blend_opacity = alpha_ch != ch or (alpha_ch == ch and not get_channel_enabled(color_ch))
+
         #if layer.type != 'BACKGROUND':
         if not chui.expand_content: # and ch.enable:
             rrow = split.row(align=True)
             rrow.context_pointer_set('parent', ch)
-            ssplit = split_layout(rrow, 0.4, align=True)
 
-            if root_ch.type == 'NORMAL':
-                label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
-                #if is_bl_newer_than(2, 80):
-                #    ssplit.popover("NODE_PT_y_layer_channel_normal_blend_popover", text=label)
-                #else: ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
-                ssplit.prop(ch, 'normal_blend_type', text='')
-                #sssplit = split_layout(ssplit, 0.6, align=True)
-                #sssplit.prop(ch, 'normal_blend_type', text='')
-                #draw_input_prop(sssplit, ch, 'intensity_value')
-            elif layer.type != 'BACKGROUND':
-                label = blend_type_labels[ch.blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
-                #if is_bl_newer_than(2, 80):
-                #    ssplit.popover("NODE_PT_y_layer_channel_blend_popover", text=label)
-                #else: ssplit.menu("NODE_MT_y_layer_channel_blend_menu", text=label)
-                ssplit.prop(ch, 'blend_type', text='')
-                #sssplit = split_layout(ssplit, 0.6, align=True)
-                #sssplit.prop(ch, 'blend_type', text='')
-                #draw_input_prop(sssplit, ch, 'intensity_value')
+            if show_blend_opacity:
+
+                ssplit = split_layout(rrow, 0.4, align=True)
+                
+                if root_ch.type == 'NORMAL':
+                    label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
+                    #if is_bl_newer_than(2, 80):
+                    #    ssplit.popover("NODE_PT_y_layer_channel_normal_blend_popover", text=label)
+                    #else: ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
+                    ssplit.prop(ch, 'normal_blend_type', text='')
+                    #sssplit = split_layout(ssplit, 0.6, align=True)
+                    #sssplit.prop(ch, 'normal_blend_type', text='')
+                    #draw_input_prop(sssplit, ch, 'intensity_value')
+                elif layer.type != 'BACKGROUND': 
+                    label = blend_type_labels[ch.blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
+                    #if is_bl_newer_than(2, 80):
+                    #    ssplit.popover("NODE_PT_y_layer_channel_blend_popover", text=label)
+                    #else: ssplit.menu("NODE_MT_y_layer_channel_blend_menu", text=label)
+                    ssplit.prop(ch, 'blend_type', text='')
+                    #sssplit = split_layout(ssplit, 0.6, align=True)
+                    #sssplit.prop(ch, 'blend_type', text='')
+                    #draw_input_prop(sssplit, ch, 'intensity_value')
+                else:
+                    draw_input_prop(ssplit, ch, 'intensity_value')
             else:
-                draw_input_prop(ssplit, ch, 'intensity_value')
+                ssplit = rrow.row(align=True)
 
             if layer.type == 'GROUP':
                 rrrow = ssplit.row(align=True)
@@ -2120,7 +2175,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     rrrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
 
                     #if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
-                    if ch.enable:
+                    if ch.enable or ch == alpha_ch and color_ch.enable:
                         if ch.override_type == 'IMAGE':
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
                         elif ch.override_type == 'VCOL':
@@ -2144,7 +2199,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         #rrow.menu("NODE_MT_y_layer_channel_special_menu", icon_value=channel_icon_value, text='')
 
         if ypui.expand_channels:
-            row.prop(ch, 'enable', text='')
+            if ch == alpha_ch and color_ch.enable:
+                row.label(text='', icon='BLANK1')
+            else: row.prop(ch, 'enable', text='')
 
         if not chui.expand_content: continue
 
@@ -2163,22 +2220,38 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             mcol.active = channel_enabled
 
-        # Blend type
-        if layer.type != 'BACKGROUND' or root_ch.type == 'NORMAL':
-            row = mcol.row(align=True)
-            split = split_layout(row, 0.375)
+        if show_blend_opacity:
+            # Blend type
+            if layer.type != 'BACKGROUND' or root_ch.type == 'NORMAL':
+                row = mcol.row(align=True)
+                split = split_layout(row, 0.375)
 
-            rrow = split.row(align=True)
-            inbox_dropdown_button(rrow, chui, 'expand_blend_settings', 'Blend:')
+                rrow = split.row(align=True)
+                inbox_dropdown_button(rrow, chui, 'expand_blend_settings', 'Blend:')
 
-            rrow = split.row(align=True)
+                rrow = split.row(align=True)
 
-            if root_ch.type != 'NORMAL':
-                rrow.prop(ch, 'blend_type', text='')
-            else: rrow.prop(ch, 'normal_blend_type', text='')
+                if root_ch.type != 'NORMAL':
+                    rrow.prop(ch, 'blend_type', text='')
+                else: rrow.prop(ch, 'normal_blend_type', text='')
 
-            if not chui.expand_blend_settings:
-                draw_input_prop(rrow, ch, 'intensity_value')
+                if not chui.expand_blend_settings:
+                    draw_input_prop(rrow, ch, 'intensity_value')
+
+                else:
+
+                    # Layer channel opacity
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    row.label(text='Opacity:')
+                    draw_input_prop(row, ch, 'intensity_value')
+
+                    # Use Clamp
+                    if root_ch.type != 'NORMAL':
+                        row = mcol.row(align=True)
+                        row.label(text='', icon='BLANK1')
+                        row.label(text='Use Clamp:')
+                        row.prop(ch, 'use_clamp', text='')
 
             else:
 
@@ -2187,20 +2260,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 row.label(text='', icon='BLANK1')
                 row.label(text='Opacity:')
                 draw_input_prop(row, ch, 'intensity_value')
-
-                # Use Clamp
-                if root_ch.type != 'NORMAL':
-                    row = mcol.row(align=True)
-                    row.label(text='', icon='BLANK1')
-                    row.label(text='Use Clamp:')
-                    row.prop(ch, 'use_clamp', text='')
-
-        else:
-            # Layer channel opacity
-            row = mcol.row(align=True)
-            row.label(text='', icon='BLANK1')
-            row.label(text='Opacity:')
-            draw_input_prop(row, ch, 'intensity_value')
 
         if root_ch.type == 'NORMAL':
 
@@ -2552,6 +2611,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     row = srow.row(align=True)
 
                     label = 'Source:' if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Bump Source:'
+
+                    if ch == color_ch and ch.enable:
+                        label = root_ch.name + ':'
+
                     if ch.override or input_settings_available:
                         inbox_dropdown_button(row, chui, 'expand_source', label)
                     else:
@@ -2572,7 +2635,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                         rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
                         rrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
 
-                    if ch.enable and ch.override: #and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
+                    #if ch.enable and ch.override: #and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
+                    if (ch.enable or (ch == alpha_ch and color_ch.enable)) and ch.override:
                         if ch.override_type == 'IMAGE':
                             row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
                         elif ch.override_type == 'VCOL':
@@ -3176,6 +3240,8 @@ def draw_layers_ui(context, layout, node):
     if yp.use_baked:
         col = box.column(align=False)
 
+        root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+
         for i, root_ch in enumerate(yp.channels):
 
             try: nchui = ypui.channels[i]
@@ -3229,7 +3295,9 @@ def draw_layers_ui(context, layout, node):
             bcol = bbox.column(align=True)
 
             if no_baked_data:
-                bcol.label(text=root_ch.name + " channel hasn't been baked yet!", icon='ERROR')
+                if root_ch == root_alpha_ch:
+                    bcol.label(text=root_ch.name + " channel is combined to "+root_color_ch.name+" bake result!", icon='INFO')
+                else: bcol.label(text=root_ch.name + " channel hasn't been baked yet!", icon='ERROR')
                 continue
 
             row = bcol.row(align=True)
@@ -4544,8 +4612,11 @@ def any_subitem_in_layer(layer):
         if mask.enable:
             return True
 
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
     for i, ch in enumerate(layer.channels):
-        if not ch.enable: continue
+        ch_enabled = ch.enable or (ch == alpha_ch and color_ch.enable)
+        if not ch_enabled: continue
 
         root_ch = yp.channels[i]
 
@@ -4646,6 +4717,8 @@ def layer_listing(layout, layer, show_expand=False):
         (not yp.enable_inline_subitems and not yp.enable_expandable_subitems)
         )
 
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
     all_overrides = []
     selectable_overrides = []
     active_override = None
@@ -4655,7 +4728,7 @@ def layer_listing(layout, layer, show_expand=False):
             root_ch = yp.channels[i]
             #if not c.enable: continue
             if (c.override and c.override_type != 'DEFAULT') or (c.override_1 and c.override_1_type != 'DEFAULT'):
-                if c.enable: 
+                if c.enable or (c == alpha_ch and color_ch.enable): 
                     selectable_overrides.append(c)
                 all_overrides.append(c)
                 if c.active_edit or c.active_edit_1:
@@ -5043,8 +5116,9 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
 
                 ch = layer.channels[item.index]
                 root_ch = yp.channels[item.index]
+                color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
 
-                is_active = not is_parent_hidden(layer) and layer.enable and ch.enable
+                is_active = not is_parent_hidden(layer) and layer.enable and (ch.enable or (ch == alpha_ch and color_ch.enable))
 
                 row = master.row(align=True)
                 row.active = is_active
@@ -5884,6 +5958,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             root_ch = yp.channels[int(m.group(2))]
             tree = get_tree(layer)
         else: return
+
+        color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
         
         col = self.layout.column()
 
@@ -5901,7 +5977,9 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             label = 'Group ' + root_ch.name
         else:
             label = 'Layer'
-            if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
+            if ch == alpha_ch and color_ch.enable:
+                label += ' Alpha'
+            elif is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
                 if layer.voronoi_feature == 'DISTANCE_TO_EDGE':
                     label += ' Distance'
                 elif layer.voronoi_feature == 'N_SPHERE_RADIUS':

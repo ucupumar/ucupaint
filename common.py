@@ -7188,3 +7188,43 @@ def enable_eevee_ao():
 def is_image_available_to_open(image):
     return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node'}
 
+def get_alpha_channel_pair(root_ch):
+    yp = root_ch.id_data.yp
+    # Look for alpha channel
+    alpha_channel = None
+    for ch in yp.channels:
+        if ch.is_alpha and ch.alpha_pair_name == root_ch.name:
+            return ch
+
+    return None
+
+def is_channel_alpha_enabled(root_ch):
+    return root_ch.enable_alpha or get_alpha_channel_pair(root_ch)
+
+def get_alpha_channel(yp):
+    for ch in yp.channels:
+        if ch.is_alpha and yp.channels.get(ch.alpha_pair_name):
+            return ch
+
+    return None
+
+def get_color_alpha_ch_pairs(yp):
+
+    alpha_ch = get_alpha_channel(yp)
+    color_ch = yp.channels.get(alpha_ch.alpha_pair_name) if alpha_ch else None
+
+    return color_ch, alpha_ch
+
+def get_layer_color_alpha_ch_pairs(layer):
+    yp = layer.id_data.yp
+
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
+    alpha_ch_idx = get_channel_index(alpha_ch) if alpha_ch else -1
+    color_ch_idx = get_channel_index(color_ch) if color_ch else -1
+
+    layer_color_ch = layer.channels[color_ch_idx] if color_ch_idx >= 0 and color_ch_idx < len(layer.channels) else None
+    layer_alpha_ch = layer.channels[alpha_ch_idx] if alpha_ch_idx >= 0 and alpha_ch_idx < len(layer.channels) else None
+
+    return layer_color_ch, layer_alpha_ch
+

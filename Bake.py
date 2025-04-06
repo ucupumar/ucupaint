@@ -1336,7 +1336,16 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # List of channels that will be baked
         if self.only_active_channel and yp.active_channel_index < len(yp.channels):
-            self.channels = [yp.channels[yp.active_channel_index]]
+            active_ch = yp.channels[yp.active_channel_index]
+            self.channels = [active_ch]
+
+            # Add alpha/color channel pair
+            color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+            if active_ch == color_ch:
+                self.channels.append(alpha_ch)
+            elif active_ch == alpha_ch:
+                self.channels.append(color_ch)
+
         else: self.channels = yp.channels
 
         self.enable_bake_as_vcol = False
@@ -1644,9 +1653,18 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             for layer in disabled_layers:
                 layer.enable = True 
 
+        # Get color and alpha channel
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
         # Bake channels
         baked_exists = []
         for ch in self.channels:
+
+            # Remove baked node if alpha channel will be combined to color channel
+            if alpha_ch == ch and alpha_ch.alpha_combine_to_baked_color:
+                remove_node(tree, alpha_ch, 'baked')
+                ch.no_layer_using = False
+                continue
 
             # Check if baked node exists
             baked = tree.nodes.get(ch.baked)
@@ -1674,9 +1692,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 if not baked_exists[i]:
                     ch.expand_baked_data = True
 
+                alpha_enabled = ch.enable_alpha or (ch == color_ch and alpha_ch.alpha_combine_to_baked_color)
+
                 # Dithering
                 if ch.type == 'RGB' and ch.colorspace == 'SRGB' and self.use_dithering and ch.use_clamp:
-                    dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=ch.enable_alpha)
+                    dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=alpha_enabled)
 
                 # Denoise
                 if self.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':
@@ -1687,12 +1707,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     resize_image(
                         baked.image, self.width, self.height, 
                         baked.image.colorspace_settings.name,
-                        alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                        alpha_aware=alpha_enabled, bake_device=self.bake_device
                     )
 
                 # FXAA doesn't work with hdr image
                 if self.fxaa and ch.use_clamp:
-                    fxaa_image(baked.image, ch.enable_alpha, bake_device=self.bake_device)
+                    fxaa_image(baked.image, alpha_enabled, bake_device=self.bake_device)
 
                 baked_images.append(baked.image)
 
@@ -1710,12 +1730,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         resize_image(
                             baked_disp.image, self.width, self.height, 
                             baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                            alpha_aware=alpha_enabled, bake_device=self.bake_device
                         )
 
                     # FXAA
                     if self.fxaa and not baked_disp.image.is_float:
-                        fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=self.bake_device)
+                        fxaa_image(baked_disp.image, alpha_enabled, bake_device=self.bake_device)
 
                     baked_images.append(baked_disp.image)
 
@@ -1727,11 +1747,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         resize_image(
                             baked_normal_overlay.image, self.width, self.height, 
                             baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                            alpha_aware=alpha_enabled, bake_device=self.bake_device
                         )
                     # FXAA
                     if self.fxaa:
-                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
+                        fxaa_image(baked_normal_overlay.image, alpha_enabled, bake_device=self.bake_device)
 
                     baked_images.append(baked_normal_overlay.image)
 
@@ -1743,7 +1763,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         resize_image(
                             baked_vdisp.image, self.width, self.height, 
                             baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                            alpha_aware=alpha_enabled, bake_device=self.bake_device
                         )
 
                     baked_images.append(baked_vdisp.image)
@@ -2983,6 +3003,8 @@ def update_enable_baked_outside(self, context):
         uv.location.y = loc_y
         uv.parent = frame
 
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
         loc_x += 180
         max_x = loc_x
 
@@ -2996,7 +3018,14 @@ def update_enable_baked_outside(self, context):
                 con.socket = l.to_socket.name
                 con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
-            outp_alpha = node.outputs.get(ch.name + io_suffix['ALPHA'])
+            outp_alpha = None
+            if ch.enable_alpha:
+                outp_alpha = node.outputs.get(ch.name + io_suffix['ALPHA'])
+            elif ch == color_ch:
+                baked_alpha = tree.nodes.get(alpha_ch.baked)
+                if not baked_alpha:
+                    outp_alpha = node.outputs.get(alpha_ch.name)
+
             if outp_alpha:
                 for l in outp_alpha.links:
                     con = ch.ori_alpha_to.add()
@@ -3285,6 +3314,8 @@ def update_enable_baked_outside(self, context):
         baked_outside_frame = mtree.nodes.get(yp.baked_outside_frame)
         bake_target_outside_frame = mtree.nodes.get(yp.bake_target_outside_frame)
 
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
         # Channels
         for ch in yp.channels:
 
@@ -3292,7 +3323,14 @@ def update_enable_baked_outside(self, context):
             connect_to_original_node(mtree, outp, ch.ori_to)
             ch.ori_to.clear()
 
-            outp_alpha = node.outputs.get(ch.name + io_suffix['ALPHA'])
+            outp_alpha = None
+            if ch.enable_alpha:
+                outp_alpha = node.outputs.get(ch.name + io_suffix['ALPHA'])
+            elif ch == color_ch:
+                baked_alpha = tree.nodes.get(alpha_ch.baked)
+                if not baked_alpha:
+                    outp_alpha = node.outputs.get(alpha_ch.name)
+
             if outp_alpha:
                 connect_to_original_node(mtree, outp_alpha, ch.ori_alpha_to)
                 ch.ori_alpha_to.clear()
