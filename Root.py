@@ -927,9 +927,10 @@ def update_connect_to(self, context):
         self.name = get_unique_name(item.input_name, yp.channels)
 
     # Emission will not use clamp by default
-    if 'Emission' in self.name:
-        self.use_clamp = False
-    else: self.use_clamp = True
+    self.use_clamp = 'Emission' not in self.name
+
+    # Channel called 'Alpha' will enable the alpha flag
+    self.use_as_alpha = self.name == 'Alpha' and self.type == 'VALUE'
 
 def refresh_input_coll(self, context, ch_type):
     # Refresh input names
@@ -1166,6 +1167,12 @@ class YNewYPaintChannel(bpy.types.Operator):
         default = True
     )
 
+    use_as_alpha : BoolProperty(
+        name = 'Use as Alpha Channel',
+        description = 'Use new channel as alpha channel',
+        default = False
+    )
+
     blend_method : EnumProperty(
         name = 'Blend Method', 
         description = 'Blend method for transparent material',
@@ -1208,15 +1215,25 @@ class YNewYPaintChannel(bpy.types.Operator):
     def draw(self, context):
 
         mat = get_active_material()
+        item = self.input_coll.get(self.connect_to)
+        target_node = mat.node_tree.nodes.get(item.node_name) if item else None
 
-        # Detect principled alpha
-        is_alpha_channel = False
-        if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
-            item = self.input_coll.get(self.connect_to)
-            if item:
-                target_node = mat.node_tree.nodes.get(item.node_name)
-                if target_node.type == 'BSDF_PRINCIPLED' and item.input_name == 'Alpha':
-                    is_alpha_channel = True
+        show_alpha_option = False
+        show_old_eevee_alpha_option = False
+        show_strength_option = False
+
+        if item and target_node and target_node.type == 'BSDF_PRINCIPLED':
+
+            # Detect principled alpha
+            if item.input_name == 'Alpha':
+                show_alpha_option = True
+                if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
+                    show_old_eevee_alpha_option = True
+
+            # Blender 4.0 and above has some default weight and strength set to 0.0
+            if is_bl_newer_than(4):
+                if item.input_name in {'Emission Color', 'Subsurface Scale'}:
+                    show_strength_option = True
 
         row = split_layout(self.layout, 0.4)
 
@@ -1225,7 +1242,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         col.label(text='Connect To:')
         if self.type != 'NORMAL':
             col.label(text='Color Space:')
-        if is_alpha_channel:
+        if show_old_eevee_alpha_option:
             col.label(text='Blend Method:')
         if self.type != 'NORMAL': col.label(text='')
 
@@ -1235,17 +1252,15 @@ class YNewYPaintChannel(bpy.types.Operator):
                 #lib.custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
         if self.type != 'NORMAL':
             col.prop(self, "colorspace", text='')
-        if is_alpha_channel:
+        if show_old_eevee_alpha_option:
             col.prop(self, 'blend_method', text='')
         if self.type != 'NORMAL': col.prop(self, 'use_clamp')
 
-        # Blender 4.0 and above has some default weight and strength set to 0.0
-        if is_bl_newer_than(4):
-            item = self.input_coll.get(self.connect_to)
-            if item:
-                target_node = mat.node_tree.nodes.get(item.node_name)
-                if target_node.type == 'BSDF_PRINCIPLED' and item.input_name in {'Emission Color', 'Subsurface Scale'}:
-                    col.prop(self, "set_strength_to_one")
+        if show_strength_option:
+            col.prop(self, "set_strength_to_one")
+
+        if show_alpha_option:
+            col.prop(self, "use_as_alpha")
 
     def execute(self, context):
 
@@ -1323,6 +1338,16 @@ class YNewYPaintChannel(bpy.types.Operator):
         # Set use clamp
         if channel.use_clamp != self.use_clamp:
             channel.use_clamp = self.use_clamp
+
+        # Set use as alpha
+        if self.use_as_alpha and self.type == 'VALUE':
+            channel.is_alpha = True
+
+            # Set first RGB channel as the pair
+            for ch in yp.channels:
+                if ch.type == 'RGB':
+                    channel.alpha_pair_name = ch.name
+                    break
 
         # Set blend method
         if set_blend_method:
@@ -3488,11 +3513,31 @@ class YPaintChannel(bpy.types.PropertyGroup):
     io_index : IntProperty(default=-1)
 
     # Alpha for transparent materials
+
+    # Deprecated
     enable_alpha : BoolProperty(
         name = 'Enable Alpha Blend on Channel',
         description = 'Enable alpha blend on channel',
         default = False,
         update = update_channel_alpha
+    )
+
+    is_alpha : BoolProperty(
+        name = 'Is Alpha Channel',
+        description = 'Is channel an alpha channel',
+        default=False
+    )
+
+    alpha_pair_name : StringProperty(
+        name = 'Alpha Channel Pair',
+        description = 'Color channel pair for alpha channel',
+        default=''
+    )
+
+    alpha_combine_to_baked_color : BoolProperty(
+        name = 'Combine Alpha to Baked Color',
+        description = 'Combine bake result of color and alpha channel',
+        default = True
     )
 
     alpha_blend_mode : EnumProperty(
