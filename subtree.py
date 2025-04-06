@@ -2289,8 +2289,11 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     has_parent = layer.parent_idx != -1
 
+    # Get alpha and color pair channel
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
     # Check if channel is enabled
-    channel_enabled = get_channel_enabled(ch, layer, root_ch)
+    channel_enabled = get_channel_enabled(ch, layer, root_ch) and (alpha_ch != ch or (alpha_ch == ch and not get_channel_enabled(color_ch, layer)))
 
     # Background layer always using mix blend type
     if layer.type == 'BACKGROUND':
@@ -2309,7 +2312,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if root_ch.type in {'RGB', 'VALUE'}:
         if channel_enabled:
             if root_ch.type == 'RGB':
-                if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
+                if (has_parent or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX':
 
                     if (
                             layer.type == 'BACKGROUND' and not 
@@ -2335,7 +2338,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     )
             elif root_ch.type == 'VALUE':
 
-                if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
+                if (has_parent or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX':
                     if layer.type == 'BACKGROUND':
                         blend, need_reconnect = replace_new_node(
                             tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, 
@@ -2376,10 +2379,10 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if channel_enabled and (is_layer_using_normal_map(layer) or root_ch.enable_alpha):
+        if channel_enabled and (is_layer_using_normal_map(layer) or is_channel_alpha_enabled(root_ch)):
 
             #if has_parent and ch.normal_blend_type == 'MIX':
-            if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
+            if (has_parent or is_channel_alpha_enabled(root_ch)) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
                 if layer.type == 'BACKGROUND':
                     blend, need_reconnect = replace_new_node(
                         tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
