@@ -2352,7 +2352,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         root_ch = yp.channels[i]
 
         # Alpha channel will get ignored if color channel is also enabled
-        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch))
+        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch, layer))
 
         #if yp.disable_quick_toggle and not ch.enable: continue
         if not channel_enabled:
@@ -2381,7 +2381,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         bg_alpha = None
 
         # Use alpha channel output as alpha of color channel
-        if ch == color_ch and alpha_ch_rgb:
+        if alpha_ch_rgb and get_channel_enabled(color_ch, layer): # and ch == color_ch:
             alpha = alpha_ch_rgb
 
         ch_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'intensity_value'))
@@ -2454,7 +2454,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         rgb_before_override = rgb
 
         # Use layer alpha as rgb of alpha channel if color channel is enabled
-        if ch == alpha_ch and get_channel_enabled(color_ch):
+        if ch == alpha_ch and get_channel_enabled(color_ch, layer):
             rgb = alpha
 
         # Channel Override 
