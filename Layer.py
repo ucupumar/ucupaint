@@ -5804,6 +5804,13 @@ def update_channel_enable(self, context):
     # Refresh layer IO
     check_all_layer_channel_io_and_nodes(layer, tree, ch)
 
+    # Update alpha channel pair
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    if ch == color_ch:
+        check_all_layer_channel_io_and_nodes(layer, tree, alpha_ch)
+    elif ch == alpha_ch:
+        check_all_layer_channel_io_and_nodes(layer, tree, color_ch)
+
     if yp.halt_reconnect: return
 
     if yp.layer_preview_mode:
