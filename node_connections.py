@@ -2380,8 +2380,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         alpha = start_alpha
         bg_alpha = None
 
-        # Use alpha channel output as alpha of color channel
-        if alpha_ch_rgb and get_channel_enabled(color_ch, layer): # and ch == color_ch:
+        # Use alpha channel output as alpha of all other channels if color channel is also enabled
+        if alpha_ch_rgb and get_channel_enabled(color_ch, layer):
             alpha = alpha_ch_rgb
 
         ch_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'intensity_value'))
