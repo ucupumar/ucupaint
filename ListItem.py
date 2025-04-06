@@ -103,6 +103,8 @@ def refresh_list_items(yp, repoint_active=False):
             if active_item_name == layer.name and active_item_type == 'LAYER':
                 new_active_index = layer_item_index
 
+            color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
             for j, ch in enumerate(layer.channels):
 
                 root_ch = yp.channels[j]
@@ -111,7 +113,7 @@ def refresh_list_items(yp, repoint_active=False):
                 if (layer.expand_subitems and 
                     (root_ch.type != 'NORMAL' or ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}) and 
                     (ch.override and ch.override_type in {'IMAGE', 'VCOL'}) and
-                    ch.enable and
+                    (ch.enable or (ch == alpha_ch and color_ch.enable)) and
                     yp.enable_expandable_subitems
                     ):
                     item = yp.list_items.add()
