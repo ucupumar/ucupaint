@@ -423,6 +423,71 @@ class YRenameUVMaterial(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def create_ao_node(mat, node, channel=None, shift_other_nodes=False):
+
+    ao_mul = simple_new_mix_node(mat.node_tree)
+    ao_mixcol0, ao_mixcol1, ao_mixout = get_mix_color_indices(ao_mul)
+
+    # Set blend node
+    ao_mul.inputs[0].default_value = 1.0
+    ao_mul.blend_type = 'MULTIPLY'
+    ao_mul.label = get_addon_title() + ' AO Multiply'
+    ao_mul.name = AO_MULTIPLY
+
+    # Set default value
+    ao_mul.inputs[0].default_value = 1.0
+    ao_mul.inputs[ao_mixcol0].default_value = (1.0, 1.0, 1.0, 1.0)
+    ao_mul.inputs[ao_mixcol1].default_value = (1.0, 1.0, 1.0, 1.0)
+
+    # Set AO multiply node location
+    loc = node.location.copy()
+    loc.x += 200
+    ao_mul.location = loc
+
+    # Shift other nodes
+    if shift_other_nodes:
+        for n in mat.node_tree.nodes:
+            if n in {ao_mul, node}: continue
+            if n.location.x > node.location.x:
+                n.location.x += 200
+
+    # Connect node outputs to AO multiply
+    if channel:
+        yp = channel.id_data.yp
+
+        # Get first color channel
+        ch_color = None
+        for ch in yp.channels:
+            if ch.type == 'RGB':
+                ch_color = ch
+                break
+
+        if ch_color and ch_color.name in node.outputs: 
+
+            outp = node.outputs[ch_color.name]
+
+            # Check original color connections
+            to_sockets = []
+            for link in outp.links:
+                to_sockets.append(link.to_socket)
+
+            # Connect to original socket connections
+            for soc in to_sockets:
+                mat.node_tree.links.new(ao_mul.outputs[ao_mixout], soc)
+
+            ## Connect color channel to AO multiply
+            mat.node_tree.links.new(outp, ao_mul.inputs[ao_mixcol0])
+
+        # Connect AO channel to AO multiply
+        if channel.name in node.outputs: 
+            mat.node_tree.links.new(node.outputs[channel.name], ao_mul.inputs[ao_mixcol1])
+
+        # Set default value
+        if channel.name in node.inputs: 
+            node.inputs[channel.name].default_value = (1, 1, 1, 1)
+
+    return ao_mul
+
 class YQuickYPaintNodeSetup(bpy.types.Operator):
     bl_idname = "wm.y_quick_ypaint_node_setup"
     bl_label = "Quick " + get_addon_title() + " Node Setup"
@@ -668,19 +733,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             loc.x += 200
 
         if ao_needed:
-            ao_mul = simple_new_mix_node(mat.node_tree)
-            ao_mixcol0, ao_mixcol1, ao_mixout = get_mix_color_indices(ao_mul)
-
-            ao_mul.inputs[0].default_value = 1.0
-            ao_mul.blend_type = 'MULTIPLY'
-            ao_mul.label = get_addon_title() + ' AO Multiply'
-            ao_mul.name = AO_MULTIPLY
-
-            ao_mul.inputs[0].default_value = 1.0
-            ao_mul.inputs[ao_mixcol0].default_value = (1.0, 1.0, 1.0, 1.0)
-            ao_mul.inputs[ao_mixcol1].default_value = (1.0, 1.0, 1.0, 1.0)
-
-            ao_mul.location = loc.copy()
+            ao_mul = create_ao_node(mat, node)
             loc.x += 200
 
         main_bsdf.location = loc.copy()
@@ -753,6 +806,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
             set_input_default_value(node, ch_color, inp.default_value)
             if ch_ao and ao_mul:
+                ao_mixcol0, ao_mixcol1, ao_mixout = get_mix_color_indices(ao_mul)
                 links.new(node.outputs[ch_color.name], ao_mul.inputs[ao_mixcol0])
                 links.new(node.outputs[ch_ao.name], ao_mul.inputs[ao_mixcol1])
                 links.new(ao_mul.outputs[ao_mixout], inp)
@@ -954,12 +1008,23 @@ def do_alpha_setup(mat, node, channel):
     tree = mat.node_tree
     yp = node.node_tree.yp
 
-    input_index = channel.io_index
-    alpha_input = node.inputs[input_index+1]
+    if channel.enable_alpha:
+        input_index = channel.io_index
+        alpha_input = node.inputs[input_index+1]
 
-    output_index = get_output_index(channel)
-    output = node.outputs[output_index]
-    alpha_output = node.outputs[output_index+1]
+        output_index = get_output_index(channel)
+        output = node.outputs[output_index]
+        alpha_output = node.outputs[output_index+1]
+    else:
+        alpha_input = node.inputs[channel.name]
+        alpha_output = node.outputs[channel.name]
+
+        try: color_ch = yp.channels[channel.alpha_pair_name]
+        except Exception as e:
+            print(e)
+            return
+
+        output = node.outputs[color_ch.name]
 
     # Main channel output need to be already connected
     if len(output.links) == 0:
@@ -1122,6 +1187,82 @@ class YConnectYPaintChannel(bpy.types.Operator):
         if inp and self.channel.type != 'NORMAL': 
             set_input_default_value(node, channel, inp.default_value)
         else: set_input_default_value(node, channel)
+
+        return {'FINISHED'}
+
+def make_channel_as_alpha(mat, node, channel, do_setup=False):
+    yp = channel.id_data.yp
+    if channel.type != 'VALUE': return
+
+    # Mark channel as alpha
+    channel.is_alpha = True
+
+    # Set first RGB channel as the pair
+    for ch in yp.channels:
+        if ch.type == 'RGB':
+            channel.alpha_pair_name = ch.name
+            break
+
+    # Update io since alpha is enabled on all color layers
+    check_all_channel_ios(yp, yp_node=node)
+
+    if do_setup:
+        # Set up alpha connections
+        do_alpha_setup(mat, node, channel)
+
+class YAutoSetupNewYPaintChannel(bpy.types.Operator):
+    bl_idname = "wm.y_auto_setup_new_ypaint_channel"
+    bl_label = "Auto setup new " + get_addon_title() + " Channel"
+    bl_description = "Auto setup new " + get_addon_title() + " channel"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    mode : EnumProperty(
+        name = 'Auto Node Setup', 
+        description = 'Auto node setup for new channel',
+        items = (
+            ('ALPHA', 'Alpha', ''),
+            ('AO', 'Ambient Occlusion', '')
+        ),
+        default = 'ALPHA'
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+
+        wm = context.window_manager
+        mat = get_active_material()
+        node = get_active_ypaint_node()
+        group_tree = node.node_tree
+        yp = group_tree.yp
+
+        name = 'Channel'
+        if self.mode == 'AO':
+            name = 'Ambient Occlusion'
+            ch_type = 'RGB'
+        elif self.mode == 'ALPHA':
+            name = 'Alpha'
+            ch_type = 'VALUE'
+
+        # Check if channel with same name is already available
+        same_channel = [c for c in yp.channels if c.name == name]
+        if same_channel:
+            self.report({'ERROR'}, "Channel named '"+name+"' is already available!")
+            return {'CANCELLED'}
+
+        # Create new channel
+        channel = create_new_yp_channel(group_tree, name, ch_type, non_color=True)
+
+        # Update io
+        check_all_channel_ios(yp, yp_node=node)
+
+        # Create the node setup
+        if self.mode == 'AO':
+            create_ao_node(mat, node, channel, shift_other_nodes=True)
+        elif self.mode == 'ALPHA':
+            make_channel_as_alpha(mat, node, channel, do_setup=True)
 
         return {'FINISHED'}
 
@@ -1338,13 +1479,7 @@ class YNewYPaintChannel(bpy.types.Operator):
 
         # Set use as alpha
         if self.use_as_alpha and self.type == 'VALUE':
-            channel.is_alpha = True
-
-            # Set first RGB channel as the pair
-            for ch in yp.channels:
-                if ch.type == 'RGB':
-                    channel.alpha_pair_name = ch.name
-                    break
+            make_channel_as_alpha(mat, node, channel)
 
         # Set blend method
         if set_blend_method:
@@ -4421,6 +4556,7 @@ def register():
     bpy.utils.register_class(YConnectYPaintChannel)
     bpy.utils.register_class(YConnectYPaintChannelAlpha)
     bpy.utils.register_class(YNewYPaintChannel)
+    bpy.utils.register_class(YAutoSetupNewYPaintChannel)
     bpy.utils.register_class(YMoveYPaintChannel)
     bpy.utils.register_class(YRemoveYPaintChannel)
     bpy.utils.register_class(YAddSimpleUVs)
@@ -4475,6 +4611,7 @@ def unregister():
     bpy.utils.unregister_class(YConnectYPaintChannel)
     bpy.utils.unregister_class(YConnectYPaintChannelAlpha)
     bpy.utils.unregister_class(YNewYPaintChannel)
+    bpy.utils.unregister_class(YAutoSetupNewYPaintChannel)
     bpy.utils.unregister_class(YMoveYPaintChannel)
     bpy.utils.unregister_class(YRemoveYPaintChannel)
     bpy.utils.unregister_class(YAddSimpleUVs)
