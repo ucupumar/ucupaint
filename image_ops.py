@@ -312,8 +312,8 @@ def save_pack_all(yp):
         for image in images:
             clean_object_references(image)
 
-class copy_to_clipboard(bpy.types.Operator):
-    bl_idname = "node.copy_to_clipboard"
+class YCopyToClipboard(bpy.types.Operator):
+    bl_idname = "wm.copy_to_clipboard"
     bl_label = "Copy to Clipboard"
     clipboard_text: bpy.props.StringProperty()
 
@@ -322,8 +322,8 @@ class copy_to_clipboard(bpy.types.Operator):
         self.report({'INFO'}, "Copied: " + self.clipboard_text)
         return {'FINISHED'}
 
-class open_containing_folder(bpy.types.Operator):
-    bl_idname = "node.open_containing_folder"
+class YOpenContainingFolder(bpy.types.Operator):
+    bl_idname = "wm.open_containing_folder"
     bl_label = "Open Containing Folder"
     file_path: bpy.props.StringProperty()
 
@@ -1306,8 +1306,8 @@ class YConvertImageBitDepth(bpy.types.Operator):
         return {'FINISHED'}
 
 def register():
-    bpy.utils.register_class(copy_to_clipboard)
-    bpy.utils.register_class(open_containing_folder)
+    bpy.utils.register_class(YCopyToClipboard)
+    bpy.utils.register_class(YOpenContainingFolder)
     bpy.utils.register_class(YInvertImage)
     bpy.utils.register_class(YRefreshImage)
     bpy.utils.register_class(YPackImage)
@@ -1318,8 +1318,8 @@ def register():
     bpy.utils.register_class(YConvertImageBitDepth)
 
 def unregister():
-    bpy.utils.unregister_class(copy_to_clipboard)
-    bpy.utils.unregister_class(open_containing_folder)
+    bpy.utils.unregister_class(YCopyToClipboard)
+    bpy.utils.unregister_class(YOpenContainingFolder)
     bpy.utils.unregister_class(YInvertImage)
     bpy.utils.unregister_class(YRefreshImage)
     bpy.utils.unregister_class(YPackImage)
