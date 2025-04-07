@@ -5,6 +5,33 @@ from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, UDIM, ListItem
 from .common import *
 
+class NODE_OT_copy_to_clipboard(bpy.types.Operator):
+    bl_idname = "node.copy_to_clipboard"
+    bl_label = "Copy to Clipboard"
+
+    clipboard_text: bpy.props.StringProperty()
+
+    def execute(self, context):
+        context.window_manager.clipboard = self.clipboard_text
+        self.report({'INFO'}, "Copied: " + self.clipboard_text)
+        return {'FINISHED'}
+
+class NODE_MT_copy_path_menu(bpy.types.Menu):
+    bl_label = "Copy Path Options"
+    bl_idname = "NODE_MT_copy_path_menu"
+
+    def draw(self, context):
+        layout = self.layout
+        image = context.image
+        full_path = os.path.normpath(image.filepath or "")
+        folder_path = os.path.normpath(os.path.dirname(full_path)) if full_path else ""
+        
+        op = layout.operator("node.copy_to_clipboard", text="Copy Full Path")
+        op.clipboard_text = full_path
+        
+        op = layout.operator("node.copy_to_clipboard", text="Copy Containing Folder")
+        op.clipboard_text = folder_path
+
 RGBA_CHANNEL_PREFIX = {
     'ALPHA' : 'alpha_',
     'R' : 'r_',
@@ -312,7 +339,12 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
         if not image.filepath:
             col.label(text='Image Path: -')
         else:
-            col.label(text='Path: ' + image.filepath)
+            # Create a row with two parts: one label and one dropdown button.
+            row = col.row(align=True)
+            row.label(text="Path: " + os.path.normpath(image.filepath))
+            row.context_pointer_set('image', image)
+            row.menu("NODE_MT_copy_path_menu", text="", icon='DOWNARROW_HLT')
+
 
         image_format = 'RGBA'
         image_bit = int(image.depth / 4)
@@ -7729,6 +7761,10 @@ def register():
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
 
+    # Register new classes for the copy path dropdown
+    bpy.utils.register_class(NODE_OT_copy_to_clipboard)
+    bpy.utils.register_class(NODE_MT_copy_path_menu)
+
     if not is_bl_newer_than(2, 80):
         bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
         bpy.utils.register_class(NODE_PT_YPaint)
@@ -7809,6 +7845,10 @@ def unregister():
     bpy.utils.unregister_class(NODE_UL_YPaint_list_items)
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
+
+    # Unregister the new classes
+    bpy.utils.unregister_class(NODE_OT_copy_to_clipboard)
+    bpy.utils.unregister_class(NODE_MT_copy_path_menu)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
