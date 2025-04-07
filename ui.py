@@ -5612,6 +5612,15 @@ class YNewChannelMenu(bpy.types.Menu):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict['NORMAL'])
         col.operator("wm.y_add_new_ypaint_channel", icon_value=icon_value, text='Normal').type = 'NORMAL'
 
+        col.separator()
+        col.label(text='Auto Setup New Channel')
+
+        icon_value = lib.get_icon(lib.channel_custom_icon_dict['VALUE'])
+        col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Alpha').mode = 'ALPHA'
+
+        icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
+        col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Ambient Occlusion').mode = 'AO'
+
 class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"
     bl_description = 'Add New Layer'
