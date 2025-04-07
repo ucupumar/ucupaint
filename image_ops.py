@@ -1,4 +1,4 @@
-import bpy, os
+import bpy, os, platform, subprocess
 import tempfile
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
@@ -311,6 +311,34 @@ def save_pack_all(yp):
     if is_bl_newer_than(2, 79):
         for image in images:
             clean_object_references(image)
+
+class copy_to_clipboard(bpy.types.Operator):
+    bl_idname = "node.copy_to_clipboard"
+    bl_label = "Copy to Clipboard"
+    clipboard_text: bpy.props.StringProperty()
+
+    def execute(self, context):
+        context.window_manager.clipboard = self.clipboard_text
+        self.report({'INFO'}, "Copied: " + self.clipboard_text)
+        return {'FINISHED'}
+
+class open_containing_folder(bpy.types.Operator):
+    bl_idname = "node.open_containing_folder"
+    bl_label = "Open Containing Folder"
+    file_path: bpy.props.StringProperty()
+
+    def execute(self, context):
+        if not os.path.exists(self.file_path):
+            self.report({'ERROR'}, "File does not exist")
+            return {'CANCELLED'}
+        try:
+            # Add more branches below for different operating systems
+            if os.name == 'nt':  # Windows
+                subprocess.run(["explorer", "/select,", self.file_path])
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
+        return {'FINISHED'}
 
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
@@ -1278,6 +1306,8 @@ class YConvertImageBitDepth(bpy.types.Operator):
         return {'FINISHED'}
 
 def register():
+    bpy.utils.register_class(copy_to_clipboard)
+    bpy.utils.register_class(open_containing_folder)
     bpy.utils.register_class(YInvertImage)
     bpy.utils.register_class(YRefreshImage)
     bpy.utils.register_class(YPackImage)
@@ -1288,6 +1318,8 @@ def register():
     bpy.utils.register_class(YConvertImageBitDepth)
 
 def unregister():
+    bpy.utils.unregister_class(copy_to_clipboard)
+    bpy.utils.unregister_class(open_containing_folder)
     bpy.utils.unregister_class(YInvertImage)
     bpy.utils.unregister_class(YRefreshImage)
     bpy.utils.unregister_class(YPackImage)

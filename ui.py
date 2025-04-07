@@ -5,16 +5,6 @@ from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, UDIM, ListItem
 from .common import *
 
-class NODE_OT_copy_to_clipboard(bpy.types.Operator):
-    bl_idname = "node.copy_to_clipboard"
-    bl_label = "Copy to Clipboard"
-
-    clipboard_text: bpy.props.StringProperty()
-
-    def execute(self, context):
-        context.window_manager.clipboard = self.clipboard_text
-        self.report({'INFO'}, "Copied: " + self.clipboard_text)
-        return {'FINISHED'}
 
 class NODE_MT_copy_path_menu(bpy.types.Menu):
     bl_label = "Copy Path Options"
@@ -31,6 +21,9 @@ class NODE_MT_copy_path_menu(bpy.types.Menu):
         
         op = layout.operator("node.copy_to_clipboard", text="Copy Containing Folder")
         op.clipboard_text = folder_path
+
+        op = layout.operator("node.open_containing_folder", text="Open In Containing Folder")
+        op.file_path = full_path
 
 RGBA_CHANNEL_PREFIX = {
     'ALPHA' : 'alpha_',
@@ -7761,8 +7754,6 @@ def register():
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
 
-    # Register new classes for the copy path dropdown
-    bpy.utils.register_class(NODE_OT_copy_to_clipboard)
     bpy.utils.register_class(NODE_MT_copy_path_menu)
 
     if not is_bl_newer_than(2, 80):
@@ -7846,8 +7837,6 @@ def unregister():
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
 
-    # Unregister the new classes
-    bpy.utils.unregister_class(NODE_OT_copy_to_clipboard)
     bpy.utils.unregister_class(NODE_MT_copy_path_menu)
 
     if not is_bl_newer_than(2, 80):
