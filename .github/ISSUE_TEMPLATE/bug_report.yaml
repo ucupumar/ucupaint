@@ -6,7 +6,7 @@ body:
     id: ucupaintversion
     attributes:
       label: UCUPAINT Version
-      description: Type the version from `Edit > Preferences > Get Extensions > Ucupaint` here.
+      description: Type the version from [Edit > Preferences > Get Extensions > Ucupaint] here.
       placeholder: ex. 2.2.0
     validations:
       required: true
