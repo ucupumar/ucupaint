@@ -1,4 +1,4 @@
-import bpy, re, time, os
+import bpy, re, time, os, platform
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
@@ -22,8 +22,10 @@ class NODE_MT_copy_path_menu(bpy.types.Menu):
         op = layout.operator("wm.copy_to_clipboard", text="Copy Containing Folder Path")
         op.clipboard_text = folder_path
 
-        op = layout.operator("wm.open_containing_folder", text="Open In Containing Folder")
-        op.file_path = full_path
+        # Add more branches below for different operating systems
+        if os.name == 'nt':  # Windows
+            op = layout.operator("wm.open_containing_folder", text="Open In Containing Folder")
+            op.file_path = full_path
 
 RGBA_CHANNEL_PREFIX = {
     'ALPHA' : 'alpha_',
