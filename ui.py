@@ -16,13 +16,13 @@ class NODE_MT_copy_path_menu(bpy.types.Menu):
         full_path = os.path.normpath(image.filepath or "")
         folder_path = os.path.normpath(os.path.dirname(full_path)) if full_path else ""
         
-        op = layout.operator("node.copy_to_clipboard", text="Copy Full Path")
+        op = layout.operator("wm.copy_to_clipboard", text="Copy Full Path")
         op.clipboard_text = full_path
         
-        op = layout.operator("node.copy_to_clipboard", text="Copy Containing Folder")
+        op = layout.operator("wm.copy_to_clipboard", text="Copy Containing Folder Path")
         op.clipboard_text = folder_path
 
-        op = layout.operator("node.open_containing_folder", text="Open In Containing Folder")
+        op = layout.operator("wm.open_containing_folder", text="Open In Containing Folder")
         op.file_path = full_path
 
 RGBA_CHANNEL_PREFIX = {
