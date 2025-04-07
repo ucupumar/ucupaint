@@ -3,7 +3,7 @@ from bpy.props import *
 from .common import *
 from .input_outputs import *
 from .node_connections import *
-from . import lib, Layer, ImageAtlas, UDIM, image_ops
+from . import lib, Layer, ImageAtlas, UDIM, image_ops, Mask
 
 BL28_HACK = True
 
@@ -2247,7 +2247,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
     # Replace layer with temp image
     if m1: 
         Layer.replace_layer_type(entity, 'IMAGE', image.name, remove_data=True)
-    else: Layer.replace_mask_type(entity, 'IMAGE', image.name, remove_data=True)
+    else: Mask.replace_mask_type(entity, 'IMAGE', image.name, remove_data=True)
 
     return image
 
@@ -2259,7 +2259,7 @@ def disable_temp_bake(entity):
 
     # Replace layer type
     if m1: Layer.replace_layer_type(entity, entity.original_type, remove_data=True)
-    else: Layer.replace_mask_type(entity, entity.original_type, remove_data=True)
+    else: Mask.replace_mask_type(entity, entity.original_type, remove_data=True)
 
     # Set entity attribute
     entity.use_temp_bake = False
