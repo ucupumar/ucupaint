@@ -41,7 +41,7 @@ def check_transition_bump_influences_to_other_channels(layer, tree=None, target_
         # Transition Ramp update
         check_transition_ramp_nodes(tree, layer, c)
 
-        if bump_ch and get_channel_enabled(c):
+        if bump_ch and is_blend_node_needed(c):
             if bump_ch.transition_bump_flip:
                 im = replace_new_node(
                     tree, c, 'intensity_multiplier', 'ShaderNodeGroup', 
