@@ -5198,6 +5198,20 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
 
     return True
 
+def is_blend_node_needed(ch, layer=None, root_ch=None):
+    yp = ch.id_data.yp
+
+    if not layer or not root_ch:
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+
+    # Get alpha and color pair channel
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
+    # Blend node is needed if channel is enabled
+    return get_channel_enabled(ch, layer, root_ch) and (alpha_ch != ch or (alpha_ch == ch and not get_channel_enabled(color_ch, layer)))
+
 def is_any_entity_using_uv(yp, uv_name):
 
     if yp.baked_uv_name != '' and yp.baked_uv_name == uv_name:
