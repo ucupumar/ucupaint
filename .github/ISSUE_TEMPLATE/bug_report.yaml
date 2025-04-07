@@ -1,0 +1,39 @@
+name: 🐞 Bug report
+description: Create a report to help us improve.
+labels: ["bug"]
+body:
+  - type: input
+    id: ucupaintversion
+    attributes:
+      label: UCUPAINT Version
+      description: Type the version from Edit > Preferences > Get Extensions > Ucupaint here.
+      placeholder: ex. 2.2.0
+    validations:
+      required: true
+  - type: textarea
+    id: describebug
+    attributes:
+      label: Describe The Bug
+      description: A clear and concise description of what the bug is.
+      placeholder: ex. This should happen, but that happens instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproducebug
+    attributes:
+      label: To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: incaseofcrash
+    attributes:
+      label: In the case of a crash or when relevant include the logs
+      description: Please include the logs (https://docs.blender.org/manual/en/latest/troubleshooting/crash.html#crash-log)
+    validations:
+      required: false
