@@ -599,7 +599,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
             ch = layer.channels[j]
             root_ch = yp.channels[j]
-            channel_enabled = get_channel_enabled(ch, layer, root_ch)
+            channel_enabled = is_blend_node_needed(ch, layer, root_ch)
             write_height = get_write_height(ch)
 
             if specific_ch and ch != specific_ch: continue
@@ -2289,11 +2289,8 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     has_parent = layer.parent_idx != -1
 
-    # Get alpha and color pair channel
-    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
-
     # Check if channel is enabled
-    channel_enabled = get_channel_enabled(ch, layer, root_ch) and (alpha_ch != ch or (alpha_ch == ch and not get_channel_enabled(color_ch, layer)))
+    channel_enabled = is_blend_node_needed(ch, layer, root_ch)
 
     # Background layer always using mix blend type
     if layer.type == 'BACKGROUND':
@@ -2459,7 +2456,7 @@ def check_extra_alpha(layer, need_reconnect=False):
         if disp_ch == ch: continue
 
         root_ch = yp.channels[i]
-        channel_enabled = get_channel_enabled(ch, layer, root_ch)
+        channel_enabled = is_blend_node_needed(ch, layer, root_ch)
 
         extra_alpha = tree.nodes.get(ch.extra_alpha)
 
