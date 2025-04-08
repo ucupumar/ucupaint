@@ -16,10 +16,10 @@ class NODE_MT_copy_path_menu(bpy.types.Menu):
         full_path = os.path.normpath(image.filepath or "")
         folder_path = os.path.normpath(os.path.dirname(full_path)) if full_path else ""
         
-        op = layout.operator("wm.copy_to_clipboard", text="Copy Full Path")
+        op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Full Path")
         op.clipboard_text = full_path
         
-        op = layout.operator("wm.copy_to_clipboard", text="Copy Containing Folder Path")
+        op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Containing Folder Path")
         op.clipboard_text = folder_path
 
         # Add more branches below for different operating systems

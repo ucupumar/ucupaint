@@ -312,9 +312,9 @@ def save_pack_all(yp):
         for image in images:
             clean_object_references(image)
 
-class YCopyToClipboard(bpy.types.Operator):
-    bl_idname = "wm.copy_to_clipboard"
-    bl_label = "Copy to Clipboard"
+class YCopyImagePathToClipboard(bpy.types.Operator):
+    bl_idname = "wm.copy_image_path_to_clipboard"
+    bl_label = "Copy Image Path To Clipboard"
     clipboard_text: bpy.props.StringProperty()
 
     def execute(self, context):
@@ -1306,7 +1306,7 @@ class YConvertImageBitDepth(bpy.types.Operator):
         return {'FINISHED'}
 
 def register():
-    bpy.utils.register_class(YCopyToClipboard)
+    bpy.utils.register_class(YCopyImagePathToClipboard)
     bpy.utils.register_class(YOpenContainingFolder)
     bpy.utils.register_class(YInvertImage)
     bpy.utils.register_class(YRefreshImage)
@@ -1318,7 +1318,7 @@ def register():
     bpy.utils.register_class(YConvertImageBitDepth)
 
 def unregister():
-    bpy.utils.unregister_class(YCopyToClipboard)
+    bpy.utils.unregister_class(YCopyImagePathToClipboard)
     bpy.utils.unregister_class(YOpenContainingFolder)
     bpy.utils.unregister_class(YInvertImage)
     bpy.utils.unregister_class(YRefreshImage)
