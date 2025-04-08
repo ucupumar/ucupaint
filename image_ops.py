@@ -315,6 +315,7 @@ def save_pack_all(yp):
 class YCopyImagePathToClipboard(bpy.types.Operator):
     bl_idname = "wm.copy_image_path_to_clipboard"
     bl_label = "Copy Image Path To Clipboard"
+    bl_description = get_addon_title() + " Copy the image file path to the system clipboard"
     clipboard_text: bpy.props.StringProperty()
 
     def execute(self, context):
@@ -325,6 +326,7 @@ class YCopyImagePathToClipboard(bpy.types.Operator):
 class YOpenContainingImageFolder(bpy.types.Operator):
     bl_idname = "wm.open_containing_image_folder"
     bl_label = "Open Containing Image Folder"
+    bl_description = get_addon_title() + " Open the folder containing the image file and highlight it"
     file_path: bpy.props.StringProperty()
 
     def execute(self, context):

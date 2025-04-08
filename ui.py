@@ -9,6 +9,7 @@ from .common import *
 class NODE_MT_copy_image_path_menu(bpy.types.Menu):
     bl_label = "Copy Image Path Options"
     bl_idname = "NODE_MT_copy_image_path_menu"
+    bl_description = get_addon_title() + " Options for copying the image path or opening the containing folder"
 
     def draw(self, context):
         layout = self.layout
