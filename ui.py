@@ -6,9 +6,9 @@ from . import lib, Modifier, MaskModifier, UDIM, ListItem
 from .common import *
 
 
-class NODE_MT_copy_path_menu(bpy.types.Menu):
-    bl_label = "Copy Path Options"
-    bl_idname = "NODE_MT_copy_path_menu"
+class NODE_MT_copy_image_path_menu(bpy.types.Menu):
+    bl_label = "Copy Image Path Options"
+    bl_idname = "NODE_MT_copy_image_path_menu"
 
     def draw(self, context):
         layout = self.layout
@@ -338,7 +338,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
             row = col.row(align=True)
             row.label(text="Path: " + os.path.normpath(image.filepath))
             row.context_pointer_set('image', image)
-            row.menu("NODE_MT_copy_path_menu", text="", icon='DOWNARROW_HLT')
+            row.menu("NODE_MT_copy_image_path_menu", text="", icon='DOWNARROW_HLT')
 
 
         image_format = 'RGBA'
@@ -7756,7 +7756,7 @@ def register():
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
 
-    bpy.utils.register_class(NODE_MT_copy_path_menu)
+    bpy.utils.register_class(NODE_MT_copy_image_path_menu)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
@@ -7839,7 +7839,7 @@ def unregister():
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
 
-    bpy.utils.unregister_class(NODE_MT_copy_path_menu)
+    bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
