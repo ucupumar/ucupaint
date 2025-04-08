@@ -322,9 +322,9 @@ class YCopyImagePathToClipboard(bpy.types.Operator):
         self.report({'INFO'}, "Copied: " + self.clipboard_text)
         return {'FINISHED'}
 
-class YOpenContainingFolder(bpy.types.Operator):
-    bl_idname = "wm.open_containing_folder"
-    bl_label = "Open Containing Folder"
+class YOpenContainingImageFolder(bpy.types.Operator):
+    bl_idname = "wm.open_containing_image_folder"
+    bl_label = "Open Containing Image Folder"
     file_path: bpy.props.StringProperty()
 
     def execute(self, context):
@@ -1307,7 +1307,7 @@ class YConvertImageBitDepth(bpy.types.Operator):
 
 def register():
     bpy.utils.register_class(YCopyImagePathToClipboard)
-    bpy.utils.register_class(YOpenContainingFolder)
+    bpy.utils.register_class(YOpenContainingImageFolder)
     bpy.utils.register_class(YInvertImage)
     bpy.utils.register_class(YRefreshImage)
     bpy.utils.register_class(YPackImage)
@@ -1319,7 +1319,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(YCopyImagePathToClipboard)
-    bpy.utils.unregister_class(YOpenContainingFolder)
+    bpy.utils.unregister_class(YOpenContainingImageFolder)
     bpy.utils.unregister_class(YInvertImage)
     bpy.utils.unregister_class(YRefreshImage)
     bpy.utils.unregister_class(YPackImage)

@@ -24,7 +24,7 @@ class NODE_MT_copy_path_menu(bpy.types.Menu):
 
         # Add more branches below for different operating systems
         if os.name == 'nt':  # Windows
-            op = layout.operator("wm.open_containing_folder", text="Open In Containing Folder")
+            op = layout.operator("wm.open_containing_image_folder", text="Open In Containing Folder")
             op.file_path = full_path
 
 RGBA_CHANNEL_PREFIX = {
