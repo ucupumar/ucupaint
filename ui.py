@@ -17,7 +17,7 @@ class NODE_MT_copy_image_path_menu(bpy.types.Menu):
         full_path = os.path.normpath(image.filepath or "")
         folder_path = os.path.normpath(os.path.dirname(full_path)) if full_path else ""
         
-        op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Full Path")
+        op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Image Filepath", icon="COPYDOWN")
         op.clipboard_text = full_path
         
         op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Containing Folder Path")
@@ -25,7 +25,7 @@ class NODE_MT_copy_image_path_menu(bpy.types.Menu):
 
         # Add more branches below for different operating systems
         if os.name == 'nt':  # Windows
-            op = layout.operator("wm.open_containing_image_folder", text="Open In Containing Folder")
+            op = layout.operator("wm.open_containing_image_folder", text="Open Image in Explorer", icon="FILE_FOLDER")
             op.file_path = full_path
 
 RGBA_CHANNEL_PREFIX = {
