@@ -1626,14 +1626,24 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[layer.type]+' as Image', icon_value=lib.get_icon('bake'))
 
         elif layer.baked_source != '':
+
+            baked_source = layer_tree.nodes.get(layer.baked_source)
+            if baked_source and baked_source.image:
+                brow = rrcol.row(align=True)
+                brow.active = layer.use_baked
+                brow.label(text='Baked: ')
+                crow = brow.row(align=True)
+                crow.alignment = 'RIGHT'
+                crow.label(text=baked_source.image.name, icon='IMAGE_DATA')
+
             rrcol.context_pointer_set('entity', layer)
             rrcol.context_pointer_set('layer', layer)
-            rrrow = rrcol.row(align=True)
-            rrrow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
-            rrrow.prop(layer, 'use_baked', text='Use Baked', toggle=True)
+            brow = rrcol.row(align=True)
+            brow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
+            brow.prop(layer, 'use_baked', text='Use Baked', toggle=True)
 
             icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
-            rrrow.operator("wm.y_remove_baked_entity", text='', icon=icon)
+            brow.operator("wm.y_remove_baked_entity", text='', icon=icon)
 
     layout.separator()
 
@@ -2938,12 +2948,26 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 rrrow.operator("wm.y_bake_entity_to_image", text='Bake '+mask_type_labels[mask.type]+' as Image', icon_value=lib.get_icon('bake'))
 
             elif mask.baked_source != '':
-                rrrow = rrcol.row(align=True)
-                rrrow.label(text='', icon='BLANK1')
-                rrrow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
-                rrrow.prop(mask, 'use_baked', text='Use Baked', toggle=True)
+
+                baked_source = mask_tree.nodes.get(mask.baked_source)
+                if baked_source and baked_source.image:
+                    brow = rrcol.row(align=True)
+                    brow.active = mask.use_baked
+                    brow.label(text='', icon='BLANK1')
+
+                    crow = brow.row(align=True)
+                    drow = crow.row(align=True)
+                    drow.label(text='Baked: ')
+                    drow = crow.row(align=True)
+                    drow.alignment = 'RIGHT'
+                    drow.label(text=baked_source.image.name, icon='IMAGE_DATA')
+
+                brow = rrcol.row(align=True)
+                brow.label(text='', icon='BLANK1')
+                brow.operator("wm.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
+                brow.prop(mask, 'use_baked', text='Use Baked', toggle=True)
                 icon = 'TRASH' if is_bl_newer_than(2, 80) else 'X'
-                rrrow.operator("wm.y_remove_baked_entity", text='', icon=icon)
+                brow.operator("wm.y_remove_baked_entity", text='', icon=icon)
 
             if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
                 rrcol.separator()
