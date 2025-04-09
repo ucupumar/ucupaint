@@ -752,9 +752,7 @@ class YNewLayerMask(bpy.types.Operator):
                     self.uv_map_coll.add().name = uv.name
 
         # The default blend type for mask is multiply
-        if len(layer.masks) == 0:
-            self.blend_type = 'MULTIPLY'
-        elif self.type in {'MODIFIER'}:
+        if self.type in {'MODIFIER'}:
             self.blend_type = 'MIX'
         else:
             self.blend_type = 'MULTIPLY'
@@ -845,8 +843,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'OBJECT_INDEX':
             col.label(text='Object Index')
 
-        if len(layer.masks) > 0:
-            col.label(text='Blend:')
+        col.label(text='Blend:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -912,8 +909,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'OBJECT_INDEX':
             col.prop(self, 'object_index', text='')
 
-        if len(layer.masks) > 0:
-            col.prop(self, 'blend_type', text='')
+        col.prop(self, 'blend_type', text='')
 
     def execute(self, context):
         if hasattr(self, 'auto_cancel') and self.auto_cancel: return {'CANCELLED'}

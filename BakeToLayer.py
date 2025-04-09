@@ -1996,6 +1996,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.separator()
             col.label(text='Bake Device:')
         col.label(text='Interpolation:')
+        if self.target_type == 'MASK':
+            col.label(text='Blend:')
         col.separator()
         col.label(text='')
         #col.label(text='')
@@ -2079,6 +2081,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.separator()
             col.prop(self, 'bake_device', text='')
         col.prop(self, 'interpolation', text='')
+
+        if self.target_type == 'MASK':
+            col.prop(self, 'blend_type', text='')
 
         col.separator()
         if self.type.startswith('OTHER_OBJECT_'):
