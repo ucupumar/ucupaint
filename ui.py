@@ -1,9 +1,32 @@
-import bpy, re, time, os
+import bpy, re, time, os, platform
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, UDIM, ListItem
 from .common import *
+
+
+class NODE_MT_copy_image_path_menu(bpy.types.Menu):
+    bl_label = "Copy Image Path Options"
+    bl_idname = "NODE_MT_copy_image_path_menu"
+    bl_description = get_addon_title() + " Options for copying the image path or opening the containing folder"
+
+    def draw(self, context):
+        layout = self.layout
+        image = context.image
+        full_path = os.path.normpath(image.filepath or "")
+        folder_path = os.path.normpath(os.path.dirname(full_path)) if full_path else ""
+        
+        op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Image Filepath", icon="COPYDOWN")
+        op.clipboard_text = full_path
+        
+        op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Containing Folder Path")
+        op.clipboard_text = folder_path
+
+        # Add more branches below for different operating systems
+        if os.name == 'nt':  # Windows
+            op = layout.operator("wm.open_containing_image_folder", text="Open Image in Explorer", icon="FILE_FOLDER")
+            op.file_path = full_path
 
 RGBA_CHANNEL_PREFIX = {
     'ALPHA' : 'alpha_',
@@ -312,7 +335,12 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
         if not image.filepath:
             col.label(text='Image Path: -')
         else:
-            col.label(text='Path: ' + image.filepath)
+            # Create a row with two parts: one label and one dropdown button.
+            row = col.row(align=True)
+            row.label(text="Path: " + os.path.normpath(image.filepath))
+            row.context_pointer_set('image', image)
+            row.menu("NODE_MT_copy_image_path_menu", text="", icon='DOWNARROW_HLT')
+
 
         image_format = 'RGBA'
         image_bit = int(image.depth / 4)
@@ -7753,6 +7781,8 @@ def register():
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
 
+    bpy.utils.register_class(NODE_MT_copy_image_path_menu)
+
     if not is_bl_newer_than(2, 80):
         bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
         bpy.utils.register_class(NODE_PT_YPaint)
@@ -7833,6 +7863,8 @@ def unregister():
     bpy.utils.unregister_class(NODE_UL_YPaint_list_items)
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
+
+    bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
