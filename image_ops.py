@@ -339,7 +339,7 @@ class YOpenContainingImageFolder(bpy.types.Operator):
         try:
             # Add more branches below for different operating systems
             if sys.platform == 'win32':  # Windows
-                subprocess.run(["explorer", "/select,", filepath])
+                subprocess.call(["explorer", "/select,", filepath])
             elif sys.platform == 'darwin': # Mac
                 subprocess.call(["open", "-R", filepath])
             elif sys.platform == 'linux2': # Linux
