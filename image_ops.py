@@ -316,7 +316,8 @@ class YCopyImagePathToClipboard(bpy.types.Operator):
     bl_idname = "wm.copy_image_path_to_clipboard"
     bl_label = "Copy Image Path To Clipboard"
     bl_description = get_addon_title() + " Copy the image file path to the system clipboard"
-    clipboard_text: bpy.props.StringProperty()
+
+    clipboard_text : bpy.props.StringProperty()
 
     def execute(self, context):
         context.window_manager.clipboard = self.clipboard_text
@@ -327,16 +328,18 @@ class YOpenContainingImageFolder(bpy.types.Operator):
     bl_idname = "wm.open_containing_image_folder"
     bl_label = "Open Containing Image Folder"
     bl_description = get_addon_title() + " Open the folder containing the image file and highlight it"
-    file_path: bpy.props.StringProperty()
+
+    file_path : bpy.props.StringProperty()
 
     def execute(self, context):
-        if not os.path.exists(self.file_path):
+        filepath = bpy.path.abspath(self.file_path)
+        if not os.path.exists(filepath):
             self.report({'ERROR'}, "File does not exist")
             return {'CANCELLED'}
         try:
             # Add more branches below for different operating systems
             if os.name == 'nt':  # Windows
-                subprocess.run(["explorer", "/select,", self.file_path])
+                subprocess.run(["explorer", "/select,", filepath])
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}

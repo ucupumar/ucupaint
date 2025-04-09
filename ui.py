@@ -6,28 +6,6 @@ from . import lib, Modifier, MaskModifier, UDIM, ListItem
 from .common import *
 
 
-class NODE_MT_copy_image_path_menu(bpy.types.Menu):
-    bl_label = "Copy Image Path Options"
-    bl_idname = "NODE_MT_copy_image_path_menu"
-    bl_description = get_addon_title() + " Options for copying the image path or opening the containing folder"
-
-    def draw(self, context):
-        layout = self.layout
-        image = context.image
-        full_path = os.path.normpath(image.filepath or "")
-        folder_path = os.path.normpath(os.path.dirname(full_path)) if full_path else ""
-        
-        op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Image Filepath", icon="COPYDOWN")
-        op.clipboard_text = full_path
-        
-        op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Containing Folder Path")
-        op.clipboard_text = folder_path
-
-        # Add more branches below for different operating systems
-        if os.name == 'nt':  # Windows
-            op = layout.operator("wm.open_containing_image_folder", text="Open Image in Explorer", icon="FILE_FOLDER")
-            op.file_path = full_path
-
 RGBA_CHANNEL_PREFIX = {
     'ALPHA' : 'alpha_',
     'R' : 'r_',
@@ -234,6 +212,28 @@ def draw_bake_info(bake_info, layout, entity):
     if m1 or m3: c.target_type = 'LAYER'
     else: c.target_type = 'MASK'
     c.overwrite_current = True
+
+class NODE_MT_copy_image_path_menu(bpy.types.Menu):
+    bl_label = "Copy Image Path Options"
+    bl_idname = "NODE_MT_copy_image_path_menu"
+    bl_description = get_addon_title() + " Options for copying the image path or opening the containing folder"
+
+    def draw(self, context):
+        layout = self.layout
+        image = context.image
+
+        full_path = os.path.normpath(image.filepath or "")
+        op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Image Filepath", icon="COPYDOWN")
+        op.clipboard_text = full_path
+        
+        # Add more branches below for different operating systems
+        if os.name == 'nt':  # Windows
+            op = layout.operator("wm.open_containing_image_folder", text="Open Image in Explorer", icon="FILE_FOLDER")
+            op.file_path = image.filepath
+        else:
+            folder_path = os.path.normpath(os.path.dirname(full_path)) if full_path else ""
+            op = layout.operator("wm.copy_image_path_to_clipboard", text="Copy Containing Folder Path")
+            op.clipboard_text = folder_path
 
 def draw_image_props(context, source, layout, entity=None, show_flip_y=False, show_datablock=True, show_source_input=False):
 
@@ -5308,6 +5308,7 @@ def draw_ypaint_about(self, context):
     col.operator('wm.url_open', text='morirain', icon=icon_name).url = 'https://github.com/morirain'
     col.operator('wm.url_open', text='kareemov03', icon=icon_name).url = 'https://www.artstation.com/kareem'
     col.operator('wm.url_open', text='passivestar', icon=icon_name).url = 'https://github.com/passivestar'
+    col.operator('wm.url_open', text='bappity', icon=icon_name).url = 'https://github.com/bappitybup'
     col.separator()
 
     col.label(text='Documentation:')
@@ -7780,7 +7781,6 @@ def register():
     bpy.utils.register_class(NODE_UL_YPaint_list_items)
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
-
     bpy.utils.register_class(NODE_MT_copy_image_path_menu)
 
     if not is_bl_newer_than(2, 80):
@@ -7863,7 +7863,6 @@ def unregister():
     bpy.utils.unregister_class(NODE_UL_YPaint_list_items)
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
-
     bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
 
     if not is_bl_newer_than(2, 80):
