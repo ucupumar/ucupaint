@@ -29,6 +29,12 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         default = 'AO'
     )
 
+    baked_entity_type : StringProperty(
+        name = 'Baked Entity Type',
+        description = 'Baked entity type',
+        default = ''
+    )
+
     samples : IntProperty(
         name = 'Bake Samples', 
         description = 'Bake Samples, more means less jagged on generated textures', 

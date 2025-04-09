@@ -1569,6 +1569,11 @@ def get_layer_ids_with_specific_image(yp, image):
             if source.image and source.image == image:
                 ids.append(i)
 
+        baked_source = get_layer_source(layer, get_baked=True)
+        if baked_source:
+            if baked_source.image and baked_source.image == image and i not in ids:
+                ids.append(i)
+
     return ids
 
 def get_entities_with_specific_image(yp, image):
@@ -1622,6 +1627,11 @@ def get_masks_with_specific_image(layer, image):
             if source.image and source.image == image:
                 masks.append(m)
 
+        baked_source = get_mask_source(m, get_baked=True)
+        if baked_source:
+            if baked_source.image and baked_source.image == image and m not in masks:
+                m.append(m)
+
     return masks
 
 def get_masks_with_specific_segment(layer, segment):
@@ -1656,7 +1666,7 @@ def replace_image(old_image, new_image, yp=None, uv_name=''):
     if old_image == new_image: return
 
     # Rename
-    if not new_image.yia.is_image_atlas:
+    if not new_image.yia.is_image_atlas and not new_image.yua.is_udim_atlas:
         old_name = old_image.name
         old_image.name = '_____temp'
         new_image.name = old_name
@@ -1686,8 +1696,12 @@ def replace_image(old_image, new_image, yp=None, uv_name=''):
         for entity in entities:
             if entity.type == 'IMAGE':
                 source = get_entity_source(entity)
-                if entity.uv_name != uv_name:
+                if source and source.image == new_image and entity.uv_name != uv_name:
                     entity.uv_name = uv_name
+
+            baked_source = get_entity_source(entity, get_baked=True)
+            if baked_source and baked_source.image == new_image and entity.baked_uv_name != uv_name:
+                entity.baked_uv_name = uv_name
 
         # Recover temp uv update
         #ypui.disable_auto_temp_uv_update = ori_disable_temp_uv
@@ -2271,8 +2285,8 @@ def get_entity_source(entity, get_baked=False):
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: return get_layer_source(entity, get_baked)
-    elif m2: return get_mask_source(entity, get_baked)
+    if m1: return get_layer_source(entity, get_baked=get_baked)
+    elif m2: return get_mask_source(entity, get_baked=get_baked)
 
     return None
 
@@ -5564,8 +5578,13 @@ def check_yp_entities_images_segments_in_lists(entity, image, segment_name, segm
             segment_name_props.append([segment_name_prop])
         else:
             idx = [i for i, img in enumerate(images) if img == image][0]
-            entities[idx].append(entity)
-            segment_name_props[idx].append(segment_name_prop)
+            # Baked entity will be listed earlier
+            if segment_name_prop == 'baked_segment_name':
+                entities[idx].insert(0, entity)
+                segment_name_props[idx].insert(0, segment_name_prop)
+            else: 
+                entities[idx].append(entity)
+                segment_name_props[idx].append(segment_name_prop)
 
     return entities, images, segment_names, segment_name_props
 
@@ -7142,6 +7161,5 @@ def enable_eevee_ao():
         scene.eevee.use_gtao = True
 
 def is_image_available_to_open(image):
-    # NOTE: Baked entity image is not available to open for now
-    return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and not image.y_bake_info.is_baked_entity and image.name not in {'Render Result', 'Viewer Node'}
+    return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node'}
 

@@ -135,6 +135,76 @@ def check_list_items_then_refresh(yp):
                     ch.override = False
                     ch.override = True
 
+def update_bake_info_baked_entity_props(yp):
+
+    entities = []
+    bis = []
+    images = []
+
+    for layer in yp.layers:
+        source = get_layer_source(layer, get_baked=True)
+        if source and source.image:
+            image = source.image
+            if not image.yia.is_image_atlas and not image.yua.is_udim_atlas:
+                entities.append(layer)
+                bis.append(image.y_bake_info)
+                images.append(image)
+
+            else:
+                if image.yia.is_image_atlas:
+                    segment = image.yia.segments.get(layer.baked_segment_name)
+                elif image.yua.is_udim_atlas: 
+                    segment = image.yua.segments.get(layer.baked_segment_name)
+                else: segment = None
+
+                if segment: 
+                    entities.append(layer)
+                    bis.append(segment.bake_info)
+                    images.append(image)
+
+        for mask in layer.masks:
+            source = get_mask_source(mask, get_baked=True)
+            if source and source.image:
+                image = source.image
+                if not image.yia.is_image_atlas and not image.yua.is_udim_atlas:
+                    entities.append(mask)
+                    bis.append(image.y_bake_info)
+                    images.append(image)
+
+                else:
+                    if image.yia.is_image_atlas:
+                        segment = image.yia.segments.get(mask.baked_segment_name)
+                    elif image.yua.is_udim_atlas: 
+                        segment = image.yua.segments.get(mask.baked_segment_name)
+                    else: segment = None
+
+                    if segment:
+                        entities.append(mask)
+                        bis.append(segment.bake_info)
+                        images.append(image)
+
+    for i, entity in enumerate(entities):
+        bi = bis[i]
+        image = images[i]
+
+        if not bi.is_baked_entity:
+            bi.is_baked_entity = True
+            print('INFO: Image '+image.name+' is marked as baked entity image!')
+
+        if bi.baked_entity_type != entity.type:
+            bi.baked_entity_type = entity.type
+            print('INFO: Image '+image.name+' is updated with baked entity type info!')
+
+        if entity.type == 'AO':
+            osource = get_entity_source(entity)
+            bi.bake_type = 'AO'
+            bi.ao_distance = get_entity_prop_value(entity, 'ao_distance')
+            bi.only_local = osource.only_local
+
+        elif entity.type == 'EDGE_DETECT':
+            bi.bake_type = 'BEVEL_MASK'
+            bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
+
 def update_yp_tree(tree):
     cur_version = get_current_version_str()
     yp = tree.yp
@@ -767,41 +837,7 @@ def update_yp_tree(tree):
 
     # Version 2.2.1 has flag prop for baked entity
     if version_tuple(yp.version) < (2, 2, 1):
-        for layer in yp.layers:
-            source = get_layer_source(layer, get_baked=True)
-            if source and source.image:
-                image = source.image
-                if not image.yia.is_image_atlas and not image.yua.is_udim_atlas:
-                    image.y_bake_info.is_baked_entity = True
-                    print('INFO: Image '+image.name+' is marked as baked entity image!')
-                else:
-                    if image.yia.is_image_atlas:
-                        segment = image.yia.segments.get(layer.baked_segment_name)
-                    elif image.yua.is_udim_atlas: 
-                        segment = image.yua.segments.get(layer.baked_segment_name)
-                    else: segment = None
-
-                    if segment:
-                        segment.bake_info.is_baked_entity = True
-                        print('INFO: One image segment from '+image.name+' is marked as baked entity image!')
-
-            for mask in layer.masks:
-                source = get_mask_source(mask, get_baked=True)
-                if source and source.image:
-                    image = source.image
-                    if not image.yia.is_image_atlas and not image.yua.is_udim_atlas:
-                        image.y_bake_info.is_baked_entity = True
-                        print('INFO: Image '+image.name+' is marked as baked entity image!')
-                    else:
-                        if image.yia.is_image_atlas:
-                            segment = image.yia.segments.get(mask.baked_segment_name)
-                        elif image.yua.is_udim_atlas: 
-                            segment = image.yua.segments.get(mask.baked_segment_name)
-                        else: segment = None
-
-                        if segment:
-                            segment.bake_info.is_baked_entity = True
-                            print('INFO: One image segment from '+image.name+' is marked as baked entity image!')
+        update_bake_info_baked_entity_props(yp)
 
         for ch in yp.channels:
 
@@ -812,6 +848,10 @@ def update_yp_tree(tree):
             # Now baked channel data can be expanded
             baked = tree.nodes.get(ch.baked)
             if baked: ch.expand_baked_data = True
+
+    # Version 2.2.2 has more flag props for baked entity
+    if version_tuple(yp.version) < (2, 2, 2):
+        update_bake_info_baked_entity_props(yp)
 
     # SECTION II: Updates based on the blender version
 

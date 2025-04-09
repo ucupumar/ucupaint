@@ -243,7 +243,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
 
     bi = image.y_bake_info
     if (bi.is_baked and not bi.is_baked_channel and 
-        (not bi.is_baked_entity or bi.bake_type in {'BEVEL_MASK', 'AO'}) # NOTE: Some baked type can come from entity
+        (not bi.is_baked_entity or bi.baked_entity_type in {'EDGE_DETECT', 'AO'}) # NOTE: Some baked type can come from entity
     ):
         #if image.yia.is_image_atlas or image.yua.is_udim_atlas:
         #    col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
