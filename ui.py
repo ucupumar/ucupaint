@@ -1,4 +1,4 @@
-import bpy, re, time, os, platform
+import bpy, re, time, os, sys
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
@@ -227,8 +227,15 @@ class NODE_MT_copy_image_path_menu(bpy.types.Menu):
         op.clipboard_text = full_path
         
         # Add more branches below for different operating systems
-        if os.name == 'nt':  # Windows
-            op = layout.operator("wm.open_containing_image_folder", text="Open Image in Explorer", icon="FILE_FOLDER")
+        if sys.platform in {'win32', 'darwin', 'linux2'}: 
+
+            if sys.platform == 'win32':
+                browser_name = 'Explorer'
+            elif sys.platform == 'darwin':
+                browser_name = 'Finder'
+            else: browser_name = 'File Manager'
+
+            op = layout.operator("wm.open_containing_image_folder", text="Open Image in "+browser_name, icon="FILE_FOLDER")
             op.file_path = image.filepath
         else:
             folder_path = os.path.normpath(os.path.dirname(full_path)) if full_path else ""
@@ -340,7 +347,6 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
             row.label(text="Path: " + os.path.normpath(image.filepath))
             row.context_pointer_set('image', image)
             row.menu("NODE_MT_copy_image_path_menu", text="", icon='DOWNARROW_HLT')
-
 
         image_format = 'RGBA'
         image_bit = int(image.depth / 4)

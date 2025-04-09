@@ -1,4 +1,4 @@
-import bpy, os, platform, subprocess
+import bpy, os, subprocess, sys
 import tempfile
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
@@ -338,8 +338,12 @@ class YOpenContainingImageFolder(bpy.types.Operator):
             return {'CANCELLED'}
         try:
             # Add more branches below for different operating systems
-            if os.name == 'nt':  # Windows
+            if sys.platform == 'win32':  # Windows
                 subprocess.run(["explorer", "/select,", filepath])
+            elif sys.platform == 'darwin': # Mac
+                subprocess.call(["open", "-R", filepath])
+            elif sys.platform == 'linux2': # Linux
+                subprocess.check_call(['xdg-open', '--', filepath])
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
