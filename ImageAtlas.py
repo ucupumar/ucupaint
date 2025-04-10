@@ -290,13 +290,13 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
     bl_description = "New Image Atlas segment test"
     bl_options = {'REGISTER', 'UNDO'}
 
-    #image_atlas_name : StringProperty(
+    #image_atlas_name = StringProperty(
     #        name = 'Image Atlas',
     #        description = 'Image atlas name',
     #        default='')
 
-    #image_atlas_coll : CollectionProperty(type=bpy.types.PropertyGroup)
-    color : EnumProperty(
+    #image_atlas_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    color = EnumProperty(
         name = 'Altas Base Color',
         items = (
             ('WHITE', 'White', ''),
@@ -306,8 +306,8 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
         default = 'BLACK'
     )
 
-    width : IntProperty(name='Width', default=128, min=1, max=4096)
-    height : IntProperty(name='Height', default=128, min=1, max=4096)
+    width = IntProperty(name='Width', default=128, min=1, max=4096)
+    height = IntProperty(name='Height', default=128, min=1, max=4096)
 
     @classmethod
     def poll(cls, context):
@@ -490,7 +490,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
     bl_description = "Convert image to image atlas (useful to avoid material texture limit)"
     bl_options = {'REGISTER', 'UNDO'}
 
-    all_images : BoolProperty(
+    all_images = BoolProperty(
         name = 'All Images',
         description = 'Convert all images instead of only the active one',
         default = False
@@ -606,7 +606,7 @@ class YConvertToStandardImage(bpy.types.Operator):
     bl_description = "Convert image atlas to standard image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    all_images : BoolProperty(
+    all_images = BoolProperty(
         name = 'All Images',
         description = 'Convert all images instead of only the active one',
         default = False
@@ -739,32 +739,32 @@ class YConvertToStandardImage(bpy.types.Operator):
 
 class YImageAtlasSegment(bpy.types.PropertyGroup):
 
-    name : StringProperty(
+    name = StringProperty(
         name = 'Name',
         description = 'Name of Image Atlas Segments',
         default = ''
     )
 
-    tile_x : IntProperty(default=0)
-    tile_y : IntProperty(default=0)
+    tile_x = IntProperty(default=0)
+    tile_y = IntProperty(default=0)
 
-    width : IntProperty(default=1024)
-    height : IntProperty(default=1024)
+    width = IntProperty(default=1024)
+    height = IntProperty(default=1024)
 
-    unused : BoolProperty(default=False)
+    unused = BoolProperty(default=False)
 
-    bake_info : PointerProperty(type=BakeInfo.YBakeInfoProps)
+    bake_info = PointerProperty(type=BakeInfo.YBakeInfoProps)
 
 class YImageAtlas(bpy.types.PropertyGroup):
-    name : StringProperty(
+    name = StringProperty(
         name = 'Name',
         description = 'Name of Image Atlas',
         default = ''
     )
 
-    is_image_atlas : BoolProperty(default=False)
+    is_image_atlas = BoolProperty(default=False)
 
-    color : EnumProperty(
+    color = EnumProperty(
         name = 'Atlas Base Color',
         items = (
             ('WHITE', 'White', ''),
@@ -774,9 +774,9 @@ class YImageAtlas(bpy.types.PropertyGroup):
         default = 'BLACK'
     )
 
-    #float_buffer : BoolProperty(default=False)
+    #float_buffer = BoolProperty(default=False)
 
-    segments : CollectionProperty(type=YImageAtlasSegment)
+    segments = CollectionProperty(type=YImageAtlasSegment)
 
 def register():
     #bpy.utils.register_class(YUVTransformTest)

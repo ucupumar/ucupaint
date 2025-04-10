@@ -193,16 +193,16 @@ def refresh_list_items(yp, repoint_active=False):
 
 class YListItem(bpy.types.PropertyGroup):
 
-    name : StringProperty(default='')
-    index : IntProperty(default=0)
+    name = StringProperty(default='')
+    index = IntProperty(default=0)
 
-    parent_name : StringProperty(default='')
-    parent_index : IntProperty(default=-1)
+    parent_name = StringProperty(default='')
+    parent_index = IntProperty(default=-1)
 
     # To mark normal override
-    is_second_member : BoolProperty(default=False)
+    is_second_member = BoolProperty(default=False)
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Item Type',
         items = (
             ('LAYER', 'Layer', ''),

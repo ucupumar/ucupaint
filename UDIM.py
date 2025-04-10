@@ -1116,7 +1116,7 @@ class YRemoveUDIMAtlasSegment(bpy.types.Operator):
     bl_description = "Remove UDIM Atlas segment"
     bl_options = {'REGISTER', 'UNDO'}
 
-    index : IntProperty(
+    index = IntProperty(
         name = 'Segment Index',
         description = 'UDIM Atlas Segment Index',
         default = 0
@@ -1218,37 +1218,37 @@ class Y_PT_UDIM_Atlas_menu(bpy.types.Panel):
         c.operator('image.y_remove_udim_atlas_segment', icon_value=lib.get_icon('image'))
 
 class YUDIMAtlasSegmentTile(bpy.types.PropertyGroup):
-    name : StringProperty(default='1001')
-    number : IntProperty(default=1001, min=1001, max=2000)
+    name = StringProperty(default='1001')
+    number = IntProperty(default=1001, min=1001, max=2000)
 
 class YUDIMAtlasSegment(bpy.types.PropertyGroup):
 
-    name : StringProperty(
+    name = StringProperty(
         name = 'Name',
         description = 'Name of UDIM Atlas Segments',
         default = ''
     )
 
-    unused : BoolProperty(default=False)
+    unused = BoolProperty(default=False)
 
-    bake_info : PointerProperty(type=BakeInfo.YBakeInfoProps)
-    base_color : FloatVectorProperty(subtype='COLOR', size=4, min=0.0, max=1.0, default=(0.0, 0.0, 0.0, 0.0))
+    bake_info = PointerProperty(type=BakeInfo.YBakeInfoProps)
+    base_color = FloatVectorProperty(subtype='COLOR', size=4, min=0.0, max=1.0, default=(0.0, 0.0, 0.0, 0.0))
 
-    base_tiles : CollectionProperty(type=YUDIMAtlasSegmentTile)
+    base_tiles = CollectionProperty(type=YUDIMAtlasSegmentTile)
 
 class YUDIMAtlas(bpy.types.PropertyGroup):
-    name : StringProperty(
+    name = StringProperty(
         name = 'Name',
         description = 'Name of UDIM Atlas',
         default = ''
     )
 
-    is_udim_atlas : BoolProperty(default=False)
+    is_udim_atlas = BoolProperty(default=False)
 
-    segments : CollectionProperty(type=YUDIMAtlasSegment)
+    segments = CollectionProperty(type=YUDIMAtlasSegment)
 
 class YUDIMInfo(bpy.types.PropertyGroup):
-    base_color : FloatVectorProperty(subtype='COLOR', size=4, min=0.0, max=1.0, default=(0.0, 0.0, 0.0, 0.0))
+    base_color = FloatVectorProperty(subtype='COLOR', size=4, min=0.0, max=1.0, default=(0.0, 0.0, 0.0, 0.0))
 
 def register():
     bpy.utils.register_class(YRefillUDIMTiles)

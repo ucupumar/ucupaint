@@ -2,7 +2,7 @@ bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, morirain, Patrick W. Crawford, neomonkeus, Kareem Haddad, passivestar",
     "version": (2, 2, 2),
-    "blender": (2, 80, 0),
+    "blender": (2, 76, 0),
     "location": "Node Editor > Properties > Ucupaint",
     "warning": "",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
