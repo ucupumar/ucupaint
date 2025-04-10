@@ -4116,6 +4116,10 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
     mesh_hash : StringProperty(default='')
     uv_hashes : CollectionProperty(type=YPaintObjectUVHash)
 
+    texpaint_translation : FloatVectorProperty(size=3, default=(0.0, 0.0, 0.0))
+    texpaint_rotation : FloatVectorProperty(size=3, default=(0.0, 0.0, 0.0))
+    texpaint_scale : FloatVectorProperty(size=3, default=(1.0, 1.0, 1.0))
+
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min : FloatProperty(default=0.0)
 #    parallax_scale_span : FloatProperty(default=1.0)

@@ -3275,6 +3275,28 @@ def update_mapping(entity, use_baked=False):
             if not active_mask or (mask and active_mask == mask):
                 yp.need_temp_uv_refresh = True
 
+def get_transformation(mapping, entity=None):
+    translation = (0.0, 0.0, 0.0)
+    rotation = (0.0, 0.0, 0.0)
+    scale = (1.0, 1.0, 1.0)
+
+    if is_bl_newer_than(2, 81):
+        translation = mapping.inputs[1].default_value
+        rotation = mapping.inputs[2].default_value
+
+        if entity and entity.enable_uniform_scale:
+            scale_val = get_entity_prop_value(entity, 'uniform_scale_value')
+            scale = (scale_val, scale_val, scale_val)
+        else:
+            scale = mapping.inputs[3].default_value
+    
+    else:
+        translation = mapping.translation
+        rotation = mapping.rotation
+        scale = mapping.scale
+
+    return translation, rotation, scale
+
 def is_active_uv_map_missmatch_entity(obj, entity):
 
     # Non image entity doesn't need matching UV
@@ -3293,9 +3315,18 @@ def is_active_uv_map_missmatch_entity(obj, entity):
 
     uv_name = entity.uv_name if not entity.use_baked or entity.baked_uv_name == '' else entity.baked_uv_name
 
-    if mapping and is_transformed(mapping) and obj.mode == 'TEXTURE_PAINT':
+    if mapping and is_transformed(mapping, entity) and obj.mode == 'TEXTURE_PAINT':
         if uv_layer.name != TEMP_UV:
             return True
+        elif TEMP_UV:
+            translation, rotation, scale = get_transformation(mapping, entity)
+            for i in range(3):
+                if obj.yp.texpaint_translation[i] != translation[i]:
+                    return True
+                if obj.yp.texpaint_rotation[i] != rotation[i]:
+                    return True
+                if obj.yp.texpaint_scale[i] != scale[i]:
+                    return True
 
     elif uv_name in uv_layers and uv_name != uv_layer.name:
         return True
@@ -3314,33 +3345,19 @@ def is_active_uv_map_missmatch_active_entity(obj, layer):
 
     return is_active_uv_map_missmatch_entity(obj, entity)
 
-def is_transformed(mapping):
-    if is_bl_newer_than(2, 81):
-        if (mapping.inputs[1].default_value[0] != 0.0 or
-            mapping.inputs[1].default_value[1] != 0.0 or
-            mapping.inputs[1].default_value[2] != 0.0 or
-            mapping.inputs[2].default_value[0] != 0.0 or
-            mapping.inputs[2].default_value[1] != 0.0 or
-            mapping.inputs[2].default_value[2] != 0.0 or
-            mapping.inputs[3].default_value[0] != 1.0 or
-            mapping.inputs[3].default_value[1] != 1.0 or
-            mapping.inputs[3].default_value[2] != 1.0
-            ):
-            return True
-        return False
-    else:
-        if (mapping.translation[0] != 0.0 or
-            mapping.translation[1] != 0.0 or
-            mapping.translation[2] != 0.0 or
-            mapping.rotation[0] != 0.0 or
-            mapping.rotation[1] != 0.0 or
-            mapping.rotation[2] != 0.0 or
-            mapping.scale[0] != 1.0 or
-            mapping.scale[1] != 1.0 or
-            mapping.scale[2] != 1.0
-            ):
-            return True
-        return False
+def is_transformed(mapping, entity=None):
+    translation, rotation, scale = get_transformation(mapping, entity)
+
+    for t in translation:
+        if t != 0.0: return True
+
+    for r in rotation:
+        if r != 0.0: return True
+
+    for s in scale:
+        if s != 1.0: return True
+
+    return False
 
 def check_uvmap_on_other_objects_with_same_mat(mat, uv_name, set_active=True):
 
@@ -3527,7 +3544,7 @@ def refresh_temp_uv(obj, entity):
     if not hasattr(source, 'image'): return False
 
     img = source.image
-    if not img or not mapping or not is_transformed(mapping):
+    if not img or not mapping or not is_transformed(mapping, entity):
         return False
 
     set_active_object(obj)
@@ -3556,9 +3573,17 @@ def refresh_temp_uv(obj, entity):
     rotation_y = mapping.inputs[2].default_value[1] if is_bl_newer_than(2, 81) else mapping.rotation[1]
     rotation_z = mapping.inputs[2].default_value[2] if is_bl_newer_than(2, 81) else mapping.rotation[2]
 
-    scale_x = mapping.inputs[3].default_value[0] if is_bl_newer_than(2, 81) else mapping.scale[0]
-    scale_y = mapping.inputs[3].default_value[1] if is_bl_newer_than(2, 81) else mapping.scale[1]
-    scale_z = mapping.inputs[3].default_value[2] if is_bl_newer_than(2, 81) else mapping.scale[2]
+    if entity.enable_uniform_scale and is_bl_newer_than(2, 81):
+        scale_x = scale_y = scale_z = get_entity_prop_value(entity, 'uniform_scale_value')
+    else:
+        scale_x = mapping.inputs[3].default_value[0] if is_bl_newer_than(2, 81) else mapping.scale[0]
+        scale_y = mapping.inputs[3].default_value[1] if is_bl_newer_than(2, 81) else mapping.scale[1]
+        scale_z = mapping.inputs[3].default_value[2] if is_bl_newer_than(2, 81) else mapping.scale[2]
+
+    # Remember the transformation to object props
+    obj.yp.texpaint_translation = (translation_x, translation_y, translation_z)
+    obj.yp.texpaint_rotation = (rotation_x, rotation_y, rotation_z)
+    obj.yp.texpaint_scale = (scale_x, scale_y, scale_z)
 
     # Create transformation matrix
     m1 = m2 = m3 = m4 = None
