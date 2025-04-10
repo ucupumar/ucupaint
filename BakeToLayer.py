@@ -822,7 +822,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 bake_type = 'EMIT'
 
                 # Set emission connection
+                connected_mats = []
                 for j, m in enumerate(ch_other_mats[idx]):
+                    if m in connected_mats: continue
                     default = ch_other_defaults[idx][j]
                     socket = ch_other_sockets[idx][j]
 
@@ -840,6 +842,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                             m.node_tree.links.remove(l)
                     elif socket:
                         m.node_tree.links.new(socket, temp_emi.inputs[0])
+
+                    connected_mats.append(m)
 
             colorspace = get_noncolor_name() if root_ch.colorspace == 'LINEAR' else get_srgb_name()
 
@@ -1100,6 +1104,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
                     if ent.uv_name != bprops.uv_map:
                         ent.uv_name = bprops.uv_map
+
+                    if bprops.type == 'AO' and ent.type == 'AO':
+                        set_entity_prop_value(ent, 'ao_distance', bprops.ao_distance)
+                    elif bprops.type == 'BEVEL_MASK' and ent.type == 'EDGE_DETECT':
+                        set_entity_prop_value(ent, 'edge_detect_radius', bprops.bevel_radius)
 
                 if bprops.target_type == 'LAYER':
                     layer_ids = [i for i, l in enumerate(yp.layers) if l in entities]
@@ -1680,7 +1689,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         height_root_ch = get_root_height_channel(yp)
 
         # Set default float image
-        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT', 'BEVEL_MASK'}:
+        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT'}:
             self.hdr = True
         else:
             self.hdr = False
@@ -1947,7 +1956,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             else:
                 col.label(text='Name:')
 
-                if self.target_type == 'LAYER':
+                # Other object channels always bakes all channels
+                if self.target_type == 'LAYER' and self.type != 'OTHER_OBJECT_CHANNELS':
                     col.label(text='Channel:')
                     if channel and channel.type == 'NORMAL':
                         col.label(text='Type:')
@@ -1986,6 +1996,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.separator()
             col.label(text='Bake Device:')
         col.label(text='Interpolation:')
+        if self.target_type == 'MASK':
+            col.label(text='Blend:')
         col.separator()
         col.label(text='')
         #col.label(text='')
@@ -2017,7 +2029,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             else:
                 col.prop(self, 'name', text='')
 
-                if self.target_type == 'LAYER':
+                # Other object channels always bakes all channels
+                if self.target_type == 'LAYER' and self.type != 'OTHER_OBJECT_CHANNELS':
                     rrow = col.row(align=True)
                     rrow.prop(self, 'channel_idx', text='')
                     if channel:
@@ -2068,6 +2081,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.separator()
             col.prop(self, 'bake_device', text='')
         col.prop(self, 'interpolation', text='')
+
+        if self.target_type == 'MASK':
+            col.prop(self, 'blend_type', text='')
 
         col.separator()
         if self.type.startswith('OTHER_OBJECT_'):
@@ -2218,9 +2234,11 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     if m1: 
         layer = yp.layers[int(m1.group(1))]
         mask = None
+        source_tree = get_source_tree(layer)
     elif m2: 
         layer = yp.layers[int(m2.group(1))]
         mask = layer.masks[int(m2.group(2))]
+        source_tree = get_mask_tree(mask)
 
     else: 
         rdict['message'] = "Wrong entity!"
@@ -2240,6 +2258,11 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         modifiers_disabled = True
         #ori_enable_blur = entity.enable_blur_vector
         #entity.enable_blur_vector = False
+
+    # Get existing baked image
+    existing_image = None
+    baked_source = source_tree.nodes.get(entity.baked_source)
+    if baked_source: existing_image = baked_source.image
 
     # Remember things
     book = remember_before_bake(yp)
@@ -2262,14 +2285,22 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     ori_layer_enable_masks = None
 
     # Make sure layer is enabled
+    ori_layer_enable = layer.enable
     layer.enable = True
     layer_opacity = get_entity_prop_value(layer, 'intensity_value')
     if layer_opacity != 1.0:
         ori_layer_intensity_value = layer_opacity
         set_entity_prop_value(layer, 'intensity_value', 1.0)
+    
+    # Make sure layer is active one
+    ori_layer_idx = yp.active_layer_index
+    layer_idx = get_layer_index(layer)
+    if yp.active_layer_index != layer_idx:
+        yp.active_layer_index = layer_idx
 
     if mask: 
         # Set up active edit
+        ori_mask_enable = mask.enable
         mask.enable = True
         mask.active_edit = True
     else:
@@ -2342,7 +2373,11 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     else: 
         color = (0, 0, 0, 0)
         color_str = 'TRANSPARENT'
-        colorspace = get_srgb_name()
+        colorspace = get_noncolor_name() if bprops.hdr else get_srgb_name()
+
+    # Use existing image colorspace if available
+    if existing_image:
+        colorspace = existing_image.colorspace_settings.name
 
     # Create image
     if bprops.use_udim:
@@ -2426,6 +2461,15 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     if ori_layer_enable_masks != None and layer.enable_masks != ori_layer_enable_masks:
         layer.enable_masks = ori_layer_enable_masks
 
+    if ori_layer_idx != yp.active_layer_index:
+        yp.active_layer_index = ori_layer_idx
+
+    if ori_layer_enable != layer.enable:
+        layer.enable = ori_layer_enable
+
+    if mask and ori_mask_enable != mask.enable:
+        mask.enable = ori_mask_enable
+
     if modifiers_disabled:
         for mod in ori_enabled_mods:
             mod.enable = True
@@ -2449,10 +2493,34 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
         yp.halt_update = True
 
+        # Set bake info to image/segment
+        bi = segment.bake_info if segment else image.y_bake_info
+
+        bi.is_baked = True
+        bi.is_baked_entity = True
+        bi.baked_entity_type = entity.type
+        for attr in dir(bi):
+            if attr.startswith('__'): continue
+            if attr.startswith('bl_'): continue
+            if attr in {'rna_type'}: continue
+            try: setattr(bi, attr, bprops[attr])
+            except: pass
+
+        # Set bake type for some types
+        if entity.type == 'EDGE_DETECT':
+            bi.bake_type = 'BEVEL_MASK'
+            bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
+        elif entity.type == 'AO':
+            source = get_entity_source(entity)
+            bi.bake_type = 'AO'
+            bi.ao_distance = get_entity_prop_value(entity, 'ao_distance')
+            bi.only_local = source.only_local
+
+        # Get baked source
+        overwrite_image = None
         baked_source = source_tree.nodes.get(entity.baked_source)
         if baked_source:
             overwrite_image = baked_source.image
-            overwrite_image_name = overwrite_image.name
 
             # Remove old segment
             if entity.baked_segment_name != '':
@@ -2462,33 +2530,15 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
                 elif overwrite_image.yua.is_udim_atlas:
                     UDIM.remove_udim_atlas_segment_by_name(overwrite_image, entity.baked_segment_name, yp=yp)
 
-            # Remove node first to also remove its data
-            remove_node(source_tree, entity, 'baked_source')
-
-            # Rename image if it's not image atlas
-            if entity.baked_segment_name == '' and overwrite_image_name == bprops.name:
-                image.name = bprops.name
-
-            # Remove baked segment name since the data is removed
-            if entity.baked_segment_name != '':
+                # Remove baked segment name
                 entity.baked_segment_name = ''
-
-        # Set bake info to image/segment
-        bi = segment.bake_info if segment else image.y_bake_info
-
-        bi.is_baked = True
-        for attr in dir(bi):
-            if attr.startswith('__'): continue
-            if attr.startswith('bl_'): continue
-            if attr in {'rna_type'}: continue
-            try: setattr(bi, attr, bprops[attr])
-            except: pass
-
-        # Create new node
-        baked_source = new_node(source_tree, entity, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
+        else:
+            baked_source = new_node(source_tree, entity, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
 
         # Set image to baked node
-        baked_source.image = image
+        if overwrite_image and not segment:
+            replace_image(overwrite_image, image)
+        else: baked_source.image = image
 
         height_ch = get_height_channel(layer)
         if height_ch and height_ch.enable:
@@ -2622,6 +2672,9 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             self.mask = None
             self.index = int(m1.group(1))
             self.entities = yp.layers
+
+            # NOTE: Duplicate entity currently doesn't work on layer so make sure to disable it
+            self.duplicate_entity = False
         elif m2: 
             self.layer = yp.layers[int(m2.group(1))]
             self.mask = self.layer.masks[int(m2.group(2))]
@@ -2641,9 +2694,10 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         if overwrite_image and not overwrite_image.yia.is_image_atlas and not overwrite_image.yua.is_udim_atlas:
             self.name = overwrite_image.name
         else:
-            self.name = self.entity.name
-            if not self.name.endswith(' Image'):
-                self.name += ' Image'
+            name = node.node_tree.name.replace(get_addon_title()+' ', '')
+            self.name = name + ' ' + self.entity.name
+            #if not self.name.endswith(' Image'):
+            #    self.name += ' Image'
 
             self.name = get_unique_name(self.name, bpy.data.images)
 
@@ -2696,15 +2750,15 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             if len(self.uv_map_coll) > 0:
                 self.uv_map = self.uv_map_coll[0].name
 
-            if self.entity.type in {'EDGE_DETECT', 'HEMI'}:
-                self.hdr = True
+            if self.entity.type in {'EDGE_DETECT', 'HEMI', 'AO'}:
+                #self.hdr = True
                 self.fxaa = False
             else: 
-                self.hdr = False
+                #self.hdr = False
                 self.fxaa = True
 
             # Auto set some props for some types
-            if self.entity.type == 'EDGE_DETECT':
+            if self.entity.type in {'EDGE_DETECT', 'AO'}:
                 self.samples = 32
                 self.denoise = True
             else:
@@ -2795,7 +2849,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         if self.mask:
             col.prop(self, 'duplicate_entity', text='Duplicate Mask')
-        else: col.prop(self, 'duplicate_entity', text='Disable Layer')
+        #else: col.prop(self, 'duplicate_entity', text='Disable Layer')
         if self.duplicate_entity:
             if self.mask:
                 col.prop(self, 'disable_current', text='Disable Current Mask')
@@ -2975,13 +3029,22 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def invoke(self, context, event):
+        if get_user_preferences().skip_property_popups and not event.shift:
+            return self.execute(context)
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+        self.layout.label(text='Rebaking all baked images can take a while to process', icon='ERROR')
     
     def execute(self, context): 
         T = time.time()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        entities, images, segment_names, _ = get_yp_entities_images_and_segments(yp)
+        entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp)
 
         for i, image in enumerate(images):
 
@@ -3003,6 +3066,7 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
 
                 entity = entities[i][0]
                 entity_path = entity.path_from_id()
+                segment_name_prop = segment_name_props[i][0]
 
                 m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity_path)
                 m2 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity_path)
@@ -3024,9 +3088,10 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
                     'uv_map': entity.uv_name if not entity.use_baked else entity.baked_uv_name
                 })
 
-                if not entity.use_baked:
-                    bake_to_entity(bprops=bake_properties, overwrite_img=image, segment=segment)
-                else: bake_entity_as_image(entity, bprops=bake_properties, set_image_to_entity=True)
+                # 'baked_segment_name' meant the entity is baked as image
+                if segment_name_prop == 'baked_segment_name':
+                    bake_entity_as_image(entity, bprops=bake_properties, set_image_to_entity=True)
+                else: bake_to_entity(bprops=bake_properties, overwrite_img=image, segment=segment)
 
         print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
         return {'FINISHED'}

@@ -225,6 +225,8 @@ layer_type_items = (
     ('GROUP', 'Group', ''),
     ('HEMI', 'Fake Lighting', ''),
     ('GABOR', 'Gabor', ''),
+    ('EDGE_DETECT', 'Edge Detect', ''),
+    ('AO', 'Ambient Occlusion', ''),
 )
 
 mask_type_items = (
@@ -245,6 +247,7 @@ mask_type_items = (
     ('EDGE_DETECT', 'Edge Detect', ''),
     ('MODIFIER', 'Modifier', ''),
     ('GABOR', 'Gabor', ''),
+    ('AO', 'Ambient Occlusion', ''),
 )
 
 channel_override_type_items = (
@@ -290,6 +293,8 @@ layer_type_labels = {
     'GROUP' : 'Group',
     'HEMI' : 'Fake Lighting',
     'GABOR' : 'Gabor',
+    'EDGE_DETECT' : 'Edge Detect',
+    'AO' : 'Ambient Occlusion',
 }
 
 mask_type_labels = {
@@ -310,6 +315,7 @@ mask_type_labels = {
     'EDGE_DETECT' : 'Edge Detect',
     'MODIFIER' : 'Modifier',
     'GABOR' : 'Gabor',
+    'AO' : 'Ambient Occlusion',
 }
 
 bake_type_items = (
@@ -506,6 +512,7 @@ layer_node_bl_idnames = {
     'EDGE_DETECT' : 'ShaderNodeGroup',
     'GABOR' : 'ShaderNodeTexGabor',
     'MODIFIER' : 'ShaderNodeGroup',
+    'AO' : 'ShaderNodeAmbientOcclusion',
 }
 
 io_suffix = {
@@ -1562,6 +1569,11 @@ def get_layer_ids_with_specific_image(yp, image):
             if source.image and source.image == image:
                 ids.append(i)
 
+        baked_source = get_layer_source(layer, get_baked=True)
+        if baked_source:
+            if baked_source.image and baked_source.image == image and i not in ids:
+                ids.append(i)
+
     return ids
 
 def get_entities_with_specific_image(yp, image):
@@ -1615,6 +1627,11 @@ def get_masks_with_specific_image(layer, image):
             if source.image and source.image == image:
                 masks.append(m)
 
+        baked_source = get_mask_source(m, get_baked=True)
+        if baked_source:
+            if baked_source.image and baked_source.image == image and m not in masks:
+                m.append(m)
+
     return masks
 
 def get_masks_with_specific_segment(layer, segment):
@@ -1649,7 +1666,7 @@ def replace_image(old_image, new_image, yp=None, uv_name=''):
     if old_image == new_image: return
 
     # Rename
-    if not new_image.yia.is_image_atlas:
+    if not new_image.yia.is_image_atlas and not new_image.yua.is_udim_atlas:
         old_name = old_image.name
         old_image.name = '_____temp'
         new_image.name = old_name
@@ -1679,8 +1696,12 @@ def replace_image(old_image, new_image, yp=None, uv_name=''):
         for entity in entities:
             if entity.type == 'IMAGE':
                 source = get_entity_source(entity)
-                if entity.uv_name != uv_name:
+                if source and source.image == new_image and entity.uv_name != uv_name:
                     entity.uv_name = uv_name
+
+            baked_source = get_entity_source(entity, get_baked=True)
+            if baked_source and baked_source.image == new_image and entity.baked_uv_name != uv_name:
+                entity.baked_uv_name = uv_name
 
         # Recover temp uv update
         #ypui.disable_auto_temp_uv_update = ori_disable_temp_uv
@@ -2264,8 +2285,8 @@ def get_entity_source(entity, get_baked=False):
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: return get_layer_source(entity, get_baked)
-    elif m2: return get_mask_source(entity, get_baked)
+    if m1: return get_layer_source(entity, get_baked=get_baked)
+    elif m2: return get_mask_source(entity, get_baked=get_baked)
 
     return None
 
@@ -2419,6 +2440,29 @@ def change_layer_name(yp, obj, src, layer, texes):
                     mask.name = new_mask_name
 
     yp.halt_update = False
+
+def copy_vertex_color_data(obj, source_name, dest_name):
+    if obj.type != 'MESH': return
+
+    #ori_mode = None
+    if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+        #ori_mode = obj.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    vcols = get_vertex_colors(obj)
+    source = vcols.get(source_name)
+    dest = vcols.get(dest_name)
+
+    if not source or not dest: return
+
+    num_channels = 4 if is_bl_newer_than(2, 80) else 3
+
+    arr = numpy.zeros(len(source.data) * num_channels)
+    source.data.foreach_get('color', arr)
+    dest.data.foreach_set('color', arr) #.T.ravel())
+
+    #if ori_mode:
+    #    bpy.ops.object.mode_set(mode=ori_mode)
 
 def set_obj_vertex_colors(obj, vcol_name, color):
     if obj.type != 'MESH': return
@@ -3125,7 +3169,7 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'} 
 
 def clear_mapping(entity, use_baked=False):
 
@@ -4664,6 +4708,7 @@ def set_active_paint_slot_entity(yp):
     obj = bpy.context.object
     scene = bpy.context.scene
     root_tree = yp.id_data
+    wmyp = bpy.context.window_manager.ypprops
 
     # Multiple materials will use single active image instead active material image
     # since it's the only way texture paint mode won't mess with other material image
@@ -4794,8 +4839,10 @@ def set_active_paint_slot_entity(yp):
             if img == None: continue
             if img.name == image.name:
                 mat.paint_active_slot = idx
+                # HACK: Just in case paint slot does not update
+                wmyp.correct_paint_image_name = img.name
                 break
-
+        
     else:
         scene.tool_settings.image_paint.mode = 'IMAGE'
         scene.tool_settings.image_paint.canvas = image
@@ -4899,11 +4946,11 @@ def is_uv_input_needed(layer, uv_name):
         if layer.baked_source != '' and layer.use_baked and layer.baked_uv_name == uv_name:
             return True
 
-            if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-                return True
+        if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
+            return True
 
         if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
+            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'}:
                 return True
 
             for i, ch in enumerate(layer.channels):
@@ -4923,7 +4970,7 @@ def is_uv_input_needed(layer, uv_name):
             if not get_mask_enabled(mask): continue
             if mask.use_baked and mask.baked_source != '' and mask.baked_uv_name == uv_name:
                 return True
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}: continue
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'}: continue
             if (not mask.use_baked or mask.baked_source == '') and mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
 
@@ -4973,7 +5020,7 @@ def is_entity_need_tangent_input(entity, uv_name):
                     return True
 
                 # Fake neighbor need tangent
-                if height_root_ch.enable_smooth_bump and entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT'} and not entity.use_baked:
+                if height_root_ch.enable_smooth_bump and entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT', 'AO'} and not entity.use_baked:
                     return True
 
             elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
@@ -5531,8 +5578,13 @@ def check_yp_entities_images_segments_in_lists(entity, image, segment_name, segm
             segment_name_props.append([segment_name_prop])
         else:
             idx = [i for i, img in enumerate(images) if img == image][0]
-            entities[idx].append(entity)
-            segment_name_props[idx].append(segment_name_prop)
+            # Baked entity will be listed earlier
+            if segment_name_prop == 'baked_segment_name':
+                entities[idx].insert(0, entity)
+                segment_name_props[idx].insert(0, segment_name_prop)
+            else: 
+                entities[idx].append(entity)
+                segment_name_props[idx].append(segment_name_prop)
 
     return entities, images, segment_names, segment_name_props
 
@@ -5585,13 +5637,13 @@ def check_need_prev_normal(layer):
 
     # Check if previous normal is needed
     need_prev_normal = False
-    if layer.type == 'HEMI' and layer.hemi_use_prev_normal and height_root_ch:
+    if layer.type in {'HEMI', 'EDGE_DETECT', 'AO'} and layer.hemi_use_prev_normal and height_root_ch:
         need_prev_normal = True
 
     # Also check mask
     if not need_prev_normal:
         for mask in layer.masks:
-            if mask.type == 'HEMI' and mask.hemi_use_prev_normal and height_root_ch:
+            if mask.type in {'HEMI', 'EDGE_DETECT', 'AO'} and mask.hemi_use_prev_normal and height_root_ch:
                 need_prev_normal = True
                 break
 
@@ -5622,7 +5674,7 @@ def get_all_baked_channel_images(tree):
     return images
 
 def is_layer_using_vector(layer, exclude_baked=False):
-    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
         return True
 
     for ch in layer.channels:
@@ -5636,7 +5688,7 @@ def is_layer_using_vector(layer, exclude_baked=False):
     return False
 
 def is_mask_using_vector(mask):
-    if mask.use_baked or mask.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
+    if mask.use_baked or mask.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
         return True
 
     return False
@@ -7101,3 +7153,13 @@ def load_image(path, directory, check_existing=True):
 def get_active_tool_idname():
     tools = bpy.context.workspace.tools
     return tools.from_space_view3d_mode(bpy.context.mode).idname
+
+def enable_eevee_ao():
+    # Enable Eevee AO to make edge detect entity works
+    scene = bpy.context.scene
+    if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao: 
+        scene.eevee.use_gtao = True
+
+def is_image_available_to_open(image):
+    return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node'}
+
