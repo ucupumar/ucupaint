@@ -966,6 +966,8 @@ def draw_bake_targets_ui(context, layout, node):
         rcol.operator("wm.y_new_bake_target", icon='ZOOMIN', text='')
         rcol.operator("wm.y_remove_bake_target", icon='ZOOMOUT', text='')
 
+    rcol.menu("NODE_MT_y_bake_list_special_menu", text='', icon='DOWNARROW_HLT')
+
     if len(yp.bake_targets) > 0:
         bt = yp.bake_targets[yp.active_bake_target_index]
         image_node = nodes.get(bt.image_node)
@@ -5442,6 +5444,25 @@ class YPaintSpecialMenu(bpy.types.Menu):
         #col.prop(ypui, 'disable_auto_temp_uv_update')
         #col.prop(yp, 'disable_quick_toggle')
 
+class YBakeListSpecialMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_bake_list_special_menu"
+    bl_label = "Bake Special Menu"
+    bl_description = "Bake Special Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+
+        row = self.layout.row()
+        col = row.column()
+
+        col.operator('wm.y_copy_bake_target', icon='COPYDOWN')
+        col.operator('wm.y_paste_bake_target', icon='PASTEDOWN').paste_as_new = True
+        col.operator('wm.y_paste_bake_target', text="Paste Bake Target Values", icon='PASTEDOWN').paste_as_new = False
+
 class YBakeTargetMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_bake_target_menu"
     bl_description = 'Bake Target Menu'
@@ -7745,6 +7766,7 @@ def register():
     bpy.utils.register_class(YNewChannelMenu)
     bpy.utils.register_class(YNewLayerMenu)
     bpy.utils.register_class(YBakeTargetMenu)
+    bpy.utils.register_class(YBakeListSpecialMenu)
     bpy.utils.register_class(YBakedImageMenu)
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YLayerChannelBlendMenu)
@@ -7827,6 +7849,7 @@ def unregister():
     bpy.utils.unregister_class(YNewChannelMenu)
     bpy.utils.unregister_class(YNewLayerMenu)
     bpy.utils.unregister_class(YBakeTargetMenu)
+    bpy.utils.unregister_class(YBakeListSpecialMenu)
     bpy.utils.unregister_class(YBakedImageMenu)
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YLayerChannelBlendMenu)
