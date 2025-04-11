@@ -399,7 +399,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
         elif new_type == 'COLOR_ID':
             mat = get_active_material()
             objs = get_all_objects_with_same_materials(mat)
-            check_colorid_vcol(objs)
+            check_colorid_vcol(objs, set_as_active=True)
             setup_color_id_source(mask, source)
 
         elif new_type == 'OBJECT_INDEX':
@@ -596,9 +596,9 @@ class YNewLayerMask(bpy.types.Operator):
         default=(1.0, 0.0, 1.0), min=0.0, max=1.0,
     )
 
-    color_id_fill : BoolProperty(
-        name = 'Fill Selected Geometry with Color ID',
-        description = 'Fill selected geometry with color ID',
+    vcol_fill : BoolProperty(
+        name = 'Fill Selected Geometry with Vertex Color / Color ID',
+        description = 'Fill selected geometry with vertex color / color ID',
         default = True
     )
 
@@ -814,9 +814,12 @@ class YNewLayerMask(bpy.types.Operator):
             if obj.mode == 'EDIT':
                 col.label(text='')
 
-        if is_bl_newer_than(3, 2) and self.type == 'VCOL':
-            col.label(text='Domain:')
-            col.label(text='Data Type:')
+        if self.type == 'VCOL':
+            if is_bl_newer_than(3, 2):
+                col.label(text='Domain:')
+                col.label(text='Data Type:')
+            if obj.mode == 'EDIT' and self.color_option == 'BLACK':
+                col.label(text='')
 
         if self.type == 'HEMI':
             col.label(text='Space:')
@@ -867,7 +870,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'COLOR_ID':
             col.prop(self, 'color_id', text='')
             if obj.mode == 'EDIT':
-                col.prop(self, 'color_id_fill', text='Fill Selected Faces')
+                col.prop(self, 'vcol_fill', text='Fill Selected Faces')
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
@@ -881,11 +884,15 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
             col.prop(self, 'hemi_use_prev_normal')
 
-        if is_bl_newer_than(3, 2) and self.type == 'VCOL':
-            crow = col.row(align=True)
-            crow.prop(self, 'vcol_domain', expand=True)
-            crow = col.row(align=True)
-            crow.prop(self, 'vcol_data_type', expand=True)
+        if self.type == 'VCOL':
+            if is_bl_newer_than(3, 2):
+                crow = col.row(align=True)
+                crow.prop(self, 'vcol_domain', expand=True)
+                crow = col.row(align=True)
+                crow.prop(self, 'vcol_data_type', expand=True)
+
+            if obj.mode == 'EDIT' and self.color_option == 'BLACK':
+                col.prop(self, 'vcol_fill', text='Fill Selected Faces')
 
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
@@ -1027,11 +1034,15 @@ class YNewLayerMask(bpy.types.Operator):
                             set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
                         set_active_vertex_color(o, vcol)
 
+                # Fill selected geometry if in edit mode
+                if self.vcol_fill and bpy.context.mode == 'EDIT_MESH' and self.color_option == 'BLACK':
+                    bpy.ops.mesh.y_vcol_fill(color_option='WHITE')
+
             elif self.type == 'COLOR_ID':
-                check_colorid_vcol(objs)
+                check_colorid_vcol(objs, set_as_active=True)
 
                 # Fill selected geometry if in edit mode
-                if self.color_id_fill and bpy.context.mode == 'EDIT_MESH':
+                if self.vcol_fill and bpy.context.mode == 'EDIT_MESH':
                     bpy.ops.mesh.y_vcol_fill_face_custom(color=(self.color_id[0], self.color_id[1], self.color_id[2], 1.0))
 
         # Voronoi and noise mask will use grayscale value by default

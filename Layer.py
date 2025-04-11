@@ -54,7 +54,7 @@ def add_new_layer(
         mask_texcoord_type='UV', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name='', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space='WORLD', hemi_use_prev_normal=True,
-        mask_color_id=(1, 0, 1), mask_color_id_fill=True,
+        mask_color_id=(1, 0, 1), mask_vcol_fill=True,
         mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha=False, use_udim_for_mask=False,
         interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05,
@@ -298,11 +298,15 @@ def add_new_layer(
                             set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0, 1.0))
                         set_active_vertex_color(o, mask_vcol)
 
+                # Fill selected geometry if in edit mode
+                if mask_vcol_fill and bpy.context.mode == 'EDIT_MESH':
+                    bpy.ops.mesh.y_vcol_fill(color_option='WHITE')
+
             elif mask_type == 'COLOR_ID':
-                check_colorid_vcol(objs)
+                check_colorid_vcol(objs, set_as_active=True)
 
                 # Fill selected geometry if in edit mode
-                if mask_color_id_fill and bpy.context.mode == 'EDIT_MESH':
+                if mask_vcol_fill and bpy.context.mode == 'EDIT_MESH':
                     bpy.ops.mesh.y_vcol_fill_face_custom(color=(mask_color_id[0], mask_color_id[1], mask_color_id[2], 1.0))
 
         mask = Mask.add_new_mask(
@@ -922,9 +926,9 @@ class YNewLayer(bpy.types.Operator):
         default=(1.0, 0.0, 1.0), min=0.0, max=1.0
     )
 
-    mask_color_id_fill : BoolProperty(
-        name = 'Fill Selected Geometry with Color ID',
-        description = 'Fill selected geometry with color ID',
+    mask_vcol_fill : BoolProperty(
+        name = 'Fill Selected Geometry with Vertex Color / Color ID Mask',
+        description = 'Fill selected geometry with vertex color or color ID mask',
         default = True
     )
     
@@ -1387,7 +1391,7 @@ class YNewLayer(bpy.types.Operator):
                 if self.mask_type == 'COLOR_ID':
                     col.prop(self, 'mask_color_id', text='')
                     if obj.mode == 'EDIT':
-                        col.prop(self, 'mask_color_id_fill', text='Fill Selected Faces')
+                        col.prop(self, 'mask_vcol_fill', text='Fill Selected Faces')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.prop(self, 'mask_edge_detect_radius', text='')
                     col.prop(self, 'mask_use_prev_normal', text='Use Previous Normal')
@@ -1420,11 +1424,15 @@ class YNewLayer(bpy.types.Operator):
                             ccol = col.column()
                             ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
 
-                if is_bl_newer_than(3, 2) and self.mask_type == 'VCOL':
-                    crow = col.row(align=True)
-                    crow.prop(self, 'mask_vcol_domain', expand=True)
-                    crow = col.row(align=True)
-                    crow.prop(self, 'mask_vcol_data_type', expand=True)
+                if self.mask_type == 'VCOL':
+                    if is_bl_newer_than(3, 2):
+                        crow = col.row(align=True)
+                        crow.prop(self, 'mask_vcol_domain', expand=True)
+                        crow = col.row(align=True)
+                        crow.prop(self, 'mask_vcol_data_type', expand=True)
+
+                    if obj.mode == 'EDIT':
+                        col.prop(self, 'mask_vcol_fill', text='Fill Selected Faces')
 
         if self.get_to_be_cleared_image_atlas(context, yp):
             col = self.layout.column(align=True)
@@ -1570,7 +1578,7 @@ class YNewLayer(bpy.types.Operator):
             mask_use_hdr=self.mask_use_hdr, mask_uv_name=self.mask_uv_name,
             mask_width=self.mask_width, mask_height=self.mask_height, use_image_atlas_for_mask=self.use_image_atlas_for_mask, 
             hemi_space=self.hemi_space, hemi_use_prev_normal=self.hemi_use_prev_normal, 
-            mask_color_id=self.mask_color_id, mask_color_id_fill=self.mask_color_id_fill,
+            mask_color_id=self.mask_color_id, mask_vcol_fill=self.mask_vcol_fill,
             mask_vcol_data_type=self.mask_vcol_data_type, mask_vcol_domain=self.mask_vcol_domain, use_divider_alpha=self.use_divider_alpha,
             use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
             mask_edge_detect_radius=self.mask_edge_detect_radius, edge_detect_radius=self.edge_detect_radius,

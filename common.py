@@ -5832,15 +5832,19 @@ def get_layer_vcol(obj, layer):
     src = get_layer_source(layer)
     return get_vcol_from_source(obj, src)
 
-def check_colorid_vcol(objs):
+def check_colorid_vcol(objs, set_as_active=False):
     for o in objs:
         vcols = get_vertex_colors(o)
-        if COLOR_ID_VCOL_NAME not in vcols:
+        vcol = vcols.get(COLOR_ID_VCOL_NAME)
+        if not vcol:
             try:
                 vcol = new_vertex_color(o, COLOR_ID_VCOL_NAME)
                 set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
                 #set_active_vertex_color(o, vcol)
             except Exception as e: print(e)
+
+        if vcol and set_as_active:
+            set_active_vertex_color(o, vcol)
 
 def is_colorid_already_being_used(yp, color_id):
     for l in yp.layers:
