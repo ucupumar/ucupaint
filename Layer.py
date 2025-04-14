@@ -5213,7 +5213,7 @@ class YPasteLayer(bpy.types.Operator):
     )
 
     rebake_bakeds : BoolProperty(
-        name = 'Rebake All Baked Images',
+        name = 'Rebake Baked Images',
         description = 'Rebake baked images',
         default = True
     )
