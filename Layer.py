@@ -1,7 +1,7 @@
 import bpy, time, re, os, random, numpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem
+from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, bake_common
 from .common import *
 #from .bake_common import *
 from .node_arrangements import *
@@ -5212,6 +5212,12 @@ class YPasteLayer(bpy.types.Operator):
         default = False
     )
 
+    rebake_bakeds : BoolProperty(
+        name = 'Rebake All Baked Images',
+        description = 'Rebake baked images',
+        default = True
+    )
+
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
@@ -5222,30 +5228,46 @@ class YPasteLayer(bpy.types.Operator):
         return get_operator_description(self)
 
     def invoke(self, context, event):
+        group_node = get_active_ypaint_node()
+        yp = group_node.node_tree.yp
+
         wm = context.window_manager
         wmp = wm.ypprops
 
         self.any_packed_image = False
         self.any_ondisk_image = False
         self.any_decal = False
+        self.any_baked = False
 
         tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
         if tree_source:
             yp_source = tree_source.yp
-            layer_source = yp_source.layers.get(wmp.clipboard_layer)
+            source_layers = []
+            if wmp.clipboard_layer == '':
+                source_layers = yp_source.layers
+            else:
+                layer = yp_source.layers.get(wmp.clipboard_layer)
+                source_layers.append(layer)
 
-            if layer_source:
-                self.any_packed_image = any(get_layer_images(layer_source, packed_only=True))
-                self.any_ondisk_image = any(get_layer_images(layer_source, ondisk_only=True))
-                self.any_decal = any_decal_inside_layer(layer_source)
+            for layer in source_layers:
+                if not self.any_packed_image: self.any_packed_image = any(get_layer_images(layer, packed_only=True))
+                if not self.any_ondisk_image: self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
+                if not self.any_decal: self.any_decal = any_decal_inside_layer(layer)
 
-        if self.any_packed_image or self.any_ondisk_image or self.any_decal:
+                # Do not check baked if current yp == yp_source
+                if yp != yp_source:
+                    if not self.any_baked: self.any_baked = any(get_layer_images(layer, baked_only=True))
+
+        if self.any_packed_image or self.any_ondisk_image or self.any_decal or self.any_baked:
             if get_user_preferences().skip_property_popups and not event.shift:
                 return self.execute(context)
 
             return context.window_manager.invoke_props_dialog(self, width=200)
 
         return self.execute(context)
+
+    def check(self, context):
+        return True
 
     def draw(self, context):
         if self.any_packed_image:
@@ -5256,6 +5278,12 @@ class YPasteLayer(bpy.types.Operator):
 
         if self.any_decal:
             self.layout.prop(self, 'set_new_decal_position')
+
+        if self.any_baked:
+            self.layout.prop(self, 'rebake_bakeds')
+
+            if self.rebake_bakeds:
+                self.layout.label(text='Rebaking can take a while', icon='ERROR')
 
     def execute(self, context):
         T = time.time()
@@ -5415,6 +5443,11 @@ class YPasteLayer(bpy.types.Operator):
         check_start_end_root_ch_nodes(tree)
         reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
+
+        # Rebake baked images
+        if self.any_baked and self.rebake_bakeds:
+            pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
+            bake_common.rebake_baked_images(yp, specific_layers=pasted_layers)
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index

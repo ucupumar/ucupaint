@@ -5415,7 +5415,7 @@ def get_all_objects_with_same_materials(mat, mesh_only=False, uv_name='', select
 
     return objs
 
-def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=False, udim_atlas_only=False):
+def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=False, udim_atlas_only=False, baked_only=False):
 
     layers = [layer]
 
@@ -5461,6 +5461,8 @@ def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=Fals
         if ondisk_only and (image.packed_file or image.filepath == ''): continue
         if packed_only and not image.packed_file and image.filepath != '': continue
         if udim_atlas_only and not image.yua.is_udim_atlas: continue
+        bi = image.y_bake_info
+        if baked_only and (not bi.is_baked or bi.is_baked_channel): continue
         if image not in filtered_images:
             filtered_images.append(image)
 
@@ -5613,13 +5615,14 @@ def check_yp_entities_images_segments_in_lists(entity, image, segment_name, segm
 
     return entities, images, segment_names, segment_name_props
 
-def get_yp_entities_images_and_segments(yp):
+def get_yp_entities_images_and_segments(yp, specific_layers=[]):
     entities = []
     images = []
     segment_names = []
     segment_name_props = []
 
     for layer in yp.layers:
+        if specific_layers and layer not in specific_layers: continue
 
         baked_source = get_layer_source(layer, get_baked=True)
         if baked_source and baked_source.image:
