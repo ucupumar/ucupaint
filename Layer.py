@@ -4599,7 +4599,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False, set_new_decal_position=False):
+def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False, set_new_decal_position=False):
 
     yp = tree.yp
     ypup = get_user_preferences()
@@ -4614,7 +4614,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, packed_duplicate
     vcol_names = []
 
     for layer in yp.layers:
-        if specific_layer and layer != specific_layer: continue
+        if specific_layers and layer not in specific_layers: continue
 
         oldtree = get_tree(layer)
         ttree = oldtree.copy()
@@ -5076,10 +5076,10 @@ class YDuplicateLayer(bpy.types.Operator):
 
         # List of newly created ids
         created_ids = []
+        created_layer_names = []
 
         # Duplicate all relevant layers
         for i, lname in enumerate(relevant_layer_names):
-            #idx = relevant_ids[i]
 
             # Create new layer
             new_layer = yp.layers.add()
@@ -5102,14 +5102,6 @@ class YDuplicateLayer(bpy.types.Operator):
                 source_inp = source_node.inputs.get(inp.name)
                 if source_inp: inp.default_value = source_inp.default_value
 
-            duplicate_layer_nodes_and_images(
-                tree, new_layer, 
-                packed_duplicate = self.packed_duplicate or self.duplicate_blank,
-                duplicate_blank = self.duplicate_blank,
-                ondisk_duplicate = self.ondisk_duplicate or self.duplicate_blank,
-                set_new_decal_position = self.set_new_decal_position
-            )
-
             # Rename masks
             mask_names = [m.name for m in l.masks]
             for mask in new_layer.masks:
@@ -5125,8 +5117,16 @@ class YDuplicateLayer(bpy.types.Operator):
                     mask.name = get_unique_name(mask.name, mask_names)
                     mask_names.append(mask.name)
 
-            #yp.layers.move(len(yp.layers)-1, idx)
+            created_layer_names.append(new_layer.name)
             created_ids.append(len(yp.layers)-1)
+
+        # Duplicate data of newly created layers
+        created_layers = [l for l in yp.layers if l.name in created_layer_names]
+        duplicate_layer_nodes_and_images(
+            tree, created_layers, packed_duplicate = self.packed_duplicate,
+            ondisk_duplicate = self.ondisk_duplicate,
+            set_new_decal_position = self.set_new_decal_position
+        )
 
         # Move duplicated layer to current index
         for i, idx in enumerate(created_ids):
@@ -5356,21 +5356,21 @@ class YPasteLayer(bpy.types.Operator):
             new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', new_layer.name)
             new_group_node.node_tree = get_tree(ls)
 
-            # Duplicate group inputs
+            # Duplicate group input values
             source_node = tree_source.nodes.get(ls.group_node)
             for inp in new_group_node.inputs:
                 source_inp = source_node.inputs.get(inp.name)
                 if source_inp: inp.default_value = source_inp.default_value
 
-            # Duplicate images and some nodes inside
-            duplicate_layer_nodes_and_images(
-                tree, new_layer, 
-                packed_duplicate = self.packed_duplicate,
-                ondisk_duplicate = self.ondisk_duplicate,
-                set_new_decal_position = self.set_new_decal_position
-            )
-
             pasted_layer_names.append(new_layer.name)
+
+        # Duplicate data of pasted layers
+        pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
+        duplicate_layer_nodes_and_images(
+            tree, pasted_layers, packed_duplicate = self.packed_duplicate,
+            ondisk_duplicate = self.ondisk_duplicate,
+            set_new_decal_position = self.set_new_decal_position
+        )
 
         # Move pasted layer to current index
         for i, lname in enumerate(pasted_layer_names):
