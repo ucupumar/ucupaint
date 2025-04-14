@@ -227,7 +227,7 @@ class NODE_MT_copy_image_path_menu(bpy.types.Menu):
         op.clipboard_text = full_path
         
         # Add more branches below for different operating systems
-        if sys.platform in {'win32', 'darwin', 'linux2'}: 
+        if sys.platform in {'win32', 'darwin', 'linux'}: 
 
             if sys.platform == 'win32':
                 browser_name = 'Explorer'
