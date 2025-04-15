@@ -1329,7 +1329,7 @@ class YRemoveBakedEntity(bpy.types.Operator):
 class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_rebake_baked_images"
     bl_label = "Rebake All Baked Images"
-    bl_description = "Rebake all of the baked images in all layers"
+    bl_description = "Rebake all baked images used by all layers and masks"
     bl_options = {'REGISTER'}
 
     @classmethod

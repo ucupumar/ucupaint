@@ -412,8 +412,8 @@ class YUseLinearColorSpace(bpy.types.Operator):
 
 class YNewVcolToOverrideChannel(bpy.types.Operator):
     bl_idname = "wm.y_new_vcol_to_override_channel"
-    bl_label = "New Vertex Color To Override Channel Layer"
-    bl_description = "New Vertex Color To Override Channel Layer"
+    bl_label = "New Vertex Color to Layer Channel Source"
+    bl_description = "New Vertex Color to custom layer channel source"
     bl_options = {'UNDO'}
 
     name : StringProperty(default='')
