@@ -5318,10 +5318,6 @@ class YPasteLayer(bpy.types.Operator):
                     matching = False
                     break
 
-        if not matching:
-            self.report({'ERROR'}, "Copied tree has different channel names or orders!")
-            return {'CANCELLED'}
-        
         if wmp.clipboard_layer == '':
 
             if len(yp_source.layers) == 0:
@@ -5352,6 +5348,14 @@ class YPasteLayer(bpy.types.Operator):
             for child in children:
                 relevant_layer_names.append(child.name)
 
+        # Disable source layers if channel list is not matching 
+        ori_layer_enables = {}
+        if not matching:
+            for lname in relevant_layer_names:
+                l = yp_source.layers.get(lname)
+                ori_layer_enables[lname] = l.enable
+                l.enable = False
+
         # Get parent and index dict
         parent_dict = get_parent_dict(yp)
         index_dict = get_index_dict(yp)
@@ -5378,7 +5382,43 @@ class YPasteLayer(bpy.types.Operator):
             new_layer = yp.layers.add()
             new_layer.name = get_unique_name(ls.name, yp.layers)
 
+            # Copy layer props
             copy_id_props(ls, new_layer, ['name'])
+
+            if not matching:
+                # Clear out layer channel props
+                new_layer.channels.clear()
+                for mask in new_layer.masks:
+                    mask.channels.clear()
+
+                for root_ch in yp.channels:
+
+                    # New layer channel
+                    new_ch = new_layer.channels.add()
+                    new_ch.enable = new_layer.type in {'GROUP', 'BACKGROUND'} # Layer channel default is disabled except for group and background
+
+                    # Get matching channel on source yp
+                    source_idx = -1
+                    if root_ch.name in yp_source.channels:
+                        source_idx = get_channel_index(yp_source.channels.get(root_ch.name))
+
+                    # Copy layer channel props
+                    if source_idx != -1:
+                        copy_id_props(ls.channels[source_idx], new_ch)
+
+                    for i, mask in enumerate(new_layer.masks):
+
+                        # New mask channel
+                        mch = mask.channels.add()
+                        mch.enable = True # Mask channel default is enabled
+
+                        # Copy mask channel props
+                        if source_idx != -1:
+                            copy_id_props(ls.masks[i].channels[source_idx], mch)
+
+                # Reenable new layer
+                if ls.name in ori_layer_enables:
+                    new_layer.enable = ori_layer_enables[ls.name]
 
             # Duplicate groups
             new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', new_layer.name)
@@ -5443,6 +5483,11 @@ class YPasteLayer(bpy.types.Operator):
         check_start_end_root_ch_nodes(tree)
         reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
+
+        # Revert original layer channel enables
+        for lname, lenable in ori_layer_enables.items():
+            l = yp_source.layers.get(lname)
+            if l: l.enable = lenable
 
         # Rebake baked images
         if self.any_baked and self.rebake_bakeds:
