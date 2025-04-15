@@ -4871,7 +4871,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                         img.yia.color, img.is_float, yp=yp)
 
             # If using different image atlas per yp, just copy the image (unless specific layer is on)
-            elif ypup.unique_image_atlas_per_yp and not specific_layer:
+            elif ypup.unique_image_atlas_per_yp and not specific_layers:
                 if img.name not in copied_image_atlas:
                     copied_image_atlas[img.name] = duplicate_image(img)
                 img_nodes[i].image = copied_image_atlas[img.name]
@@ -4907,7 +4907,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                 )
 
             # If using different image atlas per yp, just copy the image (unless specific layer is on)
-            elif not specific_layer:
+            elif not specific_layers:
                 if img.name not in copied_image_atlas:
                     copied_image_atlas[img.name] = duplicate_image(img)
                 img_nodes[i].image = copied_image_atlas[img.name]
