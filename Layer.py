@@ -2503,6 +2503,41 @@ def search_for_images(tree):
 
     return images
 
+def search_for_node(node):
+    if node.type == 'TEX_IMAGE' and node.image:
+        return node
+    # elif node.type == "MIX":
+    #     for n in node.inputs:
+    #         if n.is_linked:
+    #             for link in n.links:
+    #                 return search_for_node(link.from_node)
+    # elif node.type == "NORMAL_MAP":
+    #     for n in node.inputs:
+    #         if n.name == "Color" and n.is_linked:
+    #             print("input=", n.name, " linked=",n.is_linked," type=" ,n.type)
+    #             for link in n.links:
+    #                 print("link=", link.from_node.name, " type=", link.from_node.type)
+    #                 return search_for_node(link.from_node)
+    # elif node.type == "DISPLACEMENT":
+    #     for n in node.inputs:
+    #         if n.name == "Height" and n.is_linked:
+    #             print("input=", n.name, " linked=",n.is_linked," type=" ,n.type)
+    #             for link in n.links:
+    #                 print("link=", link.from_node.name, " type=", link.from_node.type)
+    #                 return search_for_node(link.from_node)
+    else:
+        print("else node=", node.name, "type=", node.type)
+        for n in node.inputs:
+            if n.is_linked:
+                print("input=", n.name, " linked=",n.is_linked," type=" ,n.type)
+                for link in n.links:
+                    print("link=", link.from_node.name, " type=", link.from_node.type)
+                    current_node = search_for_node(link.from_node)
+                    if current_node:
+                        return current_node
+
+    return None
+
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
     bl_idname = "wm.y_open_images_from_material_to_single_layer"
     bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
@@ -2596,19 +2631,31 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         #     images = search_for_images(mat.node_tree)
         output = get_material_output(mat)
 
-        bsdf_node = get_closest_bsdf_backward(output)
-        print(bsdf_node.inputs)
-        # node_images = []
-        for i in bsdf_node.inputs:
-            # print(i.name, i.is_linked)
-            if i.is_linked:
+        print("output=", output.name)
+        for i in output.inputs:
+            print(i.name, i.is_linked)
+            if i.is_linked and i.name == "Displacement":
                 for link in i.links:
-                    if link.from_node.type == 'TEX_IMAGE' and link.from_node.image:
-                        print("add image=", i.name, " | ", link.from_node.image.name)
-                        images.append(link.from_node.image)
+                    img_node = search_for_node(link.from_node)
+                    if img_node and img_node.image:
+                        images.append(img_node.image)
+                        print("add image=", i.name, " | ", img_node.image.name)
+                        connected_imgs[i.name] = img_node.image
 
-                        connected_imgs[i.name] = link.from_node.image
-                        # images.append(link.from_node.image)
+
+        bsdf_node = get_closest_bsdf_backward(output)
+        print("bsdf=", output.name)
+
+        for i in bsdf_node.inputs:
+            if i.is_linked:
+                print(i.name, i.is_linked)
+                for link in i.links:
+                    from_node = link.from_node
+                    img_node = search_for_node(from_node)
+                    if img_node and img_node.image:
+                        images.append(img_node.image)
+                        print("add image=", i.name, " | ", img_node.image.name)
+                        connected_imgs[i.name] = img_node.image
 
         # Check for yp images
         yp_node = get_closest_yp_node_backward(output)
