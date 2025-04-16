@@ -2146,6 +2146,200 @@ class BaseMultipleImagesLayer():
         #    return True
 
         return False
+
+    def open_material_images_to_single_layer(self, context:bpy.context, images:dict) -> bool:
+    
+        T = time.time()
+
+
+        valid_channels = []
+        valid_images = []
+        valid_synonyms = []
+
+
+        # Check for DirectX and OpenGL images
+        dx_image = None
+        gl_image = None
+        for im in images:
+            image = images[im]
+            # Get filename without extension
+            name = os.path.splitext(os.path.basename(image.filepath))[0]
+            lname = name.lower()
+            if 'normaldx' in lname or 'nor_dx' in lname:
+                dx_image = image
+            if 'normalgl' in lname or 'nor_gl' in lname:
+                gl_image = image
+
+        synonym_libs = {
+            'color' : ['albedo', 'diffuse', 'base color', 'd'], 
+            'alpha' : ['opacity', 'a'], 
+            'ambient occlusion' : ['ao'], 
+            'metallic' : ['metalness', 'm'],
+            'roughness' : ['glossiness', 'r'],
+            'normal' : ['displacement', 'height', 'bump', 'n'], # Prioritize displacement/bump before actual normal map
+        }
+
+        bump_synonyms = ['displacement', 'height', 'bump']
+
+        wm = context.window_manager
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        for ch in yp.channels:
+
+            # One channel will only use one image
+            if ch in valid_channels: continue
+
+            ch_name = ch.name.lower()
+
+            # Get synonyms
+            synonyms = []
+            if ch_name in synonym_libs:
+                synonyms = synonym_libs[ch_name]
+            synonyms.append(ch_name)
+
+            # Normal channel can use both bump and normal override images
+            bump_image_found = False
+            normal_image_found = False
+            main_image_found = False
+                
+            for syname in synonyms:
+
+                # Break if channel already used
+                if main_image_found: break
+            
+                for im in images:
+                    image = images[im]
+
+                    # One image will only use one channel
+                    if image in valid_images: continue
+
+                    # DirectX image will be skipped if there's OpenGL image
+                    if ch.type == 'NORMAL' and dx_image and gl_image and image == dx_image:
+                        continue
+
+                    img_name = im.lower()
+
+                    # Remove trailing digits and spaces from the filename
+                    img_name = re.sub(r'[\d\s]+$', '', img_name)
+
+                    # Check if synonym is in image name
+                    if self.is_synonym_in_image_name(syname, img_name):
+
+                        if (ch.type != 'NORMAL' or 
+                            (syname in bump_synonyms and not bump_image_found) or # Only proceed if bump image is not yet found
+                            (syname not in bump_synonyms and not normal_image_found) # Only proceed if normal image is not yet found
+                            ):
+                            valid_images.append(image)
+                            valid_channels.append(ch)
+                            valid_synonyms.append(syname)
+
+                            if ch.type == 'NORMAL':
+                                if syname in bump_synonyms:
+                                    bump_image_found = True
+                                else: normal_image_found = True
+
+                        if ch.type != 'NORMAL' or (bump_image_found and normal_image_found):
+                            main_image_found = True
+                            break
+
+        if not valid_images:
+            # Remove loaded images
+            for image in images.values():
+                remove_datablock(bpy.data.images, image)
+            return False
+
+        # Check if found more than 1 images for normal channel
+        
+        if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
+            normal_map_type = self.normal_map_priority
+        elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] in {'normal', 'n'}]):
+            normal_map_type = 'NORMAL_MAP'
+        else: normal_map_type = 'BUMP_MAP'
+
+        #if valid_channels and valid_channels[0]
+        layer = None
+        for i, image in enumerate(valid_images):
+            root_ch = valid_channels[i]
+            syname = valid_synonyms[i]
+
+            # Set relative
+            if self.relative and bpy.data.filepath != '':
+                try: image.filepath = bpy.path.relpath(image.filepath)
+                except: pass
+
+            ch_idx = get_channel_index(root_ch)
+
+            # Use non-color for non-color channel
+            if root_ch.colorspace == 'LINEAR' and not image.is_dirty:
+                image.colorspace_settings.name = get_noncolor_name()
+
+            # Use image directly to layer for the first index
+            if i == 0:
+                yp.halt_update = True
+                                                 
+                layer = add_new_layer(
+                    group_tree=node.node_tree, layer_name=image.name,
+                    layer_type='IMAGE', channel_idx=int(ch_idx),
+                    blend_type='MIX', normal_blend_type='MIX', 
+                    normal_map_type=normal_map_type, texcoord_type=self.texcoord_type,
+                    uv_name=self.uv_map, image=image,
+                    vcol=None, segment=None, solid_color=(1, 1, 1), 
+                    add_mask=self.add_mask, mask_type=self.mask_type, mask_color=self.mask_color, mask_use_hdr=self.mask_use_hdr, 
+                    mask_uv_name=self.mask_uv_name, mask_width=self.mask_width, mask_height=self.mask_height, 
+                    use_image_atlas_for_mask=self.use_image_atlas_for_mask, use_udim_for_mask=self.use_udim_for_mask
+                )
+
+                yp.halt_update = False
+                tree = get_tree(layer)
+            else:
+                ch = layer.channels[ch_idx]
+                ch.enable = True
+                if root_ch.type == 'NORMAL' and (syname in {'normal', 'n'} or 'normal without bump' in image.name.lower()):
+                    image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
+                    image_node.image = image
+                    ch.override_1 = True
+                    ch.override_1_type = 'IMAGE'
+                    if (self.normal_map_flip_y and (not gl_image or gl_image != image)) or (dx_image and dx_image == image):
+                        ch.image_flip_y = True
+                else:
+                    image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+                    image_node.image = image
+                    if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
+
+                    # Add invert modifier for glosiness
+                    if syname == 'glossiness':
+                        Modifier.add_new_modifier(ch, 'INVERT')
+
+                    ch.override = True
+                    ch.override_type = 'IMAGE'
+
+        # Check image projections
+        check_layer_projections(layer)
+
+        ## Reconnect and rearrange nodes
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
+
+        # Remove unused images
+        for image in images.values():
+            if image not in valid_images and image.users == 0: # and image not in existing_images:
+                remove_datablock(bpy.data.images, image)
+
+        # Update UI
+        wm.ypui.need_update = True
+
+        # Make sure to expand channels so it can be obvious which channels are active
+        wm.ypui.expand_channels = True
+
+        # Expand vector transformation because it's highly likely user want to tweak this
+        wm.ypui.layer_ui.expand_content = True
+        wm.ypui.layer_ui.expand_vector = True
+
+        print('INFO: Image(s) opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return True
     
     def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, non_import_images=[]) -> bool:
     
@@ -2173,7 +2367,6 @@ class BaseMultipleImagesLayer():
         dx_image = None
         gl_image = None
         for image in images:
-            print("Image:", image.filepath)
 
             # Get filename without extension
             name = os.path.splitext(os.path.basename(image.filepath))[0]
@@ -2503,41 +2696,34 @@ def search_for_images(tree):
 
     return images
 
-def search_for_node(node):
+def search_for_image_node(node, input_name, existing_nodes={}):
     if node.type == 'TEX_IMAGE' and node.image:
-        return node
-    # elif node.type == "MIX":
-    #     for n in node.inputs:
-    #         if n.is_linked:
-    #             for link in n.links:
-    #                 return search_for_node(link.from_node)
-    # elif node.type == "NORMAL_MAP":
-    #     for n in node.inputs:
-    #         if n.name == "Color" and n.is_linked:
-    #             print("input=", n.name, " linked=",n.is_linked," type=" ,n.type)
-    #             for link in n.links:
-    #                 print("link=", link.from_node.name, " type=", link.from_node.type)
-    #                 return search_for_node(link.from_node)
-    # elif node.type == "DISPLACEMENT":
-    #     for n in node.inputs:
-    #         if n.name == "Height" and n.is_linked:
-    #             print("input=", n.name, " linked=",n.is_linked," type=" ,n.type)
-    #             for link in n.links:
-    #                 print("link=", link.from_node.name, " type=", link.from_node.type)
-    #                 return search_for_node(link.from_node)
+        print("add", node.image.name, "to", input_name)
+        existing_nodes[input_name] = node.image
+    elif node.type == "BUMP":
+        for n in node.inputs:
+            if n.is_linked:
+                # print("input=", n.name, " linked=",n.is_linked," type=" ,n.type)
+                for link in n.links:
+                    # print("link=", link.from_node.name, " type=", link.from_node.type)
+                    ch_name = n.name
+                    if ch_name == "Height":
+                        ch_name = "Bump"
+                        # skip if already in existing nodes
+                        if ch_name in existing_nodes:
+                            continue 
+                    search_for_image_node(link.from_node, ch_name, existing_nodes)
     else:
         print("else node=", node.name, "type=", node.type)
         for n in node.inputs:
             if n.is_linked:
-                print("input=", n.name, " linked=",n.is_linked," type=" ,n.type)
+                # print("input=", n.name, " linked=",n.is_linked," type=" ,n.type)
                 for link in n.links:
-                    print("link=", link.from_node.name, " type=", link.from_node.type)
-                    current_node = search_for_node(link.from_node)
-                    if current_node:
-                        return current_node
-
-    return None
-
+                    # print("link=", link.from_node.name, " type=", link.from_node.type)
+                    search_for_image_node(link.from_node, input_name, existing_nodes)
+                if input_name in existing_nodes:
+                    break
+                
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
     bl_idname = "wm.y_open_images_from_material_to_single_layer"
     bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
@@ -2626,22 +2812,15 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         # Check material for images
         connected_imgs = {}
 
-        images = []
-        # if mat.node_tree:
-        #     images = search_for_images(mat.node_tree)
         output = get_material_output(mat)
 
         print("output=", output.name)
+
         for i in output.inputs:
             print(i.name, i.is_linked)
             if i.is_linked and i.name == "Displacement":
                 for link in i.links:
-                    img_node = search_for_node(link.from_node)
-                    if img_node and img_node.image:
-                        images.append(img_node.image)
-                        print("add image=", i.name, " | ", img_node.image.name)
-                        connected_imgs[i.name] = img_node.image
-
+                    search_for_image_node(link.from_node, "Bump", connected_imgs)
 
         bsdf_node = get_closest_bsdf_backward(output)
         print("bsdf=", output.name)
@@ -2650,74 +2829,45 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             if i.is_linked:
                 print(i.name, i.is_linked)
                 for link in i.links:
-                    from_node = link.from_node
-                    img_node = search_for_node(from_node)
-                    if img_node and img_node.image:
-                        images.append(img_node.image)
-                        print("add image=", i.name, " | ", img_node.image.name)
-                        connected_imgs[i.name] = img_node.image
+                    ch_name = i.name
+                    if ch_name == "Base Color":
+                        ch_name = "Color"
+                    search_for_image_node(link.from_node, ch_name, connected_imgs)
 
-        # Check for yp images
-        yp_node = get_closest_yp_node_backward(output)
-        if yp_node:
-            print("from ypnode")
-            otree = yp_node.node_tree
-            oyp = otree.yp
-            for root_ch in oyp.channels:
-                print("chnl=", root_ch.name, " | ", root_ch.type)
-
-                baked_disp = None
-                baked_normal_overlay = None
-                if root_ch.type == 'NORMAL':
-                    baked_disp = otree.nodes.get(root_ch.baked_disp)
-                    if baked_disp and baked_disp.image:
-                        images.append(baked_disp.image)
-
-                    baked_normal_overlay = otree.nodes.get(root_ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image:
-                        images.append(baked_normal_overlay.image)
-
-                if root_ch.type != 'NORMAL' or not (baked_disp and baked_normal_overlay):
-                    baked = otree.nodes.get(root_ch.baked)
-                    if baked and baked.image:
-                        images.append(baked.image)
-        else:
-            print("not from ypnode")
-
-        if not images:
+        if len(connected_imgs) == 0:
             self.report({'ERROR'}, "Couldn't find images inside of the material!")
             return {'CANCELLED'}
 
         # Check for existing images if the image source is from asset library
-        print("from asset library=", from_asset_library, " current images=", len(images))
-        if from_asset_library:
-            filtered_images = []
-            existing_images = []
-            duplicated_images = []
-            for new_img in images:
-                for old_img in bpy.data.images:
-                    if old_img in images: continue
-                    if old_img.filepath == new_img.filepath:
-                        existing_images.append(old_img)
-                        duplicated_images.append(new_img)
-                        break
+        print("from asset library=", from_asset_library, " current images=", len(connected_imgs))
+        # if from_asset_library:
+        #     filtered_images = []
+        #     existing_images = []
+        #     duplicated_images = []
+        #     for new_img in images:
+        #         for old_img in bpy.data.images:
+        #             if old_img in images: continue
+        #             if old_img.filepath == new_img.filepath:
+        #                 existing_images.append(old_img)
+        #                 duplicated_images.append(new_img)
+        #                 break
 
-            # Add existing images to list
-            for img in existing_images:
-                if img not in filtered_images:
-                    filtered_images.append(img)
+        #     # Add existing images to list
+        #     for img in existing_images:
+        #         if img not in filtered_images:
+        #             filtered_images.append(img)
 
-            # Add imported images to list
-            for img in images:
-                if img not in filtered_images and img not in duplicated_images:
-                    filtered_images.append(img)
+        #     # Add imported images to list
+        #     for img in images:
+        #         if img not in filtered_images and img not in duplicated_images:
+        #             filtered_images.append(img)
 
-            # Remove duplicated images
-            for img in duplicated_images:
-                remove_datablock(bpy.data.images, img)
+        #     # Remove duplicated images
+        #     for img in duplicated_images:
+        #         remove_datablock(bpy.data.images, img)
 
-            # Use filtered images
-            images = filtered_images
+        #     # Use filtered images
+        #     images = filtered_images
 
         # Use quick setup if yp node is not found
         node = get_active_ypaint_node()
@@ -2727,7 +2877,11 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             quick_setup_happen = True
 
         failed = False
-        if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images):
+
+        for c in connected_imgs:
+            print(c,":", connected_imgs[c].filepath)
+
+        if not self.open_material_images_to_single_layer(context, connected_imgs):
             self.report({'ERROR'}, "Images should have channel name as suffix!")
             failed = True
 
