@@ -2173,6 +2173,7 @@ class BaseMultipleImagesLayer():
         dx_image = None
         gl_image = None
         for image in images:
+            print("Image:", image.filepath)
 
             # Get filename without extension
             name = os.path.splitext(os.path.basename(image.filepath))[0]
@@ -2588,17 +2589,35 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             return {'CANCELLED'}
 
         # Check material for images
+        connected_imgs = {}
+
         images = []
-        if mat.node_tree:
-            images = search_for_images(mat.node_tree)
+        # if mat.node_tree:
+        #     images = search_for_images(mat.node_tree)
+        output = get_material_output(mat)
+
+        bsdf_node = get_closest_bsdf_backward(output)
+        print(bsdf_node.inputs)
+        # node_images = []
+        for i in bsdf_node.inputs:
+            # print(i.name, i.is_linked)
+            if i.is_linked:
+                for link in i.links:
+                    if link.from_node.type == 'TEX_IMAGE' and link.from_node.image:
+                        print("add image=", i.name, " | ", link.from_node.image.name)
+                        images.append(link.from_node.image)
+
+                        connected_imgs[i.name] = link.from_node.image
+                        # images.append(link.from_node.image)
 
         # Check for yp images
-        output = get_material_output(mat)
         yp_node = get_closest_yp_node_backward(output)
         if yp_node:
+            print("from ypnode")
             otree = yp_node.node_tree
             oyp = otree.yp
             for root_ch in oyp.channels:
+                print("chnl=", root_ch.name, " | ", root_ch.type)
 
                 baked_disp = None
                 baked_normal_overlay = None
@@ -2615,12 +2634,15 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
                     baked = otree.nodes.get(root_ch.baked)
                     if baked and baked.image:
                         images.append(baked.image)
+        else:
+            print("not from ypnode")
 
         if not images:
             self.report({'ERROR'}, "Couldn't find images inside of the material!")
             return {'CANCELLED'}
 
         # Check for existing images if the image source is from asset library
+        print("from asset library=", from_asset_library, " current images=", len(images))
         if from_asset_library:
             filtered_images = []
             existing_images = []
