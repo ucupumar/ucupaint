@@ -4310,7 +4310,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     layer.type = new_type
 
     # Check modifiers tree
-    Modifier.check_modifiers_trees(layer)
+    Modifier.check_layer_modifier_tree(layer)
 
     # Always remove baked layer when changing type
     if layer.use_baked:
@@ -4577,6 +4577,8 @@ class YSetLayerChannelInput(bpy.types.Operator):
                 ),
             default = 'RGB')
 
+    socket_name : StringProperty(default='Color')
+
     set_normal_input : BoolProperty(default=False)
 
     @classmethod
@@ -4605,6 +4607,8 @@ class YSetLayerChannelInput(bpy.types.Operator):
             else:
                 ch.override = False
                 ch.layer_input = self.type
+
+        ch.socket_input_name = self.socket_name
 
         # Update list items
         ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
@@ -5793,6 +5797,9 @@ def update_channel_enable(self, context):
     # Refresh layer IO
     check_all_layer_channel_io_and_nodes(layer, tree, ch)
 
+    # Check layer modifier trees
+    Modifier.check_layer_modifier_tree(layer)
+
     if yp.halt_reconnect: return
 
     if yp.layer_preview_mode:
@@ -5955,6 +5962,12 @@ def update_layer_channel_voronoi_feature(self, context):
 def update_layer_input(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
+
+    # Check layer modifier trees
+    m = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', self.path_from_id())
+    if m: 
+        layer = yp.layers[int(m.group(1))]
+        Modifier.check_layer_modifier_tree(layer)
 
     check_layer_channel_linear_node(self, reconnect=True)
 
@@ -6337,6 +6350,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
         name = 'Layer Input',
         description = 'Input for layer channel',
         items = entity_input_items,
+        #update = update_layer_input
+    )
+
+    socket_input_name : StringProperty(
+        name = 'Socket Input Name',
+        description = 'Socket name for layer channel input',
+        default = 'Color',
         update = update_layer_input
     )
 
@@ -7257,6 +7277,8 @@ class YLayer(bpy.types.PropertyGroup):
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
     mod_group : StringProperty(default='')
     mod_group_1 : StringProperty(default='')
+
+    mod_groups : CollectionProperty(type=Modifier.YPaintModifierGroupNode)
 
     # Mask
     enable_masks : BoolProperty(
