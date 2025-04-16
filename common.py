@@ -132,6 +132,13 @@ voronoi_feature_items = (
     ("N_SPHERE_RADIUS", "N-Sphere Radius", "Compute and return the radius of the n-sphere inscribed in the Voronoi cells. In other words, it is half the distance between the closest feature point and the feature point closest to it.")
 )
 
+swizzle_items = (
+    ('RGB', 'RGB', ''),
+    ('R', 'R', ''),
+    ('G', 'G', ''),
+    ('B', 'B', '')
+)
+
 def entity_input_items(self, context):
     yp = self.id_data.yp
     entity = self
@@ -2199,7 +2206,10 @@ def get_mod_tree(entity):
         if source_group and source_group.type == 'GROUP': 
             tree = source_group.node_tree
 
+        '''
         mod_group = tree.nodes.get(layer.mod_group)
+        '''
+        mod_group = tree.nodes.get(layer.mod_groups[0].name) if len(layer.mod_groups) > 0 else None
         if mod_group and mod_group.type == 'GROUP':
             return mod_group.node_tree
 
@@ -7731,3 +7741,59 @@ def enable_eevee_ao():
 def is_image_available_to_open(image):
     return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node'}
 
+
+def get_channel_input_socket_name(layer, ch, source=None):
+    if not source: source = get_layer_source(layer)
+
+    # Check if channel prop is in output name
+    outp = source.outputs.get(ch.socket_input_name)
+    if outp and outp.enabled:
+        return ch.socket_input_name
+
+    for outp in source.outputs:
+        if outp.enabled and len(outp.links) > 0 and outp.name != 'Alpha':
+            return outp.name
+
+def get_mask_input_socket_name(mask, source=None):
+    if not source: source = get_mask_source(mask)
+
+    # Check if mask prop is in output name
+    outp = source.outputs.get(mask.socket_input_name)
+    if outp and outp.enabled:
+        return mask.socket_input_name
+
+    for outp in source.outputs:
+        if outp.enabled and len(outp.links) > 0:
+            return outp.name
+
+def get_mask_input_socket(mask, source=None):
+    if not source: source = get_mask_source(mask)
+    
+    socket_name = get_mask_input_socket_name(mask, source)
+    return source.outputs.get(socket_name)
+
+def get_available_source_outputs(entity, source=None):
+    if not source: 
+
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+        if m1: source = get_layer_source(entity)
+        elif m2: source = get_mask_source(entity)
+        else: return []
+
+    outps = []
+
+    if source:
+        # Some entity types only need to acces some of the source outputs
+        valid_socket_names = []
+        if entity.type == 'VCOL':
+            valid_socket_names = ['Color', 'Alpha']
+        elif entity.type == 'BACKFACE':
+            valid_socket_names = ['Backfacing']
+        elif entity.type == 'AO':
+            valid_socket_names = ['Color']
+
+        outps = [outp for outp in source.outputs if outp.enabled and (not valid_socket_names or outp.name in valid_socket_names)]
+
+    return outps
