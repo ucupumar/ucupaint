@@ -2151,11 +2151,9 @@ class BaseMultipleImagesLayer():
     
         T = time.time()
 
-
         valid_channels = []
         valid_images = []
         valid_synonyms = []
-
 
         # Check for DirectX and OpenGL images
         dx_image = None
@@ -2734,6 +2732,16 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
     mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
     asset_library_path : StringProperty(default='')
 
+    read_method : EnumProperty(
+        name = 'Read Method',
+        description = '',
+        items = (
+            ('IMAGE_NAMES', 'Read Image Names', 'Read all image names in material'),
+            ('READ_NODE', 'Read Node Connection', 'Read node connection in material'),
+        ),
+        default = 'READ_NODE'
+    )
+
     @classmethod
     def poll(cls, context):
         #return get_active_ypaint_node()
@@ -2780,6 +2788,13 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         if self.asset_library_path == '':
             row.prop_search(self, "mat_name", self, "mat_coll", text='', icon='MATERIAL_DATA')
         else: row.label(text=self.mat_name, icon='MATERIAL_DATA')
+
+        row = split_layout(self.layout, 0.325)
+        row.label(text='Read method:')
+
+        col = row.column()
+        col.prop(self, 'read_method', text="")
+
         self.draw_operator(context, display_relative_toggle=False)
 
     def execute(self, context):
@@ -2814,60 +2829,87 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
         output = get_material_output(mat)
 
-        print("output=", output.name)
+        if self.read_method == 'READ_NODE':
+            for i in output.inputs:
+                if i.is_linked and i.name == "Displacement":
+                    for link in i.links:
+                        search_for_image_node(link.from_node, "Bump", connected_imgs)
 
-        for i in output.inputs:
-            print(i.name, i.is_linked)
-            if i.is_linked and i.name == "Displacement":
-                for link in i.links:
-                    search_for_image_node(link.from_node, "Bump", connected_imgs)
+            bsdf_node = get_closest_bsdf_backward(output)
 
-        bsdf_node = get_closest_bsdf_backward(output)
-        print("bsdf=", output.name)
+            for i in bsdf_node.inputs:
+                if i.is_linked:
+                    for link in i.links:
+                        ch_name = i.name
+                        if ch_name == "Base Color":
+                            ch_name = "Color"
+                        search_for_image_node(link.from_node, ch_name, connected_imgs)
 
-        for i in bsdf_node.inputs:
-            if i.is_linked:
-                print(i.name, i.is_linked)
-                for link in i.links:
-                    ch_name = i.name
-                    if ch_name == "Base Color":
-                        ch_name = "Color"
-                    search_for_image_node(link.from_node, ch_name, connected_imgs)
+        elif self.read_method == 'IMAGE_NAMES':
+            images = search_for_images(mat.node_tree)
+            for image in images:
+                connected_imgs[image.name] = image
+
+            yp_node = get_closest_yp_node_backward(output)
+
+            if yp_node:
+                otree = yp_node.node_tree
+                oyp = otree.yp
+                for root_ch in oyp.channels:
+
+                    ch_name = root_ch.name.lower()
+                    baked_disp = None
+                    baked_normal_overlay = None
+                    if root_ch.type == 'NORMAL':
+                        baked_disp = otree.nodes.get(root_ch.baked_disp)
+                        if baked_disp and baked_disp.image:
+                            connected_imgs[ch_name] = baked_disp.image
+
+                        baked_normal_overlay = otree.nodes.get(root_ch.baked_normal_overlay)
+                        if baked_normal_overlay and baked_normal_overlay.image:
+                            connected_imgs[ch_name] =  baked_normal_overlay.image
+
+                    if root_ch.type != 'NORMAL' or not (baked_disp and baked_normal_overlay):
+                        baked = otree.nodes.get(root_ch.baked)
+                        if baked and baked.image:
+                            connected_imgs[ch_name] = baked.image
+
+            # Check for existing images if the image source is from asset library
+            if from_asset_library:
+                filtered_images = []
+                existing_images = []
+                duplicated_images = []
+                images = connected_imgs.values()
+                for new_img in images:
+                    for old_img in bpy.data.images:
+                        if old_img in images: continue
+                        if old_img.filepath == new_img.filepath:
+                            existing_images.append(old_img)
+                            duplicated_images.append(new_img)
+                            break
+
+                # Add existing images to list
+                for img in existing_images:
+                    if img not in filtered_images:
+                        filtered_images.append(img)
+
+                # Add imported images to list
+                for img in images:
+                    if img not in filtered_images and img not in duplicated_images:
+                        filtered_images.append(img)
+
+                # Remove duplicated images
+                for img in duplicated_images:
+                    remove_datablock(bpy.data.images, img)
+
+                connected_imgs.clear()
+
+                for img in filtered_images:
+                    connected_imgs[img.name] = img
 
         if len(connected_imgs) == 0:
             self.report({'ERROR'}, "Couldn't find images inside of the material!")
             return {'CANCELLED'}
-
-        # Check for existing images if the image source is from asset library
-        print("from asset library=", from_asset_library, " current images=", len(connected_imgs))
-        # if from_asset_library:
-        #     filtered_images = []
-        #     existing_images = []
-        #     duplicated_images = []
-        #     for new_img in images:
-        #         for old_img in bpy.data.images:
-        #             if old_img in images: continue
-        #             if old_img.filepath == new_img.filepath:
-        #                 existing_images.append(old_img)
-        #                 duplicated_images.append(new_img)
-        #                 break
-
-        #     # Add existing images to list
-        #     for img in existing_images:
-        #         if img not in filtered_images:
-        #             filtered_images.append(img)
-
-        #     # Add imported images to list
-        #     for img in images:
-        #         if img not in filtered_images and img not in duplicated_images:
-        #             filtered_images.append(img)
-
-        #     # Remove duplicated images
-        #     for img in duplicated_images:
-        #         remove_datablock(bpy.data.images, img)
-
-        #     # Use filtered images
-        #     images = filtered_images
 
         # Use quick setup if yp node is not found
         node = get_active_ypaint_node()
@@ -2878,12 +2920,13 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
 
         failed = False
 
-        for c in connected_imgs:
-            print(c,":", connected_imgs[c].filepath)
-
-        if not self.open_material_images_to_single_layer(context, connected_imgs):
+        if self.read_method == 'READ_NODE':
+            failed = not self.open_material_images_to_single_layer(context, connected_imgs)
+        elif self.read_method == 'IMAGE_NAMES':
+            failed = not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=connected_imgs.values())
+           
+        if failed:
             self.report({'ERROR'}, "Images should have channel name as suffix!")
-            failed = True
 
         # Remove material if it has only fake users
         if from_asset_library and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
