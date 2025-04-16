@@ -1717,7 +1717,7 @@ def reconnect_mask_internal_nodes(mask, mask_source_index=0):
 
     val = source.outputs[mask_source_index]
 
-    if mask.source_input in {'R', 'G', 'B'}:
+    if mask.swizzle_input_mode in {'R', 'G', 'B'}:
         separate_color_channels_outputs = create_link(tree, val, separate_color_channels.inputs[0])
         if mask.source_input == 'R': val = separate_color_channels_outputs[0]
         elif mask.source_input == 'G': val = separate_color_channels_outputs[1]
@@ -1905,8 +1905,65 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if source_s: create_link(tree, uv_neighbor.outputs['s'], source_s.inputs[0])
                 if source_e: create_link(tree, uv_neighbor.outputs['e'], source_e.inputs[0])
                 if source_w: create_link(tree, uv_neighbor.outputs['w'], source_w.inputs[0])
+    
+    # Get all available source outputs
+    available_outputs = get_available_source_outputs(layer, source)
+    used_outputs = []
 
+    # Get pair of source output name with layer channel
+    ch_socket_pairs = {}
+    for i, ch in enumerate(layer.channels):
+        if not ch.enable: continue
 
+        root_ch = yp.channels[i]
+
+        # Check if layer channel socket prop exists in source
+        outp = source.outputs.get(ch.socket_input_name)
+        if outp not in available_outputs:
+            outp = None
+
+        # If not use whatever in the first index
+        if not outp and len(available_outputs) > 0:
+            outp = available_outputs[0]
+
+        # Pair the output name to the layer channel
+        ch_socket_pairs[root_ch.name] = outp.name if outp else None
+        
+        # Set the output as used output
+        if outp and outp not in used_outputs:
+            used_outputs.append(outp)
+
+    # Dictionary to trace rgb and alpha connections of source socket
+    rgb_connections = {}
+    alpha_connections = {}
+
+    # Alpha will use socket called 'Alpha' otherwise alpha will be considered have one in value
+    alpha_outp = source.outputs['Alpha'] if 'Alpha' in source.outputs else get_essential_node(tree, ONE_VALUE)[0]
+
+    for i, outp in enumerate(used_outputs):
+        name = outp.name
+        if name == alpha_outp: continue
+        rgb_connections[name] = outp
+        alpha_connections[name] = alpha_outp
+
+        #if layer.type in {'IMAGE', 'VCOL'}:
+        if name == 'Color':
+            if divider_alpha: 
+                mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
+                rgb_connections[name] = create_link(tree, rgb_connections[name], divider_alpha.inputs[mixcol0])[mixout]
+                create_link(tree, alpha_connections[name], divider_alpha.inputs[mixcol1])
+            if linear: rgb_connections[name] = create_link(tree, rgb_connections[name], linear.inputs[0])[0]
+            if flip_y: rgb_connections[name] = create_link(tree, rgb_connections[name], flip_y.inputs[0])[0]
+
+        mod_group = None
+        if i < len(layer.mod_groups):
+            mod_group = nodes.get(layer.mod_groups[i].name)
+
+        rgb_connections[name], alpha_connections[name] = reconnect_all_modifier_nodes(
+            tree, layer, rgb_connections[name], alpha_connections[name], mod_group
+        )
+
+    '''
     # RGB
     if baked_source:
         start_rgb = baked_source.outputs[0]
@@ -1962,6 +2019,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
                 tree, layer, source.outputs[1], get_essential_node(tree, ONE_VALUE)[0], mod_group_1
             )
+    '''
 
     # UV neighbor vertex color
     if layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor:
@@ -2054,22 +2112,43 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             #mask_val = mask_source.outputs[mask_source_index]
             mask_val = mask_source.outputs[0]
         else:
+            swizzle_enabled = False
             baked_mask_source = nodes.get(mask.baked_source)
-            if baked_mask_source and mask.use_baked:
+            if mask.type == 'BACKFACE':
+                mask_val = get_essential_node(tree, GEOMETRY)['Backfacing']
+            elif baked_mask_source and mask.use_baked:
                 mask_source = baked_mask_source
-            else: mask_source = nodes.get(mask.source)
+                mask_val = mask_source.outputs[0]
+            else: 
+                mask_source = nodes.get(mask.source)
+
+                # Get valid output
+                mask_val = mask_source.outputs.get(mask.socket_input_name)
+                if not mask_val:
+                    available_outputs = get_available_source_outputs(mask, mask_source)
+                    if len(available_outputs) > 0:
+                        mask_val = available_outputs[0]
+
+                if not mask_val:
+                    mask_val = get_essential_node(tree, ZERO_VALUE)[0]
+
+                if mask_val.type in {'RGBA', 'RGB', 'VECTOR'}:
+                    swizzle_enabled = True
+
             mask_linear = nodes.get(mask.linear)
             mask_separate_color_channels = nodes.get(mask.separate_color_channels)
 
+            '''
             if mask.type == 'BACKFACE':
                 mask_val = get_essential_node(tree, GEOMETRY)[mask_source_index]
             else: mask_val = mask_source.outputs[mask_source_index]
+            '''
 
-            if mask.source_input in {'R', 'G', 'B'}:
+            if mask.swizzle_input_mode in {'R', 'G', 'B'} and swizzle_enabled:
                 separate_color_channels_outputs = create_link(tree, mask_val, mask_separate_color_channels.inputs[0])
-                if mask.source_input == 'R': mask_val = separate_color_channels_outputs[0]
-                elif mask.source_input == 'G': mask_val = separate_color_channels_outputs[1]
-                elif mask.source_input == 'B': mask_val = separate_color_channels_outputs[2]
+                if mask.swizzle_input_mode == 'R': mask_val = separate_color_channels_outputs[0]
+                elif mask.swizzle_input_mode == 'G': mask_val = separate_color_channels_outputs[1]
+                elif mask.swizzle_input_mode == 'B': mask_val = separate_color_channels_outputs[2]
 
             if mask_linear:
                 mask_val = create_link(tree, mask_val, mask_linear.inputs[0])[0]
@@ -2341,8 +2420,23 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             continue
 
         # Rgb and alpha start
+        '''
         rgb = start_rgb
         alpha = start_alpha
+        '''
+        #if ch.socket_input_name in rgb_connections:
+        #    rgb = rgb_connections[ch.socket_input_name]
+        #    alpha = alpha_connections[ch.socket_input_name]
+        #elif any(rgb_connections):
+        #    rgb = rgb_connections[list(rgb_connections.keys())[0]]
+        #    alpha = alpha_connections[list(alpha_connections.keys())[0]]
+        if ch_socket_pairs[root_ch.name] != None:
+            rgb = rgb_connections[ch_socket_pairs[root_ch.name]]
+            alpha = alpha_connections[ch_socket_pairs[root_ch.name]]
+        else:
+            rgb = get_essential_node(tree, ONE_VALUE)[0]
+            alpha = get_essential_node(tree, ONE_VALUE)[0]
+
         bg_alpha = None
 
         ch_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'intensity_value'))
@@ -2395,6 +2489,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Get source output index
         source_index = 0
+        '''
         if not layer.use_baked and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
             # Noise and voronoi output has flipped order since Blender 2.81
             if is_bl_newer_than(2, 81) and (layer.type == 'NOISE' or (layer.type == 'VORONOI' and layer.voronoi_feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})):
@@ -2406,6 +2501,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb = start_rgb_1
                 alpha = start_alpha_1
                 source_index = 2
+        '''
 
         rgb_before_override = rgb
 
