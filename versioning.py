@@ -507,9 +507,11 @@ def update_yp_tree(tree):
     if version_tuple(yp.version) < (1, 2, 0):
         for layer in yp.layers:
             for mask in layer.masks:
+                # NOTE: Source input system changes
                 # Voronoi and noise default is using alpha/value input
-                if mask.type in {'VORONOI', 'NOISE'}:
-                    mask.source_input = 'ALPHA'
+                #if mask.type in {'VORONOI', 'NOISE'}:
+                #    mask.source_input = 'ALPHA'
+                pass
 
     # Version 1.2.4 has voronoi feature prop
     if version_tuple(yp.version) < (1, 2, 4):
