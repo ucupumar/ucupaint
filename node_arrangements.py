@@ -503,6 +503,12 @@ def rearrange_source_tree_nodes(layer):
             loc.y += 40
             loc.x += 150
 
+        for mg in parent.mod_groups:
+            if check_set_node_loc(source_tree, mg.name, loc, True):
+                loc.y += 40
+        
+        loc.x += 150
+
     check_set_node_loc(source_tree, TREE_END, loc)
 
 def rearrange_mask_tree_nodes(mask):
@@ -1003,13 +1009,23 @@ def rearrange_layer_nodes(layer, tree=None):
 
     # Layer modifiers
     if layer.source_group == '':
+        '''
         if layer.mod_group != '':
+        '''
+        if len(layer.mod_groups) > 0:
+            '''
             mod_group = nodes.get(layer.mod_group)
             arrange_modifier_nodes(mod_group.node_tree, layer, loc.copy())
             check_set_node_loc(tree, layer.mod_group, loc, hide=True)
             loc.y -= 40
             check_set_node_loc(tree, layer.mod_group_1, loc, hide=True)
             loc.y += 40
+            '''
+            mod_group = nodes.get(layer.mod_groups[0].name)
+            if mod_group: arrange_modifier_nodes(mod_group.node_tree, layer, loc.copy())
+            for mg in layer.mod_groups:
+                if check_set_node_loc(tree, mg.name, loc, True):
+                    loc.y -= 40
             loc.x += 200
         else:
             loc = arrange_modifier_nodes(tree, layer, loc)
