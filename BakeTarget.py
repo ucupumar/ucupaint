@@ -273,38 +273,38 @@ class YCopyBakeTarget(bpy.types.Operator):
         yp = node.node_tree.yp
         wmp = context.window_manager.ypprops
 
-        bake_target = yp.bake_targets[yp.active_bake_target_index]
+        bt = yp.bake_targets[yp.active_bake_target_index]
 
-        wmp.clipboard_bake.clear()
-        new_bake:YBakeTarget = wmp.clipboard_bake.add()
+        wmp.clipboard_bake_target.clear()
+        cbt = wmp.clipboard_bake_target.add()
 
-        new_bake.name = bake_target.name
-        new_bake.use_float = bake_target.use_float
-        new_bake.data_type = bake_target.data_type
+        cbt.name = bt.name
+        cbt.use_float = bt.use_float
+        cbt.data_type = bt.data_type
         
-        new_bake.r.channel_name = bake_target.r.channel_name
-        new_bake.r.subchannel_index = bake_target.r.subchannel_index
-        new_bake.r.default_value = bake_target.r.default_value
-        new_bake.r.normal_type = bake_target.r.normal_type
-        new_bake.r.invert_value = bake_target.r.invert_value
+        cbt.r.channel_name = bt.r.channel_name
+        cbt.r.subchannel_index = bt.r.subchannel_index
+        cbt.r.default_value = bt.r.default_value
+        cbt.r.normal_type = bt.r.normal_type
+        cbt.r.invert_value = bt.r.invert_value
 
-        new_bake.g.channel_name = bake_target.g.channel_name
-        new_bake.g.subchannel_index = bake_target.g.subchannel_index
-        new_bake.g.default_value = bake_target.g.default_value
-        new_bake.g.normal_type = bake_target.g.normal_type
-        new_bake.g.invert_value = bake_target.g.invert_value
+        cbt.g.channel_name = bt.g.channel_name
+        cbt.g.subchannel_index = bt.g.subchannel_index
+        cbt.g.default_value = bt.g.default_value
+        cbt.g.normal_type = bt.g.normal_type
+        cbt.g.invert_value = bt.g.invert_value
 
-        new_bake.b.channel_name = bake_target.b.channel_name
-        new_bake.b.subchannel_index = bake_target.b.subchannel_index
-        new_bake.b.default_value = bake_target.b.default_value
-        new_bake.b.normal_type = bake_target.b.normal_type
-        new_bake.b.invert_value = bake_target.b.invert_value
+        cbt.b.channel_name = bt.b.channel_name
+        cbt.b.subchannel_index = bt.b.subchannel_index
+        cbt.b.default_value = bt.b.default_value
+        cbt.b.normal_type = bt.b.normal_type
+        cbt.b.invert_value = bt.b.invert_value
 
-        new_bake.a.channel_name = bake_target.a.channel_name
-        new_bake.a.subchannel_index = bake_target.a.subchannel_index
-        new_bake.a.default_value = bake_target.a.default_value
-        new_bake.a.normal_type = bake_target.a.normal_type
-        new_bake.a.invert_value = bake_target.a.invert_value
+        cbt.a.channel_name = bt.a.channel_name
+        cbt.a.subchannel_index = bt.a.subchannel_index
+        cbt.a.default_value = bt.a.default_value
+        cbt.a.normal_type = bt.a.normal_type
+        cbt.a.invert_value = bt.a.invert_value
 
         return {'FINISHED'}
 
@@ -325,7 +325,7 @@ class YPasteBakeTarget(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         
-        has_clipboard = len(wmp.clipboard_bake) > 0
+        has_clipboard = len(wmp.clipboard_bake_target) > 0
 
         return context.object and node and has_clipboard
 
@@ -338,44 +338,41 @@ class YPasteBakeTarget(bpy.types.Operator):
             self.report({'ERROR'}, "Cannot paste values, no bake target selected")
             return {'CANCELLED'}
 
-        bake_target = wmp.clipboard_bake[0]
+        cbt = wmp.clipboard_bake_target[0]
 
         if self.paste_as_new:
-            new_bake = yp.bake_targets.add()
+            name = get_unique_name(cbt.name, yp.bake_targets)
+            bt = yp.bake_targets.add()
+            bt.name = name
         else:
-            new_bake = yp.bake_targets[yp.active_bake_target_index]
+            bt = yp.bake_targets[yp.active_bake_target_index]
             
-        new_bake.name = bake_target.name
-        new_bake.use_float = bake_target.use_float
-        new_bake.data_type = bake_target.data_type
-
-        new_bake.name = bake_target.name
-        new_bake.use_float = bake_target.use_float
-        new_bake.data_type = bake_target.data_type
+        bt.use_float = cbt.use_float
+        bt.data_type = cbt.data_type
         
-        new_bake.r.channel_name = bake_target.r.channel_name
-        new_bake.r.subchannel_index = bake_target.r.subchannel_index
-        new_bake.r.default_value = bake_target.r.default_value
-        new_bake.r.normal_type = bake_target.r.normal_type
-        new_bake.r.invert_value = bake_target.r.invert_value
+        bt.r.channel_name = cbt.r.channel_name
+        bt.r.subchannel_index = cbt.r.subchannel_index
+        bt.r.default_value = cbt.r.default_value
+        bt.r.normal_type = cbt.r.normal_type
+        bt.r.invert_value = cbt.r.invert_value
 
-        new_bake.g.channel_name = bake_target.g.channel_name
-        new_bake.g.subchannel_index = bake_target.g.subchannel_index
-        new_bake.g.default_value = bake_target.g.default_value
-        new_bake.g.normal_type = bake_target.g.normal_type
-        new_bake.g.invert_value = bake_target.g.invert_value
+        bt.g.channel_name = cbt.g.channel_name
+        bt.g.subchannel_index = cbt.g.subchannel_index
+        bt.g.default_value = cbt.g.default_value
+        bt.g.normal_type = cbt.g.normal_type
+        bt.g.invert_value = cbt.g.invert_value
 
-        new_bake.b.channel_name = bake_target.b.channel_name
-        new_bake.b.subchannel_index = bake_target.b.subchannel_index
-        new_bake.b.default_value = bake_target.b.default_value
-        new_bake.b.normal_type = bake_target.b.normal_type
-        new_bake.b.invert_value = bake_target.b.invert_value
+        bt.b.channel_name = cbt.b.channel_name
+        bt.b.subchannel_index = cbt.b.subchannel_index
+        bt.b.default_value = cbt.b.default_value
+        bt.b.normal_type = cbt.b.normal_type
+        bt.b.invert_value = cbt.b.invert_value
 
-        new_bake.a.channel_name = bake_target.a.channel_name
-        new_bake.a.subchannel_index = bake_target.a.subchannel_index
-        new_bake.a.default_value = bake_target.a.default_value
-        new_bake.a.normal_type = bake_target.a.normal_type
-        new_bake.a.invert_value = bake_target.a.invert_value
+        bt.a.channel_name = cbt.a.channel_name
+        bt.a.subchannel_index = cbt.a.subchannel_index
+        bt.a.default_value = cbt.a.default_value
+        bt.a.normal_type = cbt.a.normal_type
+        bt.a.invert_value = cbt.a.invert_value
 
         return {'FINISHED'}
 
