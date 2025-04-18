@@ -2146,8 +2146,8 @@ class BaseMultipleImagesLayer():
         #    return True
 
         return False
-    
-    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list, non_import_images=[]) -> bool:
+
+    def open_images_to_single_layer(self, context:bpy.context, directory:str='', import_list=[], non_import_images=[], channel_image_dict={}) -> bool:
     
         T = time.time()
         
@@ -2222,23 +2222,31 @@ class BaseMultipleImagesLayer():
             
                 for image in images:
 
-                    # One image will only use one channel
-                    if image in valid_images: continue
-
                     # DirectX image will be skipped if there's OpenGL image
                     if ch.type == 'NORMAL' and dx_image and gl_image and image == dx_image:
                         continue
 
-                    # Get filename without extension
-                    if image.filepath != '':
-                        img_name = os.path.splitext(bpy.path.basename(image.filepath))[0].lower()
-                    else: img_name = image.name.lower()
+                    if image in channel_image_dict.values():
+
+                        # Get alias based on channel-image dictionary
+                        for ch_name, img in channel_image_dict.items():
+                            if img == image:
+                                alias = ch_name.lower()
+                                if syname in ch_name.lower():
+                                    break
+
+                    elif image.filepath != '':
+                        # Get alias base on filename without extension
+                        alias = os.path.splitext(bpy.path.basename(image.filepath))[0].lower()
+                    else: 
+                        # Get alias base on filename
+                        alias = image.name.lower()
 
                     # Remove trailing digits and spaces from the filename
-                    img_name = re.sub(r'[\d\s]+$', '', img_name)
+                    alias = re.sub(r'[\d\s]+$', '', alias)
 
                     # Check if synonym is in image name
-                    if self.is_synonym_in_image_name(syname, img_name):
+                    if self.is_synonym_in_image_name(syname, alias):
 
                         if (ch.type != 'NORMAL' or 
                             (syname in bump_synonyms and not bump_image_found) or # Only proceed if bump image is not yet found
@@ -2275,6 +2283,7 @@ class BaseMultipleImagesLayer():
 
         #if valid_channels and valid_channels[0]
         layer = None
+        main_image = None
         for i, image in enumerate(valid_images):
             root_ch = valid_channels[i]
             syname = valid_synonyms[i]
@@ -2308,14 +2317,18 @@ class BaseMultipleImagesLayer():
 
                 yp.halt_update = False
                 tree = get_tree(layer)
+                main_image = image
             else:
                 ch = layer.channels[ch_idx]
                 ch.enable = True
                 if root_ch.type == 'NORMAL' and (syname in {'normal', 'n'} or 'normal without bump' in image.name.lower()):
-                    image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
-                    image_node.image = image
-                    ch.override_1 = True
-                    ch.override_1_type = 'IMAGE'
+                    if image == main_image:
+                        ch.override_1 = False
+                    else:
+                        image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
+                        image_node.image = image
+                        ch.override_1 = True
+                        ch.override_1_type = 'IMAGE'
                     if (self.normal_map_flip_y and (not gl_image or gl_image != image)) or (dx_image and dx_image == image):
                         ch.image_flip_y = True
                 else:
@@ -2327,8 +2340,11 @@ class BaseMultipleImagesLayer():
                     if syname == 'glossiness':
                         Modifier.add_new_modifier(ch, 'INVERT')
 
-                    ch.override = True
-                    ch.override_type = 'IMAGE'
+                    if image == main_image:
+                        ch.override = False
+                    else:
+                        ch.override = True
+                        ch.override_type = 'IMAGE'
 
         # Check image projections
         check_layer_projections(layer)
@@ -2349,8 +2365,9 @@ class BaseMultipleImagesLayer():
         wm.ypui.expand_channels = True
 
         # Expand vector transformation because it's highly likely user want to tweak this
-        wm.ypui.layer_ui.expand_content = True
+        wm.ypui.layer_ui.expand_content = False
         wm.ypui.layer_ui.expand_vector = True
+        wm.ypui.layer_ui.expand_channels = True
 
         print('INFO: Image(s) opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
@@ -2502,6 +2519,34 @@ def search_for_images(tree):
 
     return images
 
+def search_for_image_node(node, channel_name, channel_image_dict={}):
+    if node.type == 'TEX_IMAGE' and node.image:
+        #print("add", node.image.name, "to", channel_name)
+        channel_image_dict[channel_name] = node.image
+    elif node.type == "BUMP":
+        for inp in node.inputs:
+            if inp.is_linked:
+                # print("input=", inp.name, " linked=",inp.is_linked," type=" ,inp.type)
+                for link in inp.links:
+                    # print("link=", link.from_node.name, " type=", link.from_node.type)
+                    ch_name = inp.name
+                    if ch_name == "Height":
+                        ch_name = "Bump"
+                        # Skip if already in dictionary
+                        if ch_name in channel_image_dict:
+                            continue 
+                    search_for_image_node(link.from_node, ch_name, channel_image_dict)
+    else:
+        #print("else node=", node.name, "type=", node.type)
+        for inp in node.inputs:
+            if inp.is_linked:
+                # print("input=", inp.name, " linked=",inp.is_linked," type=" ,inp.type)
+                for link in inp.links:
+                    # print("link=", link.from_node.name, " type=", link.from_node.type)
+                    search_for_image_node(link.from_node, channel_name, channel_image_dict)
+                if channel_name in channel_image_dict:
+                    break
+                
 class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer):
     bl_idname = "wm.y_open_images_from_material_to_single_layer"
     bl_label = "Open Images from Material to single " + get_addon_title() + " Layer"
@@ -2511,6 +2556,16 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
     mat_name : StringProperty(default='')
     mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
     asset_library_path : StringProperty(default='')
+
+    read_method : EnumProperty(
+        name = 'Read Method',
+        description = '',
+        items = (
+            ('IMAGE_NAMES', 'Read Image Names', 'Read all image names in material'),
+            ('READ_NODE', 'Read Node Connections', 'Read node connections in material'),
+        ),
+        default = 'READ_NODE'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -2558,6 +2613,13 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
         if self.asset_library_path == '':
             row.prop_search(self, "mat_name", self, "mat_coll", text='', icon='MATERIAL_DATA')
         else: row.label(text=self.mat_name, icon='MATERIAL_DATA')
+
+        row = split_layout(self.layout, 0.325)
+        row.label(text='Read method:')
+
+        col = row.column()
+        col.prop(self, 'read_method', text="")
+
         self.draw_operator(context, display_relative_toggle=False)
 
     def execute(self, context):
@@ -2587,13 +2649,40 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             self.report({'ERROR'}, "Source material cannot be found!")
             return {'CANCELLED'}
 
-        # Check material for images
+        # Images to be processed
         images = []
-        if mat.node_tree:
-            images = search_for_images(mat.node_tree)
 
-        # Check for yp images
+        # channel name and their image dictionary
+        channel_image_dict = {}
+
+        # Get active material output
         output = get_material_output(mat)
+
+        if self.read_method == 'READ_NODE':
+            # Search images based on node connections
+            for inp in output.inputs:
+                if inp.is_linked and inp.name == "Displacement":
+                    for link in inp.links:
+                        search_for_image_node(link.from_node, "Bump", channel_image_dict)
+
+            bsdf_node = get_closest_bsdf_backward(output)
+
+            for inp in bsdf_node.inputs:
+                if inp.is_linked:
+                    for link in inp.links:
+                        ch_name = inp.name
+                        if ch_name == "Base Color":
+                            ch_name = "Color"
+                        search_for_image_node(link.from_node, ch_name, channel_image_dict)
+
+            for img in channel_image_dict.values():
+                if img not in images: images.append(img)
+
+        elif self.read_method == 'IMAGE_NAMES':
+
+            if mat.node_tree:
+                images = search_for_images(mat.node_tree)
+
         yp_node = get_closest_yp_node_backward(output)
         if yp_node:
             otree = yp_node.node_tree
@@ -2604,21 +2693,20 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
                 baked_normal_overlay = None
                 if root_ch.type == 'NORMAL':
                     baked_disp = otree.nodes.get(root_ch.baked_disp)
-                    if baked_disp and baked_disp.image:
+                    if baked_disp and baked_disp.image and 'Bump' not in channel_image_dict.keys():
                         images.append(baked_disp.image)
+                        channel_image_dict['Bump'] = baked_disp.image
 
                     baked_normal_overlay = otree.nodes.get(root_ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image:
+                    if baked_normal_overlay and baked_normal_overlay.image and 'Normal' not in channel_image_dict.keys():
                         images.append(baked_normal_overlay.image)
+                        channel_image_dict['Normal'] = baked_normal_overlay.image
 
                 if root_ch.type != 'NORMAL' or not (baked_disp and baked_normal_overlay):
                     baked = otree.nodes.get(root_ch.baked)
-                    if baked and baked.image:
+                    if baked and baked.image and root_ch.name not in channel_image_dict.keys():
                         images.append(baked.image)
-
-        if not images:
-            self.report({'ERROR'}, "Couldn't find images inside of the material!")
-            return {'CANCELLED'}
+                        channel_image_dict[root_ch.name] = baked.image
 
         # Check for existing images if the image source is from asset library
         if from_asset_library:
@@ -2650,6 +2738,10 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             # Use filtered images
             images = filtered_images
 
+        if len(images) == 0:
+            self.report({'ERROR'}, "Couldn't find images inside of the material!")
+            return {'CANCELLED'}
+
         # Use quick setup if yp node is not found
         node = get_active_ypaint_node()
         quick_setup_happen = False
@@ -2658,8 +2750,8 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, BaseMultipleImagesLayer
             quick_setup_happen = True
 
         failed = False
-        if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images):
-            self.report({'ERROR'}, "Images should have channel name as suffix!")
+        if not self.open_images_to_single_layer(context, directory='', import_list=[], non_import_images=images, channel_image_dict=channel_image_dict):
+            self.report({'ERROR'}, "Cannot find valid images!")
             failed = True
 
         # Remove material if it has only fake users
@@ -2697,7 +2789,7 @@ class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleIma
 
     def execute(self, context):
         import_list, directory = self.generate_paths()
-        if not self.open_images_to_single_layer(context, directory, import_list):
+        if not self.open_images_to_single_layer(context, directory=directory, import_list=import_list):
             self.report({'ERROR'}, "Images should have channel name as suffix!")
             return {'CANCELLED'}
         
