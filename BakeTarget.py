@@ -314,7 +314,7 @@ class YPasteBakeTarget(bpy.types.Operator):
     bl_description = "Paste Bake Target"
     bl_options = {'UNDO'}
 
-    paste_as_new: BoolProperty(
+    paste_as_new : BoolProperty(
         name = 'Paste As New Bake Target',
         default = True
     )

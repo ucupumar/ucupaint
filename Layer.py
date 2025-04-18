@@ -1,9 +1,9 @@
 import bpy, time, re, os, random, numpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, bake_common
+from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem
 from .common import *
-#from .bake_common import *
+from .bake_common import *
 from .node_arrangements import *
 from .node_connections import *
 from .subtree import *
@@ -5584,7 +5584,7 @@ class YPasteLayer(bpy.types.Operator):
         # Rebake baked images
         if self.any_baked and self.rebake_bakeds:
             pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
-            bake_common.rebake_baked_images(yp, specific_layers=pasted_layers)
+            rebake_baked_images(yp, specific_layers=pasted_layers)
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
