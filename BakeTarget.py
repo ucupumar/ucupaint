@@ -321,10 +321,9 @@ class YPasteBakeTarget(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        wmp = context.window_manager.ypprops
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        
+
+        wmp = context.window_manager.ypprops
         has_clipboard = len(wmp.clipboard_bake_target) > 0
 
         return context.object and node and has_clipboard
