@@ -706,7 +706,7 @@ class YSculptImage(bpy.types.Operator):
         height_ch = get_height_channel(layer)
         intensity = get_vdm_intensity(layer, height_ch) if height_ch else 1.0
 
-        if mapping and is_transformed(mapping):
+        if mapping and is_transformed(mapping, layer):
             self.report({'ERROR'}, "Cannot sculpt VDM with transformed mapping!")
             return {'CANCELLED'}
 

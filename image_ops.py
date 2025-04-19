@@ -1,4 +1,4 @@
-import bpy, os
+import bpy, os, subprocess, sys
 import tempfile
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
@@ -312,9 +312,46 @@ def save_pack_all(yp):
         for image in images:
             clean_object_references(image)
 
+class YCopyImagePathToClipboard(bpy.types.Operator):
+    bl_idname = "wm.copy_image_path_to_clipboard"
+    bl_label = "Copy Image Path To Clipboard"
+    bl_description = get_addon_title() + " Copy the image file path to the system clipboard"
+
+    clipboard_text : bpy.props.StringProperty()
+
+    def execute(self, context):
+        context.window_manager.clipboard = self.clipboard_text
+        self.report({'INFO'}, "Copied: " + self.clipboard_text)
+        return {'FINISHED'}
+
+class YOpenContainingImageFolder(bpy.types.Operator):
+    bl_idname = "wm.open_containing_image_folder"
+    bl_label = "Open Containing Image Folder"
+    bl_description = get_addon_title() + " Open the folder containing the image file and highlight it"
+
+    file_path : bpy.props.StringProperty()
+
+    def execute(self, context):
+        filepath = bpy.path.abspath(self.file_path)
+        if not os.path.exists(filepath):
+            self.report({'ERROR'}, "File does not exist")
+            return {'CANCELLED'}
+        try:
+            # Add more branches below for different operating systems
+            if sys.platform == 'win32':  # Windows
+                subprocess.call(["explorer", "/select,", filepath])
+            elif sys.platform == 'darwin': # Mac
+                subprocess.call(["open", "-R", filepath])
+            elif sys.platform == 'linux': # Linux
+                subprocess.check_call(['dbus-send', '--session', '--print-reply', '--dest=org.freedesktop.FileManager1', '--type=method_call', '/org/freedesktop/FileManager1', 'org.freedesktop.FileManager1.ShowItems', 'array:string:file://'+os.path.normpath(filepath), 'string:""'])
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
-    bl_idname = "node.y_invert_image"
+    bl_idname = "wm.y_invert_image"
     bl_label = "Invert Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -351,7 +388,7 @@ class YInvertImage(bpy.types.Operator):
 
 class YRefreshImage(bpy.types.Operator):
     """Reload Image"""
-    bl_idname = "node.y_reload_image"
+    bl_idname = "wm.y_reload_image"
     bl_label = "Reload Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -372,7 +409,7 @@ class YRefreshImage(bpy.types.Operator):
 
 class YPackImage(bpy.types.Operator):
     """Pack Image"""
-    bl_idname = "node.y_pack_image"
+    bl_idname = "wm.y_pack_image"
     bl_label = "Pack Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -442,7 +479,7 @@ class YPackImage(bpy.types.Operator):
 
 class YSaveImage(bpy.types.Operator):
     """Save Image"""
-    bl_idname = "node.y_save_image"
+    bl_idname = "wm.y_save_image"
     bl_label = "Save Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -594,7 +631,7 @@ def remove_unpacked_image_path(image, filepath, default_dir, default_dir_found, 
 
 class YSaveAllBakedImages(bpy.types.Operator):
     """Save All Baked Images to directory"""
-    bl_idname = "node.y_save_all_baked_images"
+    bl_idname = "wm.y_save_all_baked_images"
     bl_label = "Save All Baked Images"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -817,7 +854,7 @@ def get_file_format_items():
 
 class YSaveAsImage(bpy.types.Operator, ExportHelper):
     """Save As Image"""
-    bl_idname = "node.y_save_as_image"
+    bl_idname = "wm.y_save_as_image"
     bl_label = "Save As Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1175,7 +1212,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
 class YSavePackAll(bpy.types.Operator):
     """Save and Pack All Image Layers"""
-    bl_idname = "node.y_save_pack_all"
+    bl_idname = "wm.y_save_pack_all"
     bl_label = "Save and Pack All Image Layers"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1192,6 +1229,69 @@ class YSavePackAll(bpy.types.Operator):
         ypui.refresh_image_hack = False
         return {'FINISHED'}
 
+def toggle_image_bit_depth(image, no_copy=False, force_srgb=False):
+
+    if image.yua.is_udim_atlas or image.yia.is_image_atlas:
+        self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
+        return {'CANCELLED'}
+
+    # Create new image based on original image but with different bit depth
+    if image.source == 'TILED':
+
+        # Make sure image has filepath
+        if image.filepath == '': UDIM.initial_pack_udim(image)
+
+        tilenums = [tile.number for tile in image.tiles]
+        new_image = bpy.data.images.new(
+            image.name, width=image.size[0], height=image.size[1], 
+            alpha=True, float_buffer=not image.is_float, tiled=True
+        )
+
+        # Fill tiles
+        color = (0, 0, 0, 0)
+        for tilenum in tilenums:
+            ori_width = image.tiles.get(tilenum).size[0]
+            ori_height = image.tiles.get(tilenum).size[1]
+            UDIM.fill_tile(new_image, tilenum, color, ori_width, ori_height)
+        UDIM.initial_pack_udim(new_image, color)
+
+    else:
+        new_image = bpy.data.images.new(
+            image.name, width=image.size[0], height=image.size[1], 
+            alpha=True, float_buffer=not image.is_float
+        )
+
+        if image.filepath != '':
+            new_image.filepath = image.filepath
+
+    if force_srgb:
+        new_image.colorspace_settings.name = get_srgb_name()
+    else: new_image.colorspace_settings.name = image.colorspace_settings.name
+
+    # Copy image pixels
+    if no_copy == False:
+        if image.source == 'TILED':
+            UDIM.copy_udim_pixels(image, new_image)
+        else: copy_image_pixels(image, new_image)
+
+    # Pack image
+    if image.packed_file and image.source != 'TILED':
+        if is_bl_newer_than(2, 80):
+            new_image.pack()
+        else:
+            if new_image.is_float:
+                pack_float_image(new_image)
+            else: new_image.pack(as_png=True)
+
+        # HACK: Float image need to be reloaded after packing to be showed correctly
+        if new_image.is_float:
+            new_image.reload()
+
+    # Replace image
+    replace_image(image, new_image)
+
+    return new_image
+
 class YConvertImageBitDepth(bpy.types.Operator):
     """Convert Image Bit Depth"""
     bl_idname = "image.y_convert_image_bit_depth"
@@ -1207,62 +1307,7 @@ class YConvertImageBitDepth(bpy.types.Operator):
         yp = node.node_tree.yp
 
         image = context.image
-
-        if image.yua.is_udim_atlas or image.yia.is_image_atlas:
-            self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
-            return {'CANCELLED'}
-
-        # Create new image based on original image but with different bit depth
-        if image.source == 'TILED':
-
-            # Make sure image has filepath
-            if image.filepath == '': UDIM.initial_pack_udim(image)
-
-            tilenums = [tile.number for tile in image.tiles]
-            new_image = bpy.data.images.new(
-                image.name, width=image.size[0], height=image.size[1], 
-                alpha=True, float_buffer=not image.is_float, tiled=True
-            )
-
-            # Fill tiles
-            color = (0, 0, 0, 0)
-            for tilenum in tilenums:
-                ori_width = image.tiles.get(tilenum).size[0]
-                ori_height = image.tiles.get(tilenum).size[1]
-                UDIM.fill_tile(new_image, tilenum, color, ori_width, ori_height)
-            UDIM.initial_pack_udim(new_image, color)
-
-        else:
-            new_image = bpy.data.images.new(
-                image.name, width=image.size[0], height=image.size[1], 
-                alpha=True, float_buffer=not image.is_float
-            )
-
-            if image.filepath != '':
-                new_image.filepath = image.filepath
-
-        new_image.colorspace_settings.name = image.colorspace_settings.name
-
-        # Copy image pixels
-        if image.source == 'TILED':
-            UDIM.copy_udim_pixels(image, new_image)
-        else: copy_image_pixels(image, new_image)
-
-        # Pack image
-        if image.packed_file and image.source != 'TILED':
-            if is_bl_newer_than(2, 80):
-                new_image.pack()
-            else:
-                if new_image.is_float:
-                    pack_float_image(new_image)
-                else: new_image.pack(as_png=True)
-
-            # HACK: Float image need to be reloaded after packing to be showed correctly
-            if new_image.is_float:
-                new_image.reload()
-
-        # Replace image
-        replace_image(image, new_image)
+        toggle_image_bit_depth(image)
 
         # Update image editor by setting active layer index
         yp.active_layer_index = yp.active_layer_index
@@ -1270,6 +1315,8 @@ class YConvertImageBitDepth(bpy.types.Operator):
         return {'FINISHED'}
 
 def register():
+    bpy.utils.register_class(YCopyImagePathToClipboard)
+    bpy.utils.register_class(YOpenContainingImageFolder)
     bpy.utils.register_class(YInvertImage)
     bpy.utils.register_class(YRefreshImage)
     bpy.utils.register_class(YPackImage)
@@ -1280,6 +1327,8 @@ def register():
     bpy.utils.register_class(YConvertImageBitDepth)
 
 def unregister():
+    bpy.utils.unregister_class(YCopyImagePathToClipboard)
+    bpy.utils.unregister_class(YOpenContainingImageFolder)
     bpy.utils.unregister_class(YInvertImage)
     bpy.utils.unregister_class(YRefreshImage)
     bpy.utils.unregister_class(YPackImage)
