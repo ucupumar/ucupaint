@@ -11,7 +11,7 @@ from .operators import TexLibAddToUcupaint, TexLibCancelDownload, TexLibDownload
 
 from .downloader import texture_exist, get_thread, get_thread_id
 
-from ..common import get_user_preferences
+from ..common import is_online, is_bl_newer_than
 
 class TexLibBrowser(Panel):
     bl_label = "Texlib Browser"
@@ -22,7 +22,7 @@ class TexLibBrowser(Panel):
 
     @classmethod
     def poll(cls, context):
-        return get_user_preferences().show_texlib_browser
+        return is_online() and is_bl_newer_than(3)
 
     def draw(self, context):
         layout = self.layout
