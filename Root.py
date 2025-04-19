@@ -3540,6 +3540,13 @@ class YPaintChannel(bpy.types.PropertyGroup):
         update = Bake.update_enable_bake_to_vcol
     )
 
+    use_baked_vcol : BoolProperty(
+        name = 'Use Baked Vertex Color',
+        description = 'Use baked vertex color',
+        default = False,
+        update = Bake.update_enable_bake_to_vcol
+    )
+
     bake_to_vcol_alpha : BoolProperty(
         name = 'Bake To Vertex Color Alpha', 
         description = 'When enabled, the channel are baked only to Alpha with vertex color', 
@@ -3795,6 +3802,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     expand_bake_to_vcol_settings : BoolProperty(default=False)
     expand_input_bump_settings : BoolProperty(default=False)
     expand_smooth_bump_settings : BoolProperty(default=False)
+    expand_baked_data : BoolProperty(default=False)
 
     # Connection related
     ori_alpha_to : CollectionProperty(type=YNodeConnections)
@@ -4079,6 +4087,10 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 
     brush_asset_caches : CollectionProperty(type=YPaintBrushAssetCache)
 
+    correct_paint_image_name : StringProperty(default='')
+
+    clipboard_bake_target : CollectionProperty(type=BakeTarget.YBakeTarget)
+
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
@@ -4105,6 +4117,10 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
 
     mesh_hash : StringProperty(default='')
     uv_hashes : CollectionProperty(type=YPaintObjectUVHash)
+
+    texpaint_translation : FloatVectorProperty(size=3, default=(0.0, 0.0, 0.0))
+    texpaint_rotation : FloatVectorProperty(size=3, default=(0.0, 0.0, 0.0))
+    texpaint_scale : FloatVectorProperty(size=3, default=(1.0, 1.0, 1.0))
 
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min : FloatProperty(default=0.0)
@@ -4190,6 +4206,9 @@ def ypaint_last_object_update(scene):
                                 obj.yp.ori_offset_v = mirror.offset_v
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
 
+                # HACK: Just in case active image is not correct
+                ypwm.correct_paint_image_name = image.name
+
                 refresh_temp_uv(obj, src_of_img)
 
         # Into edit mode
@@ -4222,6 +4241,32 @@ def ypaint_last_object_update(scene):
 
         if ypwm.last_mode != obj.mode:
             ypwm.last_mode = obj.mode
+
+@persistent
+def ypaint_missmatch_paint_slot_hack(scene):
+    # HACK: Force material active slot to update if necessary
+    wmyp = bpy.context.window_manager.ypprops
+    if wmyp.correct_paint_image_name != '':
+
+        if scene.tool_settings.image_paint.mode == 'MATERIAL':
+
+            mat = get_active_material()
+
+            try: active_img = mat.texture_paint_images[mat.paint_active_slot]
+            except: active_img = None
+
+            try: correct_img = bpy.data.images.get(wmyp.correct_paint_image_name)
+            except: correct_img = None
+
+            if active_img and correct_img and active_img != correct_img:
+                for idx, img in enumerate(mat.texture_paint_images):
+                    if img == None: continue
+                    if img.name == correct_img.name:
+                        try: mat.paint_active_slot = idx
+                        except: print('EXCEPTIION: Cannot set active paint slot image!')
+                        break
+
+        wmyp.correct_paint_image_name = ''
 
 @persistent
 def ypaint_force_update_on_anim(scene):
@@ -4327,6 +4372,7 @@ def register():
     # Handlers
     if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.append(ypaint_last_object_update)
+        bpy.app.handlers.depsgraph_update_post.append(ypaint_missmatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
@@ -4371,6 +4417,7 @@ def unregister():
     # Remove handlers
     if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.remove(ypaint_last_object_update)
+        bpy.app.handlers.depsgraph_update_post.remove(ypaint_missmatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_last_object_update)

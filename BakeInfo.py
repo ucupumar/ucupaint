@@ -20,12 +20,19 @@ class YBakeInfoSelectedObject(bpy.types.PropertyGroup):
 class YBakeInfoProps(bpy.types.PropertyGroup):
     is_baked : BoolProperty(default=False) # Flag to mark if the image is from baking or not
     is_baked_channel : BoolProperty(default=False) # Flag to mark if the image baked from main channel
+    is_baked_entity : BoolProperty(default=False) # Flag to mark if the image baked from entity
 
     bake_type : EnumProperty(
         name = 'Bake Type',
         description = 'Bake Type',
         items = bake_type_items,
         default = 'AO'
+    )
+
+    baked_entity_type : StringProperty(
+        name = 'Baked Entity Type',
+        description = 'Baked entity type',
+        default = ''
     )
 
     samples : IntProperty(
@@ -168,6 +175,18 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         name = 'Use Float for Displacement',
         description = 'Use float image for baked displacement',
         default = False
+    )
+
+    use_dithering : BoolProperty(
+        name = 'Use Dithering',
+        description = 'Use dithering for less banding color',
+        default = False
+    )
+
+    dither_intensity : FloatProperty(
+        name = 'Dither Intensity',
+        description = 'Amount of dithering noise added to the rendered image to break up banding',
+        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
     )
 
     bake_disabled_layers : BoolProperty(
