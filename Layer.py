@@ -5215,8 +5215,9 @@ class YDuplicateLayer(bpy.types.Operator):
         # Duplicate data of newly created layers
         created_layers = [l for l in yp.layers if l.name in created_layer_names]
         duplicate_layer_nodes_and_images(
-            tree, created_layers, packed_duplicate = self.packed_duplicate,
-            ondisk_duplicate = self.ondisk_duplicate,
+            tree, created_layers, packed_duplicate = self.packed_duplicate or self.duplicate_blank,
+            duplicate_blank = self.duplicate_blank,
+            ondisk_duplicate = self.ondisk_duplicate or self.duplicate_blank,
             set_new_decal_position = self.set_new_decal_position
         )
 
