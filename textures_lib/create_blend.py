@@ -61,6 +61,8 @@ new_material = bpy.data.materials.new(name=arg_dict["id"]+"_"+arg_dict["attribut
 new_material.use_nodes = True
 bsdf = new_material.node_tree.nodes["Principled BSDF"]
 
+output = [n for n in new_material.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+if output: output = output[0]
 
 for image_path in image_paths:
 
@@ -87,6 +89,10 @@ for image_path in image_paths:
 		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
 		tex_image.image = image
 		new_material.node_tree.links.new(bsdf.inputs['Roughness'], tex_image.outputs['Color'])
+	elif "displacement" in check_name:
+		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
+		tex_image.image = image
+		new_material.node_tree.links.new(output.inputs['Displacement'], tex_image.outputs['Color'])
 	else:
 		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
 		tex_image.image = image
