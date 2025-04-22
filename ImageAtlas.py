@@ -509,7 +509,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
             entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp)
         else:
             mapping = get_entity_mapping(context.entity)
-            if is_transformed(mapping) and not context.entity.use_baked:
+            if is_transformed(mapping, context.entity) and not context.entity.use_baked:
                 self.report({'ERROR'}, "Cannot convert transformed image!")
                 return {'CANCELLED'}
 
@@ -536,7 +536,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
                 # Transformed mapping on entity is not valid for conversion
                 mapping = get_entity_mapping(entity)
-                if use_baked or not is_transformed(mapping):
+                if use_baked or not is_transformed(mapping, entity):
                     valid_entities.append(entity)
 
             if not any(valid_entities):
@@ -577,6 +577,10 @@ class YConvertToImageAtlas(bpy.types.Operator):
                 # Set segment name
                 #entity.segment_name = new_segment.name
                 setattr(entity, segment_name_props[i][j], new_segment.name)
+
+                # Make sure uniform scaling is not used
+                if entity.enable_uniform_scale:
+                    entity.enable_uniform_scale = False
 
                 # Set image to editor
                 if entity == context.entity:

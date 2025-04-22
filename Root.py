@@ -4089,6 +4089,8 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 
     correct_paint_image_name : StringProperty(default='')
 
+    clipboard_bake_target : CollectionProperty(type=BakeTarget.YBakeTarget)
+
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
@@ -4115,6 +4117,10 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
 
     mesh_hash : StringProperty(default='')
     uv_hashes : CollectionProperty(type=YPaintObjectUVHash)
+
+    texpaint_translation : FloatVectorProperty(size=3, default=(0.0, 0.0, 0.0))
+    texpaint_rotation : FloatVectorProperty(size=3, default=(0.0, 0.0, 0.0))
+    texpaint_scale : FloatVectorProperty(size=3, default=(1.0, 1.0, 1.0))
 
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min : FloatProperty(default=0.0)

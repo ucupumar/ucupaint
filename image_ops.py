@@ -342,8 +342,8 @@ class YOpenContainingImageFolder(bpy.types.Operator):
                 subprocess.call(["explorer", "/select,", filepath])
             elif sys.platform == 'darwin': # Mac
                 subprocess.call(["open", "-R", filepath])
-            elif sys.platform == 'linux2': # Linux
-                subprocess.check_call(['xdg-open', '--', filepath])
+            elif sys.platform == 'linux': # Linux
+                subprocess.check_call(['dbus-send', '--session', '--print-reply', '--dest=org.freedesktop.FileManager1', '--type=method_call', '/org/freedesktop/FileManager1', 'org.freedesktop.FileManager1.ShowItems', 'array:string:file://'+os.path.normpath(filepath), 'string:""'])
         except Exception as e:
             self.report({'ERROR'}, str(e))
             return {'CANCELLED'}
