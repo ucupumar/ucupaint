@@ -423,6 +423,16 @@ def texture_exist(context, asset_id:str, attribute:str) -> bool:
 	
 	return False
 
+def find_blend(context, asset_id:str, attribute:str) -> str:
+	location = os.path.join(get_textures_dir(context), asset_id, attribute)
+	if os.path.exists(location):
+		files = os.listdir(location)
+		for f in files:
+			if asset_id in f and f.endswith(".blend"):
+				full_path = os.path.join(location, f)
+				return full_path
+	return None
+
 def extract_file(my_file:str) -> bool:
 	dir_name = os.path.dirname(my_file)
 	# new_folder = os.path.basename(my_file).split('.')[0]

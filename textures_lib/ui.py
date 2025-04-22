@@ -9,7 +9,7 @@ from .properties import TexLibProps, MaterialItem, DownloadQueue, get_asset_lib,
 
 from .operators import TexLibAddToUcupaint, TexLibCancelDownload, TexLibDownload, TexLibRemoveTextureAttribute
 
-from .downloader import texture_exist, get_thread, get_thread_id
+from .downloader import texture_exist, get_thread, get_thread_id, find_blend
 
 from ..common import is_online, is_bl_newer_than
 
@@ -112,8 +112,6 @@ class TexLibBrowser(Panel):
                         total_size += t.size
 
                     ukuran = round(total_size / 1000000,2)
-                    
-                    check_exist:bool = texture_exist(context, mat_id, d)
 
                     ui_attr = layout.split(factor=0.7)
 
@@ -135,10 +133,16 @@ class TexLibBrowser(Panel):
                         op.attribute = d
                         op.id = mat_id
                     else:
+                        check_exist:bool = texture_exist(context, mat_id, d)
                         if check_exist:
-                            op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
-                            op.attribute = d
-                            op.id = sel_mat.asset_id
+                            op = btn_row.operator("wm.y_open_images_from_material_to_single_layer", icon="ADD")
+                            blend_path = find_blend(context, mat_id, d)
+                            op.asset_library_path = blend_path
+
+                            with bpy.data.libraries.load(str(blend_path), assets_only=True) as (data_from, data_to):
+                                for mat in data_from.materials:
+                                    op.mat_name = mat
+                                    break
 
                             op_remove:TexLibRemoveTextureAttribute = btn_row.operator("texlib.remove_attribute", icon="REMOVE")
                             op_remove.attribute = d
@@ -183,9 +187,9 @@ class TexLibBrowser(Panel):
 
         btns = layout.row()
 
-        op:TexLibAddToUcupaint = btns.operator("texlib.add_to_ucupaint", icon="ADD")
-        op.attribute = attr
-        op.id = selected.asset_id
+        op = btns.operator("wm.y_open_images_from_material_to_single_layer", icon="ADD", text="Add to Ucupaint")
+        op.mat_name = selected.name
+        op.asset_library_path = selected.full_path
 
         remove:TexLibRemoveTextureAttribute = btns.operator("texlib.remove_attribute", icon="REMOVE")
         remove.attribute = attr

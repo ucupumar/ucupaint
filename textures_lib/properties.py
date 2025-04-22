@@ -137,6 +137,7 @@ def retrieve_asset_library(context:Context):
 				new_item:MaterialItem = txlib.library_items.add()
 				new_item.name = mat
 				new_item.source_type = ""
+				new_item.full_path = str(blend_file)
 
 				nama = mat
 				# split string and remove last index
@@ -276,6 +277,7 @@ class MaterialItem(PropertyGroup):
 	asset_id: StringProperty(name="Asset ID")
 	name: StringProperty( name="Name", description="Material name", default="Untitled") 
 	source_type: StringProperty( name="Source Type", description="Source type", default="")
+	full_path: StringProperty( name="Full Path", description="Full path to the asset", default="")
 	# thumb: IntProperty( name="thumbnail", description="", default=0)
 
 class DownloadQueue(PropertyGroup):
