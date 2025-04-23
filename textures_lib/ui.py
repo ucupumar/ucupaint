@@ -14,7 +14,7 @@ from .downloader import texture_exist, get_thread, get_thread_id, find_blend
 from ..common import is_online, is_bl_newer_than
 
 class TexLibBrowser(Panel):
-    bl_label = "Texlib Browser"
+    bl_label = "Texture Libraries"
     bl_idname = "TEXLIB_PT_Browser"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -75,10 +75,12 @@ class TexLibBrowser(Panel):
                     
         # print("list", local_files_mode, ":",sel_index,"/",len(my_list))
         # print("list", local_files_mode, ":",texlib.material_index,"/",len(texlib.material_items)," | ", texlib.downloaded_material_index,"/",len(texlib.downloaded_material_items))
-        if len(my_list):
+        if not len(my_list) and texlib.input_search != '' and not searching_dwn.alive:
+            layout.label(text='No results for \''+texlib.input_search+'\'!', icon='ERROR')
+        elif len(my_list):
 
-            layout.separator()
-            layout.label(text="Textures:")
+            #layout.separator()
+            layout.label(text=str(len(my_list))+" resuts for '"+texlib.input_search+"':")
             col_lay = layout.row()
            
             col_lay.template_list("TEXLIB_UL_Material", "material_list", texlib, "search_items", texlib, "search_index")
