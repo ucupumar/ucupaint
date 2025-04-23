@@ -150,11 +150,11 @@ def enable_layer_source_tree(layer, rearrange=False):
 
     # Check if source tree is already available
     if layer.type in {'BACKGROUND', 'COLOR'}: return
-    if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'} and layer.source_group != '': return
+    if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'} and layer.source_group != '': return
 
     layer_tree = get_tree(layer)
 
-    if layer.type not in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
+    if layer.type not in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(layer.source)
         linear_ref = layer_tree.nodes.get(layer.linear)
@@ -211,7 +211,7 @@ def enable_layer_source_tree(layer, rearrange=False):
             move_mod_group(layer, layer_tree, source_tree)
 
     # Create uv neighbor
-    if layer.type in {'VCOL', 'HEMI'}:
+    if layer.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
         uv_neighbor = replace_new_node(
             layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
             lib.NEIGHBOR_FAKE, hard_replace=True
@@ -249,6 +249,7 @@ def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False)
             return
 
     layer_tree = get_tree(layer)
+    if not layer_tree: return
 
     #if ch.override_type not in {'DEFAULT'}:
     source_group = layer_tree.nodes.get(ch.source_group)
@@ -293,12 +294,12 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and get_channel_enabled(layer.channels[i], layer, root_ch) and is_height_process_needed(layer):
                 smooth_bump_ch = root_ch
 
-        if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'} and layer.source_group == '') or smooth_bump_ch:
+        if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'} and layer.source_group == '') or smooth_bump_ch:
             return
 
     layer_tree = get_tree(layer)
 
-    if force or layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
+    if force or layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
         source_group = layer_tree.nodes.get(layer.source_group)
         if source_group:
             source_ref = source_group.node_tree.nodes.get(layer.source)
@@ -580,6 +581,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+    if not tree: return False
 
     need_reconnect = False
 

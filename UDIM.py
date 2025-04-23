@@ -529,7 +529,7 @@ def remove_tile(image, tilenum):
     remove_tiles(image, [tilenum])
 
 class YRefillUDIMTiles(bpy.types.Operator):
-    bl_idname = "node.y_refill_udim_tiles"
+    bl_idname = "wm.y_refill_udim_tiles"
     bl_label = "Refill UDIM Tiles"
     bl_description = "Refill all UDIM tiles used by all layers and masks based on their UV"
     bl_options = {'REGISTER', 'UNDO'}

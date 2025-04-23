@@ -378,7 +378,7 @@ def get_entities_to_transfer(yp, from_uv_map, to_uv_map):
     return entities
 
 class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_transfer_some_layer_uv"
+    bl_idname = "wm.y_transfer_some_layer_uv"
     bl_label = "Transfer Some Layer UV"
     bl_description = "Transfer some layers/masks UV by baking it to other uv (this will take quite some time to finish)"
     bl_options = {'REGISTER', 'UNDO'}
@@ -551,7 +551,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_transfer_layer_uv"
+    bl_idname = "wm.y_transfer_layer_uv"
     bl_label = "Transfer Layer UV"
     bl_description = "Transfer Layer UV by baking it to other uv (this will take quite some time to finish)"
     bl_options = {'REGISTER', 'UNDO'}
@@ -691,7 +691,7 @@ def update_resize_image_tile_number(self, context):
             self.height = tile.size[1]
 
 class YResizeImage(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_resize_image"
+    bl_idname = "wm.y_resize_image"
     bl_label = "Resize Image Layer/Mask"
     bl_description = "Resize image of layer or mask"
     bl_options = {'REGISTER', 'UNDO'}
@@ -855,7 +855,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
 
 class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
     """Bake Channel to Vertex Color"""
-    bl_idname = "node.y_bake_channel_to_vcol"
+    bl_idname = "wm.y_bake_channel_to_vcol"
     bl_label = "Bake channel to vertex color"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1091,7 +1091,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YDeleteBakedChannelImages(bpy.types.Operator):
-    bl_idname = "node.y_delete_baked_channel_images"
+    bl_idname = "wm.y_delete_baked_channel_images"
     bl_label = "Delete All Baked Channel Images"
     bl_description = "Delete all baked channel images"
     bl_options = {'UNDO'}
@@ -1202,7 +1202,7 @@ def bake_vcol_channel_items(self, context):
 
 class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     """Bake Channels to Image(s)"""
-    bl_idname = "node.y_bake_channels"
+    bl_idname = "wm.y_bake_channels"
     bl_label = "Bake channels to Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1282,6 +1282,18 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         name = 'Use Float for Displacement',
         description = 'Use float image for baked displacement',
         default = False
+    )
+
+    use_dithering : BoolProperty(
+        name = 'Use Dithering',
+        description = 'Use dithering for less banding color',
+        default = False
+    )
+
+    dither_intensity : FloatProperty(
+        name = 'Dither Intensity',
+        description = 'Amount of dithering noise added to the rendered image to break up banding',
+        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
     )
     
     bake_disabled_layers : BoolProperty(
@@ -1472,6 +1484,16 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ccol.prop(self, 'fxaa', text='Use FXAA')
         if is_bl_newer_than(2, 81):
             ccol.prop(self, 'denoise', text='Use Denoise')
+
+        any_color_channel = any([c for c in self.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+        if any_color_channel:
+            if not self.use_dithering:
+                ccol.prop(self, 'use_dithering', text='Use Dithering')
+            if self.use_dithering:
+                row = split_layout(ccol, 0.55)
+                row.prop(self, 'use_dithering', text='Use Dithering')
+                row.prop(self, 'dither_intensity', text='')
+
         ccol.prop(self, 'force_bake_all_polygons')
         ccol.prop(self, 'bake_disabled_layers')
 
@@ -1623,10 +1645,17 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 layer.enable = True 
 
         # Bake channels
+        baked_exists = []
         for ch in self.channels:
+
+            # Check if baked node exists
+            baked = tree.nodes.get(ch.baked)
+            if baked: baked_exists.append(True)
+            else: baked_exists.append(False)
+
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
-                use_hdr = not ch.use_clamp
+                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
                 bake_channel(
                     self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
                     tilenums=tilenums, interpolation=self.interpolation, 
@@ -1636,10 +1665,18 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Process baked images
         baked_images = []
-        for ch in self.channels:
+        for i, ch in enumerate(self.channels):
 
             baked = tree.nodes.get(ch.baked)
             if baked and baked.image:
+
+                # Only expand baked data when baked is just created
+                if not baked_exists[i]:
+                    ch.expand_baked_data = True
+
+                # Dithering
+                if ch.type == 'RGB' and ch.colorspace == 'SRGB' and self.use_dithering and ch.use_clamp:
+                    dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=ch.enable_alpha)
 
                 # Denoise
                 if self.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':
@@ -1942,6 +1979,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     baked = tree.nodes.get(ch.baked_vcol)
                     if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
                         baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
+                        # Set channel to use baked vertex color only when baked_vcol is just created
+                        ch.use_baked_vcol = True
+
                     set_source_vcol_name(baked, ch.bake_to_vcol_name)
                     for ob in objs:
                         # Recover material index
@@ -1992,9 +2032,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         # Refresh active channel index
         yp.active_channel_index = yp.active_channel_index
 
+        # Update UI
+        ypui = context.window_manager.ypui
+        ypui.need_update = True
+
         # If bake target ui is visible, refresh bake target index to show up the image result
         if len(yp.bake_targets) > 0:
-            ypui = context.window_manager.ypui
             if ypui.show_bake_targets:
                 yp.active_bake_target_index = yp.active_bake_target_index
 
@@ -2142,7 +2185,7 @@ def remove_layer_modifiers_and_transforms(layer):
         Mask.remove_mask(layer, m, bpy.context.object)
 
 class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_merge_layer"
+    bl_idname = "wm.y_merge_layer"
     bl_label = "Merge layer"
     bl_description = "Merge Layer"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2510,7 +2553,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YMergeMask(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_merge_mask"
+    bl_idname = "wm.y_merge_mask"
     bl_label = "Merge mask"
     bl_description = "Merge Mask"
     bl_options = {'UNDO'}
@@ -2758,7 +2801,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "node.y_bake_temp_image"
+    bl_idname = "wm.y_bake_temp_image"
     bl_label = "Bake temporary image of layer"
     bl_description = "Bake temporary image of layer, can be useful to prefent glitching with cycles"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2861,7 +2904,7 @@ class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YDisableTempImage(bpy.types.Operator):
-    bl_idname = "node.y_disable_temp_image"
+    bl_idname = "wm.y_disable_temp_image"
     bl_label = "Disable Baked temporary image of layer"
     bl_description = "Disable bake temporary image of layer"
     bl_options = {'REGISTER', 'UNDO'}
@@ -3515,7 +3558,7 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
 
         if set_one:
             # Create links
-            if vdisp: create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
+            if vdisp and vdisp_outp: create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
             if disp:
                 create_link(mat.node_tree, height_outp, disp.inputs['Height'])
                 create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])

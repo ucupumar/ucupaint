@@ -37,8 +37,14 @@ def get_mod_y_offsets(mod, is_value=False):
 def check_set_node_loc(tree, node_name, loc, hide=False, parent_unset=False):
     node = tree.nodes.get(node_name)
     if node:
-        if node.location != loc:
+        # Blender 4.4+ has new parent and node calculation
+        if is_bl_newer_than(4, 4) and node.parent != None:
+            if node.location != loc - node.parent.location:
+                node.location = loc - node.parent.location
+
+        elif node.location != loc:
             node.location = loc
+
         if node.hide != hide:
             node.hide = hide
 
@@ -279,10 +285,6 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, c.mix_remains, frame)
             check_set_node_parent(tree, c.mix_limit, frame)
             check_set_node_parent(tree, c.mix_limit_normal, frame)
-            #check_set_node_parent(tree, c.mix_n, frame)
-            #check_set_node_parent(tree, c.mix_s, frame)
-            #check_set_node_parent(tree, c.mix_e, frame)
-            #check_set_node_parent(tree, c.mix_w, frame)
 
     clean_unused_frames(tree)
 
@@ -466,12 +468,20 @@ def rearrange_source_tree_nodes(layer):
         #loc.y += 390
 
     loc.y = 0
+    bookmark_x = loc.x
 
     #if check_set_node_loc(source_tree, layer.mapping, loc):
     #    loc.x += 380
 
     if check_set_node_loc(source_tree, layer.source, loc):
         loc.x += 280
+
+    if layer.baked_source != '':
+        loc.x = bookmark_x
+        loy.y -= 320
+        check_set_node_loc(source_tree, layer.baked_source, loc)
+        loc.x += 280
+        loc.y = 0
 
     if check_set_node_loc(source_tree, layer.divider_alpha, loc):
         loc.x += 200
@@ -698,6 +708,10 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 170
         cache_found = True
 
+    if check_set_node_loc(tree, layer.cache_gabor, loc, hide=False):
+        loc.y -= 170
+        cache_found = True
+
     if check_set_node_loc(tree, layer.cache_wave, loc, hide=False):
         loc.y -= 260
         cache_found = True
@@ -746,6 +760,10 @@ def rearrange_layer_nodes(layer, tree=None):
             cache_found = True
 
         if check_set_node_loc(tree, ch.cache_voronoi, loc, hide=False):
+            loc.y -= 170
+            cache_found = True
+
+        if check_set_node_loc(tree, ch.cache_gabor, loc, hide=False):
             loc.y -= 170
             cache_found = True
 
@@ -804,6 +822,10 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.y -= 170
             cache_found = True
 
+        if check_set_node_loc(tree, mask.cache_gabor, loc, hide=False, parent_unset=True):
+            loc.y -= 170
+            cache_found = True
+
         if check_set_node_loc(tree, mask.cache_wave, loc, hide=False, parent_unset=True):
             loc.y -= 260
             cache_found = True
@@ -856,6 +878,9 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.y -= 190
             else:
                 loc.y -= 320
+
+    if check_set_node_loc(tree, layer.baked_source, loc, hide=False):
+        loc.y -= 320
 
     if check_set_node_loc(tree, layer.source_n, loc, hide=True):
         loc.y -= 40
@@ -1249,38 +1274,27 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.x = bookmark_x
             bookmark_y = loc.y
 
-            #mix_n = tree.nodes.get(c.mix_n)
             mix_pure = tree.nodes.get(c.mix_pure)
             mix_remains = tree.nodes.get(c.mix_remains)
             mix_normal = tree.nodes.get(c.mix_normal)
-            #if not mix_n and not mix_pure and not mix_remains and not mix_normal:
+            mix_limit_normal = tree.nodes.get(c.mix_limit_normal)
 
-            if check_set_node_loc(tree, c.mix, loc, True):
-                loc.y -= 40
+            if mix_pure or mix_remains or mix_normal or mix_limit_normal:
 
-            if check_set_node_loc(tree, c.mix_pure, loc, True):
-                loc.y -= 40
+                if check_set_node_loc(tree, c.mix, loc, True):
+                    loc.y -= 40
 
-            if check_set_node_loc(tree, c.mix_remains, loc, True):
-                loc.y -= 40
+                if check_set_node_loc(tree, c.mix_pure, loc, True):
+                    loc.y -= 40
 
-            if check_set_node_loc(tree, c.mix_normal, loc, True):
-                loc.y -= 40
+                if check_set_node_loc(tree, c.mix_remains, loc, True):
+                    loc.y -= 40
 
-            if check_set_node_loc(tree, c.mix_limit_normal, loc, True):
-                loc.y -= 40
+                if check_set_node_loc(tree, c.mix_normal, loc, True):
+                    loc.y -= 40
 
-            #if check_set_node_loc(tree, c.mix_n, loc, True):
-            #    loc.y -= 40
-
-            #if check_set_node_loc(tree, c.mix_s, loc, True):
-            #    loc.y -= 40
-
-            #if check_set_node_loc(tree, c.mix_e, loc, True):
-            #    loc.y -= 40
-
-            #if check_set_node_loc(tree, c.mix_w, loc, True):
-            #    loc.y -= 40
+                if check_set_node_loc(tree, c.mix_limit_normal, loc, True):
+                    loc.y -= 40
 
             if check_set_node_loc(tree, c.mix, loc):
                 if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
@@ -1300,7 +1314,7 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.y = bookmark_y
 
             # Transition effects
-            if i == chain-1:
+            if i == chain-1 and bump_ch:
 
                 ch = layer.channels[j]
 
