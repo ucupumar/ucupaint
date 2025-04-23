@@ -1,4 +1,5 @@
 import sys, bpy, os
+from mathutils import *
 
 
 argv = sys.argv
@@ -64,6 +65,20 @@ bsdf = new_material.node_tree.nodes["Principled BSDF"]
 output = [n for n in new_material.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
 if output: output = output[0]
 
+normal_dx = None 
+normal_gl = None
+
+base_pos = Vector((0, 0))
+
+base_pos.x = bsdf.location.x - 700
+base_pos.y = bsdf.location.y
+
+base_pos_extra = Vector((0, 0))
+base_pos_extra.x = bsdf.location.x - 300
+base_pos_extra.y = bsdf.location.y - 300
+
+id = arg_dict["id"].lower()
+
 for image_path in image_paths:
 
 	print("load image: ", image_path)	
@@ -77,25 +92,63 @@ for image_path in image_paths:
 	texture.image = image
 
 	check_name = base_name.lower()
+	# remove id from name
+	if id in check_name:
+		check_name = check_name.replace(id, "")
+
+	update_loc = True
+	tex_image = None
 	if "color" in check_name:
 		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
 		tex_image.image = image
 		new_material.node_tree.links.new(bsdf.inputs['Base Color'], tex_image.outputs['Color'])
 	elif "normal" in check_name:
+		if "dx" in check_name:
+			normal_dx = image
+		if "gl" in check_name:
+			normal_gl = image
+		update_loc = False
+	elif "metal" in check_name:
 		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
 		tex_image.image = image
-		new_material.node_tree.links.new(bsdf.inputs['Normal'], tex_image.outputs['Color'])
-	elif "roughness" in check_name:
+		new_material.node_tree.links.new(bsdf.inputs['Metallic'], tex_image.outputs['Color'])
+	elif "rough" in check_name:
 		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
 		tex_image.image = image
 		new_material.node_tree.links.new(bsdf.inputs['Roughness'], tex_image.outputs['Color'])
-	elif "displacement" in check_name:
+	elif "disp" in check_name:
 		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
 		tex_image.image = image
-		new_material.node_tree.links.new(output.inputs['Displacement'], tex_image.outputs['Color'])
+
+		displacement_node = new_material.node_tree.nodes.new('ShaderNodeDisplacement')
+		new_material.node_tree.links.new(displacement_node.inputs['Height'], tex_image.outputs['Color'])
+		new_material.node_tree.links.new(output.inputs['Displacement'], displacement_node.outputs['Displacement'])
+
+		displacement_node.location = base_pos_extra
+		base_pos_extra.y -= 300
 	else:
-		tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
-		tex_image.image = image
+		update_loc = False
+
+	# Set location
+	if tex_image != None and update_loc:
+		tex_image.location = base_pos
+		base_pos.y -= 300
+	
+if normal_gl != None or normal_dx != None:
+	tex_image = new_material.node_tree.nodes.new('ShaderNodeTexImage')
+	normal_node = new_material.node_tree.nodes.new('ShaderNodeNormalMap')
+
+	if normal_gl != None:
+		tex_image.image = normal_gl
+		new_material.node_tree.links.new(normal_node.inputs['Color'], tex_image.outputs['Color'])
+	elif normal_dx != None:
+		tex_image.image = normal_dx
+
+	new_material.node_tree.links.new(normal_node.inputs['Color'], tex_image.outputs['Color'])
+	new_material.node_tree.links.new(bsdf.inputs['Normal'], normal_node.outputs['Normal'])
+	
+	normal_node.location = base_pos_extra
+	tex_image.location = base_pos
 
 new_material.asset_mark()
 if cat_id:
@@ -122,7 +175,6 @@ if obj.data.materials:
 	obj.data.materials[0] = new_material
 else:
 	obj.data.materials.append(new_material)
-
 
 bpy.context.preferences.filepaths.save_version = 0  # Avoid .blend1
 bpy.ops.wm.save_mainfile(relative_remap=True)

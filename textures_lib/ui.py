@@ -137,12 +137,13 @@ class TexLibBrowser(Panel):
                         if check_exist:
                             op = btn_row.operator("wm.y_open_images_from_material_to_single_layer", icon="ADD")
                             blend_path = find_blend(context, mat_id, d)
-                            op.asset_library_path = blend_path
+                            if blend_path:
+                                op.asset_library_path = blend_path
 
-                            with bpy.data.libraries.load(str(blend_path), assets_only=True) as (data_from, data_to):
-                                for mat in data_from.materials:
-                                    op.mat_name = mat
-                                    break
+                                with bpy.data.libraries.load(str(blend_path), assets_only=True) as (data_from, data_to):
+                                    for mat in data_from.materials:
+                                        op.mat_name = mat
+                                        break
 
                             op_remove:TexLibRemoveTextureAttribute = btn_row.operator("texlib.remove_attribute", icon="REMOVE")
                             op_remove.attribute = d
