@@ -38,7 +38,7 @@ def save_float_image(image):
     # Delete temporary scene
     remove_datablock(bpy.data.scenes, tmpscene)
 
-def pack_float_image(image):
+def pack_float_image_27x(image):
     original_path = image.filepath
 
     # Create temporary scene
@@ -93,6 +93,25 @@ def pack_float_image(image):
     # Bring back to original path
     image.filepath = original_path
     os.remove(temp_filepath)
+
+def pack_image(image):
+
+    do_reload = False
+
+    # HACK: Generated float need to be converted to srgb first before packing
+    if image.is_float and image.source == 'GENERATED':
+        set_image_pixels_to_srgb(image)
+        do_reload = True
+
+    if is_bl_newer_than(2, 80):
+        image.pack()
+    else:
+        if image.is_float:
+            pack_float_image_27x(image)
+        else: image.pack(as_png=True)
+
+    if do_reload:
+        image.reload()
 
 def clean_object_references(image):
     removed_references = []
@@ -224,7 +243,7 @@ def save_pack_all(yp):
 
                     temp_saved = True
                     
-                image.pack()
+                pack_image(image)
 
                 if temp_saved:
                     # Remove file if they are using temporary directory
@@ -232,11 +251,9 @@ def save_pack_all(yp):
                         UDIM.remove_udim_files_from_disk(image, temp_udim_dir, True)
 
             else:
+                pack_image(image)
                 if image.is_float:
-                    pack_float_image(image)
                     packed_float_images.append(image)
-                else: 
-                    image.pack(as_png=True)
 
             print('INFO:', image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         else:
@@ -421,14 +438,7 @@ class YPackImage(bpy.types.Operator):
 
         T = time.time()
 
-        # Save file to temporary place first if image is float
-        if is_bl_newer_than(2, 80):
-            context.image.pack()
-        else:
-            if context.image.is_float:
-                pack_float_image(context.image)
-            else: context.image.pack(as_png=True)
-
+        pack_image(context.image)
         context.image.filepath = ''
 
         node = get_active_ypaint_node()
@@ -441,35 +451,18 @@ class YPackImage(bpy.types.Operator):
 
                 baked_disp = tree.nodes.get(ch.baked_disp)
                 if baked_disp and baked_disp.image and not baked_disp.image.packed_file:
-                    if is_bl_newer_than(2, 80):
-                        baked_disp.image.pack()
-                    else:
-                        if baked_disp.image.is_float:
-                            pack_float_image(baked_disp.image)
-                        else: baked_disp.image.pack(as_png=True)
-
+                    pack_image(baked_disp.image)
                     baked_disp.image.filepath = ''
 
                 baked_vdisp = tree.nodes.get(ch.baked_vdisp)
                 if baked_vdisp and baked_vdisp.image and not baked_vdisp.image.packed_file:
-                    if is_bl_newer_than(2, 80):
-                        baked_vdisp.image.pack()
-                    else:
-                        if baked_vdisp.image.is_float:
-                            pack_float_image(baked_vdisp.image)
-                        else: baked_vdisp.image.pack(as_png=True)
-
+                    pack_image(baked_vdisp.image)
                     baked_vdisp.image.filepath = ''
 
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image and not baked_normal_overlay.image.packed_file:
-                        if is_bl_newer_than(2, 80):
-                            baked_normal_overlay.image.pack()
-                        else:
-                            if baked_normal_overlay.image.is_float:
-                                pack_float_image(baked_normal_overlay.image)
-                            else: baked_normal_overlay.image.pack(as_png=True)
+                        pack_image(baked_normal_overlay.image)
 
                     baked_normal_overlay.image.filepath = ''
 
@@ -774,12 +767,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
             # Need to pack first to save the image
             if image.is_dirty:
-                if is_bl_newer_than(2, 80):
-                    image.pack()
-                else:
-                    if image.is_float:
-                        pack_float_image(image)
-                    else: image.pack(as_png=True)
+                pack_image(image)
 
             # Some images need to set to srgb when saving
             ori_colorspace = image.colorspace_settings.name
@@ -1125,12 +1113,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         # Need to pack first to save the image
         if image.is_dirty:
-            if is_bl_newer_than(2, 80):
-                image.pack()
-            else:
-                if image.is_float:
-                    pack_float_image(image)
-                else: image.pack(as_png=True)
+            pack_image(image)
 
         # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
         # Packing and unpacking sometimes does not work if the blend file is not saved yet
@@ -1276,12 +1259,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False):
 
     # Pack image
     if image.packed_file and image.source != 'TILED':
-        if is_bl_newer_than(2, 80):
-            new_image.pack()
-        else:
-            if new_image.is_float:
-                pack_float_image(new_image)
-            else: new_image.pack(as_png=True)
+        pack_image(new_image)
 
         # HACK: Float image need to be reloaded after packing to be showed correctly
         if new_image.is_float:

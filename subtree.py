@@ -2571,31 +2571,43 @@ def check_layer_image_linear_node(layer, source_tree=None):
 
     if not source_tree: source_tree = get_source_tree(layer)
 
-    if get_layer_enabled(layer) and layer.type == 'IMAGE':
+    layer_gamma = get_layer_gamma_value(layer)
 
-        source = source_tree.nodes.get(layer.source)
-        image = source.image
-        if not image: return
+    if layer_gamma != 1.0:
+        # Create linear node
+        linear = check_new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
+        linear.inputs[1].default_value = layer_gamma
+    else:
+        # Delete linear node
+        remove_node(source_tree, layer, 'linear')
 
-        # Create linear if image type is srgb or float image
-        if is_image_source_srgb(image, source) and (not yp.use_linear_blending or (yp.use_linear_blending and image.is_float)):
-            linear = source_tree.nodes.get(layer.linear)
-            if not linear:
-                linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
-                linear.inputs[1].default_value = 1.0 / GAMMA
+    #if get_layer_enabled(layer) and layer.type == 'IMAGE':
 
-            return
+    #    source = source_tree.nodes.get(layer.source)
+    #    image = source.image
+    #    if not image: return
 
-        elif yp.use_linear_blending and not image.is_float and not is_image_source_srgb(image, source):
-            linear = source_tree.nodes.get(layer.linear)
-            if not linear:
-                linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
-                linear.inputs[1].default_value = GAMMA
+    #    # Create linear if image type is srgb or float image
+    #    #if is_image_source_srgb(image, source) and (not yp.use_linear_blending or (yp.use_linear_blending and image.is_float)):
+    #    if is_image_source_srgb(image, source) and not yp.use_linear_blending:
+    #        linear = source_tree.nodes.get(layer.linear)
+    #        if not linear:
+    #            linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
+    #            linear.inputs[1].default_value = 1.0 / GAMMA
 
-            return
+    #        return
 
-    # Delete linear
-    remove_node(source_tree, layer, 'linear')
+    #    #elif yp.use_linear_blending and not image.is_float and not is_image_source_srgb(image, source):
+    #    elif yp.use_linear_blending and not is_image_source_srgb(image, source):
+    #        linear = source_tree.nodes.get(layer.linear)
+    #        if not linear:
+    #            linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
+    #            linear.inputs[1].default_value = GAMMA
+
+    #        return
+
+    ## Delete linear
+    #remove_node(source_tree, layer, 'linear')
 
 def check_mask_image_linear_node(mask, mask_tree=None):
 
