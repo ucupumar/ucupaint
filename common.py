@@ -5981,6 +5981,21 @@ def get_layer_channel_normal_gamma_value(ch, layer=None, root_ch=None):
 
     return 1.0
 
+def get_layer_mask_gamma_value(mask, mask_tree=None):
+    if not mask_tree: mask_tree = get_mask_tree(mask)
+
+    if get_mask_enabled(mask) and mask.type == 'IMAGE':
+
+        source = mask_tree.nodes.get(mask.source)
+        image = source.image
+
+        if not image: return 1.0
+
+        if is_image_source_srgb(image, source):
+            return 1.0 / GAMMA
+
+    return 1.0
+
 def get_layer_gamma_value(layer):
     yp = layer.id_data.yp
 
@@ -6058,27 +6073,36 @@ def any_linear_images_problem(yp):
             #        return True
 
         for mask in layer.masks:
-            if not get_mask_enabled(mask, layer): continue
-            if mask.type == 'IMAGE':
-                source_tree = get_mask_tree(mask)
-                linear = source_tree.nodes.get(mask.linear)
-                source = source_tree.nodes.get(mask.source)
-                if not source: continue
-                image = source.image
-                if not image: continue
-                if (
-                    (is_image_source_srgb(image, source) and not linear) or
-                    (not is_image_source_srgb(image, source) and linear)
-                    ):
-                    return True
+            source_tree = get_mask_tree(mask)
+            gamma = get_layer_mask_gamma_value(mask, mask_tree=source_tree)
+            linear = source_tree.nodes.get(mask.linear)
+            if (
+                (gamma == 1.0 and linear) or
+                (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
+                ):
+                return True
 
-        layer_gamma = get_layer_gamma_value(layer)
+            #if not get_mask_enabled(mask, layer): continue
+            #if mask.type == 'IMAGE':
+            #    source_tree = get_mask_tree(mask)
+            #    linear = source_tree.nodes.get(mask.linear)
+            #    source = source_tree.nodes.get(mask.source)
+            #    if not source: continue
+            #    image = source.image
+            #    if not image: continue
+            #    if (
+            #        (is_image_source_srgb(image, source) and not linear) or
+            #        (not is_image_source_srgb(image, source) and linear)
+            #        ):
+            #        return True
+
+        gamma = get_layer_gamma_value(layer)
         source_tree = get_source_tree(layer)
         linear = source_tree.nodes.get(layer.linear)
 
         if (
-            (layer_gamma == 1.0 and linear) or
-            (layer_gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, layer_gamma, rel_tol=1e-5)))
+            (gamma == 1.0 and linear) or
+            (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
             ):
             return True
 

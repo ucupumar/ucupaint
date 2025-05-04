@@ -2635,24 +2635,34 @@ def check_mask_image_linear_node(mask, mask_tree=None):
 
     if not mask_tree: mask_tree = get_mask_tree(mask)
 
-    if get_mask_enabled(mask) and mask.type == 'IMAGE':
+    gamma = get_layer_mask_gamma_value(mask, mask_tree)
 
-        source = mask_tree.nodes.get(mask.source)
-        image = source.image
+    if gamma != 1.0:
+        # Create linear node
+        linear = check_new_node(mask_tree, mask, 'linear', 'ShaderNodeGamma', 'Linear')
+        linear.inputs[1].default_value = gamma
+    else:
+        # Delete linear node
+        remove_node(mask_tree, mask, 'linear')
 
-        if not image: return
+    #if get_mask_enabled(mask) and mask.type == 'IMAGE':
 
-        # Create linear if image type is srgb
-        if is_image_source_srgb(image, source):
-            linear = mask_tree.nodes.get(mask.linear)
-            if not linear:
-                linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGamma', 'Linear')
-                linear.inputs[1].default_value = 1.0 / GAMMA
+    #    source = mask_tree.nodes.get(mask.source)
+    #    image = source.image
 
-            return
+    #    if not image: return
 
-    # Delete linear
-    remove_node(mask_tree, mask, 'linear')
+    #    # Create linear if image type is srgb
+    #    if is_image_source_srgb(image, source):
+    #        linear = mask_tree.nodes.get(mask.linear)
+    #        if not linear:
+    #            linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGamma', 'Linear')
+    #            linear.inputs[1].default_value = 1.0 / GAMMA
+
+    #        return
+
+    ## Delete linear
+    #remove_node(mask_tree, mask, 'linear')
 
 def check_yp_linear_nodes(yp, specific_layer=None, reconnect=True):
     for layer in yp.layers:
