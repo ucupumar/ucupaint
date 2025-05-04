@@ -5918,18 +5918,18 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
         source = get_layer_source(layer)
         if source: image = source.image
 
-    if not source or not image: return 1.0
+    #if not source or not image: return 1.0
 
     if yp.use_linear_blending:
-        if (
-            not ch.override_1
-            and root_ch.type == 'NORMAL'
-            and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}
-            #and not image.is_float #and is_image_source_srgb(image, source) # NOTE: No need for channel linear if the image is float
-        ):
-            return 1.0 / GAMMA
+        #if (
+        #    not ch.override_1
+        #    and root_ch.type == 'NORMAL'
+        #    and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}
+        #    #and not image.is_float #and is_image_source_srgb(image, source) # NOTE: No need for channel linear if the image is float
+        #):
+        #    return 1.0 / GAMMA
 
-        elif (root_ch.type != 'NORMAL' 
+        if (root_ch.type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
             and (
                 (ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
@@ -5938,7 +5938,13 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
         ):
             return GAMMA
 
-        # TODO: Layer image loaded into linear channel
+        elif image:
+            if is_image_source_srgb(image, source) and root_ch.colorspace == 'LINEAR':
+                return 1.0 / GAMMA
+
+            # For some reason, generated float image always act like a srgb image
+            if not is_image_source_srgb(image, source) and root_ch.colorspace == 'SRGB' and not (image.is_float and image.source == 'GENERATED'):
+                return GAMMA
 
     else:
         if (
@@ -6004,15 +6010,15 @@ def get_layer_gamma_value(layer):
         source = source_tree.nodes.get(layer.source)
         image = source.image
         if image:
-            # For some reason, generated float image act like a srgb image
-            if image.is_float and image.source == 'GENERATED' and not is_image_source_srgb(image, source):
-                return 1.0
+            # For some reason, generated float image always act like a srgb image
+            #if image.source == 'GENERATED' and image.is_float and yp.use_linear_blending and not is_image_source_srgb(image, source):
+            #    return 1.0
 
-            elif not yp.use_linear_blending and is_image_source_srgb(image, source):
+            if not yp.use_linear_blending and (is_image_source_srgb(image, source) or (image.is_float and image.source == 'GENERATED')):
                 return 1.0 / GAMMA
 
-            elif yp.use_linear_blending and not is_image_source_srgb(image, source):
-                return GAMMA
+            #elif yp.use_linear_blending and not is_image_source_srgb(image, source):
+            #    return GAMMA
 
     return 1.0
 
