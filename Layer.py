@@ -1494,6 +1494,13 @@ class YNewLayer(bpy.types.Operator):
         img_atlas = self.get_to_be_cleared_image_atlas(context, yp)
         if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
+        # Get channel index
+        try: channel_idx = int(self.channel_idx)
+        except: channel_idx = 0
+
+        # Check if srgb channel is selected
+        srgb_ch_selected = any([ch for i, ch in enumerate(yp.channels) if (i == channel_idx or channel_idx == -1) and ch.colorspace == 'SRGB'])
+
         img = None
         segment = None
         if self.type == 'IMAGE':
@@ -1536,8 +1543,9 @@ class YNewLayer(bpy.types.Operator):
                     if hasattr(img, 'use_alpha'):
                         img.use_alpha = True
 
-            #if img.colorspace_settings.name != get_noncolor_name():
-            #    img.colorspace_settings.name = get_noncolor_name()
+                # Use srgb if srgb channel is selected
+                if srgb_ch_selected:
+                    img.colorspace_settings.name = get_srgb_name()
 
             update_image_editor_image(context, img)
 
@@ -1563,9 +1571,6 @@ class YNewLayer(bpy.types.Operator):
                     set_active_vertex_color(o, vcol)
 
         yp.halt_update = True
-
-        try: channel_idx = int(self.channel_idx)
-        except: channel_idx = 0
 
         layer = add_new_layer(
             node.node_tree, self.name, self.type, 
