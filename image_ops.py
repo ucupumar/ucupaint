@@ -98,10 +98,33 @@ def pack_image(image):
 
     do_reload = False
 
-    # HACK: Generated float need to be converted to srgb first before packing
+    # HACK: If generated float used in srgb colorspace, it need to be converted to srgb first before packing
     if image.is_float and image.source == 'GENERATED':
-        set_image_pixels_to_srgb(image)
-        do_reload = True
+        # Check if image is using srgb colorspace
+        srgb_used = image.colorspace_settings.name == get_srgb_name()
+
+        # Check if image is non color but used in srgb channel
+        if not srgb_used:
+            for ng in bpy.data.node_groups:
+                if not hasattr(ng, 'yp') or not ng.yp.is_ypaint_node: continue
+                for layer in ng.yp.layers:
+                    if layer.type == 'IMAGE':
+                        source = get_layer_source(layer)
+                        if source and source.image == image:
+
+                            # Check if the image used in srgb/linear channels
+                            srgb_chs = [ch for i, ch in enumerate(ng.yp.channels) if ch.colorspace == 'SRGB' and layer.channels[i].enable]
+                            linear_chs = [ch for i, ch in enumerate(ng.yp.channels) if ch.colorspace == 'LINEAR' and layer.channels[i].enable]
+
+                            # Do not consider the image as srgb if it's also used on non srgb channel
+                            if len(srgb_chs) > 0 and len(linear_chs) == 0:
+                                srgb_used = True
+                                break
+
+        if srgb_used:
+            # Force to do srgb calculation on image
+            set_image_pixels_to_srgb(image)
+            do_reload = True
 
     if is_bl_newer_than(2, 80):
         image.pack()
