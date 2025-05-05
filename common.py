@@ -6035,7 +6035,6 @@ def any_linear_images_problem(yp):
             source_tree = get_channel_source_tree(ch, layer)
             linear = source_tree.nodes.get(ch.linear)
 
-
             if (
                 (gamma == 1.0 and linear) or
                 (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
@@ -7086,29 +7085,33 @@ def set_image_pixels_to_srgb(image, segment=None):
         width = segment.width
         height = segment.height
 
-    #if is_bl_newer_than(2, 83):
-    #    pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
-    #    image.pixels.foreach_get(pxs)
+    if is_bl_newer_than(2, 83):
+        pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
 
-    #    # Set array to 3d
-    #    pxs.shape = (-1, image.size[0], 4)
+        # Set array to 3d
+        pxs.shape = (-1, image.size[0], 4)
 
-    #    pxs[start_y:start_y+height, start_x:start_x+width] = linear_to_srgb_per_element(pxs[start_y:start_y+height, start_x:start_x+width])
-    #    image.pixels.foreach_set(pxs.ravel())
+        # Do srgb conversion
+        vecfunc = numpy.vectorize(linear_to_srgb_per_element)
+        for i in range(3):
+            pxs[start_y:start_y+height, start_x:start_x+width, i] = vecfunc(pxs[start_y:start_y+height, start_x:start_x+width, i])
 
-    #else:
-    pxs = list(image.pixels)
+        image.pixels.foreach_set(pxs.ravel())
 
-    for y in range(height):
-        source_offset_y = width * 4 * y
-        offset_y = image.size[0] * 4 * (y + start_y)
-        for x in range(width):
-            source_offset_x = 4 * x
-            offset_x = 4 * (x + start_x)
-            for i in range(4):
-                pxs[offset_y + offset_x + i] = linear_to_srgb_per_element(pxs[offset_y + offset_x + i])
+    else:
+        pxs = list(image.pixels)
 
-    image.pixels = pxs
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(3):
+                    pxs[offset_y + offset_x + i] = linear_to_srgb_per_element(pxs[offset_y + offset_x + i])
+
+        image.pixels = pxs
 
 def set_image_pixels_to_linear(image, segment=None):
 
@@ -7125,29 +7128,33 @@ def set_image_pixels_to_linear(image, segment=None):
         width = segment.width
         height = segment.height
 
-    #if is_bl_newer_than(2, 83):
-    #    pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
-    #    image.pixels.foreach_get(pxs)
+    if is_bl_newer_than(2, 83):
+        pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
 
-    #    # Set array to 3d
-    #    pxs.shape = (-1, image.size[0], 4)
+        # Set array to 3d
+        pxs.shape = (-1, image.size[0], 4)
 
-    #    pxs[start_y:start_y+height, start_x:start_x+width] = srgb_to_linear_per_element(pxs[start_y:start_y+height, start_x:start_x+width])
-    #    image.pixels.foreach_set(pxs.ravel())
+        # Do linear conversion
+        vecfunc = numpy.vectorize(srgb_to_linear_per_element)
+        for i in range(3):
+            pxs[start_y:start_y+height, start_x:start_x+width, i] = vecfunc(pxs[start_y:start_y+height, start_x:start_x+width], i)
 
-    #else:
-    pxs = list(image.pixels)
+        image.pixels.foreach_set(pxs.ravel())
 
-    for y in range(height):
-        source_offset_y = width * 4 * y
-        offset_y = image.size[0] * 4 * (y + start_y)
-        for x in range(width):
-            source_offset_x = 4 * x
-            offset_x = 4 * (x + start_x)
-            for i in range(4):
-                pxs[offset_y + offset_x + i] = srgb_to_linear_per_element(pxs[offset_y + offset_x + i])
+    else:
+        pxs = list(image.pixels)
 
-    image.pixels = pxs
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(3):
+                    pxs[offset_y + offset_x + i] = srgb_to_linear_per_element(pxs[offset_y + offset_x + i])
+
+        image.pixels = pxs
 
 def is_image_filepath_unique(filepath, check_disk=True):
     abspath = bpy.path.abspath(filepath)
