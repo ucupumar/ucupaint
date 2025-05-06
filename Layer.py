@@ -1540,10 +1540,13 @@ class YNewLayer(bpy.types.Operator):
                     if hasattr(img, 'use_alpha'):
                         img.use_alpha = True
 
-                    # Immidiately pack new float image to avoid color problem
                     if img.is_float and is_bl_newer_than(2, 80):
+                        # Immidiately pack new float image to avoid color problem
                         set_image_pixels(img, color)
                         img.pack()
+
+                        # Set alpha mode to premultiplied to make sure alpha will be saved correctly
+                        img.alpha_mode = 'PREMUL'
 
             update_image_editor_image(context, img)
 
