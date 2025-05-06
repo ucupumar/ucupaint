@@ -5873,7 +5873,7 @@ def is_colorid_vcol_still_being_used(objs):
 
     return False
 
-def is_image_source_srgb(image, source, root_ch=None):
+def is_image_source_srgb(image, source):
     if not is_bl_newer_than(2, 80):
         return source.color_space == 'COLOR'
 
@@ -5881,11 +5881,18 @@ def is_image_source_srgb(image, source, root_ch=None):
     if image.source == 'TILED' and image.colorspace_settings.name == '':
         return True
 
-    # Float images is behaving like srgb for some reason in blender
-    if root_ch and root_ch.colorspace == 'SRGB' and image.is_float and image.colorspace_settings.name != get_srgb_name():
+    # Generated float images is behaving like srgb for some reason in blender
+    if image.is_float and image.colorspace_settings.name != get_srgb_name() and image.source == 'GENERATED':
         return True
 
     return image.colorspace_settings.name == get_srgb_name()
+
+def is_image_source_non_color(image, source):
+    if not is_bl_newer_than(2, 80):
+        return source.color_space == 'NONE'
+
+    # Generated float images is behaving like srgb for some reason in blender
+    return image.colorspace_settings.name == get_noncolor_name() and not (image.is_float and image.source == 'GENERATED')
 
 def get_layer_and_root_ch_from_layer_ch(ch):
     yp = ch.id_data.yp
@@ -5906,7 +5913,6 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
     channel_enabled = get_channel_enabled(ch, layer, root_ch)
     if not channel_enabled: return 1.0
 
-    #layer_source_tree = get_source_tree(layer)
     source_tree = get_channel_source_tree(ch, layer)
 
     image = None
@@ -5918,51 +5924,44 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
         source = get_layer_source(layer)
         if source: image = source.image
 
-    #if not source or not image: return 1.0
-
     if yp.use_linear_blending:
-        #if (
-        #    not ch.override_1
-        #    and root_ch.type == 'NORMAL'
-        #    and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}
-        #    #and not image.is_float #and is_image_source_srgb(image, source) # NOTE: No need for channel linear if the image is float
-        #):
-        #    return 1.0 / GAMMA
 
-        if (root_ch.type != 'NORMAL' 
+        # Convert non image layer data to srgb if gamma space option is enabled
+        if ( 
+            not ch.override
+            and ch.gamma_space 
+            and root_ch.type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
-            and (
-                (ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
-                #or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name == get_srgb_name()) 
-                )
+            and ch.layer_input == 'RGB' 
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
         ):
             return GAMMA
 
-        elif image:
-            if is_image_source_srgb(image, source) and root_ch.colorspace == 'LINEAR':
-                return 1.0 / GAMMA
-
-            # For some reason, generated float image always act like a srgb image
-            if not is_image_source_srgb(image, source) and root_ch.colorspace == 'SRGB' and not (image.is_float and image.source == 'GENERATED'):
-                return GAMMA
-
-    else:
-        if (
-            ch.override and (
-                (image and is_image_source_srgb(image, source, root_ch)) or 
-                (ch.override_type not in {'IMAGE'} and root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB')
-            )
-        ):
+        # Convert srgb image to linear for linear channel
+        if image and is_image_source_srgb(image, source) and root_ch.colorspace == 'LINEAR':
             return 1.0 / GAMMA
 
-        elif (
+        # Convert non srgb image to srgb for srgb channel
+        if image and is_image_source_non_color(image, source) and root_ch.colorspace == 'SRGB':
+            return GAMMA
+
+    else:
+        # Convert srgb override image to linear
+        if ch.override and image and is_image_source_srgb(image, source):
+            return 1.0 / GAMMA
+
+        # Convert non image override data to linear
+        if ch.override and ch.override_type not in {'IMAGE'} and root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB':
+            return 1.0 / GAMMA
+
+        # Convert non image layer data to linear
+        if (
             not ch.override 
+            and not ch.gamma_space 
             and root_ch.type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
-            and (
-                (not ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
-                #or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name != get_srgb_name()) # Float images need to converted to linear for some reason in Blender
-            )
+            and ch.layer_input == 'RGB' 
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
         ):
             return 1.0 / GAMMA
 
@@ -5982,6 +5981,7 @@ def get_layer_channel_normal_gamma_value(ch, layer=None, root_ch=None):
         source = layer_tree.nodes.get(ch.source_1)
         if source: image = source.image
 
+    # Convert srgb normal map override to linear
     if ch.override_1 and image and is_image_source_srgb(image, source):
         return 1.0 / GAMMA
 
@@ -5997,6 +5997,7 @@ def get_layer_mask_gamma_value(mask, mask_tree=None):
 
         if not image: return 1.0
 
+        # Convert srgb mask image to linear
         if is_image_source_srgb(image, source):
             return 1.0 / GAMMA
 
@@ -6010,15 +6011,10 @@ def get_layer_gamma_value(layer):
         source = source_tree.nodes.get(layer.source)
         image = source.image
         if image:
-            # For some reason, generated float image always act like a srgb image
-            #if image.source == 'GENERATED' and image.is_float and yp.use_linear_blending and not is_image_source_srgb(image, source):
-            #    return 1.0
 
-            if not yp.use_linear_blending and (is_image_source_srgb(image, source) or (image.is_float and image.source == 'GENERATED')):
+            # Not using linear blending ironically meant all data should be in linear space
+            if not yp.use_linear_blending and is_image_source_srgb(image, source):
                 return 1.0 / GAMMA
-
-            #elif yp.use_linear_blending and not is_image_source_srgb(image, source):
-            #    return GAMMA
 
     return 1.0
 
@@ -6041,20 +6037,6 @@ def any_linear_images_problem(yp):
                 ):
                 return True
 
-            #if not yp.use_linear_blending and ch.override and ch.override_type == 'IMAGE':
-            #    source_tree = get_channel_source_tree(ch)
-            #    linear = source_tree.nodes.get(ch.linear)
-            #    source = source_tree.nodes.get(ch.source)
-            #    if not source: continue
-
-            #    image = source.image
-            #    if not image: continue
-            #    if (
-            #        (is_image_source_srgb(image, source, root_ch) and not linear) or
-            #        (not is_image_source_srgb(image, source, root_ch) and linear)
-            #        ):
-            #        return True
-
             if root_ch.type == 'NORMAL':
                 gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch)
                 linear_1 = layer_tree.nodes.get(ch.linear_1)
@@ -6063,19 +6045,6 @@ def any_linear_images_problem(yp):
                     (gamma_1 != 1.0 and (not linear_1 or not isclose(linear_1.inputs[1].default_value, gamma_1, rel_tol=1e-5)))
                     ):
                     return True
-
-            #if ch.override_1 and ch.override_1_type == 'IMAGE':
-            #    linear_1 = layer_tree.nodes.get(ch.linear_1)
-            #    source_1 = layer_tree.nodes.get(ch.source_1)
-            #    if not source_1: continue
-
-            #    image = source_1.image
-            #    if not image: continue
-            #    if (
-            #        (is_image_source_srgb(image, source_1) and not linear_1) or
-            #        (not is_image_source_srgb(image, source_1) and linear_1)
-            #        ):
-            #        return True
 
         for mask in layer.masks:
             source_tree = get_mask_tree(mask)
@@ -6087,20 +6056,6 @@ def any_linear_images_problem(yp):
                 ):
                 return True
 
-            #if not get_mask_enabled(mask, layer): continue
-            #if mask.type == 'IMAGE':
-            #    source_tree = get_mask_tree(mask)
-            #    linear = source_tree.nodes.get(mask.linear)
-            #    source = source_tree.nodes.get(mask.source)
-            #    if not source: continue
-            #    image = source.image
-            #    if not image: continue
-            #    if (
-            #        (is_image_source_srgb(image, source) and not linear) or
-            #        (not is_image_source_srgb(image, source) and linear)
-            #        ):
-            #        return True
-
         gamma = get_layer_gamma_value(layer)
         source_tree = get_source_tree(layer)
         linear = source_tree.nodes.get(layer.linear)
@@ -6110,40 +6065,6 @@ def any_linear_images_problem(yp):
             (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
             ):
             return True
-
-        #elif layer.type == 'IMAGE':
-        #    source = source_tree.nodes.get(layer.source)
-        #    if not source: continue
-        #    image = source.image
-        #    if not image: continue
-
-        #    if yp.use_linear_blending:
-        #        normal_ch = get_height_channel(layer)
-        #        normal_root_ch = get_root_height_channel(yp)
-        #        if normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch) and not normal_ch.override_1 and normal_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-        #            ch_linear = layer_tree.nodes.get(normal_ch.linear)
-        #            #if ((is_image_source_srgb(image, source) and not ch_linear) or
-        #            #    (not is_image_source_srgb(image, source) and ch_linear)
-        #            #    ):
-        #            # NOTE: Float image is pretended to be sRGB even if it's using linear colorspace
-        #            if (image.is_float and ch_linear) or (not image.is_float and not ch_linear):
-        #                return True
-
-        #        #if not image.is_float and ((is_image_source_srgb(image, source) and linear) or
-        #        #    (not is_image_source_srgb(image, source) and not linear)
-        #        #    ):
-        #        #    return True
-
-        #        #if image.is_float and ((is_image_source_srgb(image, source) and not linear) or
-        #        #    (not is_image_source_srgb(image, source) and linear)
-        #        #    ):
-        #        #    return True
-
-        #    else:
-        #        if ((is_image_source_srgb(image, source) and not linear) or
-        #            (not is_image_source_srgb(image, source) and linear)
-        #            ):
-        #            return True
 
     return False
 

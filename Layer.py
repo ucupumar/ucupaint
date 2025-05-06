@@ -1498,9 +1498,6 @@ class YNewLayer(bpy.types.Operator):
         try: channel_idx = int(self.channel_idx)
         except: channel_idx = 0
 
-        # Check if srgb channel is selected
-        srgb_ch_selected = any([ch for i, ch in enumerate(yp.channels) if (i == channel_idx or channel_idx == -1) and ch.colorspace == 'SRGB'])
-
         img = None
         segment = None
         if self.type == 'IMAGE':
@@ -1543,9 +1540,10 @@ class YNewLayer(bpy.types.Operator):
                     if hasattr(img, 'use_alpha'):
                         img.use_alpha = True
 
-                # Use srgb if srgb channel is selected
-                if srgb_ch_selected:
-                    img.colorspace_settings.name = get_srgb_name()
+                    # Immidiately pack new float image to avoid color problem
+                    if img.is_float and is_bl_newer_than(2, 80):
+                        set_image_pixels(img, color)
+                        img.pack()
 
             update_image_editor_image(context, img)
 

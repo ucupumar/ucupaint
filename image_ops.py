@@ -38,6 +38,9 @@ def save_float_image(image):
     # Delete temporary scene
     remove_datablock(bpy.data.scenes, tmpscene)
 
+    # Reload image
+    image.reload()
+
 def pack_float_image_27x(image):
     original_path = image.filepath
 
@@ -96,35 +99,14 @@ def pack_float_image_27x(image):
 
 def pack_image(image):
 
-    do_reload = False
-
-    # HACK: If generated float used in srgb colorspace, it need to be converted to srgb first before packing
-    if image.is_float and image.source == 'GENERATED':
-        # Check if image is using srgb colorspace
-        srgb_used = image.colorspace_settings.name == get_srgb_name()
-
-        # Check if image is non color but used in srgb channel
-        if not srgb_used:
-            for ng in bpy.data.node_groups:
-                if not hasattr(ng, 'yp') or not ng.yp.is_ypaint_node: continue
-                for layer in ng.yp.layers:
-                    if layer.type == 'IMAGE':
-                        source = get_layer_source(layer)
-                        if source and source.image == image:
-
-                            # Check if the image used in srgb/linear channels
-                            srgb_chs = [ch for i, ch in enumerate(ng.yp.channels) if ch.colorspace == 'SRGB' and layer.channels[i].enable]
-                            linear_chs = [ch for i, ch in enumerate(ng.yp.channels) if ch.colorspace == 'LINEAR' and layer.channels[i].enable]
-
-                            # Do not consider the image as srgb if it's also used on non srgb channel
-                            if len(srgb_chs) > 0 and len(linear_chs) == 0:
-                                srgb_used = True
-                                break
+    # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
+    if image.is_float:
+        # Check if image is using srgb colorspace (generated image always behave like srgb image for some reason)
+        srgb_used = image.colorspace_settings.name == get_srgb_name() or image.source == 'GENERATED'
 
         if srgb_used:
             # Force to do srgb calculation on image
             set_image_pixels_to_srgb(image)
-            do_reload = True
 
     if is_bl_newer_than(2, 80):
         image.pack()
@@ -133,7 +115,8 @@ def pack_image(image):
             pack_float_image_27x(image)
         else: image.pack(as_png=True)
 
-    if do_reload:
+    # HACK: Float image need to be reloaded after packing to be showed correctly
+    if image.is_float:
         image.reload()
 
 def clean_object_references(image):
@@ -1283,10 +1266,6 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False):
     # Pack image
     if image.packed_file and image.source != 'TILED':
         pack_image(new_image)
-
-        # HACK: Float image need to be reloaded after packing to be showed correctly
-        if new_image.is_float:
-            new_image.reload()
 
     # Replace image
     replace_image(image, new_image)

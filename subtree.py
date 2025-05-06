@@ -2493,68 +2493,6 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
         # Delete linear node
         remove_node(source_tree, ch, 'linear')
 
-    #image = None
-    #source = None
-    #if ch.override and ch.override_type == 'IMAGE':
-    #    source = source_tree.nodes.get(ch.source)
-    #    if source: image = source.image
-    #elif layer.type == 'IMAGE':
-    #    source = get_layer_source(layer)
-    #    if source: image = source.image
-
-    #channel_enabled = get_channel_enabled(ch, layer, root_ch)
-
-    #if channel_enabled and ((
-    #        not yp.use_linear_blending 
-    #        and ch.override 
-    #        and (
-    #            (image and is_image_source_srgb(image, source, root_ch)) or 
-    #            (
-    #                ch.override_type not in {'IMAGE'}
-    #                and root_ch.type != 'NORMAL' 
-    #                and root_ch.colorspace == 'SRGB' 
-    #            ))
-    #    ) or (
-    #        not yp.use_linear_blending
-    #        and not ch.override 
-    #        and root_ch.type != 'NORMAL' 
-    #        and root_ch.colorspace == 'SRGB' 
-    #        and (
-    #            (not ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
-    #            or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name != get_srgb_name()) # Float images need to converted to linear for some reason in Blender
-    #            )
-    #    ) or (
-    #        yp.use_linear_blending
-    #        and not ch.override_1
-    #        and root_ch.type == 'NORMAL'
-    #        and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}
-    #        and source and source.image and not source.image.is_float #and is_image_source_srgb(image, source) # NOTE: No need for channel linear if the image is float
-    #    )):
-    #    if root_ch.type == 'VALUE':
-    #        linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
-    #        linear.operation = 'POWER'
-    #    else: linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
-
-    #    linear.inputs[1].default_value = 1.0 / GAMMA
-
-    #elif channel_enabled and (
-    #        yp.use_linear_blending
-    #        and root_ch.type != 'NORMAL' 
-    #        and root_ch.colorspace == 'SRGB' 
-    #        and (
-    #            (ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
-    #            #or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name == get_srgb_name()) 
-    #            )
-    #    ):
-    #    if root_ch.type == 'VALUE':
-    #        linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
-    #        linear.operation = 'POWER'
-    #    else: linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
-
-    #    linear.inputs[1].default_value = GAMMA
-
-    #else:
-    #    remove_node(source_tree, ch, 'linear')
 
     if root_ch.type == 'NORMAL':
         gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch)
@@ -2567,25 +2505,9 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
             # Delete linear node
             remove_node(source_tree, ch, 'linear_1')
 
-        #channel_enabled = get_channel_enabled(ch, layer, root_ch)
-
-        #image_1 = None
-        #layer_tree = get_tree(layer)
-        #if ch.override_1 and ch.override_1_type == 'IMAGE':
-        #    source_1 = layer_tree.nodes.get(ch.source_1)
-        #    if source_1: image_1 = source_1.image
-
-        #if channel_enabled and ch.override_1 and image_1 and is_image_source_srgb(image_1, source_1):
-        #    linear_1 = replace_new_node(layer_tree, ch, 'linear_1', 'ShaderNodeGamma', 'Linear 1')
-        #    linear_1.inputs[1].default_value = 1.0 / GAMMA
-        #else:
-        #    remove_node(layer_tree, ch, 'linear_1')
-
     if reconnect:
         reconnect_layer_nodes(layer)
         rearrange_layer_nodes(layer)
-
-    #return image
 
 def check_layer_image_linear_node(layer, source_tree=None):
 
@@ -2603,34 +2525,6 @@ def check_layer_image_linear_node(layer, source_tree=None):
         # Delete linear node
         remove_node(source_tree, layer, 'linear')
 
-    #if get_layer_enabled(layer) and layer.type == 'IMAGE':
-
-    #    source = source_tree.nodes.get(layer.source)
-    #    image = source.image
-    #    if not image: return
-
-    #    # Create linear if image type is srgb or float image
-    #    #if is_image_source_srgb(image, source) and (not yp.use_linear_blending or (yp.use_linear_blending and image.is_float)):
-    #    if is_image_source_srgb(image, source) and not yp.use_linear_blending:
-    #        linear = source_tree.nodes.get(layer.linear)
-    #        if not linear:
-    #            linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
-    #            linear.inputs[1].default_value = 1.0 / GAMMA
-
-    #        return
-
-    #    #elif yp.use_linear_blending and not image.is_float and not is_image_source_srgb(image, source):
-    #    elif yp.use_linear_blending and not is_image_source_srgb(image, source):
-    #        linear = source_tree.nodes.get(layer.linear)
-    #        if not linear:
-    #            linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
-    #            linear.inputs[1].default_value = GAMMA
-
-    #        return
-
-    ## Delete linear
-    #remove_node(source_tree, layer, 'linear')
-
 def check_mask_image_linear_node(mask, mask_tree=None):
 
     if not mask_tree: mask_tree = get_mask_tree(mask)
@@ -2645,43 +2539,17 @@ def check_mask_image_linear_node(mask, mask_tree=None):
         # Delete linear node
         remove_node(mask_tree, mask, 'linear')
 
-    #if get_mask_enabled(mask) and mask.type == 'IMAGE':
-
-    #    source = mask_tree.nodes.get(mask.source)
-    #    image = source.image
-
-    #    if not image: return
-
-    #    # Create linear if image type is srgb
-    #    if is_image_source_srgb(image, source):
-    #        linear = mask_tree.nodes.get(mask.linear)
-    #        if not linear:
-    #            linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGamma', 'Linear')
-    #            linear.inputs[1].default_value = 1.0 / GAMMA
-
-    #        return
-
-    ## Delete linear
-    #remove_node(mask_tree, mask, 'linear')
-
 def check_yp_linear_nodes(yp, specific_layer=None, reconnect=True):
     for layer in yp.layers:
         if specific_layer and layer != specific_layer: continue
-        #image_found = False
         if layer.type == 'IMAGE':
             check_layer_image_linear_node(layer)
-            #image_found = True
         for ch in layer.channels:
-            #if ch.override_type == 'IMAGE' or ch.override_1_type == 'IMAGE':
-            if check_layer_channel_linear_node(ch):
-                pass
-                #image_found = True
+            check_layer_channel_linear_node(ch)
         for mask in layer.masks:
             if mask.type == 'IMAGE':
                 check_mask_image_linear_node(mask)
-                #image_found = True
 
-        #if image_found and reconnect:
         if reconnect:
             reconnect_layer_nodes(layer)
             rearrange_layer_nodes(layer)
