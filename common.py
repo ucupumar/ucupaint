@@ -5882,8 +5882,8 @@ def is_image_source_srgb(image, source):
         return True
 
     # Generated float images is behaving like srgb for some reason in blender
-    if image.is_float and image.colorspace_settings.name != get_srgb_name() and image.source == 'GENERATED':
-        return True
+    #if image.is_float and image.colorspace_settings.name != get_srgb_name() and image.source == 'GENERATED':
+    #    return True
 
     return image.colorspace_settings.name == get_srgb_name()
 
@@ -7059,7 +7059,7 @@ def set_image_pixels_to_linear(image, segment=None):
         # Do linear conversion
         vecfunc = numpy.vectorize(srgb_to_linear_per_element)
         for i in range(3):
-            pxs[start_y:start_y+height, start_x:start_x+width, i] = vecfunc(pxs[start_y:start_y+height, start_x:start_x+width], i)
+            pxs[start_y:start_y+height, start_x:start_x+width, i] = vecfunc(pxs[start_y:start_y+height, start_x:start_x+width, i])
 
         image.pixels.foreach_set(pxs.ravel())
 

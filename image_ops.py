@@ -7,7 +7,10 @@ import time
 from . import UDIM
 
 def save_float_image(image):
+
+    # Remembers
     original_path = image.filepath
+    ori_colorspace = image.colorspace_settings.name
 
     # Create temporary scene
     tmpscene = bpy.data.scenes.new('Temp Scene')
@@ -28,7 +31,6 @@ def save_float_image(image):
     elif settings.file_format in {'PNG', 'TIFF'}:
         settings.color_depth = '16'
 
-    #ori_colorspace = image.colorspace_settings.name
     full_path = bpy.path.abspath(image.filepath)
     image.save_render(full_path, scene=tmpscene)
     # HACK: If image still dirty after saving, save using standard save method
@@ -37,6 +39,10 @@ def save_float_image(image):
 
     # Delete temporary scene
     remove_datablock(bpy.data.scenes, tmpscene)
+
+    # Set back colorspace
+    if image.colorspace_settings.name != ori_colorspace:
+        image.colorspace_settings.name = ori_colorspace
 
     # Reload image
     image.reload()
@@ -102,10 +108,10 @@ def pack_image(image):
     # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
     if image.is_float:
         # Check if image is using srgb colorspace (generated image always behave like srgb image for some reason)
-        srgb_used = image.colorspace_settings.name == get_srgb_name() or image.source == 'GENERATED'
+        srgb_used = image.colorspace_settings.name == get_srgb_name() # or image.source == 'GENERATED'
 
         if srgb_used:
-            # Force to do srgb calculation on image
+            # Force to do srgb calculation on image before packing
             set_image_pixels_to_srgb(image)
 
     if is_bl_newer_than(2, 80):
@@ -1116,6 +1122,10 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         if self.copy:
             image = self.image = duplicate_image(image, ondisk_duplicate=False)
+        
+        # HACK: Set image color to linear first for float image since it will be forced to use 'srgb' colorspace before saving
+        if image.is_float:
+            set_image_pixels_to_linear(image)
 
         # Need to pack first to save the image
         if image.is_dirty:
@@ -1128,10 +1138,15 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             unpacked_to_disk = True
             self.unpack_image(context)
 
-        # Some image need to set to srgb when saving
+        # HACK: Float image need to set to srgb when saving
         ori_colorspace = image.colorspace_settings.name
         if not image.is_float and not image.is_dirty:
             image.colorspace_settings.name = get_srgb_name()
+
+        # HACK: Need to change alpha mode to straight before saving premultiplied float image
+        ori_alpha_mode = image.alpha_mode
+        if image.is_float and image.alpha_mode == 'PREMUL' and not image.is_dirty:
+            image.alpha_mode = 'STRAIGHT'
 
         # Save image
         if image.source == 'TILED':
@@ -1192,6 +1207,10 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         # Set back colorspace settings
         if image.colorspace_settings.name != ori_colorspace:
             image.colorspace_settings.name = ori_colorspace
+
+        # Set back alpha mode
+        if image.alpha_mode != ori_alpha_mode:
+            image.alpha_mode = ori_alpha_mode
 
         # Delete copied image
         if self.copy:
