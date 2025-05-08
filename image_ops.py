@@ -1280,11 +1280,33 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False):
     if no_copy == False:
         if image.source == 'TILED':
             UDIM.copy_udim_pixels(image, new_image)
-        else: copy_image_pixels(image, new_image)
+        else: 
+
+            copy_image_pixels(image, new_image)
+
+            # HACK: Need to do some image operations to make the result correct
+            if image.packed_file:
+
+                if new_image.is_float:
+                    set_image_pixels_to_linear(new_image)
+                    multiply_image_rgb_by_alpha(new_image)
+                    set_image_pixels_to_linear(new_image)
+                else:
+                    divide_image_rgb_by_alpha(new_image)
+                    set_image_pixels_to_srgb(new_image)
 
     # Pack image
     if image.packed_file and image.source != 'TILED':
         pack_image(new_image)
+
+        if new_image.is_float:
+            # Float image will use linear color and premultiplied alpha
+            new_image.colorspace_settings.name = get_linear_color_name()
+            new_image.alpha_mode = 'PREMUL'
+        else:
+            # Byte image will use srgb color and straight alpha
+            new_image.colorspace_settings.name = get_srgb_name()
+            new_image.alpha_mode = 'STRAIGHT'
 
     # Replace image
     replace_image(image, new_image)
