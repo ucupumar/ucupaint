@@ -7077,6 +7077,49 @@ def set_image_pixels_to_linear(image, segment=None):
 
         image.pixels = pxs
 
+def multiply_image_rgb_by_alpha(image, segment=None):
+
+    start_x = 0
+    start_y = 0
+
+    width = image.size[0]
+    height = image.size[1]
+
+    if segment:
+        start_x = width * segment.tile_x
+        start_y = height * segment.tile_y
+
+        width = segment.width
+        height = segment.height
+
+    if is_bl_newer_than(2, 83):
+        pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
+
+        # Set array to 3d
+        pxs.shape = (-1, image.size[0], 4)
+
+        # Do linear conversion
+        for i in range(3):
+            pxs[start_y:start_y+height, start_x:start_x+width, i] *= pxs[start_y:start_y+height, start_x:start_x+width, 3]
+
+        image.pixels.foreach_set(pxs.ravel())
+
+    else:
+        pxs = list(image.pixels)
+
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(3):
+                    pxs[offset_y + offset_x + i] *= pxs[offset_y + offset_x + 3]
+
+        image.pixels = pxs
+    pass
+
 def is_image_filepath_unique(filepath, check_disk=True):
     abspath = bpy.path.abspath(filepath)
     for img in bpy.data.images:

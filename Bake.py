@@ -2370,7 +2370,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         # Merge image layers
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
 
-
             book = remember_before_bake(yp)
             prepare_bake_settings(
                 book, objs, yp, samples=1, margin=5, 
@@ -2543,6 +2542,15 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             # Refresh index routine
             yp.active_layer_index = min(layer_idx, neighbor_idx)
+
+            # HACK: To make the result correct, multiply rgb by alpha if image alpha mode is premultiplied
+            layer = yp.layers[yp.active_layer_index]
+            if layer.type == 'IMAGE':
+                source = get_layer_source(layer)
+                if source and source.image:
+                    image = source.image
+                    if image.is_float and image.alpha_mode == 'PREMUL':
+                        multiply_image_rgb_by_alpha(image)
 
             # Update list items
             ListItem.refresh_list_items(yp, repoint_active=True)
