@@ -6026,9 +6026,17 @@ def get_layer_gamma_value(layer):
         image = source.image
         if image:
 
-            # Not using linear blending ironically meant all data should be in linear space
-            if not yp.use_linear_blending and is_image_source_srgb(image, source):
-                return 1.0 / GAMMA
+            # Should linearize srgb image and float image
+            if not yp.use_linear_blending:
+                if image.is_float:
+
+                    # Float image with srgb will use double gamma calculation
+                    if is_image_source_srgb(image, source):
+                        return pow(1.0 / GAMMA, 2.0)
+                    else: return 1.0 / GAMMA
+
+                elif is_image_source_srgb(image, source):
+                    return 1.0 / GAMMA
 
     return 1.0
 
