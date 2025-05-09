@@ -60,6 +60,16 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
 
     return True
 
+def preserve_copied_image_color_hack(image, ori_image):
+    if image.is_float:
+        set_image_pixels_to_linear(image)
+        if ori_image.source != 'GENERATED':
+            multiply_image_rgb_by_alpha(image)
+            set_image_pixels_to_linear(image)
+    else:
+        divide_image_rgb_by_alpha(image)
+        set_image_pixels_to_srgb(image)
+
 def copy_udim_pixels(src, dest):
     for tile in src.tiles:
         # Check if tile number exists on both images and has same sizes
@@ -74,6 +84,10 @@ def copy_udim_pixels(src, dest):
 
         # Set pixels
         dest.pixels = list(src.pixels)
+
+        # HACK: Need to do some image operations if the bit depth is different
+        if src.is_float != dest.is_float:
+            preserve_copied_image_color_hack(dest, src)
 
         # Swap back
         if tile.number != 1001:
