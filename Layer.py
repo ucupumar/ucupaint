@@ -1540,9 +1540,9 @@ class YNewLayer(bpy.types.Operator):
                     if hasattr(img, 'use_alpha'):
                         img.use_alpha = True
 
-                    # Set alpha mode to premultiplied to make sure alpha will be packed correctly
-                    if img.is_float:
-                        img.alpha_mode = 'PREMUL'
+                # Set alpha mode to premultiplied to make sure alpha will be packed correctly
+                if img.is_float:
+                    img.alpha_mode = 'PREMUL'
 
             update_image_editor_image(context, img)
 

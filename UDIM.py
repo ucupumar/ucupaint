@@ -1184,6 +1184,10 @@ class YConvertImageTiled(bpy.types.Operator):
 
             initial_pack_udim(new_image, color)
 
+        # Copy colorspace and alpha mode
+        new_image.colorspace_settings.name = image.colorspace_settings.name
+        new_image.alpha_mode = image.alpha_mode
+
         # Copy image pixels
         copy_image_pixels(image, new_image)
 
