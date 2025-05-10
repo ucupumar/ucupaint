@@ -2423,7 +2423,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     use_ssaa = bprops.ssaa and bprops.type.startswith('OTHER_OBJECT_')
 
     # Denoising only available for AO bake for now
-    use_denoise = bprops.denoise and bprops.type in {'AO', 'BEVEL_MASK'} and is_bl_newer_than(2, 81)
+    use_denoise = bprops.denoise and bprops.type in {'AO', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81)
 
     # SSAA will multiply size by 2 then resize it back
     if use_ssaa:
@@ -2556,7 +2556,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         bake_type = 'NORMALS'
     elif bprops.type == 'MULTIRES_DISPLACEMENT':
         bake_type = 'DISPLACEMENT'
-    elif bprops.type in {'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
+    elif bprops.type in {'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL', 'BEVEL_NORMAL'}:
         bake_type = 'NORMAL'
     else: 
         bake_type = 'EMIT'
@@ -2584,7 +2584,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         max_ray_distance=bprops.max_ray_distance, cage_extrusion=bprops.cage_extrusion,
         source_objs=other_objs, use_denoising=False, margin_type=bprops.margin_type,
         cage_object_name = cage_object_name,
-        normal_space = 'OBJECT' if bprops.type == 'OBJECT_SPACE_NORMAL' else 'TANGENT'
+        normal_space = 'TANGENT' if bprops.type != 'OBJECT_SPACE_NORMAL' else 'OBJECT'
     )
     # Set multires level
     #ori_multires_levels = {}
@@ -2746,15 +2746,12 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     # Create bake nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    bsdf = mat.node_tree.nodes.new('ShaderNodeEmission')
-    normal_bake = None
+    bsdf = None
     geometry = None
     vector_math = None
     vector_math_1 = None
     if bprops.type == 'BEVEL_NORMAL':
-        #bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
-        normal_bake = mat.node_tree.nodes.new('ShaderNodeGroup')
-        normal_bake.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
+        bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
     elif bprops.type == 'BEVEL_MASK':
         geometry = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
         vector_math = mat.node_tree.nodes.new('ShaderNodeVectorMath')
@@ -2762,6 +2759,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         if is_bl_newer_than(2, 81):
             vector_math_1 = mat.node_tree.nodes.new('ShaderNodeVectorMath')
             vector_math_1.operation = 'LENGTH'
+
+    if not bsdf:
+        bsdf = mat.node_tree.nodes.new('ShaderNodeEmission')
 
     # Get output node and remember original bsdf input
     output = get_active_mat_output_node(mat.node_tree)
@@ -2829,9 +2829,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         src.samples = bprops.bevel_samples
         src.inputs[0].default_value = bprops.bevel_radius
 
-        #mat.node_tree.links.new(src.outputs[0], bsdf.inputs['Normal'])
-        mat.node_tree.links.new(src.outputs[0], normal_bake.inputs[0])
-        mat.node_tree.links.new(normal_bake.outputs[0], bsdf.inputs[0])
+        mat.node_tree.links.new(src.outputs[0], bsdf.inputs['Normal'])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
     elif bprops.type == 'BEVEL_MASK':
@@ -3435,7 +3433,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     #simple_remove_node(mat.node_tree, srgb2lin)
     simple_remove_node(mat.node_tree, bsdf)
     if src: simple_remove_node(mat.node_tree, src)
-    if normal_bake: simple_remove_node(mat.node_tree, normal_bake)
     if geometry: simple_remove_node(mat.node_tree, geometry)
     if vector_math: simple_remove_node(mat.node_tree, vector_math)
     if vector_math_1: simple_remove_node(mat.node_tree, vector_math_1)

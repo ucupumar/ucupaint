@@ -803,7 +803,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'ssaa')
         else: col.prop(self, 'fxaa')
 
-        if self.type in {'AO', 'BEVEL_MASK'} and is_bl_newer_than(2, 81):
+        if self.type in {'AO', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81):
             col.prop(self, 'denoise')
 
         col.separator()
