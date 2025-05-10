@@ -7099,7 +7099,7 @@ def set_image_pixels_to_linear(image, segment=None):
 
         image.pixels = pxs
 
-def multiply_image_rgb_by_alpha(image, segment=None):
+def multiply_image_rgb_by_alpha(image, segment=None, power=1):
 
     start_x = 0
     start_y = 0
@@ -7123,7 +7123,7 @@ def multiply_image_rgb_by_alpha(image, segment=None):
 
         # Do linear conversion
         for i in range(3):
-            pxs[start_y:start_y+height, start_x:start_x+width, i] *= pxs[start_y:start_y+height, start_x:start_x+width, 3]
+            pxs[start_y:start_y+height, start_x:start_x+width, i] *= pow(pxs[start_y:start_y+height, start_x:start_x+width, 3], power)
 
         image.pixels.foreach_set(pxs.ravel())
 
@@ -7137,9 +7137,12 @@ def multiply_image_rgb_by_alpha(image, segment=None):
                 source_offset_x = 4 * x
                 offset_x = 4 * (x + start_x)
                 for i in range(3):
-                    pxs[offset_y + offset_x + i] *= pxs[offset_y + offset_x + 3]
+                    pxs[offset_y + offset_x + i] *= pow(pxs[offset_y + offset_x + 3], power)
 
         image.pixels = pxs
+
+def safe_divider(divider):
+    return max(divider, 0.00001)
 
 def divide_image_rgb_by_alpha(image, segment=None):
 
@@ -7165,7 +7168,8 @@ def divide_image_rgb_by_alpha(image, segment=None):
 
         # Do linear conversion
         for i in range(3):
-            pxs[start_y:start_y+height, start_x:start_x+width, i] /= pxs[start_y:start_y+height, start_x:start_x+width, 3]
+            vecfunc = numpy.vectorize(safe_divider)
+            pxs[start_y:start_y+height, start_x:start_x+width, i] /= vecfunc(pxs[start_y:start_y+height, start_x:start_x+width, 3])
 
         image.pixels.foreach_set(pxs.ravel())
 
@@ -7179,7 +7183,7 @@ def divide_image_rgb_by_alpha(image, segment=None):
                 source_offset_x = 4 * x
                 offset_x = 4 * (x + start_x)
                 for i in range(3):
-                    pxs[offset_y + offset_x + i] /= max(pxs[offset_y + offset_x + 3], 0.0001)
+                    pxs[offset_y + offset_x + i] /= safe_divider(pxs[offset_y + offset_x + 3])
 
         image.pixels = pxs
 

@@ -6,7 +6,39 @@ from .common import *
 import time
 from . import UDIM
 
+def preserve_float_color_hack_before_saving(image):
+    if not image.is_float: return
+
+    # HACK: Need more calculation for image saved using straight alpha
+    if image.alpha_mode == 'STRAIGHT':
+        if image.colorspace_settings.name == get_srgb_name():
+            multiply_image_rgb_by_alpha(image)
+        elif image.colorspace_settings.name == get_linear_color_name():
+            divide_image_rgb_by_alpha(image)
+
+    # NOTE: Saved SRGB Straight still has black glitch around alpha transition
+    # and saved SRGB Premultiplied still looks horrible
+
+def preserve_float_color_hack_before_packing(image):
+    if not image.is_float: return
+
+    # HACK: Divide by alpha if using straight alpha
+    if image.alpha_mode == 'STRAIGHT':
+        divide_image_rgb_by_alpha(image)
+
+    # Check if image is using srgb colorspace
+    if image.colorspace_settings.name == get_srgb_name():
+
+        # HACK: Multiply by alpha if using premultiplied alpha
+        if image.alpha_mode == 'PREMUL':
+            multiply_image_rgb_by_alpha(image)
+
+        # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
+        set_image_pixels_to_srgb(image)
+
 def save_float_image(image):
+
+    preserve_float_color_hack_before_saving(image)
 
     # Remembers
     original_path = image.filepath
@@ -103,16 +135,9 @@ def pack_float_image_27x(image):
     image.filepath = original_path
     os.remove(temp_filepath)
 
-def pack_image(image):
+def pack_image(image, reload_float=False):
 
-    # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
-    if image.is_float:
-        # Check if image is using srgb colorspace (generated image always behave like srgb image for some reason)
-        srgb_used = image.colorspace_settings.name == get_srgb_name() # or image.source == 'GENERATED'
-
-        if srgb_used:
-            # Force to do srgb calculation on image before packing
-            set_image_pixels_to_srgb(image)
+    preserve_float_color_hack_before_packing(image)
 
     if is_bl_newer_than(2, 80):
         image.pack()
@@ -121,8 +146,8 @@ def pack_image(image):
             pack_float_image_27x(image)
         else: image.pack(as_png=True)
 
-    # HACK: Float image need to be reloaded after packing to be showed correctly
-    if image.is_float:
+    # HACK: Some operation need Float image to be reloaded to be showed correctly
+    if image.is_float and reload_float:
         image.reload()
 
 def clean_object_references(image):
@@ -255,7 +280,7 @@ def save_pack_all(yp):
 
                     temp_saved = True
                     
-                pack_image(image)
+                pack_image(image, reload_float=True)
 
                 if temp_saved:
                     # Remove file if they are using temporary directory
@@ -263,7 +288,7 @@ def save_pack_all(yp):
                         UDIM.remove_udim_files_from_disk(image, temp_udim_dir, True)
 
             else:
-                pack_image(image)
+                pack_image(image, reload_float=True)
                 if image.is_float:
                     packed_float_images.append(image)
 
@@ -1122,10 +1147,20 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         if self.copy:
             image = self.image = duplicate_image(image, ondisk_duplicate=False)
+
+        # Remembers
+        ori_colorspace = image.colorspace_settings.name
+        ori_alpha_mode = image.alpha_mode
         
-        # HACK: Set image color to linear first for float image since it will be forced to use 'srgb' colorspace before saving
         if image.is_float:
-            set_image_pixels_to_linear(image)
+            # HACK: Set image color to linear first to save linear float image
+            if image.colorspace_settings.name == get_linear_color_name():
+                set_image_pixels_to_linear(image)
+
+            # HACK: Need to do image operation before saving srgb float image
+            if image.colorspace_settings.name == get_srgb_name():
+                if image.alpha_mode == 'STRAIGHT':
+                    multiply_image_rgb_by_alpha(image, power=2)
 
         # Need to pack first to save the image
         if image.is_dirty:
@@ -1138,16 +1173,19 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             unpacked_to_disk = True
             self.unpack_image(context)
 
-        # HACK: Float image need to set to srgb when saving
-        ori_colorspace = image.colorspace_settings.name
-        if not image.is_float and not image.is_dirty:
-            image.colorspace_settings.name = get_srgb_name()
+        if not image.is_dirty:
+            if not image.is_float:
+                # HACK: Non float image need to set to srgb when saving
+                image.colorspace_settings.name = get_srgb_name()
 
-        # HACK: Need to change alpha mode to straight before saving premultiplied float image
-        ori_alpha_mode = image.alpha_mode
-        if image.is_float and image.alpha_mode == 'PREMUL' and not image.is_dirty:
-            image.alpha_mode = 'STRAIGHT'
+            else:
 
+                # HACK: Need to change flip alpha mode before saving float image
+                if image.alpha_mode == 'PREMUL':
+                    image.alpha_mode = 'STRAIGHT'
+                elif image.alpha_mode == 'STRAIGHT':
+                    image.alpha_mode = 'PREMUL'
+        
         # Save image
         if image.source == 'TILED':
             override = bpy.context.copy()
