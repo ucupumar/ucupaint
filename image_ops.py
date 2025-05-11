@@ -4,7 +4,7 @@ from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
 from .common import *
 import time
-from . import UDIM
+from . import UDIM, subtree
 
 def preserve_float_color_hack_before_saving(image):
     if not image.is_float: return
@@ -18,23 +18,6 @@ def preserve_float_color_hack_before_saving(image):
 
     # NOTE: Saved SRGB Straight still has black glitch around alpha transition
     # and saved SRGB Premultiplied still looks horrible
-
-def preserve_float_color_hack_before_packing(image):
-    if not image.is_float: return
-
-    # HACK: Divide by alpha if using straight alpha
-    if image.alpha_mode == 'STRAIGHT':
-        divide_image_rgb_by_alpha(image)
-
-    # Check if image is using srgb colorspace
-    if image.colorspace_settings.name == get_srgb_name():
-
-        # HACK: Multiply by alpha if using premultiplied alpha
-        if image.alpha_mode == 'PREMUL':
-            multiply_image_rgb_by_alpha(image)
-
-        # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
-        set_image_pixels_to_srgb(image)
 
 def save_float_image(image):
 
@@ -135,9 +118,27 @@ def pack_float_image_27x(image):
     image.filepath = original_path
     os.remove(temp_filepath)
 
-def pack_image(image, reload_float=False):
+def preserve_float_color_hack_before_packing(image):
+    if not image.is_float: return
 
-    preserve_float_color_hack_before_packing(image)
+    # HACK: Divide by alpha if using straight alpha
+    if image.alpha_mode == 'STRAIGHT':
+        divide_image_rgb_by_alpha(image)
+
+    # Check if image is using srgb colorspace
+    if image.colorspace_settings.name == get_srgb_name():
+
+        # HACK: Multiply by alpha if using premultiplied alpha
+        if image.alpha_mode == 'PREMUL':
+            multiply_image_rgb_by_alpha(image)
+
+        # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
+        set_image_pixels_to_srgb(image)
+
+def pack_image(image, reload_float=False, do_hack=True):
+
+    if do_hack:
+        preserve_float_color_hack_before_packing(image)
 
     if is_bl_newer_than(2, 80):
         image.pack()
@@ -1275,7 +1276,7 @@ class YSavePackAll(bpy.types.Operator):
         ypui.refresh_image_hack = False
         return {'FINISHED'}
 
-def toggle_image_bit_depth(image, no_copy=False, force_srgb=False):
+def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_colorspace=False):
 
     if image.yua.is_udim_atlas or image.yia.is_image_atlas:
         self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
@@ -1317,21 +1318,20 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False):
     # Copy image pixels
     if no_copy == False:
         if image.source == 'TILED':
-            UDIM.copy_udim_pixels(image, new_image)
+            UDIM.copy_udim_pixels(image, new_image, convert_colorspace=convert_colorspace)
         else: 
-
             copy_image_pixels(image, new_image)
 
             # HACK: Need to do some image operations to make the result correct
-            #if image.packed_file:
-            UDIM.preserve_copied_image_color_hack(new_image, image)
+            if convert_colorspace:
+                UDIM.preserve_image_color_after_changing_bit_depth(new_image, image)
 
     # Pack image
-    if image.packed_file and image.source != 'TILED':
-        pack_image(new_image)
+    if (image.packed_file or image.source == 'GENERATED'): # and image.source != 'TILED':
+        pack_image(new_image) #, do_hack=False)
 
-    # Set colorspace and alpha mode
-    if not new_image.is_dirty:
+    # Set colorspace and alpha mode after copying data
+    if not force_srgb and convert_colorspace and not new_image.is_dirty:
         if new_image.is_float:
             # Float image will use linear color and premultiplied alpha
             new_image.colorspace_settings.name = get_linear_color_name()
@@ -1360,11 +1360,30 @@ class YConvertImageBitDepth(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
+        # Do not convert colorspace if entity is a mask
+        convert_colorspace = False
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', context.entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', context.entity.path_from_id())
+        m3 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', context.entity.path_from_id())
+        if m1:
+            layer = yp.layers[int(m1.group(1))]
+            convert_colorspace = True
+        elif m2: 
+            layer = yp.layers[int(m2.group(1))]
+        elif m3: 
+            layer = yp.layers[int(m3.group(1))]
+        else:
+            self.report({'ERROR'}, "Wrong context!")
+            return {'CANCELLED'}
+
         image = context.image
-        toggle_image_bit_depth(image)
+        toggle_image_bit_depth(image, convert_colorspace=convert_colorspace)
 
         # Update image editor by setting active layer index
         yp.active_layer_index = yp.active_layer_index
+
+        # Refresh linear nodes
+        subtree.check_yp_linear_nodes(yp, specific_layer=layer, reconnect=True)
 
         return {'FINISHED'}
 

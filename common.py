@@ -5951,13 +5951,18 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
         ):
             return GAMMA
 
-        # Convert srgb image to linear for linear channel
-        if image and is_image_source_srgb(image, source) and root_ch.colorspace == 'LINEAR':
+        # NOTE: Linear blending currently will only use gamma correction on normal channel
+        if image and is_image_source_srgb(image, source) and root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
             return 1.0 / GAMMA
 
-        # Convert non srgb image to srgb for srgb channel
-        if image and is_image_source_non_color(image, source) and root_ch.colorspace == 'SRGB':
-            return GAMMA
+        # NOTE: These two gamma correction are unused yet for simplicity and older file compatibility
+        ## Convert srgb image to linear for linear channel
+        #if image and is_image_source_srgb(image, source) and root_ch.colorspace == 'LINEAR':
+        #    return 1.0 / GAMMA
+
+        ## Convert non srgb image to srgb for srgb channel
+        #if image and is_image_source_non_color(image, source) and root_ch.colorspace == 'SRGB':
+        #    return GAMMA
 
     else:
         # Convert srgb override image to linear
@@ -7056,7 +7061,7 @@ def set_image_pixels_to_srgb(image, segment=None):
 
         image.pixels = pxs
 
-def set_image_pixels_to_linear(image, segment=None):
+def set_image_pixels_to_linear(image, segment=None, power=1):
 
     start_x = 0
     start_y = 0
@@ -7080,8 +7085,9 @@ def set_image_pixels_to_linear(image, segment=None):
 
         # Do linear conversion
         vecfunc = numpy.vectorize(srgb_to_linear_per_element)
-        for i in range(3):
-            pxs[start_y:start_y+height, start_x:start_x+width, i] = vecfunc(pxs[start_y:start_y+height, start_x:start_x+width, i])
+        for p in range(power):
+            for i in range(3):
+                pxs[start_y:start_y+height, start_x:start_x+width, i] = vecfunc(pxs[start_y:start_y+height, start_x:start_x+width, i])
 
         image.pixels.foreach_set(pxs.ravel())
 
@@ -7094,8 +7100,9 @@ def set_image_pixels_to_linear(image, segment=None):
             for x in range(width):
                 source_offset_x = 4 * x
                 offset_x = 4 * (x + start_x)
-                for i in range(3):
-                    pxs[offset_y + offset_x + i] = srgb_to_linear_per_element(pxs[offset_y + offset_x + i])
+                for p in range(power):
+                    for i in range(3):
+                        pxs[offset_y + offset_x + i] = srgb_to_linear_per_element(pxs[offset_y + offset_x + i])
 
         image.pixels = pxs
 
