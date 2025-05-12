@@ -61,16 +61,21 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
     return True
 
 def copy_udim_pixels(src, dest, convert_colorspace=False):
-    for tile in src.tiles:
+
+    tilenums = [tile.number for tile in src.tiles]
+
+    for tilenum in tilenums:
+        tile = src.tiles.get(tilenum)
+
         # Check if tile number exists on both images and has same sizes
-        dtile = dest.tiles.get(tile.number)
+        dtile = dest.tiles.get(tilenum)
         if not dtile: continue
         if tile.size[0] != dtile.size[0] or tile.size[1] != dtile.size[1]: continue
 
         # Swap first
-        if tile.number != 1001:
-            swap_tile(src, 1001, tile.number)
-            swap_tile(dest, 1001, tile.number)
+        if tilenum != 1001:
+            swap_tile(src, 1001, tilenum)
+            swap_tile(dest, 1001, tilenum)
 
         # Set pixels
         if convert_colorspace:
@@ -78,9 +83,9 @@ def copy_udim_pixels(src, dest, convert_colorspace=False):
         else: dest.pixels = list(src.pixels)
 
         # Swap back
-        if tile.number != 1001:
-            swap_tile(src, 1001, tile.number)
-            swap_tile(dest, 1001, tile.number)
+        if tilenum != 1001:
+            swap_tile(src, 1001, tilenum)
+            swap_tile(dest, 1001, tilenum)
 
 def get_tile_numbers(objs, uv_name):
 

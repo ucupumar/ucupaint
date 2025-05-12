@@ -141,9 +141,7 @@ def pack_image(image, reload_float=False, do_hack=True):
         preserve_float_color_hack_before_packing(image)
 
     if is_bl_newer_than(2, 80):
-        if image.source == 'TILED':
-            UDIM.pack_udim(image)
-        else: image.pack()
+        image.pack()
     else:
         if image.is_float:
             pack_float_image_27x(image)
@@ -1336,7 +1334,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
             else: copy_image_pixels(image, new_image)
 
     # Pack image
-    if image.packed_file or (image.source == 'GENERATED' and image.filepath == ''):
+    if image.source != 'TILED' and image.packed_file:
         pack_image(new_image, reload_float=True)
 
     # Replace image
