@@ -60,16 +60,6 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
 
     return True
 
-def preserve_image_color_after_changing_bit_depth(image, ori_image):
-    # HACK: This hack are tested on linear premultiplied float and srgb straight byte
-    # It's not 100% preserved exactly, but close enough
-    if image.is_float:
-        set_image_pixels_to_linear(image, power=2)
-        multiply_image_rgb_by_alpha(image, power=3)
-    else:
-        divide_image_rgb_by_alpha(image)
-        set_image_pixels_to_srgb(image)
-
 def copy_udim_pixels(src, dest, convert_colorspace=False):
     for tile in src.tiles:
         # Check if tile number exists on both images and has same sizes
@@ -83,11 +73,9 @@ def copy_udim_pixels(src, dest, convert_colorspace=False):
             swap_tile(dest, 1001, tile.number)
 
         # Set pixels
-        dest.pixels = list(src.pixels)
-
-        # HACK: Need to do some image operations if the bit depth is different
-        if convert_colorspace and src.is_float != dest.is_float:
-            preserve_image_color_after_changing_bit_depth(dest, src)
+        if convert_colorspace:
+            copy_image_pixels_with_conversion(src, dest)
+        else: dest.pixels = list(src.pixels)
 
         # Swap back
         if tile.number != 1001:

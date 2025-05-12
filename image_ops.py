@@ -141,7 +141,9 @@ def pack_image(image, reload_float=False, do_hack=True):
         preserve_float_color_hack_before_packing(image)
 
     if is_bl_newer_than(2, 80):
-        image.pack()
+        if image.source == 'TILED':
+            UDIM.pack_udim(image)
+        else: image.pack()
     else:
         if image.is_float:
             pack_float_image_27x(image)
@@ -1313,25 +1315,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
 
     if force_srgb:
         new_image.colorspace_settings.name = get_srgb_name()
-    else: new_image.colorspace_settings.name = image.colorspace_settings.name
-
-    # Copy image pixels
-    if no_copy == False:
-        if image.source == 'TILED':
-            UDIM.copy_udim_pixels(image, new_image, convert_colorspace=convert_colorspace)
-        else: 
-            copy_image_pixels(image, new_image)
-
-            # HACK: Need to do some image operations to make the result correct
-            if convert_colorspace:
-                UDIM.preserve_image_color_after_changing_bit_depth(new_image, image)
-
-    # Pack image
-    if (image.packed_file or image.source == 'GENERATED'): # and image.source != 'TILED':
-        pack_image(new_image) #, do_hack=False)
-
-    # Set colorspace and alpha mode after copying data
-    if not force_srgb and convert_colorspace and not new_image.is_dirty:
+    elif convert_colorspace:
         if new_image.is_float:
             # Float image will use linear color and premultiplied alpha
             new_image.colorspace_settings.name = get_linear_color_name()
@@ -1340,6 +1324,20 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
             # Byte image will use srgb color and straight alpha
             new_image.colorspace_settings.name = get_srgb_name()
             new_image.alpha_mode = 'STRAIGHT'
+    else: new_image.colorspace_settings.name = image.colorspace_settings.name
+
+    # Copy image pixels
+    if no_copy == False:
+        if image.source == 'TILED':
+            UDIM.copy_udim_pixels(image, new_image, convert_colorspace=convert_colorspace)
+        else: 
+            if convert_colorspace:
+                copy_image_pixels_with_conversion(image, new_image)
+            else: copy_image_pixels(image, new_image)
+
+    # Pack image
+    if image.packed_file or (image.source == 'GENERATED' and image.filepath == ''):
+        pack_image(new_image, reload_float=True)
 
     # Replace image
     replace_image(image, new_image)

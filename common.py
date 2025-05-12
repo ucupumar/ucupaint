@@ -6979,6 +6979,20 @@ def copy_image_pixels(src, dest, segment=None, segment_src=None):
 
         dest.pixels = target_pxs
 
+def copy_image_pixels_with_conversion(src, dest, segment=None, segment_src=None):
+
+    copy_image_pixels(src, dest, segment, segment_src)
+
+    # Convert image colors after copying if destination image and source image has different bit depth
+    if dest.is_float and not src.is_float:
+        # Byte to float
+        set_image_pixels_to_linear(dest, power=1)
+        multiply_image_rgb_by_alpha(dest, power=1)
+    else:
+        # Float to byte
+        divide_image_rgb_by_alpha(dest)
+        set_image_pixels_to_srgb(dest)
+
 def set_image_pixels(image, color, segment=None):
 
     start_x = 0
