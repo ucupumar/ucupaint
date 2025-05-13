@@ -1597,9 +1597,17 @@ def bake_channel(
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
+    # Normal baking need special node setup
     bsdf = None
+    norm = None
     if root_ch.type == 'NORMAL':
-        bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
+        if is_bl_newer_than(2, 80):
+            # Use diffuse bsdf for Blender 2.80+
+            bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
+        else:
+            # Use custom normal calculation for legacy blender
+            norm = mat.node_tree.nodes.new('ShaderNodeGroup')
+            norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex
@@ -1771,24 +1779,28 @@ def bake_channel(
         # Links to bake
         rgb = node.outputs[root_ch.name]
 
-        # Use diffuse bsdf for baking normal
         if root_ch.type == 'NORMAL':
-            ori_normal_space = scene.render.bake.normal_space
-            scene.cycles.bake_type = 'NORMAL'
-            scene.render.bake.normal_space = 'TANGENT'
+            if norm:
+                # Custom normal calculation setup
+                rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
+                mat.node_tree.links.new(rgb, emit.inputs[0])
+            elif bsdf:
+                # Baking normal from diffuse bsdf
+                ori_normal_space = scene.render.bake.normal_space
+                scene.cycles.bake_type = 'NORMAL'
+                scene.render.bake.normal_space = 'TANGENT'
 
-            # Connect bsdf node to output
-            mat.node_tree.links.new(rgb, bsdf.inputs['Normal'])
-            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+                # Connect bsdf node to output
+                mat.node_tree.links.new(rgb, bsdf.inputs['Normal'])
+                mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-            # HACK: Sometimes the bsdf node need color socket to be also connected
-            for rch in yp.channels:
-                if rch.type == 'RGB':
-                    soc = node.outputs.get(rch.name)
-                    if soc: 
-                        mat.node_tree.links.new(soc, bsdf.inputs[0])
-                        break
-
+                # HACK: Sometimes the bsdf node need color socket to be also connected
+                for rch in yp.channels:
+                    if rch.type == 'RGB':
+                        soc = node.outputs.get(rch.name)
+                        if soc: 
+                            mat.node_tree.links.new(soc, bsdf.inputs[0])
+                            break
         else:
             mat.node_tree.links.new(rgb, emit.inputs[0])
 
@@ -1797,7 +1809,7 @@ def bake_channel(
         bake_object_op(scene.cycles.bake_type)
 
         # Revert back the original bake settings
-        if root_ch.type == 'NORMAL':
+        if root_ch.type == 'NORMAL' and bsdf:
             scene.cycles.bake_type = 'EMIT'
             scene.render.bake.normal_space = ori_normal_space
             mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
@@ -1874,18 +1886,20 @@ def bake_channel(
                     #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
 
                 # Preparing for normal baking
-                scene.cycles.bake_type = 'NORMAL'
-                scene.render.bake.normal_space = 'TANGENT'
-                mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+                if bsdf:
+                    scene.cycles.bake_type = 'NORMAL'
+                    scene.render.bake.normal_space = 'TANGENT'
+                    mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
                 # Bake
                 print('BAKE CHANNEL: Baking normal without bump image of ' + root_ch.name + ' channel...')
                 bake_object_op(scene.cycles.bake_type)
 
                 # Recover normal baking related
-                scene.cycles.bake_type = 'EMIT'
-                scene.render.bake.normal_space = ori_normal_space
-                mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+                if bsdf:
+                    scene.cycles.bake_type = 'EMIT'
+                    scene.render.bake.normal_space = ori_normal_space
+                    mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
                 # Recover connection
                 if end_linear:
@@ -2177,6 +2191,7 @@ def bake_channel(
     simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img)
     simple_remove_node(mat.node_tree, emit)
     if bsdf: simple_remove_node(mat.node_tree, bsdf)
+    if norm: simple_remove_node(mat.node_tree, norm)
 
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
