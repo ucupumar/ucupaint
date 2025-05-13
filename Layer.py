@@ -4691,6 +4691,15 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def update_driver_targets(obj, target_map):
+    # Update driver target object references based on a given object map.
+    for fcurve in obj.animation_data.drivers if obj.animation_data else []:
+        for var in fcurve.driver.variables:
+            for target in var.targets:
+                if target.id in target_map:
+                    target.id = target_map[target.id]
+
+
 def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False, set_new_decal_position=False):
 
     yp = tree.yp
@@ -4749,28 +4758,27 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                 original_empty = texcoord.object
         
                 if set_new_decal_position:
-                    # Always create a new, independent empty
                     texcoord.object = create_decal_empty()
                 else:
-                    # Check if we've already duplicated this original empty
                     if original_empty in duplicated_empties:
-                        texcoord.object = duplicated_empties[original_empty]
+                        new_empty = duplicated_empties[original_empty]
                     else:
-                        # Create a new duplicate of the empty
                         nname = get_unique_name(original_empty.name, bpy.data.objects)
                         custom_collection = (
                             original_empty.users_collection[0]
                             if is_bl_newer_than(2, 80) and len(original_empty.users_collection) > 0
                             else None
                         )
-                        duplicated_empty = original_empty.copy()
-                        duplicated_empty.name = nname
-                        link_object(bpy.context.scene, duplicated_empty, custom_collection)
+                        new_empty = original_empty.copy()
+                        new_empty.name = nname
+                        link_object(bpy.context.scene, new_empty, custom_collection)
         
-                        # Store the duplicate for reuse
-                        duplicated_empties[original_empty] = duplicated_empty
-                        texcoord.object = duplicated_empty
-
+                        duplicated_empties[original_empty] = new_empty
+        
+                    texcoord.object = new_empty
+        
+                    # Update drivers to point to the duplicated empty instead of the original
+                    update_driver_targets(new_empty, duplicated_empties)
 
         # Duplicate baked layer image
         baked_layer_source = get_layer_source(layer, get_baked=True)
@@ -4848,27 +4856,27 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                     original_empty = texcoord.object
             
                     if set_new_decal_position:
-                        # Always create a new, independent empty
                         texcoord.object = create_decal_empty()
                     else:
-                        # Check if we've already duplicated this original empty
                         if original_empty in duplicated_empties:
-                            texcoord.object = duplicated_empties[original_empty]
+                            new_empty = duplicated_empties[original_empty]
                         else:
-                            # Create a new duplicate of the empty
                             nname = get_unique_name(original_empty.name, bpy.data.objects)
                             custom_collection = (
                                 original_empty.users_collection[0]
                                 if is_bl_newer_than(2, 80) and len(original_empty.users_collection) > 0
                                 else None
                             )
-                            duplicated_empty = original_empty.copy()
-                            duplicated_empty.name = nname
-                            link_object(bpy.context.scene, duplicated_empty, custom_collection)
+                            new_empty = original_empty.copy()
+                            new_empty.name = nname
+                            link_object(bpy.context.scene, new_empty, custom_collection)
             
-                            # Store the duplicate for reuse
-                            duplicated_empties[original_empty] = duplicated_empty
-                            texcoord.object = duplicated_empty
+                            duplicated_empties[original_empty] = new_empty
+            
+                        texcoord.object = new_empty
+            
+                        # Update drivers to point to the duplicated empty instead of the original
+                        update_driver_targets(new_empty, duplicated_empties)
     
             # Duplicate baked mask image
             baked_mask_source = get_mask_source(mask, get_baked=True)
