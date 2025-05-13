@@ -4704,7 +4704,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
     vcol_user_types = []
     vcol_nodes = []
     vcol_names = []
-
+    duplicated_empties = {}
     for layer in yp.layers:
         if specific_layers and layer not in specific_layers: continue
 
@@ -4746,14 +4746,31 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
         if layer.texcoord_type == 'Decal':
             texcoord = ttree.nodes.get(layer.texcoord)
             if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+                original_empty = texcoord.object
+        
                 if set_new_decal_position:
+                    # Always create a new, independent empty
                     texcoord.object = create_decal_empty()
                 else:
-                    nname = get_unique_name(texcoord.object.name, bpy.data.objects)
-                    custom_collection = texcoord.object.users_collection[0] if is_bl_newer_than(2, 80) and texcoord.object and len(texcoord.object.users_collection) > 0 else None
-                    texcoord.object = texcoord.object.copy()
-                    texcoord.object.name = nname
-                    link_object(bpy.context.scene, texcoord.object, custom_collection)
+                    # Check if we've already duplicated this original empty
+                    if original_empty in duplicated_empties:
+                        texcoord.object = duplicated_empties[original_empty]
+                    else:
+                        # Create a new duplicate of the empty
+                        nname = get_unique_name(original_empty.name, bpy.data.objects)
+                        custom_collection = (
+                            original_empty.users_collection[0]
+                            if is_bl_newer_than(2, 80) and len(original_empty.users_collection) > 0
+                            else None
+                        )
+                        duplicated_empty = original_empty.copy()
+                        duplicated_empty.name = nname
+                        link_object(bpy.context.scene, duplicated_empty, custom_collection)
+        
+                        # Store the duplicate for reuse
+                        duplicated_empties[original_empty] = duplicated_empty
+                        texcoord.object = duplicated_empty
+
 
         # Duplicate baked layer image
         baked_layer_source = get_layer_source(layer, get_baked=True)
@@ -4812,6 +4829,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                     imgs.append(img)
 
         # Duplicate masks
+
         for mask in layer.masks:
             if mask.group_node != '':
                 mask_group =  ttree.nodes.get(mask.group_node)
@@ -4827,15 +4845,31 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
             if mask.texcoord_type == 'Decal':
                 texcoord = ttree.nodes.get(mask.texcoord)
                 if texcoord and hasattr(texcoord, 'object') and texcoord.object:
+                    original_empty = texcoord.object
+            
                     if set_new_decal_position:
+                        # Always create a new, independent empty
                         texcoord.object = create_decal_empty()
                     else:
-                        nname = get_unique_name(texcoord.object.name, bpy.data.objects)
-                        custom_collection = texcoord.object.users_collection[0] if is_bl_newer_than(2, 80) and texcoord.object and len(texcoord.object.users_collection) > 0 else None
-                        texcoord.object = texcoord.object.copy()
-                        texcoord.object.name = nname
-                        link_object(bpy.context.scene, texcoord.object, custom_collection)
-
+                        # Check if we've already duplicated this original empty
+                        if original_empty in duplicated_empties:
+                            texcoord.object = duplicated_empties[original_empty]
+                        else:
+                            # Create a new duplicate of the empty
+                            nname = get_unique_name(original_empty.name, bpy.data.objects)
+                            custom_collection = (
+                                original_empty.users_collection[0]
+                                if is_bl_newer_than(2, 80) and len(original_empty.users_collection) > 0
+                                else None
+                            )
+                            duplicated_empty = original_empty.copy()
+                            duplicated_empty.name = nname
+                            link_object(bpy.context.scene, duplicated_empty, custom_collection)
+            
+                            # Store the duplicate for reuse
+                            duplicated_empties[original_empty] = duplicated_empty
+                            texcoord.object = duplicated_empty
+    
             # Duplicate baked mask image
             baked_mask_source = get_mask_source(mask, get_baked=True)
             if baked_mask_source:
