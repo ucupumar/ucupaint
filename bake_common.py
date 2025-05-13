@@ -127,16 +127,20 @@ def is_join_objects_problematic(yp, mat=None):
 
     return False
 
-def bake_object_op():
+def bake_object_op(bake_type='EMIT'):
     try:
-        bpy.ops.object.bake()
+        if bake_type != 'EMIT':
+            bpy.ops.object.bake(type=bake_type)
+        else: bpy.ops.object.bake()
     except Exception as e:
         scene = bpy.context.scene
         if scene.cycles.device == 'GPU':
             print('EXCEPTIION: GPU baking failed! Trying to use CPU...')
             scene.cycles.device = 'CPU'
 
-            bpy.ops.object.bake()
+            if bake_type != 'EMIT':
+                bpy.ops.object.bake(type=bake_type)
+            else: bpy.ops.object.bake()
         else:
             print('EXCEPTIION:', e)
 
@@ -1529,6 +1533,7 @@ def bake_channel(
     tree = node.node_tree
     yp = tree.yp
     ypup = get_user_preferences()
+    scene = bpy.context.scene
 
     channel_idx = get_channel_index(root_ch)
 
@@ -1543,12 +1548,12 @@ def bake_channel(
         for lay in yp.layers:
             if lay.type in {'HEMI'} and not lay.use_temp_bake:
                 print('BAKE CHANNEL: Fake lighting layer found! Baking temporary image of ' + lay.name + ' layer...')
-                temp_bake(bpy.context, lay, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
+                temp_bake(bpy.context, lay, width, height, True, 1, scene.render.bake.margin, uv_map)
                 temp_baked.append(lay)
             for mask in lay.masks:
                 if mask.type in {'HEMI'} and not mask.use_temp_bake:
                     print('BAKE CHANNEL: Fake lighting mask found! Baking temporary image of ' + mask.name + ' mask...')
-                    temp_bake(bpy.context, mask, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
+                    temp_bake(bpy.context, mask, width, height, True, 1, scene.render.bake.margin, uv_map)
                     temp_baked.append(mask)
 
     ch = None
@@ -1589,12 +1594,9 @@ def bake_channel(
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
+    bsdf = None
     if root_ch.type == 'NORMAL':
-
-        norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        if is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
-            norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
-        else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
+        bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex
@@ -1765,17 +1767,37 @@ def bake_channel(
 
         # Links to bake
         rgb = node.outputs[root_ch.name]
-        if root_ch.type == 'NORMAL':
-            rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
-        #elif root_ch.colorspace != 'LINEAR' and target_layer:
-        #elif target_layer:
-            #rgb = create_link(mat.node_tree, rgb, lin2srgb.inputs[0])[0]
 
-        mat.node_tree.links.new(rgb, emit.inputs[0])
+        # Use diffuse bsdf for baking normal
+        if root_ch.type == 'NORMAL':
+            ori_normal_space = scene.render.bake.normal_space
+            scene.cycles.bake_type = 'NORMAL'
+            scene.render.bake.normal_space = 'TANGENT'
+
+            # Connect bsdf node to output
+            mat.node_tree.links.new(rgb, bsdf.inputs['Normal'])
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+            # HACK: Sometimes the bsdf node need color socket to be also connected
+            for rch in yp.channels:
+                if rch.type == 'RGB':
+                    soc = node.outputs.get(rch.name)
+                    if soc: 
+                        mat.node_tree.links.new(soc, bsdf.inputs[0])
+                        break
+
+        else:
+            mat.node_tree.links.new(rgb, emit.inputs[0])
 
         # Bake!
         print('BAKE CHANNEL: Baking main image of ' + root_ch.name + ' channel...')
-        bake_object_op()
+        bake_object_op(scene.cycles.bake_type)
+
+        # Revert back the original bake settings
+        if root_ch.type == 'NORMAL':
+            scene.cycles.bake_type = 'EMIT'
+            scene.render.bake.normal_space = ori_normal_space
+            mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
     # Bake displacement
     if root_ch.type == 'NORMAL':
@@ -1848,11 +1870,19 @@ def bake_channel(
                     create_link(tree, soc, end.inputs[root_ch.name])
                     #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
 
-                # Bake
-                print('BAKE CHANNEL: Baking normal overlay image of ' + root_ch.name + ' channel...')
-                bake_object_op()
+                # Preparing for normal baking
+                scene.cycles.bake_type = 'NORMAL'
+                scene.render.bake.normal_space = 'TANGENT'
+                mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-                #return
+                # Bake
+                print('BAKE CHANNEL: Baking normal without bump image of ' + root_ch.name + ' channel...')
+                bake_object_op(scene.cycles.bake_type)
+
+                # Recover normal baking related
+                scene.cycles.bake_type = 'EMIT'
+                scene.render.bake.normal_space = ori_normal_space
+                mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
                 # Recover connection
                 if end_linear:
@@ -2143,10 +2173,7 @@ def bake_channel(
 
     simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img)
     simple_remove_node(mat.node_tree, emit)
-    #simple_remove_node(mat.node_tree, lin2srgb)
-    #simple_remove_node(mat.node_tree, srgb2lin)
-    if root_ch.type == 'NORMAL':
-        simple_remove_node(mat.node_tree, norm)
+    if bsdf: simple_remove_node(mat.node_tree, bsdf)
 
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
