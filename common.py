@@ -1162,12 +1162,14 @@ def get_edit_image_editor_space(context):
 def get_first_unpinned_image_editor_space(context, return_index=False):
     space = None
     index = -1
-    for i, area in enumerate(context.screen.areas):
-        if area.type == 'IMAGE_EDITOR':
-            if not area.spaces[0].use_image_pin:
-                space = area.spaces[0]
-                index = i
-                break
+    for i, window in enumerate(context.window_manager.windows):
+        for j, area in enumerate(window.screen.areas):
+            if area.type == 'IMAGE_EDITOR':
+                img = area.spaces[0].image
+                if not area.spaces[0].use_image_pin and (not img or img.type not in {'RENDER_RESULT', 'COMPOSITING'}):
+                    space = area.spaces[0]
+                    index = j
+                    break
 
     if return_index:
         return space, index
@@ -1191,11 +1193,25 @@ def get_active_paint_slot_image():
 
     return image
 
+def safely_set_image_paint_canvas(image, scene=None):
+    if not scene: scene = bpy.context.scene
+
+    # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
+    ori_editor_imgs = get_editor_images_dict()
+
+    try:
+        scene.tool_settings.image_paint.canvas = image
+        success = True
+    except Exception as e: print(e)
+
+    # HACK: Revert back to original editor images
+    if success: set_editor_images(ori_editor_imgs)
+
 def set_image_paint_canvas(image):
     scene = bpy.context.scene
     try:
         scene.tool_settings.image_paint.mode = 'IMAGE'
-        scene.tool_settings.image_paint.canvas = image
+        safely_set_image_paint_canvas(image, scene)
     except Exception as e: print(e)
 
 # Check if name already available on the list
@@ -1367,7 +1383,7 @@ def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
 
         # Remove image from canvas
         if scene.tool_settings.image_paint.canvas == image:
-            scene.tool_settings.image_paint.canvas = None
+            safely_set_image_paint_canvas(None, scene)
 
         if remove_on_disk and not image.packed_file and image.filepath != '':
             if image.source == 'TILED':
@@ -4726,6 +4742,33 @@ def get_relevant_uv(obj, yp):
 
     return uv_name 
 
+def get_editor_images_dict():
+    editor_images = {}
+
+    for i, window in enumerate(bpy.context.window_manager.windows):
+        screen_dict = {}
+        for j, area in enumerate(window.screen.areas):
+            if area.type == 'IMAGE_EDITOR':
+                space = area.spaces[0]
+                img = space.image
+                if img: screen_dict[j] = img.name
+                else: screen_dict[j] = ''
+        editor_images[i] = screen_dict
+
+    return editor_images
+
+def set_editor_images(editor_images={}):
+    for i, window in enumerate(bpy.context.window_manager.windows):
+        if i in editor_images:
+            screen_dict = editor_images[i]
+            for j, area in enumerate(window.screen.areas):
+                if area.type == 'IMAGE_EDITOR':
+                    if j in screen_dict:
+                        space = area.spaces[0]
+                        img = bpy.data.images.get(screen_dict[j])
+                        if space.image != img:
+                            space.image = img
+
 def set_active_paint_slot_entity(yp):
     image = None
     mat = get_active_material()
@@ -4856,6 +4899,10 @@ def set_active_paint_slot_entity(yp):
 
                 image = source.image
 
+
+    # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
+    ori_editor_imgs = get_editor_images_dict()
+
     if not is_multiple_mats and image and is_bl_newer_than(2, 81):
 
         scene.tool_settings.image_paint.mode = 'MATERIAL'
@@ -4871,6 +4918,9 @@ def set_active_paint_slot_entity(yp):
     else:
         scene.tool_settings.image_paint.mode = 'IMAGE'
         scene.tool_settings.image_paint.canvas = image
+
+    # HACK: Revert back to original editor images
+    set_editor_images(ori_editor_imgs)
 
     update_image_editor_image(bpy.context, image)
 

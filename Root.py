@@ -4091,6 +4091,8 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 
     clipboard_bake_target : CollectionProperty(type=BakeTarget.YBakeTarget)
 
+    image_editor_dict : StringProperty(default='')
+
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
@@ -4168,15 +4170,15 @@ def ypaint_last_object_update(scene):
 
     mat = obj.active_material
     ypwm = bpy.context.window_manager.ypprops
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp if node else None
 
     if ypwm.last_object != obj.name or (mat and mat.name != ypwm.last_material):
         ypwm.last_object = obj.name
         if mat: ypwm.last_material = mat.name
-        node = get_active_ypaint_node()
 
         # Refresh layer index to update editor image
-        if node:
-            yp = node.node_tree.yp
+        if yp:
             if yp.use_baked and len(yp.channels) > 0:
                 update_active_yp_channel(yp, bpy.context)
 
@@ -4184,12 +4186,21 @@ def ypaint_last_object_update(scene):
                 try: set_active_paint_slot_entity(yp)
                 except: print('EXCEPTIION: Cannot set image canvas!')
 
+    # HACK: Remember original image editor images before entering texture paint mode
+    if yp and obj.type == 'MESH' and obj.mode != 'TEXTURE_PAINT':
+        editor_images = get_editor_images_dict()
+        ypwm.image_editor_dict = str(editor_images)
+
     if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
 
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp if node else None
-
         if obj.mode == 'TEXTURE_PAINT' or ypwm.last_mode == 'TEXTURE_PAINT':
+
+            # HACK: Set original image editor images since going into texture paint mode will replace all of them
+            if yp and obj.mode == 'TEXTURE_PAINT' and ypwm.image_editor_dict != '':
+                import ast
+                editor_images = ast.literal_eval(ypwm.image_editor_dict)
+                set_editor_images(editor_images)
+
             ypwm.last_mode = obj.mode
             if yp and len(yp.layers) > 0:
                 image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
@@ -4209,6 +4220,10 @@ def ypaint_last_object_update(scene):
                 # HACK: Just in case active image is not correct
                 ypwm.correct_paint_image_name = image.name
 
+                # Set image editor image
+                update_image_editor_image(bpy.context, image)
+
+                # Refresh temporary UV
                 refresh_temp_uv(obj, src_of_img)
 
         # Into edit mode
@@ -4262,8 +4277,19 @@ def ypaint_missmatch_paint_slot_hack(scene):
                 for idx, img in enumerate(mat.texture_paint_images):
                     if img == None: continue
                     if img.name == correct_img.name:
-                        try: mat.paint_active_slot = idx
+
+                        # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
+                        ori_editor_imgs = get_editor_images_dict()
+
+                        success = False
+                        try: 
+                            mat.paint_active_slot = idx
+                            success = True
                         except: print('EXCEPTIION: Cannot set active paint slot image!')
+
+                        # HACK: Revert back to original editor images
+                        if success: set_editor_images(ori_editor_imgs)
+
                         break
 
         wmyp.correct_paint_image_name = ''

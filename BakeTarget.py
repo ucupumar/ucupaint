@@ -262,6 +262,7 @@ class YCopyBakeTarget(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         node = get_active_ypaint_node()
+        if not node: return False
 
         group_tree = node.node_tree
         yp = group_tree.yp
