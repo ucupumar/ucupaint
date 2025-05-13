@@ -177,6 +177,12 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         default = False
     )
 
+    use_osl : BoolProperty(
+        name = 'Use OSL',
+        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
+        default = False
+    )
+
     use_dithering : BoolProperty(
         name = 'Use Dithering',
         description = 'Use dithering for less banding color',

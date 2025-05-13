@@ -1284,6 +1284,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
 
+    use_osl : BoolProperty(
+        name = 'Use OSL',
+        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
+        default = False
+    )
+
     use_dithering : BoolProperty(
         name = 'Use Dithering',
         description = 'Use dithering for less banding color',
@@ -1463,7 +1469,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         col.separator()
 
         if is_bl_newer_than(2, 80):
-            col.prop(self, 'bake_device', text='')
+            if self.use_osl:
+                col.label(text='CPU (OSL)')
+            else: col.prop(self, 'bake_device', text='')
         col.prop(self, 'interpolation', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
@@ -1493,6 +1501,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 row = split_layout(ccol, 0.55)
                 row.prop(self, 'use_dithering', text='Use Dithering')
                 row.prop(self, 'dither_intensity', text='')
+
+        ccol.prop(self, 'use_osl')
 
         ccol.prop(self, 'force_bake_all_polygons')
         ccol.prop(self, 'bake_disabled_layers')
@@ -1631,7 +1641,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         # Prepare bake settings
         prepare_bake_settings(
             book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, 
-            bake_device=self.bake_device, margin_type=self.margin_type
+            bake_device=self.bake_device, margin_type=self.margin_type, use_osl=self.use_osl
         )
 
         # Get tilenums

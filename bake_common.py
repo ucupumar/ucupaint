@@ -156,6 +156,7 @@ def remember_before_bake(yp=None, mat=None):
     book['ori_engine'] = scene.render.engine
     book['ori_bake_type'] = scene.cycles.bake_type
     book['ori_samples'] = scene.cycles.samples
+    book['ori_use_osl'] = scene.cycles.shading_system
     book['ori_threads_mode'] = scene.render.threads_mode
     book['ori_margin'] = scene.render.bake.margin
     book['ori_use_clear'] = scene.render.bake.use_clear
@@ -447,7 +448,7 @@ def prepare_bake_settings(
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
         source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name='', 
-        normal_space='TANGENT',
+        normal_space='TANGENT', use_osl=False,
     ):
 
     scene = bpy.context.scene
@@ -455,6 +456,7 @@ def prepare_bake_settings(
 
     scene.render.engine = 'CYCLES'
     scene.cycles.samples = samples
+    scene.cycles.shading_system = use_osl
     scene.render.threads_mode = 'AUTO'
     scene.render.bake.margin = margin
     #scene.render.bake.use_clear = True
@@ -502,7 +504,7 @@ def prepare_bake_settings(
         scene.cycles.bake_type = bake_type
 
     # Old blender will always use CPU
-    if not is_bl_newer_than(2, 80):
+    if not is_bl_newer_than(2, 80) or use_osl:
         scene.cycles.device = 'CPU'
     else: scene.cycles.device = bake_device
 
@@ -672,6 +674,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
 
     scene.render.engine = book['ori_engine']
     scene.cycles.samples = book['ori_samples']
+    scene.cycles.shading_system = book['ori_use_osl']
     scene.cycles.bake_type = book['ori_bake_type']
     scene.render.threads_mode = book['ori_threads_mode']
     scene.render.bake.margin = book['ori_margin']
