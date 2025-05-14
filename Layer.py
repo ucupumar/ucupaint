@@ -4691,6 +4691,45 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def update_driver_targets(obj, target_map):
+    # Update driver target object references based on a given object map.
+    for fcurve in obj.animation_data.drivers if obj.animation_data else []:
+        for var in fcurve.driver.variables:
+            for target in var.targets:
+                if target.id in target_map:
+                    target.id = target_map[target.id]
+
+def duplicate_decal_empty_reference(texcoord_name, ttree, set_new_decal_position, duplicated_empties):
+    texcoord = ttree.nodes.get(texcoord_name)
+    if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object:
+        return
+
+    original_empty = texcoord.object
+
+    if set_new_decal_position:
+        texcoord.object = create_decal_empty()
+    else:
+        if original_empty in duplicated_empties:
+            new_empty = duplicated_empties[original_empty]
+        else:
+            nname = get_unique_name(original_empty.name, bpy.data.objects)
+            custom_collection = (
+                original_empty.users_collection[0]
+                if is_bl_newer_than(2, 80) and len(original_empty.users_collection) > 0
+                else None
+            )
+            new_empty = original_empty.copy()
+            new_empty.name = nname
+            link_object(bpy.context.scene, new_empty, custom_collection)
+
+            duplicated_empties[original_empty] = new_empty
+
+            # Update drivers on the new empty to point to any other duplicated empties
+            update_driver_targets(new_empty, duplicated_empties)
+
+        texcoord.object = new_empty
+
+
 def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False, set_new_decal_position=False):
 
     yp = tree.yp
@@ -4704,7 +4743,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
     vcol_user_types = []
     vcol_nodes = []
     vcol_names = []
-
+    duplicated_empties = {}
     for layer in yp.layers:
         if specific_layers and layer not in specific_layers: continue
 
@@ -4744,16 +4783,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
 
         # Decal object duplicate
         if layer.texcoord_type == 'Decal':
-            texcoord = ttree.nodes.get(layer.texcoord)
-            if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-                if set_new_decal_position:
-                    texcoord.object = create_decal_empty()
-                else:
-                    nname = get_unique_name(texcoord.object.name, bpy.data.objects)
-                    custom_collection = texcoord.object.users_collection[0] if is_bl_newer_than(2, 80) and texcoord.object and len(texcoord.object.users_collection) > 0 else None
-                    texcoord.object = texcoord.object.copy()
-                    texcoord.object.name = nname
-                    link_object(bpy.context.scene, texcoord.object, custom_collection)
+            duplicate_decal_empty_reference(layer.texcoord, ttree, set_new_decal_position, duplicated_empties)
 
         # Duplicate baked layer image
         baked_layer_source = get_layer_source(layer, get_baked=True)
@@ -4812,6 +4842,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                     imgs.append(img)
 
         # Duplicate masks
+
         for mask in layer.masks:
             if mask.group_node != '':
                 mask_group =  ttree.nodes.get(mask.group_node)
@@ -4825,17 +4856,8 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                 mask_source = ttree.nodes.get(mask.source)
             # Decal object duplicate
             if mask.texcoord_type == 'Decal':
-                texcoord = ttree.nodes.get(mask.texcoord)
-                if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-                    if set_new_decal_position:
-                        texcoord.object = create_decal_empty()
-                    else:
-                        nname = get_unique_name(texcoord.object.name, bpy.data.objects)
-                        custom_collection = texcoord.object.users_collection[0] if is_bl_newer_than(2, 80) and texcoord.object and len(texcoord.object.users_collection) > 0 else None
-                        texcoord.object = texcoord.object.copy()
-                        texcoord.object.name = nname
-                        link_object(bpy.context.scene, texcoord.object, custom_collection)
-
+                duplicate_decal_empty_reference(mask.texcoord, ttree, set_new_decal_position, duplicated_empties)
+    
             # Duplicate baked mask image
             baked_mask_source = get_mask_source(mask, get_baked=True)
             if baked_mask_source:
