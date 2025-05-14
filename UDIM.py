@@ -670,6 +670,10 @@ def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0, 0, 0
     image.yua.is_udim_atlas = True
     image.yui.base_color = color
 
+    # Float image atlas always use premultipled alpha
+    if hdr:
+        image.alpha_mode = 'PREMUL'
+
     # Pack image
     initial_pack_udim(image)
 
@@ -1161,6 +1165,10 @@ class YConvertImageTiled(bpy.types.Operator):
 
     def execute(self, context):
         image = context.image
+
+        if image.yua.is_udim_atlas or image.yia.is_image_atlas:
+            self.report({'ERROR'}, 'Converting image atlas to/from UDIM is not supported yet!')
+            return {'CANCELLED'}
 
         # Create new image
         new_image = bpy.data.images.new(

@@ -1278,9 +1278,7 @@ class YSavePackAll(bpy.types.Operator):
 
 def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_colorspace=False):
 
-    if image.yua.is_udim_atlas or image.yia.is_image_atlas:
-        self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
-        return {'CANCELLED'}
+    if image.yua.is_udim_atlas or image.yia.is_image_atlas: return
 
     # Create new image based on original image but with different bit depth
     if image.source == 'TILED':
@@ -1373,6 +1371,11 @@ class YConvertImageBitDepth(bpy.types.Operator):
             return {'CANCELLED'}
 
         image = context.image
+
+        if image.yua.is_udim_atlas or image.yia.is_image_atlas:
+            self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
+            return {'CANCELLED'}
+
         toggle_image_bit_depth(image, convert_colorspace=convert_colorspace)
 
         # Update image editor by setting active layer index
