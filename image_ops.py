@@ -7,7 +7,7 @@ import time
 from . import UDIM, subtree
 
 def preserve_float_color_hack_before_saving(image):
-    if not image.is_float: return
+    if not image.is_float or not is_bl_newer_than(2, 80): return
 
     # HACK: Need more calculation for image saved using straight alpha
     if image.alpha_mode == 'STRAIGHT':
@@ -16,7 +16,7 @@ def preserve_float_color_hack_before_saving(image):
         elif image.colorspace_settings.name == get_linear_color_name():
             divide_image_rgb_by_alpha(image)
 
-    # NOTE: Saved SRGB Straight still has black glitch around alpha transition
+    # TODO: Saved SRGB Straight still has black glitch around alpha transition
     # and saved SRGB Premultiplied still looks horrible
 
 def save_float_image(image):
@@ -119,7 +119,7 @@ def pack_float_image_27x(image):
     os.remove(temp_filepath)
 
 def preserve_float_color_hack_before_packing(image):
-    if not image.is_float: return
+    if not image.is_float or not is_bl_newer_than(2, 80): return
 
     # HACK: Divide by alpha if using straight alpha
     if image.alpha_mode == 'STRAIGHT':

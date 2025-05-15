@@ -2515,6 +2515,14 @@ def check_layer_image_linear_node(layer, source_tree=None):
 
     if not source_tree: source_tree = get_source_tree(layer)
 
+    # Blender 2.7x has color space option on the node 
+    if not is_bl_newer_than(2, 80) and layer.type == 'IMAGE':
+        source = get_layer_source(layer)
+        if yp.use_linear_blending:
+            if source.color_space != 'COLOR': source.color_space = 'COLOR'
+        else: 
+            if source.color_space != 'NONE': source.color_space = 'NONE'
+
     gamma = get_layer_gamma_value(layer)
 
     if gamma != 1.0:

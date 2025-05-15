@@ -6089,7 +6089,7 @@ def get_layer_gamma_value(layer):
 
             # Should linearize srgb image and float image
             if not yp.use_linear_blending:
-                if image.is_float:
+                if image.is_float and is_bl_newer_than(2, 80):
 
                     # Float image with srgb will use double gamma calculation
                     if is_image_source_srgb(image, source):
@@ -6138,6 +6138,15 @@ def any_linear_images_problem(yp):
                 (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
                 ):
                 return True
+
+        # Blender 2.7x has color space option on the node 
+        if not is_bl_newer_than(2, 80) and layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source:
+                if source.color_space == 'NONE' and yp.use_linear_blending:
+                    return True
+                if source.color_space == 'COLOR' and not yp.use_linear_blending:
+                    return True
 
         gamma = get_layer_gamma_value(layer)
         source_tree = get_source_tree(layer)

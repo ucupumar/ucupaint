@@ -153,8 +153,8 @@ def add_new_layer(
 
     if layer_type == 'IMAGE':
         # Always set non color to image node because of linear pipeline
-        if hasattr(source, 'color_space'):
-            source.color_space = 'NONE'
+        #if hasattr(source, 'color_space'):
+        #    source.color_space = 'NONE'
 
         # Add new image if it's image layer
         source.image = image
@@ -1541,7 +1541,7 @@ class YNewLayer(bpy.types.Operator):
                         img.use_alpha = True
 
                 # Set alpha mode to premultiplied to make sure alpha will be packed correctly
-                if img.is_float:
+                if img.is_float and is_bl_newer_than(2, 80):
                     img.alpha_mode = 'PREMUL'
 
             update_image_editor_image(context, img)
@@ -4283,8 +4283,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
             source.image = image
-            if hasattr(source, 'color_space'):
-                source.color_space = 'NONE'
+            #if hasattr(source, 'color_space'):
+            #    source.color_space = 'NONE'
             #if image.colorspace_settings.name != get_noncolor_name():
             #    image.colorspace_settings.name = get_noncolor_name()
         elif new_type == 'VCOL':
