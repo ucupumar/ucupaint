@@ -730,6 +730,20 @@ def get_noncolor_name():
 
     return 'Non-Color'
 
+def get_linear_color_name():
+    names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
+    linear_name = 'Linear Rec.709' if is_bl_newer_than(4) else 'Linear'
+
+    if linear_name not in names:
+
+        # Try to get 'linear' in a name
+        for name in names:
+            if 'linear' in name.lower():
+                linear_name = name
+                break
+
+    return linear_name
+
 def remove_datablock(blocks, block, user=None, user_prop=''):
     if is_bl_newer_than(2, 79):
         blocks.remove(block)
@@ -896,6 +910,9 @@ def is_layer_collection_hidden(obj):
 
 def get_addon_filepath():
     return os.path.dirname(bpy.path.abspath(__file__)) + os.sep
+
+def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
+    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
 def srgb_to_linear_per_element(e):
     if e <= 0.03928:
@@ -5920,7 +5937,7 @@ def is_colorid_vcol_still_being_used(objs):
 
     return False
 
-def is_image_source_srgb(image, source, root_ch=None):
+def is_image_source_srgb(image, source):
     if not is_bl_newer_than(2, 80):
         return source.color_space == 'COLOR'
 
@@ -5928,11 +5945,155 @@ def is_image_source_srgb(image, source, root_ch=None):
     if image.source == 'TILED' and image.colorspace_settings.name == '':
         return True
 
-    # Float images is behaving like srgb for some reason in blender
-    if root_ch and root_ch.colorspace == 'SRGB' and image.is_float and image.colorspace_settings.name != get_srgb_name():
-        return True
+    # Generated float images is behaving like srgb for some reason in blender
+    #if image.is_float and image.colorspace_settings.name != get_srgb_name() and image.source == 'GENERATED':
+    #    return True
 
     return image.colorspace_settings.name == get_srgb_name()
+
+def is_image_source_non_color(image, source):
+    if not is_bl_newer_than(2, 80):
+        return source.color_space == 'NONE'
+
+    # Generated float images is behaving like srgb for some reason in blender
+    return image.colorspace_settings.name == get_noncolor_name() and not (image.is_float and image.source == 'GENERATED')
+
+def get_layer_and_root_ch_from_layer_ch(ch):
+    yp = ch.id_data.yp
+    layer = None
+    root_ch = None
+    
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+    if match:
+        layer = yp.layers[int(match.group(1))]
+        root_ch = yp.channels[int(match.group(2))]
+
+    return layer, root_ch
+
+def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
+    yp = ch.id_data.yp
+    if not layer or not root_ch: layer, root_ch = get_layer_and_root_ch_from_layer_ch(ch)
+
+    channel_enabled = get_channel_enabled(ch, layer, root_ch)
+    if not channel_enabled: return 1.0
+
+    source_tree = get_channel_source_tree(ch, layer)
+
+    image = None
+    source = None
+    if ch.override and ch.override_type == 'IMAGE':
+        source = source_tree.nodes.get(ch.source)
+        if source: image = source.image
+    elif layer.type == 'IMAGE':
+        source = get_layer_source(layer)
+        if source: image = source.image
+
+    if yp.use_linear_blending:
+
+        # Convert non image layer data to srgb if gamma space option is enabled
+        if ( 
+            not ch.override
+            and ch.gamma_space 
+            and root_ch.type != 'NORMAL' 
+            and root_ch.colorspace == 'SRGB' 
+            and ch.layer_input == 'RGB' 
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
+        ):
+            return GAMMA
+
+        # NOTE: Linear blending currently will only use gamma correction on normal channel
+        if image and is_image_source_srgb(image, source) and root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
+            return 1.0 / GAMMA
+
+        # NOTE: These two gamma correction are unused yet for simplicity and older file compatibility
+        ## Convert srgb image to linear for linear channel
+        #if image and is_image_source_srgb(image, source) and root_ch.colorspace == 'LINEAR':
+        #    return 1.0 / GAMMA
+
+        ## Convert non srgb image to srgb for srgb channel
+        #if image and is_image_source_non_color(image, source) and root_ch.colorspace == 'SRGB':
+        #    return GAMMA
+
+    else:
+        # Convert srgb override image to linear
+        if ch.override and image and is_image_source_srgb(image, source):
+            return 1.0 / GAMMA
+
+        # Convert non image override data to linear
+        if ch.override and ch.override_type not in {'IMAGE'} and root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB':
+            return 1.0 / GAMMA
+
+        # Convert non image layer data to linear
+        if (
+            not ch.override 
+            and not ch.gamma_space 
+            and root_ch.type != 'NORMAL' 
+            and root_ch.colorspace == 'SRGB' 
+            and ch.layer_input == 'RGB' 
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
+        ):
+            return 1.0 / GAMMA
+
+    return 1.0
+
+def get_layer_channel_normal_gamma_value(ch, layer=None, root_ch=None):
+    yp = ch.id_data.yp
+    if not layer or not root_ch: layer, root_ch = get_layer_and_root_ch_from_layer_ch(ch)
+
+    channel_enabled = get_channel_enabled(ch, layer, root_ch)
+    if not channel_enabled: return 1.0
+
+    image = None
+    source = None
+    layer_tree = get_tree(layer)
+    if ch.override_1 and ch.override_1_type == 'IMAGE':
+        source = layer_tree.nodes.get(ch.source_1)
+        if source: image = source.image
+
+    # Convert srgb normal map override to linear
+    if ch.override_1 and image and is_image_source_srgb(image, source):
+        return 1.0 / GAMMA
+
+    return 1.0
+
+def get_layer_mask_gamma_value(mask, mask_tree=None):
+    if not mask_tree: mask_tree = get_mask_tree(mask)
+
+    if get_mask_enabled(mask) and mask.type == 'IMAGE':
+
+        source = mask_tree.nodes.get(mask.source)
+        image = source.image
+
+        if not image: return 1.0
+
+        # Convert srgb mask image to linear
+        if is_image_source_srgb(image, source):
+            return 1.0 / GAMMA
+
+    return 1.0
+
+def get_layer_gamma_value(layer):
+    yp = layer.id_data.yp
+
+    if get_layer_enabled(layer) and layer.type == 'IMAGE':
+        source_tree = get_source_tree(layer)
+        source = source_tree.nodes.get(layer.source)
+        image = source.image
+        if image:
+
+            # Should linearize srgb image and float image
+            if not yp.use_linear_blending:
+                if image.is_float:
+
+                    # Float image with srgb will use double gamma calculation
+                    if is_image_source_srgb(image, source):
+                        return pow(1.0 / GAMMA, 2.0)
+                    else: return 1.0 / GAMMA
+
+                elif is_image_source_srgb(image, source):
+                    return 1.0 / GAMMA
+
+    return 1.0
 
 def any_linear_images_problem(yp):
     for layer in yp.layers:
@@ -5941,85 +6102,46 @@ def any_linear_images_problem(yp):
 
         for i, ch in enumerate(layer.channels):
             root_ch = yp.channels[i]
-            if not get_channel_enabled(ch, layer, root_ch): continue
+            #if not get_channel_enabled(ch, layer, root_ch): continue
 
-            if not yp.use_linear_blending and ch.override and ch.override_type == 'IMAGE':
-                source_tree = get_channel_source_tree(ch)
-                linear = source_tree.nodes.get(ch.linear)
-                source = source_tree.nodes.get(ch.source)
-                if not source: continue
+            gamma = get_layer_channel_gamma_value(ch, layer, root_ch)
+            source_tree = get_channel_source_tree(ch, layer)
+            linear = source_tree.nodes.get(ch.linear)
 
-                image = source.image
-                if not image: continue
-                if (
-                    (is_image_source_srgb(image, source, root_ch) and not linear) or
-                    (not is_image_source_srgb(image, source, root_ch) and linear)
-                    ):
-                    return True
+            if (
+                (gamma == 1.0 and linear) or
+                (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
+                ):
+                return True
 
-            if ch.override_1 and ch.override_1_type == 'IMAGE':
+            if root_ch.type == 'NORMAL':
+                gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch)
                 linear_1 = layer_tree.nodes.get(ch.linear_1)
-                source_1 = layer_tree.nodes.get(ch.source_1)
-                if not source_1: continue
-
-                image = source_1.image
-                if not image: continue
                 if (
-                    (is_image_source_srgb(image, source_1) and not linear_1) or
-                    (not is_image_source_srgb(image, source_1) and linear_1)
+                    (gamma_1 == 1.0 and linear_1) or
+                    (gamma_1 != 1.0 and (not linear_1 or not isclose(linear_1.inputs[1].default_value, gamma_1, rel_tol=1e-5)))
                     ):
                     return True
 
         for mask in layer.masks:
-            if not get_mask_enabled(mask, layer): continue
-            if mask.type == 'IMAGE':
-                source_tree = get_mask_tree(mask)
-                linear = source_tree.nodes.get(mask.linear)
-                source = source_tree.nodes.get(mask.source)
-                if not source: continue
-                image = source.image
-                if not image: continue
-                if (
-                    (is_image_source_srgb(image, source) and not linear) or
-                    (not is_image_source_srgb(image, source) and linear)
-                    ):
-                    return True
+            source_tree = get_mask_tree(mask)
+            gamma = get_layer_mask_gamma_value(mask, mask_tree=source_tree)
+            linear = source_tree.nodes.get(mask.linear)
+            if (
+                (gamma == 1.0 and linear) or
+                (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
+                ):
+                return True
 
-        if layer.type == 'IMAGE':
-            source_tree = get_source_tree(layer)
-            linear = source_tree.nodes.get(layer.linear)
-            source = source_tree.nodes.get(layer.source)
-            if not source: continue
-            image = source.image
-            if not image: continue
+        gamma = get_layer_gamma_value(layer)
+        source_tree = get_source_tree(layer)
+        linear = source_tree.nodes.get(layer.linear)
 
-            if yp.use_linear_blending:
-                normal_ch = get_height_channel(layer)
-                normal_root_ch = get_root_height_channel(yp)
-                if normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch) and not normal_ch.override_1 and normal_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                    ch_linear = layer_tree.nodes.get(normal_ch.linear)
-                    #if ((is_image_source_srgb(image, source) and not ch_linear) or
-                    #    (not is_image_source_srgb(image, source) and ch_linear)
-                    #    ):
-                    # NOTE: Float image is pretended to be sRGB even if it's using linear colorspace
-                    if (image.is_float and ch_linear) or (not image.is_float and not ch_linear):
-                        return True
-
-                if not image.is_float and ((is_image_source_srgb(image, source) and linear) or
-                    (not is_image_source_srgb(image, source) and not linear)
-                    ):
-                    return True
-
-                if image.is_float and ((is_image_source_srgb(image, source) and not linear) or
-                    (not is_image_source_srgb(image, source) and linear)
-                    ):
-                    return True
-
-            else:
-                if ((is_image_source_srgb(image, source) and not linear) or
-                    (not is_image_source_srgb(image, source) and linear)
-                    ):
-                    return True
+        if (
+            (gamma == 1.0 and linear) or
+            (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
+            ):
+            return True
 
     return False
 
@@ -6907,6 +7029,20 @@ def copy_image_pixels(src, dest, segment=None, segment_src=None):
 
         dest.pixels = target_pxs
 
+def copy_image_pixels_with_conversion(src, dest, segment=None, segment_src=None):
+
+    copy_image_pixels(src, dest, segment, segment_src)
+
+    # Convert image colors after copying if destination image and source image has different bit depth
+    if dest.is_float and not src.is_float:
+        # Byte to float
+        set_image_pixels_to_linear(dest, power=1)
+        multiply_image_rgb_by_alpha(dest, power=1)
+    else:
+        # Float to byte
+        divide_image_rgb_by_alpha(dest)
+        set_image_pixels_to_srgb(dest)
+
 def set_image_pixels(image, color, segment=None):
 
     start_x = 0
@@ -6943,6 +7079,182 @@ def set_image_pixels(image, color, segment=None):
                 offset_x = 4 * (x + start_x)
                 for i in range(4):
                     pxs[offset_y + offset_x + i] = color[i]
+
+        image.pixels = pxs
+
+def set_image_pixels_to_srgb(image, segment=None):
+
+    start_x = 0
+    start_y = 0
+
+    width = image.size[0]
+    height = image.size[1]
+
+    if segment:
+        start_x = width * segment.tile_x
+        start_y = height * segment.tile_y
+
+        width = segment.width
+        height = segment.height
+
+    if is_bl_newer_than(2, 83):
+        pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
+
+        # Set array to 3d
+        pxs.shape = (-1, image.size[0], 4)
+
+        # Do srgb conversion
+        vecfunc = numpy.vectorize(linear_to_srgb_per_element)
+        for i in range(3):
+            pxs[start_y:start_y+height, start_x:start_x+width, i] = vecfunc(pxs[start_y:start_y+height, start_x:start_x+width, i])
+
+        image.pixels.foreach_set(pxs.ravel())
+
+    else:
+        pxs = list(image.pixels)
+
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(3):
+                    pxs[offset_y + offset_x + i] = linear_to_srgb_per_element(pxs[offset_y + offset_x + i])
+
+        image.pixels = pxs
+
+def set_image_pixels_to_linear(image, segment=None, power=1):
+
+    start_x = 0
+    start_y = 0
+
+    width = image.size[0]
+    height = image.size[1]
+
+    if segment:
+        start_x = width * segment.tile_x
+        start_y = height * segment.tile_y
+
+        width = segment.width
+        height = segment.height
+
+    if is_bl_newer_than(2, 83):
+        pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
+
+        # Set array to 3d
+        pxs.shape = (-1, image.size[0], 4)
+
+        # Do linear conversion
+        vecfunc = numpy.vectorize(srgb_to_linear_per_element)
+        for p in range(power):
+            for i in range(3):
+                pxs[start_y:start_y+height, start_x:start_x+width, i] = vecfunc(pxs[start_y:start_y+height, start_x:start_x+width, i])
+
+        image.pixels.foreach_set(pxs.ravel())
+
+    else:
+        pxs = list(image.pixels)
+
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for p in range(power):
+                    for i in range(3):
+                        pxs[offset_y + offset_x + i] = srgb_to_linear_per_element(pxs[offset_y + offset_x + i])
+
+        image.pixels = pxs
+
+def multiply_image_rgb_by_alpha(image, segment=None, power=1):
+
+    start_x = 0
+    start_y = 0
+
+    width = image.size[0]
+    height = image.size[1]
+
+    if segment:
+        start_x = width * segment.tile_x
+        start_y = height * segment.tile_y
+
+        width = segment.width
+        height = segment.height
+
+    if is_bl_newer_than(2, 83):
+        pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
+
+        # Set array to 3d
+        pxs.shape = (-1, image.size[0], 4)
+
+        # Do linear conversion
+        for i in range(3):
+            pxs[start_y:start_y+height, start_x:start_x+width, i] *= pow(pxs[start_y:start_y+height, start_x:start_x+width, 3], power)
+
+        image.pixels.foreach_set(pxs.ravel())
+
+    else:
+        pxs = list(image.pixels)
+
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(3):
+                    pxs[offset_y + offset_x + i] *= pow(pxs[offset_y + offset_x + 3], power)
+
+        image.pixels = pxs
+
+def safe_divider(divider):
+    return max(divider, 0.00001)
+
+def divide_image_rgb_by_alpha(image, segment=None):
+
+    start_x = 0
+    start_y = 0
+
+    width = image.size[0]
+    height = image.size[1]
+
+    if segment:
+        start_x = width * segment.tile_x
+        start_y = height * segment.tile_y
+
+        width = segment.width
+        height = segment.height
+
+    if is_bl_newer_than(2, 83):
+        pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
+
+        # Set array to 3d
+        pxs.shape = (-1, image.size[0], 4)
+
+        # Do linear conversion
+        for i in range(3):
+            vecfunc = numpy.vectorize(safe_divider)
+            pxs[start_y:start_y+height, start_x:start_x+width, i] /= vecfunc(pxs[start_y:start_y+height, start_x:start_x+width, 3])
+
+        image.pixels.foreach_set(pxs.ravel())
+
+    else:
+        pxs = list(image.pixels)
+
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(3):
+                    pxs[offset_y + offset_x + i] /= safe_divider(pxs[offset_y + offset_x + 3])
 
         image.pixels = pxs
 

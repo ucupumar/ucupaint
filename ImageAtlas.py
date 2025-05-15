@@ -71,8 +71,11 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False, name=''):
     img.yia.is_image_atlas = True
     img.yia.color = color
     #img.yia.float_buffer = hdr
-    #if hdr:
-    #img.colorspace_settings.name = get_noncolor_name()
+
+    # Float image atlas always use premultiplied alpha
+    if hdr:
+        #img.colorspace_settings.name = get_noncolor_name()
+        img.alpha_mode = 'PREMUL'
 
     return img
 
@@ -653,6 +656,8 @@ class YConvertToStandardImage(bpy.types.Operator):
                     name=entities[i][0].name, width=segment.width, height=segment.height,
                     alpha=True, float_buffer=image.is_float
                 )
+                if image.is_float:
+                    new_image.alpha_mode = 'PREMUL'
             else:
                 new_image = bpy.data.images.new(
                     name=entities[i][0].name, width=image.size[0], height=image.size[1],

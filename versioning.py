@@ -853,6 +853,15 @@ def update_yp_tree(tree):
     if version_tuple(yp.version) < (2, 2, 2):
         update_bake_info_baked_entity_props(yp)
 
+    # Version 2.2.3 use premultiplied alpha for float image atlas
+    if version_tuple(yp.version) < (2, 2, 3):
+        for image in bpy.data.images:
+            if not image.is_float: continue
+            if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+                if not image.is_dirty and image.alpha_mode != 'PREMUL':
+                    image.alpha_mode = 'PREMUL'
+                    print("INFO: Image atlas named '"+image.name+"' is now using premultiplied alpha!")
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
