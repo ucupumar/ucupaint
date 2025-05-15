@@ -6676,7 +6676,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
             if item[0] == 'MUSGRAVE' and is_bl_newer_than(4, 1): continue
             if item[0] == 'GABOR' and not is_bl_newer_than(4, 3): continue
 
-            if item[0] == ch.override_type:
+            if ch.override and item[0] == ch.override_type:
                 icon = 'RADIOBUT_ON'
             else: icon = 'RADIOBUT_OFF'
 

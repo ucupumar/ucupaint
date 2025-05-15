@@ -1225,7 +1225,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     texcoords = []
 
     # Check layer texcoords
-    if layer_enabled and layer.texcoord_type not in {'UV', 'Decal'} and layer.type not in {'VCOL', 'COLOR', 'HEMI', 'GROUP', 'BACKGROUND'}:
+    if layer_enabled and layer.texcoord_type not in {'UV', 'Decal'} and is_layer_using_vector(layer):
         texcoords.append(layer.texcoord_type)
 
     for mask in layer.masks:

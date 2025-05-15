@@ -5769,12 +5769,18 @@ def get_all_baked_channel_images(tree):
     return images
 
 def is_layer_using_vector(layer, exclude_baked=False):
+    yp = layer.id_data.yp
+
     if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
         return True
 
-    for ch in layer.channels:
-        if ch.enable and ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
-            return True
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+        if ch.enable:
+            if ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
+                return True
+            if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type != 'DEFAULT':
+                return True
 
     for mask in layer.masks:
         if mask.enable and mask.texcoord_type == 'Layer':
