@@ -1439,7 +1439,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             imgs = bpy.data.images
             baked_channel_images = get_all_baked_channel_images(layer.id_data)
             for img in imgs:
-                if is_image_available_to_open(img) and img not in baked_channel_images and img != layer_image and img not in mask_images:
+                if is_image_available_to_open(img) and img not in baked_channel_images and img != layer_image:
                     self.image_coll.add().name = img.name
 
             # Make sure default image is available in the collection and update the source input based on the default name
