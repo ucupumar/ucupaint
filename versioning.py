@@ -873,35 +873,47 @@ def update_yp_tree(tree):
                     if source and source.image:
                         image = source.image
                         if not is_image_source_srgb(image, source):
-                            mod = Modifier.add_new_modifier(layer, 'MATH')
-                            mod.math_meth = 'POWER'
-                            mod_tree = get_mod_tree(mod)
-                            math = mod_tree.nodes.get(mod.math)
-                            gamma = 2.2
-                            if math:
-                                math.inputs[2].default_value = gamma
-                                math.inputs[3].default_value = gamma
-                                math.inputs[4].default_value = gamma
-                            else:
-                                mod.math_r_val = gamma
-                                mod.math_g_val = gamma
-                                mod.math_b_val = gamma
 
-                            # Move modifier to the first index
-                            if len(layer.modifiers) > 1:
-                                for i in reversed(range(len(layer.modifiers))):
-                                    if i == 0: break
-                                    index = i
-                                    new_index = i-1
-                                    layer.modifiers.move(index, new_index)
-                                    swap_modifier_fcurves(layer, index, new_index)
+                            # Check if layer is used as normal map
+                            used_as_normal_map = False
+                            for i, ch in enumerate(layer.channels):
+                                if not ch.enable: continue
+                                root_ch = yp.channels[i]
+                                if root_ch.type == 'NORMAL' and ((ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and not ch.override_1) or ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
+                                    used_as_normal_map = True
+                                    break
 
-                            check_layer_image_linear_node(layer)
+                            # Do not add gamma modifier if layer is used as normal map
+                            if not used_as_normal_map:
+                                mod = Modifier.add_new_modifier(layer, 'MATH')
+                                mod.math_meth = 'POWER'
+                                mod_tree = get_mod_tree(mod)
+                                math = mod_tree.nodes.get(mod.math)
+                                gamma = 2.2
+                                if math:
+                                    math.inputs[2].default_value = gamma
+                                    math.inputs[3].default_value = gamma
+                                    math.inputs[4].default_value = gamma
+                                else:
+                                    mod.math_r_val = gamma
+                                    mod.math_g_val = gamma
+                                    mod.math_b_val = gamma
 
-                            reconnect_layer_nodes(layer)
-                            rearrange_layer_nodes(layer)
+                                # Move modifier to the first index
+                                if len(layer.modifiers) > 1:
+                                    for i in reversed(range(len(layer.modifiers))):
+                                        if i == 0: break
+                                        index = i
+                                        new_index = i-1
+                                        layer.modifiers.move(index, new_index)
+                                        swap_modifier_fcurves(layer, index, new_index)
 
-                            print('INFO: Gamma modifier added to \''+image.name+'\' layer')
+                                check_layer_image_linear_node(layer)
+
+                                reconnect_layer_nodes(layer)
+                                rearrange_layer_nodes(layer)
+
+                                print('INFO: Gamma modifier added to \''+image.name+'\' layer')
 
     # SECTION II: Updates based on the blender version
 
