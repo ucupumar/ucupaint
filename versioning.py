@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake, ListItem
+from . import Bake, ListItem, Modifier
 
 def flip_tangent_sign():
     meshes = []
@@ -853,14 +853,55 @@ def update_yp_tree(tree):
     if version_tuple(yp.version) < (2, 2, 2):
         update_bake_info_baked_entity_props(yp)
 
-    # Version 2.2.3 use premultiplied alpha for float image atlas
+    # Version 2.2.3 use premultiplied alpha for float image atlas and new linear gamma system
     if version_tuple(yp.version) < (2, 2, 3):
-        for image in bpy.data.images:
-            if not image.is_float: continue
-            if image.yia.is_image_atlas or image.yua.is_udim_atlas:
-                if not image.is_dirty and image.alpha_mode != 'PREMUL':
-                    image.alpha_mode = 'PREMUL'
-                    print("INFO: Image atlas named '"+image.name+"' is now using premultiplied alpha!")
+
+        if is_bl_newer_than(2, 80):
+            # Update float image atlas to use premultiplied alpha
+            for image in bpy.data.images:
+                if not image.is_float: continue
+                if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+                    if not image.is_dirty and image.alpha_mode != 'PREMUL':
+                        image.alpha_mode = 'PREMUL'
+                        print("INFO: Image atlas named '"+image.name+"' is now using premultiplied alpha!")
+
+        if yp.use_linear_blending:
+            # Non color layer used to be have linear node mistakenly added
+            for layer in yp.layers:
+                if layer.type == 'IMAGE':
+                    source = get_layer_source(layer)
+                    if source and source.image:
+                        image = source.image
+                        if not is_image_source_srgb(image, source):
+                            mod = Modifier.add_new_modifier(layer, 'MATH')
+                            mod.math_meth = 'POWER'
+                            mod_tree = get_mod_tree(mod)
+                            math = mod_tree.nodes.get(mod.math)
+                            gamma = 2.2
+                            if math:
+                                math.inputs[2].default_value = gamma
+                                math.inputs[3].default_value = gamma
+                                math.inputs[4].default_value = gamma
+                            else:
+                                mod.math_r_val = gamma
+                                mod.math_g_val = gamma
+                                mod.math_b_val = gamma
+
+                            # Move modifier to the first index
+                            if len(layer.modifiers) > 1:
+                                for i in reversed(range(len(layer.modifiers))):
+                                    if i == 0: break
+                                    index = i
+                                    new_index = i-1
+                                    layer.modifiers.move(index, new_index)
+                                    swap_modifier_fcurves(layer, index, new_index)
+
+                            check_layer_image_linear_node(layer)
+
+                            reconnect_layer_nodes(layer)
+                            rearrange_layer_nodes(layer)
+
+                            print('INFO: Gamma modifier added to \''+image.name+'\' layer')
 
     # SECTION II: Updates based on the blender version
 
