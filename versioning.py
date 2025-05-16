@@ -908,12 +908,10 @@ def update_yp_tree(tree):
                                         layer.modifiers.move(index, new_index)
                                         swap_modifier_fcurves(layer, index, new_index)
 
-                                check_layer_image_linear_node(layer)
-
-                                reconnect_layer_nodes(layer)
-                                rearrange_layer_nodes(layer)
-
                                 print('INFO: Gamma modifier added to \''+image.name+'\' layer')
+
+        # Update linear nodes since it gets refactored
+        check_yp_linear_nodes(yp, reconnect=True)
 
     # SECTION II: Updates based on the blender version
 
