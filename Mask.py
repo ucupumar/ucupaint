@@ -1676,12 +1676,17 @@ class YMoveLayerMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def copy_mask_modifiers(layer, source_mask, target_mask):
-    tree = get_tree(layer)
-    target_mask.modifiers.clear()
-
-    for src_mod in source_mask.modifiers:
-        new_mod = MaskModifier.add_new_mask_modifier(target_mask, src_mod.type)
+# Copy each modifier from the source - copies references and links modifiers - not working
+def copy_mask_modifiers(layer, source_mask, target_mask):  
+    for mod in source_mask.modifiers:
+        new_mod = target_mask.modifiers.add()
+        for attr in dir(mod):
+            if attr.startswith("_") or callable(getattr(mod, attr)):
+                continue
+            try:
+                setattr(new_mod, attr, getattr(mod, attr))
+            except Exception:
+                pass
 
 class YDuplicateLayerMask(bpy.types.Operator):
     bl_idname = "wm.y_duplicate_layer_mask"
@@ -1726,9 +1731,6 @@ class YDuplicateLayerMask(bpy.types.Operator):
                 ao_distance=mask.ao_distance
             )
             
-            # Move under original mask
-            layer.masks.move(len(layer.masks) - 1, list(layer.masks).index(mask) + 1)
-            
             # Copy extra float/vector properties
             new_mask.intensity_value = mask.intensity_value
             
@@ -1752,7 +1754,7 @@ class YDuplicateLayerMask(bpy.types.Operator):
                 if i < len(new_mask.channels):
                     new_mask.channels[i].enable = ch.enable
             
-            copy_mask_modifiers(layer, mask, new_mask)
+            #copy_mask_modifiers(layer, mask, new_mask)
             
             #self.report({'INFO'}, f"ucupaint addon: Duplicated mask '{mask.name}' as '{new_mask.name}'")
             return {'FINISHED'}
