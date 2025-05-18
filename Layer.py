@@ -4944,8 +4944,8 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
         # Duplicate vertex color
         for obj in objs:
             vcols = get_vertex_colors(obj)
-            vcol = vcols.get(vcol_name)
-            if vcol:
+            if vcol_name in vcols:
+                vcol = vcols.get(vcol_name)
                 new_vcol = new_vertex_color(obj, new_vcol_name, vcol.data_type, vcol.domain)
                 if duplicate_blank:
                     if vcol_user_types[i] == 'LAYER':
