@@ -2312,15 +2312,20 @@ def disable_temp_bake(entity):
     # Set entity attribute
     entity.use_temp_bake = False
 
+def is_object_bakeable(obj):
+    if obj.type != 'MESH': return False
+    if hasattr(obj, 'hide_viewport') and obj.hide_viewport: return False
+    if len(get_uv_layers(obj)) == 0: return False
+    if len(obj.data.polygons) == 0: return False
+
+    return True
+
 def get_bakeable_objects_and_meshes(mat, cage_object=None):
     objs = []
     meshes = []
 
     for ob in get_scene_objects():
-        if ob.type != 'MESH': continue
-        if hasattr(ob, 'hide_viewport') and ob.hide_viewport: continue
-        if len(get_uv_layers(ob)) == 0: continue
-        if len(ob.data.polygons) == 0: continue
+        if not is_object_bakeable(ob): continue
         if cage_object and cage_object == ob: continue
 
         # Do not bake objects with hide_render on
@@ -2387,7 +2392,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 rdict['message'] = "Invalid cage object, the cage mesh must have the same number of faces as the active object!"
                 return rdict
 
-    objs = [obj]
+    objs = [obj] if is_object_bakeable(obj) else []
     if mat.users > 1:
         objs, meshes = get_bakeable_objects_and_meshes(mat, cage_object)
 
@@ -3631,7 +3636,8 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
     yp = entity.id_data.yp
     mat = get_active_material()
-    objs = [bpy.context.object]
+    obj = bpy.context.object
+    objs = [obj] if is_object_bakeable(obj) else []
     if mat.users > 1:
         objs, _ = get_bakeable_objects_and_meshes(mat)
 
