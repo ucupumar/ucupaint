@@ -4222,7 +4222,7 @@ def ypaint_last_object_update(scene):
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
 
                 # HACK: Just in case active image is not correct
-                ypwm.correct_paint_image_name = image.name
+                if image: ypwm.correct_paint_image_name = image.name
 
                 # Set image editor image
                 update_image_editor_image(bpy.context, image)

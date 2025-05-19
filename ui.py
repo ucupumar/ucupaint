@@ -3782,16 +3782,22 @@ def draw_layers_ui(context, layout, node):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 brush = context.tool_settings.vertex_paint.brush
-                row.alert = brush.name == eraser_names['VERTEX_PAINT']
-                row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+                label = 'Toggle Eraser'
+                if brush.name == eraser_names['VERTEX_PAINT']:
+                    row.alert = True
+                    label = 'Disable Eraser'
+                row.operator('paint.y_toggle_eraser', text=label)
 
             elif obj.mode == 'SCULPT' and is_bl_newer_than(3, 2) and ((layer.type == 'VCOL' and not mask_vcol) or (mask_vcol and mask.source_input == 'ALPHA')) and not override_vcol:
 
                 bbox = col.box()
                 row = bbox.row(align=True)
                 brush = context.tool_settings.sculpt.brush
-                row.alert = brush.name == eraser_names['SCULPT']
-                row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+                label = 'Toggle Eraser'
+                if brush.name == eraser_names['SCULPT']:
+                    row.alert = True
+                    label = 'Disable Eraser'
+                row.operator('paint.y_toggle_eraser', text=label)
 
         # Only works with experimental sculpt texture paint is turned on
         in_sculpt_texture_paint_mode = obj.mode == 'SCULPT' and (
@@ -3808,19 +3814,28 @@ def draw_layers_ui(context, layout, node):
                 if brush and brush.image_tool != 'MASK':
                     bbox = col.box()
                     row = bbox.row(align=True)
-                    row.alert = brush.name in tex_eraser_asset_names
-                    row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+                    label = 'Toggle Eraser'
+                    if brush.name in tex_eraser_asset_names:
+                        row.alert = True
+                        label = 'Disable Eraser'
+                    row.operator('paint.y_toggle_eraser', text=label)
 
             elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 if in_texture_paint_mode:
                     brush = context.tool_settings.image_paint.brush
-                    row.alert = brush.name == eraser_names['TEXTURE_PAINT']
+                    label = 'Toggle Eraser'
+                    if brush.name == eraser_names['TEXTURE_PAINT']:
+                        row.alert = True
+                        label = 'Disable Eraser'
                 elif in_sculpt_texture_paint_mode:
                     brush = context.tool_settings.sculpt.brush
-                    row.alert = brush.name == eraser_names['SCULPT']
-                row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+                    label = 'Toggle Eraser'
+                    if brush.name == eraser_names['SCULPT']:
+                        row.alert = True
+                        label = 'Disable Eraser'
+                row.operator('paint.y_toggle_eraser', text=label)
 
         ve = context.scene.ve_edit
         if is_bl_newer_than(4, 3) and in_texture_paint_mode:

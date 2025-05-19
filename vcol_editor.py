@@ -32,19 +32,29 @@ def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
 
     wmyp = bpy.context.window_manager.ypprops
 
+    # Get essential asset identifier path
+    essential_asset_prefix = "brushes\\essentials_brushes-mesh_"
+    mode_type = ''
+    if mode == 'TEXTURE_PAINT': mode_type = 'texture'
+    elif mode == 'VERTEX_PAINT': mode_type = 'vertex'
+    elif mode == 'SCULPT': mode_type = 'sculpt'
+    essential_asset_identifier = essential_asset_prefix + mode_type + ".blend"
+
     # Check asset brush caches first
     bac = wmyp.brush_asset_caches.get(brush_name)
     if bac:
         blend_path = bac.blend_path
-        if blend_path != '': blend_path += os.sep
-        try:
-            bpy.ops.brush.asset_activate(
-                asset_library_type = bac.library_type, 
-                asset_library_identifier = bac.library_name, 
-                relative_asset_identifier = blend_path + "Brush\\" + brush_name
-            )
-            return
-        except Exception as e: print(e) 
+        # Only try to activate the brush cache if it's not essential asset or essential assets with correct mode
+        if not blend_path.startswith(essential_asset_prefix) or blend_path.startswith(essential_asset_identifier):
+            if blend_path != '': blend_path += os.sep
+            try:
+                bpy.ops.brush.asset_activate(
+                    asset_library_type = bac.library_type, 
+                    asset_library_identifier = bac.library_name, 
+                    relative_asset_identifier = blend_path + "Brush\\" + brush_name
+                )
+                return
+            except Exception as e: print('EXCEPTIION:', e) 
 
     # Try local
     try:
@@ -62,18 +72,14 @@ def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
         bac.blend_path = ''
 
         return
-    except Exception as e: print(e) 
+    except Exception as e: print('EXCEPTIION:', e) 
 
     # Try essential
-    if mode == 'TEXTURE_PAINT': mode_type = 'texture'
-    elif mode == 'VERTEX_PAINT': mode_type = 'vertex'
-    elif mode == 'SCULPT': mode_type = 'sculpt'
     try:
-        asset_identifier = "brushes\\essentials_brushes-mesh_" + mode_type + ".blend"
         bpy.ops.brush.asset_activate(
             asset_library_type = 'ESSENTIALS', 
             asset_library_identifier = "", 
-            relative_asset_identifier = asset_identifier + "\\Brush\\" + brush_name
+            relative_asset_identifier = essential_asset_identifier + "\\Brush\\" + brush_name
         )
 
         # Set up the cache for faster loading next time
@@ -81,7 +87,7 @@ def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
         bac.name = brush_name
         bac.library_type = 'ESSENTIALS'
         bac.library_name = ''
-        bac.blend_path = asset_identifier
+        bac.blend_path = essential_asset_identifier
 
         return
     except Exception as e: print(e) 
