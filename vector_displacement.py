@@ -62,6 +62,10 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
+    wmyp = bpy.context.window_manager.ypprops
+
+    # Hack function on depsgraph update can cause crash, so halt it before baking
+    wmyp.halt_hacks = True
 
     scene.render.engine = 'CYCLES'
     scene.render.threads_mode = 'AUTO'
@@ -115,6 +119,7 @@ def _recover_bake_settings(book, recover_active_uv=False):
     obj = book['obj']
     uv_layers = obj.data.uv_layers
     ypui = bpy.context.window_manager.ypui
+    wmyp = bpy.context.window_manager.ypprops
 
     scene.render.engine = book['ori_engine']
     scene.cycles.samples = book['ori_samples']
@@ -158,6 +163,9 @@ def _recover_bake_settings(book, recover_active_uv=False):
         if 'ori_active_render_uv' in book:
             uvl = uv_layers.get(book['ori_active_render_uv'])
             if uvl: uvl.active_render = True
+
+    # Bring back the hack functions
+    wmyp.halt_hacks = False
 
 def get_offset_attributes(base, sclupted_mesh, layer_disabled_mesh=None, intensity=1.0):
 
