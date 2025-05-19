@@ -3,7 +3,7 @@ from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem
 from .common import *
-from .bake_common import *
+#from . import bake_common
 from .node_arrangements import *
 from .node_connections import *
 from .subtree import *
@@ -5608,8 +5608,15 @@ class YPasteLayer(bpy.types.Operator):
 
         # Rebake baked images
         if self.any_baked and self.rebake_bakeds:
-            pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
-            rebake_baked_images(yp, specific_layers=pasted_layers)
+
+            # NOTE: Calling rebake function directly is not possible yet due to cyclic file imports
+            #pasted_layer = [l for l in yp.layers if l.name in pasted_layer_names]
+            #bake_common.rebake_baked_images(yp, specific_layers=pasted_layers)
+
+            pasted_layer_ids = [i for i, l in enumerate(yp.layers) if l.name in pasted_layer_names]
+            bpy.ops.wm.y_rebake_specific_layers(layer_ids=str(pasted_layer_ids))
+
+            # TODO: Refactor common functions for adding new data (add_new_layer, add_new_mask, etc) to avoid cyclic imports
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index

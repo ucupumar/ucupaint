@@ -4095,6 +4095,8 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     image_editor_dict : StringProperty(default='')
     image_editor_pins : StringProperty(default='')
 
+    halt_hacks : BoolProperty(default=False)
+
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
@@ -4266,7 +4268,7 @@ def ypaint_last_object_update(scene):
 def ypaint_missmatch_paint_slot_hack(scene):
     # HACK: Force material active slot to update if necessary
     wmyp = bpy.context.window_manager.ypprops
-    if wmyp.correct_paint_image_name != '':
+    if not wmyp.halt_hacks and wmyp.correct_paint_image_name != '':
 
         if scene.tool_settings.image_paint.mode == 'MATERIAL':
 
