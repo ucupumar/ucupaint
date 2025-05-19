@@ -5396,7 +5396,7 @@ class YPasteLayer(bpy.types.Operator):
         if self.any_decal:
             self.layout.prop(self, 'set_new_decal_position')
 
-        if self.any_baked:
+        if self.any_baked and is_bl_newer_than(2, 80):
             self.layout.prop(self, 'rebake_bakeds')
 
             if self.rebake_bakeds:
@@ -5607,7 +5607,8 @@ class YPasteLayer(bpy.types.Operator):
             if l: l.enable = lenable
 
         # Rebake baked images
-        if self.any_baked and self.rebake_bakeds:
+        # NOTE: Blender versions lower than 2.80 don't copy image's bake info, making rebake process useless
+        if self.any_baked and self.rebake_bakeds and is_bl_newer_than(2, 80):
 
             # NOTE: Calling rebake function directly is not possible yet due to cyclic file imports
             #pasted_layer = [l for l in yp.layers if l.name in pasted_layer_names]
