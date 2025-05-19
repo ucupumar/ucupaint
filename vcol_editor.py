@@ -194,7 +194,9 @@ class YToggleEraser(bpy.types.Operator):
 
             # Get original brush name
             else:
-                new_brush_name = ve.ori_texpaint_brush
+                if ve.ori_texpaint_brush != '':
+                    new_brush_name = ve.ori_texpaint_brush
+                else: new_brush_name = 'Paint Soft'
 
             # Toggle 'Erase Alpha' if new brush is the same
             if brush.name == new_brush_name:
