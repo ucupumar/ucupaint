@@ -3,7 +3,7 @@ from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem
 from .common import *
-from .bake_common import *
+#from . import bake_common
 from .node_arrangements import *
 from .node_connections import *
 from .subtree import *
@@ -4944,8 +4944,8 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
         # Duplicate vertex color
         for obj in objs:
             vcols = get_vertex_colors(obj)
-            vcol = vcols.get(vcol_name)
-            if vcol:
+            if vcol_name in vcols:
+                vcol = vcols.get(vcol_name)
                 new_vcol = new_vertex_color(obj, new_vcol_name, vcol.data_type, vcol.domain)
                 if duplicate_blank:
                     if vcol_user_types[i] == 'LAYER':
@@ -5396,7 +5396,7 @@ class YPasteLayer(bpy.types.Operator):
         if self.any_decal:
             self.layout.prop(self, 'set_new_decal_position')
 
-        if self.any_baked:
+        if self.any_baked and is_bl_newer_than(2, 80):
             self.layout.prop(self, 'rebake_bakeds')
 
             if self.rebake_bakeds:
@@ -5607,9 +5607,17 @@ class YPasteLayer(bpy.types.Operator):
             if l: l.enable = lenable
 
         # Rebake baked images
-        if self.any_baked and self.rebake_bakeds:
-            pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
-            rebake_baked_images(yp, specific_layers=pasted_layers)
+        # NOTE: Blender versions lower than 2.80 don't copy image's bake info, making rebake process useless
+        if self.any_baked and self.rebake_bakeds and is_bl_newer_than(2, 80):
+
+            # NOTE: Calling rebake function directly is not possible yet due to cyclic file imports
+            #pasted_layer = [l for l in yp.layers if l.name in pasted_layer_names]
+            #bake_common.rebake_baked_images(yp, specific_layers=pasted_layers)
+
+            pasted_layer_ids = [i for i, l in enumerate(yp.layers) if l.name in pasted_layer_names]
+            bpy.ops.wm.y_rebake_specific_layers(layer_ids=str(pasted_layer_ids))
+
+            # TODO: Refactor common functions for adding new data (add_new_layer, add_new_mask, etc) to avoid cyclic imports
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index

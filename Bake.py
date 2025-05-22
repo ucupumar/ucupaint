@@ -3630,13 +3630,13 @@ def check_subdiv_setup(height_ch):
 
         # Set displacement mode
         if hasattr(mat, 'displacement_method'):
-            #mat.displacement_method = 'BOTH'
-            mat.displacement_method = 'DISPLACEMENT'
+            mat.displacement_method = 'BOTH'
 
-        if is_bl_newer_than(2, 80):
-            #mat.cycles.displacement_method = 'BOTH'
-            mat.cycles.displacement_method = 'DISPLACEMENT'
-        else: mat.cycles.displacement_method = 'TRUE'
+        # Set cycles displacement mode
+        if hasattr(mat.cycles, 'displacement_method'):
+            if is_bl_newer_than(2, 80):
+                mat.cycles.displacement_method = 'BOTH'
+            else: mat.cycles.displacement_method = 'TRUE'
         
         # Displacement method is inside object data for Blender 2.77 and below 
         if not is_bl_newer_than(2, 78):

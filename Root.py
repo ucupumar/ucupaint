@@ -4076,6 +4076,7 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 
     all_icons_loaded : BoolProperty(default=False)
 
+    edit_image_editor_window_index : IntProperty(default=-1)
     edit_image_editor_area_index : IntProperty(default=-1)
 
     custom_srgb_name : StringProperty(default='')
@@ -4092,6 +4093,9 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     clipboard_bake_target : CollectionProperty(type=BakeTarget.YBakeTarget)
 
     image_editor_dict : StringProperty(default='')
+    image_editor_pins : StringProperty(default='')
+
+    halt_hacks : BoolProperty(default=False)
 
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
@@ -4188,8 +4192,9 @@ def ypaint_last_object_update(scene):
 
     # HACK: Remember original image editor images before entering texture paint mode
     if yp and obj.type == 'MESH' and obj.mode != 'TEXTURE_PAINT':
-        editor_images = get_editor_images_dict()
+        editor_images, editor_pins = get_editor_images_dict(return_pins=True)
         ypwm.image_editor_dict = str(editor_images)
+        ypwm.image_editor_pins = str(editor_pins)
 
     if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
 
@@ -4199,7 +4204,8 @@ def ypaint_last_object_update(scene):
             if yp and obj.mode == 'TEXTURE_PAINT' and ypwm.image_editor_dict != '':
                 import ast
                 editor_images = ast.literal_eval(ypwm.image_editor_dict)
-                set_editor_images(editor_images)
+                editor_pins = ast.literal_eval(ypwm.image_editor_pins) if ypwm.image_editor_pins != '' else {}
+                set_editor_images(editor_images, editor_pins)
 
             ypwm.last_mode = obj.mode
             if yp and len(yp.layers) > 0:
@@ -4218,7 +4224,7 @@ def ypaint_last_object_update(scene):
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
 
                 # HACK: Just in case active image is not correct
-                ypwm.correct_paint_image_name = image.name
+                if image: ypwm.correct_paint_image_name = image.name
 
                 # Set image editor image
                 update_image_editor_image(bpy.context, image)
@@ -4230,8 +4236,9 @@ def ypaint_last_object_update(scene):
         if obj.mode == 'EDIT' and ypwm.last_mode != 'EDIT':
             ypwm.last_mode = obj.mode
             # Remember the space
-            space, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
-            if space and area_index != -1:
+            space, window_index, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
+            if space and area_index != -1 and window_index != -1:
+                ypwm.edit_image_editor_window_index = window_index
                 ypwm.edit_image_editor_area_index = area_index
 
             # Trigger updating active index to update image
@@ -4261,7 +4268,7 @@ def ypaint_last_object_update(scene):
 def ypaint_missmatch_paint_slot_hack(scene):
     # HACK: Force material active slot to update if necessary
     wmyp = bpy.context.window_manager.ypprops
-    if wmyp.correct_paint_image_name != '':
+    if not wmyp.halt_hacks and wmyp.correct_paint_image_name != '':
 
         if scene.tool_settings.image_paint.mode == 'MATERIAL':
 
@@ -4279,7 +4286,7 @@ def ypaint_missmatch_paint_slot_hack(scene):
                     if img.name == correct_img.name:
 
                         # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
-                        ori_editor_imgs = get_editor_images_dict()
+                        ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
                         success = False
                         try: 
@@ -4288,7 +4295,7 @@ def ypaint_missmatch_paint_slot_hack(scene):
                         except: print('EXCEPTIION: Cannot set active paint slot image!')
 
                         # HACK: Revert back to original editor images
-                        if success: set_editor_images(ori_editor_imgs)
+                        if success: set_editor_images(ori_editor_imgs, ori_editor_pins)
 
                         break
 

@@ -453,6 +453,10 @@ def prepare_bake_settings(
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
+    wmyp = bpy.context.window_manager.ypprops
+
+    # Hack function on depsgraph update can cause crash, so halt it before baking
+    wmyp.halt_hacks = True
 
     scene.render.engine = 'CYCLES'
     scene.cycles.samples = samples
@@ -619,8 +623,9 @@ def prepare_bake_settings(
     #ypui.disable_auto_temp_uv_update = True
 
     # Set to object mode
-    try: bpy.ops.object.mode_set(mode = 'OBJECT')
-    except: pass
+    if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+        try: bpy.ops.object.mode_set(mode = 'OBJECT')
+        except: pass
 
     # Disable parallax channel
     if book['parallax_ch']:
@@ -671,6 +676,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     obj = book['obj']
     uv_layers = get_uv_layers(obj)
     ypui = bpy.context.window_manager.ypui
+    wmyp = bpy.context.window_manager.ypprops
 
     scene.render.engine = book['ori_engine']
     scene.cycles.samples = book['ori_samples']
@@ -857,6 +863,9 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
                 if temp: m.node_tree.nodes.remove(temp)
                 #act_uv = m.node_tree.nodes.get(ACTIVE_UV_NODE)
                 #if act_uv: m.node_tree.nodes.remove(act_uv)
+
+    # Bring back the hack functions
+    wmyp.halt_hacks = False
 
 def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     book = {}
@@ -2312,15 +2321,20 @@ def disable_temp_bake(entity):
     # Set entity attribute
     entity.use_temp_bake = False
 
+def is_object_bakeable(obj):
+    if obj.type != 'MESH': return False
+    if hasattr(obj, 'hide_viewport') and obj.hide_viewport: return False
+    if len(get_uv_layers(obj)) == 0: return False
+    if len(obj.data.polygons) == 0: return False
+
+    return True
+
 def get_bakeable_objects_and_meshes(mat, cage_object=None):
     objs = []
     meshes = []
 
     for ob in get_scene_objects():
-        if ob.type != 'MESH': continue
-        if hasattr(ob, 'hide_viewport') and ob.hide_viewport: continue
-        if len(get_uv_layers(ob)) == 0: continue
-        if len(ob.data.polygons) == 0: continue
+        if not is_object_bakeable(ob): continue
         if cage_object and cage_object == ob: continue
 
         # Do not bake objects with hide_render on
@@ -2387,7 +2401,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 rdict['message'] = "Invalid cage object, the cage mesh must have the same number of faces as the active object!"
                 return rdict
 
-    objs = [obj]
+    objs = [obj] if is_object_bakeable(obj) else []
     if mat.users > 1:
         objs, meshes = get_bakeable_objects_and_meshes(mat, cage_object)
 
@@ -3631,7 +3645,8 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
     yp = entity.id_data.yp
     mat = get_active_material()
-    objs = [bpy.context.object]
+    obj = bpy.context.object
+    objs = [obj] if is_object_bakeable(obj) else []
     if mat.users > 1:
         objs, _ = get_bakeable_objects_and_meshes(mat)
 
@@ -4001,10 +4016,13 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     return rdict
 
 def rebake_baked_images(yp, specific_layers=[]):
+    tt = time.time()
+    print('INFO: Rebaking images is started...')
 
     entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp, specific_layers=specific_layers)
 
     for i, image in enumerate(images):
+        print('INFO: Rebaking image \''+image.name+'\'...')
 
         if image.yia.is_image_atlas:
             segment = image.yia.segments.get(segment_names[i])
@@ -4050,6 +4068,8 @@ def rebake_baked_images(yp, specific_layers=[]):
             if segment_name_prop == 'baked_segment_name':
                 bake_entity_as_image(entity, bprops=bake_properties, set_image_to_entity=True)
             else: bake_to_entity(bprops=bake_properties, overwrite_img=image, segment=segment)
+
+    print('INFO: Rebaking images is done at ', '{:0.2f}'.format(time.time() - tt), 'seconds!')
 
 def get_duplicated_mesh_objects(scene, objs, hide_original=False):
     tt = time.time()

@@ -1169,27 +1169,33 @@ def update_image_editor_image(context, image):
 def get_edit_image_editor_space(context):
     ypwm = context.window_manager.ypprops
     area_index = ypwm.edit_image_editor_area_index
-    if area_index >= 0 and area_index < len(context.screen.areas):
-        area = context.screen.areas[area_index]
-        if area.type == 'IMAGE_EDITOR':
-            return area.spaces[0]
+    window_index = ypwm.edit_image_editor_window_index
+    if window_index >= 0 and window_index < len(context.window_manager.windows):
+        window = context.window_manager.windows[window_index]
+        if area_index >= 0 and area_index < len(window.screen.areas):
+            area = window.screen.areas[area_index]
+            if area.type == 'IMAGE_EDITOR' and (not is_bl_newer_than(2, 80) or area.spaces[0].mode == 'UV'):
+                return area.spaces[0]
 
     return None
 
-def get_first_unpinned_image_editor_space(context, return_index=False):
+def get_first_unpinned_image_editor_space(context, return_index=False, uv_edit=False):
     space = None
-    index = -1
+    area_index = -1
+    window_index = -1
     for i, window in enumerate(context.window_manager.windows):
         for j, area in enumerate(window.screen.areas):
             if area.type == 'IMAGE_EDITOR':
-                img = area.spaces[0].image
-                if not area.spaces[0].use_image_pin and (not img or img.type not in {'RENDER_RESULT', 'COMPOSITING'}):
-                    space = area.spaces[0]
-                    index = j
-                    break
+                if not uv_edit or not is_bl_newer_than(2, 80) or area.spaces[0].mode == 'UV':
+                    img = area.spaces[0].image
+                    if not area.spaces[0].use_image_pin and (not img or img.type not in {'RENDER_RESULT', 'COMPOSITING'}):
+                        space = area.spaces[0]
+                        window_index = i
+                        area_index = j
+                        break
 
     if return_index:
-        return space, index
+        return space, window_index, area_index
 
     return space
 
@@ -1214,7 +1220,7 @@ def safely_set_image_paint_canvas(image, scene=None):
     if not scene: scene = bpy.context.scene
 
     # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
-    ori_editor_imgs = get_editor_images_dict()
+    ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
     try:
         scene.tool_settings.image_paint.canvas = image
@@ -1222,7 +1228,7 @@ def safely_set_image_paint_canvas(image, scene=None):
     except Exception as e: print(e)
 
     # HACK: Revert back to original editor images
-    if success: set_editor_images(ori_editor_imgs)
+    if success: set_editor_images(ori_editor_imgs, ori_editor_pins)
 
 def set_image_paint_canvas(image):
     scene = bpy.context.scene
@@ -4759,25 +4765,33 @@ def get_relevant_uv(obj, yp):
 
     return uv_name 
 
-def get_editor_images_dict():
+def get_editor_images_dict(return_pins=False):
     editor_images = {}
+    editor_pins = {}
 
     for i, window in enumerate(bpy.context.window_manager.windows):
         screen_dict = {}
+        screen_pin_dict = {}
         for j, area in enumerate(window.screen.areas):
             if area.type == 'IMAGE_EDITOR':
                 space = area.spaces[0]
                 img = space.image
                 if img: screen_dict[j] = img.name
                 else: screen_dict[j] = ''
+                screen_pin_dict[j] = space.use_image_pin
         editor_images[i] = screen_dict
+        editor_pins[i] = screen_pin_dict
+
+    if return_pins:
+        return editor_images, editor_pins
 
     return editor_images
 
-def set_editor_images(editor_images={}):
+def set_editor_images(editor_images={}, editor_pins={}):
     for i, window in enumerate(bpy.context.window_manager.windows):
         if i in editor_images:
             screen_dict = editor_images[i]
+            screen_pin_dict = editor_pins[i] if len(editor_pins) > 0 else None
             for j, area in enumerate(window.screen.areas):
                 if area.type == 'IMAGE_EDITOR':
                     if j in screen_dict:
@@ -4785,6 +4799,9 @@ def set_editor_images(editor_images={}):
                         img = bpy.data.images.get(screen_dict[j])
                         if space.image != img:
                             space.image = img
+
+                        if screen_pin_dict != None and j in screen_pin_dict:
+                            space.use_image_pin = screen_pin_dict[j]
 
 def set_active_paint_slot_entity(yp):
     image = None
@@ -4918,7 +4935,7 @@ def set_active_paint_slot_entity(yp):
 
 
     # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
-    ori_editor_imgs = get_editor_images_dict()
+    ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
     if not is_multiple_mats and image and is_bl_newer_than(2, 81):
 
@@ -4937,7 +4954,7 @@ def set_active_paint_slot_entity(yp):
         scene.tool_settings.image_paint.canvas = image
 
     # HACK: Revert back to original editor images
-    set_editor_images(ori_editor_imgs)
+    set_editor_images(ori_editor_imgs, ori_editor_pins)
 
     update_image_editor_image(bpy.context, image)
 
