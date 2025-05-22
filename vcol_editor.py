@@ -41,20 +41,24 @@ def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
     essential_asset_identifier = essential_asset_prefix + mode_type + ".blend"
 
     # Check asset brush caches first
-    bac = wmyp.brush_asset_caches.get(brush_name)
+    bac = None
+    for cache in wmyp.brush_asset_caches:
+        # Only get brush cache if it's not essential asset or essential assets with correct mode
+        if cache.name == brush_name and (not cache.blend_path.startswith(essential_asset_prefix) or cache.blend_path == essential_asset_identifier):
+            bac = cache
+            break
+
     if bac:
         blend_path = bac.blend_path
-        # Only try to activate the brush cache if it's not essential asset or essential assets with correct mode
-        if not blend_path.startswith(essential_asset_prefix) or blend_path.startswith(essential_asset_identifier):
-            if blend_path != '': blend_path += os.sep
-            try:
-                bpy.ops.brush.asset_activate(
-                    asset_library_type = bac.library_type, 
-                    asset_library_identifier = bac.library_name, 
-                    relative_asset_identifier = blend_path + "Brush\\" + brush_name
-                )
-                return
-            except Exception as e: print('EXCEPTIION:', e) 
+        if blend_path != '': blend_path += os.sep
+        try:
+            bpy.ops.brush.asset_activate(
+                asset_library_type = bac.library_type, 
+                asset_library_identifier = bac.library_name, 
+                relative_asset_identifier = blend_path + "Brush\\" + brush_name
+            )
+            return
+        except Exception as e: print('EXCEPTIION:', e) 
 
     # Try local
     try:
