@@ -262,7 +262,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
     # HACK: Pack and refresh to update image in Blender 2.77 and lower
     if not is_bl_newer_than(2, 78) and (image.packed_file or image.filepath == ''):
         if image.is_float:
-            image_ops.pack_float_image(image)
+            image_ops.pack_float_image_27x(image)
         else: image.pack(as_png=True)
         image.reload()
 
@@ -2770,7 +2770,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         # HACK: Pack and refresh to update image in Blender 2.77 and lower
         if not is_bl_newer_than(2, 78) and (source.image.packed_file or source.image.filepath == ''):
             if source.image.is_float:
-                image_ops.pack_float_image(source.image)
+                image_ops.pack_float_image_27x(source.image)
             else: source.image.pack(as_png=True)
             source.image.reload()
 
