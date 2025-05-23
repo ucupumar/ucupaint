@@ -3199,7 +3199,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 # Remove temp image
                 remove_datablock(bpy.data.images, temp_img, user=tex, user_prop='image')
 
-        # Back to original size if using SSA
+        # HACK: On Blender 4.5, tex node can be mistakenly use previous index image as current one when resize_image is called
+        # Set the tex node image to None before resize_image can resolve this
+        tex.image = None
+
+        # Back to original size if using SSAA
         if use_ssaa:
             image, temp_segment = resize_image(
                 image, bprops.width, bprops.height, image.colorspace_settings.name,
