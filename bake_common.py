@@ -3041,17 +3041,12 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         # Base color of baked image
         if bprops.type == 'AO':
             color = [1.0, 1.0, 1.0, 1.0] 
-        elif bprops.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
-            if bprops.hdr:
-                color = [0.7354, 0.7354, 1.0, 1.0]
-            else:
-                color = [0.5, 0.5, 1.0, 1.0] 
+        elif bake_type in {'NORMAL', 'NORMALS'}:
+            color = [0.5, 0.5, 1.0, 1.0] 
         elif bprops.type == 'FLOW':
             color = [0.5, 0.5, 0.0, 1.0]
         else:
-            if bprops.hdr:
-                color = [0.7354, 0.7354, 0.7354, 1.0]
-            else: color = [0.5, 0.5, 0.5, 1.0]
+            color = [0.5, 0.5, 0.5, 1.0]
 
         # Make image transparent if its baked from other objects
         if bprops.type.startswith('OTHER_OBJECT_'):
