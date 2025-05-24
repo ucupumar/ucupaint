@@ -1676,6 +1676,93 @@ class YMoveLayerMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
+# Copy each modifier from the source - copies references and links modifiers - not working
+def copy_mask_modifiers(layer, source_mask, target_mask):  
+    for mod in source_mask.modifiers:
+        new_mod = target_mask.modifiers.add()
+        for attr in dir(mod):
+            if attr.startswith("_") or callable(getattr(mod, attr)):
+                continue
+            try:
+                setattr(new_mod, attr, getattr(mod, attr))
+            except Exception:
+                pass
+
+class YDuplicateLayerMask(bpy.types.Operator):
+    bl_idname = "wm.y_duplicate_layer_mask"
+    bl_label = "Duplicate Layer Mask"
+    bl_description = "Duplicate the selected layer mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'mask') and hasattr(context, 'layer')
+
+    def execute(self, context):
+        layer = context.layer
+        mask = context.mask
+        obj = context.object
+
+        tree = get_tree(layer)
+        source_node = tree.nodes.get(mask.source) if hasattr(mask, 'source') else None
+        image = source_node.image if source_node and hasattr(source_node, 'image') else None
+
+        new_name = mask.name + "_Copy"
+
+        try:
+            new_mask = add_new_mask(
+                layer=layer,
+                name=new_name,
+                mask_type=mask.type,
+                texcoord_type=mask.texcoord_type,
+                uv_name=mask.uv_name,
+                image=image,
+                vcol=getattr(mask, 'vcol_name', None),
+                segment=getattr(mask, 'segment_name', None),
+                object_index=mask.object_index,
+                blend_type=mask.blend_type,
+                hemi_space=mask.hemi_space,
+                hemi_use_prev_normal=mask.hemi_use_prev_normal,
+                color_id=mask.color_id,
+                source_input=mask.source_input,
+                edge_detect_radius=mask.edge_detect_radius,
+                modifier_type=getattr(mask, 'modifier_type', 'INVERT'),
+                interpolation=getattr(source_node, 'interpolation', 'Linear') if source_node else 'Linear',
+                ao_distance=mask.ao_distance
+            )
+            
+            # Copy extra float/vector properties
+            new_mask.intensity_value = mask.intensity_value
+            
+            # Transform
+            new_mask.translation = mask.translation[:]
+            new_mask.rotation = mask.rotation[:]
+            new_mask.scale = mask.scale[:]
+            
+            #update?
+            update_mask_transform(new_mask, context)
+                
+            # Blur vector settings
+            new_mask.enable_blur_vector = mask.enable_blur_vector
+            new_mask.blur_vector_factor = mask.blur_vector_factor
+            
+            # Decal projection distance
+            new_mask.decal_distance_value = mask.decal_distance_value
+            
+            # Copy channel enable states
+            for i, ch in enumerate(mask.channels):
+                if i < len(new_mask.channels):
+                    new_mask.channels[i].enable = ch.enable
+            
+            #copy_mask_modifiers(layer, mask, new_mask)
+            
+            #self.report({'INFO'}, f"ucupaint addon: Duplicated mask '{mask.name}' as '{new_mask.name}'")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"ucupaint addon: Failed to duplicate mask: {e}")
+            return {'CANCELLED'}
+
 class YRemoveLayerMask(bpy.types.Operator):
     bl_idname = "wm.y_remove_layer_mask"
     bl_label = "Remove Layer Mask"
@@ -2648,6 +2735,7 @@ def register():
     bpy.utils.register_class(YOpenImageAsMask)
     bpy.utils.register_class(YOpenAvailableDataAsMask)
     bpy.utils.register_class(YMoveLayerMask)
+    bpy.utils.register_class(YDuplicateLayerMask)
     bpy.utils.register_class(YRemoveLayerMask)
     bpy.utils.register_class(YReplaceMaskType)
     bpy.utils.register_class(YFixEdgeDetectAO)
@@ -2659,6 +2747,7 @@ def unregister():
     bpy.utils.unregister_class(YOpenImageAsMask)
     bpy.utils.unregister_class(YOpenAvailableDataAsMask)
     bpy.utils.unregister_class(YMoveLayerMask)
+    bpy.utils.unregister_class(YDuplicateLayerMask)
     bpy.utils.unregister_class(YRemoveLayerMask)
     bpy.utils.unregister_class(YReplaceMaskType)
     bpy.utils.unregister_class(YFixEdgeDetectAO)
