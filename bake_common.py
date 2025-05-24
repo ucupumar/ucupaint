@@ -1,4 +1,4 @@
-import bpy, time, os, numpy, tempfile
+import bpy, time, os, numpy, tempfile, bmesh
 from bpy.props import *
 from .common import *
 from .input_outputs import *
