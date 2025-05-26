@@ -2139,7 +2139,7 @@ def fix_missing_vcol(obj, name, src):
     if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain)
     else: vcol = new_vertex_color(obj, name)
 
-    set_source_vcol_name(src, name)
+    set_source_vcol_name(src, vcol.name)
 
     # Default recovered missing vcol is black
     set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 0.0))
