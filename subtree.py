@@ -577,6 +577,32 @@ def check_create_spread_alpha(layer, tree, root_ch, ch):
 
     return need_reconnect
 
+def check_layer_channels_integrity(layer):
+    yp = layer.id_data.yp
+
+    num_difference = len(yp.channels) - len(layer.channels)
+    if num_difference > 0:
+        for i in range(num_difference):
+            # Add new channel
+            c = layer.channels.add()
+    elif num_difference < 0:
+        for i in range(abs(num_difference)):
+            last_idx = len(layer.channels)-1
+            # Remove layer channel
+            layer.channels.remove(channel_idx)
+
+    for mask in layer.masks:
+        num_difference = len(yp.channels) - len(mask.channels)
+        if num_difference > 0:
+            for i in range(num_difference):
+                # Add new channel to mask
+                mc = mask.channels.add()
+        elif num_difference < 0:
+            for i in range(abs(num_difference)):
+                last_idx = len(mask.channels)-1
+                # Remove mask channel
+                mask.channels.remove(channel_idx)
+
 def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None):
 
     yp = layer.id_data.yp
