@@ -115,6 +115,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     temp_image.colorspace_settings.name = image.colorspace_settings.name
     temp_image.generated_color = col
+    temp_image.alpha_mode = image.alpha_mode
 
     # Create bake nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -216,6 +217,10 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
             # Copy the result to original temp image
             copy_image_channel_pixels(temp_image1, temp_image, 0, 3)
 
+            # Premultiplied float image need more process
+            if temp_image.is_float and temp_image.alpha_mode == 'PREMUL':
+                multiply_image_rgb_by_alpha(temp_image)
+
             # Swap tile again to recover
             if tilenum != 1001:
                 UDIM.swap_tile(temp_image, 1001, tilenum)
@@ -257,7 +262,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
     # HACK: Pack and refresh to update image in Blender 2.77 and lower
     if not is_bl_newer_than(2, 78) and (image.packed_file or image.filepath == ''):
         if image.is_float:
-            image_ops.pack_float_image(image)
+            image_ops.pack_float_image_27x(image)
         else: image.pack(as_png=True)
         image.reload()
 
@@ -1284,6 +1289,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
 
+    use_osl : BoolProperty(
+        name = 'Use OSL',
+        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
+        default = False
+    )
+
     use_dithering : BoolProperty(
         name = 'Use Dithering',
         description = 'Use dithering for less banding color',
@@ -1463,7 +1474,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         col.separator()
 
         if is_bl_newer_than(2, 80):
-            col.prop(self, 'bake_device', text='')
+            if self.use_osl:
+                col.label(text='CPU (OSL)')
+            else: col.prop(self, 'bake_device', text='')
         col.prop(self, 'interpolation', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
@@ -1493,6 +1506,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 row = split_layout(ccol, 0.55)
                 row.prop(self, 'use_dithering', text='Use Dithering')
                 row.prop(self, 'dither_intensity', text='')
+
+        ccol.prop(self, 'use_osl')
 
         ccol.prop(self, 'force_bake_all_polygons')
         ccol.prop(self, 'bake_disabled_layers')
@@ -1631,7 +1646,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         # Prepare bake settings
         prepare_bake_settings(
             book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, 
-            bake_device=self.bake_device, margin_type=self.margin_type
+            bake_device=self.bake_device, margin_type=self.margin_type, use_osl=self.use_osl
         )
 
         # Get tilenums
@@ -2370,7 +2385,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         # Merge image layers
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
 
-
             book = remember_before_bake(yp)
             prepare_bake_settings(
                 book, objs, yp, samples=1, margin=5, 
@@ -2543,6 +2557,15 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             # Refresh index routine
             yp.active_layer_index = min(layer_idx, neighbor_idx)
+
+            # HACK: To make the result correct, multiply rgb by alpha if image alpha mode is premultiplied
+            layer = yp.layers[yp.active_layer_index]
+            if layer.type == 'IMAGE':
+                source = get_layer_source(layer)
+                if source and source.image:
+                    image = source.image
+                    if image.is_float and image.alpha_mode == 'PREMUL':
+                        multiply_image_rgb_by_alpha(image)
 
             # Update list items
             ListItem.refresh_list_items(yp, repoint_active=True)
@@ -2747,7 +2770,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         # HACK: Pack and refresh to update image in Blender 2.77 and lower
         if not is_bl_newer_than(2, 78) and (source.image.packed_file or source.image.filepath == ''):
             if source.image.is_float:
-                image_ops.pack_float_image(source.image)
+                image_ops.pack_float_image_27x(source.image)
             else: source.image.pack(as_png=True)
             source.image.reload()
 
@@ -3612,13 +3635,13 @@ def check_subdiv_setup(height_ch):
 
         # Set displacement mode
         if hasattr(mat, 'displacement_method'):
-            #mat.displacement_method = 'BOTH'
-            mat.displacement_method = 'DISPLACEMENT'
+            mat.displacement_method = 'BOTH'
 
-        if is_bl_newer_than(2, 80):
-            #mat.cycles.displacement_method = 'BOTH'
-            mat.cycles.displacement_method = 'DISPLACEMENT'
-        else: mat.cycles.displacement_method = 'TRUE'
+        # Set cycles displacement mode
+        if hasattr(mat.cycles, 'displacement_method'):
+            if is_bl_newer_than(2, 80):
+                mat.cycles.displacement_method = 'BOTH'
+            else: mat.cycles.displacement_method = 'TRUE'
         
         # Displacement method is inside object data for Blender 2.77 and below 
         if not is_bl_newer_than(2, 78):

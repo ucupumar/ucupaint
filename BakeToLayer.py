@@ -803,7 +803,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'ssaa')
         else: col.prop(self, 'fxaa')
 
-        if self.type in {'AO', 'BEVEL_MASK'} and is_bl_newer_than(2, 81):
+        if self.type in {'AO', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81):
             col.prop(self, 'denoise')
 
         col.separator()
@@ -1355,6 +1355,37 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
         print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
         return {'FINISHED'}
 
+class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
+    bl_idname = "wm.y_rebake_specific_layers"
+    bl_label = "Rebake Specific Layers"
+    bl_description = "Rebake specific layers (FOR INTERNAL USE ONLY)"
+    bl_options = {'REGISTER'}
+
+    layer_ids : StringProperty(
+        name = 'Layer Indices',
+        description = 'Layer indices in form of list of integer converted to string',
+        default=''
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def execute(self, context): 
+        T = time.time()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        layers = []
+        if self.layer_ids != '':
+            import ast
+            ids = ast.literal_eval(self.layer_ids)
+            layers = [l for i, l in enumerate(yp.layers) if i in ids]
+
+        rebake_baked_images(yp, specific_layers=layers)
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YBakeEntityToImage)
@@ -1362,6 +1393,7 @@ def register():
     bpy.utils.register_class(YTryToSelectBakedVertexSelect)
     bpy.utils.register_class(YRemoveBakedEntity)
     bpy.utils.register_class(YRebakeBakedImages)
+    bpy.utils.register_class(YRebakeSpecificLayers)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
@@ -1370,3 +1402,4 @@ def unregister():
     bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
     bpy.utils.unregister_class(YRemoveBakedEntity)
     bpy.utils.unregister_class(YRebakeBakedImages)
+    bpy.utils.unregister_class(YRebakeSpecificLayers)

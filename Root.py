@@ -74,6 +74,7 @@ def check_yp_channel_nodes(yp, reconnect=False):
     for layer in yp.layers:
         layer_tree = get_tree(layer)
         
+        # Make sure the number of channels are correct
         num_difference = len(yp.channels) - len(layer.channels)
         if num_difference > 0:
             for i in range(num_difference):
@@ -84,7 +85,7 @@ def check_yp_channel_nodes(yp, reconnect=False):
                 last_idx = len(layer.channels)-1
                 # Remove layer channel
                 layer.channels.remove(channel_idx)
-
+    
         for mask in layer.masks:
             num_difference = len(yp.channels) - len(mask.channels)
             if num_difference > 0:
@@ -2139,7 +2140,7 @@ def fix_missing_vcol(obj, name, src):
     if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain)
     else: vcol = new_vertex_color(obj, name)
 
-    set_source_vcol_name(src, name)
+    set_source_vcol_name(src, vcol.name)
 
     # Default recovered missing vcol is black
     set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 0.0))
@@ -4076,6 +4077,7 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 
     all_icons_loaded : BoolProperty(default=False)
 
+    edit_image_editor_window_index : IntProperty(default=-1)
     edit_image_editor_area_index : IntProperty(default=-1)
 
     custom_srgb_name : StringProperty(default='')
@@ -4090,6 +4092,11 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     correct_paint_image_name : StringProperty(default='')
 
     clipboard_bake_target : CollectionProperty(type=BakeTarget.YBakeTarget)
+
+    image_editor_dict : StringProperty(default='')
+    image_editor_pins : StringProperty(default='')
+
+    halt_hacks : BoolProperty(default=False)
 
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
@@ -4168,15 +4175,15 @@ def ypaint_last_object_update(scene):
 
     mat = obj.active_material
     ypwm = bpy.context.window_manager.ypprops
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp if node else None
 
     if ypwm.last_object != obj.name or (mat and mat.name != ypwm.last_material):
         ypwm.last_object = obj.name
         if mat: ypwm.last_material = mat.name
-        node = get_active_ypaint_node()
 
         # Refresh layer index to update editor image
-        if node:
-            yp = node.node_tree.yp
+        if yp:
             if yp.use_baked and len(yp.channels) > 0:
                 update_active_yp_channel(yp, bpy.context)
 
@@ -4184,12 +4191,23 @@ def ypaint_last_object_update(scene):
                 try: set_active_paint_slot_entity(yp)
                 except: print('EXCEPTIION: Cannot set image canvas!')
 
+    # HACK: Remember original image editor images before entering texture paint mode
+    if yp and obj.type == 'MESH' and obj.mode != 'TEXTURE_PAINT':
+        editor_images, editor_pins = get_editor_images_dict(return_pins=True)
+        ypwm.image_editor_dict = str(editor_images)
+        ypwm.image_editor_pins = str(editor_pins)
+
     if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
 
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp if node else None
-
         if obj.mode == 'TEXTURE_PAINT' or ypwm.last_mode == 'TEXTURE_PAINT':
+
+            # HACK: Set original image editor images since going into texture paint mode will replace all of them
+            if yp and obj.mode == 'TEXTURE_PAINT' and ypwm.image_editor_dict != '':
+                import ast
+                editor_images = ast.literal_eval(ypwm.image_editor_dict)
+                editor_pins = ast.literal_eval(ypwm.image_editor_pins) if ypwm.image_editor_pins != '' else {}
+                set_editor_images(editor_images, editor_pins)
+
             ypwm.last_mode = obj.mode
             if yp and len(yp.layers) > 0:
                 image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
@@ -4207,16 +4225,21 @@ def ypaint_last_object_update(scene):
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
 
                 # HACK: Just in case active image is not correct
-                ypwm.correct_paint_image_name = image.name
+                if image: ypwm.correct_paint_image_name = image.name
 
+                # Set image editor image
+                update_image_editor_image(bpy.context, image)
+
+                # Refresh temporary UV
                 refresh_temp_uv(obj, src_of_img)
 
         # Into edit mode
         if obj.mode == 'EDIT' and ypwm.last_mode != 'EDIT':
             ypwm.last_mode = obj.mode
             # Remember the space
-            space, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
-            if space and area_index != -1:
+            space, window_index, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
+            if space and area_index != -1 and window_index != -1:
+                ypwm.edit_image_editor_window_index = window_index
                 ypwm.edit_image_editor_area_index = area_index
 
             # Trigger updating active index to update image
@@ -4246,7 +4269,7 @@ def ypaint_last_object_update(scene):
 def ypaint_missmatch_paint_slot_hack(scene):
     # HACK: Force material active slot to update if necessary
     wmyp = bpy.context.window_manager.ypprops
-    if wmyp.correct_paint_image_name != '':
+    if not wmyp.halt_hacks and wmyp.correct_paint_image_name != '':
 
         if scene.tool_settings.image_paint.mode == 'MATERIAL':
 
@@ -4262,8 +4285,19 @@ def ypaint_missmatch_paint_slot_hack(scene):
                 for idx, img in enumerate(mat.texture_paint_images):
                     if img == None: continue
                     if img.name == correct_img.name:
-                        try: mat.paint_active_slot = idx
+
+                        # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
+                        ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
+
+                        success = False
+                        try: 
+                            mat.paint_active_slot = idx
+                            success = True
                         except: print('EXCEPTIION: Cannot set active paint slot image!')
+
+                        # HACK: Revert back to original editor images
+                        if success: set_editor_images(ori_editor_imgs, ori_editor_pins)
+
                         break
 
         wmyp.correct_paint_image_name = ''

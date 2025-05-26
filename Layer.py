@@ -3,7 +3,7 @@ from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem
 from .common import *
-from .bake_common import *
+#from . import bake_common
 from .node_arrangements import *
 from .node_connections import *
 from .subtree import *
@@ -14,16 +14,16 @@ DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
 DEFAULT_NEW_VDM_SUFFIX = ' VDM'
 
 def channel_items(self, context):
-    node = get_active_ypaint_node()
-    yp = node.node_tree.yp
-
     items = []
 
-    for i, ch in enumerate(yp.channels):
-        # Add two spaces to prevent text from being translated
-        text_ch_name = ch.name + '  '
-        icon_name = lib.channel_custom_icon_dict[ch.type]
-        items.append((str(i), text_ch_name, '', lib.get_icon(icon_name), i))
+    node = get_active_ypaint_node()
+    if node:
+        yp = node.node_tree.yp
+        for i, ch in enumerate(yp.channels):
+            # Add two spaces to prevent text from being translated
+            text_ch_name = ch.name + '  '
+            icon_name = lib.channel_custom_icon_dict[ch.type]
+            items.append((str(i), text_ch_name, '', lib.get_icon(icon_name), i))
 
     items.append(('-1', 'All Channels', '', lib.get_icon('channels'), len(items)))
 
@@ -153,8 +153,8 @@ def add_new_layer(
 
     if layer_type == 'IMAGE':
         # Always set non color to image node because of linear pipeline
-        if hasattr(source, 'color_space'):
-            source.color_space = 'NONE'
+        #if hasattr(source, 'color_space'):
+        #    source.color_space = 'NONE'
 
         # Add new image if it's image layer
         source.image = image
@@ -1494,6 +1494,10 @@ class YNewLayer(bpy.types.Operator):
         img_atlas = self.get_to_be_cleared_image_atlas(context, yp)
         if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
+        # Get channel index
+        try: channel_idx = int(self.channel_idx)
+        except: channel_idx = 0
+
         img = None
         segment = None
         if self.type == 'IMAGE':
@@ -1536,8 +1540,9 @@ class YNewLayer(bpy.types.Operator):
                     if hasattr(img, 'use_alpha'):
                         img.use_alpha = True
 
-            #if img.colorspace_settings.name != get_noncolor_name():
-            #    img.colorspace_settings.name = get_noncolor_name()
+                # Set alpha mode to premultiplied to make sure alpha will be packed correctly
+                if img.is_float and is_bl_newer_than(2, 80):
+                    img.alpha_mode = 'PREMUL'
 
             update_image_editor_image(context, img)
 
@@ -1563,9 +1568,6 @@ class YNewLayer(bpy.types.Operator):
                     set_active_vertex_color(o, vcol)
 
         yp.halt_update = True
-
-        try: channel_idx = int(self.channel_idx)
-        except: channel_idx = 0
 
         layer = add_new_layer(
             node.node_tree, self.name, self.type, 
@@ -4282,8 +4284,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
             source.image = image
-            if hasattr(source, 'color_space'):
-                source.color_space = 'NONE'
+            #if hasattr(source, 'color_space'):
+            #    source.color_space = 'NONE'
             #if image.colorspace_settings.name != get_noncolor_name():
             #    image.colorspace_settings.name = get_noncolor_name()
         elif new_type == 'VCOL':
@@ -4692,6 +4694,45 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def update_driver_targets(obj, target_map):
+    # Update driver target object references based on a given object map.
+    for fcurve in obj.animation_data.drivers if obj.animation_data else []:
+        for var in fcurve.driver.variables:
+            for target in var.targets:
+                if target.id in target_map:
+                    target.id = target_map[target.id]
+
+def duplicate_decal_empty_reference(texcoord_name, ttree, set_new_decal_position, duplicated_empties):
+    texcoord = ttree.nodes.get(texcoord_name)
+    if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object:
+        return
+
+    original_empty = texcoord.object
+
+    if set_new_decal_position:
+        texcoord.object = create_decal_empty()
+    else:
+        if original_empty in duplicated_empties:
+            new_empty = duplicated_empties[original_empty]
+        else:
+            nname = get_unique_name(original_empty.name, bpy.data.objects)
+            custom_collection = (
+                original_empty.users_collection[0]
+                if is_bl_newer_than(2, 80) and len(original_empty.users_collection) > 0
+                else None
+            )
+            new_empty = original_empty.copy()
+            new_empty.name = nname
+            link_object(bpy.context.scene, new_empty, custom_collection)
+
+            duplicated_empties[original_empty] = new_empty
+
+            # Update drivers on the new empty to point to any other duplicated empties
+            update_driver_targets(new_empty, duplicated_empties)
+
+        texcoord.object = new_empty
+
+
 def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False, set_new_decal_position=False):
 
     yp = tree.yp
@@ -4705,7 +4746,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
     vcol_user_types = []
     vcol_nodes = []
     vcol_names = []
-
+    duplicated_empties = {}
     for layer in yp.layers:
         if specific_layers and layer not in specific_layers: continue
 
@@ -4745,16 +4786,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
 
         # Decal object duplicate
         if layer.texcoord_type == 'Decal':
-            texcoord = ttree.nodes.get(layer.texcoord)
-            if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-                if set_new_decal_position:
-                    texcoord.object = create_decal_empty()
-                else:
-                    nname = get_unique_name(texcoord.object.name, bpy.data.objects)
-                    custom_collection = texcoord.object.users_collection[0] if is_bl_newer_than(2, 80) and texcoord.object and len(texcoord.object.users_collection) > 0 else None
-                    texcoord.object = texcoord.object.copy()
-                    texcoord.object.name = nname
-                    link_object(bpy.context.scene, texcoord.object, custom_collection)
+            duplicate_decal_empty_reference(layer.texcoord, ttree, set_new_decal_position, duplicated_empties)
 
         # Duplicate baked layer image
         baked_layer_source = get_layer_source(layer, get_baked=True)
@@ -4813,6 +4845,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                     imgs.append(img)
 
         # Duplicate masks
+
         for mask in layer.masks:
             if mask.group_node != '':
                 mask_group =  ttree.nodes.get(mask.group_node)
@@ -4826,17 +4859,8 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                 mask_source = ttree.nodes.get(mask.source)
             # Decal object duplicate
             if mask.texcoord_type == 'Decal':
-                texcoord = ttree.nodes.get(mask.texcoord)
-                if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-                    if set_new_decal_position:
-                        texcoord.object = create_decal_empty()
-                    else:
-                        nname = get_unique_name(texcoord.object.name, bpy.data.objects)
-                        custom_collection = texcoord.object.users_collection[0] if is_bl_newer_than(2, 80) and texcoord.object and len(texcoord.object.users_collection) > 0 else None
-                        texcoord.object = texcoord.object.copy()
-                        texcoord.object.name = nname
-                        link_object(bpy.context.scene, texcoord.object, custom_collection)
-
+                duplicate_decal_empty_reference(mask.texcoord, ttree, set_new_decal_position, duplicated_empties)
+    
             # Duplicate baked mask image
             baked_mask_source = get_mask_source(mask, get_baked=True)
             if baked_mask_source:
@@ -4921,8 +4945,8 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
         # Duplicate vertex color
         for obj in objs:
             vcols = get_vertex_colors(obj)
-            vcol = vcols.get(vcol_name)
-            if vcol:
+            if vcol_name in vcols:
+                vcol = vcols.get(vcol_name)
                 new_vcol = new_vertex_color(obj, new_vcol_name, vcol.data_type, vcol.domain)
                 if duplicate_blank:
                     if vcol_user_types[i] == 'LAYER':
@@ -5216,8 +5240,9 @@ class YDuplicateLayer(bpy.types.Operator):
         # Duplicate data of newly created layers
         created_layers = [l for l in yp.layers if l.name in created_layer_names]
         duplicate_layer_nodes_and_images(
-            tree, created_layers, packed_duplicate = self.packed_duplicate,
-            ondisk_duplicate = self.ondisk_duplicate,
+            tree, created_layers, packed_duplicate = self.packed_duplicate or self.duplicate_blank,
+            duplicate_blank = self.duplicate_blank,
+            ondisk_duplicate = self.ondisk_duplicate or self.duplicate_blank,
             set_new_decal_position = self.set_new_decal_position
         )
 
@@ -5372,7 +5397,7 @@ class YPasteLayer(bpy.types.Operator):
         if self.any_decal:
             self.layout.prop(self, 'set_new_decal_position')
 
-        if self.any_baked:
+        if self.any_baked and is_bl_newer_than(2, 80):
             self.layout.prop(self, 'rebake_bakeds')
 
             if self.rebake_bakeds:
@@ -5583,9 +5608,17 @@ class YPasteLayer(bpy.types.Operator):
             if l: l.enable = lenable
 
         # Rebake baked images
-        if self.any_baked and self.rebake_bakeds:
-            pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
-            rebake_baked_images(yp, specific_layers=pasted_layers)
+        # NOTE: Blender versions lower than 2.80 don't copy image's bake info, making rebake process useless
+        if self.any_baked and self.rebake_bakeds and is_bl_newer_than(2, 80):
+
+            # NOTE: Calling rebake function directly is not possible yet due to cyclic file imports
+            #pasted_layer = [l for l in yp.layers if l.name in pasted_layer_names]
+            #bake_common.rebake_baked_images(yp, specific_layers=pasted_layers)
+
+            pasted_layer_ids = [i for i, l in enumerate(yp.layers) if l.name in pasted_layer_names]
+            bpy.ops.wm.y_rebake_specific_layers(layer_ids=str(pasted_layer_ids))
+
+            # TODO: Refactor common functions for adding new data (add_new_layer, add_new_mask, etc) to avoid cyclic imports
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index

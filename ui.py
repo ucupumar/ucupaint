@@ -1752,7 +1752,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 
             is_using_image_atlas = image and (image.yia.is_image_atlas or image.yua.is_udim_atlas)
 
-            if layer.texcoord_type == 'UV':
+            if is_a_mesh and layer.texcoord_type == 'UV':
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rrow.label(text='UV Map:')
@@ -3028,10 +3028,12 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             rrow = srow.row(align=True)
             if mask.texcoord_type == 'UV' and not maskui.expand_vector:
 
-                rrrow = split_layout(rrow, 0.35, align=True)
-                rrrow.prop(mask, 'texcoord_type', text='')
-                if not maskui.expand_vector:
+                if obj.type == 'MESH':
+                    rrrow = split_layout(rrow, 0.35, align=True)
+                    rrrow.prop(mask, 'texcoord_type', text='')
                     rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                else:
+                    rrow.prop(mask, 'texcoord_type', text='')
 
                 #rrow.context_pointer_set('mask', mask)
                 #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
@@ -3064,7 +3066,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                     splits.label(text='Projection Blend:')
                     splits.prop(mask_src, 'projection_blend', text='')
 
-                if mask.texcoord_type == 'UV':
+                if mask.texcoord_type == 'UV' and obj.type == 'MESH':
                     rrow = boxcol.row(align=True)
                     rrow.label(text='UV Map:')
                     rrrow = rrow.row(align=True)
@@ -3072,6 +3074,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                     rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
                     icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                    rrow.context_pointer_set('entity', mask)
                     rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
 
                 if mask.texcoord_type == 'Decal':
@@ -3351,13 +3354,13 @@ def draw_layers_ui(context, layout, node):
             channel_mismatch = True
             break
             
-            for mask in layer.masks:
-                if len(mask.channels) != num_channels:
-                    channel_mismatch = True
-                    break
-
-            if channel_mismatch:
+        for mask in layer.masks:
+            if len(mask.channels) != num_channels:
+                channel_mismatch = True
                 break
+
+        if channel_mismatch:
+            break
 
     if channel_mismatch:
         row = box.row(align=True)
@@ -3779,13 +3782,23 @@ def draw_layers_ui(context, layout, node):
             elif obj.mode == 'VERTEX_PAINT' and is_bl_newer_than(2, 92) and ((layer.type == 'VCOL' and not mask_vcol) or (mask_vcol and mask.source_input == 'ALPHA')) and not override_vcol:
                 bbox = col.box()
                 row = bbox.row(align=True)
-                row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+                brush = context.tool_settings.vertex_paint.brush
+                label = 'Toggle Eraser'
+                if brush.name == eraser_names['VERTEX_PAINT']:
+                    row.alert = True
+                    label = 'Disable Eraser'
+                row.operator('paint.y_toggle_eraser', text=label)
 
             elif obj.mode == 'SCULPT' and is_bl_newer_than(3, 2) and ((layer.type == 'VCOL' and not mask_vcol) or (mask_vcol and mask.source_input == 'ALPHA')) and not override_vcol:
 
                 bbox = col.box()
                 row = bbox.row(align=True)
-                row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+                brush = context.tool_settings.sculpt.brush
+                label = 'Toggle Eraser'
+                if brush.name == eraser_names['SCULPT']:
+                    row.alert = True
+                    label = 'Disable Eraser'
+                row.operator('paint.y_toggle_eraser', text=label)
 
         # Only works with experimental sculpt texture paint is turned on
         in_sculpt_texture_paint_mode = obj.mode == 'SCULPT' and (
@@ -3802,12 +3815,28 @@ def draw_layers_ui(context, layout, node):
                 if brush and brush.image_tool != 'MASK':
                     bbox = col.box()
                     row = bbox.row(align=True)
-                    row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+                    label = 'Toggle Eraser'
+                    if brush.name in tex_eraser_asset_names:
+                        row.alert = True
+                        label = 'Disable Eraser'
+                    row.operator('paint.y_toggle_eraser', text=label)
 
             elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
                 bbox = col.box()
                 row = bbox.row(align=True)
-                row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
+                if in_texture_paint_mode:
+                    brush = context.tool_settings.image_paint.brush
+                    label = 'Toggle Eraser'
+                    if brush.name == eraser_names['TEXTURE_PAINT']:
+                        row.alert = True
+                        label = 'Disable Eraser'
+                elif in_sculpt_texture_paint_mode:
+                    brush = context.tool_settings.sculpt.brush
+                    label = 'Toggle Eraser'
+                    if brush.name == eraser_names['SCULPT']:
+                        row.alert = True
+                        label = 'Disable Eraser'
+                row.operator('paint.y_toggle_eraser', text=label)
 
         ve = context.scene.ve_edit
         if is_bl_newer_than(4, 3) and in_texture_paint_mode:
@@ -5317,6 +5346,7 @@ def draw_ypaint_about(self, context):
     col.operator('wm.url_open', text='kareemov03', icon=icon_name).url = 'https://www.artstation.com/kareem'
     col.operator('wm.url_open', text='passivestar', icon=icon_name).url = 'https://github.com/passivestar'
     col.operator('wm.url_open', text='bappity', icon=icon_name).url = 'https://github.com/bappitybup'
+    col.operator('wm.url_open', text='bittie', icon=icon_name).url = 'https://github.com/BittieByte'
     col.separator()
 
     col.label(text='Documentation:')
@@ -6675,7 +6705,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
             if item[0] == 'MUSGRAVE' and is_bl_newer_than(4, 1): continue
             if item[0] == 'GABOR' and not is_bl_newer_than(4, 3): continue
 
-            if item[0] == ch.override_type:
+            if ch.override and item[0] == ch.override_type:
                 icon = 'RADIOBUT_ON'
             else: icon = 'RADIOBUT_OFF'
 

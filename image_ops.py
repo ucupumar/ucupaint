@@ -4,10 +4,28 @@ from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
 from .common import *
 import time
-from . import UDIM
+from . import UDIM, subtree
+
+def preserve_float_color_hack_before_saving(image):
+    if not image.is_float or not is_bl_newer_than(2, 80): return
+
+    # HACK: Need more calculation for image saved using straight alpha
+    if image.alpha_mode == 'STRAIGHT':
+        if image.colorspace_settings.name == get_srgb_name():
+            multiply_image_rgb_by_alpha(image)
+        elif image.colorspace_settings.name == get_linear_color_name():
+            divide_image_rgb_by_alpha(image)
+
+    # TODO: Saved SRGB Straight still has black glitch around alpha transition
+    # and saved SRGB Premultiplied still looks horrible
 
 def save_float_image(image):
+
+    preserve_float_color_hack_before_saving(image)
+
+    # Remembers
     original_path = image.filepath
+    ori_colorspace = image.colorspace_settings.name
 
     # Create temporary scene
     tmpscene = bpy.data.scenes.new('Temp Scene')
@@ -28,7 +46,6 @@ def save_float_image(image):
     elif settings.file_format in {'PNG', 'TIFF'}:
         settings.color_depth = '16'
 
-    #ori_colorspace = image.colorspace_settings.name
     full_path = bpy.path.abspath(image.filepath)
     image.save_render(full_path, scene=tmpscene)
     # HACK: If image still dirty after saving, save using standard save method
@@ -38,7 +55,14 @@ def save_float_image(image):
     # Delete temporary scene
     remove_datablock(bpy.data.scenes, tmpscene)
 
-def pack_float_image(image):
+    # Set back colorspace
+    if image.colorspace_settings.name != ori_colorspace:
+        image.colorspace_settings.name = ori_colorspace
+
+    # Reload image
+    image.reload()
+
+def pack_float_image_27x(image):
     original_path = image.filepath
 
     # Create temporary scene
@@ -93,6 +117,39 @@ def pack_float_image(image):
     # Bring back to original path
     image.filepath = original_path
     os.remove(temp_filepath)
+
+def preserve_float_color_hack_before_packing(image):
+    if not image.is_float or not is_bl_newer_than(2, 80): return
+
+    # HACK: Divide by alpha if using straight alpha
+    if image.alpha_mode == 'STRAIGHT':
+        divide_image_rgb_by_alpha(image)
+
+    # Check if image is using srgb colorspace
+    if image.colorspace_settings.name == get_srgb_name():
+
+        # HACK: Multiply by alpha if using premultiplied alpha
+        if image.alpha_mode == 'PREMUL':
+            multiply_image_rgb_by_alpha(image)
+
+        # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
+        set_image_pixels_to_srgb(image)
+
+def pack_image(image, reload_float=False, do_hack=True):
+
+    if do_hack:
+        preserve_float_color_hack_before_packing(image)
+
+    if is_bl_newer_than(2, 80):
+        image.pack()
+    else:
+        if image.is_float:
+            pack_float_image_27x(image)
+        else: image.pack(as_png=True)
+
+    # HACK: Some operation need Float image to be reloaded to be showed correctly
+    if image.is_float and reload_float:
+        image.reload()
 
 def clean_object_references(image):
     removed_references = []
@@ -224,7 +281,7 @@ def save_pack_all(yp):
 
                     temp_saved = True
                     
-                image.pack()
+                pack_image(image, reload_float=True)
 
                 if temp_saved:
                     # Remove file if they are using temporary directory
@@ -232,11 +289,9 @@ def save_pack_all(yp):
                         UDIM.remove_udim_files_from_disk(image, temp_udim_dir, True)
 
             else:
+                pack_image(image, reload_float=True)
                 if image.is_float:
-                    pack_float_image(image)
                     packed_float_images.append(image)
-                else: 
-                    image.pack(as_png=True)
 
             print('INFO:', image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         else:
@@ -421,14 +476,7 @@ class YPackImage(bpy.types.Operator):
 
         T = time.time()
 
-        # Save file to temporary place first if image is float
-        if is_bl_newer_than(2, 80):
-            context.image.pack()
-        else:
-            if context.image.is_float:
-                pack_float_image(context.image)
-            else: context.image.pack(as_png=True)
-
+        pack_image(context.image)
         context.image.filepath = ''
 
         node = get_active_ypaint_node()
@@ -441,35 +489,18 @@ class YPackImage(bpy.types.Operator):
 
                 baked_disp = tree.nodes.get(ch.baked_disp)
                 if baked_disp and baked_disp.image and not baked_disp.image.packed_file:
-                    if is_bl_newer_than(2, 80):
-                        baked_disp.image.pack()
-                    else:
-                        if baked_disp.image.is_float:
-                            pack_float_image(baked_disp.image)
-                        else: baked_disp.image.pack(as_png=True)
-
+                    pack_image(baked_disp.image)
                     baked_disp.image.filepath = ''
 
                 baked_vdisp = tree.nodes.get(ch.baked_vdisp)
                 if baked_vdisp and baked_vdisp.image and not baked_vdisp.image.packed_file:
-                    if is_bl_newer_than(2, 80):
-                        baked_vdisp.image.pack()
-                    else:
-                        if baked_vdisp.image.is_float:
-                            pack_float_image(baked_vdisp.image)
-                        else: baked_vdisp.image.pack(as_png=True)
-
+                    pack_image(baked_vdisp.image)
                     baked_vdisp.image.filepath = ''
 
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image and not baked_normal_overlay.image.packed_file:
-                        if is_bl_newer_than(2, 80):
-                            baked_normal_overlay.image.pack()
-                        else:
-                            if baked_normal_overlay.image.is_float:
-                                pack_float_image(baked_normal_overlay.image)
-                            else: baked_normal_overlay.image.pack(as_png=True)
+                        pack_image(baked_normal_overlay.image)
 
                     baked_normal_overlay.image.filepath = ''
 
@@ -774,12 +805,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
             # Need to pack first to save the image
             if image.is_dirty:
-                if is_bl_newer_than(2, 80):
-                    image.pack()
-                else:
-                    if image.is_float:
-                        pack_float_image(image)
-                    else: image.pack(as_png=True)
+                pack_image(image)
 
             # Some images need to set to srgb when saving
             ori_colorspace = image.colorspace_settings.name
@@ -1123,14 +1149,23 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if self.copy:
             image = self.image = duplicate_image(image, ondisk_duplicate=False)
 
+        # Remembers
+        ori_colorspace = image.colorspace_settings.name
+        ori_alpha_mode = image.alpha_mode
+        
+        if image.is_float:
+            # HACK: Set image color to linear first to save linear float image
+            if image.colorspace_settings.name == get_linear_color_name():
+                set_image_pixels_to_linear(image)
+
+            # HACK: Need to do image operation before saving srgb float image
+            if image.colorspace_settings.name == get_srgb_name():
+                if image.alpha_mode == 'STRAIGHT':
+                    multiply_image_rgb_by_alpha(image, power=2)
+
         # Need to pack first to save the image
         if image.is_dirty:
-            if is_bl_newer_than(2, 80):
-                image.pack()
-            else:
-                if image.is_float:
-                    pack_float_image(image)
-                else: image.pack(as_png=True)
+            pack_image(image)
 
         # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
         # Packing and unpacking sometimes does not work if the blend file is not saved yet
@@ -1139,11 +1174,19 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             unpacked_to_disk = True
             self.unpack_image(context)
 
-        # Some image need to set to srgb when saving
-        ori_colorspace = image.colorspace_settings.name
-        if not image.is_float and not image.is_dirty:
-            image.colorspace_settings.name = get_srgb_name()
+        if not image.is_dirty:
+            if not image.is_float:
+                # HACK: Non float image need to set to srgb when saving
+                image.colorspace_settings.name = get_srgb_name()
 
+            else:
+
+                # HACK: Need to change flip alpha mode before saving float image
+                if image.alpha_mode == 'PREMUL':
+                    image.alpha_mode = 'STRAIGHT'
+                elif image.alpha_mode == 'STRAIGHT':
+                    image.alpha_mode = 'PREMUL'
+        
         # Save image
         if image.source == 'TILED':
             override = bpy.context.copy()
@@ -1204,6 +1247,10 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if image.colorspace_settings.name != ori_colorspace:
             image.colorspace_settings.name = ori_colorspace
 
+        # Set back alpha mode
+        if image.alpha_mode != ori_alpha_mode:
+            image.alpha_mode = ori_alpha_mode
+
         # Delete copied image
         if self.copy:
             remove_datablock(bpy.data.images, image)
@@ -1229,11 +1276,9 @@ class YSavePackAll(bpy.types.Operator):
         ypui.refresh_image_hack = False
         return {'FINISHED'}
 
-def toggle_image_bit_depth(image, no_copy=False, force_srgb=False):
+def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_colorspace=False):
 
-    if image.yua.is_udim_atlas or image.yia.is_image_atlas:
-        self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
-        return {'CANCELLED'}
+    if image.yua.is_udim_atlas or image.yia.is_image_atlas: return
 
     # Create new image based on original image but with different bit depth
     if image.source == 'TILED':
@@ -1266,26 +1311,29 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False):
 
     if force_srgb:
         new_image.colorspace_settings.name = get_srgb_name()
+    elif convert_colorspace:
+        if new_image.is_float:
+            # Float image will use linear color and premultiplied alpha
+            new_image.colorspace_settings.name = get_linear_color_name()
+            new_image.alpha_mode = 'PREMUL'
+        else:
+            # Byte image will use srgb color and straight alpha
+            new_image.colorspace_settings.name = get_srgb_name()
+            new_image.alpha_mode = 'STRAIGHT'
     else: new_image.colorspace_settings.name = image.colorspace_settings.name
 
     # Copy image pixels
     if no_copy == False:
         if image.source == 'TILED':
-            UDIM.copy_udim_pixels(image, new_image)
-        else: copy_image_pixels(image, new_image)
+            UDIM.copy_udim_pixels(image, new_image, convert_colorspace=convert_colorspace)
+        else: 
+            if convert_colorspace:
+                copy_image_pixels_with_conversion(image, new_image)
+            else: copy_image_pixels(image, new_image)
 
     # Pack image
-    if image.packed_file and image.source != 'TILED':
-        if is_bl_newer_than(2, 80):
-            new_image.pack()
-        else:
-            if new_image.is_float:
-                pack_float_image(new_image)
-            else: new_image.pack(as_png=True)
-
-        # HACK: Float image need to be reloaded after packing to be showed correctly
-        if new_image.is_float:
-            new_image.reload()
+    if image.source != 'TILED' and image.packed_file:
+        pack_image(new_image, reload_float=True)
 
     # Replace image
     replace_image(image, new_image)
@@ -1306,11 +1354,35 @@ class YConvertImageBitDepth(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
+        # Do not convert colorspace if entity is a mask
+        convert_colorspace = False
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', context.entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', context.entity.path_from_id())
+        m3 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', context.entity.path_from_id())
+        if m1:
+            layer = yp.layers[int(m1.group(1))]
+            convert_colorspace = True
+        elif m2: 
+            layer = yp.layers[int(m2.group(1))]
+        elif m3: 
+            layer = yp.layers[int(m3.group(1))]
+        else:
+            self.report({'ERROR'}, "Wrong context!")
+            return {'CANCELLED'}
+
         image = context.image
-        toggle_image_bit_depth(image)
+
+        if image.yua.is_udim_atlas or image.yia.is_image_atlas:
+            self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
+            return {'CANCELLED'}
+
+        toggle_image_bit_depth(image, convert_colorspace=convert_colorspace)
 
         # Update image editor by setting active layer index
         yp.active_layer_index = yp.active_layer_index
+
+        # Refresh linear nodes
+        subtree.check_yp_linear_nodes(yp, specific_layer=layer, reconnect=True)
 
         return {'FINISHED'}
 
