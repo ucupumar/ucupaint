@@ -3354,13 +3354,13 @@ def draw_layers_ui(context, layout, node):
             channel_mismatch = True
             break
             
-            for mask in layer.masks:
-                if len(mask.channels) != num_channels:
-                    channel_mismatch = True
-                    break
-
-            if channel_mismatch:
+        for mask in layer.masks:
+            if len(mask.channels) != num_channels:
+                channel_mismatch = True
                 break
+
+        if channel_mismatch:
+            break
 
     if channel_mismatch:
         row = box.row(align=True)

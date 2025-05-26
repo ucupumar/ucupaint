@@ -661,9 +661,6 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
     #if check_uvs:
     #    check_uv_nodes(yp)
 
-    # Make sure the number of channels are correct
-    check_layer_channels_integrity(layer)
-
     # Check layer tree io
     check_layer_tree_ios(layer, tree, remove_props, hard_reset=hard_reset)
 

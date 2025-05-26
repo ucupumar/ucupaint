@@ -75,7 +75,28 @@ def check_yp_channel_nodes(yp, reconnect=False):
         layer_tree = get_tree(layer)
         
         # Make sure the number of channels are correct
-        check_layer_channels_integrity(layer)
+        num_difference = len(yp.channels) - len(layer.channels)
+        if num_difference > 0:
+            for i in range(num_difference):
+                # Add new channel
+                c = layer.channels.add()
+        elif num_difference < 0:
+            for i in range(abs(num_difference)):
+                last_idx = len(layer.channels)-1
+                # Remove layer channel
+                layer.channels.remove(channel_idx)
+    
+        for mask in layer.masks:
+            num_difference = len(yp.channels) - len(mask.channels)
+            if num_difference > 0:
+                for i in range(num_difference):
+                    # Add new channel to mask
+                    mc = mask.channels.add()
+            elif num_difference < 0:
+                for i in range(abs(num_difference)):
+                    last_idx = len(mask.channels)-1
+                    # Remove mask channel
+                    mask.channels.remove(channel_idx)
 
         # Check and set mask intensity nodes
         transition.check_transition_bump_influences_to_other_channels(layer, layer_tree) #, target_ch=c)
