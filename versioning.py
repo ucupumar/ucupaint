@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake, ListItem
+from . import Bake, ListItem, Modifier
 
 def flip_tangent_sign():
     meshes = []
@@ -135,6 +135,76 @@ def check_list_items_then_refresh(yp):
                     ch.override = False
                     ch.override = True
 
+def update_bake_info_baked_entity_props(yp):
+
+    entities = []
+    bis = []
+    images = []
+
+    for layer in yp.layers:
+        source = get_layer_source(layer, get_baked=True)
+        if source and source.image:
+            image = source.image
+            if not image.yia.is_image_atlas and not image.yua.is_udim_atlas:
+                entities.append(layer)
+                bis.append(image.y_bake_info)
+                images.append(image)
+
+            else:
+                if image.yia.is_image_atlas:
+                    segment = image.yia.segments.get(layer.baked_segment_name)
+                elif image.yua.is_udim_atlas: 
+                    segment = image.yua.segments.get(layer.baked_segment_name)
+                else: segment = None
+
+                if segment: 
+                    entities.append(layer)
+                    bis.append(segment.bake_info)
+                    images.append(image)
+
+        for mask in layer.masks:
+            source = get_mask_source(mask, get_baked=True)
+            if source and source.image:
+                image = source.image
+                if not image.yia.is_image_atlas and not image.yua.is_udim_atlas:
+                    entities.append(mask)
+                    bis.append(image.y_bake_info)
+                    images.append(image)
+
+                else:
+                    if image.yia.is_image_atlas:
+                        segment = image.yia.segments.get(mask.baked_segment_name)
+                    elif image.yua.is_udim_atlas: 
+                        segment = image.yua.segments.get(mask.baked_segment_name)
+                    else: segment = None
+
+                    if segment:
+                        entities.append(mask)
+                        bis.append(segment.bake_info)
+                        images.append(image)
+
+    for i, entity in enumerate(entities):
+        bi = bis[i]
+        image = images[i]
+
+        if not bi.is_baked_entity:
+            bi.is_baked_entity = True
+            print('INFO: Image '+image.name+' is marked as baked entity image!')
+
+        if bi.baked_entity_type != entity.type:
+            bi.baked_entity_type = entity.type
+            print('INFO: Image '+image.name+' is updated with baked entity type info!')
+
+        if entity.type == 'AO':
+            osource = get_entity_source(entity)
+            bi.bake_type = 'AO'
+            bi.ao_distance = get_entity_prop_value(entity, 'ao_distance')
+            bi.only_local = osource.only_local
+
+        elif entity.type == 'EDGE_DETECT':
+            bi.bake_type = 'BEVEL_MASK'
+            bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
+
 def update_yp_tree(tree):
     cur_version = get_current_version_str()
     yp = tree.yp
@@ -204,9 +274,18 @@ def update_yp_tree(tree):
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
                 mod_ids = []
+                multp_ids = []
                 for j, mod in enumerate(ch.modifiers):
                     if mod.type == 'OVERRIDE_COLOR':
                         mod_ids.append(j)
+                    elif mod.type == 'MULTIPLIER':
+                        multp_ids.append(j)
+
+                # HACK: Disable multiply modifiers if override color is found because some old blend file has wrong color
+                if mod_ids and multp_ids:
+                    for j in multp_ids:
+                        mod = ch.modifiers[j]
+                        mod.enable = False
 
                 for j in reversed(mod_ids):
                     mod = ch.modifiers[j]
@@ -236,7 +315,7 @@ def update_yp_tree(tree):
                     reconnect_layer_nodes(layer)
                     rearrange_layer_nodes(layer)
 
-    # Version 0.9.4 and above will replace multipier modifier with math modifier
+    # Version 0.9.4 and above will replace multiplier modifier with math modifier
     if version_tuple(yp.version) < (0, 9, 4):
 
         mods = []
@@ -274,6 +353,20 @@ def update_yp_tree(tree):
 
             mtree = get_mod_tree(parent)
 
+            # Get original values
+            r_val = mod.multiplier_r_val
+            g_val = mod.multiplier_g_val
+            b_val = mod.multiplier_b_val
+            a_val = mod.multiplier_a_val
+            use_clamp = mod.use_clamp
+            multp = mtree.nodes.get(mod.multiplier)
+            if multp:
+                if 'Clamp' in multp.inputs: use_clamp = multp.inputs['Clamp'].default_value > 0.5
+                if 'Multiply R' in multp.inputs: r_val = multp.inputs['Multiply R'].default_value
+                if 'Multiply G' in multp.inputs: g_val = multp.inputs['Multiply G'].default_value
+                if 'Multiply B' in multp.inputs: b_val = multp.inputs['Multiply B'].default_value
+                if 'Multiply A' in multp.inputs: a_val = multp.inputs['Multiply A'].default_value
+
             mod.name = 'Math'
             mod.type = 'MATH'
             remove_node(mtree, mod, 'multiplier')
@@ -289,15 +382,19 @@ def update_yp_tree(tree):
             mod.affect_alpha = True
             math.node_tree.nodes.get('Mix.A').mute = False
 
-            mod.math_a_val = mod.multiplier_a_val
-            mod.math_r_val = mod.multiplier_r_val
-            math.node_tree.nodes.get('Math.R').use_clamp = mod.use_clamp
-            math.node_tree.nodes.get('Math.A').use_clamp = mod.use_clamp
+            mod.math_r_val = math.inputs[2].default_value = r_val
+
+            math.node_tree.nodes.get('Math.R').use_clamp = use_clamp
+            math.node_tree.nodes.get('Math.A').use_clamp = use_clamp
             if ch_type != 'VALUE':
-                mod.math_g_val = mod.multiplier_g_val
-                mod.math_b_val = mod.multiplier_b_val
-                math.node_tree.nodes.get('Math.G').use_clamp = mod.use_clamp
-                math.node_tree.nodes.get('Math.B').use_clamp = mod.use_clamp
+                mod.math_g_val = math.inputs[3].default_value = g_val
+                mod.math_b_val = math.inputs[4].default_value = b_val
+                mod.math_a_val = math.inputs[5].default_value = a_val
+
+                math.node_tree.nodes.get('Math.G').use_clamp = use_clamp
+                math.node_tree.nodes.get('Math.B').use_clamp = use_clamp
+            else:
+                mod.math_a_val = math.inputs[3].default_value = a_val
 
         if mods:
             for layer in yp.layers:
@@ -737,6 +834,91 @@ def update_yp_tree(tree):
             for ch in layer.channels:
                 if len(ch.modifiers) == 0 and not ch.enable_transition_bump and not ch.enable_transition_ramp and not ch.enable_transition_ao:
                     ch.expand_content = False
+
+    # Version 2.2.1 has flag prop for baked entity
+    if version_tuple(yp.version) < (2, 2, 1):
+        update_bake_info_baked_entity_props(yp)
+
+        for ch in yp.channels:
+
+            # Use baked vcol is now has it's own property
+            if ch.enable_bake_to_vcol:
+                ch.use_baked_vcol = True
+
+            # Now baked channel data can be expanded
+            baked = tree.nodes.get(ch.baked)
+            if baked: ch.expand_baked_data = True
+
+    # Version 2.2.2 has more flag props for baked entity
+    if version_tuple(yp.version) < (2, 2, 2):
+        update_bake_info_baked_entity_props(yp)
+
+    # Version 2.2.3 use premultiplied alpha for float image atlas and new linear gamma system
+    if version_tuple(yp.version) < (2, 2, 3):
+
+        if is_bl_newer_than(2, 80):
+            # Update float image atlas to use premultiplied alpha
+            for image in bpy.data.images:
+                if not image.is_float: continue
+                if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+                    if not image.is_dirty and image.alpha_mode != 'PREMUL':
+                        image.alpha_mode = 'PREMUL'
+                        print("INFO: Image atlas named '"+image.name+"' is now using premultiplied alpha!")
+
+        if yp.use_linear_blending:
+            # Non color layer used to be have linear node mistakenly added
+            for layer in yp.layers:
+                if layer.type == 'IMAGE':
+                    source = get_layer_source(layer)
+                    if source and source.image:
+                        image = source.image
+                        if not is_image_source_srgb(image, source):
+
+                            # Check if layer is used as normal map
+                            used_as_normal_map = False
+                            for i, ch in enumerate(layer.channels):
+                                if not ch.enable: continue
+                                root_ch = yp.channels[i]
+                                if root_ch.type == 'NORMAL' and ((ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and not ch.override_1) or ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
+                                    used_as_normal_map = True
+                                    break
+
+                            # Do not add gamma modifier if layer is used as normal map
+                            if not used_as_normal_map:
+
+                                # In some cases (like in linked blend file context), adding new data is causing an error
+                                try: mod = Modifier.add_new_modifier(layer, 'MATH')
+                                except Exception as e: 
+                                    mod = None
+                                    print('EXCEPTIION:', e)
+
+                                if mod:
+                                    mod.math_meth = 'POWER'
+                                    mod_tree = get_mod_tree(mod)
+                                    math = mod_tree.nodes.get(mod.math)
+                                    gamma = 2.2
+                                    if math:
+                                        math.inputs[2].default_value = gamma
+                                        math.inputs[3].default_value = gamma
+                                        math.inputs[4].default_value = gamma
+                                    else:
+                                        mod.math_r_val = gamma
+                                        mod.math_g_val = gamma
+                                        mod.math_b_val = gamma
+
+                                    # Move modifier to the first index
+                                    if len(layer.modifiers) > 1:
+                                        for i in reversed(range(len(layer.modifiers))):
+                                            if i == 0: break
+                                            index = i
+                                            new_index = i-1
+                                            layer.modifiers.move(index, new_index)
+                                            swap_modifier_fcurves(layer, index, new_index)
+
+                                    print('INFO: Gamma modifier added to \''+image.name+'\' layer')
+
+        # Update linear nodes since it gets refactored
+        check_yp_linear_nodes(yp, reconnect=True)
 
     # SECTION II: Updates based on the blender version
 
@@ -1349,7 +1531,7 @@ def update_node_tree_libs(name):
     print('INFO: ' + get_addon_title() + ' Node group libraries are checked in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 class YUpdateYPTrees(bpy.types.Operator):
-    bl_idname = "node.y_update_yp_trees"
+    bl_idname = "wm.y_update_yp_trees"
     bl_label = "Update " + get_addon_title() + " Node Groups"
     bl_description = "Update " + get_addon_title() + " node groups to newest version"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1363,14 +1545,90 @@ class YUpdateYPTrees(bpy.types.Operator):
         update_routine('')
         return {'FINISHED'}
 
+class YUpdateRemoveSmoothBump(bpy.types.Operator):
+    bl_idname = "wm.y_update_remove_smooth_bump"
+    bl_label = "Remove Smooth Bump"
+    bl_description = "Smooth(er) bump is no longer supported, remove it to continue"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        #update_node_tree_libs('')
+        #update_routine('')
+
+        for ng in bpy.data.node_groups:
+            if not hasattr(ng, 'yp'): continue
+            if not ng.yp.is_ypaint_node: continue
+
+            yp = ng.yp
+
+            height_root_ch = get_root_height_channel(yp)
+            if height_root_ch and height_root_ch.enable_smooth_bump:
+
+                # Get object dimension and volume
+                dimension = None
+                volume = None
+                mats = get_materials_using_yp(yp)
+                mat = mats[0] if len(mats) > 0 else None
+                if mat:
+                    objs = get_all_objects_with_same_materials(mat)
+                    if objs:
+                        dimensions = 0
+                        volumes = 0
+                        for obj in objs:
+                            volumes += (obj.dimensions.x + obj.dimensions.y + obj.dimensions.z) / 3
+                            dimensions += obj.dimensions.x * obj.dimensions.y * obj.dimensions.z
+                        dimension = dimensions / len(objs)
+                        volume = volumes / len(objs)
+
+                    # Check if material use subsurface scattering
+                    sss_enabled = False
+                    outp = get_material_output(mat)
+                    bsdf = get_closest_bsdf_backward(outp, ['BSDF_PRINCIPLED'])
+                    if bsdf:
+                        inp = bsdf.inputs.get('Subsurface Weight') if is_bl_newer_than(4) else bsdf.inputs.get('Subsurface')
+                        if inp and (inp.default_value > 0.0 or len(inp.links) > 0):
+                            sss_enabled = True
+                
+                for layer in yp.layers:
+                    height_ch = get_height_channel(layer)
+                    if height_ch and dimension != None and volume != None:
+
+                        # NOTE: Smooth bump is originally tested on default cube, which has volume of 8 blender units and dimension of 2
+                        # These values are fine tuned to closer results based on old models
+                        multiplier = 1
+                        if layer.type == 'COLOR' and height_ch.enable_transition_bump and sss_enabled:
+                            multiplier = volume / 16
+                        elif layer.type == 'IMAGE' and not height_root_ch.enable_subdiv_setup:
+                            multiplier = dimension / 2
+                        elif layer.type == 'NOISE' and sss_enabled: 
+                            multiplier = volume / 32
+                        elif layer.type != 'IMAGE': 
+                            multiplier = volume / 8
+
+                        height = get_entity_prop_value(height_ch, 'bump_distance')
+                        set_entity_prop_value(height_ch, 'bump_distance', height * multiplier)
+                        height = get_entity_prop_value(height_ch, 'transition_bump_distance')
+                        set_entity_prop_value(height_ch, 'transition_bump_distance', height * multiplier)
+
+                height_root_ch.enable_smooth_bump = False
+                print("INFO: Smooth bump on "+ng.name+" is now disabled!")
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YUpdateYPTrees)
+    bpy.utils.register_class(YUpdateRemoveSmoothBump)
 
     bpy.app.handlers.load_post.append(update_node_tree_libs)
     bpy.app.handlers.load_post.append(update_routine)
 
 def unregister():
     bpy.utils.unregister_class(YUpdateYPTrees)
+    bpy.utils.unregister_class(YUpdateRemoveSmoothBump)
 
     bpy.app.handlers.load_post.remove(update_node_tree_libs)
     bpy.app.handlers.load_post.remove(update_routine)

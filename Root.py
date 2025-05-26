@@ -74,6 +74,7 @@ def check_yp_channel_nodes(yp, reconnect=False):
     for layer in yp.layers:
         layer_tree = get_tree(layer)
         
+        # Make sure the number of channels are correct
         num_difference = len(yp.channels) - len(layer.channels)
         if num_difference > 0:
             for i in range(num_difference):
@@ -84,7 +85,7 @@ def check_yp_channel_nodes(yp, reconnect=False):
                 last_idx = len(layer.channels)-1
                 # Remove layer channel
                 layer.channels.remove(channel_idx)
-
+    
         for mask in layer.masks:
             num_difference = len(yp.channels) - len(mask.channels)
             if num_difference > 0:
@@ -117,13 +118,12 @@ def check_yp_channel_nodes(yp, reconnect=False):
         reconnect_yp_nodes(yp.id_data)
         rearrange_yp_nodes(yp.id_data)
 
-def create_new_group_tree(mat):
+def create_new_group_tree(mat, name=None):
 
     #ypup = bpy.context.user_preferences.addons[__name__].preferences
 
-    # Group name is based from the material
-    #group_name = mat.name + YP_GROUP_SUFFIX
-    group_name = YP_GROUP_PREFIX + mat.name
+    # Group name is based on material unless specified
+    group_name = name or YP_GROUP_PREFIX + mat.name
 
     # Create new group tree
     group_tree = bpy.data.node_groups.new(group_name, 'ShaderNodeTree')
@@ -166,15 +166,16 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
     else:
-        # NOTE: Smooth bump is no longer enabled by default in Blender 2.80+
-        if is_bl_newer_than(2, 80): channel.enable_smooth_bump = False
+        # NOTE: Smooth bump is no longer enabled by default at all
+        #if is_bl_newer_than(2, 80): 
+        channel.enable_smooth_bump = False
 
     yp.halt_reconnect = False
 
     return channel
 
 class YSelectMaterialPolygons(bpy.types.Operator):
-    bl_idname = "material.y_select_all_material_polygons"
+    bl_idname = "wm.y_select_all_material_polygons"
     bl_label = "Select All Material Polygons"
     bl_description = "Select all polygons using this material"
     bl_options = {'REGISTER', 'UNDO'}
@@ -309,7 +310,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRenameUVMaterial(bpy.types.Operator):
-    bl_idname = "material.y_rename_uv_using_the_same_material"
+    bl_idname = "wm.y_rename_uv_using_the_same_material"
     bl_label = "Rename UV that using same Material"
     bl_description = "Rename UV on objects that used the same material"
     bl_options = {'REGISTER', 'UNDO'}
@@ -423,10 +424,20 @@ class YRenameUVMaterial(bpy.types.Operator):
         return {'FINISHED'}
 
 class YQuickYPaintNodeSetup(bpy.types.Operator):
-    bl_idname = "node.y_quick_ypaint_node_setup"
+    bl_idname = "wm.y_quick_ypaint_node_setup"
     bl_label = "Quick " + get_addon_title() + " Node Setup"
     bl_description = "Quick " + get_addon_title() + " Node Setup"
     bl_options = {'REGISTER', 'UNDO'}
+
+    tree_name : StringProperty(
+        name = 'Tree Name'
+    )
+
+    set_material_name_from_tree_name : BoolProperty(
+        name = 'Also Set Material Name',
+        description = 'Also set material name from tree name',
+        default = False
+    )
 
     type : EnumProperty(
         name = 'Type',
@@ -481,6 +492,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         valid_bsdf_types = ['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']
 
+        # Set the tree name
+        mat = get_active_material()
+        self.tree_name = YP_GROUP_PREFIX + (mat.name if mat else obj.name)
+
         # Get target bsdf
         self.target_bsdf_name = ''
         output = get_material_output(mat)
@@ -515,6 +530,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         row = split_layout(self.layout, 0.35)
 
         col = row.column()
+        col.label(text='Tree Name:')
+        col.separator()
         col.label(text='Type:')
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
@@ -527,6 +544,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ccol.label(text='')
 
         col = row.column()
+        rrow = col.row(align=True)
+        rrow.prop(self, 'tree_name', text='')
+        rrow.prop(self, 'set_material_name_from_tree_name', text='', icon='MATERIAL_DATA')
+        col.separator()
         col.prop(self, 'type', text='')
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
@@ -556,7 +577,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         mat = get_active_material()
 
         if not mat:
-            mat = bpy.data.materials.new(obj.name)
+            material_name = self.tree_name if self.set_material_name_from_tree_name else obj.name
+            mat = bpy.data.materials.new(material_name)
             mat.use_nodes = True
 
             if len(obj.material_slots) > 0:
@@ -568,6 +590,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             # Remove default nodes
             for n in mat.node_tree.nodes:
                 mat.node_tree.nodes.remove(n)
+        elif self.set_material_name_from_tree_name:
+            mat.name = self.tree_name
 
         if not mat.node_tree:
             mat.use_nodes = True
@@ -598,7 +622,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         loc = Vector((0, 0))
 
         # Create new group node
-        group_tree = create_new_group_tree(mat)
+        group_tree = create_new_group_tree(mat, self.tree_name)
         node = nodes.new(type='ShaderNodeGroup')
         node.node_tree = group_tree
         node.select = True
@@ -797,7 +821,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         return {'FINISHED'}
 
 class YNewYPaintNode(bpy.types.Operator):
-    bl_idname = "node.y_add_new_ypaint_node"
+    bl_idname = "wm.y_add_new_ypaint_node"
     bl_label = "Add new " + get_addon_title() + " Node"
     bl_description = "Add new " + get_addon_title() + " node"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1033,7 +1057,7 @@ def do_alpha_setup(mat, node, channel):
             tree.links.new(alpha_output, target_socket)
 
 class YConnectYPaintChannelAlpha(bpy.types.Operator):
-    bl_idname = "node.y_connect_ypaint_channel_alpha"
+    bl_idname = "wm.y_connect_ypaint_channel_alpha"
     bl_label = "Connect " + get_addon_title() + " Channel Alpha"
     bl_description = "Connect " + get_addon_title() + " channel alpha to other nodes"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1043,7 +1067,7 @@ class YConnectYPaintChannelAlpha(bpy.types.Operator):
         return {'FINISHED'}
 
 class YConnectYPaintChannel(bpy.types.Operator):
-    bl_idname = "node.y_connect_ypaint_channel"
+    bl_idname = "wm.y_connect_ypaint_channel"
     bl_label = "Connect " + get_addon_title() + " Channel"
     bl_description = "Connect " + get_addon_title() + " channel to other nodes"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1105,7 +1129,7 @@ class YConnectYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YNewYPaintChannel(bpy.types.Operator):
-    bl_idname = "node.y_add_new_ypaint_channel"
+    bl_idname = "wm.y_add_new_ypaint_channel"
     bl_label = "Add new " + get_addon_title() + " Channel"
     bl_description = "Add new " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1322,7 +1346,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveYPaintChannel(bpy.types.Operator):
-    bl_idname = "node.y_move_ypaint_channel"
+    bl_idname = "wm.y_move_ypaint_channel"
     bl_label = "Move " + get_addon_title() + " Channel"
     bl_description = "Move " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1409,7 +1433,7 @@ class YMoveYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveYPaintChannel(bpy.types.Operator):
-    bl_idname = "node.y_remove_ypaint_channel"
+    bl_idname = "wm.y_remove_ypaint_channel"
     bl_label = "Remove " + get_addon_title() + " Channel"
     bl_description = "Remove " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1652,7 +1676,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YAddSimpleUVs(bpy.types.Operator):
-    bl_idname = "node.y_add_simple_uvs"
+    bl_idname = "wm.y_add_simple_uvs"
     bl_label = "Add simple UVs"
     bl_description = "Add Simple UVs"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1675,7 +1699,7 @@ class YAddSimpleUVs(bpy.types.Operator):
         return {'FINISHED'}
 
 class YFixChannelMissmatch(bpy.types.Operator):
-    bl_idname = "node.y_fix_channel_missmatch"
+    bl_idname = "wm.y_fix_channel_missmatch"
     bl_label = "Fix Channels Mistmatch"
     bl_description = "Fix channels missmatch because of error"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1698,7 +1722,7 @@ class YFixChannelMissmatch(bpy.types.Operator):
         return {'FINISHED'}
 
 class YFixMissingUV(bpy.types.Operator):
-    bl_idname = "node.y_fix_missing_uv"
+    bl_idname = "wm.y_fix_missing_uv"
     bl_label = "Fix missing UV"
     bl_description = "Fix missing UV"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1804,12 +1828,14 @@ class YFixMissingUV(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRenameYPaintTree(bpy.types.Operator):
-    bl_idname = "node.y_rename_ypaint_tree"
-    bl_label = "Rename " + get_addon_title() + " Group Name"
-    bl_description = "Rename " + get_addon_title() + " Group Name"
+    bl_idname = "wm.y_rename_ypaint_tree"
+    bl_label = "Rename " + get_addon_title() + " Tree"
+    bl_description = "Rename " + get_addon_title() + " Tree"
     bl_options = {'REGISTER', 'UNDO'}
+    bl_property = 'name'
 
     name : StringProperty(name='New Name', description='New Name', default='')
+    rename_active_material : BoolProperty(name='Also Rename Active Material', description='Also rename active material', default=False)
 
     @classmethod
     def poll(cls, context):
@@ -1823,16 +1849,21 @@ class YRenameYPaintTree(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
-        self.layout.prop(self, 'name')
+        row = self.layout.row(align=True)
+        row.prop(self, 'name')
+        row.prop(self, 'rename_active_material', text='', icon='MATERIAL')
 
     def execute(self, context):
         node = get_active_ypaint_node()
         tree = node.node_tree
         tree.name = self.name
+        if self.rename_active_material:
+            mat = get_active_material()
+            mat.name = self.name
         return {'FINISHED'}
 
 class YChangeActiveYPaintNode(bpy.types.Operator):
-    bl_idname = "node.y_change_active_ypaint_node"
+    bl_idname = "wm.y_change_active_ypaint_node"
     bl_label = "Change Active " + get_addon_title() + " Node"
     bl_description = "Change Active " + get_addon_title() + " Node"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1861,7 +1892,7 @@ class YChangeActiveYPaintNode(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def duplicate_mat(mat):
+def duplicate_mat(mat, new_name=None):
     # HACK: mat.copy() on Blender 3.0 and newer will make the yp tree used by 3 users (it should be 2 users)
     # To get around this issue, use a temporary tree that will replace the yp trees before doing mat.copy()
     if is_bl_newer_than(3):
@@ -1893,16 +1924,30 @@ def duplicate_mat(mat):
         # Remove temporary trees
         for temp_tree in reversed(temp_trees):
             remove_datablock(bpy.data.node_groups, temp_tree)
+    else:
+        new_mat = mat.copy()
 
-        return new_mat
+    if new_name:
+        new_mat.name = new_name
 
-    return mat.copy()
+    return new_mat
 
 class YDuplicateYPNodes(bpy.types.Operator):
-    bl_idname = "node.y_duplicate_yp_nodes"
+    bl_idname = "wm.y_duplicate_yp_nodes"
     bl_label = "Duplicate " + get_addon_title() + " Nodes"
     bl_description = get_addon_title() + " doesn't work with more than one user! Duplicate to make it single user"
     bl_options = {'REGISTER', 'UNDO'}
+
+    new_name : StringProperty(
+        name = 'New Name',
+        description = 'New name for duplicated tree',
+    )
+
+    set_material_name_from_tree_name : BoolProperty(
+        name = 'Also Set Material Name',
+        description = 'Also set duplicated material name from duplicated tree name',
+        default = False
+    )
 
     duplicate_node : BoolProperty(
         name = 'Duplicate this Node',
@@ -1930,7 +1975,6 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        mat = get_active_material()
         group_node = get_active_ypaint_node()
         if not group_node: return False
 
@@ -1943,6 +1987,8 @@ class YDuplicateYPNodes(bpy.types.Operator):
     def invoke(self, context, event):
         group_node = get_active_ypaint_node()
         yp = group_node.node_tree.yp
+
+        self.new_name = get_unique_name(group_node.node_tree.name, bpy.data.node_groups)
 
         self.any_ondisk_image = False
 
@@ -1957,9 +2003,23 @@ class YDuplicateYPNodes(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
-        self.layout.prop(self, 'only_active', text='Only Active Object')
+        row = split_layout(self.layout, 0.35)
+
+        col = row.column()
+        col.label(text='New Name:')
+
+        col.label(text='')
         if self.any_ondisk_image:
-            self.layout.prop(self, 'ondisk_duplicate')
+            col.label(text='')
+
+        col = row.column()
+        row = col.row(align=True)
+        row.prop(self, 'new_name', text='')
+        row.prop(self, 'set_material_name_from_tree_name', text='', icon='MATERIAL_DATA')
+
+        col.prop(self, 'only_active', text='Only Active Object')
+        if self.any_ondisk_image:
+            col.prop(self, 'ondisk_duplicate')
 
     def execute(self, context):
 
@@ -1970,8 +2030,11 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         if self.duplicate_material:
 
+            # Get new material name
+            new_mat_name = self.new_name if self.set_material_name_from_tree_name else get_unique_name(mat.name, bpy.data.materials)
+
             # Duplicate the material
-            dup_mat = duplicate_mat(mat)
+            dup_mat = duplicate_mat(mat, new_mat_name)
             for obj in objs:
                 for i, m in enumerate(obj.data.materials):
                     if m == mat:
@@ -1991,8 +2054,9 @@ class YDuplicateYPNodes(bpy.types.Operator):
             for tree_name, node in tree_dict.items():
                 tree = bpy.data.node_groups.get(tree_name)
                 node.node_tree = tree.copy()
+                if self.new_name:
+                    node.node_tree.name = self.new_name
 
-        ypui = context.window_manager.ypui
         group_node = get_active_ypaint_node()
         tree = group_node.node_tree
         yp = tree.yp
@@ -2076,7 +2140,7 @@ def fix_missing_vcol(obj, name, src):
     if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain)
     else: vcol = new_vertex_color(obj, name)
 
-    set_source_vcol_name(src, name)
+    set_source_vcol_name(src, vcol.name)
 
     # Default recovered missing vcol is black
     set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 0.0))
@@ -2092,7 +2156,7 @@ def fix_missing_img(name, src, is_mask=False):
     src.image = img
 
 class YOptimizeNormalProcess(bpy.types.Operator):
-    bl_idname = "node.y_optimize_normal_process"
+    bl_idname = "wm.y_optimize_normal_process"
     bl_label = "Optimize Normal Process"
     bl_description = "Optimize normal process by not processing normal input when it's not connected"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2118,7 +2182,7 @@ class YOptimizeNormalProcess(bpy.types.Operator):
         return {'FINISHED'}
 
 class YFixMissingData(bpy.types.Operator):
-    bl_idname = "node.y_fix_missing_data"
+    bl_idname = "wm.y_fix_missing_data"
     bl_label = "Fix Missing Data"
     bl_description = "Fix missing image/vertex color data"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2246,7 +2310,7 @@ class YFixMissingData(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRefreshTangentSignVcol(bpy.types.Operator):
-    bl_idname = "node.y_refresh_tangent_sign_vcol"
+    bl_idname = "wm.y_refresh_tangent_sign_vcol"
     bl_label = "Refresh Tangent Sign Vertex Colors"
     bl_description = "Refresh Tangent Sign Vertex Colors to make it work in Blender 2.8"
     bl_options = {'REGISTER', 'UNDO'}
@@ -2267,7 +2331,7 @@ class YRefreshTangentSignVcol(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveYPaintNode(bpy.types.Operator):
-    bl_idname = "node.y_remove_yp_node"
+    bl_idname = "wm.y_remove_yp_node"
     bl_label = "Remove " + get_addon_title() + " Node"
     bl_description = "Remove " + get_addon_title() + " node, but keep all baked channel image(s)"""
     bl_options = {'REGISTER', 'UNDO'}
@@ -2326,7 +2390,7 @@ class YRemoveYPaintNode(bpy.types.Operator):
         return {'FINISHED'}
 
 class YCleanYPCaches(bpy.types.Operator):
-    bl_idname = "node.y_clean_yp_caches"
+    bl_idname = "wm.y_clean_yp_caches"
     bl_label = "Clean " + get_addon_title() + " Caches"
     bl_description = "Clean " + get_addon_title() + " caches"""
     bl_options = {'REGISTER', 'UNDO'}
@@ -3477,6 +3541,13 @@ class YPaintChannel(bpy.types.PropertyGroup):
         update = Bake.update_enable_bake_to_vcol
     )
 
+    use_baked_vcol : BoolProperty(
+        name = 'Use Baked Vertex Color',
+        description = 'Use baked vertex color',
+        default = False,
+        update = Bake.update_enable_bake_to_vcol
+    )
+
     bake_to_vcol_alpha : BoolProperty(
         name = 'Bake To Vertex Color Alpha', 
         description = 'When enabled, the channel are baked only to Alpha with vertex color', 
@@ -3732,6 +3803,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     expand_bake_to_vcol_settings : BoolProperty(default=False)
     expand_input_bump_settings : BoolProperty(default=False)
     expand_smooth_bump_settings : BoolProperty(default=False)
+    expand_baked_data : BoolProperty(default=False)
 
     # Connection related
     ori_alpha_to : CollectionProperty(type=YNodeConnections)
@@ -4005,6 +4077,7 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 
     all_icons_loaded : BoolProperty(default=False)
 
+    edit_image_editor_window_index : IntProperty(default=-1)
     edit_image_editor_area_index : IntProperty(default=-1)
 
     custom_srgb_name : StringProperty(default='')
@@ -4015,6 +4088,15 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     test_result_failed : IntProperty(default=0)
 
     brush_asset_caches : CollectionProperty(type=YPaintBrushAssetCache)
+
+    correct_paint_image_name : StringProperty(default='')
+
+    clipboard_bake_target : CollectionProperty(type=BakeTarget.YBakeTarget)
+
+    image_editor_dict : StringProperty(default='')
+    image_editor_pins : StringProperty(default='')
+
+    halt_hacks : BoolProperty(default=False)
 
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
@@ -4042,6 +4124,10 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
 
     mesh_hash : StringProperty(default='')
     uv_hashes : CollectionProperty(type=YPaintObjectUVHash)
+
+    texpaint_translation : FloatVectorProperty(size=3, default=(0.0, 0.0, 0.0))
+    texpaint_rotation : FloatVectorProperty(size=3, default=(0.0, 0.0, 0.0))
+    texpaint_scale : FloatVectorProperty(size=3, default=(1.0, 1.0, 1.0))
 
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min : FloatProperty(default=0.0)
@@ -4089,15 +4175,15 @@ def ypaint_last_object_update(scene):
 
     mat = obj.active_material
     ypwm = bpy.context.window_manager.ypprops
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp if node else None
 
     if ypwm.last_object != obj.name or (mat and mat.name != ypwm.last_material):
         ypwm.last_object = obj.name
         if mat: ypwm.last_material = mat.name
-        node = get_active_ypaint_node()
 
         # Refresh layer index to update editor image
-        if node:
-            yp = node.node_tree.yp
+        if yp:
             if yp.use_baked and len(yp.channels) > 0:
                 update_active_yp_channel(yp, bpy.context)
 
@@ -4105,12 +4191,23 @@ def ypaint_last_object_update(scene):
                 try: set_active_paint_slot_entity(yp)
                 except: print('EXCEPTIION: Cannot set image canvas!')
 
+    # HACK: Remember original image editor images before entering texture paint mode
+    if yp and obj.type == 'MESH' and obj.mode != 'TEXTURE_PAINT':
+        editor_images, editor_pins = get_editor_images_dict(return_pins=True)
+        ypwm.image_editor_dict = str(editor_images)
+        ypwm.image_editor_pins = str(editor_pins)
+
     if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
 
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp if node else None
-
         if obj.mode == 'TEXTURE_PAINT' or ypwm.last_mode == 'TEXTURE_PAINT':
+
+            # HACK: Set original image editor images since going into texture paint mode will replace all of them
+            if yp and obj.mode == 'TEXTURE_PAINT' and ypwm.image_editor_dict != '':
+                import ast
+                editor_images = ast.literal_eval(ypwm.image_editor_dict)
+                editor_pins = ast.literal_eval(ypwm.image_editor_pins) if ypwm.image_editor_pins != '' else {}
+                set_editor_images(editor_images, editor_pins)
+
             ypwm.last_mode = obj.mode
             if yp and len(yp.layers) > 0:
                 image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
@@ -4127,14 +4224,22 @@ def ypaint_last_object_update(scene):
                                 obj.yp.ori_offset_v = mirror.offset_v
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
 
+                # HACK: Just in case active image is not correct
+                if image: ypwm.correct_paint_image_name = image.name
+
+                # Set image editor image
+                update_image_editor_image(bpy.context, image)
+
+                # Refresh temporary UV
                 refresh_temp_uv(obj, src_of_img)
 
         # Into edit mode
         if obj.mode == 'EDIT' and ypwm.last_mode != 'EDIT':
             ypwm.last_mode = obj.mode
             # Remember the space
-            space, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
-            if space and area_index != -1:
+            space, window_index, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
+            if space and area_index != -1 and window_index != -1:
+                ypwm.edit_image_editor_window_index = window_index
                 ypwm.edit_image_editor_area_index = area_index
 
             # Trigger updating active index to update image
@@ -4159,6 +4264,43 @@ def ypaint_last_object_update(scene):
 
         if ypwm.last_mode != obj.mode:
             ypwm.last_mode = obj.mode
+
+@persistent
+def ypaint_missmatch_paint_slot_hack(scene):
+    # HACK: Force material active slot to update if necessary
+    wmyp = bpy.context.window_manager.ypprops
+    if not wmyp.halt_hacks and wmyp.correct_paint_image_name != '':
+
+        if scene.tool_settings.image_paint.mode == 'MATERIAL':
+
+            mat = get_active_material()
+
+            try: active_img = mat.texture_paint_images[mat.paint_active_slot]
+            except: active_img = None
+
+            try: correct_img = bpy.data.images.get(wmyp.correct_paint_image_name)
+            except: correct_img = None
+
+            if active_img and correct_img and active_img != correct_img:
+                for idx, img in enumerate(mat.texture_paint_images):
+                    if img == None: continue
+                    if img.name == correct_img.name:
+
+                        # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
+                        ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
+
+                        success = False
+                        try: 
+                            mat.paint_active_slot = idx
+                            success = True
+                        except: print('EXCEPTIION: Cannot set active paint slot image!')
+
+                        # HACK: Revert back to original editor images
+                        if success: set_editor_images(ori_editor_imgs, ori_editor_pins)
+
+                        break
+
+        wmyp.correct_paint_image_name = ''
 
 @persistent
 def ypaint_force_update_on_anim(scene):
@@ -4264,6 +4406,7 @@ def register():
     # Handlers
     if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.append(ypaint_last_object_update)
+        bpy.app.handlers.depsgraph_update_post.append(ypaint_missmatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
@@ -4308,6 +4451,7 @@ def unregister():
     # Remove handlers
     if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.remove(ypaint_last_object_update)
+        bpy.app.handlers.depsgraph_update_post.remove(ypaint_missmatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_last_object_update)

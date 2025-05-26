@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, morirain, Patrick W. Crawford, neomonkeus, Kareem Haddad, passivestar",
-    "version": (2, 2, 0),
+    "version": (2, 3, 0),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
     "warning": "",
@@ -46,6 +46,10 @@ if "bpy" in locals():
     imp.reload(versioning)
     imp.reload(addon_updater_ops)
     imp.reload(Test)
+    imp.reload(downloader)
+    imp.reload(properties)
+    imp.reload(operators)
+    imp.reload(tex_ui)
 else:
     from . import Localization
     from . import image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
@@ -53,6 +57,7 @@ else:
     from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
     from . import addon_updater_ops
     from . import Test
+    from .textures_lib import downloader, properties, operators, ui as tex_ui
 
 import bpy 
 
@@ -82,6 +87,10 @@ def register():
     versioning.register()
     addon_updater_ops.register()
     Test.register()
+    downloader.register()
+    properties.register()
+    operators.register()
+    tex_ui.register()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is registered!')
 
@@ -111,6 +120,10 @@ def unregister():
     versioning.unregister()
     addon_updater_ops.unregister()
     Test.unregister()
+    downloader.unregister()
+    properties.unregister()
+    operators.unregister()
+    tex_ui.unregister()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is unregistered!')
 
