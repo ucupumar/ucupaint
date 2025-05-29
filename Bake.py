@@ -115,6 +115,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     temp_image.colorspace_settings.name = image.colorspace_settings.name
     temp_image.generated_color = col
+    temp_image.alpha_mode = image.alpha_mode
 
     # Create bake nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -216,6 +217,10 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
             # Copy the result to original temp image
             copy_image_channel_pixels(temp_image1, temp_image, 0, 3)
 
+            # Premultiplied float image need more process
+            if temp_image.is_float and temp_image.alpha_mode == 'PREMUL':
+                multiply_image_rgb_by_alpha(temp_image)
+
             # Swap tile again to recover
             if tilenum != 1001:
                 UDIM.swap_tile(temp_image, 1001, tilenum)
@@ -257,7 +262,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
     # HACK: Pack and refresh to update image in Blender 2.77 and lower
     if not is_bl_newer_than(2, 78) and (image.packed_file or image.filepath == ''):
         if image.is_float:
-            image_ops.pack_float_image(image)
+            image_ops.pack_float_image_27x(image)
         else: image.pack(as_png=True)
         image.reload()
 
@@ -2765,7 +2770,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         # HACK: Pack and refresh to update image in Blender 2.77 and lower
         if not is_bl_newer_than(2, 78) and (source.image.packed_file or source.image.filepath == ''):
             if source.image.is_float:
-                image_ops.pack_float_image(source.image)
+                image_ops.pack_float_image_27x(source.image)
             else: source.image.pack(as_png=True)
             source.image.reload()
 

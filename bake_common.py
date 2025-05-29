@@ -1,4 +1,4 @@
-import bpy, time, os, numpy, tempfile
+import bpy, time, os, numpy, tempfile, bmesh
 from bpy.props import *
 from .common import *
 from .input_outputs import *
@@ -3041,17 +3041,12 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         # Base color of baked image
         if bprops.type == 'AO':
             color = [1.0, 1.0, 1.0, 1.0] 
-        elif bprops.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
-            if bprops.hdr:
-                color = [0.7354, 0.7354, 1.0, 1.0]
-            else:
-                color = [0.5, 0.5, 1.0, 1.0] 
+        elif bake_type in {'NORMAL', 'NORMALS'}:
+            color = [0.5, 0.5, 1.0, 1.0] 
         elif bprops.type == 'FLOW':
             color = [0.5, 0.5, 0.0, 1.0]
         else:
-            if bprops.hdr:
-                color = [0.7354, 0.7354, 0.7354, 1.0]
-            else: color = [0.5, 0.5, 0.5, 1.0]
+            color = [0.5, 0.5, 0.5, 1.0]
 
         # Make image transparent if its baked from other objects
         if bprops.type.startswith('OTHER_OBJECT_'):
@@ -3204,7 +3199,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 # Remove temp image
                 remove_datablock(bpy.data.images, temp_img, user=tex, user_prop='image')
 
-        # Back to original size if using SSA
+        # HACK: On Blender 4.5, tex node can be mistakenly use previous index image as current one when resize_image is called
+        # Set the tex node image to None before resize_image can resolve this
+        tex.image = None
+
+        # Back to original size if using SSAA
         if use_ssaa:
             image, temp_segment = resize_image(
                 image, bprops.width, bprops.height, image.colorspace_settings.name,

@@ -3074,6 +3074,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                     rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
                     icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                    rrow.context_pointer_set('entity', mask)
                     rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
 
                 if mask.texcoord_type == 'Decal':
@@ -3353,13 +3354,13 @@ def draw_layers_ui(context, layout, node):
             channel_mismatch = True
             break
             
-            for mask in layer.masks:
-                if len(mask.channels) != num_channels:
-                    channel_mismatch = True
-                    break
-
-            if channel_mismatch:
+        for mask in layer.masks:
+            if len(mask.channels) != num_channels:
+                channel_mismatch = True
                 break
+
+        if channel_mismatch:
+            break
 
     if channel_mismatch:
         row = box.row(align=True)

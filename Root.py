@@ -74,6 +74,7 @@ def check_yp_channel_nodes(yp, reconnect=False):
     for layer in yp.layers:
         layer_tree = get_tree(layer)
         
+        # Make sure the number of channels are correct
         num_difference = len(yp.channels) - len(layer.channels)
         if num_difference > 0:
             for i in range(num_difference):
@@ -84,7 +85,7 @@ def check_yp_channel_nodes(yp, reconnect=False):
                 last_idx = len(layer.channels)-1
                 # Remove layer channel
                 layer.channels.remove(channel_idx)
-
+    
         for mask in layer.masks:
             num_difference = len(yp.channels) - len(mask.channels)
             if num_difference > 0:
@@ -2139,7 +2140,7 @@ def fix_missing_vcol(obj, name, src):
     if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain)
     else: vcol = new_vertex_color(obj, name)
 
-    set_source_vcol_name(src, name)
+    set_source_vcol_name(src, vcol.name)
 
     # Default recovered missing vcol is black
     set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 0.0))

@@ -137,7 +137,6 @@ def add_new_mask(
             refresh_temp_uv(bpy.context.object, mask)
 
     for i, root_ch in enumerate(yp.channels):
-        ch = layer.channels[i]
         c = mask.channels.add()
 
     mask.blend_type = blend_type
