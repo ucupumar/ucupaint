@@ -460,7 +460,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         specific_ch = None
         if yp.layer_preview_mode and yp.active_channel_index < len(layer.channels):
             specific_ch = layer.channels[yp.active_channel_index]
-        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=False, hard_reset=hard_reset)
+        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=remove_props, hard_reset=hard_reset)
 
     if reconnect:
         # Rearrange layers
@@ -662,7 +662,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
     #    check_uv_nodes(yp)
 
     # Check layer tree io
-    check_layer_tree_ios(layer, tree, remove_props, hard_reset=hard_reset)
+    check_layer_tree_ios(layer, tree, remove_props=remove_props, hard_reset=hard_reset)
 
     # Check texcoord nodes
     check_layer_texcoord_nodes(layer, tree)
