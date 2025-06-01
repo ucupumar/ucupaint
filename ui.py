@@ -1486,48 +1486,29 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     label = ''
     #label += pgettext_iface('Layer') + ': '
     if image:
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_image')
-        #else: icon_value = lib.get_icon('collapsed_image')
         icon_value = lib.get_icon('image')
         if image.yia.is_image_atlas or image.yua.is_udim_atlas:
             label += layer.name
         else: label += image.name
     elif vcol:
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_vertex_color')
-        #else: icon_value = lib.get_icon('collapsed_vertex_color')
         icon_value = lib.get_icon('vertex_color')
         label += vcol.name
     elif layer.type == 'BACKGROUND':
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_background')
-        #else: icon_value = lib.get_icon('collapsed_background')
         icon_value = lib.get_icon('background')
         label += layer.name
     elif layer.type == 'COLOR':
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_color')
-        #else: icon_value = lib.get_icon('collapsed_color')
         icon_value = lib.get_icon('color')
         label += layer.name
     elif layer.type == 'GROUP':
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_group')
-        #else: icon_value = lib.get_icon('collapsed_group')
         icon_value = lib.get_icon('group')
         label += layer.name
     elif layer.type == 'HEMI':
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_hemi')
-        #else: icon_value = lib.get_icon('collapsed_hemi')
         icon_value = lib.get_icon('hemi')
         label += layer.name
+    elif layer.type in {'EDGE_DETECT', 'AO'}:
+        icon_value = lib.get_icon('edge_detect')
+        label += layer.name
     else:
-        title = source.bl_idname.replace('ShaderNodeTex', '')
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_texture')
-        #else: icon_value = lib.get_icon('collapsed_texture')
         icon_value = lib.get_icon('texture')
         label += layer.name
 
@@ -4727,6 +4708,8 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
         elif layer.type == 'HEMI': 
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('hemi'))
+        elif layer.type in {'EDGE_DETECT', 'AO'}:
+            row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
         elif layer.type == 'COLOR': 
             row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
@@ -4751,6 +4734,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(active_override, ae_prop, text='', emboss=False, icon='COLOR')
             elif layer.type == 'HEMI': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('hemi'))
+            elif layer.type in {'EDGE_DETECT', 'AO'}:
+                row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
             elif layer.type == 'BACKGROUND': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
@@ -4769,6 +4754,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon='COLOR')
             elif layer.type == 'HEMI': 
                 row.label(text='', icon_value=lib.get_icon('hemi'))
+            elif layer.type in {'EDGE_DETECT', 'AO'}:
+                row.label(text='', icon_value=lib.get_icon('edge_detect'))
             elif layer.type == 'BACKGROUND': 
                 row.label(text='', icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
