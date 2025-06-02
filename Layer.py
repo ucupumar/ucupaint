@@ -81,9 +81,11 @@ def add_new_layer(
 
     # Get a possible parent layer group
     parent_layer = None
+    active_layer_is_group = False
     if active_layer: 
         if active_layer.type == 'GROUP':
             parent_layer = active_layer
+            active_layer_is_group = True
         elif active_layer.parent_idx != -1:
             parent_layer = yp.layers[active_layer.parent_idx]
 
@@ -110,7 +112,7 @@ def add_new_layer(
 
     # Move new layer to current index
     last_index = len(yp.layers)-1
-    if active_layer and active_layer.type == 'GROUP':
+    if active_layer_is_group:
         index = yp.active_layer_index + 1
     else: index = yp.active_layer_index
 
