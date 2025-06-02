@@ -62,7 +62,7 @@ def setup_modifier_mask_source(tree, mask, modifier_type):
     return source
 
 def add_new_mask(
-        layer, name, mask_type, texcoord_type, uv_name, image=None, vcol=None, segment=None,
+        layer, name, mask_type, texcoord_type, uv_name, image=None, vcol_name='', segment=None,
         object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False,
         color_id=(1, 0, 1), source_input='RGB', edge_detect_radius=0.05,
         modifier_type='INVERT', interpolation='Linear', ao_distance=1.0
@@ -102,7 +102,7 @@ def add_new_mask(
             source.color_space = 'NONE'
         source.interpolation = interpolation
     elif mask_type == 'VCOL':
-        if vcol: set_source_vcol_name(source, vcol.name)
+        if vcol_name != '': set_source_vcol_name(source, vcol_name)
         else: set_source_vcol_name(source, name)
 
     if mask_type == 'HEMI':
@@ -962,7 +962,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         alpha = False
         img = None
-        vcol = None
+        vcol_name = ''
         segment = None
 
         # New image
@@ -1026,12 +1026,16 @@ class YNewLayerMask(bpy.types.Operator):
                 for o in objs:
                     if self.name not in get_vertex_colors(o):
                         if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
-                        vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
+
+                        color = ()
                         if self.color_option == 'WHITE':
-                            set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                            color = (1.0, 1.0, 1.0, 1.0)
                         elif self.color_option == 'BLACK':
-                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
+                            color = (0.0, 0.0, 0.0, 1.0)
+
+                        vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain, color_fill=color)
                         set_active_vertex_color(o, vcol)
+                        vcol_name = vcol.name
 
                 # Fill selected geometry if in edit mode
                 if self.vcol_fill and bpy.context.mode == 'EDIT_MESH' and self.color_option == 'BLACK':
@@ -1049,7 +1053,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         # Add new mask
         mask = add_new_mask(
-            layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
+            layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol_name, segment, self.object_index, self.blend_type, 
             self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, edge_detect_radius=self.edge_detect_radius,
             modifier_type=self.modifier_type, interpolation=self.interpolation, ao_distance=self.ao_distance
         )
@@ -1287,7 +1291,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
             # Add new mask
             mask = add_new_mask(
-                layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, 
+                layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, '', 
                 blend_type=self.blend_type, source_input=self.source_input,
                 interpolation = self.interpolation
             )
@@ -1569,13 +1573,12 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                 if self.vcol_name not in get_vertex_colors(o):
                     if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                     data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
-                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
-                    set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 1.0))
+                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain, color_fill=(1.0, 1.0, 1.0, 1.0))
                     set_active_vertex_color(o, other_v)
 
         # Add new mask
         mask = add_new_mask(
-            layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, 
+            layer, name, self.type, self.texcoord_type, self.uv_map, image, self.vcol_name, 
             blend_type=self.blend_type, source_input=self.source_input,
             interpolation = self.interpolation
         )

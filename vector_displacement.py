@@ -44,7 +44,8 @@ def _remember_before_bake(obj):
     book['ori_view_transform'] = scene.view_settings.view_transform
 
     # Remember world settings
-    book['ori_distance'] = scene.world.light_settings.distance
+    if scene.world:
+        book['ori_distance'] = scene.world.light_settings.distance
 
     # Remember image editor images
     book['editor_images'] = [a.spaces[0].image for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']
@@ -146,7 +147,8 @@ def _recover_bake_settings(book, recover_active_uv=False):
     scene.render.bake_margin = book['ori_bake_margin']
 
     # Recover world settings
-    scene.world.light_settings.distance = book['ori_distance']
+    if scene.world:
+        scene.world.light_settings.distance = book['ori_distance']
 
     # Recover image editors
     for i, area in enumerate([a for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']):

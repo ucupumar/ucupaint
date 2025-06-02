@@ -1483,10 +1483,13 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         inputs = get_tree_inputs(group_tree)
         outputs = get_tree_outputs(group_tree)
 
-        # Disable layer preview mode to avoid error
+        # Disable preview mode to avoid error
         ori_layer_preview_mode = yp.layer_preview_mode
+        ori_preview_mode = yp.preview_mode
         if yp.layer_preview_mode:
             yp.layer_preview_mode = False
+        if yp.preview_mode:
+            yp.preview_mode = False
 
         # Get active channel
         channel_idx = yp.active_channel_index
@@ -1664,6 +1667,9 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         if ori_layer_preview_mode:
             yp.layer_preview_mode = True
+
+        if ori_preview_mode:
+            yp.preview_mode = True
 
         # Repoint channel index
         #repoint_channel_index(yp)
@@ -2122,7 +2128,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def fix_missing_vcol(obj, name, src):
+def fix_missing_vcol(obj, name, src, entity=None, entities=[]):
 
     ref_vcol = None
 
@@ -2137,13 +2143,19 @@ def fix_missing_vcol(obj, name, src):
                 ref_vcol = ovcols.get(name)
                 break
 
-    if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain)
-    else: vcol = new_vertex_color(obj, name)
+    # Default recovered missing vcol is black
+    color = (0.0, 0.0, 0.0, 0.0)
 
+    # Create missing vertex color
+    if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain, color_fill=color)
+    else: vcol = new_vertex_color(obj, name, color_fill=color)
+
+    # Set attribute name back to source in case the name is different
     set_source_vcol_name(src, vcol.name)
 
-    # Default recovered missing vcol is black
-    set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 0.0))
+    # Set the name back to entity
+    if entity and vcol.name not in entity.name:
+        entity.name = get_unique_name(vcol.name, entities)
 
 def fix_missing_img(name, src, is_mask=False):
     img = bpy.data.images.new(
@@ -2267,13 +2279,13 @@ class YFixMissingData(bpy.types.Operator):
                 if layer.type == 'VCOL':
                     src = get_layer_source(layer)
                     if not get_vcol_from_source(obj, src):
-                        fix_missing_vcol(obj, src.attribute_name, src)
+                        fix_missing_vcol(obj, src.attribute_name, src, entity=layer, entities=yp.layers)
 
                 for mask in layer.masks:
                     if mask.type == 'VCOL': 
                         src = get_mask_source(mask)
                         if not get_vcol_from_source(obj, src):
-                            fix_missing_vcol(obj, src.attribute_name, src)
+                            fix_missing_vcol(obj, src.attribute_name, src, entity=mask, entities=layer.masks)
 
                     if mask.type == 'COLOR_ID':
                         vcols = get_vertex_colors(obj)

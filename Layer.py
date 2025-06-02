@@ -81,9 +81,11 @@ def add_new_layer(
 
     # Get a possible parent layer group
     parent_layer = None
+    active_layer_is_group = False
     if active_layer: 
         if active_layer.type == 'GROUP':
             parent_layer = active_layer
+            active_layer_is_group = True
         elif active_layer.parent_idx != -1:
             parent_layer = yp.layers[active_layer.parent_idx]
 
@@ -110,7 +112,7 @@ def add_new_layer(
 
     # Move new layer to current index
     last_index = len(yp.layers)-1
-    if active_layer and active_layer.type == 'GROUP':
+    if active_layer_is_group:
         index = yp.active_layer_index + 1
     else: index = yp.active_layer_index
 
@@ -213,7 +215,7 @@ def add_new_layer(
         #mask_name = 'Mask ' + layer.name
         mask_name = Mask.get_new_mask_name(obj, layer, mask_type)
         mask_image = None
-        mask_vcol = None
+        mask_vcol_name = ''
         mask_segment = None
 
         if mask_type == 'IMAGE':
@@ -291,12 +293,14 @@ def add_new_layer(
                 for o in objs:
                     if mask_name not in get_vertex_colors(o):
                         if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
-                        mask_vcol = new_vertex_color(o, mask_name, mask_vcol_data_type, mask_vcol_domain)
-                        if mask_color == 'WHITE':
-                            set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0, 1.0))
-                        elif mask_color == 'BLACK':
-                            set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0, 1.0))
+
+                        color = ()
+                        if mask_color == 'WHITE': color = (1.0, 1.0, 1.0, 1.0) 
+                        elif mask_color == 'BLACK': color = (0.0, 0.0, 0.0, 1.0)
+
+                        mask_vcol = new_vertex_color(o, mask_name, mask_vcol_data_type, mask_vcol_domain, color_fill=color)
                         set_active_vertex_color(o, mask_vcol)
+                        mask_vcol_name = mask_vcol.name
 
                 # Fill selected geometry if in edit mode
                 if mask_vcol_fill and bpy.context.mode == 'EDIT_MESH':
@@ -311,7 +315,7 @@ def add_new_layer(
 
         mask = Mask.add_new_mask(
             layer, mask_name, mask_type, mask_texcoord_type,
-            mask_uv_name, mask_image, mask_vcol, mask_segment,
+            mask_uv_name, mask_image, mask_vcol_name, mask_segment,
             interpolation=mask_interpolation, color_id=mask_color_id,
             edge_detect_radius=mask_edge_detect_radius,
             hemi_use_prev_normal=mask_use_prev_normal
@@ -509,8 +513,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         for o in objs:
             if self.name not in get_vertex_colors(o):
                 if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
-                vcol = new_vertex_color(o, self.name, self.data_type, self.domain)
-                set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                vcol = new_vertex_color(o, self.name, self.data_type, self.domain, color_fill=(1.0, 1.0, 1.0, 1.0))
                 set_active_vertex_color(o, vcol)
 
         # Update vcol cache
@@ -1559,12 +1562,12 @@ class YNewLayer(bpy.types.Operator):
             for o in objs:
                 if self.name not in get_vertex_colors(o):
                     if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
-                    vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
 
-                    if is_bl_newer_than(2, 92):
-                        set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
-                    else: set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                    color = (0.0, 0.0, 0.0, 0.0)
+                    if not is_bl_newer_than(2, 92):
+                        color = (1.0, 1.0, 1.0, 1.0)
 
+                    vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain, color_fill=color)
                     set_active_vertex_color(o, vcol)
 
         yp.halt_update = True
@@ -3300,8 +3303,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                 if self.vcol_name not in get_vertex_colors(o):
                     if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                     data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
-                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
-                    set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
+                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain, color_fill=(0.0, 0.0, 0.0, 1.0))
                     set_active_vertex_color(o, other_v)
 
             # Update vcol cache
@@ -3530,10 +3532,12 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                 if self.vcol_name not in get_vertex_colors(o):
                     if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                     data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
-                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
-                    if is_bl_newer_than(2, 92):
-                        set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 0.0))
-                    else: set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
+
+                    color = (0.0, 0.0, 0.0, 0.0)
+                    if not is_bl_newer_than(2, 92):
+                        color = (0.0, 0.0, 0.0, 1.0)
+                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain, color_fill=color)
+
                     set_active_vertex_color(o, other_v)
 
         add_new_layer(
@@ -4946,12 +4950,14 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
             vcols = get_vertex_colors(obj)
             if vcol_name in vcols:
                 vcol = vcols.get(vcol_name)
-                new_vcol = new_vertex_color(obj, new_vcol_name, vcol.data_type, vcol.domain)
-                if duplicate_blank:
-                    if vcol_user_types[i] == 'LAYER':
-                        set_obj_vertex_colors(obj, new_vcol_name, (0.0, 0.0, 0.0, 0.0))
-                    else: set_obj_vertex_colors(obj, new_vcol_name, (0.0, 0.0, 0.0, 1.0))
-                else:
+
+                if vcol_user_types[i] == 'LAYER':
+                    color = (0.0, 0.0, 0.0, 0.0)
+                else: color = (0.0, 0.0, 0.0, 1.0)
+
+                new_vcol = new_vertex_color(obj, new_vcol_name, vcol.data_type, vcol.domain, color_fill=color)
+
+                if not duplicate_blank:
                     copy_vertex_color_data(obj, vcol_name, new_vcol_name)
 
         # Set new vertex color to node and user

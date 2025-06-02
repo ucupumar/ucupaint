@@ -762,6 +762,11 @@ def remove_datablock(blocks, block, user=None, user_prop=''):
         block.user_clear()
         blocks.remove(block)
 
+def get_active_object():
+    if is_bl_newer_than(2, 80):
+        return bpy.context.view_layer.objects.active
+    return bpy.context.scene.objects.active
+
 def set_active_object(obj):
     if is_bl_newer_than(2, 80):
         try: bpy.context.view_layer.objects.active = obj
@@ -4708,13 +4713,33 @@ def set_active_vertex_color_by_name(obj, vcol_name):
         vcol = vcols.get(vcol_name)
         if vcol: set_active_vertex_color(obj, vcol)
 
-def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER'):
+def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER', color_fill=()):
     if not obj or obj.type != 'MESH': return None
 
-    if not is_bl_newer_than(3, 2):
-        return obj.data.vertex_colors.new(name=name)
+    # Cannot add new vertex color in edit mode, so go to object mode
+    ori_edit_mode = False
+    if obj.mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+        ori_edit_mode = True
 
-    return obj.data.color_attributes.new(name, data_type, domain)
+    # Create new vertex color
+    if not is_bl_newer_than(3, 2):
+        vcol = obj.data.vertex_colors.new(name=name)
+    else: vcol = obj.data.color_attributes.new(name, data_type, domain)
+
+    vcol_name = vcol.name
+
+    # Fill color
+    if color_fill != ():
+        set_obj_vertex_colors(obj, vcol.name, color_fill)
+
+    # Back to edit mode and get the vertex color again to avoid pointer error
+    if ori_edit_mode:
+        bpy.ops.object.mode_set(mode='EDIT')
+        vcols = get_vertex_colors(obj)
+        vcol = vcols.get(vcol_name)
+
+    return vcol
 
 def get_active_render_uv(obj):
     uv_layers = get_uv_layers(obj)
@@ -5931,8 +5956,7 @@ def check_colorid_vcol(objs, set_as_active=False):
         vcol = vcols.get(COLOR_ID_VCOL_NAME)
         if not vcol:
             try:
-                vcol = new_vertex_color(o, COLOR_ID_VCOL_NAME)
-                set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
+                vcol = new_vertex_color(o, COLOR_ID_VCOL_NAME, color_fill=(0.0, 0.0, 0.0, 1.0))
                 #set_active_vertex_color(o, vcol)
             except Exception as e: print(e)
 

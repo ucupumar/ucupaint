@@ -1661,6 +1661,16 @@ def check_uv_nodes(yp, generate_missings=False):
             if uv.name not in uv_names: 
                 uv_names.append(uv.name)
 
+        if layer.use_baked and layer.baked_uv_name != '':
+            uv = yp.uvs.get(layer.baked_uv_name)
+            if not uv: 
+                dirty = True
+                uv = yp.uvs.add()
+                uv.name = layer.baked_uv_name
+
+            if uv.name not in uv_names: 
+                uv_names.append(uv.name)
+
         for mask in layer.masks:
             if mask.texcoord_type == 'UV' and mask.uv_name != '':
                 uv = yp.uvs.get(mask.uv_name)
@@ -1668,6 +1678,16 @@ def check_uv_nodes(yp, generate_missings=False):
                     dirty = True
                     uv = yp.uvs.add()
                     uv.name = mask.uv_name
+
+                if uv.name not in uv_names: 
+                    uv_names.append(uv.name)
+
+            if mask.use_baked and mask.baked_uv_name != '':
+                uv = yp.uvs.get(mask.baked_uv_name)
+                if not uv: 
+                    dirty = True
+                    uv = yp.uvs.add()
+                    uv.name = mask.baked_uv_name
 
                 if uv.name not in uv_names: 
                     uv_names.append(uv.name)

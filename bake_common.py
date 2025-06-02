@@ -1611,8 +1611,8 @@ def bake_channel(
     norm = None
     if root_ch.type == 'NORMAL':
         if is_bl_newer_than(2, 80):
-            # Use diffuse bsdf for Blender 2.80+
-            bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
+            # Use principled bsdf for Blender 2.80+
+            bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
         else:
             # Use custom normal calculation for legacy blender
             norm = mat.node_tree.nodes.new('ShaderNodeGroup')
@@ -2588,8 +2588,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         bpy.ops.object.mode_set(mode = 'OBJECT')
         for ob in objs:
             try:
-                vcol = new_vertex_color(ob, TEMP_VCOL)
-                set_obj_vertex_colors(ob, vcol.name, (0.0, 0.0, 0.0, 1.0))
+                vcol = new_vertex_color(ob, TEMP_VCOL, color_fill=(0.0, 0.0, 0.0, 1.0))
                 set_active_vertex_color(ob, vcol)
             except: pass
         bpy.ops.object.mode_set(mode = 'EDIT')
@@ -2696,8 +2695,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
             # Create new vertex color for dirt
             try:
-                vcol = new_vertex_color(ob, TEMP_VCOL)
-                set_obj_vertex_colors(ob, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                vcol = new_vertex_color(ob, TEMP_VCOL, color_fill=(1.0, 1.0, 1.0, 1.0))
                 set_active_vertex_color(ob, vcol)
             except: pass
 
@@ -3357,7 +3355,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
                 mask = Mask.add_new_mask(
                     active_layer, mask_name, 'IMAGE', 'UV', bprops.uv_map,
-                    image, None, segment
+                    image, '', segment
                 )
                 mask.active_edit = True
 
