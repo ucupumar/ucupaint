@@ -1611,8 +1611,8 @@ def bake_channel(
     norm = None
     if root_ch.type == 'NORMAL':
         if is_bl_newer_than(2, 80):
-            # Use diffuse bsdf for Blender 2.80+
-            bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
+            # Use principled bsdf for Blender 2.80+
+            bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
         else:
             # Use custom normal calculation for legacy blender
             norm = mat.node_tree.nodes.new('ShaderNodeGroup')
