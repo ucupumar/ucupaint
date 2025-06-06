@@ -447,7 +447,8 @@ def prepare_bake_settings(
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
-        source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name='', 
+        source_objs=[], bake_device='CPU', use_denoising=False, margin_type='ADJACENT_FACES', 
+        use_cage=False, cage_object_name='', 
         normal_space='TANGENT', use_osl=False,
     ):
 
@@ -470,7 +471,8 @@ def prepare_bake_settings(
         scene.render.bake.max_ray_distance = max_ray_distance
     scene.render.bake.cage_extrusion = cage_extrusion
     cage_object = bpy.data.objects.get(cage_object_name) if cage_object_name != '' else None
-    scene.render.bake.use_cage = True if cage_object else False
+    #scene.render.bake.use_cage = True if cage_object else False
+    scene.render.bake.use_cage = use_cage
     if cage_object: 
         if is_bl_newer_than(2, 80): scene.render.bake.cage_object = cage_object
         else: scene.render.bake.cage_object = cage_object.name
@@ -2389,7 +2391,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     # Get cage object
     cage_object = None
-    if bprops.type.startswith('OTHER_OBJECT_') and bprops.cage_object_name != '':
+    if bprops.type.startswith('OTHER_OBJECT_') and bprops.use_cage and bprops.cage_object_name != '':
         cage_object = bpy.data.objects.get(bprops.cage_object_name)
         if cage_object:
 
@@ -2630,9 +2632,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         tile_x = 256
         tile_y = 256
 
-    # Cage object only used for other object baking
-    cage_object_name = bprops.cage_object_name if bprops.type.startswith('OTHER_OBJECT_') else ''
-
     prepare_bake_settings(
         book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
         uv_map=bprops.uv_map, bake_type=bake_type, #disable_problematic_modifiers=True, 
@@ -2641,7 +2640,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         use_selected_to_active=bprops.type.startswith('OTHER_OBJECT_'),
         max_ray_distance=bprops.max_ray_distance, cage_extrusion=bprops.cage_extrusion,
         source_objs=other_objs, use_denoising=False, margin_type=bprops.margin_type,
-        cage_object_name = cage_object_name,
+        use_cage = bprops.use_cage, cage_object_name = bprops.cage_object_name,
         normal_space = 'TANGENT' if bprops.type != 'OBJECT_SPACE_NORMAL' else 'OBJECT'
     )
     # Set multires level

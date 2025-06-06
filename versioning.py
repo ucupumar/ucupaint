@@ -920,6 +920,10 @@ def update_yp_tree(tree):
         # Update linear nodes since it gets refactored
         check_yp_linear_nodes(yp, reconnect=True)
 
+    if version_tuple(yp.version) < (2, 3, 2):
+        # TODO: Versioning to mark use cage object for older bake info
+        pass
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
