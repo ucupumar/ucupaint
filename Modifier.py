@@ -304,7 +304,7 @@ class YRemoveYPaintModifier(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_layer_ch=False):
+def draw_modifier_properties(context, channel_type, nodes, modifier, parent, layout, is_root_ch=False):
 
     if modifier.type == 'INVERT':
         row = layout.row(align=True)
@@ -325,12 +325,6 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         if rgb2i:
             row.prop(rgb2i.inputs[3], 'default_value', text='')
         else: row.prop(modifier, 'rgb2i_col', text='')
-
-        # Shortcut only available on layer channel
-        if is_layer_ch:
-            row = col.row(align=True)
-            row.label(text='Shortcut on layer list:')
-            row.prop(modifier, 'shortcut', text='')
 
     elif modifier.type == 'OVERRIDE_COLOR':
         col = layout.column(align=True)
@@ -353,7 +347,8 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         if color_ramp:
             col.template_color_ramp(color_ramp, "color_ramp", expand=True)
 
-        col.prop(modifier, 'ramp_affect', text='Affect')
+        if not is_root_ch or parent.enable_alpha or modifier.ramp_affect != 'BOTH':
+            col.prop(modifier, 'ramp_affect', text='Affect')
 
     elif modifier.type == 'RGB_CURVE':
         rgb_curve = nodes.get(modifier.rgb_curve)

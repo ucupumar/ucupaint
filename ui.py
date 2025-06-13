@@ -771,7 +771,7 @@ def draw_mask_modifier_stack(layer, mask, layout, ui):
             box.active = m.enable
             MaskModifier.draw_modifier_properties(tree, m, box)
 
-def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False, use_modifier_1=False, layout_active=True):
+def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False, use_modifier_1=False, layout_active=True, is_root_ch=False):
 
     ypui = context.window_manager.ypui
 
@@ -881,7 +881,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
             row.label(text='', icon='BLANK1')
             box = row.box()
             box.active = m.enable
-            Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, box, False)
+            Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, parent, box, is_root_ch=is_root_ch)
 
             #row.label(text='', icon='BLANK1')
 
@@ -1144,7 +1144,7 @@ def draw_root_channels_ui(context, layout, node):
             baked = nodes.get(channel.baked)
             layout_active = not yp.use_baked or not baked
 
-            draw_modifier_stack(context, channel, channel.type, bcol, chui, layout_active=layout_active)
+            draw_modifier_stack(context, channel, channel.type, bcol, chui, layout_active=layout_active, is_root_ch=True)
 
             inp = node.inputs[channel.io_index]
 
