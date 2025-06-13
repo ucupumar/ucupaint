@@ -348,9 +348,12 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
             row.prop(modifier, 'shortcut', text='')
 
     elif modifier.type == 'COLOR_RAMP':
+        col = layout.column()
         color_ramp = nodes.get(modifier.color_ramp)
         if color_ramp:
-            layout.template_color_ramp(color_ramp, "color_ramp", expand=True)
+            col.template_color_ramp(color_ramp, "color_ramp", expand=True)
+
+        col.prop(modifier, 'ramp_affect', text='Affect')
 
     elif modifier.type == 'RGB_CURVE':
         rgb_curve = nodes.get(modifier.rgb_curve)
@@ -638,8 +641,19 @@ class YPaintModifier(bpy.types.PropertyGroup):
     color_ramp_linear_start : StringProperty(default='')
     color_ramp_linear : StringProperty(default='')
     color_ramp_alpha_multiply : StringProperty(default='')
-    color_ramp_mix_rgb : StringProperty(default='')
-    color_ramp_mix_alpha : StringProperty(default='')
+    color_ramp_mix_rgb : StringProperty(default='') # Deprecated
+    color_ramp_mix_alpha : StringProperty(default='') # Deprecated
+
+    ramp_affect : EnumProperty(
+        name = 'Ramp Affect',
+        items = (
+            ('BOTH', 'Both Color & Alpha', ''),
+            ('COLOR', 'Color Only', ''),
+            ('ALPHA', 'Alpha Only', ''),
+        ),
+        default = 'BOTH',
+        update = update_modifier_enable
+    )
 
     # RGB Curve nodes
     rgb_curve : StringProperty(default='')
