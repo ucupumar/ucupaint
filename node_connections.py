@@ -61,103 +61,89 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
     if mod.type == 'INVERT':
 
         invert = tree.nodes.get(mod.invert)
-        create_link(tree, start_rgb, invert.inputs[0])
-        create_link(tree, start_alpha, invert.inputs[1])
-
-        rgb = invert.outputs[0]
-        alpha = invert.outputs[1]
+        if invert:
+            rgb = create_link(tree, rgb, invert.inputs[0])[0]
+            alpha = create_link(tree, alpha, invert.inputs[1])[1]
 
     elif mod.type == 'RGB_TO_INTENSITY':
 
         rgb2i = tree.nodes.get(mod.rgb2i)
-        create_link(tree, start_rgb, rgb2i.inputs[0])
-        create_link(tree, start_alpha, rgb2i.inputs[1])
-
-        rgb = rgb2i.outputs[0]
-        alpha = rgb2i.outputs[1]
+        if rgb2i:
+            rgb = create_link(tree, rgb, rgb2i.inputs[0])[0]
+            alpha = create_link(tree, alpha, rgb2i.inputs[1])[1]
 
     elif mod.type == 'INTENSITY_TO_RGB':
 
         i2rgb = tree.nodes.get(mod.i2rgb)
-        create_link(tree, start_rgb, i2rgb.inputs[0])
-        create_link(tree, start_alpha, i2rgb.inputs[1])
-
-        rgb = i2rgb.outputs[0]
-        alpha = i2rgb.outputs[1]
+        if i2rgb:
+            rgb = create_link(tree, rgb, i2rgb.inputs[0])[0]
+            alpha = create_link(tree, alpha, i2rgb.inputs[1])[1]
 
     elif mod.type == 'OVERRIDE_COLOR':
 
         oc = tree.nodes.get(mod.oc)
-        create_link(tree, start_rgb, oc.inputs[0])
-        create_link(tree, start_alpha, oc.inputs[1])
-
-        rgb = oc.outputs[0]
-        alpha = oc.outputs[1]
+        if oc:
+            rgb = create_link(tree, rgb, oc.inputs[0])[0]
+            alpha = create_link(tree, alpha, oc.inputs[1])[1]
 
     elif mod.type == 'COLOR_RAMP':
 
-        rgb = start_rgb
-        alpha = start_alpha
-
-        color_ramp_alpha_multiply = tree.nodes.get(mod.color_ramp_alpha_multiply)
-        color_ramp_linear_start = tree.nodes.get(mod.color_ramp_linear_start)
         color_ramp = tree.nodes.get(mod.color_ramp)
-        color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)
+        if color_ramp:
 
-        if color_ramp_alpha_multiply:
-            am_mixcol0, am_mixcol1, am_mixout = get_mix_color_indices(color_ramp_alpha_multiply)
-            rgb = create_link(tree, rgb, color_ramp_alpha_multiply.inputs[am_mixcol0])[am_mixout]
-            create_link(tree, alpha, color_ramp_alpha_multiply.inputs[am_mixcol1])
+            color_ramp_alpha_multiply = tree.nodes.get(mod.color_ramp_alpha_multiply)
+            if color_ramp_alpha_multiply:
+                am_mixcol0, am_mixcol1, am_mixout = get_mix_color_indices(color_ramp_alpha_multiply)
+                rgb = create_link(tree, rgb, color_ramp_alpha_multiply.inputs[am_mixcol0])[am_mixout]
+                create_link(tree, alpha, color_ramp_alpha_multiply.inputs[am_mixcol1])
 
-        if mod.ramp_affect == 'ALPHA':
-            alpha = create_link(tree, alpha, color_ramp.inputs[0])[0]
-        else:
-            if color_ramp_linear_start:
-                rgb = create_link(tree, rgb, color_ramp_linear_start.inputs[0])[0]
+            if mod.ramp_affect == 'ALPHA':
+                alpha = create_link(tree, alpha, color_ramp.inputs[0])[0]
+            else:
+                color_ramp_linear_start = tree.nodes.get(mod.color_ramp_linear_start)
+                if color_ramp_linear_start:
+                    rgb = create_link(tree, rgb, color_ramp_linear_start.inputs[0])[0]
 
-            rgb = create_link(tree, rgb, color_ramp.inputs[0])[0]
+                rgb = create_link(tree, rgb, color_ramp.inputs[0])[0]
 
-            if mod.ramp_affect == 'BOTH':
-                alpha = color_ramp.outputs[1]
+                if mod.ramp_affect == 'BOTH':
+                    alpha = color_ramp.outputs[1]
 
-            if color_ramp_linear:
-                rgb  = create_link(tree, rgb, color_ramp_linear.inputs[0])[0]
+                color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)
+                if color_ramp_linear:
+                    rgb  = create_link(tree, rgb, color_ramp_linear.inputs[0])[0]
 
     elif mod.type == 'RGB_CURVE':
 
         rgb_curve = tree.nodes.get(mod.rgb_curve)
-        create_link(tree, start_rgb, rgb_curve.inputs[1])
-        rgb = rgb_curve.outputs[0]
+        if rgb_curve:
+            rgb = create_link(tree, rgb, rgb_curve.inputs[1])[0]
 
     elif mod.type == 'HUE_SATURATION':
 
         huesat = tree.nodes.get(mod.huesat)
-        create_link(tree, start_rgb, huesat.inputs[4])
-        rgb = huesat.outputs[0]
+        if huesat:
+            rgb = create_link(tree, rgb, huesat.inputs[4])[0]
 
     elif mod.type == 'BRIGHT_CONTRAST':
 
         brightcon = tree.nodes.get(mod.brightcon)
-        create_link(tree, start_rgb, brightcon.inputs[0])
-        rgb = brightcon.outputs[0]
+        if brightcon:
+            rgb = create_link(tree, rgb, brightcon.inputs[0])[0]
 
     elif mod.type == 'MULTIPLIER':
 
         multiplier = tree.nodes.get(mod.multiplier)
-        create_link(tree, start_rgb, multiplier.inputs[0])
-        create_link(tree, start_alpha, multiplier.inputs[1])
-
-        rgb = multiplier.outputs[0]
-        alpha = multiplier.outputs[1]
+        if multiplier:
+            rgb = create_link(tree, rgb, multiplier.inputs[0])[0]
+            alpha = create_link(tree, alpha, multiplier.inputs[1])[1]
 
     elif mod.type == 'MATH':
 
-        math = tree.nodes.get(mod.math)
-        create_link(tree, start_rgb, math.inputs[0])
-        create_link(tree, start_alpha, math.inputs[1])
-
-        rgb = math.outputs[0]
-        alpha = math.outputs[1]
+        mmath = tree.nodes.get(mod.math)
+        if mmath:
+            rgb = create_link(tree, rgb, mmath.inputs[0])[0]
+            alpha = create_link(tree, alpha, mmath.inputs[1])[1]
 
     return rgb, alpha
 
