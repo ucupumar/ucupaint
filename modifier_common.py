@@ -351,6 +351,14 @@ def check_modifier_nodes(m, tree, ref_tree=None):
 
     elif m.type == 'COLOR_RAMP':
 
+        # Remove deprecated nodes
+        if ref_tree:
+            remove_node(ref_tree, m, 'color_ramp_mix_rgb') # Deprecated
+            remove_node(ref_tree, m, 'color_ramp_mix_alpha') # Deprecated
+        else:
+            remove_node(tree, m, 'color_ramp_mix_rgb') # Deprecated
+            remove_node(tree, m, 'color_ramp_mix_alpha') # Deprecated
+
         if not m.enable:
 
             if ref_tree:
@@ -363,39 +371,40 @@ def check_modifier_nodes(m, tree, ref_tree=None):
             remove_node(tree, m, 'color_ramp_linear_start')
             remove_node(tree, m, 'color_ramp_linear')
             remove_node(tree, m, 'color_ramp_alpha_multiply')
-            remove_node(tree, m, 'color_ramp_mix_rgb')
-            remove_node(tree, m, 'color_ramp_mix_alpha')
         else:
+
+            color_ramp_alpha_multiply = None
+
             if ref_tree:
                 color_ramp_alpha_multiply_ref = ref_tree.nodes.get(m.color_ramp_alpha_multiply)
                 color_ramp_linear_start_ref = ref_tree.nodes.get(m.color_ramp_linear_start)
                 color_ramp_ref = ref_tree.nodes.get(m.color_ramp)
                 color_ramp_linear_ref = ref_tree.nodes.get(m.color_ramp_linear)
-                color_ramp_mix_alpha_ref = ref_tree.nodes.get(m.color_ramp_mix_alpha)
-                color_ramp_mix_rgb_ref = ref_tree.nodes.get(m.color_ramp_mix_rgb)
 
                 # Create new nodes if reference is used
-                color_ramp_alpha_multiply = new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply')
+                if m.ramp_affect == 'BOTH':
+                    color_ramp_alpha_multiply = new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply')
+
                 color_ramp_linear_start = new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
                 color_ramp = new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp')
                 color_ramp_linear = new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
-                color_ramp_mix_alpha = new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
-                color_ramp_mix_rgb = new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
                 dirty = True
                 ramp_dirty = False
             else:
 
-                color_ramp_alpha_multiply, dirty = check_new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply', True)
+                dirty = False
+                if m.ramp_affect == 'BOTH':
+                    color_ramp_alpha_multiply, dirty = check_new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply', True)
+
                 color_ramp_linear_start = check_new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
                 color_ramp, ramp_dirty = check_new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp', True)
                 color_ramp_linear = check_new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
-                color_ramp_mix_alpha = check_new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
-                color_ramp_mix_rgb = check_new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
 
             if ref_tree:
 
                 if color_ramp_alpha_multiply_ref:
-                    copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
+                    if color_ramp_alpha_multiply:
+                        copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
                     ref_tree.nodes.remove(color_ramp_alpha_multiply_ref)
 
                 if color_ramp_linear_start_ref: 
@@ -410,20 +419,14 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                     copy_node_props(color_ramp_linear_ref, color_ramp_linear)
                     ref_tree.nodes.remove(color_ramp_linear_ref)
 
-                if color_ramp_mix_alpha_ref:
-                    copy_node_props(color_ramp_mix_alpha_ref, color_ramp_mix_alpha)
-                    ref_tree.nodes.remove(color_ramp_mix_alpha_ref)
-
-                if color_ramp_mix_rgb_ref:
-                    copy_node_props(color_ramp_mix_rgb_ref, color_ramp_mix_rgb)
-                    ref_tree.nodes.remove(color_ramp_mix_rgb_ref)
-
             if dirty:
 
-                color_ramp_alpha_multiply.inputs[0].default_value = 1.0
-                color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
-                color_ramp_mix_alpha.inputs[0].default_value = 1.0
-                color_ramp_mix_rgb.inputs[0].default_value = 1.0
+                if color_ramp_alpha_multiply:
+                    color_ramp_alpha_multiply.inputs[0].default_value = 1.0
+                    color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
+
+            if not m.ramp_affect == 'BOTH':
+                remove_node(tree, m, 'color_ramp_alpha_multiply')
 
             if non_color or yp.use_linear_blending:
                 remove_node(tree, m, 'color_ramp_linear_start')
@@ -598,8 +601,8 @@ def delete_modifier_nodes(tree, mod):
         remove_node(tree, mod, 'color_ramp')
         remove_node(tree, mod, 'color_ramp_linear')
         remove_node(tree, mod, 'color_ramp_alpha_multiply')
-        remove_node(tree, mod, 'color_ramp_mix_rgb')
-        remove_node(tree, mod, 'color_ramp_mix_alpha')
+        remove_node(tree, mod, 'color_ramp_mix_rgb') # Deprecated
+        remove_node(tree, mod, 'color_ramp_mix_alpha') # Deprecated
 
     elif mod.type == 'RGB_CURVE':
         remove_node(tree, mod, 'rgb_curve')

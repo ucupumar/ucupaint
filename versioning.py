@@ -135,7 +135,7 @@ def check_list_items_then_refresh(yp):
                     ch.override = False
                     ch.override = True
 
-def update_bake_info_baked_entity_props(yp):
+def get_all_baked_entites_bis_images(yp):
 
     entities = []
     bis = []
@@ -183,6 +183,12 @@ def update_bake_info_baked_entity_props(yp):
                         bis.append(segment.bake_info)
                         images.append(image)
 
+    return entities, bis, images
+
+def update_bake_info_baked_entity_props(yp):
+
+    entities, bis, images = get_all_baked_entites_bis_images(yp)
+
     for i, entity in enumerate(entities):
         bi = bis[i]
         image = images[i]
@@ -204,6 +210,18 @@ def update_bake_info_baked_entity_props(yp):
         elif entity.type == 'EDGE_DETECT':
             bi.bake_type = 'BEVEL_MASK'
             bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
+
+def update_bake_info_use_cages(yp):
+
+    entities, bis, images = get_all_baked_entites_bis_images(yp)
+
+    for i, entity in enumerate(entities):
+        bi = bis[i]
+        image = images[i]
+
+        if bi.bake_type.startswith('OTHER_OBJECT_'):
+            if bi.cage_object_name != '':
+                bi.use_cage = True
 
 def update_yp_tree(tree):
     cur_version = get_current_version_str()
@@ -921,8 +939,27 @@ def update_yp_tree(tree):
         check_yp_linear_nodes(yp, reconnect=True)
 
     if version_tuple(yp.version) < (2, 3, 2):
-        # TODO: Versioning to mark use cage object for older bake info
+
         pass
+
+        # Versioning to mark use cage object for older bake info
+        #update_bake_info_use_cages(yp)
+
+        # Ramp modifier has deprecated nodes, reenable modifier to make sure deprecated nodes are gone
+        #for ch in yp.channels:
+        #    for mod in ch.modifiers:
+        #        if mod.type == 'COLOR_RAMP' and mod.enable:
+        #            mod.enable = True
+
+        #for layer in yp.layers:
+        #    for mod in layer.modifiers:
+        #        if mod.type == 'COLOR_RAMP' and mod.enable:
+        #            mod.enable = True
+
+        #    for ch in layer.channels:
+        #        for mod in ch.modifiers:
+        #            if mod.type == 'COLOR_RAMP' and mod.enable:
+        #                mod.enable = True
 
     # SECTION II: Updates based on the blender version
 

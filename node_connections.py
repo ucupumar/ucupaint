@@ -96,36 +96,32 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
 
     elif mod.type == 'COLOR_RAMP':
 
+        rgb = start_rgb
+        alpha = start_alpha
+
         color_ramp_alpha_multiply = tree.nodes.get(mod.color_ramp_alpha_multiply)
         color_ramp_linear_start = tree.nodes.get(mod.color_ramp_linear_start)
         color_ramp = tree.nodes.get(mod.color_ramp)
         color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)
-        color_ramp_mix_alpha = tree.nodes.get(mod.color_ramp_mix_alpha)
-        color_ramp_mix_rgb = tree.nodes.get(mod.color_ramp_mix_rgb)
 
-        am_mixcol0, am_mixcol1, am_mixout = get_mix_color_indices(color_ramp_alpha_multiply)
-        ma_mixcol0, ma_mixcol1, ma_mixout = get_mix_color_indices(color_ramp_mix_alpha)
-        mr_mixcol0, mr_mixcol1, mr_mixout = get_mix_color_indices(color_ramp_mix_rgb)
+        if color_ramp_alpha_multiply:
+            am_mixcol0, am_mixcol1, am_mixout = get_mix_color_indices(color_ramp_alpha_multiply)
+            rgb = create_link(tree, rgb, color_ramp_alpha_multiply.inputs[am_mixcol0])[am_mixout]
+            create_link(tree, alpha, color_ramp_alpha_multiply.inputs[am_mixcol1])
 
-        create_link(tree, start_rgb, color_ramp_alpha_multiply.inputs[am_mixcol0])
-        create_link(tree, start_alpha, color_ramp_alpha_multiply.inputs[am_mixcol1])
-        if color_ramp_linear_start:
-            create_link(tree, color_ramp_alpha_multiply.outputs[am_mixout], color_ramp_linear_start.inputs[0])
-            create_link(tree, color_ramp_linear_start.outputs[0], color_ramp.inputs[0])
+        if mod.ramp_affect == 'ALPHA':
+            alpha = create_link(tree, alpha, color_ramp.inputs[0])[0]
         else:
-            create_link(tree, color_ramp_alpha_multiply.outputs[am_mixout], color_ramp.inputs[0])
-        create_link(tree, start_rgb, color_ramp_mix_rgb.inputs[mr_mixcol0])
-        if color_ramp_linear_start:
-            create_link(tree, color_ramp.outputs[0], color_ramp_linear.inputs[0])
-            create_link(tree, color_ramp_linear.outputs[0], color_ramp_mix_rgb.inputs[mr_mixcol1])
-        else:
-            create_link(tree, color_ramp.outputs[0], color_ramp_mix_rgb.inputs[mr_mixcol1])
+            if color_ramp_linear_start:
+                rgb = create_link(tree, rgb, color_ramp_linear_start.inputs[0])[0]
 
-        create_link(tree, start_alpha, color_ramp_mix_alpha.inputs[ma_mixcol0])
-        create_link(tree, color_ramp.outputs[1], color_ramp_mix_alpha.inputs[ma_mixcol1])
+            rgb = create_link(tree, rgb, color_ramp.inputs[0])[0]
 
-        rgb = color_ramp_mix_rgb.outputs[mr_mixout]
-        alpha = color_ramp_mix_alpha.outputs[ma_mixout]
+            if mod.ramp_affect == 'BOTH':
+                alpha = color_ramp.outputs[1]
+
+            if color_ramp_linear:
+                rgb  = create_link(tree, rgb, color_ramp_linear.inputs[0])[0]
 
     elif mod.type == 'RGB_CURVE':
 
