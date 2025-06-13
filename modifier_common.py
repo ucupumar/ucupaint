@@ -351,14 +351,6 @@ def check_modifier_nodes(m, tree, ref_tree=None):
 
     elif m.type == 'COLOR_RAMP':
 
-        # Remove deprecated nodes
-        if ref_tree:
-            remove_node(ref_tree, m, 'color_ramp_mix_rgb') # Deprecated
-            remove_node(ref_tree, m, 'color_ramp_mix_alpha') # Deprecated
-        else:
-            remove_node(tree, m, 'color_ramp_mix_rgb') # Deprecated
-            remove_node(tree, m, 'color_ramp_mix_alpha') # Deprecated
-
         if not m.enable:
 
             if ref_tree:
@@ -368,9 +360,17 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                     copy_node_props(color_ramp_ref, color_ramp)
                     ref_tree.nodes.remove(color_ramp_ref)
 
+                # Remove deprecated nodes
+                remove_node(ref_tree, m, 'color_ramp_mix_rgb') # Deprecated
+                remove_node(ref_tree, m, 'color_ramp_mix_alpha') # Deprecated
+
             remove_node(tree, m, 'color_ramp_linear_start')
             remove_node(tree, m, 'color_ramp_linear')
             remove_node(tree, m, 'color_ramp_alpha_multiply')
+
+            # Remove deprecated nodes
+            remove_node(tree, m, 'color_ramp_mix_rgb') # Deprecated
+            remove_node(tree, m, 'color_ramp_mix_alpha') # Deprecated
         else:
 
             color_ramp_alpha_multiply = None
