@@ -21,7 +21,8 @@ def preserve_float_color_hack_before_saving(image):
 
 def save_float_image(image):
 
-    preserve_float_color_hack_before_saving(image)
+    # NOTE: This hack function is probably not a good idea since it uses a lot of assumption
+    #preserve_float_color_hack_before_saving(image)
 
     # Remembers
     original_path = image.filepath
@@ -137,7 +138,8 @@ def preserve_float_color_hack_before_packing(image):
 
 def pack_image(image, reload_float=False, do_hack=True):
 
-    if do_hack:
+    # NOTE: This hack function is probably not a good idea since it uses a lot of assumption
+    if do_hack and False:
         preserve_float_color_hack_before_packing(image)
 
     if is_bl_newer_than(2, 80):

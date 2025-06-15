@@ -332,7 +332,7 @@ bake_type_items = (
     ('MULTIRES_DISPLACEMENT', 'Multires Displacement', ''),
 
     ('OTHER_OBJECT_NORMAL', 'Other Objects Normal', 'Other object\'s normal'),
-    ('OTHER_OBJECT_EMISSION', 'Other Objects Emission', 'Other object\'s emission color'),
+    ('OTHER_OBJECT_EMISSION', 'Other Objects Color', 'Other object\'s color'),
     ('OTHER_OBJECT_CHANNELS', 'Other Objects Channels', 'Other object\'s Ucupaint channels'),
 
     ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
@@ -379,7 +379,7 @@ bake_type_labels = {
     'MULTIRES_DISPLACEMENT': 'Multires Displacement',
 
     'OTHER_OBJECT_NORMAL': 'Other Objects Normal',
-    'OTHER_OBJECT_EMISSION': 'Other Objects Emission',
+    'OTHER_OBJECT_EMISSION': 'Other Objects Color',
     'OTHER_OBJECT_CHANNELS': 'Other Objects Channels',
 
     'SELECTED_VERTICES': 'Selected Vertices',
@@ -403,7 +403,7 @@ bake_type_suffixes = {
     'MULTIRES_DISPLACEMENT': 'Displacement Multires',
 
     'OTHER_OBJECT_NORMAL': 'OO Normal',
-    'OTHER_OBJECT_EMISSION': 'OO Emission',
+    'OTHER_OBJECT_EMISSION': 'OO Color',
     'OTHER_OBJECT_CHANNELS': 'OO Channel',
 
     'SELECTED_VERTICES': 'Selected Vertices',

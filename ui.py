@@ -5700,7 +5700,7 @@ class YNewLayerMenu(bpy.types.Menu):
         if is_bl_newer_than(2, 77):
             col.separator()
 
-            c = col.operator("wm.y_bake_to_layer", text='Other Objects Emission')
+            c = col.operator("wm.y_bake_to_layer", text='Other Objects Color')
             c.type = 'OTHER_OBJECT_EMISSION'
             c.target_type = 'LAYER'
             c.overwrite_current = False

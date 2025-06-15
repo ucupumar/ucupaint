@@ -304,6 +304,88 @@ def add_active_render_uv_node(tree, active_render_uv_name):
         if n.type == 'GROUP' and n.node_tree and not n.node_tree.yp.is_ypaint_node:
             add_active_render_uv_node(n.node_tree, active_render_uv_name)
 
+def prepare_other_objs_colors(yp, other_objs):
+
+    other_mats = []
+    other_sockets = []
+    other_defaults = []
+    other_alpha_sockets = []
+    other_alpha_defaults = []
+
+    ori_mat_no_nodes = []
+
+    valid_bsdf_types = ['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']
+
+    for o in other_objs:
+        # Set new material if there's no material
+        if len(o.data.materials) == 0:
+            temp_mat = get_temp_default_material()
+            o.data.materials.append(temp_mat)
+        else:
+            for i, m in enumerate(o.data.materials):
+                if m == None:
+                    temp_mat = get_temp_default_material()
+                    o.data.materials[i] = temp_mat
+                elif not m.use_nodes:
+                    if m not in ori_mat_no_nodes:
+                        ori_mat_no_nodes.append(m)
+                    m.use_nodes = True
+
+        for mat in o.data.materials:
+            if mat == None: continue
+            if mat in other_mats: continue
+            if not mat.use_nodes: continue
+
+            # Get material output
+            output = get_material_output(mat)
+            if not output: continue
+
+            socket = None
+            default = None
+            alpha_socket = None
+            alpha_default = 1.0
+
+            if mat in ori_mat_no_nodes and hasattr(mat, 'diffuse_color'):
+                default = mat.diffuse_color
+
+            # Check for possible sockets available on the bsdf node
+            if not socket:
+                # Search for main bsdf
+                bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types)
+
+                if bsdf_node.type == 'BSDF_PRINCIPLED':
+                    socket = bsdf_node.inputs['Base Color']
+
+                elif 'Color' in bsdf_node.inputs:
+                    socket = bsdf_node.inputs['Color']
+
+                if socket:
+                    if len(socket.links) == 0:
+                        if default == None:
+                            default = socket.default_value
+                    else:
+                        socket = socket.links[0].from_socket
+
+                # Get alpha socket
+                alpha_socket = bsdf_node.inputs.get('Alpha')
+                if alpha_socket:
+
+                    if len(alpha_socket.links) == 0:
+                        alpha_default = alpha_socket.default_value
+                        alpha_socket = None
+                    else:
+                        alpha_socket = alpha_socket.links[0].from_socket
+
+            # Append objects and materials if socket is found
+            if socket or default:
+                other_mats.append(mat)
+                other_sockets.append(socket)
+                other_defaults.append(default)
+                other_alpha_sockets.append(alpha_socket)
+                other_alpha_defaults.append(alpha_default)
+
+    return other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes
+
 def prepare_other_objs_channels(yp, other_objs):
     ch_other_objects = []
     ch_other_mats = []
@@ -2457,7 +2539,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         if o and o not in other_objs:
                             other_objs.append(o)
 
-        if bprops.type == 'OTHER_OBJECT_CHANNELS':
+        if bprops.type == 'OTHER_OBJECT_EMISSION':
+            other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_colors(yp, other_objs)
+
+        elif bprops.type == 'OTHER_OBJECT_CHANNELS':
             ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_channels(yp, other_objs)
 
         if not other_objs:
@@ -2966,6 +3051,29 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             ori_from_nodes[m.name] = from_node
             ori_from_sockets[m.name] = from_socket
 
+    elif bprops.type == 'OTHER_OBJECT_EMISSION':
+        # Remember original socket connected to outputs
+        for m in other_mats:
+            soc = None
+            from_node = ''
+            from_socket = ''
+            mout = get_material_output(m)
+            if mout: 
+                for l in mout.inputs[0].links:
+                    soc = l.from_socket
+                    from_node = l.from_node.name
+                    from_socket = l.from_socket.name
+
+                # Create temporary emission
+                temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                if not temp_emi:
+                    temp_emi = m.node_tree.nodes.new('ShaderNodeEmission')
+                    temp_emi.name = TEMP_EMISSION
+                    m.node_tree.links.new(temp_emi.outputs[0], mout.inputs[0])
+
+            ori_from_nodes[m.name] = from_node
+            ori_from_sockets[m.name] = from_socket
+
     # Newly created layer index and image
     active_id = None
     image = None
@@ -2976,7 +3084,26 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         image_name = bprops.name
         colorspace = get_srgb_name()
 
-        if bprops.type == 'OTHER_OBJECT_CHANNELS':
+        if bprops.type == 'OTHER_OBJECT_EMISSION':
+
+            # Set emission connection
+            for i, m in enumerate(other_mats):
+                default = other_defaults[i]
+                socket = other_sockets[i]
+
+                temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                if not temp_emi: continue
+
+                if default != None:
+                    # Set default
+                    if type(default) == float:
+                        temp_emi.inputs[0].default_value = (default, default, default, 1.0)
+                    else: temp_emi.inputs[0].default_value = (default[0], default[1], default[2], 1.0)
+
+                elif socket:
+                    m.node_tree.links.new(socket, temp_emi.inputs[0])
+
+        elif bprops.type == 'OTHER_OBJECT_CHANNELS':
 
             root_ch = yp.channels[idx]
             image_name += ' ' + yp.channels[idx].name
@@ -3047,7 +3174,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
         # Make image transparent if its baked from other objects
         if bprops.type.startswith('OTHER_OBJECT_'):
-            color[3] = 0.0
+            color = [0.0, 0.0, 0.0, 0.0]
 
         # New target image
         if bprops.use_udim:
@@ -3124,7 +3251,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
 
         # Bake other object alpha
-        if bprops.type in {'OTHER_OBJECT_NORMAL', 'OTHER_OBJECT_CHANNELS'}:
+        if bprops.type in {'OTHER_OBJECT_NORMAL', 'OTHER_OBJECT_CHANNELS', 'OTHER_OBJECT_EMISSION'}:
             
             alpha_found = False
             if bprops.type == 'OTHER_OBJECT_CHANNELS':
@@ -3137,8 +3264,14 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
                     if not temp_emi: continue
 
-                    if alpha_default != 1.0:
+                    if alpha_socket:
                         alpha_found = True
+                        m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+
+                    else:
+                        if alpha_default != 1.0:
+                            alpha_found = True
+
                         # Set alpha_default
                         if type(alpha_default) == float:
                             temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
@@ -3147,9 +3280,31 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         # Break link
                         for l in temp_emi.inputs[0].links:
                             m.node_tree.links.remove(l)
-                    elif alpha_socket:
+
+            elif bprops.type == 'OTHER_OBJECT_EMISSION':
+
+                # Set emission connection
+                for i, m in enumerate(other_mats):
+                    alpha_default = other_alpha_defaults[i]
+                    alpha_socket = other_alpha_sockets[i]
+
+                    temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                    if not temp_emi: continue
+
+                    if alpha_socket:
                         alpha_found = True
                         m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+
+                    else: 
+                        if alpha_default != 1.0:
+                            alpha_found = True
+
+                        # Set alpha_default
+                        if type(alpha_default) == float:
+                            temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
+                        else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+
+
             else:
                 alpha_found = True
 
@@ -3466,8 +3621,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     bvi.index = vi
 
     # Recover other yps
-    if bprops.type == 'OTHER_OBJECT_CHANNELS':
-        for m in all_other_mats:
+    if bprops.type in {'OTHER_OBJECT_CHANNELS', 'OTHER_OBJECT_EMISSION'}:
+
+        mats = all_other_mats if bprops.type == 'OTHER_OBJECT_CHANNELS' else other_mats
+        for m in mats:
             # Set back original socket
             mout = get_material_output(m)
             if mout: 
