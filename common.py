@@ -7725,3 +7725,32 @@ def get_layer_color_alpha_ch_pairs(layer):
 
     return layer_color_ch, layer_alpha_ch
 
+def is_modifier_used_by_paired_alpha_channel(mod):
+    yp = mod.id_data.yp
+    
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+    if not m: return False
+
+    layer = yp.layers[int(m.group(1))]
+    ch = layer.channels[int(m.group(2))]
+
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    if color_ch and alpha_ch and color_ch.enable and alpha_ch == ch:
+        return True
+
+    return False
+
+def is_modifier_used_by_alpha_channel(mod):
+    yp = mod.id_data.yp
+    
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+    if not m: return False
+
+    layer = yp.layers[int(m.group(1))]
+    ch = layer.channels[int(m.group(2))]
+
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    if color_ch and alpha_ch and alpha_ch == ch:
+        return True
+
+    return False
