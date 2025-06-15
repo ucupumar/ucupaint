@@ -382,7 +382,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 color_ramp_linear_ref = ref_tree.nodes.get(m.color_ramp_linear)
 
                 # Create new nodes if reference is used
-                if m.ramp_affect == 'BOTH':
+                if m.affect_alpha and m.affect_color:
                     color_ramp_alpha_multiply = new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply')
 
                 color_ramp_linear_start = new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
@@ -393,7 +393,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
             else:
 
                 dirty = False
-                if m.ramp_affect == 'BOTH':
+                if m.affect_alpha and m.affect_color:
                     color_ramp_alpha_multiply, dirty = check_new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply', True)
 
                 color_ramp_linear_start = check_new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
@@ -425,7 +425,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                     color_ramp_alpha_multiply.inputs[0].default_value = 1.0
                     color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
 
-            if not m.ramp_affect == 'BOTH':
+            if not m.affect_alpha or not m.affect_color:
                 remove_node(tree, m, 'color_ramp_alpha_multiply')
 
             if non_color or yp.use_linear_blending:

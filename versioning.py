@@ -931,12 +931,37 @@ def update_yp_tree(tree):
         # Update linear nodes since it gets refactored
         check_yp_linear_nodes(yp, reconnect=True)
 
-    # Version 2.3.2 has use cage option for baking from other object
-    if version_tuple(yp.version) < (2, 3, 2):
+    # Version 2.3.1.1 has use cage option for baking from other object
+    if version_tuple(yp.version) < (2, 3, 1, 1):
 
         # Mark use cage object for older bake info
-        #update_bake_info_use_cages(yp)
-        pass
+        update_bake_info_use_cages(yp)
+
+    # Version 2.3.1.2 has color ramp modifier affect option
+    if version_tuple(yp.version) < (2, 3, 1, 2):
+        
+        yp.halt_update = True
+
+        for ch in yp.channels:
+            for mod in ch.modifiers:
+                if mod.type == 'COLOR_RAMP':
+                    mod.affect_alpha = True
+
+        for layer in yp.layers:
+            for mod in layer.modifiers:
+                if mod.type == 'COLOR_RAMP':
+                    mod.affect_alpha = True
+
+            for ch in layer.channels:
+                for mod in ch.modifiers:
+                    if mod.type == 'COLOR_RAMP':
+                        mod.affect_alpha = True
+
+                for mod in ch.modifiers_1:
+                    if mod.type == 'COLOR_RAMP':
+                        mod.affect_alpha = True
+
+        yp.halt_update = False
 
     # SECTION II: Updates based on the blender version
 
