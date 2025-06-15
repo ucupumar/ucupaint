@@ -55,6 +55,8 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
     if not mod.enable:
         return start_rgb, start_alpha
 
+    used_by_paired_alpha = is_modifier_used_by_paired_alpha_channel(mod)
+
     rgb = start_rgb
     alpha = start_alpha
 
@@ -89,7 +91,7 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
     elif mod.type == 'COLOR_RAMP':
 
         color_ramp = tree.nodes.get(mod.color_ramp)
-        if color_ramp and (mod.affect_alpha or mod.affect_color):
+        if color_ramp and (mod.affect_alpha or mod.affect_color or used_by_paired_alpha):
 
             color_ramp_alpha_multiply = tree.nodes.get(mod.color_ramp_alpha_multiply)
             if color_ramp_alpha_multiply:
@@ -97,7 +99,7 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
                 rgb = create_link(tree, rgb, color_ramp_alpha_multiply.inputs[am_mixcol0])[am_mixout]
                 create_link(tree, alpha, color_ramp_alpha_multiply.inputs[am_mixcol1])
 
-            if mod.affect_alpha and not mod.affect_color:
+            if mod.affect_alpha and not mod.affect_color and not used_by_paired_alpha:
                 alpha = create_link(tree, alpha, color_ramp.inputs[0])[0]
             else:
                 color_ramp_linear_start = tree.nodes.get(mod.color_ramp_linear_start)
