@@ -117,7 +117,13 @@ def add_new_modifier(parent, modifier_type):
         ori_halt_update = yp.halt_update
         yp.halt_update = True
 
-        m.affect_color = True
+        # Used by alpha will defaulted to only affect the alpha channel
+        used_by_alpha = is_modifier_used_by_alpha_channel(m)
+
+        if used_by_alpha:
+            m.affect_color = False
+        else: m.affect_color = True
+
         m.affect_alpha = True
 
         yp.halt_update = ori_halt_update
@@ -316,11 +322,15 @@ class YRemoveYPaintModifier(bpy.types.Operator):
 
 def draw_modifier_properties(context, channel_type, nodes, modifier, parent, layout, is_root_ch=False):
 
+    used_by_paired_alpha = is_modifier_used_by_paired_alpha_channel(modifier)
+
     if modifier.type == 'INVERT':
         row = layout.row(align=True)
         if channel_type == 'VALUE':
             row.prop(modifier, 'invert_r_enable', text='Value', toggle=True)
-            row.prop(modifier, 'invert_a_enable', text='Alpha', toggle=True)
+            rrow = row.row(align=True)
+            rrow.active = not used_by_paired_alpha
+            rrow.prop(modifier, 'invert_a_enable', text='Alpha', toggle=True)
         else:
             row.prop(modifier, 'invert_r_enable', text='R', toggle=True)
             row.prop(modifier, 'invert_g_enable', text='G', toggle=True)
@@ -356,10 +366,10 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, parent, lay
         color_ramp = nodes.get(modifier.color_ramp)
         if color_ramp:
             ccol = col.column()
-            ccol.active = modifier.affect_color or modifier.affect_alpha
+            ccol.active = modifier.affect_color or modifier.affect_alpha or used_by_paired_alpha
             ccol.template_color_ramp(color_ramp, "color_ramp", expand=True)
 
-        if not is_root_ch or parent.enable_alpha or not modifier.affect_color or not modifier.affect_alpha:
+        if not used_by_paired_alpha and (not is_root_ch or parent.enable_alpha or not modifier.affect_color or not modifier.affect_alpha):
             split = split_layout(col, 0.3, align=True)
             split.label(text='Affect:')
             row = split.row(align=True)
@@ -441,16 +451,18 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, parent, lay
                 col.prop(modifier, 'math_r_val', text='R')
                 col.prop(modifier, 'math_g_val', text='G')
                 col.prop(modifier, 'math_b_val', text='B')
-        col.separator()
-        row = col.row()
-        row.label(text='Affect Alpha:')
-        row.prop(modifier, 'affect_alpha', text='')
-        if modifier.affect_alpha :
-            if math: 
-                if channel_type == 'VALUE':
-                    col.prop(math.inputs[3], 'default_value', text='A')
-                else: col.prop(math.inputs[5], 'default_value', text='A')
-            else: col.prop(modifier, 'math_a_val', text='A')
+
+        if not used_by_paired_alpha:
+            col.separator()
+            row = col.row()
+            row.label(text='Affect Alpha:')
+            row.prop(modifier, 'affect_alpha', text='')
+            if modifier.affect_alpha :
+                if math: 
+                    if channel_type == 'VALUE':
+                        col.prop(math.inputs[3], 'default_value', text='A')
+                    else: col.prop(math.inputs[5], 'default_value', text='A')
+                else: col.prop(modifier, 'math_a_val', text='A')
 
 def update_modifier_enable(self, context):
 
