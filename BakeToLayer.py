@@ -164,6 +164,7 @@ def get_bake_properties_from_self(self):
         'cage_object_name',
         'cage_extrusion',
         'max_ray_distance',
+        'normalize',
         'ao_distance',
         'bevel_samples',
         'bevel_radius',
@@ -263,6 +264,12 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         name = 'Max Ray Distance',
         description = 'The maximum ray distance for matching points between the active and selected objects. If zero, there is no limit',
         default=0.2, min=0.0, max=1.0
+    )
+
+    normalize : BoolProperty(
+        name = 'Normalize Bake Result',
+        description = 'Normalize the bake result',
+        default = True,
     )
     
     # AO Props
@@ -692,6 +699,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 col.label(text='Cage Extrusion:')
                 if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
                     col.label(text='Max Ray Distance:')
+        elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
+            col.label(text='')
         elif self.type == 'AO':
             col.label(text='AO Distance:')
             col.label(text='')
@@ -772,6 +781,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 col.prop(self, 'cage_extrusion', text='')
                 if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
                     col.prop(self, 'max_ray_distance', text='')
+        elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
+            col.prop(self, 'normalize', text='Normalize Pointiness')
         elif self.type == 'AO':
             col.prop(self, 'ao_distance', text='')
             col.prop(self, 'only_local')

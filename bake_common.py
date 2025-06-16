@@ -127,6 +127,25 @@ def is_join_objects_problematic(yp, mat=None):
 
     return False
 
+def get_pointiness_image_minmax_value(image):
+    
+    if is_bl_newer_than(2, 83):
+        pxs = numpy.empty(shape=image.size[0] * image.size[1] * 4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
+
+        pxs.shape = (-1, image.size[0], 4)
+
+        # Set alpha to half
+        pxs *= (1, 1, 1, 0.5)
+
+        min_val = pxs.min()
+        max_val = pxs.max()
+
+        return min_val, max_val
+    else:
+        # TODO: Get minimum and maximum pixel on legacy blenders
+        return 0.4, 0.6
+
 def bake_object_op(bake_type='EMIT'):
     try:
         if bake_type != 'EMIT':
@@ -2888,6 +2907,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     # Create bake nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     bsdf = None
+    map_range = None
     geometry = None
     vector_math = None
     vector_math_1 = None
@@ -2935,8 +2955,16 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     elif bprops.type == 'POINTINESS':
         src = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
 
+        pointy = src.outputs['Pointiness']
+
+        # Map range node
+        if is_bl_newer_than(2, 83) and bprops.normalize:
+            map_range = mat.node_tree.nodes.new('ShaderNodeMapRange')
+            mat.node_tree.links.new(pointy, map_range.inputs[0])
+            pointy = map_range.outputs[0]
+
         # Links
-        mat.node_tree.links.new(src.outputs['Pointiness'], bsdf.inputs[0])
+        mat.node_tree.links.new(pointy, bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
     elif bprops.type == 'CAVITY':
@@ -3250,6 +3278,17 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
         if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
 
+        if bprops.type == 'POINTINESS' and bprops.normalize and is_bl_newer_than(2, 83):
+            # Check for highest and lowest value of the baked image
+            min_val, max_val = get_pointiness_image_minmax_value(image)
+
+            # Set map range
+            map_range.inputs[1].default_value = min_val
+            map_range.inputs[2].default_value = max_val
+
+            # Rebake the image again
+            bpy.ops.object.bake(type='EMIT')
+
         # Bake other object alpha
         if bprops.type in {'OTHER_OBJECT_NORMAL', 'OTHER_OBJECT_CHANNELS', 'OTHER_OBJECT_EMISSION'}:
             
@@ -3303,7 +3342,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         if type(alpha_default) == float:
                             temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
                         else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
-
 
             else:
                 alpha_found = True
@@ -3646,6 +3684,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     simple_remove_node(mat.node_tree, bsdf)
     if src: simple_remove_node(mat.node_tree, src)
     if geometry: simple_remove_node(mat.node_tree, geometry)
+    if map_range: simple_remove_node(mat.node_tree, map_range)
     if vector_math: simple_remove_node(mat.node_tree, vector_math)
     if vector_math_1: simple_remove_node(mat.node_tree, vector_math_1)
 

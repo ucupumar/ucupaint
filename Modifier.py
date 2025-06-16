@@ -716,8 +716,8 @@ class YPaintModifier(bpy.types.PropertyGroup):
         update = update_math_method
     )
 
-    affect_color : BoolProperty(name='Affect Color', default=True, update=update_affect_color) 
-    affect_alpha : BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
+    affect_color : BoolProperty(name='Affect Color', description='Ramp will affect the color value', default=True, update=update_affect_color) 
+    affect_alpha : BoolProperty(name='Affect Alpha', description='Ramp will affect the alpha value', default=False, update=update_affect_alpha) 
 
     # Individual modifier node frame
     frame : StringProperty(default='')

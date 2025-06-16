@@ -207,6 +207,12 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         default = False
     )
 
+    normalize : BoolProperty(
+        name = 'Normalize Bake Result',
+        description = 'Normalize the bake result',
+        default = False,
+    )
+    
     # To store other objects info
     other_objects : CollectionProperty(type=YBakeInfoOtherObject)
     
