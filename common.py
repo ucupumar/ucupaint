@@ -7600,6 +7600,18 @@ def load_image(path, directory, check_existing=True):
 
     return bpy_extras.image_utils.load_image(path, directory, check_existing=check_existing)
 
+def get_brush_image_tool(brush):
+    if not is_bl_newer_than(5):
+        return brush.image_tool
+    
+    return brush.image_brush_type
+
+def get_brush_sculpt_tool(brush):
+    if not is_bl_newer_than(5):
+        return brush.sculpt_tool
+    
+    return brush.sculpt_brush_type
+
 def get_active_tool_idname():
     tools = bpy.context.workspace.tools
     return tools.from_space_view3d_mode(bpy.context.mode).idname

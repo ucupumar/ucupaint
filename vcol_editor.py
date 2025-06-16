@@ -182,7 +182,7 @@ class YToggleEraser(bpy.types.Operator):
             brush = context.tool_settings.image_paint.brush
 
             brush_name = brush.name
-            image_tool = brush.image_tool
+            image_tool = get_brush_image_tool(brush)
             use_pressure_strength = brush.use_pressure_strength
             use_pressure_size = brush.use_pressure_size
 
@@ -192,7 +192,7 @@ class YToggleEraser(bpy.types.Operator):
                 if brush.name in tex_default_brush_eraser_pairs:
                     # Get eraser name based on dictionary
                     new_brush_name = tex_default_brush_eraser_pairs[brush.name]
-                elif brush.image_tool == 'DRAW':
+                elif get_brush_image_tool(brush) == 'DRAW':
                     # Only toggle erase alpha if the draw brush is custom
                     new_brush_name = brush.name
                 else: 
@@ -249,7 +249,7 @@ class YToggleEraser(bpy.types.Operator):
                 draw_brush = bpy.data.brushes.get(draw_brush_name)
 
             if not draw_brush:
-                draw_brushes = [d for d in bpy.data.brushes if d.use_paint_sculpt and d.sculpt_tool == 'PAINT']
+                draw_brushes = [d for d in bpy.data.brushes if d.use_paint_sculpt and get_brush_sculpt_tool(d) == 'PAINT']
                 if draw_brushes: draw_brush = draw_brushes[0]
                 else:
                     self.report({'ERROR'}, "Cannot find a paint brush!")

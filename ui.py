@@ -3793,7 +3793,7 @@ def draw_layers_ui(context, layout, node):
 
             if is_bl_newer_than(4, 3) and in_texture_paint_mode:
                 brush = context.tool_settings.image_paint.brush
-                if brush and brush.image_tool != 'MASK':
+                if brush and get_brush_image_tool(brush) != 'MASK':
                     bbox = col.box()
                     row = bbox.row(align=True)
                     label = 'Toggle Eraser'
