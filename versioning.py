@@ -931,15 +931,13 @@ def update_yp_tree(tree):
         # Update linear nodes since it gets refactored
         check_yp_linear_nodes(yp, reconnect=True)
 
-    # Version 2.3.1.1 has use cage option for baking from other object
-    if version_tuple(yp.version) < (2, 3, 1, 1):
+    # Version 2.3.2 has bake cage option and ramp modifier affect option
+    if version_tuple(yp.version) < (2, 3, 2):
 
         # Mark use cage object for older bake info
         update_bake_info_use_cages(yp)
 
-    # Version 2.3.1.2 has color ramp modifier affect option
-    if version_tuple(yp.version) < (2, 3, 1, 2):
-        
+        # Update color ramp modifier affect option
         yp.halt_update = True
 
         for ch in yp.channels:
