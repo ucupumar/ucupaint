@@ -7035,7 +7035,7 @@ class YLayer(bpy.types.PropertyGroup):
     edge_detect_radius : FloatProperty(
         name = 'Edge Detect Radius',
         description = 'Edge detect radius',
-        default=0.05, min=0.0, max=10.0,
+        default=0.05, min=0.0, max=10.0, precision=3,
         update = update_layer_edge_detect_radius
     )
 
