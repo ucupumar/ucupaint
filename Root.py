@@ -3961,7 +3961,7 @@ class YPaint(bpy.types.PropertyGroup):
         items = (
             ('LAYER', 'Layer', ''),
             ('ALPHA', 'Alpha', ''),
-            ('SPECIFIC_MASK', 'Active Mask / Override', ''),
+            ('SPECIFIC_MASK', 'Active Mask / Custom Data', ''),
         ),
         #items = layer_preview_mode_type_items,
         default = 'LAYER',

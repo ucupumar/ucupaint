@@ -2081,11 +2081,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 #if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
                 if ch.enable:
-                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override:
                         if ch.override_type == 'IMAGE':
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
                         elif ch.override_type == 'VCOL':
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+                        elif ch.override_type != 'DEFAULT':
+                            rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
                     if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type == 'IMAGE':
                         rrrow.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
@@ -2108,6 +2110,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
                         elif ch.override_type == 'VCOL':
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+                        elif ch.override_type != 'DEFAULT':
+                            rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
             else:
                 label = get_layer_channel_input_label(layer, ch)
                 ssplit.menu("NODE_MT_y_layer_channel_input_menu", text=label)
@@ -4562,7 +4566,7 @@ def any_subitem_in_layer(layer):
         root_ch = yp.channels[i]
 
         if (root_ch.type == 'NORMAL' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} 
-            and ch.override and ch.override_type in {'IMAGE', 'VCOL'}
+            and ch.override and ch.override_type != 'DEFAULT'
             ):
             return True
 
@@ -4571,7 +4575,7 @@ def any_subitem_in_layer(layer):
             ):
             return True
 
-        elif root_ch.type != 'NORMAL' and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+        elif root_ch.type != 'NORMAL' and ch.override and ch.override_type != 'DEFAULT':
             return True
 
     return False
@@ -4614,6 +4618,20 @@ def get_ch_type_icon_prefix(layer, ch):
     if get_layer_channel_type(layer, ch) == 'VALUE': return 'value_'
     if get_layer_channel_type(layer, ch) == 'NORMAL': return 'vector_'
     return ''
+
+def get_ch_override_label(layer, ch, is_normal_override=False):
+    yp = ch.id_data.yp
+
+    label = channel_override_labels[ch.override_type]
+
+    root_ch = yp.channels[get_layer_channel_index(layer, ch)]
+    channel_label = root_ch.name
+    if root_ch.type == 'NORMAL' and not is_normal_override:
+        channel_label = 'Bump'
+
+    label += ' ('+channel_label+')'
+
+    return label
 
 def layer_listing(layout, layer, show_expand=False):
     yp = layer.id_data.yp
@@ -4787,7 +4805,8 @@ def layer_listing(layout, layer, show_expand=False):
                     icon_name = get_ch_type_icon_prefix(layer, c) + 'vertex_color'
                     row.label(text='', icon_value=lib.get_icon(icon_name))
                 else:
-                    row.label(text='', icon_value=lib.get_icon('texture'))
+                    icon_name = get_ch_type_icon_prefix(layer, c) + 'texture'
+                    row.label(text='', icon_value=lib.get_icon(icon_name))
             else:
                 if c.override_type == 'IMAGE':
                     src = get_channel_source(c, layer)
@@ -4802,7 +4821,8 @@ def layer_listing(layout, layer, show_expand=False):
                     icon_name = get_ch_type_icon_prefix(layer, c) + 'vertex_color'
                     row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(icon_name))
                 else:
-                    row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
+                    icon_name = get_ch_type_icon_prefix(layer, c) + 'texture'
+                    row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(icon_name))
 
         if c.override_1 and c.override_1_type != 'DEFAULT' and c.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             row = master.row(align=True)
@@ -4911,7 +4931,7 @@ def layer_listing(layout, layer, show_expand=False):
                 #row.label(text='Vertex Color Override')
                 row.prop(override_ch, 'override_vcol_name', text='', emboss=False)
             else:
-                row.label(text='Channel Override')
+                row.label(text=get_ch_override_label(layer, override_ch, override_ch.active_edit_1))
         elif active_mask_image:
             if active_mask_image.yia.is_image_atlas or active_mask_image.yua.is_udim_atlas:
                 row.prop(mask, 'name', text='', emboss=False)
@@ -5079,8 +5099,6 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     ch_source = get_channel_source_1(ch, layer)
                     override_type = ch.override_1_type
 
-                channel_icon = lib.channel_custom_icon_dict[root_ch.type]
-
                 ch_image = None
                 if override_type == 'IMAGE' and ch_source and ch_source.image:
                     ch_image = ch_source.image
@@ -5094,7 +5112,8 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     icon_name = get_ch_type_icon_prefix(layer, ch) + 'vertex_color'
                     row.prop(ch, 'override_vcol_name', text='', emboss=False, icon_value=lib.get_icon(icon_name))
                 else: 
-                    row.prop(item, 'name', text='', emboss=False, icon_value=lib.get_icon(channel_icon))
+                    icon_name = get_ch_type_icon_prefix(layer, ch) + 'texture'
+                    row.label(text=get_ch_override_label(layer, ch, item.is_second_member), icon_value=lib.get_icon(icon_name))
 
                 if ch_image:
                     # Asterisk icon to indicate dirty image
@@ -5105,10 +5124,6 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     if ch_image.packed_file:
                         row.label(text='', icon='PACKAGE')
 
-                #rrow = row.row(align=True)
-                #rrow.alignment = 'RIGHT'
-                #rrow.label(text=root_ch.name)
-                #rrow.label(text='', icon_value=lib.get_icon(channel_icon))
                 row.label(text='', icon='BLANK1')
 
         # Masks

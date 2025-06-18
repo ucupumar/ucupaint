@@ -4438,6 +4438,7 @@ class YReplaceLayerChannelOverride(bpy.types.Operator):
         ch = context.parent
         ch.override_type = self.type
         ch.override = True
+        if not ch.enable: ch.enable = True
 
         # Update list items
         ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
@@ -4465,6 +4466,7 @@ class YReplaceLayerChannelOverride1(bpy.types.Operator):
         ch = context.parent
         ch.override_1_type = self.type
         ch.override_1 = True
+        if not ch.enable: ch.enable = True
 
         # Update list items
         ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
@@ -6836,15 +6838,15 @@ class YLayerChannel(bpy.types.PropertyGroup):
     tao : StringProperty(default='')
 
     active_edit : BoolProperty(
-        name = 'Active override channel for editing or preview', 
-        description = 'Active override channel for editing or preview', 
+        name = 'Active Custom Data', 
+        description = 'Active custom data for editing or preview', 
         default = False,
         update = update_channel_active_edit
     )
 
     active_edit_1 : BoolProperty(
-        name = 'Active override channel for editing or preview', 
-        description = 'Active override channel for editing or preview', 
+        name = 'Active Custom Normal Data', 
+        description = 'Active custom normal data for editing or preview', 
         default = False,
         update = update_channel_active_edit
     )
