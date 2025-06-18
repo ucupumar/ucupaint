@@ -2345,6 +2345,9 @@ def get_entity_mapping(entity, get_baked=False):
     return None
 
 def update_entity_uniform_scale_enabled(entity):
+    if not hasattr(entity, 'enable_uniform_scale'):
+        return
+
     mapping = get_entity_mapping(entity)
     if mapping:
         scale_input = mapping.inputs[3]
@@ -3328,7 +3331,7 @@ def get_transformation(mapping, entity=None):
         translation = mapping.inputs[1].default_value
         rotation = mapping.inputs[2].default_value
 
-        if entity and entity.enable_uniform_scale:
+        if entity and hasattr(entity, 'enable_uniform_scale') and entity.enable_uniform_scale:
             scale_val = get_entity_prop_value(entity, 'uniform_scale_value')
             scale = (scale_val, scale_val, scale_val)
         else:
@@ -3341,24 +3344,56 @@ def get_transformation(mapping, entity=None):
 
     return translation, rotation, scale
 
-def is_active_uv_map_missmatch_entity(obj, entity):
+def is_active_uv_map_missmatch_active_entity(obj, layer):
+
+    yp = layer.id_data.yp
+
+    entity = None
+
+    for mask in layer.masks:
+        if mask.active_edit:
+            entity = mask
+            entity_type = entity.type
+            use_baked = entity.use_baked
+            break
+
+    for ch in layer.channels:
+        if ch.active_edit:
+            entity = layer
+            entity_type = ch.override_type
+            use_baked = False
+            break
+
+        if ch.active_edit_1:
+            entity = layer
+            entity_type = ch.override_1_type
+            use_baked = False
+            break
+
+    if not entity:
+        entity = layer
+        entity_type = entity.type
+        use_baked = entity.use_baked
 
     # Non image entity doesn't need matching UV
-    if not entity.use_baked and entity.type != 'IMAGE':
+    if not use_baked and entity_type != 'IMAGE':
         return False
 
-    m = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    # No need to check UV and transformation if entity is not using UV vector
+    if (entity == layer and not is_layer_using_vector(entity)) or entity.texcoord_type != 'UV': return False
 
-    #if entity.type != 'IMAGE' or entity.texcoord_type != 'UV': return False
-    if (m and not is_layer_using_vector(entity)) or entity.texcoord_type != 'UV': return False
-    mapping = get_entity_mapping(entity, get_baked=entity.use_baked)
-
+    # Get active UV 
     uv_layers = get_uv_layers(obj)
     if not uv_layers: return False
     uv_layer = uv_layers.active
 
-    uv_name = entity.uv_name if not entity.use_baked or entity.baked_uv_name == '' else entity.baked_uv_name
+    # Get active entity UV name
+    uv_name = entity.uv_name if not use_baked or entity.baked_uv_name == '' else entity.baked_uv_name
 
+    # Get mapping
+    mapping = get_entity_mapping(entity, get_baked=use_baked)
+
+    # Check mapping transformation
     if mapping and is_transformed(mapping, entity) and obj.mode == 'TEXTURE_PAINT':
         if uv_layer.name != TEMP_UV:
             return True
@@ -3372,22 +3407,11 @@ def is_active_uv_map_missmatch_entity(obj, entity):
                 if obj.yp.texpaint_scale[i] != scale[i]:
                     return True
 
+    # Check if current active uv matched with current entity uv
     elif uv_name in uv_layers and uv_name != uv_layer.name:
         return True
 
     return False
-
-def is_active_uv_map_missmatch_active_entity(obj, layer):
-
-    active_mask = None
-    for mask in layer.masks:
-        if mask.active_edit == True:
-            active_mask = mask
-
-    if active_mask: entity = active_mask
-    else: entity = layer
-
-    return is_active_uv_map_missmatch_entity(obj, entity)
 
 def is_transformed(mapping, entity=None):
     translation, rotation, scale = get_transformation(mapping, entity)
@@ -3540,18 +3564,18 @@ def refresh_temp_uv(obj, entity):
             try: entity_uv.active_render = True
             except: print('EXCEPTIION: Cannot set active uv render!')
 
-    if m3 and entity.override_type != 'IMAGE':
-        remove_temp_uv(obj, entity)
-        return False
-
-    if (m1 or m2) and (entity.type != 'IMAGE' and not entity.use_baked):
-        remove_temp_uv(obj, entity)
-        return False
-
     # Delete previous temp uv
     remove_temp_uv(obj, entity)
 
-    # Only set actual uv if not in texture paint mode
+    # No need to use temp uv if override is not using image
+    if m3 and ((entity.active_edit and entity.override_type != 'IMAGE') or (entity.active_edit_1 and entity.override_1_type != 'IMAGE')):
+        return False
+
+    # No need to use temp uv if layer/mask is not using image
+    if (m1 or m2) and (entity.type != 'IMAGE' and not entity.use_baked):
+        return False
+
+    # Only set actual uv if not in texture paint or edit mode
     if obj.mode not in {'TEXTURE_PAINT', 'EDIT'}:
         return False
 
@@ -3576,8 +3600,11 @@ def refresh_temp_uv(obj, entity):
         mapping = get_mask_mapping(entity, get_baked=entity.use_baked)
         #print('Mask!')
     elif m3: 
-        source = layer_tree.nodes.get(entity.source)
+        if entity.active_edit_1:
+            source = layer_tree.nodes.get(entity.source_1)
+        else: source = layer_tree.nodes.get(entity.source)
         mapping = get_layer_mapping(layer)
+        entity = layer
         #print('Channel!')
     else: return False
 
@@ -3617,7 +3644,7 @@ def refresh_temp_uv(obj, entity):
     rotation_y = mapping.inputs[2].default_value[1] if is_bl_newer_than(2, 81) else mapping.rotation[1]
     rotation_z = mapping.inputs[2].default_value[2] if is_bl_newer_than(2, 81) else mapping.rotation[2]
 
-    if entity.enable_uniform_scale and is_bl_newer_than(2, 81):
+    if hasattr(entity, 'enable_uniform_scale') and entity.enable_uniform_scale and is_bl_newer_than(2, 81):
         scale_x = scale_y = scale_z = get_entity_prop_value(entity, 'uniform_scale_value')
     else:
         scale_x = mapping.inputs[3].default_value[0] if is_bl_newer_than(2, 81) else mapping.scale[0]
