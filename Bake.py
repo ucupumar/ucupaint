@@ -3488,6 +3488,10 @@ def create_vector_displacement_node(tree, connect_to=None):
     if is_bl_newer_than(2, 80):
         vdisp = tree.nodes.new('ShaderNodeVectorDisplacement')
 
+        # Make sure vector displacement node has 1.0 scale
+        if 'Scale' in vdisp.inputs:
+            vdisp.inputs['Scale'].default_value = 1.0
+
     if vdisp and connect_to:
         create_link(tree, vdisp.outputs[0], connect_to)
 
