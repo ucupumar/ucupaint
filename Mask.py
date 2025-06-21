@@ -743,9 +743,10 @@ class YNewLayerMask(bpy.types.Operator):
         if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
             self.texcoord_type = 'UV'
 
-        if obj.type not in {'MESH', 'CURVE'}:
+        if not is_object_work_with_uv(obj):
             self.texcoord_type = 'Generated'
-        elif obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
+
+        if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
 
             self.uv_name = get_default_uv_name(obj, yp)
 
@@ -1174,8 +1175,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             yp = node.node_tree.yp
             self.layer = yp.layers[yp.active_layer_index]
 
-        if obj.type != 'MESH':
-            self.texcoord_type = 'Object'
+        if not is_object_work_with_uv(obj):
+            self.texcoord_type = 'Generated'
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:

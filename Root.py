@@ -505,10 +505,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 self.type = bsdf_node.type
                 self.target_bsdf_name = bsdf_node.name
 
-        # Normal channel does not works to non mesh object
-        if obj.type != 'MESH':
-            self.normal = False
-
         self.not_muted_paint_opacity = False
         if is_bl_newer_than(2, 80):
             for area in context.screen.areas:

@@ -5110,6 +5110,12 @@ def get_active_image_and_stuffs(obj, yp):
 
     return image, uv_name, src_of_img, entity, mapping, vcol
 
+def is_object_work_with_uv(obj):
+    if not is_bl_newer_than(3):
+        return obj.type == 'MESH'
+
+    return obj.type in {'MESH', 'CURVE'}
+
 def set_active_uv_layer(obj, uv_name):
     uv_layers = get_uv_layers(obj)
 

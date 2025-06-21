@@ -1152,20 +1152,20 @@ class YNewLayer(bpy.types.Operator):
             self.mask_color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
             if not is_colorid_already_being_used(yp, self.mask_color_id): break
 
-        if obj.type not in {'MESH', 'CURVE'}:
+        if not is_object_work_with_uv(obj):
             self.texcoord_type = 'Generated'
             self.mask_texcoord_type = 'Generated'
-        else:
-            if obj.type == 'MESH':
-                uv_name = get_default_uv_name(obj, yp)
-                self.uv_map = uv_name
-                if self.add_mask: self.mask_uv_name = uv_name
 
-                # UV Map collections update
-                self.uv_map_coll.clear()
-                for uv in get_uv_layers(obj):
-                    if not uv.name.startswith(TEMP_UV):
-                        self.uv_map_coll.add().name = uv.name
+        if obj.type == 'MESH':
+            uv_name = get_default_uv_name(obj, yp)
+            self.uv_map = uv_name
+            if self.add_mask: self.mask_uv_name = uv_name
+
+            # UV Map collections update
+            self.uv_map_coll.clear()
+            for uv in get_uv_layers(obj):
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
 
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
@@ -2399,8 +2399,8 @@ class BaseMultipleImagesLayer():
         elif ypup.default_image_resolution != 'DEFAULT':
             self.mask_image_resolution = ypup.default_image_resolution
 
-        if obj.type != 'MESH':
-            self.texcoord_type = 'Object'
+        if not is_object_work_with_uv(obj):
+            self.texcoord_type = 'Generated'
 
         # Use active uv layer name by default
         if obj.type == 'MESH':
@@ -2907,8 +2907,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         node = get_active_ypaint_node()
         yp = self.yp = node.node_tree.yp
 
-        if obj.type != 'MESH':
-            self.texcoord_type = 'Object'
+        if not is_object_work_with_uv(obj):
+            self.texcoord_type = 'Generated'
 
         # Use active uv layer name by default
         if obj.type == 'MESH':
@@ -3423,8 +3423,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        if obj.type != 'MESH':
-            self.texcoord_type = 'Object'
+        if not is_object_work_with_uv(obj):
+            self.texcoord_type = 'Generated'
 
         # Use active uv layer name by default
         if obj.type == 'MESH':
