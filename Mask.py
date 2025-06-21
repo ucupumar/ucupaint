@@ -126,8 +126,13 @@ def add_new_mask(
         mask.ao_distance = ao_distance
         enable_eevee_ao()
 
+    # Set default uv name if it's an empty string
+    if uv_name == '':
+        uv_name = get_default_uv_name()
+
+    mask.uv_name = uv_name
+
     if is_mapping_possible(mask_type):
-        mask.uv_name = uv_name
 
         mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
         mapping.vector_type = 'POINT' if segment else 'TEXTURE'
@@ -738,9 +743,9 @@ class YNewLayerMask(bpy.types.Operator):
         if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
             self.texcoord_type = 'UV'
 
-        if obj.type != 'MESH':
+        if obj.type not in {'MESH', 'CURVE'}:
             self.texcoord_type = 'Generated'
-        elif len(obj.data.uv_layers) > 0:
+        elif obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
 
             self.uv_name = get_default_uv_name(obj, yp)
 
@@ -901,11 +906,12 @@ class YNewLayerMask(bpy.types.Operator):
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 crow.prop_search(self, "uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
-                if self.type == 'IMAGE':
-                    if UDIM.is_udim_supported():
-                        col.prop(self, 'use_udim')
-                    ccol = col.column()
-                    ccol.prop(self, 'use_image_atlas')
+
+            if self.type == 'IMAGE':
+                if UDIM.is_udim_supported():
+                    col.prop(self, 'use_udim')
+                ccol = col.column()
+                ccol.prop(self, 'use_image_atlas')
 
         if self.get_to_be_cleared_image_atlas(context, yp):
             col = self.layout.column(align=True)

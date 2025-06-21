@@ -4786,20 +4786,39 @@ def get_active_render_uv(obj):
 
     return uv_name
 
-def get_default_uv_name(obj, yp=None):
-    uv_layers = get_uv_layers(obj)
+def get_default_uv_name(obj=None, yp=None):
     uv_name = ''
 
-    if obj.type == 'MESH' and len(uv_layers) > 0:
-        active_name = uv_layers.active.name
-        if active_name == TEMP_UV:
-            if yp and len(yp.layers) > 0:
-                uv_name = yp.layers[yp.active_layer_index].uv_name
-            else:
-                for uv_layer in uv_layers:
-                    if uv_layer.name != TEMP_UV:
-                        uv_name = uv_layer.name
-        else: uv_name = uv_layers.active.name
+    if obj and obj.type == 'MESH':
+
+        # Get active uv name from active mesh object
+        uv_layers = get_uv_layers(obj)
+        if len(uv_layers) > 0:
+            active_name = uv_layers.active.name
+            if active_name == TEMP_UV:
+                if yp and len(yp.layers) > 0:
+                    uv_name = yp.layers[yp.active_layer_index].uv_name
+                else:
+                    for uv_layer in uv_layers:
+                        if uv_layer.name != TEMP_UV:
+                            uv_name = uv_layer.name
+            else: uv_name = uv_layers.active.name
+
+    else:
+        # Create temporary mesh
+        temp_mesh = bpy.data.meshes.new('___TEMP___')
+
+        # Create temporary uv layer
+        if not is_bl_newer_than(2, 80):
+            uv_layers = temp_mesh.uv_textures
+        else: uv_layers = temp_mesh.uv_layers
+        uv_layer = uv_layers.new()
+
+        # Get the uv name
+        uv_name = uv_layer.name
+
+        # Remove temporary mesh
+        remove_datablock(bpy.data.meshes, temp_mesh)
 
     return uv_name
 

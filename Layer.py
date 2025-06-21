@@ -101,6 +101,11 @@ def add_new_layer(
     layer = yp.layers.add()
     layer.type = layer_type
     layer.name = get_unique_name(layer_name, yp.layers)
+
+    # Set default uv name if it's an empty string
+    if uv_name == '':
+        uv_name = get_default_uv_name()
+
     layer.uv_name = uv_name
     check_uvmap_on_other_objects_with_same_mat(mat, uv_name)
 
@@ -1139,6 +1144,7 @@ class YNewLayer(bpy.types.Operator):
         # Make sure decal is off when adding non mappable layer
         if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
             self.texcoord_type = 'UV'
+            self.mask_texcoord_type = 'UV'
 
         # Check if color id already being used
         while True:
@@ -1146,8 +1152,9 @@ class YNewLayer(bpy.types.Operator):
             self.mask_color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
             if not is_colorid_already_being_used(yp, self.mask_color_id): break
 
-        if obj.type != 'MESH':
+        if obj.type not in {'MESH', 'CURVE'}:
             self.texcoord_type = 'Generated'
+            self.mask_texcoord_type = 'Generated'
         else:
             if obj.type == 'MESH':
                 uv_name = get_default_uv_name(obj, yp)
@@ -1418,7 +1425,7 @@ class YNewLayer(bpy.types.Operator):
 
                         crow = col.row(align=True)
                         crow.prop(self, 'mask_texcoord_type', text='')
-                        if self.mask_texcoord_type == 'UV':
+                        if self.mask_texcoord_type == 'UV' and obj.type == 'MESH':
                             crow.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
                         if not self.mask_image_filepath:
