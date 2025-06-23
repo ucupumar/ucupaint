@@ -1883,7 +1883,7 @@ def get_layer_channel_input_label(layer, ch, source=None):
     else:
         label = 'Layer'
 
-        if ch == alpha_ch and color_ch.enable:
+        if ch == alpha_ch and color_ch.enable and not color_ch.unpair_alpha:
             label += ' Alpha'
         elif ch.layer_input == 'RGB':
             if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
@@ -2077,7 +2077,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         else: rrow.label(text=label, icon_value=channel_icon_value, translate=False)
 
         # Alpha channel with color channel enabled will not show blend and opacity options
-        show_blend_opacity = alpha_ch != ch or (alpha_ch == ch and not get_channel_enabled(color_ch))
+        show_blend_opacity = alpha_ch != ch or (alpha_ch == ch and (not get_channel_enabled(color_ch) or color_ch.unpair_alpha))
 
         #if layer.type != 'BACKGROUND':
         if not chui.expand_content: # and ch.enable:
@@ -2239,6 +2239,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                         row.label(text='', icon='BLANK1')
                         row.label(text='Use Clamp:')
                         row.prop(ch, 'use_clamp', text='')
+                    
+                    if ch == color_ch:
+                        row = mcol.row(align=True)
+                        row.label(text='', icon='BLANK1')
+                        row.label(text='Unpair Alpha:')
+                        row.prop(ch, 'unpair_alpha', text='')
 
             else:
 
@@ -6039,7 +6045,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             label = 'Group ' + root_ch.name
         else:
             label = 'Layer'
-            if ch == alpha_ch and color_ch.enable:
+            if ch == alpha_ch and color_ch.enable and not color_ch.unpair_alpha:
                 label += ' Alpha'
             elif is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
                 if layer.voronoi_feature == 'DISTANCE_TO_EDGE':

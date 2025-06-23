@@ -5370,8 +5370,11 @@ def is_blend_node_needed(ch, layer=None, root_ch=None):
     # Get alpha and color pair channel
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
 
-    # Blend node is needed if channel is enabled
-    return get_channel_enabled(ch, layer, root_ch) and (alpha_ch != ch or (alpha_ch == ch and not get_channel_enabled(color_ch, layer)))
+    # Blend node is necessary for alpha channel that is forced to be unpaired from color channel
+    if ch == alpha_ch and get_channel_enabled(color_ch, layer):
+        return color_ch.unpair_alpha
+
+    return get_channel_enabled(ch, layer, root_ch)
 
 def is_any_entity_using_uv(yp, uv_name):
 
