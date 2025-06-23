@@ -910,7 +910,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             default_value = ch.intensity_value
 
             # Alpha channel won't use intensity_value prop input if color channel is enabled
-            if alpha_ch != ch or (alpha_ch == ch and not get_channel_enabled(color_ch)):
+            if alpha_ch != ch or (alpha_ch == ch and (not get_channel_enabled(color_ch) or color_ch.unpair_alpha)):
                 # Create intensity socket
                 dirty = create_prop_input(ch, 'intensity_value', valid_inputs, input_index, dirty)
                 input_index += 1

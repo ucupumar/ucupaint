@@ -6415,6 +6415,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
         default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3
     )
 
+    unpair_alpha : BoolProperty(
+        name = 'Unpair with Alpha',
+        description = 'Unpair with alpha channel (useful for using Transition Ramp/AO with transparent holes)',
+        default = False,
+        update = update_channel_enable
+    )
+            
     # Modifiers
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
     modifiers_1 : CollectionProperty(type=NormalMapModifier.YNormalMapModifier)

@@ -2432,7 +2432,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         rgb_before_override = rgb
 
         # Use layer alpha as rgb of alpha channel if color channel is enabled
-        if ch == alpha_ch and get_channel_enabled(color_ch, layer):
+        if ch == alpha_ch and get_channel_enabled(color_ch, layer) and not color_ch.unpair_alpha:
             rgb = alpha
 
         # Channel Override 
@@ -3654,7 +3654,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if alpha_ch and ch == color_ch:
             alpha_idx = get_layer_channel_index(layer, alpha_ch)
             root_alpha_ch = yp.channels[alpha_idx]
-            next_alpha = get_essential_node(tree, TREE_END).get(root_alpha_ch.name)
+            if color_ch.unpair_alpha:
+                next_alpha = None
+            else: next_alpha = get_essential_node(tree, TREE_END).get(root_alpha_ch.name)
         else: next_alpha = get_essential_node(tree, TREE_END).get(root_ch.name + io_suffix['ALPHA'])
 
         # Background layer only know mix
@@ -3666,7 +3668,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else: blend_type = ch.blend_type
 
         # Get output of alpha channel before blend node
-        if ch == alpha_ch:
+        if ch == alpha_ch and not color_ch.unpair_alpha:
             alpha_ch_rgb = rgb
 
         if blend:
