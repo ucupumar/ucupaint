@@ -475,7 +475,7 @@ def create_ao_node(mat, node, channel=None, shift_other_nodes=False):
             for soc in to_sockets:
                 mat.node_tree.links.new(ao_mul.outputs[ao_mixout], soc)
 
-            ## Connect color channel to AO multiply
+            # Connect color channel to AO multiply
             mat.node_tree.links.new(outp, ao_mul.inputs[ao_mixcol0])
 
         # Connect AO channel to AO multiply
@@ -779,6 +779,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         if ch_color and self.alpha:
             ch_alpha = create_new_yp_channel(group_tree, 'Alpha', 'VALUE', non_color=True)
+            ch_alpha.is_alpha = True
             ch_alpha.alpha_pair_name = ch_color.name
 
         if self.type != 'EMISSION':
@@ -826,15 +827,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 links.new(node.outputs[ch_color.name], inp)
 
         if ch_alpha:
-            if 'Alpha' in main_bsdf.inputs:
-                inp = main_bsdf.inputs['Alpha']
-
-                # Check original link
-                for l in inp.links:
-                    links.new(l.from_socket, node.inputs[ch_alpha.name])
-
-                set_input_default_value(node, ch_alpha, inp.default_value)
-                links.new(node.outputs[ch_alpha.name], inp)
+            default_value = do_alpha_setup(mat, node, ch_alpha)
+            set_input_default_value(node, ch_alpha, default_value)
 
         if ch_ao:
             set_input_default_value(node, ch_ao, (1, 1, 1))
@@ -1055,6 +1049,7 @@ def do_alpha_setup(mat, node, channel):
 
     alpha_input_connected = len(alpha_input.links) > 0
     new_nodes_created = False
+    default_value = 1.0
     for i, l in enumerate(output.links):
 
         if is_valid_bsdf_node(l.to_node) or l.to_node.type == 'OUTPUT_MATERIAL':
@@ -1140,6 +1135,9 @@ def do_alpha_setup(mat, node, channel):
         # Only connect to target socket if the original connection isn't from yp node
         if len(target_socket.links) == 0 or target_socket.links[0].from_node != node:
             tree.links.new(alpha_output, target_socket)
+            default_value = target_socket.default_value
+
+    return default_value
 
 class YConnectYPaintChannelAlpha(bpy.types.Operator):
     bl_idname = "wm.y_connect_ypaint_channel_alpha"
@@ -1231,7 +1229,8 @@ def make_channel_as_alpha(mat, node, channel, do_setup=False):
 
     if do_setup:
         # Set up alpha connections
-        do_alpha_setup(mat, node, channel)
+        default_value = do_alpha_setup(mat, node, channel)
+        node.inputs[channel.name].default_value = default_value
 
 class YAutoSetupNewYPaintChannel(bpy.types.Operator):
     bl_idname = "wm.y_auto_setup_new_ypaint_channel"
@@ -1273,6 +1272,11 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator):
         same_channel = [c for c in yp.channels if c.name == name]
         if same_channel:
             self.report({'ERROR'}, "Channel named '"+name+"' is already available!")
+            return {'CANCELLED'}
+
+        color_chs = [c for c in yp.channels if c.type == 'RGB']
+        if not any(color_chs):
+            self.report({'ERROR'}, "Need at least one existing color channel!")
             return {'CANCELLED'}
 
         # Create new channel
