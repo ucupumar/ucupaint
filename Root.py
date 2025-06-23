@@ -515,6 +515,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     )
 
     color : BoolProperty(name='Color', default=True)
+    alpha : BoolProperty(name='Alpha', default=False)
     ao : BoolProperty(name='Ambient Occlusion', default=False)
     metallic : BoolProperty(name='Metallic', default=True)
     roughness : BoolProperty(name='Roughness', default=True)
@@ -613,11 +614,16 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
             ccol.prop(self, 'color', toggle=True)
+            if self.color:
+                ccol.prop(self, 'alpha', toggle=True)
             ccol.prop(self, 'ao', toggle=True)
             if self.type == 'BSDF_PRINCIPLED':
                 ccol.prop(self, 'metallic', toggle=True)
             ccol.prop(self, 'roughness', toggle=True)
             ccol.prop(self, 'normal', toggle=True)
+        else:
+            ccol = col.column(align=True)
+            ccol.prop(self, 'alpha', text='Enable Alpha')
 
         col.prop(self, 'use_linear_blending')
 
@@ -762,13 +768,18 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         # Add new channels
         ch_color = None
+        ch_alpha = None
         ch_ao = None
         ch_metallic = None
         ch_roughness = None
         ch_normal = None
 
-        if self.color:
+        if self.color or self.type == 'EMISSION':
             ch_color = create_new_yp_channel(group_tree, 'Color', 'RGB', non_color=False)
+
+        if ch_color and self.alpha:
+            ch_alpha = create_new_yp_channel(group_tree, 'Alpha', 'VALUE', non_color=True)
+            ch_alpha.alpha_pair_name = ch_color.name
 
         if self.type != 'EMISSION':
             if self.ao:
@@ -792,6 +803,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         # HACK: Remap channel pointers, because sometimes pointers are lost at this time
         ch_color = group_tree.yp.channels.get('Color')
+        ch_alpha = group_tree.yp.channels.get('Alpha')
         ch_ao = group_tree.yp.channels.get('Ambient Occlusion')
         ch_metallic = group_tree.yp.channels.get('Metallic')
         ch_roughness = group_tree.yp.channels.get('Roughness')
@@ -812,6 +824,17 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 links.new(ao_mul.outputs[ao_mixout], inp)
             else:
                 links.new(node.outputs[ch_color.name], inp)
+
+        if ch_alpha:
+            if 'Alpha' in main_bsdf.inputs:
+                inp = main_bsdf.inputs['Alpha']
+
+                # Check original link
+                for l in inp.links:
+                    links.new(l.from_socket, node.inputs[ch_alpha.name])
+
+                set_input_default_value(node, ch_alpha, inp.default_value)
+                links.new(node.outputs[ch_alpha.name], inp)
 
         if ch_ao:
             set_input_default_value(node, ch_ao, (1, 1, 1))
