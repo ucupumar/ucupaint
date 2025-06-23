@@ -945,10 +945,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
     #print('Reconnect tree ' + tree.name)
 
-    start = nodes.get(TREE_START)
-    end = nodes.get(TREE_END)
-
-    texcoord = nodes.get(TEXCOORD)
     parallax = tree.nodes.get(PARALLAX)
 
     # Parallax
@@ -1035,7 +1031,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     for tc in texcoord_lists:
         parallax_prep = tree.nodes.get(tc + PARALLAX_PREP_SUFFIX)
         if parallax_prep:
-            #create_link(tree, texcoord.outputs[tc], parallax_prep.inputs[0])
             create_link(tree, get_essential_node(tree, TEXCOORD)[tc], parallax_prep.inputs[0])
             if tangent and bitangent:
                 create_link(tree, tangent, parallax_prep.inputs['Tangent'])
@@ -1047,11 +1042,11 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
     if parallax_ch:
         if parallax:
-            height = start.outputs.get(parallax_ch.name + io_suffix['HEIGHT'])
+            height = get_essential_node(tree, TREE_START).get(parallax_ch.name + io_suffix['HEIGHT'])
             if height: create_link(tree, height, parallax.inputs['base'])
 
         if baked_parallax:
-            height = start.outputs.get(parallax_ch.name + io_suffix['HEIGHT'])
+            height = get_essential_node(tree, TREE_START).get(parallax_ch.name + io_suffix['HEIGHT'])
             if height: create_link(tree, height, baked_parallax.inputs['base'])
 
     #print()
@@ -1087,10 +1082,10 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         io_max_height_name = ch.name + io_suffix['MAX_HEIGHT']
         io_vdisp_name = ch.name + io_suffix['VDISP']
 
-        rgb = start.outputs[io_name]
+        rgb = get_essential_node(tree, TREE_START)[io_name]
         #if ch.enable_alpha and ch.type == 'RGB':
         if ch.enable_alpha:
-            alpha = start.outputs[io_alpha_name]
+            alpha = get_essential_node(tree, TREE_START)[io_alpha_name]
         else: alpha = get_essential_node(tree, ONE_VALUE)[0]
 
         height = None
@@ -1110,14 +1105,14 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         vdisp = None
 
         if ch.type == 'NORMAL':
-            height_input = start.outputs.get(io_height_name)
+            height_input = get_essential_node(tree, TREE_START).get(io_height_name)
             height = height_input if height_input else get_essential_node(tree, ZERO_VALUE)[0]
 
             if is_normal_height_input_connected(ch):
-                max_height = start.outputs[io_max_height_name]
+                max_height = get_essential_node(tree, TREE_START)[io_max_height_name]
             else: max_height = get_essential_node(tree, ZERO_VALUE)[0]
 
-            vdisp_input = start.outputs.get(io_vdisp_name)
+            vdisp_input = get_essential_node(tree, TREE_START).get(io_vdisp_name)
             vdisp = vdisp_input if vdisp_input else get_essential_node(tree, ZERO_VALUE)[0]
 
             if ch.enable_smooth_bump:
@@ -1172,8 +1167,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 if ch == yp.channels[yp.active_channel_index] and layer == yp.layers[yp.active_layer_index]:
 
-                    col_preview = end.inputs.get(LAYER_VIEWER)
-                    alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
+                    col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
+                    alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
                     if col_preview:
                         #create_link(tree, rgb, col_preview)
                         if not layer.enable:
@@ -1265,7 +1260,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     if parallax_ch and parallax:
                         create_link(tree, parallax.outputs[TEXCOORD_IO_PREFIX + tc], inp)
                     else: 
-                        #create_link(tree, texcoord.outputs[tc], inp)
                         create_link(tree, get_essential_node(tree, TEXCOORD)[tc], inp)
 
             # Background layer
@@ -1498,19 +1492,19 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         #print(rgb)
         # Blender 2.79 cycles does not need bump normal
         if not is_bl_newer_than(2, 80) and normal_no_bump and ch.type == 'NORMAL' and ch.enable_subdiv_setup:
-            create_link(tree, normal_no_bump, end.inputs[io_name])
-        else: create_link(tree, rgb, end.inputs[io_name])
+            create_link(tree, normal_no_bump, get_essential_node(tree, TREE_END)[io_name])
+        else: create_link(tree, rgb, get_essential_node(tree, TREE_END)[io_name])
 
         #if ch.type == 'RGB' and ch.enable_alpha:
         if ch.enable_alpha:
-            create_link(tree, alpha, end.inputs[io_alpha_name])
+            create_link(tree, alpha, get_essential_node(tree, TREE_END)[io_alpha_name])
         if ch.type == 'NORMAL' and not ch.use_baked_vcol:
-            if height and io_height_name in end.inputs: create_link(tree, height, end.inputs[io_height_name])
-            if max_height and io_max_height_name in end.inputs: create_link(tree, max_height, end.inputs[io_max_height_name])
-            if io_vdisp_name in end.inputs: 
+            if height and io_height_name in get_essential_node(tree, TREE_END): create_link(tree, height, get_essential_node(tree, TREE_END)[io_height_name])
+            if max_height and io_max_height_name in get_essential_node(tree, TREE_END): create_link(tree, max_height, get_essential_node(tree, TREE_END)[io_max_height_name])
+            if io_vdisp_name in get_essential_node(tree, TREE_END): 
                 if yp.sculpt_mode:
-                    create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], end.inputs[io_vdisp_name])
-                elif vdisp: create_link(tree, vdisp, end.inputs[io_vdisp_name])
+                    create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], get_essential_node(tree, TREE_END)[io_vdisp_name])
+                elif vdisp: create_link(tree, vdisp, get_essential_node(tree, TREE_END)[io_vdisp_name])
 
     # Bake target image nodes
     for bt in yp.bake_targets:
