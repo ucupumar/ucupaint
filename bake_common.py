@@ -1032,6 +1032,11 @@ def recover_composite_settings(book):
             remove_datablock(bpy.data.objects, cam_obj)
             remove_datablock(bpy.data.cameras, cam)
 
+    # Remove compositor node tree
+    if is_bl_newer_than(5):
+        comp_tree = scene.node_tree
+        remove_datablock(bpy.data.node_groups, comp_tree)
+
     # Remove temp scene
     remove_datablock(bpy.data.scenes, scene)
 
@@ -1070,7 +1075,9 @@ def denoise_image(image):
     tree = scene.node_tree
     composite = [n for n in tree.nodes if n.type == 'COMPOSITE'][0]
     denoise = tree.nodes.new('CompositorNodeDenoise')
-    denoise.use_hdr = image.is_float
+    if is_bl_newer_than(5):
+        denoise.inputs.get('HDR').default_value = image.is_float
+    else: denoise.use_hdr = image.is_float
     image_node = tree.nodes.new('CompositorNodeImage')
     image_node.image = image
 
