@@ -475,6 +475,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 self.normal_blend_type = 'OVERLAY'
 
         elif self.type == 'OTHER_OBJECT_EMISSION':
+            self.blend_type = 'MIX'
             self.subsurf_influence = False
 
             self.margin = 0
@@ -491,6 +492,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 self.margin = 0
 
         elif self.type == 'OTHER_OBJECT_CHANNELS':
+            self.blend_type = 'MIX'
             self.subsurf_influence = False
             self.use_image_atlas = False
             self.margin = 0
