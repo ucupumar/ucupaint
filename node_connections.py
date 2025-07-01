@@ -2244,8 +2244,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             ch = layer.channels[j]
 
             #if yp.disable_quick_toggle and not ch.enable:
-            if not ch.enable:
-                continue
+            #if not ch.enable:
+            #    continue
 
             mask_mix = nodes.get(c.mix)
             mix_pure = nodes.get(c.mix_pure)
