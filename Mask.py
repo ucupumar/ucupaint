@@ -2360,8 +2360,8 @@ class YLayerMask(bpy.types.PropertyGroup):
     )
 
     active_edit : BoolProperty(
-        name = 'Active mask for editing or preview', 
-        description = 'Active mask for editing or preview', 
+        name = 'Active Mask', 
+        description = 'Active mask for Blender\'s paint mode and edit mode, or '+get_addon_title()+'\'s Mask preview mode',
         default = False,
         update = update_mask_active_edit
     )

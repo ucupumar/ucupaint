@@ -6846,14 +6846,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     active_edit : BoolProperty(
         name = 'Active Custom Data', 
-        description = 'Active custom data for editing or preview', 
+        description = 'Active custom data for Blender\'s paint mode and edit mode, or '+get_addon_title()+'\'s Custom Data preview mode',
         default = False,
         update = update_channel_active_edit
     )
 
     active_edit_1 : BoolProperty(
         name = 'Active Custom Normal Data', 
-        description = 'Active custom normal data for editing or preview', 
+        description = 'Active custom normal data for Blender\'s paint mode and edit mode, or '+get_addon_title()+'\'s Custom Data preview mode',
         default = False,
         update = update_channel_active_edit
     )
