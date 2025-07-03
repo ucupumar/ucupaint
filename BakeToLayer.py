@@ -906,6 +906,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             ypui.layer_ui.expand_source = True
         ypui.need_update = True
 
+        if image: 
+            self.report({'INFO'}, 'Baking '+bake_type_labels[self.type]+' is done in '+'{:0.2f}'.format(rdict['time_elapsed'])+' seconds!')
+
         return {'FINISHED'}
 
 class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
@@ -1209,6 +1212,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         # Entity checking
         entity = self.mask if self.mask else self.layer
+        entity_label = mask_type_labels[entity.type] if self.mask else layer_type_labels[entity.type]
 
         # Get bake properties
         bprops = get_bake_properties_from_self(self)
@@ -1278,6 +1282,9 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
+
+        if image: 
+            self.report({'INFO'}, 'Baking '+entity_label+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {"FINISHED"}
 
@@ -1373,9 +1380,13 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        rebake_baked_images(yp)
+        baked_counts = rebake_baked_images(yp)
 
-        print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        if baked_counts == 0:
+            self.report({'ERROR'}, 'No baked layer/mask used!')
+            return {'CANCELLED'}
+
+        self.report({'INFO'}, 'Rebaking all baked layers & masks is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
         return {'FINISHED'}
 
 class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):

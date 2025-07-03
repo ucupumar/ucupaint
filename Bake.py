@@ -547,11 +547,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
-        print(
-            'INFO: All layers and masks using', self.from_uv_map,
-            'are transferred to', self.uv_map,
-            'in', '{:0.2f}'.format(time.time() - T), 'seconds!'
-        )
+        self.report({'INFO'}, 'All layers and masks using '+self.from_uv_map+' are transferred to '+self.uv_map+' in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
 
@@ -639,6 +635,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
         mat = get_active_material()
         yp = self.entity.id_data.yp
         objs = get_all_objects_with_same_materials(mat)
+        ori_uv_name = self.entity.uv_name
 
         # Prepare bake settings
         book = remember_before_bake(yp)
@@ -664,12 +661,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
-        print(
-            'INFO:', self.entity.name,
-            'UV is transferred from', self.entity.uv_name,
-            'to', self.uv_map,
-            'in', '{:0.2f}'.format(time.time() - T), 'seconds!'
-        )
+        self.report({'INFO'}, self.entity.name+' UV is transferred from '+ori_uv_name+' to '+self.uv_map+' in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
 
@@ -2064,7 +2056,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             for o in temp_objs:
                 remove_mesh_obj(o)
 
-        print('INFO:', tree.name, 'channels are baked in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        if self.only_active_channel:
+            self.report({'INFO'}, yp.channels[yp.active_channel_index].name+' channel is baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
+        else: self.report({'INFO'}, tree.name+' channels are baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
 
@@ -2573,6 +2567,8 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             self.report({'ERROR'}, "Merge failed for some reason!")
             return {'CANCELLED'}
 
+        self.report({'INFO'}, 'Merging layers is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
+
         return {'FINISHED'}
 
 class YMergeMask(bpy.types.Operator, BaseBakeOperator):
@@ -2642,6 +2638,8 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        T = time.time()
 
         mask = self.mask
         layer = self.layer
@@ -2793,7 +2791,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             mask.modifiers.remove(i)
 
         # Remove neighbor mask
-        Mask.remove_mask(layer, neighbor_mask, obj)
+        Mask.remove_mask(layer, neighbor_mask, obj, refresh_list=False)
 
         # Remove bake nodes
         simple_remove_node(mat.node_tree, tex)
@@ -2820,6 +2818,11 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         # Set current mask as active
         mask.active_edit = True
         yp.active_layer_index = yp.active_layer_index
+
+        # Refresh list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
+
+        self.report({'INFO'}, 'Merging masks is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
 

@@ -5632,6 +5632,8 @@ class YPasteLayer(bpy.types.Operator):
             pasted_layer_ids = [i for i, l in enumerate(yp.layers) if l.name in pasted_layer_names]
             bpy.ops.wm.y_rebake_specific_layers(layer_ids=str(pasted_layer_ids))
 
+            self.report({'INFO'}, 'Rebaking pasted layers is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
+
             # TODO: Refactor common functions for adding new data (add_new_layer, add_new_mask, etc) to avoid cyclic imports
 
         # Refresh active layer

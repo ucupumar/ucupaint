@@ -202,7 +202,7 @@ def remove_mask_channel(tree, layer, ch_index):
     for mask in layer.masks:
         mask.channels.remove(ch_index)
 
-def remove_mask(layer, mask, obj):
+def remove_mask(layer, mask, obj, refresh_list=True):
 
     tree = get_tree(layer)
     yp = layer.id_data.yp
@@ -256,7 +256,8 @@ def remove_mask(layer, mask, obj):
     layer.masks.remove(mask_index)
 
     # Update list items
-    ListItem.refresh_list_items(yp)
+    if refresh_list:
+        ListItem.refresh_list_items(yp)
 
 def get_new_mask_name(obj, layer, mask_type, modifier_type=''):
     surname = '(' + layer.name + ')'

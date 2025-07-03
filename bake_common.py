@@ -3798,11 +3798,14 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     # Refresh mapping and stuff
     #yp.active_layer_index = yp.active_layer_index
 
-    if image: print('BAKE TO LAYER: Baking', image.name, 'is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
-    else: print('BAKE TO LAYER: No image created! Executed in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    time_elapsed = time.time() - T
+
+    if image: print('BAKE TO LAYER: Baking', image.name, 'is done in', '{:0.2f}'.format(time_elapsed), 'seconds!')
+    else: print('BAKE TO LAYER: No image created! Executed in', '{:0.2f}'.format(time_elapsed), 'seconds!')
 
     rdict['active_id'] = active_id
     rdict['image'] = image
+    rdict['time_elapsed'] = time_elapsed
 
     return rdict
 
@@ -4220,6 +4223,8 @@ def rebake_baked_images(yp, specific_layers=[]):
 
     entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp, specific_layers=specific_layers)
 
+    baked_counts = 0
+
     for i, image in enumerate(images):
         print('INFO: Rebaking image \''+image.name+'\'...')
 
@@ -4268,7 +4273,11 @@ def rebake_baked_images(yp, specific_layers=[]):
                 bake_entity_as_image(entity, bprops=bake_properties, set_image_to_entity=True)
             else: bake_to_entity(bprops=bake_properties, overwrite_img=image, segment=segment)
 
+            baked_counts += 1
+
     print('INFO: Rebaking images is done at ', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+
+    return baked_counts
 
 def get_duplicated_mesh_objects(scene, objs, hide_original=False):
     tt = time.time()
