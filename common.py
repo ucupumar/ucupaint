@@ -4895,28 +4895,33 @@ def set_active_paint_slot_entity(yp):
     if yp.use_baked and len(yp.channels) > 0:
 
         ch = yp.channels[yp.active_channel_index]
-        baked = root_tree.nodes.get(ch.baked)
-        if baked and baked.image:
-            if ch.type == 'NORMAL':
-                baked_disp = root_tree.nodes.get(ch.baked_disp)
-                baked_normal_overlay = root_tree.nodes.get(ch.baked_normal_overlay)
+        if ch.type == 'NORMAL':
+            cur_image = get_active_paint_slot_image()
 
-                cur_image = get_active_paint_slot_image()
+            # Cycle through all baked normal images
+            orders = ['baked', 'baked_normal_overlay', 'baked_disp', 'baked_vdisp']
+            for i, prop in enumerate(orders):
+                cur_baked = root_tree.nodes.get(getattr(ch, prop))
+                if cur_baked and cur_baked.image == cur_image:
+                    next_i = i
+                    for j in range(len(orders)):
+                        if next_i == len(orders)-1:
+                            next_i = 0
+                        else: next_i += 1
 
-                if cur_image == baked.image and baked_disp:
-                    baked_disp.select = True
-                    root_tree.nodes.active = baked_disp
-                    image = baked_disp.image
-                elif baked_disp and cur_image == baked_disp.image and baked_normal_overlay:
-                    baked_normal_overlay.select = True
-                    root_tree.nodes.active = baked_normal_overlay
-                    image = baked_normal_overlay.image
-                else:
-                    baked.select = True
-                    root_tree.nodes.active = baked
-                    image = baked.image
+                        next_prop = orders[next_i]
+                        next_baked = root_tree.nodes.get(getattr(ch, next_prop))
 
-            else:
+                        if next_baked:
+                            next_baked.select = True
+                            image = next_baked.image
+                            root_tree.nodes.active = next_baked
+                            break
+                    break
+
+        if not image:
+            baked = root_tree.nodes.get(ch.baked)
+            if baked and baked.image:
                 baked.select = True
                 root_tree.nodes.active = baked
                 image = baked.image
