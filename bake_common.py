@@ -1934,6 +1934,7 @@ def bake_channel(
             mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
     # Bake displacement
+    disp_img = None
     if root_ch.type == 'NORMAL':
 
         # Make sure height outputs available
@@ -2108,105 +2109,110 @@ def bake_channel(
                 else:
                     baked_vdisp.image = vdisp_img
 
-            ### Max Height
-
-            # Create target image
-            if UDIM.is_udim_supported():
-                mh_img = bpy.data.images.new(
-                    name='____MAXHEIGHT_TEMP', width=100, height=100, 
-                    alpha=False, tiled=False, float_buffer=True
-                )
+            if not any_layers_using_disp(yp):
+                # Remove baked_disp
+                remove_node(tree, root_ch, 'baked_disp')
+                remove_node(tree, root_ch, 'end_max_height')
             else:
-                mh_img = bpy.data.images.new(
-                    name='____MAXHEIGHT_TEMP', width=100, height=100, 
-                    alpha=False, float_buffer=True
-                )
 
-            mh_img.colorspace_settings.name = get_noncolor_name()
-            tex.image = mh_img
+                ### Max Height
 
-            # Bake setup (doing little bit doing hacky reconnection here)
-            start = tree.nodes.get(TREE_START)
-            end = tree.nodes.get(TREE_END)
-            ori_soc = end.inputs[root_ch.name].links[0].from_socket
-            max_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
-            # Get the last layer that output max height
-            for l in yp.layers:
-                if not l.enable or not l.channels[get_channel_index(root_ch)].enable: continue
-                lnode = tree.nodes.get(l.group_node)
-                outp = lnode.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
-                if outp:
-                    max_height = outp
-                    break
-            create_link(tree, max_height, end.inputs[root_ch.name])
-            create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
-                    emit.inputs[0])
+                # Create target image
+                if UDIM.is_udim_supported():
+                    mh_img = bpy.data.images.new(
+                        name='____MAXHEIGHT_TEMP', width=100, height=100, 
+                        alpha=False, tiled=False, float_buffer=True
+                    )
+                else:
+                    mh_img = bpy.data.images.new(
+                        name='____MAXHEIGHT_TEMP', width=100, height=100, 
+                        alpha=False, float_buffer=True
+                    )
 
-            # Use high margin to make sure all pixels are covered
-            ori_margin = bpy.context.scene.render.bake.margin
-            bpy.context.scene.render.bake.margin = 1000
+                mh_img.colorspace_settings.name = get_noncolor_name()
+                tex.image = mh_img
 
-            # Bake
-            print('BAKE CHANNEL: Baking max height of ' + root_ch.name + ' channel...')
-            bake_object_op()
+                # Bake setup (doing little bit doing hacky reconnection here)
+                start = tree.nodes.get(TREE_START)
+                end = tree.nodes.get(TREE_END)
+                ori_soc = end.inputs[root_ch.name].links[0].from_socket
+                max_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
+                # Get the last layer that output max height
+                for l in yp.layers:
+                    if not l.enable or not l.channels[get_channel_index(root_ch)].enable: continue
+                    lnode = tree.nodes.get(l.group_node)
+                    outp = lnode.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
+                    if outp:
+                        max_height = outp
+                        break
+                create_link(tree, max_height, end.inputs[root_ch.name])
+                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
+                        emit.inputs[0])
 
-            # Recover margin
-            bpy.context.scene.render.bake.margin = ori_margin
+                # Use high margin to make sure all pixels are covered
+                ori_margin = bpy.context.scene.render.bake.margin
+                bpy.context.scene.render.bake.margin = 1000
 
-            # Recover connection
-            create_link(tree, ori_soc, end.inputs[root_ch.name])
+                # Bake
+                print('BAKE CHANNEL: Baking max height of ' + root_ch.name + ' channel...')
+                bake_object_op()
 
-            # Set baked max height image
-            max_height_value = mh_img.pixels[0]
-            end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
-            end_max_height.outputs[0].default_value = max_height_value
+                # Recover margin
+                bpy.context.scene.render.bake.margin = ori_margin
 
-            # Remove max height image
-            remove_datablock(bpy.data.images, mh_img, user=tex, user_prop='image')
+                # Recover connection
+                create_link(tree, ori_soc, end.inputs[root_ch.name])
 
-            ### Displacement
+                # Set baked max height image
+                max_height_value = mh_img.pixels[0]
+                end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+                end_max_height.outputs[0].default_value = max_height_value
 
-            # Create target image
-            baked_disp = tree.nodes.get(root_ch.baked_disp)
-            if not baked_disp:
-                baked_disp = new_node(
-                    tree, root_ch, 'baked_disp', 'ShaderNodeTexImage', 
-                    'Baked ' + root_ch.name + ' Displacement'
-                )
-                if hasattr(baked_disp, 'color_space'):
-                    baked_disp.color_space = 'NONE'
+                # Remove max height image
+                remove_datablock(bpy.data.images, mh_img, user=tex, user_prop='image')
 
-            if baked_disp.image:
-                disp_img_name = baked_disp.image.name
-                filepath = baked_disp.image.filepath
-                #filepath = get_valid_filepath(baked_disp.image, use_hdr)
-                baked_disp.image.name = '____DISP_TEMP'
-            else:
-                disp_img_name = tree.name + ' Displacement'
+                ### Displacement
 
-            # Set interpolation to cubic
-            baked_disp.interpolation = 'Cubic'
+                # Create target image
+                baked_disp = tree.nodes.get(root_ch.baked_disp)
+                if not baked_disp:
+                    baked_disp = new_node(
+                        tree, root_ch, 'baked_disp', 'ShaderNodeTexImage', 
+                        'Baked ' + root_ch.name + ' Displacement'
+                    )
+                    if hasattr(baked_disp, 'color_space'):
+                        baked_disp.color_space = 'NONE'
 
-            disp_img = img.copy()
-            disp_img.name = disp_img_name
-            disp_img.use_generated_float = use_float_for_displacement
-            disp_img.colorspace_settings.name = get_noncolor_name()
-            color = (0.5, 0.5, 0.5, 1.0)
+                if baked_disp.image:
+                    disp_img_name = baked_disp.image.name
+                    filepath = baked_disp.image.filepath
+                    #filepath = get_valid_filepath(baked_disp.image, use_hdr)
+                    baked_disp.image.name = '____DISP_TEMP'
+                else:
+                    disp_img_name = tree.name + ' Displacement'
 
-            if img.source == 'TILED':
-                UDIM.fill_tiles(disp_img, color)
-                UDIM.initial_pack_udim(disp_img, color)
-            else: 
-                disp_img.generated_color = color
-                if filepath != '' and (
-                        (use_udim and '.<UDIM>.' in filepath) or 
-                        (not use_udim and '.<UDIM>.' not in filepath)
-                    ):
-                    disp_img.filepath = filepath
+                # Set interpolation to cubic
+                baked_disp.interpolation = 'Cubic'
+
+                disp_img = img.copy()
+                disp_img.name = disp_img_name
+                disp_img.use_generated_float = use_float_for_displacement
+                disp_img.colorspace_settings.name = get_noncolor_name()
+                color = (0.5, 0.5, 0.5, 1.0)
+
+                if img.source == 'TILED':
+                    UDIM.fill_tiles(disp_img, color)
+                    UDIM.initial_pack_udim(disp_img, color)
+                else: 
+                    disp_img.generated_color = color
+                    if filepath != '' and (
+                            (use_udim and '.<UDIM>.' in filepath) or 
+                            (not use_udim and '.<UDIM>.' not in filepath)
+                        ):
+                        disp_img.filepath = filepath
 
         elif ch.normal_map_type == 'BUMP_MAP':
             disp_img = img
-        else: disp_img = None
 
         if disp_img:
 

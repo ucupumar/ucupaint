@@ -5475,6 +5475,7 @@ def is_any_layer_using_channel(root_ch, node=None):
             return True
 
     for layer in yp.layers:
+        if layer.type in {'GROUP', 'BACKGROUND'}: continue
         if layer.channels[ch_idx].enable:
             return True
 
@@ -5938,6 +5939,17 @@ def any_layers_using_vdisp(yp):
         c = get_height_channel(l)
         if not c or not l.enable or not c.enable: continue
         if c.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+            return True
+
+    return False
+
+def any_layers_using_disp(yp):
+
+    for l in yp.layers:
+        if l.type in {'GROUP', 'BACKGROUND'}: continue
+        c = get_height_channel(l)
+        if not c or not l.enable or not c.enable: continue
+        if c.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
             return True
 
     return False
