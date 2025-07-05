@@ -47,6 +47,10 @@ def save_float_image(image):
     elif settings.file_format in {'PNG', 'TIFF'}:
         settings.color_depth = '16'
 
+    # Need to pack first to save the image
+    if is_bl_newer_than(2, 81) and image.is_dirty:
+        pack_image(image)
+    
     full_path = bpy.path.abspath(image.filepath)
     image.save_render(full_path, scene=tmpscene)
     # HACK: If image still dirty after saving, save using standard save method
@@ -59,6 +63,10 @@ def save_float_image(image):
     # Set back colorspace
     if image.colorspace_settings.name != ori_colorspace:
         image.colorspace_settings.name = ori_colorspace
+
+    # Remove packed flag
+    if is_bl_newer_than(2, 81) and image.packed_file:
+        image.unpack(method='REMOVE')
 
     # Reload image
     image.reload()
@@ -136,11 +144,10 @@ def preserve_float_color_hack_before_packing(image):
         # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
         set_image_pixels_to_srgb(image)
 
-def pack_image(image, reload_float=False, do_hack=True):
+def pack_image(image, reload_float=False):
 
     # NOTE: This hack function is probably not a good idea since it uses a lot of assumption
-    if do_hack and False:
-        preserve_float_color_hack_before_packing(image)
+    #preserve_float_color_hack_before_packing(image)
 
     if is_bl_newer_than(2, 80):
         image.pack()
@@ -697,6 +704,12 @@ class YSaveAllBakedImages(bpy.types.Operator):
         description = 'Create a new image file without modifying the current image in Blender',
         default = False
     )
+    
+    force_exr_vdisp : BoolProperty(
+        name = 'Use EXR for Baked VDM',
+        description = 'Always use EXR file format for baked vector displacement image',
+        default = True
+    )
 
     def invoke(self, context, event):
         # Open browser, take reference to 'self' read the path to selected
@@ -714,6 +727,16 @@ class YSaveAllBakedImages(bpy.types.Operator):
         col.prop(self, 'file_format', text='')
 
         self.layout.prop(self, 'copy')
+
+        node = get_active_ypaint_node()
+        if node and self.file_format != 'OPEN_EXR':
+            tree= node.node_tree
+            yp = tree.yp
+            height_root_ch = get_root_height_channel(yp)
+            if height_root_ch:
+                baked_vdisp = tree.nodes.get(height_root_ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image:
+                    self.layout.prop(self, 'force_exr_vdisp')
 
     def execute(self, context):
 
@@ -733,6 +756,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
         height_root_ch = get_root_height_channel(yp)
 
         # Baked images
+        baked_vdisp_image = None
         for ch in yp.channels:
             if ch.no_layer_using: continue
 
@@ -749,6 +773,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 baked_vdisp = tree.nodes.get(ch.baked_vdisp)
                 if baked_vdisp and baked_vdisp.image:
                     images.append(baked_vdisp.image)
+                    baked_vdisp_image = baked_vdisp.image
 
                 if not is_overlay_normal_empty(yp):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
@@ -778,7 +803,10 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         for image in images:
 
-            settings.file_format = self.file_format
+            if image == baked_vdisp_image and self.force_exr_vdisp:
+                settings.file_format = 'OPEN_EXR'
+            else: settings.file_format = self.file_format
+
             settings.color_depth = '8' if settings.file_format != 'OPEN_EXR' else '16'
             if image.is_float:
                 settings.color_depth = '16' if settings.file_format != 'OPEN_EXR' else '32'
