@@ -2611,11 +2611,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if normal_proc and 'Intensity' in normal_proc.inputs:
                     create_link(tree, ch_intensity, normal_proc.inputs['Intensity'])
 
-            # Set normal strength
-            if normal_proc and ch_normal_strength and 'Strength' in normal_proc.inputs:
-                create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
+            if normal_proc:
+                # Set normal strength
+                if ch_normal_strength and 'Strength' in normal_proc.inputs:
+                    create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
 
-            if normal_map_proc:
+            if ch_normal_strength and normal_map_proc:
                 create_link(tree, ch_normal_strength, normal_map_proc.inputs['Strength'])
 
             height_blend = nodes.get(ch.height_blend)
@@ -3009,7 +3010,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if normal_proc: create_link(tree, normal, normal_proc.inputs['Normal'])
 
                 height_group = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
-                if height_proc and height_group: create_link(tree, height_group, height_proc.inputs['Height'])
+                if height_proc and height_group and 'Height' in height_proc.inputs: create_link(tree, height_group, height_proc.inputs['Height'])
 
                 if height_proc and root_ch.enable_smooth_bump:
                     if rgb_n and 'Height n' in height_proc.inputs: create_link(tree, rgb_n, height_proc.inputs['Height n'])
@@ -3164,7 +3165,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                             create_link(tree, end_chain, height_proc.inputs['Alpha'])
                         else: create_link(tree, alpha_before_intensity, height_proc.inputs['Alpha'])
 
-                    if ch.normal_map_type == 'NORMAL_MAP':
+                    if ch.normal_map_type == 'NORMAL_MAP' and 'Transition' in height_proc.inputs:
                         if not write_height and not root_ch.enable_smooth_bump:
                             create_link(tree, end_chain, height_proc.inputs['Transition'])
                         else: create_link(tree, alpha_before_intensity, height_proc.inputs['Transition'])
@@ -3341,7 +3342,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb = normal_map_proc.outputs[0]
 
             # Bump turned normal map when 'Write Height' is disabled
-            if normal_proc and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and not ch.write_height:
+            if normal_proc and (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or layer.type == 'GROUP') and not ch.write_height:
                 rgb = normal_proc.outputs[0]
 
             # Default normal

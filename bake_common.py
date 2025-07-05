@@ -1943,7 +1943,7 @@ def bake_channel(
         if not target_layer:
 
             ### Normal overlay only
-            if is_overlay_normal_empty(yp) and not root_ch.enable_subdiv_setup:
+            if (is_overlay_normal_empty(yp) or (not any_layers_using_disp(yp) and not any_layers_using_vdisp(yp))) and not root_ch.enable_subdiv_setup:
                 # Remove baked_normal_overlay
                 remove_node(tree, root_ch, 'baked_normal_overlay')
             else:

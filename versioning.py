@@ -469,7 +469,7 @@ def update_yp_tree(tree):
             if layer.type == 'IMAGE':
 
                 source = get_layer_source(layer)
-                if source and source.image and not source.image.is_float: 
+                if source and source.image and source.image.users == 1 and not source.image.is_float: 
                     if source.image.colorspace_settings.name != get_srgb_name():
                         source.image.colorspace_settings.name = get_srgb_name()
                         print('INFO:', source.image.name, 'image is now using sRGB!')
@@ -482,7 +482,7 @@ def update_yp_tree(tree):
                 if ch.override_type == 'IMAGE':
 
                     source = get_channel_source(ch)
-                    if source and source.image and not source.image.is_float:
+                    if source and source.image and source.image.users == 1 and not source.image.is_float:
                         if source.image.colorspace_settings.name != get_srgb_name():
                             source.image.colorspace_settings.name = get_srgb_name()
                             print('INFO:', source.image.name, 'image is now using sRGB!')
@@ -494,7 +494,7 @@ def update_yp_tree(tree):
 
                 if mask.type == 'IMAGE':
                     source = get_mask_source(mask)
-                    if source and source.image and not source.image.is_float:
+                    if source and source.image and source.image.users == 1 and not source.image.is_float:
                         if source.image.colorspace_settings.name != get_srgb_name():
                             source.image.colorspace_settings.name = get_srgb_name()
                             print('INFO:', source.image.name, 'image is now using sRGB!')
@@ -962,6 +962,16 @@ def update_yp_tree(tree):
 
         # Mark use cage object for older bake info
         update_bake_info_use_cages(yp)
+
+    # Version 2.3.3 has scale correction on normal from unwritten height bump map
+    if version_tuple(yp.version) < (2, 3, 3):
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and not height_root_ch.enable_smooth_bump:
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                if height_ch and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and not height_ch.write_height:
+                    height = get_entity_prop_value(height_ch, 'bump_distance')
+                    set_entity_prop_value(height_ch, 'bump_distance', height * 5)
 
     # SECTION II: Updates based on the blender version
 

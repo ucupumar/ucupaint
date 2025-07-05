@@ -5949,7 +5949,7 @@ def any_layers_using_disp(yp):
         if l.type in {'GROUP', 'BACKGROUND'}: continue
         c = get_height_channel(l)
         if not c or not l.enable or not c.enable: continue
-        if c.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+        if c.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and c.write_height:
             return True
 
     return False

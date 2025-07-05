@@ -2387,7 +2387,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     #row.label(text='', icon='BLANK1')
 
             # Write height
-            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump:
+            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump or layer.type == 'GROUP':
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 row.label(text='Write Height:')

@@ -919,29 +919,31 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
             if root_ch.type == 'NORMAL':
 
-                # Height/bump distance input
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                    dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty)
-                    input_index += 1
+                if layer.type != 'GROUP':
 
-                # Height/bump midlevel input
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                    dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                # Normal map strength input
-                if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                    dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty)
-                    input_index += 1
-                elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                    dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                # Smooth bump multiplier input:
-                if root_ch.enable_smooth_bump:
+                    # Height/bump distance input
                     if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                        dirty = create_prop_input(ch, 'bump_smooth_multiplier', valid_inputs, input_index, dirty)
+                        dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty)
                         input_index += 1
+
+                    # Height/bump midlevel input
+                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                        dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    # Normal map strength input
+                    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                        dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty)
+                        input_index += 1
+                    elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                        dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    # Smooth bump multiplier input:
+                    if root_ch.enable_smooth_bump:
+                        if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                            dirty = create_prop_input(ch, 'bump_smooth_multiplier', valid_inputs, input_index, dirty)
+                            input_index += 1
 
                 # Normal height/bump distance input
                 #if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:

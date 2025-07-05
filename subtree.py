@@ -1901,7 +1901,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             if remove_node(tree, ch, 'max_height_calc'): need_reconnect = True
 
         # Height Process
-        if ch.normal_map_type == 'NORMAL_MAP':
+        if layer.type != 'GROUP' and ch.normal_map_type == 'NORMAL_MAP':
             if root_ch.enable_smooth_bump:
                 if ch.enable_transition_bump:
                     if ch.transition_bump_crease and not ch.transition_bump_flip:
@@ -2087,7 +2087,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 lib_name = lib.NORMAL_MAP
 
         # Normal map
-        if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+        if layer.type != 'GROUP' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             normal_map_proc, need_reconnect = check_new_node(tree, ch, 'normal_map_proc', 'ShaderNodeNormalMap', 'Normal Map Process', True)
             normal_map_proc.uv_map = layer.uv_name
             normal_map_proc.space = ch.normal_space
