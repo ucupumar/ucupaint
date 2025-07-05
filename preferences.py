@@ -16,55 +16,55 @@ class YPaintPreferences(AddonPreferences):
     # when defining this in a submodule of a python package.
     bl_idname = __package__
 
-    default_new_image_size : IntProperty(
+    default_new_image_size = IntProperty(
         name = 'Custom Default Image Size',
         description = 'Default new image size',
         default=1024, min=64, max=16384
     )
 
-    image_atlas_size : IntProperty(
+    image_atlas_size = IntProperty(
         name = 'Image Atlas Size',
         description = 'Image Atlas Size',
         default=8192, min=2048, max=16384
     )
 
-    hdr_image_atlas_size : IntProperty(
+    hdr_image_atlas_size = IntProperty(
         name = 'HDR Image Atlas Size',
         description = 'HDR Image Atlas Size',
         default=4096, min=1024, max=8192
     )
 
-    unique_image_atlas_per_yp : BoolProperty(
+    unique_image_atlas_per_yp = BoolProperty(
         name = 'Use unique Image Atlas per ' + get_addon_title() + ' tree',
         description = 'Try to use different image atlas per ' + get_addon_title() + ' tree',
         default = True
     )
 
-    developer_mode : BoolProperty(
+    developer_mode = BoolProperty(
         name = 'Developer Mode',
         description = 'Developer mode will shows several menu intented for developer only',
         default = False
     )
 
-    show_experimental : BoolProperty(
+    show_experimental = BoolProperty(
         name = 'Show Experimental Features',
         description = 'Show unfinished experimental features',
         default = False
     )
 
-    use_image_preview : BoolProperty(
+    use_image_preview = BoolProperty(
         name = 'Use Image Preview/Thumbnail',
         description = 'Use image preview or thumbnail on the layers list',
         default = False
     )
 
-    skip_property_popups : BoolProperty(
+    skip_property_popups = BoolProperty(
         name = 'Skip Property Popups (Hold Shift to Show)',
         description = 'Don\'t show property popups unless Shift key is pressed. Will use last invokation properties if skipped',
         default = False
     )
 
-    icons : EnumProperty(
+    icons = EnumProperty(
         name = 'Icons',
         description = 'Icon set',
         items = (
@@ -75,19 +75,19 @@ class YPaintPreferences(AddonPreferences):
         update = update_icons
     )
 
-    make_preview_mode_srgb : BoolProperty(
+    make_preview_mode_srgb = BoolProperty(
         name = 'Make Preview Mode use sRGB',
         description = 'Make sure preview mode use sRGB color',
         default = True
     )
 
-    parallax_without_baked : BoolProperty(
+    parallax_without_baked = BoolProperty(
         name = 'Parallax Without Use Baked',
         description = 'Make it possible to use parallax without using baked textures (currently VERY SLOW)',
         default = False
     )
 
-    default_bake_device : EnumProperty(
+    default_bake_device = EnumProperty(
         name = 'Bake Device',
         description = 'Default bake device',
         items = (
@@ -98,25 +98,25 @@ class YPaintPreferences(AddonPreferences):
         default = 'DEFAULT'
     )
 
-    enable_baked_outside_by_default : BoolProperty(
+    enable_baked_outside_by_default = BoolProperty(
         name = 'Enable Baked Outside by default',
         description = "Enable baked outside by default when creating new " + get_addon_title() + " node.\n(Useful for creating game assets)",
         default = False
     )
 
-    enable_uniform_uv_scale_by_default : BoolProperty(
+    enable_uniform_uv_scale_by_default = BoolProperty(
         name = 'Enable Uniform UV Scale by default',
         description = "Enable uniform UV scale by default in Layer and Mask UVs. This will make all scale axes have the same value",
         default = False
     )
 
-    enable_auto_udim_detection : BoolProperty(
+    enable_auto_udim_detection = BoolProperty(
         name = 'Enable Auto UDIM Detection',
         description = "Enable automatic UDIM detection. This will automatically check 'Use UDIM Tiles' checkboxes when UDIM is detected",
         default = True
     )
 
-    layer_list_mode : EnumProperty(
+    layer_list_mode = EnumProperty(
         name = 'Layer Lists Mode',
         items = (
             ('DYNAMIC', "Dynamic", 'Dynamic layers list with dropdown support'),
@@ -127,37 +127,37 @@ class YPaintPreferences(AddonPreferences):
     )
     
     # Addon updater preferences.
-    auto_check_update : BoolProperty(
+    auto_check_update = BoolProperty(
         name = 'Auto-check for Update',
         description = 'If enabled, auto-check for updates using an interval',
         default = True
     )
     
-    updater_interval_months : IntProperty(
+    updater_interval_months = IntProperty(
         name = 'Months',
         description = 'Number of months between checking for updates',
         default=0, min=0
     )
     
-    updater_interval_days : IntProperty(
+    updater_interval_days = IntProperty(
         name = 'Days',
         description = 'Number of days between checking for updates',
         default=1, min=0, max=31
     )
     
-    updater_interval_hours : IntProperty(
+    updater_interval_hours = IntProperty(
         name = 'Hours',
         description = 'Number of hours between checking for updates',
         default=0, min=0, max=23
     )
     
-    updater_interval_minutes : IntProperty(
+    updater_interval_minutes = IntProperty(
         name = 'Minutes',
         description = 'Number of minutes between checking for updates',
         default=1, min=0, max=59
     )
 
-    default_image_resolution : EnumProperty(
+    default_image_resolution = EnumProperty(
         name = 'Default Image Size',
         items = (
             ('DEFAULT', "Default", 'Use the last selected image size'),
