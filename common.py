@@ -5270,6 +5270,24 @@ def is_height_process_needed(layer):
 
     return False
 
+def is_vdisp_process_needed(layer):
+    yp = layer.id_data.yp
+    height_root_ch = get_root_height_channel(yp)
+    if not height_root_ch: return False
+
+    height_ch = get_height_channel(layer)
+    if not height_ch or not height_ch.enable: return False
+
+    #if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+
+    if layer.type == 'GROUP': 
+        if is_layer_using_vdisp_map(layer, height_root_ch):
+            return True
+    elif height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or height_ch.enable_transition_bump:
+        return True
+
+    return False
+
 def is_normal_process_needed(layer):
     yp = layer.id_data.yp
     height_root_ch = get_root_height_channel(yp)
@@ -5389,7 +5407,26 @@ def is_layer_using_bump_map(layer, root_ch=None):
             for child in children:
                 if is_layer_using_bump_map(child):
                     return True
-        elif ch.write_height and  (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or ch.enable_transition_bump):
+        elif ch.write_height and (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or ch.enable_transition_bump):
+            return True
+
+    return False
+
+def is_layer_using_vdisp_map(layer, root_ch=None):
+    yp = layer.id_data.yp
+    if not root_ch: root_ch = get_root_height_channel(yp)
+    if not root_ch: return False
+
+    channel_idx = get_channel_index(root_ch)
+    try: ch = layer.channels[channel_idx]
+    except: return False
+    if get_channel_enabled(ch, layer, root_ch):
+        if layer.type == 'GROUP':
+            children = get_list_of_direct_children(layer)
+            for child in children:
+                if is_layer_using_vdisp_map(child):
+                    return True
+        elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or ch.enable_transition_bump:
             return True
 
     return False

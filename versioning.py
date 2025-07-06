@@ -963,15 +963,24 @@ def update_yp_tree(tree):
         # Mark use cage object for older bake info
         update_bake_info_use_cages(yp)
 
-    # Version 2.3.3 has scale correction on normal from unwritten height bump map
+    # Version 2.3.3 has scale correction on normal from unwritten height bump map, also new vdisp_blend node
     if version_tuple(yp.version) < (2, 3, 3):
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and not height_root_ch.enable_smooth_bump:
             for layer in yp.layers:
                 height_ch = get_height_channel(layer)
-                if height_ch and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and not height_ch.write_height:
-                    height = get_entity_prop_value(height_ch, 'bump_distance')
-                    set_entity_prop_value(height_ch, 'bump_distance', height * 5)
+                if height_ch:
+                    if height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and not height_ch.write_height:
+                        height = get_entity_prop_value(height_ch, 'bump_distance')
+                        set_entity_prop_value(height_ch, 'bump_distance', height * 5)
+
+                    # Convert standard blend node to vdisp_blend
+                    elif height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP' and layer.type != 'GROUP':
+                        height_ch.vdisp_blend = height_ch.blend
+                        height_ch.blend = ''
+                        layer_tree = get_tree(layer)
+                        vdisp_blend = layer_tree.nodes.get(height_ch.vdisp_blend)
+                        if vdisp_blend: vdisp_blend.label = 'VDisp Blend'
 
     # SECTION II: Updates based on the blender version
 

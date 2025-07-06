@@ -1143,6 +1143,18 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                 output_index += 1
 
+            if has_parent:
+                name = root_ch.name + io_suffix['VDISP'] + io_suffix['ALPHA']
+
+                if channel_enabled: # or force_normal_input:
+
+                    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                if channel_enabled:
+                    dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
+                    output_index += 1
+
     # Tree background inputs
     if layer.type in {'BACKGROUND', 'GROUP'}:
 
@@ -1175,36 +1187,47 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                     input_index += 1
 
             # Displacement Input
-            if root_ch.type == 'NORMAL' and layer.type == 'GROUP' and is_height_process_needed(layer):
+            if root_ch.type == 'NORMAL' and layer.type == 'GROUP':
 
-                #if not root_ch.enable_smooth_bump:
+                if is_height_process_needed(layer):
 
-                name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP']
-                dirty = create_input(tree, name, 'NodeSocketFloat',
-                        valid_inputs, input_index, dirty)
-                input_index += 1
+                    name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketFloat',
+                            valid_inputs, input_index, dirty)
+                    input_index += 1
 
-                if root_ch.enable_smooth_bump:
+                    if root_ch.enable_smooth_bump:
 
-                    for letter in nsew_letters:
-                        name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['GROUP']
-                        dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                        input_index += 1
+                        for letter in nsew_letters:
+                            name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['GROUP']
+                            dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                            input_index += 1
 
-                name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP']
-                dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                input_index += 1
+                    name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                    input_index += 1
 
-                if root_ch.enable_smooth_bump:
+                    if root_ch.enable_smooth_bump:
 
-                    for letter in nsew_letters:
-                        name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['ALPHA'] + io_suffix['GROUP']
-                        dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                        input_index += 1
+                        for letter in nsew_letters:
+                            name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['ALPHA'] + io_suffix['GROUP']
+                            dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                            input_index += 1
 
-                name = root_ch.name + io_suffix['MAX_HEIGHT'] + io_suffix['GROUP']
-                dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                input_index += 1
+                    name = root_ch.name + io_suffix['MAX_HEIGHT'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                if is_vdisp_process_needed(layer):
+
+                    name = root_ch.name + io_suffix['VDISP'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketVector',
+                            valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                    name = root_ch.name + io_suffix['VDISP'] + io_suffix['ALPHA'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                    input_index += 1
 
     # Create UV inputs
     for uv in yp.uvs:

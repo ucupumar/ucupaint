@@ -6522,6 +6522,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Vector Displacement related
     vdisp_proc : StringProperty(default='')
+    vdisp_blend : StringProperty(default='')
+    vdisp_intensity : StringProperty(default='')
 
     # For pack/unpack height io
     height_group_unpack : StringProperty(default='')
