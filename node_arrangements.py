@@ -1280,9 +1280,10 @@ def rearrange_layer_nodes(layer, tree=None):
             mix_pure = tree.nodes.get(c.mix_pure)
             mix_remains = tree.nodes.get(c.mix_remains)
             mix_normal = tree.nodes.get(c.mix_normal)
+            mix_vdisp = tree.nodes.get(c.mix_vdisp)
             mix_limit_normal = tree.nodes.get(c.mix_limit_normal)
 
-            if mix_pure or mix_remains or mix_normal or mix_limit_normal:
+            if mix_pure or mix_remains or mix_normal or mix_limit_normal or mix_vdisp:
 
                 if check_set_node_loc(tree, c.mix, loc, True):
                     loc.y -= 40
@@ -1294,6 +1295,9 @@ def rearrange_layer_nodes(layer, tree=None):
                     loc.y -= 40
 
                 if check_set_node_loc(tree, c.mix_normal, loc, True):
+                    loc.y -= 40
+
+                if check_set_node_loc(tree, c.mix_vdisp, loc, True):
                     loc.y -= 40
 
                 if check_set_node_loc(tree, c.mix_limit_normal, loc, True):

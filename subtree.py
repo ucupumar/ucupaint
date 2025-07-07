@@ -612,6 +612,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 if root_ch.type == 'NORMAL':
                     if remove_node(tree, c, 'mix_pure'): need_reconnect = True
                     if remove_node(tree, c, 'mix_normal'): need_reconnect = True
+                    if remove_node(tree, c, 'mix_vdisp'): need_reconnect = True
                 continue
 
             if (root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and height_process_needed and
@@ -687,6 +688,20 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         set_mix_clamp(mix_normal, True)
                 else:
                     if remove_node(tree, c, 'mix_normal'): need_reconnect = True
+
+                if layer.type == 'GROUP' and is_layer_using_vdisp_map(layer):
+                    mix_vdisp = tree.nodes.get(c.mix_vdisp)
+                    if not mix_vdisp:
+                        need_reconnect = True
+                        mix_vdisp = new_mix_node(tree, c, 'mix_vdisp', 'Mask VDisp')
+                        mix_vdisp.inputs[0].default_value = mask.intensity_value
+                    if mix_vdisp.blend_type != mask.blend_type:
+                        mix_vdisp.blend_type = mask.blend_type
+                    # Use clamp to keep value between 0.0 to 1.0
+                    if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
+                        set_mix_clamp(mix_vdisp, True)
+                else:
+                    if remove_node(tree, c, 'mix_vdisp'): need_reconnect = True
 
             else: 
                 if (trans_bump and i >= chain and (

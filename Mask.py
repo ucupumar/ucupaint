@@ -183,6 +183,7 @@ def remove_mask_channel_nodes(tree, c):
     remove_node(tree, c, 'mix_pure')
     remove_node(tree, c, 'mix_remains')
     remove_node(tree, c, 'mix_normal')
+    remove_node(tree, c, 'mix_vdisp')
     remove_node(tree, c, 'mix_limit')
     remove_node(tree, c, 'mix_limit_normal')
 
@@ -2317,6 +2318,9 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
 
     # Normal and height has its own alpha if using group, this one is for normal
     mix_normal : StringProperty(default='')
+
+    # ... and this one for vector displacement
+    mix_vdisp : StringProperty(default='')
 
     # To limit mix value to not go above original channel value, useful for group layer
     mix_limit : StringProperty(default='')
