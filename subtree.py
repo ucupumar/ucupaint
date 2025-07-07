@@ -2178,7 +2178,12 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         if layer.parent_idx != -1 and ch.normal_blend_type == 'MIX':
             vdisp_blend, need_reconnect = replace_new_node(
-                tree, ch, 'vdisp_blend', 'ShaderNodeGroup', 'VDisp Blend', lib.STRAIGHT_OVER, 
+                tree, ch, 'vdisp_blend', 'ShaderNodeGroup', 'VDisp Blend', lib.STRAIGHT_OVER_HEIGHT_MIX, 
+                return_status=True, hard_replace=True, dirty=need_reconnect
+            )
+        elif layer.parent_idx != -1 and ch.normal_blend_type == 'OVERLAY':
+            vdisp_blend, need_reconnect = replace_new_node(
+                tree, ch, 'vdisp_blend', 'ShaderNodeGroup', 'VDisp Blend', lib.STRAIGHT_OVER_HEIGHT_ADD, 
                 return_status=True, hard_replace=True, dirty=need_reconnect
             )
         else:

@@ -3714,8 +3714,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if prev_vdisp_alpha and 'Alpha1' in vdisp_blend.inputs:
                 create_link(tree, prev_vdisp_alpha, vdisp_blend.inputs['Alpha1'])
 
-            if next_vdisp_alpha and 'Value' in vdisp_blend.outputs:
-                create_link(tree, vdisp_blend.outputs['Value'], next_vdisp_alpha)
+            if next_vdisp_alpha:
+                if 'Value' in vdisp_blend.outputs:
+                    create_link(tree, vdisp_blend.outputs['Value'], next_vdisp_alpha)
+                elif 'Alpha' in vdisp_blend.outputs:
+                    create_link(tree, vdisp_blend.outputs['Alpha'], next_vdisp_alpha)
 
         elif prev_vdisp and next_vdisp:
             create_link(tree, prev_vdisp, next_vdisp)
