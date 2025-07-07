@@ -225,7 +225,9 @@ def update_yp_tree(tree):
 
     # SECTION I: Update based on yp version
 
-    # NOTE: This update should happen earlier since it affects how the node connections
+    ## EARLY UPDATE
+    # NOTE: These update should happen earlier since it affects how the node connections
+
     # Version 2.3.2 has ramp modifier affect option
     if version_tuple(yp.version) < (2, 3, 2):
         yp.halt_update = True
@@ -250,6 +252,25 @@ def update_yp_tree(tree):
                         mod.affect_alpha = True
 
         yp.halt_update = False
+
+    # Version 2.3.3 has new vdisp_blend node
+    if version_tuple(yp.version) < (2, 3, 3):
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                if height_ch:
+                    # Convert standard blend node to vdisp_blend
+                    if height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP' and layer.type != 'GROUP':
+                        height_ch.vdisp_blend = height_ch.blend
+                        height_ch.blend = ''
+                        layer_tree = get_tree(layer)
+                        if layer_tree:
+                            vdisp_blend = layer_tree.nodes.get(height_ch.vdisp_blend)
+                            if vdisp_blend: vdisp_blend.label = 'VDisp Blend'
+
+    ## LATER UPDATE
+    # NOTE: These updates probably can be run after the above
 
     # Version 0.9.1 and above will fix wrong bake type stored on images bake type
     if version_tuple(yp.version) < (0, 9, 1):
@@ -963,7 +984,7 @@ def update_yp_tree(tree):
         # Mark use cage object for older bake info
         update_bake_info_use_cages(yp)
 
-    # Version 2.3.3 has scale correction on normal from unwritten height bump map, also new vdisp_blend node
+    # Version 2.3.3 has scale correction on normal from unwritten height bump map
     if version_tuple(yp.version) < (2, 3, 3):
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and not height_root_ch.enable_smooth_bump:
@@ -973,14 +994,6 @@ def update_yp_tree(tree):
                     if height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and not height_ch.write_height:
                         height = get_entity_prop_value(height_ch, 'bump_distance')
                         set_entity_prop_value(height_ch, 'bump_distance', height * 5)
-
-                    # Convert standard blend node to vdisp_blend
-                    elif height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP' and layer.type != 'GROUP':
-                        height_ch.vdisp_blend = height_ch.blend
-                        height_ch.blend = ''
-                        layer_tree = get_tree(layer)
-                        vdisp_blend = layer_tree.nodes.get(height_ch.vdisp_blend)
-                        if vdisp_blend: vdisp_blend.label = 'VDisp Blend'
 
     # SECTION II: Updates based on the blender version
 
