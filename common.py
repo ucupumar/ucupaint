@@ -5513,7 +5513,7 @@ def is_any_layer_using_channel(root_ch, node=None):
 
     for layer in yp.layers:
         if layer.type in {'GROUP', 'BACKGROUND'}: continue
-        if layer.channels[ch_idx].enable:
+        if get_channel_enabled(layer.channels[ch_idx], layer):
             return True
 
     return False
@@ -5964,7 +5964,7 @@ def is_overlay_normal_empty(yp):
 
     for l in yp.layers:
         c = get_height_channel(l)
-        if not c or not l.enable or not c.enable: continue
+        if not c or not get_channel_enabled(c, l): continue
         if c.normal_map_type == 'NORMAL_MAP' or (c.normal_map_type == 'BUMP_MAP' and not c.write_height):
             return False
 
@@ -5974,7 +5974,7 @@ def any_layers_using_vdisp(yp):
 
     for l in yp.layers:
         c = get_height_channel(l)
-        if not c or not l.enable or not c.enable: continue
+        if not c or not get_channel_enabled(c, l): continue
         if c.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
             return True
 
@@ -5985,7 +5985,7 @@ def any_layers_using_disp(yp):
     for l in yp.layers:
         if l.type in {'GROUP', 'BACKGROUND'}: continue
         c = get_height_channel(l)
-        if not c or not l.enable or not c.enable: continue
+        if not c or not get_channel_enabled(c, l): continue
         if c.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and c.write_height:
             return True
 

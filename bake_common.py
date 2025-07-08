@@ -1644,6 +1644,14 @@ def get_valid_filepath(img, use_hdr):
 
     return img.filepath
 
+def is_baked_normal_without_bump_needed(root_ch):
+    yp = root_ch.id_data.yp
+
+    return (
+        (not is_overlay_normal_empty(yp) and (any_layers_using_disp(yp) or any_layers_using_vdisp(yp))) or
+        (root_ch.enable_subdiv_setup and (any_layers_using_disp(yp) or any_layers_using_vdisp(yp)))
+    )
+
 def bake_channel(
         uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
         aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
@@ -1942,8 +1950,8 @@ def bake_channel(
 
         if not target_layer:
 
-            ### Normal overlay only
-            if (is_overlay_normal_empty(yp) or (not any_layers_using_disp(yp) and not any_layers_using_vdisp(yp))) and not root_ch.enable_subdiv_setup:
+            ### Normal without bump only
+            if not is_baked_normal_without_bump_needed(root_ch):
                 # Remove baked_normal_overlay
                 remove_node(tree, root_ch, 'baked_normal_overlay')
             else:
@@ -2025,7 +2033,7 @@ def bake_channel(
                 if end_linear:
                     create_link(tree, ori_soc, end.inputs[root_ch.name])
 
-                # Set baked normal overlay image
+                # Set baked normal without bump image
                 if baked_normal_overlay.image:
                     temp = baked_normal_overlay.image
                     img_users = get_all_image_users(baked_normal_overlay.image)

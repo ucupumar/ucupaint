@@ -1673,6 +1673,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         # Process baked images
         baked_images = []
         for i, ch in enumerate(self.channels):
+            if ch.no_layer_using: continue
 
             baked = tree.nodes.get(ch.baked)
             if baked and baked.image:
@@ -3103,7 +3104,7 @@ def update_enable_baked_outside(self, context):
                     mtree.links.new(tex.outputs[0], norm.inputs[1])
 
                     baked_normal_overlay = None
-                    if not is_overlay_normal_empty(yp):
+                    if is_baked_normal_without_bump_needed(ch):
                         baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                         if baked_normal_overlay and baked_normal_overlay.image:
                             loc_y -= 300
@@ -3117,10 +3118,10 @@ def update_enable_baked_outside(self, context):
                             if not is_bl_newer_than(2, 80) and baked_normal_overlay.image.colorspace_settings.name != get_srgb_name():
                                 tex_normal_overlay.color_space = 'NONE'
 
+                            # Displacement setup will use normal without bump if it exists
                             if ch.enable_subdiv_setup:
                                 mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
 
-                    #if not ch.enable_subdiv_setup or baked_normal_overlay:
                     for l in outp.links:
                         mtree.links.new(norm.outputs[0], l.to_socket)
 
