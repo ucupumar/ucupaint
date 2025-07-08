@@ -4165,6 +4165,22 @@ def main_draw(self, context):
         col.operator("wm.y_update_yp_trees", text='Update node to version ' + get_current_version_str(), icon='ERROR')
         return
 
+    # Message will appear when opening file with newer node version
+    if version_tuple(yp.version) > version_tuple(get_current_version_str()):
+        col = layout.column()
+        col.alert = True
+        col.label(text='This node uses newer version!', icon='ERROR')
+        if 'addon_updater_ops' not in dir():
+            # Extension platform releases link
+            col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://extensions.blender.org/add-ons/ucupaint/'
+        else: 
+            if is_online():
+                # Blender with online access already has the update button
+                col.label(text='Please update the addon!', icon='BLANK1')
+            else:
+                # Github releases link
+                col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://github.com/ucupumar/ucupaint/releases'
+
     if ypup.developer_mode:
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and height_root_ch.enable_smooth_bump:
