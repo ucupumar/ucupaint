@@ -3049,9 +3049,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             elif normal_map_proc and normal_proc and 'Normal' in normal_proc.inputs:
                 create_link(tree, normal_map_proc.outputs[0], normal_proc.inputs['Normal'])
             else:
-                prev_normal = get_essential_node(tree, TREE_START).get(root_ch.name)
-                if prev_normal and normal_proc and 'Normal' in normal_proc.inputs: 
-                    create_link(tree, prev_normal, normal_proc.inputs['Normal'])
+                # NOTE: Using previous normal doesn't really has actual use cases, so use geometry normal instead
+                #prev_normal = get_essential_node(tree, TREE_START).get(root_ch.name)
+                if normal_proc and 'Normal' in normal_proc.inputs: 
+                    create_link(tree, get_essential_node(tree, GEOMETRY).get('Normal'), normal_proc.inputs['Normal'])
 
             height_alpha = alpha
             #alpha_ns = None
