@@ -30,47 +30,47 @@ def update_active_bake_target_index(self, context):
 
 class YBakeTargetChannel(bpy.types.PropertyGroup):
 
-    channel_name : StringProperty(
+    channel_name = StringProperty(
         name = 'Channel Source Name',
         description = 'Channel source name for bake target',
         default = ''
     )
 
-    subchannel_index : EnumProperty(
+    subchannel_index = EnumProperty(
         name = 'Subchannel',
         description = 'Channel source RGBA index',
         items = rgba_items,
         default = '0'
     )
 
-    default_value : FloatProperty(
+    default_value = FloatProperty(
         name = 'Default Value',
         description = 'Channel default value',
         subtype = 'FACTOR',
         default = 0.0, min=0.0, max=1.0
     )
 
-    normal_type : EnumProperty(
+    normal_type = EnumProperty(
         name = 'Normal Channel Type',
         description = 'Normal channel source type',
         items = normal_type_items,
         default = 'COMBINED'
     )
 
-    invert_value : BoolProperty(
+    invert_value = BoolProperty(
         name = 'Invert Value',
         description = 'Invert value',
         default = False
     )
 
 class YBakeTarget(bpy.types.PropertyGroup):
-    name : StringProperty(
+    name = StringProperty(
         name = 'Bake Target Name',
         description = 'Name of bake target name',
         default = ''
     )
 
-    data_type : EnumProperty(
+    data_type = EnumProperty(
         name = 'Bake Target Data Type',
         description = 'Bake target data type',
         items = (
@@ -80,27 +80,27 @@ class YBakeTarget(bpy.types.PropertyGroup):
         default = 'IMAGE'
     )
 
-    use_float : BoolProperty(
+    use_float = BoolProperty(
         name = '32-bit Image',
         description = 'Use 32-bit float image',
         default = False
     )
 
-    r : PointerProperty(type=YBakeTargetChannel)
-    g : PointerProperty(type=YBakeTargetChannel)
-    b : PointerProperty(type=YBakeTargetChannel)
-    a : PointerProperty(type=YBakeTargetChannel)
+    r = PointerProperty(type=YBakeTargetChannel)
+    g = PointerProperty(type=YBakeTargetChannel)
+    b = PointerProperty(type=YBakeTargetChannel)
+    a = PointerProperty(type=YBakeTargetChannel)
 
     # Nodes
-    image_node : StringProperty(default='')
-    image_node_outside : StringProperty(default='')
+    image_node = StringProperty(default='')
+    image_node_outside = StringProperty(default='')
 
     # UI
-    expand_content : BoolProperty(default=True)
-    expand_r : BoolProperty(default=False)
-    expand_g : BoolProperty(default=False)
-    expand_b : BoolProperty(default=False)
-    expand_a : BoolProperty(default=False)
+    expand_content = BoolProperty(default=True)
+    expand_r = BoolProperty(default=False)
+    expand_g = BoolProperty(default=False)
+    expand_b = BoolProperty(default=False)
+    expand_a = BoolProperty(default=False)
 
 def update_new_bake_target_preset(self, context):
     node = get_active_ypaint_node()
@@ -124,13 +124,13 @@ class YNewBakeTarget(bpy.types.Operator):
     bl_description = "New bake target"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name : StringProperty(
+    name = StringProperty(
         name = 'New Bake Target Name',
         description = 'New bake target name',
         default = ''
     )
 
-    preset : EnumProperty(
+    preset = EnumProperty(
         name = 'Bake Target Preset',
         description = 'Customm bake target preset',
         items = (
@@ -142,7 +142,7 @@ class YNewBakeTarget(bpy.types.Operator):
         update = update_new_bake_target_preset
     )
 
-    use_float : BoolProperty(
+    use_float = BoolProperty(
         name = '32-bit Float',
         description = 'Use 32-bit float image',
         default = False
@@ -315,7 +315,7 @@ class YPasteBakeTarget(bpy.types.Operator):
     bl_description = "Paste Bake Target"
     bl_options = {'UNDO'}
 
-    paste_as_new : BoolProperty(
+    paste_as_new = BoolProperty(
         name = 'Paste As New Bake Target',
         default = True
     )
