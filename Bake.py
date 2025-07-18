@@ -3594,19 +3594,27 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
                 create_link(mat.node_tree, height_outp, disp.inputs['Height'])
                 create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])
 
-    if disp and unset_one:
-        height_inp = node.inputs.get(height_ch.name + io_suffix['HEIGHT'])
-        max_height_inp = node.inputs.get(height_ch.name + io_suffix['MAX_HEIGHT'])
+    if unset_one:
+        if disp:
+            height_inp = node.inputs.get(height_ch.name + io_suffix['HEIGHT'])
+            max_height_inp = node.inputs.get(height_ch.name + io_suffix['MAX_HEIGHT'])
 
-        if height_inp and len(height_inp.links) > 0:
-            soc = height_inp.links[0].from_socket
-            create_link(mat.node_tree, soc, disp.inputs['Height'])
-            break_input_link(mat.node_tree, height_inp)
+            if height_inp and len(height_inp.links) > 0:
+                soc = height_inp.links[0].from_socket
+                create_link(mat.node_tree, soc, disp.inputs['Height'])
+                break_input_link(mat.node_tree, height_inp)
 
-        if max_height_inp and len(max_height_inp.links) > 0:
-            soc = max_height_inp.links[0].from_socket
-            create_link(mat.node_tree, soc, disp.inputs['Scale'])
-            break_input_link(mat.node_tree, max_height_inp)
+            if max_height_inp and len(max_height_inp.links) > 0:
+                soc = max_height_inp.links[0].from_socket
+                create_link(mat.node_tree, soc, disp.inputs['Scale'])
+                break_input_link(mat.node_tree, max_height_inp)
+
+        if vdisp:
+            vdisp_inp = node.inputs.get(height_ch.name + io_suffix['VDISP'])
+            if vdisp_inp and len(vdisp_inp.links) > 0:
+                soc = vdisp_inp.links[0].from_socket
+                create_link(mat.node_tree, soc, vdisp.inputs['Vector'])
+                break_input_link(mat.node_tree, height_inp)
 
     return disp
 

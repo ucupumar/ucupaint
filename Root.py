@@ -3247,7 +3247,7 @@ def update_channel_alpha(self, context):
 
         # Set node default_value
         node = get_active_ypaint_node()
-        node.inputs[alpha_name].default_value = 0.0
+        node.inputs[alpha_name].default_value = self.ori_alpha_value
 
         alpha_connected = False
 
@@ -3820,6 +3820,10 @@ class YPaintChannel(bpy.types.PropertyGroup):
     ori_to : CollectionProperty(type=YNodeConnections)
     ori_height_to : CollectionProperty(type=YNodeConnections)
     ori_max_height_to : CollectionProperty(type=YNodeConnections)
+
+    # Default value related
+    ori_alpha_value : FloatProperty(default=0.0)
+    ori_max_height_value : FloatProperty(default=0.1)
 
 class YPaintUV(bpy.types.PropertyGroup):
     name : StringProperty(default='')
