@@ -260,7 +260,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 remove_node(group_tree, channel, 'end_max_height_tweak')
 
             # Engine filter is needed if subdiv is on and channel is baked
-            if yp.use_baked and channel.enable_subdiv_setup and any_layers_using_displacement(channel):
+            if yp.use_baked and channel.enable_subdiv_setup and (any_layers_using_disp(channel) or any_layers_using_vdisp(channel)):
 
                 lib_name = lib.ENGINE_FILTER if is_bl_newer_than(2, 80) else lib.ENGINE_FILTER_LEGACY
                 end_normal_engine_filter = replace_new_node(

@@ -1645,11 +1645,9 @@ def get_valid_filepath(img, use_hdr):
     return img.filepath
 
 def is_baked_normal_without_bump_needed(root_ch):
-    yp = root_ch.id_data.yp
-
     return (
-        (not is_overlay_normal_empty(yp) and (any_layers_using_disp(yp) or any_layers_using_vdisp(yp))) or
-        (root_ch.enable_subdiv_setup and (any_layers_using_disp(yp) or any_layers_using_vdisp(yp)))
+        (not is_overlay_normal_empty(root_ch) and (any_layers_using_disp(root_ch) or any_layers_using_vdisp(root_ch))) or
+        (root_ch.enable_subdiv_setup and (any_layers_using_disp(root_ch) or any_layers_using_vdisp(root_ch)))
     )
 
 def bake_channel(
@@ -2052,7 +2050,7 @@ def bake_channel(
                             mat.node_tree.links.new(soc, mat_out.inputs['Displacement'])
 
             ### Vector Displacement
-            if not any_layers_using_vdisp(yp):
+            if not any_layers_using_vdisp(root_ch):
                 # Remove baked_vdisp
                 remove_node(tree, root_ch, 'baked_vdisp')
             else:
@@ -2117,7 +2115,7 @@ def bake_channel(
                 else:
                     baked_vdisp.image = vdisp_img
 
-            if not any_layers_using_disp(yp):
+            if not any_layers_using_disp(root_ch):
                 # Remove baked_disp
                 remove_node(tree, root_ch, 'baked_disp')
                 remove_node(tree, root_ch, 'end_max_height')
@@ -2144,7 +2142,9 @@ def bake_channel(
                 start = tree.nodes.get(TREE_START)
                 end = tree.nodes.get(TREE_END)
                 ori_soc = end.inputs[root_ch.name].links[0].from_socket
-                max_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
+                if root_ch.name + io_suffix['MAX_HEIGHT'] in start.outputs:
+                    max_height = start.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
+                else: max_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
                 # Get the last layer that output max height
                 for l in yp.layers:
                     if not l.enable or not l.channels[get_channel_index(root_ch)].enable: continue
