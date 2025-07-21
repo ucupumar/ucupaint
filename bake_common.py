@@ -274,22 +274,6 @@ def remember_before_bake(yp=None, mat=None):
     if mat:
         book['ori_bsdf'] = mat.yp.ori_bsdf
 
-    # Remember all objects using the same material
-    objs = get_all_objects_with_same_materials(obj.active_material, True)
-    book['ori_mat_objs'] = [o.name for o in objs]
-    book['ori_mat_objs_active_nodes'] = []
-
-    # Remember other material active nodes
-    for o in objs:
-        active_node_names = []
-        for m in o.data.materials:
-            if m and m.use_nodes and m.node_tree.nodes.active:
-                active_node_names.append(m.node_tree.nodes.active.name)
-                continue
-            active_node_names.append('')
-
-        book['ori_mat_objs_active_nodes'].append(active_node_names)
-
     return book
 
 def get_active_render_uv_node(tree, active_render_uv_name):
@@ -734,9 +718,24 @@ def prepare_bake_settings(
     if book['parallax_ch']:
         book['parallax_ch'].enable_parallax = False
 
+    # Remember object materials related to baking
+    book['ori_mat_objs'] = []
+    book['ori_mat_objs_active_nodes'] = []
+
     for o in objs:
         mat = o.active_material
         if not mat: continue
+
+        # Remember other material active nodes
+        active_node_names = []
+        for m in o.data.materials:
+            if m and m.use_nodes and m.node_tree.nodes.active:
+                active_node_names.append(m.node_tree.nodes.active.name)
+                continue
+            active_node_names.append('')
+
+        book['ori_mat_objs'].append(o.name)
+        book['ori_mat_objs_active_nodes'].append(active_node_names)
 
         # Add extra uv nodes for non connected texture nodes outside yp node
         if uv_map != '':
