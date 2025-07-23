@@ -394,6 +394,7 @@ def prepare_other_objs_channels(yp, other_objs):
     ch_other_mats = []
     ch_other_sockets = []
     ch_other_defaults = []
+    ch_other_default_weights = []
     ch_other_alpha_sockets = []
     ch_other_alpha_defaults = []
 
@@ -406,6 +407,7 @@ def prepare_other_objs_channels(yp, other_objs):
         mats = []
         sockets = []
         defaults = []
+        default_weights = []
         alpha_sockets = []
         alpha_defaults = []
 
@@ -441,6 +443,7 @@ def prepare_other_objs_channels(yp, other_objs):
 
                 socket = None
                 default = None
+                default_weight = 1.0
                 alpha_socket = None
                 alpha_default = 1.0
 
@@ -480,6 +483,22 @@ def prepare_other_objs_channels(yp, other_objs):
                         if len(socket.links) == 0:
                             if default == None:
                                 default = socket.default_value
+
+                                # Blender 4.0 has weight/strength value for some inputs
+                                if is_bl_newer_than(4):
+                                    input_prefixes = ['Subsurface', 'Coat', 'Sheen', 'Emission']
+                                    for prefix in input_prefixes:
+                                        if socket.name.startswith(prefix):
+
+                                            if socket.name.startswith('Emission'):
+                                                weight_socket_name = 'Emission Strength'
+                                            else: weight_socket_name = prefix + ' Weight'
+
+                                            # NOTE: Only set the default weight if there's no dedicated channel for weight in destination yp
+                                            if weight_socket_name not in yp.channels and weight_socket_name != socket.name:
+                                                weight_socket = bsdf_node.inputs.get(weight_socket_name)
+                                                if weight_socket:
+                                                    default_weight = weight_socket.default_value
                         else:
                             socket = socket.links[0].from_socket
 
@@ -498,6 +517,7 @@ def prepare_other_objs_channels(yp, other_objs):
                     mats.append(mat)
                     sockets.append(socket)
                     defaults.append(default)
+                    default_weights.append(default_weight)
                     alpha_sockets.append(alpha_socket)
                     alpha_defaults.append(alpha_default)
 
@@ -508,10 +528,11 @@ def prepare_other_objs_channels(yp, other_objs):
         ch_other_mats.append(mats)
         ch_other_sockets.append(sockets)
         ch_other_defaults.append(defaults)
+        ch_other_default_weights.append(default_weights)
         ch_other_alpha_sockets.append(alpha_sockets)
         ch_other_alpha_defaults.append(alpha_defaults)
 
-    return ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes
+    return ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes
 
 def recover_other_objs_channels(other_objs, ori_mat_no_nodes):
     for o in other_objs:
@@ -2582,7 +2603,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_colors(yp, other_objs)
 
         elif bprops.type == 'OTHER_OBJECT_CHANNELS':
-            ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_channels(yp, other_objs)
+            ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_channels(yp, other_objs)
 
         if not other_objs:
             if overwrite_img:
@@ -3182,16 +3203,23 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 for j, m in enumerate(ch_other_mats[idx]):
                     if m in connected_mats: continue
                     default = ch_other_defaults[idx][j]
+                    default_weight = ch_other_default_weights[idx][j]
                     socket = ch_other_sockets[idx][j]
 
                     temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
                     if not temp_emi: continue
+
+                    # Make sure temporary emission node is connected
+                    if len(temp_emi.outputs[0].links) == 0:
+                        mout = get_material_output(m)
+                        m.node_tree.links.new(temp_emi.outputs[0], mout.inputs[0])
 
                     if default != None:
                         # Set default
                         if type(default) == float:
                             temp_emi.inputs[0].default_value = (default, default, default, 1.0)
                         else: temp_emi.inputs[0].default_value = (default[0], default[1], default[2], 1.0)
+                        temp_emi.inputs[1].default_value = default_weight
 
                         # Break link
                         for l in temp_emi.inputs[0].links:
