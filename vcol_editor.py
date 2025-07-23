@@ -1,4 +1,5 @@
 import bpy, bmesh, numpy, time, os
+from bpy.app.handlers import persistent
 from mathutils import *
 from pathlib import Path
 from bpy.props import *
@@ -161,6 +162,13 @@ def set_custom_eraser_brush_icon(eraser_brush):
     if not is_bl_newer_than(4, 3):
         eraser_brush.use_custom_icon = True
 
+brushes_with_dedicated_tool = [
+    'Blur',
+    'Smear',
+    'Clone',
+    'Fill',
+]
+
 class YToggleEraser(bpy.types.Operator):
     bl_idname = "paint.y_toggle_eraser"
     bl_label = "Toggle Eraser Brush"
@@ -212,6 +220,22 @@ class YToggleEraser(bpy.types.Operator):
             if brush.name == new_brush_name:
                 brush.blend = ve.ori_texpaint_blending_mode if brush.blend == 'ERASE_ALPHA' else 'ERASE_ALPHA'
             else:
+
+                # HACK: Set brush to 'builtin.brush' brush first before using brush with dedicated tool
+                # This is to avoid confusion since by default, if user go back to use 'Brush' tool, it will point to eraser brush
+                if new_brush_name in brushes_with_dedicated_tool:
+                    if ve.ori_texpaint_builtin_brush != '':
+                        set_brush_asset(ve.ori_texpaint_builtin_brush, mode)
+                    else: set_brush_asset('Paint Soft', mode)
+
+                # HACK: Remember what brush the last time used if user use brush with dedicated tool
+                if brush.name in brushes_with_dedicated_tool:
+                    try: bpy.ops.wm.tool_set_by_id(name="builtin.brush")
+                    except Exception as e: print('EXCEPTIION:', e)
+                    brush = context.tool_settings.image_paint.brush
+                    if brush and brush.name not in tex_eraser_asset_names and brush.name not in brushes_with_dedicated_tool:
+                        ve.ori_texpaint_builtin_brush = brush.name
+
                 # Set brush asset
                 set_brush_asset(new_brush_name, mode)
 
@@ -787,6 +811,7 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
 
     ori_texpaint_blending_mode : StringProperty(default='')
     ori_texpaint_brush : StringProperty(default='')
+    ori_texpaint_builtin_brush : StringProperty(default='')
 
     ori_sculpt_blending_mode : StringProperty(default='')
     ori_sculpt_brush : StringProperty(default='')
