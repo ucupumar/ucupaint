@@ -3815,7 +3815,7 @@ def draw_layers_ui(context, layout, node):
                     bbox = col.box()
                     row = bbox.row(align=True)
                     label = 'Toggle Eraser'
-                    if brush.name in tex_eraser_asset_names:
+                    if brush.name in tex_eraser_asset_names or (brush not in tex_default_brushes and brush.blend == 'ERASE_ALPHA'):
                         row.alert = True
                         label = 'Disable Eraser'
                     row.operator('paint.y_toggle_eraser', text=label)

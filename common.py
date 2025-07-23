@@ -586,6 +586,14 @@ tex_eraser_asset_names = [
     'Erase Soft'
 ]
 
+tex_default_brushes = [
+    'Airbrush',
+    'Paint Hard',
+    'Paint Hard Pressure',
+    'Paint Soft',
+    'Paint Soft Pressure',
+]
+
 rgba_letters = ['r', 'g', 'b', 'a']
 nsew_letters = ['n', 's', 'e', 'w']
 
