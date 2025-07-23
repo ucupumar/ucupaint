@@ -3219,13 +3219,15 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         if type(default) == float:
                             temp_emi.inputs[0].default_value = (default, default, default, 1.0)
                         else: temp_emi.inputs[0].default_value = (default[0], default[1], default[2], 1.0)
-                        temp_emi.inputs[1].default_value = default_weight
 
                         # Break link
                         for l in temp_emi.inputs[0].links:
                             m.node_tree.links.remove(l)
                     elif socket:
                         m.node_tree.links.new(socket, temp_emi.inputs[0])
+
+                    # Set default weight
+                    temp_emi.inputs[1].default_value = default_weight
 
                     connected_mats.append(m)
 
