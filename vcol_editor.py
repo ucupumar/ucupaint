@@ -5,6 +5,26 @@ from pathlib import Path
 from bpy.props import *
 from .common import *
 
+tex_default_brush_eraser_pairs = {
+    'Paint Hard' : 'Erase Hard',
+    'Paint Soft' : 'Erase Soft',
+    'Paint Hard Pressure' : 'Erase Hard Pressure',
+    'Smear' : 'Erase Soft',
+    'Airbrush' : 'Erase Soft',
+    'Paint Soft Pressure' : 'Erase Soft',
+    'Clone' : 'Erase Hard',
+    'Blur' : 'Erase Soft',
+    'Fill' : 'Erase Hard',
+    'Mask' : 'Erase Soft',
+}
+
+brushes_with_dedicated_tool = [
+    'Blur',
+    'Smear',
+    'Clone',
+    'Fill',
+]
+
 class YSetActiveVcol(bpy.types.Operator):
     bl_idname = "mesh.y_set_active_vcol"
     bl_label = "Set Active Vertex Color"
@@ -131,19 +151,6 @@ def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
                         return
                     except Exception as e: print(e) 
 
-tex_default_brush_eraser_pairs = {
-    'Paint Hard' : 'Erase Hard',
-    'Paint Soft' : 'Erase Soft',
-    'Paint Hard Pressure' : 'Erase Hard Pressure',
-    'Smear' : 'Erase Soft',
-    'Airbrush' : 'Erase Soft',
-    'Paint Soft Pressure' : 'Erase Soft',
-    'Clone' : 'Erase Hard',
-    'Blur' : 'Erase Soft',
-    'Fill' : 'Erase Hard',
-    'Mask' : 'Erase Soft',
-}
-
 def set_custom_eraser_brush_icon(eraser_brush):
     eraser_icon = 'eraser.png' #if is_bl_newer_than(2, 92) else 'eraser_small.png'
     filepath = get_addon_filepath() + os.sep + 'asset_icons' + os.sep + eraser_icon
@@ -162,13 +169,6 @@ def set_custom_eraser_brush_icon(eraser_brush):
     if not is_bl_newer_than(4, 3):
         eraser_brush.use_custom_icon = True
 
-brushes_with_dedicated_tool = [
-    'Blur',
-    'Smear',
-    'Clone',
-    'Fill',
-]
-
 class YToggleEraser(bpy.types.Operator):
     bl_idname = "paint.y_toggle_eraser"
     bl_label = "Toggle Eraser Brush"
@@ -183,6 +183,7 @@ class YToggleEraser(bpy.types.Operator):
 
         ve = context.scene.ve_edit
         mode = context.object.mode
+        wmyp = context.window_manager.ypprops
 
         # Blender 4.3+ texture paint will switch between available brush asset
         if mode == 'TEXTURE_PAINT' and is_bl_newer_than(4, 3):
@@ -224,8 +225,8 @@ class YToggleEraser(bpy.types.Operator):
                 # HACK: Set brush to 'builtin.brush' brush first before using brush with dedicated tool
                 # This is to avoid confusion since by default, if user go back to use 'Brush' tool, it will point to eraser brush
                 if new_brush_name in brushes_with_dedicated_tool:
-                    if ve.ori_texpaint_builtin_brush != '':
-                        set_brush_asset(ve.ori_texpaint_builtin_brush, mode)
+                    if wmyp.default_builtin_brush != '':
+                        set_brush_asset(wmyp.default_builtin_brush, mode)
                     else: set_brush_asset('Paint Soft', mode)
 
                 # HACK: Remember what brush the last time used if user use brush with dedicated tool
@@ -234,7 +235,7 @@ class YToggleEraser(bpy.types.Operator):
                     except Exception as e: print('EXCEPTIION:', e)
                     brush = context.tool_settings.image_paint.brush
                     if brush and brush.name not in tex_eraser_asset_names and brush.name not in brushes_with_dedicated_tool:
-                        ve.ori_texpaint_builtin_brush = brush.name
+                        wmyp.default_builtin_brush = brush.name
 
                 # Set brush asset
                 set_brush_asset(new_brush_name, mode)

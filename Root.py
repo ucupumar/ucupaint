@@ -4099,6 +4099,7 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     test_result_error : IntProperty(default=0)
     test_result_failed : IntProperty(default=0)
 
+    default_builtin_brush : StringProperty(default='')
     brush_asset_caches : CollectionProperty(type=YPaintBrushAssetCache)
 
     correct_paint_image_name : StringProperty(default='')
