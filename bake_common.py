@@ -60,6 +60,14 @@ def search_join_problematic_texcoord(tree, node):
 
     return False
 
+def get_composite_output_node(tree):
+    node_type = 'GROUP_OUTPUT' if is_bl_newer_than(5) else 'COMPOSITE'
+    for n in tree.nodes:
+        if n.type == node_type:
+            return n
+
+    return None
+
 def is_there_any_missmatched_attribute_types(objs):
     # Get number of attributes founds
     attr_counts = {}
@@ -1093,7 +1101,7 @@ def denoise_image(image):
 
     # Set up compositor
     tree = scene.node_tree
-    composite = [n for n in tree.nodes if n.type == 'COMPOSITE'][0]
+    composite = get_composite_output_node(tree)
     denoise = tree.nodes.new('CompositorNodeDenoise')
     if is_bl_newer_than(5):
         denoise.inputs.get('HDR').default_value = image.is_float
@@ -1177,7 +1185,7 @@ def dither_image(image, dither_intensity=1.0, alpha_aware=True):
 
     # Set up compositor
     tree = scene.node_tree
-    composite = [n for n in tree.nodes if n.type == 'COMPOSITE'][0]
+    composite = get_composite_output_node(tree)
     image_node = tree.nodes.new('CompositorNodeImage')
     image_node.image = image
 
