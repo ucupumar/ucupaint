@@ -49,10 +49,78 @@ class YSetActiveVcol(bpy.types.Operator):
         self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
         return {'CANCELLED'}
 
-def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
-    brush = bpy.data.brushes.get(brush_name)
-    if not brush: return
+def activate_essential_brush(brush_name, essential_asset_identifier):
+    try:
+        bpy.ops.brush.asset_activate(
+            asset_library_type = 'ESSENTIALS', 
+            asset_library_identifier = '',
+            relative_asset_identifier = essential_asset_identifier + os.sep + "Brush" + os.sep + brush_name
+        )
+        return True
+    except Exception as e: print('EXCEPTIION:', e) 
 
+    return False
+
+def activate_local_brush(brush_name):
+    try:
+        bpy.ops.brush.asset_activate(
+            asset_library_type = 'LOCAL', 
+            asset_library_identifier = '', 
+            relative_asset_identifier = 'Brush' + os.sep + brush_name
+        )
+        return True
+    except Exception as e: print('EXCEPTIION:', e) 
+
+    return False
+
+def activate_custom_brush(brush_name, filepath):
+    # Get asset library name and blend path
+    asset_libraries = bpy.context.preferences.filepaths.asset_libraries
+    library_name = ''
+    blend_path = ''
+    for al in asset_libraries:
+        if filepath.startswith(al.path):
+            library_name = al.name
+            blend_path = str(filepath).replace(str(al.path) + os.sep, '')
+            break
+
+    try:
+        bpy.ops.brush.asset_activate(
+            asset_library_type = 'CUSTOM', 
+            asset_library_identifier = library_name,
+            relative_asset_identifier = blend_path + os.sep + "Brush" + os.sep + brush_name
+        )
+        return True
+    except Exception as e: print('EXCEPTIION:', e) 
+
+    return False
+
+def activate_unknown_custom_brush(brush_name):
+    asset_libraries = bpy.context.preferences.filepaths.asset_libraries
+
+    # Look for brush in all asset libraries
+    for asset_library in asset_libraries:
+        library_name = asset_library.name
+        library_path = Path(asset_library.path)
+        blend_files = [fp for fp in library_path.glob("**/*.blend") if fp.is_file()]
+        #print('INFO: Checking library', library_name, 'for brushes')
+        for blend_file in blend_files:
+            with bpy.data.libraries.load(str(blend_file), assets_only=True) as (file_contents, _):
+                if brush_name in file_contents.brushes:
+                    blend_path = str(blend_file).replace(str(library_path) + os.sep, '')
+                    try:
+                        bpy.ops.brush.asset_activate(
+                            asset_library_type = 'CUSTOM', 
+                            asset_library_identifier = library_name, 
+                            relative_asset_identifier = blend_path + "\\Brush\\" + brush_name
+                        )
+
+                        return True
+                    except Exception as e: print(e) 
+
+    return False
+
+def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
     # Get essential asset identifier path
     essential_asset_prefix = "brushes\\essentials_brushes-mesh_"
     mode_type = ''
@@ -61,43 +129,31 @@ def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
     elif mode == 'SCULPT': mode_type = 'sculpt'
     essential_asset_identifier = essential_asset_prefix + mode_type + ".blend"
 
-    if not brush.library:
-        # Local brush
-        try:
-            bpy.ops.brush.asset_activate(
-                asset_library_type = 'LOCAL', 
-                asset_library_identifier = '', 
-                relative_asset_identifier = 'Brush' + os.sep + brush_name
-            )
-        except Exception as e: print('EXCEPTIION:', e) 
-    elif brush.library.name.startswith('essentials_'):
-        # Essential brush
-        try:
-            bpy.ops.brush.asset_activate(
-                asset_library_type = 'ESSENTIALS', 
-                asset_library_identifier = '',
-                relative_asset_identifier = essential_asset_identifier + os.sep + "Brush" + os.sep + brush_name
-            )
-        except Exception as e: print('EXCEPTIION:', e) 
-    else:
-        # Get asset library name and blend path
-        asset_libraries = bpy.context.preferences.filepaths.asset_libraries
-        library_name = ''
-        blend_path = ''
-        for al in asset_libraries:
-            if brush.library.filepath.startswith(al.path):
-                library_name = al.name
-                blend_path = str(brush.library.filepath).replace(str(al.path) + os.sep, '')
-                break
+    # Try to get brush from local data
+    brush = bpy.data.brushes.get(brush_name)
 
-        # Custom brush
-        try:
-            bpy.ops.brush.asset_activate(
-                asset_library_type = 'CUSTOM', 
-                asset_library_identifier = library_name,
-                relative_asset_identifier = blend_path + os.sep + "Brush" + os.sep + brush_name
-            )
-        except Exception as e: print('EXCEPTIION:', e) 
+    if not brush:
+        # Look for essential brush
+        activated = activate_essential_brush(brush_name, essential_asset_identifier)
+
+        # Look for local brush
+        if not activated:
+            activated = activate_local_brush(brush_name)
+
+        # Look for custom brush
+        if not activated:
+            activated = activate_unknown_custom_brush(brush_name)
+    else:
+
+        if brush.library and brush.library.name.startswith('essentials_'):
+            # Essential brush
+            activate_essential_brush(brush_name, essential_asset_identifier)
+        elif not brush.library:
+            # Local brush
+            activate_local_brush(brush_name)
+        else:
+            # Custom brush
+            activate_custom_brush(brush_name, brush.library.filepath)
 
 def set_custom_eraser_brush_icon(eraser_brush):
     eraser_icon = 'eraser.png' #if is_bl_newer_than(2, 92) else 'eraser_small.png'
