@@ -3118,9 +3118,9 @@ def update_enable_baked_outside(self, context):
                             if not is_bl_newer_than(2, 80) and baked_normal_overlay.image.colorspace_settings.name != get_srgb_name():
                                 tex_normal_overlay.color_space = 'NONE'
 
-                            # Displacement setup will use normal without bump if it exists
-                            if ch.enable_subdiv_setup:
-                                mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
+                            # NOTE: Use combined normal since displacement map is not exportable using GLTF
+                            #if ch.enable_subdiv_setup:
+                            #    mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
 
                     for l in outp.links:
                         mtree.links.new(norm.outputs[0], l.to_socket)
