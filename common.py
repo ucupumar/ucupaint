@@ -593,6 +593,14 @@ tex_eraser_asset_names = [
     'Erase Soft'
 ]
 
+tex_default_brushes = [
+    'Airbrush',
+    'Paint Hard',
+    'Paint Hard Pressure',
+    'Paint Soft',
+    'Paint Soft Pressure',
+]
+
 rgba_letters = ['r', 'g', 'b', 'a']
 nsew_letters = ['n', 's', 'e', 'w']
 
@@ -5517,9 +5525,13 @@ def is_any_layer_using_channel(root_ch, node=None):
         inp = node.inputs.get(root_ch.name + io_suffix['ALPHA'])
         if inp and len(inp.links):
             return True
-        inp = node.inputs.get(root_ch.name + io_suffix['HEIGHT'])
-        if inp and len(inp.links):
-            return True
+        if root_ch.type == 'NORMAL':
+            inp = node.inputs.get(root_ch.name + io_suffix['HEIGHT'])
+            if inp and len(inp.links):
+                return True
+            inp = node.inputs.get(root_ch.name + io_suffix['VDISP'])
+            if inp and len(inp.links):
+                return True
 
     for layer in yp.layers:
         if layer.type in {'GROUP', 'BACKGROUND'}: continue
@@ -5742,7 +5754,7 @@ def get_yp_images(yp, udim_only=False, get_baked_channels=False, check_overlay_n
                 if baked_vdisp and baked_vdisp.image and baked_vdisp.image not in images:
                     images.append(baked_vdisp.image)
 
-                if not check_overlay_normal or not is_overlay_normal_empty(yp):
+                if not check_overlay_normal or not is_overlay_normal_empty(ch):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
                         images.append(baked_normal_overlay.image)
@@ -5949,6 +5961,15 @@ def get_node(tree, name, parent=None):
 
     return node
 
+def is_normal_vdisp_input_connected(root_normal_ch):
+    # NOTE: Assuming that the active node is using the input tree
+    node = get_active_ypaint_node()
+    if not node: return False
+
+    io_vdisp_name = root_normal_ch.name + io_suffix['VDISP']
+    vdisp_inp = node.inputs.get(io_vdisp_name)
+    return vdisp_inp and len(vdisp_inp.links) > 0
+
 def is_normal_height_input_connected(root_normal_ch):
     # NOTE: Assuming that the active node is using the input tree
     node = get_active_ypaint_node()
@@ -5966,36 +5987,52 @@ def is_normal_input_connected(root_normal_ch):
     normal_inp = node.inputs.get(root_normal_ch.name)
     return normal_inp and len(normal_inp.links) > 0
 
-def is_overlay_normal_empty(yp):
+def is_overlay_normal_empty(root_ch):
+    yp = root_ch.id_data.yp
+    channel_index = get_channel_index(root_ch)
 
-    root_ch = get_root_height_channel(yp)
-    if root_ch and is_normal_input_connected(root_ch):
+    if is_normal_input_connected(root_ch):
         return False
 
     for l in yp.layers:
-        c = get_height_channel(l)
-        if not c or not get_channel_enabled(c, l): continue
+        if l.type in {'GROUP', 'BACKGROUND'}: continue
+        if channel_index >= len(l.channels): continue
+        c = l.channels[channel_index]
+        if not get_channel_enabled(c, l): continue
         if c.normal_map_type == 'NORMAL_MAP' or (c.normal_map_type == 'BUMP_MAP' and not c.write_height):
             return False
 
     return True
 
-def any_layers_using_vdisp(yp):
+def any_layers_using_vdisp(root_ch):
+    yp = root_ch.id_data.yp
+    channel_index = get_channel_index(root_ch)
+
+    if is_normal_vdisp_input_connected(root_ch):
+        return True
 
     for l in yp.layers:
-        c = get_height_channel(l)
-        if not c or not get_channel_enabled(c, l): continue
+        if l.type in {'GROUP', 'BACKGROUND'}: continue
+        if channel_index >= len(l.channels): continue
+        c = l.channels[channel_index]
+        if not get_channel_enabled(c, l): continue
         if c.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
             return True
 
     return False
 
-def any_layers_using_disp(yp):
+def any_layers_using_disp(root_ch):
+    yp = root_ch.id_data.yp
+    channel_index = get_channel_index(root_ch)
+
+    if is_normal_height_input_connected(root_ch):
+        return True
 
     for l in yp.layers:
         if l.type in {'GROUP', 'BACKGROUND'}: continue
-        c = get_height_channel(l)
-        if not c or not get_channel_enabled(c, l): continue
+        if channel_index >= len(l.channels): continue
+        c = l.channels[channel_index]
+        if not get_channel_enabled(c, l): continue
         if c.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and c.write_height:
             return True
 

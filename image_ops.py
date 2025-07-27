@@ -506,7 +506,7 @@ class YPackImage(bpy.types.Operator):
                     pack_image(baked_vdisp.image)
                     baked_vdisp.image.filepath = ''
 
-                if not is_overlay_normal_empty(yp):
+                if not is_overlay_normal_empty(ch):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image and not baked_normal_overlay.image.packed_file:
                         pack_image(baked_normal_overlay.image)
@@ -775,7 +775,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
                     images.append(baked_vdisp.image)
                     baked_vdisp_image = baked_vdisp.image
 
-                if not is_overlay_normal_empty(yp):
+                if not is_overlay_normal_empty(ch):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         images.append(baked_normal_overlay.image)

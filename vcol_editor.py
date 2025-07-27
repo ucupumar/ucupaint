@@ -1,8 +1,29 @@
 import bpy, bmesh, numpy, time, os
+from bpy.app.handlers import persistent
 from mathutils import *
 from pathlib import Path
 from bpy.props import *
 from .common import *
+
+tex_default_brush_eraser_pairs = {
+    'Paint Hard' : 'Erase Hard',
+    'Paint Soft' : 'Erase Soft',
+    'Paint Hard Pressure' : 'Erase Hard Pressure',
+    'Smear' : 'Erase Soft',
+    'Airbrush' : 'Erase Soft',
+    'Paint Soft Pressure' : 'Erase Soft',
+    'Clone' : 'Erase Hard',
+    'Blur' : 'Erase Soft',
+    'Fill' : 'Erase Hard',
+    'Mask' : 'Erase Soft',
+}
+
+brushes_with_dedicated_tool = [
+    'Blur',
+    'Smear',
+    'Clone',
+    'Fill',
+]
 
 class YSetActiveVcol(bpy.types.Operator):
     bl_idname = "mesh.y_set_active_vcol"
@@ -28,82 +49,56 @@ class YSetActiveVcol(bpy.types.Operator):
         self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
         return {'CANCELLED'}
 
-def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
-
-    wmyp = bpy.context.window_manager.ypprops
-
-    # Get essential asset identifier path
-    essential_asset_prefix = "brushes\\essentials_brushes-mesh_"
-    mode_type = ''
-    if mode == 'TEXTURE_PAINT': mode_type = 'texture'
-    elif mode == 'VERTEX_PAINT': mode_type = 'vertex'
-    elif mode == 'SCULPT': mode_type = 'sculpt'
-    essential_asset_identifier = essential_asset_prefix + mode_type + ".blend"
-
-    # Check asset brush caches first
-    bac = None
-    for cache in wmyp.brush_asset_caches:
-        # Only get brush cache if it's not essential asset or essential assets with correct mode
-        if cache.name == brush_name and (not cache.blend_path.startswith(essential_asset_prefix) or cache.blend_path == essential_asset_identifier):
-            bac = cache
-            break
-
-    if bac:
-        blend_path = bac.blend_path
-        if blend_path != '': blend_path += os.sep
-        try:
-            bpy.ops.brush.asset_activate(
-                asset_library_type = bac.library_type, 
-                asset_library_identifier = bac.library_name, 
-                relative_asset_identifier = blend_path + "Brush\\" + brush_name
-            )
-            return
-        except Exception as e: print('EXCEPTIION:', e) 
-
-    # Try local
-    try:
-        bpy.ops.brush.asset_activate(
-            asset_library_type = 'LOCAL', 
-            asset_library_identifier = "", 
-            relative_asset_identifier = 'Brush\\' + brush_name
-        )
-
-        # Set up the cache for faster loading next time
-        bac = wmyp.brush_asset_caches.add()
-        bac.name = brush_name
-        bac.library_type = 'LOCAL'
-        bac.library_name = ''
-        bac.blend_path = ''
-
-        return
-    except Exception as e: print('EXCEPTIION:', e) 
-
-    # Try essential
+def activate_essential_brush(brush_name, essential_asset_identifier):
     try:
         bpy.ops.brush.asset_activate(
             asset_library_type = 'ESSENTIALS', 
-            asset_library_identifier = "", 
-            relative_asset_identifier = essential_asset_identifier + "\\Brush\\" + brush_name
+            asset_library_identifier = '',
+            relative_asset_identifier = essential_asset_identifier + os.sep + "Brush" + os.sep + brush_name
         )
+        return True
+    except Exception as e: print('EXCEPTIION:', e) 
 
-        # Set up the cache for faster loading next time
-        bac = wmyp.brush_asset_caches.add()
-        bac.name = brush_name
-        bac.library_type = 'ESSENTIALS'
-        bac.library_name = ''
-        bac.blend_path = essential_asset_identifier
+    return False
 
-        return
-    except Exception as e: print(e) 
+def activate_local_brush(brush_name):
+    try:
+        bpy.ops.brush.asset_activate(
+            asset_library_type = 'LOCAL', 
+            asset_library_identifier = '', 
+            relative_asset_identifier = 'Brush' + os.sep + brush_name
+        )
+        return True
+    except Exception as e: print('EXCEPTIION:', e) 
 
-    # Try other libraries
+    return False
 
-    # NOTE: This is insanely slow since it scans all asset library blend files for a single brush
-    # but I dunno any other way :(
-    prefs = bpy.context.preferences
-    filepaths = prefs.filepaths
-    asset_libraries = filepaths.asset_libraries
+def activate_custom_brush(brush_name, filepath):
+    # Get asset library name and blend path
+    asset_libraries = bpy.context.preferences.filepaths.asset_libraries
+    library_name = ''
+    blend_path = ''
+    for al in asset_libraries:
+        if filepath.startswith(al.path):
+            library_name = al.name
+            blend_path = str(filepath).replace(str(al.path) + os.sep, '')
+            break
 
+    try:
+        bpy.ops.brush.asset_activate(
+            asset_library_type = 'CUSTOM', 
+            asset_library_identifier = library_name,
+            relative_asset_identifier = blend_path + os.sep + "Brush" + os.sep + brush_name
+        )
+        return True
+    except Exception as e: print('EXCEPTIION:', e) 
+
+    return False
+
+def activate_unknown_custom_brush(brush_name):
+    asset_libraries = bpy.context.preferences.filepaths.asset_libraries
+
+    # Look for brush in all asset libraries
     for asset_library in asset_libraries:
         library_name = asset_library.name
         library_path = Path(asset_library.path)
@@ -120,28 +115,45 @@ def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
                             relative_asset_identifier = blend_path + "\\Brush\\" + brush_name
                         )
 
-                        # Set up the cache for faster loading next time
-                        bac = wmyp.brush_asset_caches.add()
-                        bac.name = brush_name
-                        bac.library_type = 'CUSTOM'
-                        bac.library_name = library_name
-                        bac.blend_path = blend_path
-
-                        return
+                        return True
                     except Exception as e: print(e) 
 
-tex_default_brush_eraser_pairs = {
-    'Paint Hard' : 'Erase Hard',
-    'Paint Soft' : 'Erase Soft',
-    'Paint Hard Pressure' : 'Erase Hard Pressure',
-    'Smear' : 'Erase Soft',
-    'Airbrush' : 'Erase Soft',
-    'Paint Soft Pressure' : 'Erase Soft',
-    'Clone' : 'Erase Hard',
-    'Blur' : 'Erase Soft',
-    'Fill' : 'Erase Hard',
-    'Mask' : 'Erase Soft',
-}
+    return False
+
+def set_brush_asset(brush_name, mode='TEXTURE_PAINT'):
+    # Get essential asset identifier path
+    essential_asset_prefix = "brushes\\essentials_brushes-mesh_"
+    mode_type = ''
+    if mode == 'TEXTURE_PAINT': mode_type = 'texture'
+    elif mode == 'VERTEX_PAINT': mode_type = 'vertex'
+    elif mode == 'SCULPT': mode_type = 'sculpt'
+    essential_asset_identifier = essential_asset_prefix + mode_type + ".blend"
+
+    # Try to get brush from local data
+    brush = bpy.data.brushes.get(brush_name)
+
+    if not brush:
+        # Look for essential brush
+        activated = activate_essential_brush(brush_name, essential_asset_identifier)
+
+        # Look for local brush
+        if not activated:
+            activated = activate_local_brush(brush_name)
+
+        # Look for custom brush
+        if not activated:
+            activated = activate_unknown_custom_brush(brush_name)
+    else:
+
+        if brush.library and brush.library.name.startswith('essentials_'):
+            # Essential brush
+            activate_essential_brush(brush_name, essential_asset_identifier)
+        elif not brush.library:
+            # Local brush
+            activate_local_brush(brush_name)
+        else:
+            # Custom brush
+            activate_custom_brush(brush_name, brush.library.filepath)
 
 def set_custom_eraser_brush_icon(eraser_brush):
     eraser_icon = 'eraser.png' #if is_bl_newer_than(2, 92) else 'eraser_small.png'
@@ -175,6 +187,7 @@ class YToggleEraser(bpy.types.Operator):
 
         ve = context.scene.ve_edit
         mode = context.object.mode
+        wmyp = context.window_manager.ypprops
 
         # Blender 4.3+ texture paint will switch between available brush asset
         if mode == 'TEXTURE_PAINT' and is_bl_newer_than(4, 3):
@@ -212,6 +225,22 @@ class YToggleEraser(bpy.types.Operator):
             if brush.name == new_brush_name:
                 brush.blend = ve.ori_texpaint_blending_mode if brush.blend == 'ERASE_ALPHA' else 'ERASE_ALPHA'
             else:
+
+                # HACK: Set brush to 'builtin.brush' brush first before using brush with dedicated tool
+                # This is to avoid confusion since by default, if user go back to use 'Brush' tool, it will point to eraser brush
+                if new_brush_name in brushes_with_dedicated_tool:
+                    if wmyp.default_builtin_brush != '':
+                        set_brush_asset(wmyp.default_builtin_brush, mode)
+                    else: set_brush_asset('Paint Soft', mode)
+
+                # HACK: Remember what brush the last time used if user use brush with dedicated tool
+                if brush.name in brushes_with_dedicated_tool:
+                    try: bpy.ops.wm.tool_set_by_id(name="builtin.brush")
+                    except Exception as e: print('EXCEPTIION:', e)
+                    brush = context.tool_settings.image_paint.brush
+                    if brush and brush.name not in tex_eraser_asset_names and brush.name not in brushes_with_dedicated_tool:
+                        wmyp.default_builtin_brush = brush.name
+
                 # Set brush asset
                 set_brush_asset(new_brush_name, mode)
 
@@ -787,6 +816,7 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
 
     ori_texpaint_blending_mode : StringProperty(default='')
     ori_texpaint_brush : StringProperty(default='')
+    ori_texpaint_builtin_brush : StringProperty(default='')
 
     ori_sculpt_blending_mode : StringProperty(default='')
     ori_sculpt_brush : StringProperty(default='')

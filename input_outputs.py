@@ -260,7 +260,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 remove_node(group_tree, channel, 'end_max_height_tweak')
 
             # Engine filter is needed if subdiv is on and channel is baked
-            if yp.use_baked and channel.enable_subdiv_setup and any_layers_using_displacement(channel):
+            if yp.use_baked and channel.enable_subdiv_setup and (any_layers_using_disp(channel) or any_layers_using_vdisp(channel)):
 
                 lib_name = lib.ENGINE_FILTER if is_bl_newer_than(2, 80) else lib.ENGINE_FILTER_LEGACY
                 end_normal_engine_filter = replace_new_node(
@@ -328,6 +328,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
     #print("Checking YP IO. Specific Layer: " + str(specific_layer))
 
+    group_node = get_active_ypaint_node()
     group_tree = yp.id_data
 
     input_index = 0
@@ -394,8 +395,6 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         # Displacement IO
         if ch.type == 'NORMAL' and (ch.enable_subdiv_setup or force_height_io):
 
-            group_node = get_active_ypaint_node()
-
             name = ch.name + io_suffix['HEIGHT']
 
             height_default_value = 0.0
@@ -412,11 +411,10 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
             name = ch.name + io_suffix['MAX_HEIGHT']
 
-            max_height_default_value = 0.1
-            create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=max_height_default_value)
-            # Set node default value
-            if group_node.node_tree == group_tree:
-                group_node.inputs[name].default_value = max_height_default_value
+            if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=0.1):
+                # Set node default value
+                if group_node.node_tree == group_tree:
+                    group_node.inputs[name].default_value = ch.ori_max_height_value
             input_index += 1
 
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
@@ -445,6 +443,19 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     # Check for invalid io
     for inp in get_tree_inputs(group_tree):
         if inp not in valid_inputs:
+
+            # Remember default values
+            for ch in yp.channels:
+
+                if inp.name == ch.name + io_suffix['ALPHA']:
+                    node_inp = group_node.inputs.get(inp.name)
+                    ch.ori_alpha_value = node_inp.default_value
+
+                if ch.type == 'NORMAL':
+                    if inp.name == ch.name + io_suffix['MAX_HEIGHT']:
+                        node_inp = group_node.inputs.get(inp.name)
+                        ch.ori_max_height_value = node_inp.default_value
+
             remove_tree_input(group_tree, inp)
 
     for outp in get_tree_outputs(group_tree):
@@ -600,7 +611,7 @@ def check_layer_texcoord_nodes(layer, tree=None):
                 source.extension = 'CLIP'
 
         # Set decal aspect ratio
-        if image:
+        if image and image.size[0] > 0 and image.size[1] > 0:
             if image.size[0] > image.size[1]:
                 decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
             else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
