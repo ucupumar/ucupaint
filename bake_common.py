@@ -60,13 +60,26 @@ def search_join_problematic_texcoord(tree, node):
 
     return False
 
-def get_composite_output_node(tree):
+def get_compositor_node_tree(scene):
+    if not is_bl_newer_than(5):
+        return scene.node_tree
+    
+    return scene.compositing_node_group
+
+def get_compositor_output_node(tree):
     node_type = 'GROUP_OUTPUT' if is_bl_newer_than(5) else 'COMPOSITE'
     for n in tree.nodes:
         if n.type == node_type:
             return n
 
-    return None
+    # Create new compositor output if there's none
+    if is_bl_newer_than(5):
+        n = tree.nodes.new('NodeGroupOutput')
+        if 'Image' not in n.inputs:
+            new_tree_output(tree, 'Image', 'NodeSocketColor')
+    else: n = tree.nodes.new('CompositorNodeComposite')
+
+    return n
 
 def is_there_any_missmatched_attribute_types(objs):
     # Get number of attributes founds
@@ -1027,7 +1040,11 @@ def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     scene.render.resolution_percentage = 100
     scene.render.pixel_aspect_x = 1.0
     scene.render.pixel_aspect_y = 1.0
-    scene.use_nodes = True
+    if is_bl_newer_than(5):
+        comp_tree = bpy.data.node_groups.new('TEMP_COMPOSITOR_TREE__', 'CompositorNodeTree')
+        scene.compositing_node_group = comp_tree
+    else:
+        scene.use_nodes = True
     scene.view_settings.view_transform = 'Standard' if is_bl_newer_than(2, 80) else 'Default'
     scene.render.dither_intensity = 0.0
 
@@ -1062,7 +1079,7 @@ def recover_composite_settings(book):
 
     # Remove compositor node tree
     if is_bl_newer_than(5):
-        comp_tree = scene.node_tree
+        comp_tree = get_compositor_node_tree(scene)
         remove_datablock(bpy.data.node_groups, comp_tree)
 
     # Remove temp scene
@@ -1100,8 +1117,8 @@ def denoise_image(image):
     scene = bpy.context.scene
 
     # Set up compositor
-    tree = scene.node_tree
-    composite = get_composite_output_node(tree)
+    tree = get_compositor_node_tree(scene)
+    composite = get_compositor_output_node(tree)
     denoise = tree.nodes.new('CompositorNodeDenoise')
     if is_bl_newer_than(5):
         denoise.inputs.get('HDR').default_value = image.is_float
@@ -1184,8 +1201,8 @@ def dither_image(image, dither_intensity=1.0, alpha_aware=True):
     scene.render.dither_intensity = dither_intensity
 
     # Set up compositor
-    tree = scene.node_tree
-    composite = get_composite_output_node(tree)
+    tree = get_compositor_node_tree(scene)
+    composite = get_compositor_output_node(tree)
     image_node = tree.nodes.new('CompositorNodeImage')
     image_node.image = image
 
