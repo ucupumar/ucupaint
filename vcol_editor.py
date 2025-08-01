@@ -18,13 +18,6 @@ tex_default_brush_eraser_pairs = {
     'Mask' : 'Erase Soft',
 }
 
-brushes_with_dedicated_tool = [
-    'Blur',
-    'Smear',
-    'Clone',
-    'Fill',
-]
-
 class YSetActiveVcol(bpy.types.Operator):
     bl_idname = "mesh.y_set_active_vcol"
     bl_label = "Set Active Vertex Color"
@@ -226,19 +219,20 @@ class YToggleEraser(bpy.types.Operator):
                 brush.blend = ve.ori_texpaint_blending_mode if brush.blend == 'ERASE_ALPHA' else 'ERASE_ALPHA'
             else:
 
-                # HACK: Set brush to 'builtin.brush' brush first before using brush with dedicated tool
+                # HACK: Set brush to 'builtin.brush' brush first before using non-draw brush
                 # This is to avoid confusion since by default, if user go back to use 'Brush' tool, it will point to eraser brush
-                if new_brush_name in brushes_with_dedicated_tool:
+                new_brush = bpy.data.brushes.get(new_brush_name)
+                if new_brush and new_brush.image_tool != 'DRAW':
                     if wmyp.default_builtin_brush != '':
                         set_brush_asset(wmyp.default_builtin_brush, mode)
                     else: set_brush_asset('Paint Soft', mode)
 
-                # HACK: Remember what brush the last time used if user use brush with dedicated tool
-                if brush.name in brushes_with_dedicated_tool:
+                # HACK: Remember what brush the last time used if user use non-draw brush
+                if brush.image_tool != 'DRAW':
                     try: bpy.ops.wm.tool_set_by_id(name="builtin.brush")
                     except Exception as e: print('EXCEPTIION:', e)
                     brush = context.tool_settings.image_paint.brush
-                    if brush and brush.name not in tex_eraser_asset_names and brush.name not in brushes_with_dedicated_tool:
+                    if brush and brush.name not in tex_eraser_asset_names and brush.image_tool == 'DRAW':
                         wmyp.default_builtin_brush = brush.name
 
                 # Set brush asset
