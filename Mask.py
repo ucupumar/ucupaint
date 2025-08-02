@@ -1322,29 +1322,6 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         return {'FINISHED'}
 
-''' Check if data is used as layer, if so, source input will change to ALPHA '''
-def update_available_data_name_as_mask(self, context):
-    node = get_active_ypaint_node()
-    yp = node.node_tree.yp
-
-    if self.type == 'IMAGE':
-        for layer in yp.layers:
-            if layer.type == 'IMAGE':
-                source = get_layer_source(layer)
-                if source.image and source.image.name == self.image_name:
-                    self.source_input = 'ALPHA'
-                    return
-
-    elif self.type == 'VCOL' and is_bl_newer_than(2, 92):
-        for layer in yp.layers:
-            if layer.type == 'VCOL':
-                source = get_layer_source(layer)
-                if source.attribute_name == self.vcol_name:
-                    self.source_input = 'ALPHA'
-                    return
-
-    self.source_input = 'RGB'
-
 class YOpenAvailableDataAsMask(bpy.types.Operator):
     bl_idname = "wm.y_open_available_data_as_mask"
     bl_label = "Open available data as Layer Mask"
@@ -1387,10 +1364,10 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    image_name : StringProperty(name="Image", update=update_available_data_name_as_mask)
+    image_name : StringProperty(name="Image")
     image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    vcol_name : StringProperty(name="Vertex Color", update=update_available_data_name_as_mask)
+    vcol_name : StringProperty(name="Vertex Color")
     vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     blend_type : EnumProperty(
