@@ -7971,6 +7971,9 @@ def unregister():
     if is_bl_newer_than(3):
         bpy.types.ASSETBROWSER_MT_context_menu.remove(draw_yp_asset_browser_menu)
 
+    if is_bl_newer_than(2, 81):
+        bpy.types.FILEBROWSER_MT_context_menu.remove(draw_yp_file_browser_menu)
+
     # Remove Handlers
     bpy.app.handlers.load_post.remove(yp_load_ui_settings)
     bpy.app.handlers.save_pre.remove(yp_save_ui_settings)
