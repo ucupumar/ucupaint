@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem
+from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -1090,32 +1090,11 @@ class YNewLayerMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
+class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
     """Open Image as Mask"""
     bl_idname = "wm.y_open_image_as_mask"
     bl_label = "Open Image as Mask"
     bl_options = {'REGISTER', 'UNDO'}
-
-    # File related
-    files : CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
-    directory : StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
-
-    # File browser filter
-    filter_folder : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_image : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-
-    display_type : EnumProperty(
-        items = (
-            ('FILE_DEFAULTDISPLAY', 'Default', ''),
-            ('FILE_SHORTDISLPAY', 'Short List', ''),
-            ('FILE_LONGDISPLAY', 'Long List', ''),
-            ('FILE_IMGDISPLAY', 'Thumbnails', '')
-        ),
-        default = 'FILE_IMGDISPLAY',
-        options = {'HIDDEN', 'SKIP_SAVE'}
-    )
-
-    relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
     interpolation : EnumProperty(
         name = 'Image Interpolation Type',
@@ -1158,9 +1137,6 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
     )
 
     file_browser_filepath : StringProperty(default='')
-
-    def generate_paths(self):
-        return (fn.name for fn in self.files), self.directory
 
     @classmethod
     def poll(cls, context):
@@ -1215,8 +1191,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 return self.execute(context)
             return context.window_manager.invoke_props_dialog(self)
 
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
+        return self.running_fileselect_modal(context, event)
 
     def check(self, context):
         return True

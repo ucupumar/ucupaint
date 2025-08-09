@@ -4,7 +4,7 @@ from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
 from .common import *
 import time
-from . import UDIM, subtree
+from . import UDIM, subtree, BaseOperator
 
 def preserve_float_color_hack_before_saving(image):
     if not image.is_float or not is_bl_newer_than(2, 80): return
@@ -908,7 +908,7 @@ def get_file_format_items():
 
     return items
 
-class YSaveAsImage(bpy.types.Operator, ExportHelper):
+class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOptions):
     """Save As Image"""
     bl_idname = "wm.y_save_as_image"
     bl_label = "Save As Image"
@@ -919,20 +919,6 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         items = get_file_format_items(),
         default = 'PNG',
         update = update_save_as_file_format
-    )
-
-    # File browser filter
-    filter_folder : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_image : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    display_type : EnumProperty(
-        items = (
-            ('FILE_DEFAULTDISPLAY', 'Default', ''),
-            ('FILE_SHORTDISLPAY', 'Short List', ''),
-            ('FILE_LONGDISPLAY', 'Long List', ''),
-            ('FILE_IMGDISPLAY', 'Thumbnails', '')
-        ),
-        default = 'FILE_IMGDISPLAY',
-        options = {'HIDDEN', 'SKIP_SAVE'}
     )
 
     copy : BoolProperty(
