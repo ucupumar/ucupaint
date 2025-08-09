@@ -4294,10 +4294,10 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
             source.image = image
-            #if hasattr(source, 'color_space'):
-            #    source.color_space = 'NONE'
-            #if image.colorspace_settings.name != get_noncolor_name():
-            #    image.colorspace_settings.name = get_noncolor_name()
+
+            if layer.texcoord_type == 'Decal':
+                source.extension = 'CLIP'
+
         elif new_type == 'VCOL':
             set_source_vcol_name(source, item_name)
         elif new_type == 'HEMI':

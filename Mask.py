@@ -389,6 +389,10 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
             source.image = image
+
+            if mask.texcoord_type == 'Decal':
+                source.extension = 'CLIP'
+
             if hasattr(source, 'color_space'):
                 source.color_space = 'NONE'
             if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
