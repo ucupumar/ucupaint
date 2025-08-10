@@ -1349,16 +1349,13 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if len(self.channels) > 0:
 
             # Check if any layer is using the channels
-            if self.only_active_channel:
-                self.no_layer_using = not is_any_layer_using_channel(self.channels[0], node)
-            else:
-                layer_found = False
-                for ch in self.channels:
-                    if is_any_layer_using_channel(ch, node):
-                        layer_found = True
-                        break
-                if not layer_found:
-                    self.no_layer_using = True
+            layer_found = False
+            for ch in self.channels:
+                if is_any_layer_using_channel(ch, node):
+                    layer_found = True
+                    break
+            if not layer_found:
+                self.no_layer_using = True
 
             bi = None
             for ch in self.channels:
