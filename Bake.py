@@ -1338,12 +1338,28 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     self.uv_map_coll.add().name = uv.name
 
         # List of channels that will be baked
-        if self.only_active_channel and yp.active_channel_index < len(yp.channels):
-            self.channels = [yp.channels[yp.active_channel_index]]
+        self.channels = []
+        if self.only_active_channel:
+            if yp.active_channel_index < len(yp.channels):
+                self.channels = [yp.channels[yp.active_channel_index]]
         else: self.channels = yp.channels
 
+        self.no_layer_using = False
         self.enable_bake_as_vcol = False
         if len(self.channels) > 0:
+
+            # Check if any layer is using the channels
+            if self.only_active_channel:
+                self.no_layer_using = not is_any_layer_using_channel(self.channels[0], node)
+            else:
+                layer_found = False
+                for ch in self.channels:
+                    if is_any_layer_using_channel(ch, node):
+                        layer_found = True
+                        break
+                if not layer_found:
+                    self.no_layer_using = True
+
             bi = None
             for ch in self.channels:
                 baked = node.node_tree.nodes.get(ch.baked)
@@ -1373,7 +1389,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if self.vcol_force_first_ch_idx == '':
             self.vcol_force_first_ch_idx = 'Do Nothing'
 
-        if get_user_preferences().skip_property_popups and not event.shift:
+        if (get_user_preferences().skip_property_popups and not event.shift) or len(self.channels) == 0 or self.no_layer_using:
             return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
@@ -1515,6 +1531,18 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         scene = context.scene
         obj = context.object
         mat = obj.active_material
+
+        if len(self.channels) == 0:
+            self.report({'ERROR'}, "This node has no channel!")
+            return {'CANCELLED'}
+
+        if self.only_active_channel and self.no_layer_using:
+            self.report({'ERROR'}, "No layer is using '"+self.channels[0].name+"' channel!")
+            return {'CANCELLED'}
+
+        if self.no_layer_using:
+            self.report({'ERROR'}, "No layer is using any channel!")
+            return {'CANCELLED'}
 
         if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
             self.report({'ERROR'}, "Please unhide render and viewport of the active object!")

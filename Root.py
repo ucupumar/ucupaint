@@ -2803,6 +2803,7 @@ def update_active_yp_channel(self, context):
     obj = context.object
     tree = self.id_data
     yp = tree.yp
+    if len(yp.channels) == 0: return
     ch = yp.channels[yp.active_channel_index]
 
     if yp.preview_mode: update_preview_mode(yp, context)
