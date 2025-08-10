@@ -1740,6 +1740,44 @@ class YRemoveLayerMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YOpenImageToReplaceMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
+    """Open Image to Replace Mask"""
+    bl_idname = "wm.y_open_image_to_replace_mask"
+    bl_label = "Open Image to Replace Mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        self.mask = context.mask
+        return self.running_fileselect_modal(context, event)
+
+    def execute(self, context):
+
+        T = time.time()
+
+        wm = context.window_manager
+        mask = self.mask
+        yp = mask.id_data.yp
+
+        loaded_images = self.get_loaded_images()
+
+        if len(loaded_images) == 0 or loaded_images[0] == None:
+            self.report({'ERROR'}, "No image is selected!")
+            return {'CANCELLED'}
+
+        image = loaded_images[0]
+
+        replace_mask_type(mask, 'IMAGE', image.name)
+
+        print('INFO: Layer', mask.name, 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
+
 class YReplaceMaskType(bpy.types.Operator):
     bl_idname = "wm.y_replace_mask_type"
     bl_label = "Replace Mask Type"
@@ -2617,6 +2655,7 @@ def register():
     bpy.utils.register_class(YNewLayerMask)
     bpy.utils.register_class(YOpenImageAsMask)
     bpy.utils.register_class(YOpenAvailableDataAsMask)
+    bpy.utils.register_class(YOpenImageToReplaceMask)
     bpy.utils.register_class(YMoveLayerMask)
     bpy.utils.register_class(YRemoveLayerMask)
     bpy.utils.register_class(YReplaceMaskType)
@@ -2628,6 +2667,7 @@ def unregister():
     bpy.utils.unregister_class(YNewLayerMask)
     bpy.utils.unregister_class(YOpenImageAsMask)
     bpy.utils.unregister_class(YOpenAvailableDataAsMask)
+    bpy.utils.unregister_class(YOpenImageToReplaceMask)
     bpy.utils.unregister_class(YMoveLayerMask)
     bpy.utils.unregister_class(YRemoveLayerMask)
     bpy.utils.unregister_class(YReplaceMaskType)

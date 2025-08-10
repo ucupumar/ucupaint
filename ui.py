@@ -6949,8 +6949,12 @@ class YLayerTypeMenu(bpy.types.Menu):
             icon = 'RADIOBUT_ON' if layer.type == 'IMAGE' else 'RADIOBUT_OFF'
             col.label(text='Image' + suffix, icon=icon)
 
-        label = 'Open Available Image' if layer.type != 'IMAGE' else 'Replace Image'
-        op = col.operator('wm.y_replace_layer_type', text=folder_emoji+label) #, icon_value=lib.get_icon('open_image'))
+        label = 'Open Image' if layer.type != 'IMAGE' else 'Replace Image'
+        op = col.operator('wm.y_open_image_to_replace_layer', text=folder_emoji+label)
+
+        label = 'Open Available Image' if layer.type != 'IMAGE' else 'Replace with Available Image'
+        #label = 'Open Available Image'
+        op = col.operator('wm.y_replace_layer_type', text=folder_emoji+label)
         op.type = 'IMAGE'
         op.load_item = True
 
@@ -7062,8 +7066,11 @@ class YMaskTypeMenu(bpy.types.Menu):
             icon = 'RADIOBUT_ON' if mask.type == 'IMAGE' else 'RADIOBUT_OFF'
             col.label(text='Image' + suffix, icon=icon)
 
-        label = 'Open Available Image' if mask.type != 'IMAGE' else 'Replace Image'
-        op = col.operator('wm.y_replace_mask_type', text=folder_emoji+label) #, icon_value=lib.get_icon('open_image'))
+        label = 'Open Image' if mask.type != 'IMAGE' else 'Replace Image'
+        op = col.operator('wm.y_open_image_to_replace_mask', text=folder_emoji+label)
+
+        label = 'Open Available Image' if mask.type != 'IMAGE' else 'Replace with Available Image'
+        op = col.operator('wm.y_replace_mask_type', text=folder_emoji+label)
         op.type = 'IMAGE'
         op.load_item = True
 

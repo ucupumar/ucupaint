@@ -1,6 +1,5 @@
 import bpy
 from bpy.props import *
-from bpy_extras.io_utils import ImportHelper
 from .common import *
 
 class FileSelectOptions():

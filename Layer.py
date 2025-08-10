@@ -4508,6 +4508,43 @@ class YSetLayerChannelInput(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YOpenImageToReplaceLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
+    """Open Image to Replace Layer"""
+    bl_idname = "wm.y_open_image_to_replace_layer"
+    bl_label = "Open Image to Replace Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        self.layer = context.layer
+        return self.running_fileselect_modal(context, event)
+
+    def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
+        layer = self.layer
+        yp = layer.id_data.yp
+
+        loaded_images = self.get_loaded_images()
+
+        if len(loaded_images) == 0 or loaded_images[0] == None:
+            self.report({'ERROR'}, "No image is selected!")
+            return {'CANCELLED'}
+
+        image = loaded_images[0]
+
+        replace_layer_type(layer, 'IMAGE', image.name)
+
+        print('INFO: Layer', layer.name, 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
+
 class YReplaceLayerType(bpy.types.Operator):
     bl_idname = "wm.y_replace_layer_type"
     bl_label = "Replace Layer Type"
@@ -7192,6 +7229,7 @@ def register():
     bpy.utils.register_class(YOpenImageToLayer)
     bpy.utils.register_class(YOpenImagesToSingleLayer)
     bpy.utils.register_class(YOpenImagesFromMaterialToLayer)
+    bpy.utils.register_class(YOpenImageToReplaceLayer)
     bpy.utils.register_class(YOpenImageToOverrideChannel)
     bpy.utils.register_class(YOpenImageToOverride1Channel)
     bpy.utils.register_class(YOpenAvailableDataToLayer)
@@ -7227,6 +7265,7 @@ def unregister():
     bpy.utils.unregister_class(YOpenImageToLayer)
     bpy.utils.unregister_class(YOpenImagesToSingleLayer)
     bpy.utils.unregister_class(YOpenImagesFromMaterialToLayer)
+    bpy.utils.unregister_class(YOpenImageToReplaceLayer)
     bpy.utils.unregister_class(YOpenImageToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToOverride1Channel)
     bpy.utils.unregister_class(YOpenAvailableDataToLayer)
