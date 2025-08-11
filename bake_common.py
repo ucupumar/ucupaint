@@ -1786,6 +1786,19 @@ def bake_channel(
     #for l in output.inputs['Displacement'].links:
     #    disp_from_socket = l.from_socket
 
+    # Original displacement connection
+    ori_disp_from_node = ''
+    ori_disp_from_socket = ''
+
+    # Remove displacement link early if displacement setup is enabled and the current channel is not normal channel
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch and root_ch != height_root_ch and height_root_ch.enable_subdiv_setup:
+        for link in mat_out.inputs['Displacement'].links:
+            ori_disp_from_node = link.from_node.name
+            ori_disp_from_socket = link.from_socket.name
+            mat.node_tree.links.remove(link)
+            break
+
     # Connect emit to output material
     mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
@@ -1991,6 +2004,14 @@ def bake_channel(
         # Make sure height outputs available
         check_all_channel_ios(yp, reconnect=True, force_height_io=True)
 
+        # Break displacement connection if displacement setup is enabled
+        if root_ch.enable_subdiv_setup:
+            for link in mat_out.inputs['Displacement'].links:
+                ori_disp_from_node = link.from_node.name
+                ori_disp_from_socket = link.from_socket.name
+                mat.node_tree.links.remove(link)
+                break
+
         if not target_layer:
 
             ### Normal without bump only
@@ -1998,18 +2019,6 @@ def bake_channel(
                 # Remove baked_normal_overlay
                 remove_node(tree, root_ch, 'baked_normal_overlay')
             else:
-
-                # Original displacement connection
-                ori_disp_from_node = ''
-                ori_disp_from_socket = ''
-
-                # Remove displacement link if subdiv setup is on
-                if root_ch.enable_subdiv_setup:
-                    for link in mat_out.inputs['Displacement'].links:
-                        ori_disp_from_node = link.from_node.name
-                        ori_disp_from_socket = link.from_socket.name
-                        mat.node_tree.links.remove(link)
-                        break
 
                 baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
                 if not baked_normal_overlay:
@@ -2085,14 +2094,6 @@ def bake_channel(
                     remove_datablock(bpy.data.images, temp)
                 else:
                     baked_normal_overlay.image = norm_img
-
-                # Recover displacement link
-                if ori_disp_from_node != '':
-                    nod = mat.node_tree.nodes.get(ori_disp_from_node)
-                    if nod: 
-                        soc = nod.outputs.get(ori_disp_from_socket)
-                        if soc:
-                            mat.node_tree.links.new(soc, mat_out.inputs['Displacement'])
 
             ### Vector Displacement
             if not any_layers_using_vdisp(root_ch):
@@ -2370,6 +2371,14 @@ def bake_channel(
     simple_remove_node(mat.node_tree, emit)
     if bsdf: simple_remove_node(mat.node_tree, bsdf)
     if norm: simple_remove_node(mat.node_tree, norm)
+
+    # Recover displacement link
+    if ori_disp_from_node != '':
+        nod = mat.node_tree.nodes.get(ori_disp_from_node)
+        if nod: 
+            soc = nod.outputs.get(ori_disp_from_socket)
+            if soc:
+                mat.node_tree.links.new(soc, mat_out.inputs['Displacement'])
 
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
