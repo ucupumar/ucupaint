@@ -402,7 +402,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, 
                 min_value=0.0, max_value=1.0, default_value=height_default_value, hide_value=True
             )
-            if group_node.node_tree == group_tree:
+            if group_node and group_node.node_tree == group_tree:
                 group_node.inputs[name].default_value = height_default_value
             input_index += 1
 
@@ -413,7 +413,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
             if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=0.1):
                 # Set node default value
-                if group_node.node_tree == group_tree:
+                if group_node and group_node.node_tree == group_tree:
                     group_node.inputs[name].default_value = ch.ori_max_height_value
             input_index += 1
 
@@ -447,12 +447,12 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
             # Remember default values
             for ch in yp.channels:
 
-                if inp.name == ch.name + io_suffix['ALPHA']:
+                if group_node and inp.name == ch.name + io_suffix['ALPHA']:
                     node_inp = group_node.inputs.get(inp.name)
                     ch.ori_alpha_value = node_inp.default_value
 
                 if ch.type == 'NORMAL':
-                    if inp.name == ch.name + io_suffix['MAX_HEIGHT']:
+                    if group_node and inp.name == ch.name + io_suffix['MAX_HEIGHT']:
                         node_inp = group_node.inputs.get(inp.name)
                         ch.ori_max_height_value = node_inp.default_value
 
