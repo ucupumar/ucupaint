@@ -3162,8 +3162,8 @@ def update_channel_alpha(self, context):
     outputs = get_tree_outputs(group_tree)
 
     # Baked outside nodes
-    frame = get_node(mat.node_tree, yp.baked_outside_frame)
-    tex = get_node(mat.node_tree, self.baked_outside, parent=frame)
+    frame = get_node(mat.node_tree, yp.baked_outside_frame) if mat else None
+    tex = get_node(mat.node_tree, self.baked_outside, parent=frame) if mat else None
 
     # Shift fcurves
     if self.enable_alpha:
