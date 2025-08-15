@@ -3178,7 +3178,7 @@ def update_channel_alpha(self, context):
 
     if not self.enable_alpha:
 
-        if not any(alpha_chs):
+        if yp.alpha_auto_setup and not any(alpha_chs) and mat:
 
             # Set material to use opaque (only for legacy renderer)
             if not is_bl_newer_than(4, 2):
@@ -3189,29 +3189,32 @@ def update_channel_alpha(self, context):
                     mat.game_settings.alpha_blend = 'OPAQUE'
 
         node = get_active_ypaint_node()
-        inp = node.inputs[self.io_index + 1]
+        inp = node.inputs[self.io_index + 1] if node else None
+        outp = None
 
         if yp.use_baked and yp.enable_baked_outside and tex:
             outp = tex.outputs[1]
-        else:
+        elif node:
             outp = node.outputs[self.io_index + 1]
 
         # Remember the connections
-        if len(inp.links) > 0:
+        if inp and len(inp.links) > 0:
             self.ori_alpha_from.node = inp.links[0].from_node.name
             self.ori_alpha_from.socket = inp.links[0].from_socket.name
-        for link in outp.links:
-            con = self.ori_alpha_to.add()
-            con.node = link.to_node.name
-            con.socket = link.to_socket.name
+
+        if outp:
+            for link in outp.links:
+                con = self.ori_alpha_to.add()
+                con.node = link.to_node.name
+                con.socket = link.to_socket.name
 
         # Remove connection for baked outside
-        if yp.use_baked and yp.enable_baked_outside and tex:
+        if yp.use_baked and yp.enable_baked_outside and tex and outp and mat:
             for l in outp.links:
                 mat.node_tree.links.remove(link)
 
         # Try to reconnect input to output
-        fn = mat.node_tree.nodes.get(self.ori_alpha_from.node)
+        fn = mat.node_tree.nodes.get(self.ori_alpha_from.node) if mat else None
         if fn:
             fs = fn.outputs.get(self.ori_alpha_from.socket)
             if fs:
@@ -3228,7 +3231,7 @@ def update_channel_alpha(self, context):
 
     if self.enable_alpha:
 
-        if any(alpha_chs):
+        if yp.alpha_auto_setup and any(alpha_chs) and mat:
 
             if is_bl_newer_than(4, 2):
                 # Settings for eevee next
@@ -3253,25 +3256,25 @@ def update_channel_alpha(self, context):
         alpha_connected = False
 
         # Try to relink to original connections
-        #tree = context.object.active_material.node_tree
-        tree = mat.node_tree
-        try:
-            node_from = tree.nodes.get(self.ori_alpha_from.node)
-            socket_from = node_from.outputs[self.ori_alpha_from.socket]
-            tree.links.new(socket_from, node.inputs[alpha_name])
-        except: pass
+        tree = mat.node_tree if mat else None
+        if tree:
+            try:
+                node_from = tree.nodes.get(self.ori_alpha_from.node)
+                socket_from = node_from.outputs[self.ori_alpha_from.socket]
+                tree.links.new(socket_from, node.inputs[alpha_name])
+            except: pass
 
-        for con in self.ori_alpha_to:
-            node_to = tree.nodes.get(con.node)
-            if not node_to: continue
-            socket_to = node_to.inputs.get(con.socket)
-            if not socket_to: continue
-            if len(socket_to.links) < 1:
-                if yp.use_baked and yp.enable_baked_outside and tex:
-                    mat.node_tree.links.new(tex.outputs[1], socket_to)
-                else:
-                    tree.links.new(node.outputs[alpha_name], socket_to)
-                alpha_connected = True
+            for con in self.ori_alpha_to:
+                node_to = tree.nodes.get(con.node)
+                if not node_to: continue
+                socket_to = node_to.inputs.get(con.socket)
+                if not socket_to: continue
+                if len(socket_to.links) < 1:
+                    if yp.use_baked and yp.enable_baked_outside and tex:
+                        mat.node_tree.links.new(tex.outputs[1], socket_to)
+                    else:
+                        tree.links.new(node.outputs[alpha_name], socket_to)
+                    alpha_connected = True
 
         # Try to connect alpha without prior memory
         if yp.alpha_auto_setup and not alpha_connected:
@@ -4034,7 +4037,7 @@ class YPaint(bpy.types.PropertyGroup):
         update = update_enable_tangent_sign_hacks
     )
 
-    # When enabled, alpha can create some node setup, disable this to avoid that
+    # When enabled, alpha can create some node setup and change material settings, disable this to avoid that
     alpha_auto_setup : BoolProperty(default=True)
 
     # HACK: Refresh tree to remove glitchy normal
