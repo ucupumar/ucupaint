@@ -2582,8 +2582,13 @@ def set_srgb_view_transform():
         scene.yp.ori_look = scene.view_settings.look
         scene.view_settings.look = 'None'
 
-        scene.yp.ori_use_compositing = scene.use_nodes
-        scene.use_nodes = False
+        if is_bl_newer_than(5):
+            if scene.compositing_node_group:
+                scene.yp.ori_compositing_node_name = scene.compositing_node_group.name
+                scene.compositing_node_group = None
+        else:
+            scene.yp.ori_use_compositing = scene.use_nodes
+            scene.use_nodes = False
 
         scene.yp.ori_view_transform = scene.view_settings.view_transform
         if is_bl_newer_than(2, 80):
@@ -2630,7 +2635,12 @@ def remove_preview(mat, advanced=False):
             scene.view_settings.exposure = scene.yp.ori_exposure
             scene.view_settings.gamma = scene.yp.ori_gamma
             scene.view_settings.use_curve_mapping = scene.yp.ori_use_curve_mapping
-            scene.use_nodes = scene.yp.ori_use_compositing
+            if is_bl_newer_than(5):
+                if scene.yp.ori_compositing_node_name != '':
+                    cng = bpy.data.node_groups.get(scene.yp.ori_compositing_node_name)
+                    if cng: scene.compositing_node_group = cng
+                    scene.yp.ori_compositing_node_name = ''
+            else: scene.use_nodes = scene.yp.ori_use_compositing
 
 #def update_merge_mask_mode(self, context):
 #    if not self.layer_preview_mode:
@@ -4116,6 +4126,7 @@ class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_look : StringProperty(default='')
     ori_use_curve_mapping : BoolProperty(default=False)
     ori_use_compositing : BoolProperty(default=False)
+    ori_compositing_node_name : StringProperty(default='')
 
 class YPaintObjectUVHash(bpy.types.PropertyGroup):
     name : StringProperty(default='')
