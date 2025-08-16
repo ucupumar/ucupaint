@@ -541,7 +541,7 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
                 source.extension = 'CLIP'
 
         # Set decal aspect ratio
-        if image:
+        if image and image.size[0] > 0 and image.size[1] > 0:
             if image.size[0] > image.size[1]:
                 decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
             else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
