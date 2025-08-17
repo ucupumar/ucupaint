@@ -455,12 +455,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     roughness : BoolProperty(name='Roughness', default=True)
     normal : BoolProperty(name='Normal', default=True)
 
-    mute_texture_paint_overlay : BoolProperty(
-        name = 'Mute Stencil Mask Opacity',
-        description = 'Set Stencil Mask Opacity found in the 3D Viewport\'s Overlays menu to 0',
-        default = True
-    )
-
     use_linear_blending : BoolProperty(
         name = 'Use Linear Color Blending',
         description = 'Use more accurate linear color blending (it will behave differently than Photoshop)',
@@ -474,7 +468,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     )
 
     target_bsdf_name : StringProperty(default='')
-    not_muted_paint_opacity : BoolProperty(default=False)
     not_on_material_view : BoolProperty(default=True)
 
     @classmethod
@@ -504,13 +497,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             if bsdf_node:
                 self.type = bsdf_node.type
                 self.target_bsdf_name = bsdf_node.name
-
-        self.not_muted_paint_opacity = False
-        if is_bl_newer_than(2, 80):
-            for area in context.screen.areas:
-                if area.type == 'VIEW_3D':
-                    self.not_muted_paint_opacity = area.spaces[0].overlay.texture_paint_mode_opacity > 0.0
-                    break
 
         self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_bl_newer_than(2, 80) and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_bl_newer_than(2, 80) and space.shading.type not in {'MATERIAL', 'RENDERED'}))
 
@@ -555,9 +541,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ccol.prop(self, 'normal', toggle=True)
 
         col.prop(self, 'use_linear_blending')
-
-        if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity:
-            col.prop(self, 'mute_texture_paint_overlay')
 
         if self.not_on_material_view:
             col.prop(self, 'switch_to_material_view')
@@ -798,10 +781,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # Disable overlay in Blender 2.8
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
-                if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity and self.mute_texture_paint_overlay:
-                    area.spaces[0].overlay.texture_paint_mode_opacity = 0.0
-                    area.spaces[0].overlay.vertex_paint_mode_opacity = 0.0
-
                 if self.not_on_material_view and self.switch_to_material_view:
                     if not is_bl_newer_than(2, 80):
                         area.spaces[0].viewport_shade = 'MATERIAL'
