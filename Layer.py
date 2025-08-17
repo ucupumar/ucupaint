@@ -5439,6 +5439,9 @@ class YPasteLayer(bpy.types.Operator):
             new_layer = yp.layers.add()
             new_layer.name = get_unique_name(ls.name, yp.layers)
 
+            # Get original source layer again to avoid pointer error after adding new layer
+            ls = yp_source.layers.get(lname)
+
             # Copy layer props
             copy_id_props(ls, new_layer, ['name'])
 
