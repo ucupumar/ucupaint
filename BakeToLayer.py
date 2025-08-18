@@ -186,7 +186,9 @@ def get_bake_properties_from_self(self):
         'use_image_atlas',
         'use_udim',
         'blur',
-        'blur_factor'
+        'blur_type',
+        'blur_factor',
+        'blur_size'
     ]
 
     for prop in props:
@@ -941,17 +943,40 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         description = 'Use Image Atlas',
         default = False
     )
+    
+    blur_type : EnumProperty(
+        name = 'Blur Type', 
+        description = 'Blur type for the baked image',
+        items = (
+            ('NOISE', 'Noise', 'Noisy and need more samples but has matching value to the blur vector option'),
+            ('FLAT', 'Flat', 'Flat blur'),
+            ('TENT', 'Tent', 'Tent blur'),
+            ('QUAD', 'Quadratic', 'Quadratic blur'),
+            ('CUBIC', 'Cubic', 'Cubic blur'),
+            ('GAUSS', 'Gaussian', 'Gausssian blur'),
+            ('FAST_GAUSS', 'Fast Gaussian', 'Fast gausssian blur'),
+            ('CATROM', 'Catrom', 'Catrom blur'),
+            ('MITCH', 'Mitch', 'Mitch blur')
+        ),
+        default='GAUSS'
+    )
 
     blur : BoolProperty(
         name = 'Use Blur', 
-        description = 'Use blur to baked image',
+        description = 'Use blur to the baked image',
         default = False
     )
 
     blur_factor : FloatProperty(
         name = 'Blur Factor',
-        description = 'Blur factor to baked image',
+        description = 'Blur factor to the baked image',
         default=1.0, min=0.0, max=100.0
+    )
+
+    blur_size : FloatProperty(
+        name = 'Blur Size',
+        description = 'Blur size (in pixels) to the baked image',
+        default=10.0, min=0.0
     )
 
     duplicate_entity : BoolProperty(
@@ -1138,6 +1163,14 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             col.label(text='Bake Device:')
         col.separator()
         col.label(text='')
+
+        if self.blur:
+            if self.blur_type == 'NOISE':
+                col.label(text='Blur Factor:')
+            else: col.label(text='Blur Size:')
+            col.separator()
+
+        col.label(text='')
         if is_bl_newer_than(2, 81):
             col.label(text='')
         col.label(text='')
@@ -1169,15 +1202,23 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             col.separator()
             col.prop(self, 'bake_device', text='')
         col.separator()
-        col.prop(self, 'fxaa')
-        if is_bl_newer_than(2, 81):
-            col.prop(self, 'denoise', text='Use Denoise')
-        ccol = col.column(align=True)
 
         rrow = col.row(align=True)
         rrow.prop(self, 'blur')
         if self.blur:
-            rrow.prop(self, 'blur_factor', text='')
+            rrow.prop(self, 'blur_type', text='')
+
+            rrow = col.row(align=True)
+            if self.blur_type == 'NOISE':
+                rrow.prop(self, 'blur_factor', text='')
+            else: rrow.prop(self, 'blur_size', text='')
+
+            col.separator()
+
+        col.prop(self, 'fxaa')
+        if is_bl_newer_than(2, 81):
+            col.prop(self, 'denoise', text='Use Denoise')
+        ccol = col.column(align=True)
 
         if self.mask:
             col.prop(self, 'duplicate_entity', text='Duplicate Mask')

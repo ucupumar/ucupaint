@@ -1106,6 +1106,84 @@ def recover_composite_settings(book):
     if ori_object and bpy.context.object != ori_object:
         set_active_object(ori_object)
 
+def blur_image(image, filter_type='GAUSS', size=10):
+    T = time.time()
+    print('BLUR: Doing Blur pass on', image.name + '...')
+
+    # Preparing settings
+    book = prepare_composite_settings(use_hdr=image.is_float)
+    scene = bpy.context.scene
+
+    # Set up compositor
+    tree = get_compositor_node_tree(scene)
+    composite = get_compositor_output_node(tree)
+    blur = tree.nodes.new('CompositorNodeBlur')
+    blur.filter_type = filter_type
+    if is_bl_newer_than(4, 5):
+        blur.inputs['Size'].default_value[0] = size
+        blur.inputs['Size'].default_value[1] = size
+    else:
+        blur.size_x = int(size)
+        blur.size_y = int(size)
+    image_node = tree.nodes.new('CompositorNodeImage')
+    image_node.image = image
+
+    gamma = None
+    if image.colorspace_settings.name != get_srgb_name() and not image.is_float:
+        gamma = tree.nodes.new('CompositorNodeGamma')
+        gamma.inputs[1].default_value = 2.2
+
+    rgb = image_node.outputs[0]
+    if gamma:
+        tree.links.new(rgb, gamma.inputs[0])
+        rgb = gamma.outputs[0]
+    tree.links.new(rgb, blur.inputs['Image'])
+    rgb = blur.outputs[0]
+    tree.links.new(rgb, composite.inputs[0])
+
+    if image.source == 'TILED':
+        tilenums = [tile.number for tile in image.tiles]
+    else: tilenums = [1001]
+
+    # Get temporary filepath
+    ext = 'exr' if image.is_float else 'png'
+    filepath = os.path.join(tempfile.gettempdir(), 'TEST_RENDER__.' + ext)
+
+    for tilenum in tilenums:
+
+        # Swap tile to 1001 to access the data
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+        # Set render resolution
+        scene.render.resolution_x = image.size[0]
+        scene.render.resolution_y = image.size[1]
+
+        # Render image!
+        bpy.ops.render.render()
+
+        # Save the image
+        render_result = next(img for img in bpy.data.images if img.type == "RENDER_RESULT")
+        render_result.save_render(filepath)
+        temp_image = bpy.data.images.load(filepath)
+
+        # Copy image pixels
+        copy_image_pixels(temp_image, image)
+
+        # Remove temp image
+        remove_datablock(bpy.data.images, temp_image)
+        os.remove(filepath)
+
+        # Swap back the tile
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+    # Recover settings
+    recover_composite_settings(book)
+
+    print('BLUR:', image.name, 'blur pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    return image
+
 def denoise_image(image):
     if not is_bl_newer_than(2, 81): return image
 
@@ -1298,7 +1376,7 @@ def dither_image(image, dither_intensity=1.0, alpha_aware=True):
     print('DENOISE:', image.name, 'dithering pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
     return image
 
-def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CPU'):
+def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CPU'):
     T = time.time()
     print('BLUR: Doing Blur pass on', image.name + '...')
     book = remember_before_bake()
@@ -4126,7 +4204,9 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
     if bprops.blur: 
         samples = 4096 if is_bl_newer_than(3) else 128
-        blur_image(image, False, bake_device=bprops.bake_device, factor=bprops.blur_factor, samples=samples)
+        if bprops.blur_type == 'NOISE':
+            noise_blur_image(image, False, bake_device=bprops.bake_device, factor=bprops.blur_factor, samples=samples)
+        else: blur_image(image, filter_type=bprops.blur_type, size=bprops.blur_size)
     if bprops.denoise:
         denoise_image(image)
     if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
