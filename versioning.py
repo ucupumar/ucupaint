@@ -995,7 +995,7 @@ def update_yp_tree(tree):
                         height = get_entity_prop_value(height_ch, 'bump_distance')
                         set_entity_prop_value(height_ch, 'bump_distance', height * 5)
 
-    # Version 2.3.5 has blur bake type
+    # Version 2.3.5 has blur bake type, and no longer use get/set prop for Blender 5.0 compatibility
     if version_tuple(yp.version) < (2, 3, 5):
         images = get_yp_images(yp)
 
@@ -1005,6 +1005,13 @@ def update_yp_tree(tree):
             if bi.is_baked_entity:
                 if bi.blur:
                     bi.blur_type = 'NOISE'
+
+        # Update original name for channel
+        for ch in yp.channels:
+            ch.original_name = ch.name
+
+            if ch.bake_to_vcol_name == '':
+                ch.bake_to_vcol_name = 'Baked ' + ch.name
 
     # SECTION II: Updates based on the blender version
 

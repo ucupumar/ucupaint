@@ -148,6 +148,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     # Add new channel
     channel = yp.channels.add()
     channel.name = name
+    channel.original_name = name
     channel.bake_to_vcol_name = 'Baked ' + name
     channel.type = channel_type
 
@@ -2415,22 +2416,6 @@ class YCleanYPCaches(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def get_channel_name(self):
-    name = self.get('name', '') # May be null
-    return name
-
-def set_channel_name(self, value):
-    yp = self.id_data.yp 
-
-    # Update bake target channel name
-    for bt in yp.bake_targets:
-        for letter in rgba_letters:
-            btc = getattr(bt, letter)
-            if btc.channel_name != '' and btc.channel_name == self.name:
-                btc.channel_name  = value
-
-    self['name'] = value
-
 def update_channel_name(self, context):
     T = time.time()
 
@@ -2440,6 +2425,16 @@ def update_channel_name(self, context):
 
     if yp.halt_reconnect or yp.halt_update:
         return
+
+    # Update bake target channel name
+    for bt in yp.bake_targets:
+        for letter in rgba_letters:
+            btc = getattr(bt, letter)
+            if btc.channel_name != '' and btc.channel_name == self.original_name:
+                btc.channel_name  = self.name
+
+    # Update channel's original name
+    self.original_name = self.name
 
     input_index = self.io_index
     output_index = get_output_index(self)
@@ -3372,19 +3367,6 @@ def update_enable_height_tweak(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
-# Prevent vcol name from being null
-def get_channel_vcol_name(self):
-    name = self.get('bake_to_vcol_name', '') # May be null
-    if name == '':
-        self['bake_to_vcol_name'] = 'Baked ' + self.name
-    return self['bake_to_vcol_name']
-
-def set_channel_vcol_name(self, value):
-    if value == '':
-        self['bake_to_vcol_name'] = 'Baked ' + self.name
-    else:
-        self['bake_to_vcol_name'] = value
-
 def update_use_linear_blending(self, context):
     Modifier.check_yp_modifier_linear_nodes(self)
     check_start_end_root_ch_nodes(self.id_data)
@@ -3458,8 +3440,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
         description = 'Name of the channel',
         default = 'Albedo',
         update = update_channel_name,
-        get = get_channel_name,
-        set = set_channel_name
+    )
+
+    original_name : StringProperty(
+        name = 'Original Channel Name',
+        description = 'Original channel name for updating',
+        default = ''
     )
 
     type : EnumProperty(
@@ -3559,8 +3545,6 @@ class YPaintChannel(bpy.types.PropertyGroup):
         name = 'Target Vertex Color Name',
         description = 'Target Vertex Color Name',
         default = '',
-        get = get_channel_vcol_name,
-        set = set_channel_vcol_name
     )
 
     # Displacement for normal channel

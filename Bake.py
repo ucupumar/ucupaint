@@ -1982,10 +1982,14 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             )
             for ch in self.channels:
                 if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
+
+                    # Get vcol name
+                    vcol_name = 'Baked ' + ch.name if ch.bake_to_vcol_name == '' else ch.bake_to_vcol_name
+
                     # Check vertex color
                     for ob in objs:
                         vcols = get_vertex_colors(ob)
-                        vcol = vcols.get(ch.bake_to_vcol_name)
+                        vcol = vcols.get(vcol_name)
 
                         # Set index to first so new vcol will copy their value
                         if len(vcols) > 0:
@@ -1994,7 +1998,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                         if not vcol:
                             try: 
-                                vcol = new_vertex_color(ob, ch.bake_to_vcol_name)
+                                vcol = new_vertex_color(ob, vcol_name)
                             except Exception as e: print(e)
 
                         # Get newly created vcol name
@@ -2008,14 +2012,14 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         # Get the newly created vcol to avoid pointer error
                         vcol = vcols.get(vcol_name)
                         set_active_vertex_color(ob, vcol)
-                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, ch.bake_to_vcol_name)
+                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, vcol_name)
                     baked = tree.nodes.get(ch.baked_vcol)
                     if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
                         baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
                         # Set channel to use baked vertex color only when baked_vcol is just created
                         ch.use_baked_vcol = True
 
-                    set_source_vcol_name(baked, ch.bake_to_vcol_name)
+                    set_source_vcol_name(baked, vcol_name)
                     for ob in objs:
                         # Recover material index
                         if ori_mat_ids[ob.name]:
@@ -2024,6 +2028,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                                     p.material_index = ori_mat_ids[ob.name][i]
                     if is_sort_by_channel:
                         current_vcol_order += 1
+
+                    # Set back vcol name to channel baked vcol name
+                    if ch.bake_to_vcol_name != vcol_name:
+                        ch.bake_to_vcol_name = vcol_name
+
                 else:
                     # If has baked vcol node, remove it
                     baked = tree.nodes.get(ch.baked_vcol)
