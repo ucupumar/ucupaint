@@ -1013,6 +1013,16 @@ def update_yp_tree(tree):
             if ch.bake_to_vcol_name == '':
                 ch.bake_to_vcol_name = 'Baked ' + ch.name
 
+        # Update to proper 'Add' max height calculation node
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                if height_ch and height_ch.normal_blend_type == 'OVERLAY' and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    check_all_layer_channel_io_and_nodes(layer, specific_ch=height_ch)
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

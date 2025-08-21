@@ -882,12 +882,6 @@ def get_active_material(obj=None):
 
     return mat
 
-def get_material_output(mat):
-    if mat != None and mat.node_tree:
-        output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-        if output: return output[0]
-    return None
-
 def get_list_of_ypaint_nodes(mat):
 
     if not mat.node_tree: return []
@@ -1586,6 +1580,12 @@ def get_active_mat_output_node(tree):
         if node.bl_idname == 'ShaderNodeOutputMaterial' and node.is_active_output:
             return node
 
+    return None
+
+def get_material_output(mat):
+    if mat != None and mat.node_tree:
+        output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+        if output: return output[0]
     return None
 
 def get_all_image_users(image):
