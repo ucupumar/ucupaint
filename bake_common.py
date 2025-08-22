@@ -1773,6 +1773,101 @@ def is_baked_normal_without_bump_needed(root_ch):
         (root_ch.enable_subdiv_setup and (any_layers_using_disp(root_ch) or any_layers_using_vdisp(root_ch)))
     )
 
+def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
+
+    T = time.time()
+    print('BAKE MAX HEIGHT: Doing Max Height baking on', root_ch.name + '...')
+
+    tree = root_ch.id_data
+    yp = tree.yp
+    scene = bpy.context.scene
+    if not mat: mat = get_active_material()
+    if not node: node = get_active_ypaint_node()
+
+    # Do setup first before baking
+    book = {}
+    ori_margin = scene.render.bake.margin
+    high_margin = 1000
+    ori_matout_inp = None
+    if not tex and not emit:
+        obj = bpy.context.object
+        uv_layers = get_uv_layers(obj)
+        if len(uv_layers) == 0: return
+        uv_map = uv_layers[0].name
+        mat_out = get_material_output(mat)
+        if not mat_out: return
+
+        book = remember_before_bake()
+        prepare_bake_settings(book, [obj], yp, samples=1, margin=high_margin, uv_map=uv_map, bake_device='CPU', margin_type='EXTEND')
+
+        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+
+        # Connect emit to output material
+        if len(mat_out.inputs[0].links) > 0:
+            ori_matout_inp = mat_out.inputs[0].links[0].from_socket
+        mat.node_tree.links.new(emit.outputs[0], mat_out.inputs[0])
+
+        mat.node_tree.nodes.active = tex
+
+    else:
+        # Use high margin to make sure all pixels are covered
+        scene.render.bake.margin = high_margin
+
+    # Check for height socket
+    forced_height_ios = False
+    if 'Height' not in node.outputs:
+        check_all_channel_ios(yp, reconnect=True, force_height_io=True)
+        forced_height_ios = True
+
+    # Create target image
+    if UDIM.is_udim_supported():
+        img = bpy.data.images.new(
+            name='____MAXHEIGHT_TEMP', width=100, height=100, 
+            alpha=False, tiled=False, float_buffer=True
+        )
+    else:
+        img = bpy.data.images.new(
+            name='____MAXHEIGHT_TEMP', width=100, height=100, 
+            alpha=False, float_buffer=True
+        )
+
+    img.colorspace_settings.name = get_noncolor_name()
+    tex.image = img
+
+    # Connect max height output to emit node
+    create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
+            emit.inputs[0])
+
+    # Bake
+    print('BAKE MAX HEIGHT: Baking max height of ' + root_ch.name + ' channel...')
+    bake_object_op()
+
+    # Set baked max height image
+    max_height_value = img.pixels[0]
+    #end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+    #end_max_height.outputs[0].default_value = max_height_value
+
+    # Remove max height image
+    remove_datablock(bpy.data.images, img, user=tex, user_prop='image')
+
+    if len(book) > 0:
+        # Reconnect original output connections
+        if ori_matout_inp:
+            mat.node_tree.links.new(ori_matout_inp, mat_out.inputs[0])
+
+        # Delete temporary nodes
+        simple_remove_node(mat.node_tree, tex)
+        simple_remove_node(mat.node_tree, emit)
+
+        # Recover settings
+        recover_bake_settings(book, yp)
+    else:
+        # Recover margin
+        scene.render.bake.margin = ori_margin
+
+    return max_height_value
+
 def bake_channel(
         uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
         aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
@@ -2247,61 +2342,9 @@ def bake_channel(
 
                 ### Max Height
 
-                # Create target image
-                if UDIM.is_udim_supported():
-                    mh_img = bpy.data.images.new(
-                        name='____MAXHEIGHT_TEMP', width=100, height=100, 
-                        alpha=False, tiled=False, float_buffer=True
-                    )
-                else:
-                    mh_img = bpy.data.images.new(
-                        name='____MAXHEIGHT_TEMP', width=100, height=100, 
-                        alpha=False, float_buffer=True
-                    )
-
-                mh_img.colorspace_settings.name = get_noncolor_name()
-                tex.image = mh_img
-
-                # Bake setup (doing little bit doing hacky reconnection here)
-                start = tree.nodes.get(TREE_START)
-                end = tree.nodes.get(TREE_END)
-                ori_soc = end.inputs[root_ch.name].links[0].from_socket
-                if root_ch.name + io_suffix['MAX_HEIGHT'] in start.outputs:
-                    max_height = start.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
-                else: max_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
-                # Get the last layer that output max height
-                for l in yp.layers:
-                    if not l.enable or not l.channels[get_channel_index(root_ch)].enable: continue
-                    lnode = tree.nodes.get(l.group_node)
-                    outp = lnode.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
-                    if outp:
-                        max_height = outp
-                        break
-                create_link(tree, max_height, end.inputs[root_ch.name])
-                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
-                        emit.inputs[0])
-
-                # Use high margin to make sure all pixels are covered
-                ori_margin = bpy.context.scene.render.bake.margin
-                bpy.context.scene.render.bake.margin = 1000
-
-                # Bake
-                print('BAKE CHANNEL: Baking max height of ' + root_ch.name + ' channel...')
-                bake_object_op()
-
-                # Recover margin
-                bpy.context.scene.render.bake.margin = ori_margin
-
-                # Recover connection
-                create_link(tree, ori_soc, end.inputs[root_ch.name])
-
-                # Set baked max height image
-                max_height_value = mh_img.pixels[0]
+                max_height_value = get_bake_max_height(root_ch, mat, node, tex, emit)
                 end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
                 end_max_height.outputs[0].default_value = max_height_value
-
-                # Remove max height image
-                remove_datablock(bpy.data.images, mh_img, user=tex, user_prop='image')
 
                 ### Displacement
 
@@ -2365,20 +2408,20 @@ def bake_channel(
 
                 create_link(mat.node_tree, spread_height.outputs[0], emit.inputs[0])
 
-                #create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], srgb2lin.inputs[0])
-                #create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
             else:
                 spread_height = None
                 create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], emit.inputs[0])
             tex.image = disp_img
 
-            #return
-
             # Bake
             print('BAKE CHANNEL: Baking displacement image of ' + root_ch.name + ' channel...')
             bake_object_op()
 
-            if not target_layer:
+            if target_layer:
+                # Get max height value
+                max_height_value = get_bake_max_height(root_ch, mat, node, tex, emit)
+                if ch: set_entity_prop_value(ch, 'bump_distance', max_height_value)
+            else:
 
                 # Set baked displacement image
                 if baked_disp.image:
@@ -3842,7 +3885,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     # Remove temp bake nodes
     simple_remove_node(mat.node_tree, tex)
-    #simple_remove_node(mat.node_tree, srgb2lin)
     simple_remove_node(mat.node_tree, bsdf)
     if src: simple_remove_node(mat.node_tree, src)
     if geometry: simple_remove_node(mat.node_tree, geometry)
