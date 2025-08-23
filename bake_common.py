@@ -81,6 +81,38 @@ def get_compositor_output_node(tree):
 
     return n
 
+def get_scene_bake_multires(scene):
+    return scene.render.bake.use_multires if is_bl_newer_than(5) else scene.render.use_bake_multires
+
+def get_scene_bake_clear(scene):
+    return scene.render.bake.use_clear if is_bl_newer_than(5) else scene.render.use_bake_clear
+
+def get_scene_render_bake_type(scene):
+    return scene.render.bake.type if is_bl_newer_than(5) else scene.render.bake_type
+
+def get_scene_bake_margin(scene):
+    return scene.render.bake.margin if is_bl_newer_than(5) else scene.render.bake_margin
+
+def set_scene_bake_multires(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_multires = value
+    else: scene.render.bake.use_multires = value
+
+def set_scene_bake_clear(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_clear = value
+    else: scene.render.bake.use_clear = value
+
+def set_scene_render_bake_type(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_type = value
+    else: scene.render.bake.type = value
+
+def set_scene_bake_margin(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_margin = value
+    else: scene.render.bake.margin = value
+
 def is_there_any_missmatched_attribute_types(objs):
     # Get number of attributes founds
     attr_counts = {}
@@ -239,10 +271,10 @@ def remember_before_bake(yp=None, mat=None):
     else: book['ori_material_override'] = scene.render.layers.active.material_override
 
     # Multires related
-    book['ori_use_bake_multires'] = scene.render.use_bake_multires
-    book['ori_use_bake_clear'] = scene.render.use_bake_clear
-    book['ori_render_bake_type'] = scene.render.bake_type
-    book['ori_bake_margin'] = scene.render.bake_margin
+    book['ori_use_bake_multires'] = get_scene_bake_multires(scene)
+    book['ori_use_bake_clear'] = get_scene_bake_clear(scene)
+    book['ori_render_bake_type'] = get_scene_render_bake_type(scene)
+    book['ori_bake_margin'] = get_scene_bake_margin(scene)
 
     if is_bl_newer_than(2, 81) and not is_bl_newer_than(3) and scene.cycles.device == 'GPU' and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences:
         book['compute_device_type'] = bpy.context.preferences.addons['cycles'].preferences['compute_device_type']
@@ -628,12 +660,12 @@ def prepare_bake_settings(
     else: scene.render.layers.active.material_override = None
 
     if bake_from_multires:
-        scene.render.use_bake_multires = True
-        scene.render.bake_type = bake_type
-        scene.render.bake_margin = margin
-        scene.render.use_bake_clear = False
+        set_scene_bake_multires(scene, True)
+        set_scene_render_bake_type(scene, bake_type)
+        set_scene_bake_margin(scene, margin)
+        set_scene_bake_clear(scene, False)
     else: 
-        scene.render.use_bake_multires = False
+        set_scene_bake_multires(scene, False)
         scene.cycles.bake_type = bake_type
 
     # Old blender will always use CPU
@@ -864,10 +896,10 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     else: scene.render.layers.active.material_override = book['ori_material_override']
 
     # Multires related
-    scene.render.use_bake_multires = book['ori_use_bake_multires']
-    scene.render.use_bake_clear = book['ori_use_bake_clear']
-    scene.render.bake_type = book['ori_render_bake_type']
-    scene.render.bake_margin = book['ori_bake_margin']
+    set_scene_bake_multires(scene, book['ori_use_bake_multires'])
+    set_scene_bake_clear(scene, book['ori_use_bake_clear'])
+    set_scene_render_bake_type(scene, book['ori_render_bake_type'])
+    set_scene_bake_margin(scene, book['ori_bake_margin'])
 
     if 'compute_device_type' in book:
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = book['compute_device_type']
