@@ -248,7 +248,7 @@ def create_temp_scene():
 
 def save_pack_all(yp):
 
-    images = get_yp_images(yp, get_baked_channels=True, check_overlay_normal=True)
+    images = get_yp_images(yp, get_baked_channels=True) #, check_overlay_normal=True)
     packed_float_images = []
 
     # Temporary scene for some saving hack
