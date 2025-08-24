@@ -1670,9 +1670,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
         remove_datablock(bpy.data.node_groups, fxaa.node_tree, user=fxaa, user_prop='node_tree')
 
     remove_datablock(bpy.data.materials, mat)
-    plane = plane_obj.data
-    bpy.ops.object.delete()
-    remove_datablock(bpy.data.meshes, plane)
+    remove_mesh_obj(plane_obj)
 
     # Recover settings
     recover_bake_settings(book)
@@ -4819,9 +4817,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     if straight_over.node_tree.users == 1:
         remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
     remove_datablock(bpy.data.materials, mat)
-    plane = plane_obj.data
-    bpy.ops.object.delete()
-    remove_datablock(bpy.data.meshes, plane)
+    remove_mesh_obj(plane_obj)
 
     # Recover settings
     recover_bake_settings(book)
