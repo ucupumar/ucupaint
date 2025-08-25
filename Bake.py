@@ -2424,6 +2424,10 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         merge_success = False
 
+        if (layer.type == 'IMAGE' and main_ch.type == 'NORMAL' and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
+            self.report({'ERROR'}, "Merging VDM layers is not supported yet!")
+            return {'CANCELLED'}
+
         # Merge image layers
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
 
