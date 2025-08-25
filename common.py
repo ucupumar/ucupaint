@@ -889,12 +889,6 @@ def get_active_material(obj=None):
 
     return mat
 
-def get_material_output(mat):
-    if mat != None and mat.node_tree:
-        output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-        if output: return output[0]
-    return None
-
 def get_list_of_ypaint_nodes(mat):
 
     if not mat.node_tree: return []
@@ -1593,6 +1587,12 @@ def get_active_mat_output_node(tree):
         if node.bl_idname == 'ShaderNodeOutputMaterial' and node.is_active_output:
             return node
 
+    return None
+
+def get_material_output(mat):
+    if mat != None and mat.node_tree:
+        output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+        if output: return output[0]
     return None
 
 def get_all_image_users(image):
@@ -6634,9 +6634,9 @@ def get_material_drivers(mat):
 
     return drivers
 
-def get_material_fcurves_and_drivers(yp):
-    fcurves = get_material_fcurves(yp)
-    fcurves.extend(get_material_drivers(yp))
+def get_material_fcurves_and_drivers(mat):
+    fcurves = get_material_fcurves(mat)
+    fcurves.extend(get_material_drivers(mat))
     return fcurves
 
 def get_yp_fcurves(yp):
@@ -6707,11 +6707,6 @@ def swap_channel_fcurves(yp, idx0, idx1):
             elif index == idx1:
                 fc.data_path = fc.data_path.replace('yp.channels[' + str(idx1) + ']', 'yp.channels[' + str(idx0) + ']')
 
-    # Material fcurves 
-    node = get_active_ypaint_node()
-    mat = get_active_material()
-    fcurves = get_material_fcurves_and_drivers(mat)
-
     ch0 = yp.channels[idx0]
     ch1 = yp.channels[idx1]
 
@@ -6727,15 +6722,29 @@ def swap_channel_fcurves(yp, idx0, idx1):
     if idx0 < idx1 and ch0.enable_alpha:
         ch0_idx += 1
 
-    for fc in fcurves:
-        m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
-        if m:
-            index = int(m.group(1))
-            if index == ch0_idx:
-                fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(ch1_idx) + '].default_value'
+    for mat in bpy.data.materials:
+        if not mat.node_tree: continue
 
-            elif index == ch1_idx:
-                fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(ch0_idx) + '].default_value'
+        # Get yp nodes
+        yp_nodes = []
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
+                if node not in yp_nodes:
+                    yp_nodes.append(node)
+
+        # Check for animation data
+        if len(yp_nodes) > 0:
+            fcurves = get_material_fcurves_and_drivers(mat)
+            for node in yp_nodes:
+                for fc in fcurves:
+                    m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                    if m:
+                        index = int(m.group(1))
+                        if index == ch0_idx:
+                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(ch1_idx) + '].default_value'
+
+                        elif index == ch1_idx:
+                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(ch0_idx) + '].default_value'
 
 def swap_layer_channel_fcurves(layer, idx0, idx1):
     if idx0 >= len(layer.channels) or idx1 >= len(layer.channels): return
@@ -7062,30 +7071,41 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
                     if m:
                         fc.data_path = fc.data_path.replace('.channels[' + str(i) + ']', '.channels[' + str(i+shifter) + ']')
 
-    # Material fcurves
-    node = get_active_ypaint_node()
-    mat = get_active_material()
-    fcurves = get_material_fcurves_and_drivers(mat)
-
     if remove_ch_mode and start_index < len(yp.channels) and yp.channels[start_index].enable_alpha and shifter < 0:
         shifter -= 1
 
-    if shifter > 0:
+    for mat in bpy.data.materials:
+        if not mat.node_tree: continue
 
-        for i, root_ch in reversed(list(enumerate(yp.channels))):
-            if i <= start_index: continue
-            io_index = root_ch.io_index
-            for fc in fcurves:
-                m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
-                if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
-    else:
+        # Get yp nodes
+        yp_nodes = []
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
+                if node not in yp_nodes:
+                    yp_nodes.append(node)
 
-        for i, root_ch in enumerate(yp.channels):
-            if i <= start_index: continue
-            io_index = root_ch.io_index
-            for fc in fcurves:
-                m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
-                if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
+        # Check for animation data
+        if len(yp_nodes) > 0:
+            fcurves = get_material_fcurves_and_drivers(mat)
+
+            for node in yp_nodes:
+
+                if shifter > 0:
+
+                    for i, root_ch in reversed(list(enumerate(yp.channels))):
+                        if i <= start_index: continue
+                        io_index = root_ch.io_index
+                        for fc in fcurves:
+                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
+                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
+                else:
+
+                    for i, root_ch in enumerate(yp.channels):
+                        if i <= start_index: continue
+                        io_index = root_ch.io_index
+                        for fc in fcurves:
+                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
+                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
 
 
 def shift_mask_fcurves_up(layer, start_index=1):

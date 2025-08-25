@@ -37,10 +37,10 @@ def _remember_before_bake(obj):
     book['ori_material_override'] = bpy.context.view_layer.material_override
 
     # Multires related
-    book['ori_use_bake_multires'] = scene.render.use_bake_multires
-    book['ori_use_bake_clear'] = scene.render.use_bake_clear
-    book['ori_render_bake_type'] = scene.render.bake_type
-    book['ori_bake_margin'] = scene.render.bake_margin
+    book['ori_use_bake_multires'] = get_scene_bake_multires(scene)
+    book['ori_use_bake_clear'] = get_scene_bake_clear(scene)
+    book['ori_render_bake_type'] = get_scene_render_bake_type(scene)
+    book['ori_bake_margin'] = get_scene_bake_margin(scene)
     book['ori_view_transform'] = scene.view_settings.view_transform
 
     # Remember world settings
@@ -79,9 +79,9 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
     scene.render.bake.use_cage = False
     scene.render.use_simplify = False
     scene.render.bake.target = 'IMAGE_TEXTURES'
-    scene.render.use_bake_multires = False
-    scene.render.bake_margin = margin
-    scene.render.use_bake_clear = False
+    set_scene_bake_multires(scene, False)
+    set_scene_bake_margin(scene, margin)
+    set_scene_bake_clear(scene, False)
     scene.cycles.samples = samples
     scene.cycles.use_denoising = False
     scene.cycles.bake_type = 'EMIT'
@@ -141,10 +141,10 @@ def _recover_bake_settings(book, recover_active_uv=False):
     bpy.context.view_layer.material_override = book['ori_material_override']
 
     # Multires related
-    scene.render.use_bake_multires = book['ori_use_bake_multires']
-    scene.render.use_bake_clear = book['ori_use_bake_clear']
-    scene.render.bake_type = book['ori_render_bake_type']
-    scene.render.bake_margin = book['ori_bake_margin']
+    set_scene_bake_multires(scene, book['ori_use_bake_multires'])
+    set_scene_bake_clear(scene, book['ori_use_bake_clear'])
+    set_scene_render_bake_type(scene, book['ori_render_bake_type'])
+    set_scene_bake_margin(scene, book['ori_bake_margin'])
 
     # Recover world settings
     if scene.world:

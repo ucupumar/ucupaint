@@ -222,17 +222,17 @@ class YToggleEraser(bpy.types.Operator):
                 # HACK: Set brush to 'builtin.brush' brush first before using non-draw brush
                 # This is to avoid confusion since by default, if user go back to use 'Brush' tool, it will point to eraser brush
                 new_brush = bpy.data.brushes.get(new_brush_name)
-                if new_brush and new_brush.image_tool != 'DRAW':
+                if new_brush and get_brush_image_tool(new_brush) != 'DRAW':
                     if wmyp.default_builtin_brush != '':
                         set_brush_asset(wmyp.default_builtin_brush, mode)
                     else: set_brush_asset('Paint Soft', mode)
 
                 # HACK: Remember what brush the last time used if user use non-draw brush
-                if brush.image_tool != 'DRAW':
+                if get_brush_image_tool(brush) != 'DRAW':
                     try: bpy.ops.wm.tool_set_by_id(name="builtin.brush")
                     except Exception as e: print('EXCEPTIION:', e)
                     brush = context.tool_settings.image_paint.brush
-                    if brush and brush.name not in tex_eraser_asset_names and brush.image_tool == 'DRAW':
+                    if brush and brush.name not in tex_eraser_asset_names and get_brush_image_tool(brush) == 'DRAW':
                         wmyp.default_builtin_brush = brush.name
 
                 # Set brush asset

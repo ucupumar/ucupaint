@@ -997,6 +997,41 @@ def update_yp_tree(tree):
                         height = get_entity_prop_value(height_ch, 'bump_distance')
                         set_entity_prop_value(height_ch, 'bump_distance', height * 5)
 
+    # Version 2.3.5 has blur bake type, and no longer use get/set prop for Blender 5.0 compatibility
+    if version_tuple(yp.version) < (2, 3, 5):
+        images = get_yp_images(yp)
+
+        for i, image in enumerate(images):
+            bi = image.y_bake_info
+
+            if bi.is_baked_entity:
+                if bi.blur:
+                    bi.blur_type = 'NOISE'
+
+        # Update original name for channel
+        for ch in yp.channels:
+            ch.original_name = ch.name
+
+            if ch.bake_to_vcol_name == '':
+                ch.bake_to_vcol_name = 'Baked ' + ch.name
+
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                if height_ch:
+
+                    # Update to proper 'Add' max height calculation node
+                    if height_ch.normal_blend_type == 'OVERLAY' and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                        check_all_layer_channel_io_and_nodes(layer, specific_ch=height_ch)
+                        reconnect_layer_nodes(layer)
+                        rearrange_layer_nodes(layer)
+
+                    # Transition bump distance now can do negative value, so reset the value by reenabling and enabling back
+                    if height_ch.enable_transition_bump:
+                        height_ch.enable_transition_bump = False
+                        height_ch.enable_transition_bump = True
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

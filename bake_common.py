@@ -81,6 +81,38 @@ def get_compositor_output_node(tree):
 
     return n
 
+def get_scene_bake_multires(scene):
+    return scene.render.bake.use_multires if is_bl_newer_than(5) else scene.render.use_bake_multires
+
+def get_scene_bake_clear(scene):
+    return scene.render.bake.use_clear if is_bl_newer_than(5) else scene.render.use_bake_clear
+
+def get_scene_render_bake_type(scene):
+    return scene.render.bake.type if is_bl_newer_than(5) else scene.render.bake_type
+
+def get_scene_bake_margin(scene):
+    return scene.render.bake.margin if is_bl_newer_than(5) else scene.render.bake_margin
+
+def set_scene_bake_multires(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_multires = value
+    else: scene.render.bake.use_multires = value
+
+def set_scene_bake_clear(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_clear = value
+    else: scene.render.bake.use_clear = value
+
+def set_scene_render_bake_type(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_type = value
+    else: scene.render.bake.type = value
+
+def set_scene_bake_margin(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_margin = value
+    else: scene.render.bake.margin = value
+
 def is_there_any_missmatched_attribute_types(objs):
     # Get number of attributes founds
     attr_counts = {}
@@ -239,10 +271,10 @@ def remember_before_bake(yp=None, mat=None):
     else: book['ori_material_override'] = scene.render.layers.active.material_override
 
     # Multires related
-    book['ori_use_bake_multires'] = scene.render.use_bake_multires
-    book['ori_use_bake_clear'] = scene.render.use_bake_clear
-    book['ori_render_bake_type'] = scene.render.bake_type
-    book['ori_bake_margin'] = scene.render.bake_margin
+    book['ori_use_bake_multires'] = get_scene_bake_multires(scene)
+    book['ori_use_bake_clear'] = get_scene_bake_clear(scene)
+    book['ori_render_bake_type'] = get_scene_render_bake_type(scene)
+    book['ori_bake_margin'] = get_scene_bake_margin(scene)
 
     if is_bl_newer_than(2, 81) and not is_bl_newer_than(3) and scene.cycles.device == 'GPU' and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences:
         book['compute_device_type'] = bpy.context.preferences.addons['cycles'].preferences['compute_device_type']
@@ -628,12 +660,12 @@ def prepare_bake_settings(
     else: scene.render.layers.active.material_override = None
 
     if bake_from_multires:
-        scene.render.use_bake_multires = True
-        scene.render.bake_type = bake_type
-        scene.render.bake_margin = margin
-        scene.render.use_bake_clear = False
+        set_scene_bake_multires(scene, True)
+        set_scene_render_bake_type(scene, bake_type)
+        set_scene_bake_margin(scene, margin)
+        set_scene_bake_clear(scene, False)
     else: 
-        scene.render.use_bake_multires = False
+        set_scene_bake_multires(scene, False)
         scene.cycles.bake_type = bake_type
 
     # Old blender will always use CPU
@@ -864,10 +896,10 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     else: scene.render.layers.active.material_override = book['ori_material_override']
 
     # Multires related
-    scene.render.use_bake_multires = book['ori_use_bake_multires']
-    scene.render.use_bake_clear = book['ori_use_bake_clear']
-    scene.render.bake_type = book['ori_render_bake_type']
-    scene.render.bake_margin = book['ori_bake_margin']
+    set_scene_bake_multires(scene, book['ori_use_bake_multires'])
+    set_scene_bake_clear(scene, book['ori_use_bake_clear'])
+    set_scene_render_bake_type(scene, book['ori_render_bake_type'])
+    set_scene_bake_margin(scene, book['ori_bake_margin'])
 
     if 'compute_device_type' in book:
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = book['compute_device_type']
@@ -1106,6 +1138,85 @@ def recover_composite_settings(book):
     if ori_object and bpy.context.object != ori_object:
         set_active_object(ori_object)
 
+def blur_image(image, filter_type='GAUSS', size=10):
+    T = time.time()
+    print('BLUR: Doing Blur pass on', image.name + '...')
+
+    # Preparing settings
+    book = prepare_composite_settings(use_hdr=image.is_float)
+    scene = bpy.context.scene
+
+    # Set up compositor
+    tree = get_compositor_node_tree(scene)
+    composite = get_compositor_output_node(tree)
+    blur = tree.nodes.new('CompositorNodeBlur')
+    blur.filter_type = filter_type
+    if is_bl_newer_than(4, 5):
+        blur.inputs['Size'].default_value[0] = size
+        blur.inputs['Size'].default_value[1] = size
+    else:
+        blur.size_x = int(size)
+        blur.size_y = int(size)
+    image_node = tree.nodes.new('CompositorNodeImage')
+    image_node.image = image
+
+    gamma = None
+    if image.colorspace_settings.name != get_srgb_name() and not image.is_float:
+        nodeid = 'ShaderNodeGamma' if is_bl_newer_than(5) else 'CompositorNodeGamma'
+        gamma = tree.nodes.new(nodeid)
+        gamma.inputs[1].default_value = 2.2
+
+    rgb = image_node.outputs[0]
+    if gamma:
+        tree.links.new(rgb, gamma.inputs[0])
+        rgb = gamma.outputs[0]
+    tree.links.new(rgb, blur.inputs['Image'])
+    rgb = blur.outputs[0]
+    tree.links.new(rgb, composite.inputs[0])
+
+    if image.source == 'TILED':
+        tilenums = [tile.number for tile in image.tiles]
+    else: tilenums = [1001]
+
+    # Get temporary filepath
+    ext = 'exr' if image.is_float else 'png'
+    filepath = os.path.join(tempfile.gettempdir(), 'TEST_RENDER__.' + ext)
+
+    for tilenum in tilenums:
+
+        # Swap tile to 1001 to access the data
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+        # Set render resolution
+        scene.render.resolution_x = image.size[0]
+        scene.render.resolution_y = image.size[1]
+
+        # Render image!
+        bpy.ops.render.render()
+
+        # Save the image
+        render_result = next(img for img in bpy.data.images if img.type == "RENDER_RESULT")
+        render_result.save_render(filepath)
+        temp_image = bpy.data.images.load(filepath)
+
+        # Copy image pixels
+        copy_image_pixels(temp_image, image)
+
+        # Remove temp image
+        remove_datablock(bpy.data.images, temp_image)
+        os.remove(filepath)
+
+        # Swap back the tile
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+    # Recover settings
+    recover_composite_settings(book)
+
+    print('BLUR:', image.name, 'blur pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+    return image
+
 def denoise_image(image):
     if not is_bl_newer_than(2, 81): return image
 
@@ -1128,7 +1239,8 @@ def denoise_image(image):
 
     gamma = None
     if image.colorspace_settings.name != get_srgb_name() and not image.is_float:
-        gamma = tree.nodes.new('CompositorNodeGamma')
+        nodeid = 'ShaderNodeGamma' if is_bl_newer_than(5) else 'CompositorNodeGamma'
+        gamma = tree.nodes.new(nodeid)
         gamma.inputs[1].default_value = 2.2
 
     rgb = image_node.outputs[0]
@@ -1298,7 +1410,7 @@ def dither_image(image, dither_intensity=1.0, alpha_aware=True):
     print('DENOISE:', image.name, 'dithering pass is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
     return image
 
-def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CPU'):
+def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='CPU'):
     T = time.time()
     print('BLUR: Doing Blur pass on', image.name + '...')
     book = remember_before_bake()
@@ -1560,9 +1672,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
         remove_datablock(bpy.data.node_groups, fxaa.node_tree, user=fxaa, user_prop='node_tree')
 
     remove_datablock(bpy.data.materials, mat)
-    plane = plane_obj.data
-    bpy.ops.object.delete()
-    remove_datablock(bpy.data.meshes, plane)
+    remove_mesh_obj(plane_obj)
 
     # Recover settings
     recover_bake_settings(book)
@@ -1695,6 +1805,101 @@ def is_baked_normal_without_bump_needed(root_ch):
         (root_ch.enable_subdiv_setup and (any_layers_using_disp(root_ch) or any_layers_using_vdisp(root_ch)))
     )
 
+def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
+
+    T = time.time()
+    print('BAKE MAX HEIGHT: Doing Max Height baking on', root_ch.name + '...')
+
+    tree = root_ch.id_data
+    yp = tree.yp
+    scene = bpy.context.scene
+    if not mat: mat = get_active_material()
+    if not node: node = get_active_ypaint_node()
+
+    # Do setup first before baking
+    book = {}
+    ori_margin = scene.render.bake.margin
+    high_margin = 1000
+    ori_matout_inp = None
+    if not tex and not emit:
+        obj = bpy.context.object
+        uv_layers = get_uv_layers(obj)
+        if len(uv_layers) == 0: return
+        uv_map = uv_layers[0].name
+        mat_out = get_material_output(mat)
+        if not mat_out: return
+
+        book = remember_before_bake()
+        prepare_bake_settings(book, [obj], yp, samples=1, margin=high_margin, uv_map=uv_map, bake_device='CPU', margin_type='EXTEND')
+
+        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+
+        # Connect emit to output material
+        if len(mat_out.inputs[0].links) > 0:
+            ori_matout_inp = mat_out.inputs[0].links[0].from_socket
+        mat.node_tree.links.new(emit.outputs[0], mat_out.inputs[0])
+
+        mat.node_tree.nodes.active = tex
+
+    else:
+        # Use high margin to make sure all pixels are covered
+        scene.render.bake.margin = high_margin
+
+    # Check for height socket
+    forced_height_ios = False
+    if 'Height' not in node.outputs:
+        check_all_channel_ios(yp, reconnect=True, force_height_io=True)
+        forced_height_ios = True
+
+    # Create target image
+    if UDIM.is_udim_supported():
+        img = bpy.data.images.new(
+            name='____MAXHEIGHT_TEMP', width=100, height=100, 
+            alpha=False, tiled=False, float_buffer=True
+        )
+    else:
+        img = bpy.data.images.new(
+            name='____MAXHEIGHT_TEMP', width=100, height=100, 
+            alpha=False, float_buffer=True
+        )
+
+    img.colorspace_settings.name = get_noncolor_name()
+    tex.image = img
+
+    # Connect max height output to emit node
+    create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
+            emit.inputs[0])
+
+    # Bake
+    print('BAKE MAX HEIGHT: Baking max height of ' + root_ch.name + ' channel...')
+    bake_object_op()
+
+    # Set baked max height image
+    max_height_value = img.pixels[0]
+    #end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+    #end_max_height.outputs[0].default_value = max_height_value
+
+    # Remove max height image
+    remove_datablock(bpy.data.images, img, user=tex, user_prop='image')
+
+    if len(book) > 0:
+        # Reconnect original output connections
+        if ori_matout_inp:
+            mat.node_tree.links.new(ori_matout_inp, mat_out.inputs[0])
+
+        # Delete temporary nodes
+        simple_remove_node(mat.node_tree, tex)
+        simple_remove_node(mat.node_tree, emit)
+
+        # Recover settings
+        recover_bake_settings(book, yp)
+    else:
+        # Recover margin
+        scene.render.bake.margin = ori_margin
+
+    return max_height_value
+
 def bake_channel(
         uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
         aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
@@ -1785,6 +1990,19 @@ def bake_channel(
     #disp_from_socket = None
     #for l in output.inputs['Displacement'].links:
     #    disp_from_socket = l.from_socket
+
+    # Original displacement connection
+    ori_disp_from_node = ''
+    ori_disp_from_socket = ''
+
+    # Remove displacement link early if displacement setup is enabled and the current channel is not normal channel
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch and root_ch != height_root_ch and height_root_ch.enable_subdiv_setup:
+        for link in mat_out.inputs['Displacement'].links:
+            ori_disp_from_node = link.from_node.name
+            ori_disp_from_socket = link.from_socket.name
+            mat.node_tree.links.remove(link)
+            break
 
     # Connect emit to output material
     mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
@@ -1991,6 +2209,14 @@ def bake_channel(
         # Make sure height outputs available
         check_all_channel_ios(yp, reconnect=True, force_height_io=True)
 
+        # Break displacement connection if displacement setup is enabled
+        if root_ch.enable_subdiv_setup:
+            for link in mat_out.inputs['Displacement'].links:
+                ori_disp_from_node = link.from_node.name
+                ori_disp_from_socket = link.from_socket.name
+                mat.node_tree.links.remove(link)
+                break
+
         if not target_layer:
 
             ### Normal without bump only
@@ -1998,18 +2224,6 @@ def bake_channel(
                 # Remove baked_normal_overlay
                 remove_node(tree, root_ch, 'baked_normal_overlay')
             else:
-
-                # Original displacement connection
-                ori_disp_from_node = ''
-                ori_disp_from_socket = ''
-
-                # Remove displacement link if subdiv setup is on
-                if root_ch.enable_subdiv_setup:
-                    for link in mat_out.inputs['Displacement'].links:
-                        ori_disp_from_node = link.from_node.name
-                        ori_disp_from_socket = link.from_socket.name
-                        mat.node_tree.links.remove(link)
-                        break
 
                 baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
                 if not baked_normal_overlay:
@@ -2086,14 +2300,6 @@ def bake_channel(
                 else:
                     baked_normal_overlay.image = norm_img
 
-                # Recover displacement link
-                if ori_disp_from_node != '':
-                    nod = mat.node_tree.nodes.get(ori_disp_from_node)
-                    if nod: 
-                        soc = nod.outputs.get(ori_disp_from_socket)
-                        if soc:
-                            mat.node_tree.links.new(soc, mat_out.inputs['Displacement'])
-
             ### Vector Displacement
             if not any_layers_using_vdisp(root_ch):
                 # Remove baked_vdisp
@@ -2168,61 +2374,9 @@ def bake_channel(
 
                 ### Max Height
 
-                # Create target image
-                if UDIM.is_udim_supported():
-                    mh_img = bpy.data.images.new(
-                        name='____MAXHEIGHT_TEMP', width=100, height=100, 
-                        alpha=False, tiled=False, float_buffer=True
-                    )
-                else:
-                    mh_img = bpy.data.images.new(
-                        name='____MAXHEIGHT_TEMP', width=100, height=100, 
-                        alpha=False, float_buffer=True
-                    )
-
-                mh_img.colorspace_settings.name = get_noncolor_name()
-                tex.image = mh_img
-
-                # Bake setup (doing little bit doing hacky reconnection here)
-                start = tree.nodes.get(TREE_START)
-                end = tree.nodes.get(TREE_END)
-                ori_soc = end.inputs[root_ch.name].links[0].from_socket
-                if root_ch.name + io_suffix['MAX_HEIGHT'] in start.outputs:
-                    max_height = start.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
-                else: max_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
-                # Get the last layer that output max height
-                for l in yp.layers:
-                    if not l.enable or not l.channels[get_channel_index(root_ch)].enable: continue
-                    lnode = tree.nodes.get(l.group_node)
-                    outp = lnode.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
-                    if outp:
-                        max_height = outp
-                        break
-                create_link(tree, max_height, end.inputs[root_ch.name])
-                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
-                        emit.inputs[0])
-
-                # Use high margin to make sure all pixels are covered
-                ori_margin = bpy.context.scene.render.bake.margin
-                bpy.context.scene.render.bake.margin = 1000
-
-                # Bake
-                print('BAKE CHANNEL: Baking max height of ' + root_ch.name + ' channel...')
-                bake_object_op()
-
-                # Recover margin
-                bpy.context.scene.render.bake.margin = ori_margin
-
-                # Recover connection
-                create_link(tree, ori_soc, end.inputs[root_ch.name])
-
-                # Set baked max height image
-                max_height_value = mh_img.pixels[0]
+                max_height_value = get_bake_max_height(root_ch, mat, node, tex, emit)
                 end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
                 end_max_height.outputs[0].default_value = max_height_value
-
-                # Remove max height image
-                remove_datablock(bpy.data.images, mh_img, user=tex, user_prop='image')
 
                 ### Displacement
 
@@ -2286,20 +2440,20 @@ def bake_channel(
 
                 create_link(mat.node_tree, spread_height.outputs[0], emit.inputs[0])
 
-                #create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], srgb2lin.inputs[0])
-                #create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
             else:
                 spread_height = None
                 create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], emit.inputs[0])
             tex.image = disp_img
 
-            #return
-
             # Bake
             print('BAKE CHANNEL: Baking displacement image of ' + root_ch.name + ' channel...')
             bake_object_op()
 
-            if not target_layer:
+            if target_layer:
+                # Get max height value
+                max_height_value = get_bake_max_height(root_ch, mat, node, tex, emit)
+                if ch: set_entity_prop_value(ch, 'bump_distance', max_height_value)
+            else:
 
                 # Set baked displacement image
                 if baked_disp.image:
@@ -2370,6 +2524,14 @@ def bake_channel(
     simple_remove_node(mat.node_tree, emit)
     if bsdf: simple_remove_node(mat.node_tree, bsdf)
     if norm: simple_remove_node(mat.node_tree, norm)
+
+    # Recover displacement link
+    if ori_disp_from_node != '':
+        nod = mat.node_tree.nodes.get(ori_disp_from_node)
+        if nod: 
+            soc = nod.outputs.get(ori_disp_from_socket)
+            if soc:
+                mat.node_tree.links.new(soc, mat_out.inputs['Displacement'])
 
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
@@ -3755,7 +3917,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     # Remove temp bake nodes
     simple_remove_node(mat.node_tree, tex)
-    #simple_remove_node(mat.node_tree, srgb2lin)
     simple_remove_node(mat.node_tree, bsdf)
     if src: simple_remove_node(mat.node_tree, src)
     if geometry: simple_remove_node(mat.node_tree, geometry)
@@ -4117,7 +4278,9 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
 
     if bprops.blur: 
         samples = 4096 if is_bl_newer_than(3) else 128
-        blur_image(image, False, bake_device=bprops.bake_device, factor=bprops.blur_factor, samples=samples)
+        if bprops.blur_type == 'NOISE':
+            noise_blur_image(image, False, bake_device=bprops.bake_device, factor=bprops.blur_factor, samples=samples)
+        else: blur_image(image, filter_type=bprops.blur_type, size=bprops.blur_size)
     if bprops.denoise:
         denoise_image(image)
     if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
@@ -4656,9 +4819,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     if straight_over.node_tree.users == 1:
         remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
     remove_datablock(bpy.data.materials, mat)
-    plane = plane_obj.data
-    bpy.ops.object.delete()
-    remove_datablock(bpy.data.meshes, plane)
+    remove_mesh_obj(plane_obj)
 
     # Recover settings
     recover_bake_settings(book)

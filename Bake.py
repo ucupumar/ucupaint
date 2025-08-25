@@ -1338,12 +1338,25 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     self.uv_map_coll.add().name = uv.name
 
         # List of channels that will be baked
-        if self.only_active_channel and yp.active_channel_index < len(yp.channels):
-            self.channels = [yp.channels[yp.active_channel_index]]
+        self.channels = []
+        if self.only_active_channel:
+            if yp.active_channel_index < len(yp.channels):
+                self.channels = [yp.channels[yp.active_channel_index]]
         else: self.channels = yp.channels
 
+        self.no_layer_using = False
         self.enable_bake_as_vcol = False
         if len(self.channels) > 0:
+
+            # Check if any layer is using the channels
+            layer_found = False
+            for ch in self.channels:
+                if is_any_layer_using_channel(ch, node):
+                    layer_found = True
+                    break
+            if not layer_found:
+                self.no_layer_using = True
+
             bi = None
             for ch in self.channels:
                 baked = node.node_tree.nodes.get(ch.baked)
@@ -1373,7 +1386,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if self.vcol_force_first_ch_idx == '':
             self.vcol_force_first_ch_idx = 'Do Nothing'
 
-        if get_user_preferences().skip_property_popups and not event.shift:
+        if (get_user_preferences().skip_property_popups and not event.shift) or len(self.channels) == 0 or self.no_layer_using:
             return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
@@ -1515,6 +1528,18 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         scene = context.scene
         obj = context.object
         mat = obj.active_material
+
+        if len(self.channels) == 0:
+            self.report({'ERROR'}, "This node has no channel!")
+            return {'CANCELLED'}
+
+        if self.only_active_channel and self.no_layer_using:
+            self.report({'ERROR'}, "No layer is using '"+self.channels[0].name+"' channel!")
+            return {'CANCELLED'}
+
+        if self.no_layer_using:
+            self.report({'ERROR'}, "No layer is using any channel!")
+            return {'CANCELLED'}
 
         if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
             self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
@@ -1957,10 +1982,14 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             )
             for ch in self.channels:
                 if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
+
+                    # Get vcol name
+                    vcol_name = 'Baked ' + ch.name if ch.bake_to_vcol_name == '' else ch.bake_to_vcol_name
+
                     # Check vertex color
                     for ob in objs:
                         vcols = get_vertex_colors(ob)
-                        vcol = vcols.get(ch.bake_to_vcol_name)
+                        vcol = vcols.get(vcol_name)
 
                         # Set index to first so new vcol will copy their value
                         if len(vcols) > 0:
@@ -1969,7 +1998,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                         if not vcol:
                             try: 
-                                vcol = new_vertex_color(ob, ch.bake_to_vcol_name)
+                                vcol = new_vertex_color(ob, vcol_name)
                             except Exception as e: print(e)
 
                         # Get newly created vcol name
@@ -1983,14 +2012,14 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         # Get the newly created vcol to avoid pointer error
                         vcol = vcols.get(vcol_name)
                         set_active_vertex_color(ob, vcol)
-                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, ch.bake_to_vcol_name)
+                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, vcol_name)
                     baked = tree.nodes.get(ch.baked_vcol)
                     if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
                         baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
                         # Set channel to use baked vertex color only when baked_vcol is just created
                         ch.use_baked_vcol = True
 
-                    set_source_vcol_name(baked, ch.bake_to_vcol_name)
+                    set_source_vcol_name(baked, vcol_name)
                     for ob in objs:
                         # Recover material index
                         if ori_mat_ids[ob.name]:
@@ -1999,6 +2028,11 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                                     p.material_index = ori_mat_ids[ob.name][i]
                     if is_sort_by_channel:
                         current_vcol_order += 1
+
+                    # Set back vcol name to channel baked vcol name
+                    if ch.bake_to_vcol_name != vcol_name:
+                        ch.bake_to_vcol_name = vcol_name
+
                 else:
                     # If has baked vcol node, remove it
                     baked = tree.nodes.get(ch.baked_vcol)
@@ -2227,10 +2261,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         default = True
     )
 
-    #height_aware : BoolProperty(
-    #        name = 'Height Aware',
-    #        description = 'Height will take account for merge',
-    #        default = True)
+    force_mix_blending : BoolProperty(
+        name = 'Force Mix Blending',
+        description = 'Force to use mix blending while merging so there\'s no missing parts on the merge result',
+        default = True
+    )
 
     @classmethod
     def poll(cls, context):
@@ -2245,7 +2280,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         self.invoke_operator(context)
 
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        yp = self.yp = node.node_tree.yp
 
         # Get active layer
         layer_idx = self.layer_idx = yp.active_layer_index
@@ -2315,18 +2350,30 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
+    def check(self, context):
+        return True
+
     def draw(self, context):
         row = split_layout(self.layout, 0.5)
+
+        main_ch = self.yp.channels[int(self.channel_idx)]
+        ch = self.layer.channels[int(self.channel_idx)]
+        blend_type = ch.blend_type if main_ch.type != 'NORMAL' else ch.normal_blend_type
 
         col = row.column(align=False)
         col.label(text='Main Channel:')
         col.label(text='Apply Modifiers:')
         col.label(text='Apply Neighbor Modifiers:')
+        
+        if blend_type != 'MIX':
+            col.label(text='Force Mix Blending:')
 
         col = row.column(align=False)
         col.prop(self, 'channel_idx', text='')
         col.prop(self, 'apply_modifiers', text='')
         col.prop(self, 'apply_neighbor_modifiers', text='')
+        if blend_type != 'MIX':
+            col.prop(self, 'force_mix_blending', text='')
 
         if self.legacy_on_non_object_mode:
             col = self.layout.column(align=True)
@@ -2377,6 +2424,10 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         merge_success = False
 
+        if (layer.type == 'IMAGE' and main_ch.type == 'NORMAL' and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
+            self.report({'ERROR'}, "Merging VDM layers is not supported yet!")
+            return {'CANCELLED'}
+
         # Merge image layers
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
 
@@ -2410,13 +2461,14 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             if not self.apply_neighbor_modifiers:
                 neighbor_oris = remember_and_disable_layer_modifiers_and_transforms(neighbor_layer, False)
 
-            # Make sure to Use mix on layer channel
-            if main_ch.type != 'NORMAL':
-                ori_blend_type = ch.blend_type
-                ch.blend_type = 'MIX'
-            else:
-                ori_blend_type = ch.normal_blend_type
-                ch.normal_blend_type = 'MIX'
+            # Force to use mix on layer channel
+            if self.force_mix_blending:
+                if main_ch.type != 'NORMAL':
+                    ori_blend_type = ch.blend_type
+                    ch.blend_type = 'MIX'
+                else:
+                    ori_blend_type = ch.normal_blend_type
+                    ch.normal_blend_type = 'MIX'
 
             # Enable alpha on main channel (will also update all the nodes)
             ori_enable_alpha = main_ch.enable_alpha
@@ -2449,9 +2501,10 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             # Recover original props
             main_ch.enable_alpha = ori_enable_alpha
             yp.alpha_auto_setup = True
-            if main_ch.type != 'NORMAL':
-                ch.blend_type = ori_blend_type
-            else: ch.normal_blend_type = ori_blend_type
+            if self.force_mix_blending:
+                if main_ch.type != 'NORMAL':
+                    ch.blend_type = ori_blend_type
+                else: ch.normal_blend_type = ori_blend_type
 
             # Set all channel intensity value to 1.0
             for c in layer.channels:
@@ -2543,9 +2596,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             # Remap parents
             for lay in yp.layers:
                 lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
-
-            if height_ch and main_ch.type == 'NORMAL' and height_ch.normal_map_type == 'BUMP_MAP':
-                height_ch.bump_distance = max_height
 
             reconnect_yp_nodes(tree)
             rearrange_yp_nodes(tree)

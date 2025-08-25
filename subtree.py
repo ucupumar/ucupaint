@@ -1902,7 +1902,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     lib_name = lib.CH_MAX_HEIGHT_TB_ADD_CALC
                 else: lib_name = lib.CH_MAX_HEIGHT_TB_CALC
         else:
-            lib_name = lib.CH_MAX_HEIGHT_CALC
+            if ch.normal_blend_type == 'OVERLAY':
+                lib_name = lib.CH_MAX_HEIGHT_ADD_CALC
+            else: lib_name = lib.CH_MAX_HEIGHT_CALC
 
         if ch.write_height:
             max_height_calc, need_reconnect = replace_new_node(

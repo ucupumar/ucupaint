@@ -549,6 +549,9 @@ class YRefillUDIMTiles(bpy.types.Operator):
     def execute(self, context):
         T = time.time()
 
+        if not hasattr(context, 'layer'):
+            return {'CANCELLED'}
+
         yp = context.layer.id_data.yp
         entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp)
 
