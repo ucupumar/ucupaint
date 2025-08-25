@@ -1238,7 +1238,8 @@ def denoise_image(image):
 
     gamma = None
     if image.colorspace_settings.name != get_srgb_name() and not image.is_float:
-        gamma = tree.nodes.new('CompositorNodeGamma')
+        nodeid = 'ShaderNodeGamma' if is_bl_newer_than(5) else 'CompositorNodeGamma'
+        gamma = tree.nodes.new(nodeid)
         gamma.inputs[1].default_value = 2.2
 
     rgb = image_node.outputs[0]

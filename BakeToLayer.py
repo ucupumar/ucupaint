@@ -1324,6 +1324,13 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
+        # Expand entity source to show rebake button
+        ypui = context.window_manager.ypui
+        if self.mask and not self.duplicate_entity:
+            self.mask.expand_content = True
+            self.mask.expand_source = True
+        ypui.need_update = True
+
         if image: 
             self.report({'INFO'}, 'Baking '+entity_label+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
