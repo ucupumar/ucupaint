@@ -163,6 +163,7 @@ ENGINE_FILTER_LEGACY = '~yPL Engine Filter Legacy'
 
 TB_DELTA_CALC = '~yPL Transition Bump Delta Calculation'
 CH_MAX_HEIGHT_CALC = '~yPL Layer Channel Max Height'
+CH_MAX_HEIGHT_ADD_CALC = '~yPL Layer Channel Max Height Add'
 CH_MAX_HEIGHT_TB_CALC = '~yPL Layer Channel Max Height with Transition Bump'
 CH_MAX_HEIGHT_TB_ADD_CALC = '~yPL Layer Channel Max Height with Transition Bump Add'
 CH_MAX_HEIGHT_TBC_CALC = '~yPL Layer Channel Max Height with Transition Bump Crease'

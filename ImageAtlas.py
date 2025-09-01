@@ -71,8 +71,11 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False, name=''):
     img.yia.is_image_atlas = True
     img.yia.color = color
     #img.yia.float_buffer = hdr
-    #if hdr:
-    #img.colorspace_settings.name = get_noncolor_name()
+
+    # Float image atlas always use premultiplied alpha
+    if hdr and is_bl_newer_than(2, 80):
+        #img.colorspace_settings.name = get_noncolor_name()
+        img.alpha_mode = 'PREMUL'
 
     return img
 
@@ -216,7 +219,7 @@ def replace_segment_with_image(yp, segment, image, uv_name=''):
     return entities
 
 #class YUVTransformTest(bpy.types.Operator):
-#    bl_idname = "node.y_uv_transform_test"
+#    bl_idname = "wm.y_uv_transform_test"
 #    bl_label = "UV Transform Test"
 #    bl_description = "UV Transform Test"
 #    bl_options = {'REGISTER', 'UNDO'}
@@ -285,7 +288,7 @@ def set_segment_mapping(entity, segment, image, use_baked=False):
             mapping.translation[1] = offset_y
 
 class YNewImageAtlasSegmentTest(bpy.types.Operator):
-    bl_idname = "node.y_new_image_atlas_segment_test"
+    bl_idname = "wm.y_new_image_atlas_segment_test"
     bl_label = "New Image Atlas Segment Test"
     bl_description = "New Image Atlas segment test"
     bl_options = {'REGISTER', 'UNDO'}
@@ -389,7 +392,7 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRefreshTransformedLayerUV(bpy.types.Operator):
-    bl_idname = "node.y_refresh_transformed_uv"
+    bl_idname = "wm.y_refresh_transformed_uv"
     bl_label = "Refresh Layer UV with Custom Transformation"
     bl_description = "Refresh layer UV with custom transformation"
     bl_options = {'REGISTER', 'UNDO'}
@@ -429,7 +432,7 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
         return {'FINISHED'}
 
 class YBackToOriginalUV(bpy.types.Operator):
-    bl_idname = "node.y_back_to_original_uv"
+    bl_idname = "wm.y_back_to_original_uv"
     bl_label = "Back to Original UV"
     bl_description = "Transformed UV detected, your changes will be lost if you edit on this UV.\nClick this button to go back to original UV"
     bl_options = {'REGISTER', 'UNDO'}
@@ -461,10 +464,10 @@ class YBackToOriginalUV(bpy.types.Operator):
             uv_layers = get_uv_layers(ob)
 
             for uv in uv_layers:
-                if uv.name == src_of_img.uv_name:
+                if uv.name == uv_name:
 
-                    if uv_layers.active != uv_layers.get(src_of_img.uv_name):
-                        uv_layers.active = uv_layers.get(src_of_img.uv_name)
+                    if uv_layers.active != uv_layers.get(uv_name):
+                        uv_layers.active = uv_layers.get(uv_name)
 
                 if uv.name == TEMP_UV:
                     uv_layers.remove(uv)
@@ -485,7 +488,7 @@ class YBackToOriginalUV(bpy.types.Operator):
         return {'FINISHED'}
 
 class YConvertToImageAtlas(bpy.types.Operator):
-    bl_idname = "node.y_convert_to_image_atlas"
+    bl_idname = "wm.y_convert_to_image_atlas"
     bl_label = "Convert Image to Image Atlas"
     bl_description = "Convert image to image atlas (useful to avoid material texture limit)"
     bl_options = {'REGISTER', 'UNDO'}
@@ -509,7 +512,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
             entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp)
         else:
             mapping = get_entity_mapping(context.entity)
-            if is_transformed(mapping) and not context.entity.use_baked:
+            if is_transformed(mapping, context.entity) and not context.entity.use_baked:
                 self.report({'ERROR'}, "Cannot convert transformed image!")
                 return {'CANCELLED'}
 
@@ -536,7 +539,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
                 # Transformed mapping on entity is not valid for conversion
                 mapping = get_entity_mapping(entity)
-                if use_baked or not is_transformed(mapping):
+                if use_baked or not is_transformed(mapping, entity):
                     valid_entities.append(entity)
 
             if not any(valid_entities):
@@ -578,6 +581,10 @@ class YConvertToImageAtlas(bpy.types.Operator):
                 #entity.segment_name = new_segment.name
                 setattr(entity, segment_name_props[i][j], new_segment.name)
 
+                # Make sure uniform scaling is not used
+                if entity.enable_uniform_scale:
+                    entity.enable_uniform_scale = False
+
                 # Set image to editor
                 if entity == context.entity:
                     update_image_editor_image(bpy.context, ia_image)
@@ -597,7 +604,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
         return {'FINISHED'}
 
 class YConvertToStandardImage(bpy.types.Operator):
-    bl_idname = "node.y_convert_to_standard_image"
+    bl_idname = "wm.y_convert_to_standard_image"
     bl_label = "Convert Image Atlas to standard image"
     bl_description = "Convert image atlas to standard image"
     bl_options = {'REGISTER', 'UNDO'}
@@ -649,6 +656,8 @@ class YConvertToStandardImage(bpy.types.Operator):
                     name=entities[i][0].name, width=segment.width, height=segment.height,
                     alpha=True, float_buffer=image.is_float
                 )
+                if image.is_float and is_bl_newer_than(2, 80):
+                    new_image.alpha_mode = 'PREMUL'
             else:
                 new_image = bpy.data.images.new(
                     name=entities[i][0].name, width=image.size[0], height=image.size[1],
@@ -733,7 +742,7 @@ class YConvertToStandardImage(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YImageAtlasSegments(bpy.types.PropertyGroup):
+class YImageAtlasSegment(bpy.types.PropertyGroup):
 
     name : StringProperty(
         name = 'Name',
@@ -772,7 +781,7 @@ class YImageAtlas(bpy.types.PropertyGroup):
 
     #float_buffer : BoolProperty(default=False)
 
-    segments : CollectionProperty(type=YImageAtlasSegments)
+    segments : CollectionProperty(type=YImageAtlasSegment)
 
 def register():
     #bpy.utils.register_class(YUVTransformTest)
@@ -783,7 +792,7 @@ def register():
     bpy.utils.register_class(YConvertToStandardImage)
     #bpy.utils.register_class(YImageSegmentOtherObject)
     #bpy.utils.register_class(YImageSegmentBakeInfoProps)
-    bpy.utils.register_class(YImageAtlasSegments)
+    bpy.utils.register_class(YImageAtlasSegment)
     bpy.utils.register_class(YImageAtlas)
 
     bpy.types.Image.yia = PointerProperty(type=YImageAtlas)
@@ -797,5 +806,5 @@ def unregister():
     bpy.utils.unregister_class(YConvertToStandardImage)
     #bpy.utils.unregister_class(YImageSegmentOtherObject)
     #bpy.utils.unregister_class(YImageSegmentBakeInfoProps)
-    bpy.utils.unregister_class(YImageAtlasSegments)
+    bpy.utils.unregister_class(YImageAtlasSegment)
     bpy.utils.unregister_class(YImageAtlas)

@@ -1,0 +1,26 @@
+name: 🚀 Feature Request
+description: Suggest an idea for this project.
+labels: ["enhancement"]
+body:
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Pre-Flight checklist
+      description: Make sure these are correct before submitting
+      options:
+        - label: Did you check to see if this issue already exists?
+          required: true
+        - label: This is a single feature request. (Do not put multiple feature requests in one issue)
+          required: true
+  - type: textarea
+    id: describefeaturerequest
+    attributes:
+      label: Describe The Feature Request Below
+      description: A clear and concise description of what the feature request is.
+      placeholder: |
+        EXAMPLES: 
+        - Normally this happens, but that could happen instead
+        - This functionality should be added
+        - This functionality should be changed
+    validations:
+      required: true

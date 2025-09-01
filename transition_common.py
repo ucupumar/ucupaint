@@ -177,12 +177,12 @@ def set_transition_ramp_nodes(tree, layer, ch):
                 ((root_ch.type == 'RGB' and root_ch.enable_alpha) or layer.parent_idx != -1)):
             tr_ramp_blend = replace_new_node(
                 tree, ch, 'tr_ramp_blend', 'ShaderNodeGroup', 'Transition Ramp Blend',
-                lib.RAMP_FLIP_STRAIGHT_OVER_BLEND
+                lib.RAMP_FLIP_STRAIGHT_OVER_BLEND, hard_replace=True
             )
         else:
             tr_ramp_blend, dirty = replace_new_node(
                 tree, ch, 'tr_ramp_blend', 'ShaderNodeGroup', 'Transition Ramp Blend',
-                lib.RAMP_FLIP_BLEND, return_status=True
+                lib.RAMP_FLIP_BLEND, return_status=True, hard_replace=True
             )
             if dirty: duplicate_lib_node_tree(tr_ramp_blend)
 

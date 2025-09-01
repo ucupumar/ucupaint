@@ -1,13 +1,32 @@
-import bpy, os
+import bpy, os, subprocess, sys
 import tempfile
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
 from .common import *
 import time
-from . import UDIM
+from . import UDIM, subtree, BaseOperator
+
+def preserve_float_color_hack_before_saving(image):
+    if not image.is_float or not is_bl_newer_than(2, 80): return
+
+    # HACK: Need more calculation for image saved using straight alpha
+    if image.alpha_mode == 'STRAIGHT':
+        if image.colorspace_settings.name == get_srgb_name():
+            multiply_image_rgb_by_alpha(image)
+        elif image.colorspace_settings.name == get_linear_color_name():
+            divide_image_rgb_by_alpha(image)
+
+    # TODO: Saved SRGB Straight still has black glitch around alpha transition
+    # and saved SRGB Premultiplied still looks horrible
 
 def save_float_image(image):
+
+    # NOTE: This hack function is probably not a good idea since it uses a lot of assumption
+    #preserve_float_color_hack_before_saving(image)
+
+    # Remembers
     original_path = image.filepath
+    ori_colorspace = image.colorspace_settings.name
 
     # Create temporary scene
     tmpscene = bpy.data.scenes.new('Temp Scene')
@@ -28,7 +47,10 @@ def save_float_image(image):
     elif settings.file_format in {'PNG', 'TIFF'}:
         settings.color_depth = '16'
 
-    #ori_colorspace = image.colorspace_settings.name
+    # Need to pack first to save the image
+    if is_bl_newer_than(2, 81) and image.is_dirty:
+        pack_image(image)
+    
     full_path = bpy.path.abspath(image.filepath)
     image.save_render(full_path, scene=tmpscene)
     # HACK: If image still dirty after saving, save using standard save method
@@ -38,7 +60,18 @@ def save_float_image(image):
     # Delete temporary scene
     remove_datablock(bpy.data.scenes, tmpscene)
 
-def pack_float_image(image):
+    # Set back colorspace
+    if image.colorspace_settings.name != ori_colorspace:
+        image.colorspace_settings.name = ori_colorspace
+
+    # Remove packed flag
+    if is_bl_newer_than(2, 81) and image.packed_file:
+        image.unpack(method='REMOVE')
+
+    # Reload image
+    image.reload()
+
+def pack_float_image_27x(image):
     original_path = image.filepath
 
     # Create temporary scene
@@ -93,6 +126,39 @@ def pack_float_image(image):
     # Bring back to original path
     image.filepath = original_path
     os.remove(temp_filepath)
+
+def preserve_float_color_hack_before_packing(image):
+    if not image.is_float or not is_bl_newer_than(2, 80): return
+
+    # HACK: Divide by alpha if using straight alpha
+    if image.alpha_mode == 'STRAIGHT':
+        divide_image_rgb_by_alpha(image)
+
+    # Check if image is using srgb colorspace
+    if image.colorspace_settings.name == get_srgb_name():
+
+        # HACK: Multiply by alpha if using premultiplied alpha
+        if image.alpha_mode == 'PREMUL':
+            multiply_image_rgb_by_alpha(image)
+
+        # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
+        set_image_pixels_to_srgb(image)
+
+def pack_image(image, reload_float=False):
+
+    # NOTE: This hack function is probably not a good idea since it uses a lot of assumption
+    #preserve_float_color_hack_before_packing(image)
+
+    if is_bl_newer_than(2, 80):
+        image.pack()
+    else:
+        if image.is_float:
+            pack_float_image_27x(image)
+        else: image.pack(as_png=True)
+
+    # HACK: Some operation need Float image to be reloaded to be showed correctly
+    if image.is_float and reload_float:
+        image.reload()
 
 def clean_object_references(image):
     removed_references = []
@@ -182,7 +248,7 @@ def create_temp_scene():
 
 def save_pack_all(yp):
 
-    images = get_yp_images(yp, get_baked_channels=True, check_overlay_normal=True)
+    images = get_yp_images(yp, get_baked_channels=True) #, check_overlay_normal=True)
     packed_float_images = []
 
     # Temporary scene for some saving hack
@@ -224,7 +290,7 @@ def save_pack_all(yp):
 
                     temp_saved = True
                     
-                image.pack()
+                pack_image(image, reload_float=True)
 
                 if temp_saved:
                     # Remove file if they are using temporary directory
@@ -232,11 +298,9 @@ def save_pack_all(yp):
                         UDIM.remove_udim_files_from_disk(image, temp_udim_dir, True)
 
             else:
+                pack_image(image, reload_float=True)
                 if image.is_float:
-                    pack_float_image(image)
                     packed_float_images.append(image)
-                else: 
-                    image.pack(as_png=True)
 
             print('INFO:', image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         else:
@@ -312,9 +376,46 @@ def save_pack_all(yp):
         for image in images:
             clean_object_references(image)
 
+class YCopyImagePathToClipboard(bpy.types.Operator):
+    bl_idname = "wm.copy_image_path_to_clipboard"
+    bl_label = "Copy Image Path To Clipboard"
+    bl_description = get_addon_title() + " Copy the image file path to the system clipboard"
+
+    clipboard_text : bpy.props.StringProperty()
+
+    def execute(self, context):
+        context.window_manager.clipboard = self.clipboard_text
+        self.report({'INFO'}, "Copied: " + self.clipboard_text)
+        return {'FINISHED'}
+
+class YOpenContainingImageFolder(bpy.types.Operator):
+    bl_idname = "wm.open_containing_image_folder"
+    bl_label = "Open Containing Image Folder"
+    bl_description = get_addon_title() + " Open the folder containing the image file and highlight it"
+
+    file_path : bpy.props.StringProperty()
+
+    def execute(self, context):
+        filepath = bpy.path.abspath(self.file_path)
+        if not os.path.exists(filepath):
+            self.report({'ERROR'}, "File does not exist")
+            return {'CANCELLED'}
+        try:
+            # Add more branches below for different operating systems
+            if sys.platform == 'win32':  # Windows
+                subprocess.call(["explorer", "/select,", filepath])
+            elif sys.platform == 'darwin': # Mac
+                subprocess.call(["open", "-R", filepath])
+            elif sys.platform == 'linux': # Linux
+                subprocess.check_call(['dbus-send', '--session', '--print-reply', '--dest=org.freedesktop.FileManager1', '--type=method_call', '/org/freedesktop/FileManager1', 'org.freedesktop.FileManager1.ShowItems', 'array:string:file://'+os.path.normpath(filepath), 'string:""'])
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
-    bl_idname = "node.y_invert_image"
+    bl_idname = "wm.y_invert_image"
     bl_label = "Invert Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -351,7 +452,7 @@ class YInvertImage(bpy.types.Operator):
 
 class YRefreshImage(bpy.types.Operator):
     """Reload Image"""
-    bl_idname = "node.y_reload_image"
+    bl_idname = "wm.y_reload_image"
     bl_label = "Reload Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -372,7 +473,7 @@ class YRefreshImage(bpy.types.Operator):
 
 class YPackImage(bpy.types.Operator):
     """Pack Image"""
-    bl_idname = "node.y_pack_image"
+    bl_idname = "wm.y_pack_image"
     bl_label = "Pack Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -384,14 +485,7 @@ class YPackImage(bpy.types.Operator):
 
         T = time.time()
 
-        # Save file to temporary place first if image is float
-        if is_bl_newer_than(2, 80):
-            context.image.pack()
-        else:
-            if context.image.is_float:
-                pack_float_image(context.image)
-            else: context.image.pack(as_png=True)
-
+        pack_image(context.image)
         context.image.filepath = ''
 
         node = get_active_ypaint_node()
@@ -404,35 +498,18 @@ class YPackImage(bpy.types.Operator):
 
                 baked_disp = tree.nodes.get(ch.baked_disp)
                 if baked_disp and baked_disp.image and not baked_disp.image.packed_file:
-                    if is_bl_newer_than(2, 80):
-                        baked_disp.image.pack()
-                    else:
-                        if baked_disp.image.is_float:
-                            pack_float_image(baked_disp.image)
-                        else: baked_disp.image.pack(as_png=True)
-
+                    pack_image(baked_disp.image)
                     baked_disp.image.filepath = ''
 
                 baked_vdisp = tree.nodes.get(ch.baked_vdisp)
                 if baked_vdisp and baked_vdisp.image and not baked_vdisp.image.packed_file:
-                    if is_bl_newer_than(2, 80):
-                        baked_vdisp.image.pack()
-                    else:
-                        if baked_vdisp.image.is_float:
-                            pack_float_image(baked_vdisp.image)
-                        else: baked_vdisp.image.pack(as_png=True)
-
+                    pack_image(baked_vdisp.image)
                     baked_vdisp.image.filepath = ''
 
-                if not is_overlay_normal_empty(yp):
+                if not is_overlay_normal_empty(ch):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image and not baked_normal_overlay.image.packed_file:
-                        if is_bl_newer_than(2, 80):
-                            baked_normal_overlay.image.pack()
-                        else:
-                            if baked_normal_overlay.image.is_float:
-                                pack_float_image(baked_normal_overlay.image)
-                            else: baked_normal_overlay.image.pack(as_png=True)
+                        pack_image(baked_normal_overlay.image)
 
                     baked_normal_overlay.image.filepath = ''
 
@@ -442,7 +519,7 @@ class YPackImage(bpy.types.Operator):
 
 class YSaveImage(bpy.types.Operator):
     """Save Image"""
-    bl_idname = "node.y_save_image"
+    bl_idname = "wm.y_save_image"
     bl_label = "Save Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -594,7 +671,7 @@ def remove_unpacked_image_path(image, filepath, default_dir, default_dir_found, 
 
 class YSaveAllBakedImages(bpy.types.Operator):
     """Save All Baked Images to directory"""
-    bl_idname = "node.y_save_all_baked_images"
+    bl_idname = "wm.y_save_all_baked_images"
     bl_label = "Save All Baked Images"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -627,6 +704,12 @@ class YSaveAllBakedImages(bpy.types.Operator):
         description = 'Create a new image file without modifying the current image in Blender',
         default = False
     )
+    
+    force_exr_vdisp : BoolProperty(
+        name = 'Use EXR for Baked VDM',
+        description = 'Always use EXR file format for baked vector displacement image',
+        default = True
+    )
 
     def invoke(self, context, event):
         # Open browser, take reference to 'self' read the path to selected
@@ -644,6 +727,16 @@ class YSaveAllBakedImages(bpy.types.Operator):
         col.prop(self, 'file_format', text='')
 
         self.layout.prop(self, 'copy')
+
+        node = get_active_ypaint_node()
+        if node and self.file_format != 'OPEN_EXR':
+            tree= node.node_tree
+            yp = tree.yp
+            height_root_ch = get_root_height_channel(yp)
+            if height_root_ch:
+                baked_vdisp = tree.nodes.get(height_root_ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image:
+                    self.layout.prop(self, 'force_exr_vdisp')
 
     def execute(self, context):
 
@@ -663,6 +756,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
         height_root_ch = get_root_height_channel(yp)
 
         # Baked images
+        baked_vdisp_image = None
         for ch in yp.channels:
             if ch.no_layer_using: continue
 
@@ -679,8 +773,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
                 baked_vdisp = tree.nodes.get(ch.baked_vdisp)
                 if baked_vdisp and baked_vdisp.image:
                     images.append(baked_vdisp.image)
+                    baked_vdisp_image = baked_vdisp.image
 
-                if not is_overlay_normal_empty(yp):
+                if not is_overlay_normal_empty(ch):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         images.append(baked_normal_overlay.image)
@@ -708,7 +803,10 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         for image in images:
 
-            settings.file_format = self.file_format
+            if image == baked_vdisp_image and self.force_exr_vdisp:
+                settings.file_format = 'OPEN_EXR'
+            else: settings.file_format = self.file_format
+
             settings.color_depth = '8' if settings.file_format != 'OPEN_EXR' else '16'
             if image.is_float:
                 settings.color_depth = '16' if settings.file_format != 'OPEN_EXR' else '32'
@@ -737,12 +835,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
             # Need to pack first to save the image
             if image.is_dirty:
-                if is_bl_newer_than(2, 80):
-                    image.pack()
-                else:
-                    if image.is_float:
-                        pack_float_image(image)
-                    else: image.pack(as_png=True)
+                pack_image(image)
 
             # Some images need to set to srgb when saving
             ori_colorspace = image.colorspace_settings.name
@@ -815,9 +908,9 @@ def get_file_format_items():
 
     return items
 
-class YSaveAsImage(bpy.types.Operator, ExportHelper):
+class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOptions):
     """Save As Image"""
-    bl_idname = "node.y_save_as_image"
+    bl_idname = "wm.y_save_as_image"
     bl_label = "Save As Image"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -826,20 +919,6 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         items = get_file_format_items(),
         default = 'PNG',
         update = update_save_as_file_format
-    )
-
-    # File browser filter
-    filter_folder : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_image : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    display_type : EnumProperty(
-        items = (
-            ('FILE_DEFAULTDISPLAY', 'Default', ''),
-            ('FILE_SHORTDISLPAY', 'Short List', ''),
-            ('FILE_LONGDISPLAY', 'Long List', ''),
-            ('FILE_IMGDISPLAY', 'Thumbnails', '')
-        ),
-        default = 'FILE_IMGDISPLAY',
-        options = {'HIDDEN', 'SKIP_SAVE'}
     )
 
     copy : BoolProperty(
@@ -1086,14 +1165,23 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if self.copy:
             image = self.image = duplicate_image(image, ondisk_duplicate=False)
 
+        # Remembers
+        ori_colorspace = image.colorspace_settings.name
+        ori_alpha_mode = image.alpha_mode
+        
+        if image.is_float:
+            # HACK: Set image color to linear first to save linear float image
+            if image.colorspace_settings.name == get_linear_color_name():
+                set_image_pixels_to_linear(image)
+
+            # HACK: Need to do image operation before saving srgb float image
+            if image.colorspace_settings.name == get_srgb_name():
+                if image.alpha_mode == 'STRAIGHT':
+                    multiply_image_rgb_by_alpha(image, power=2)
+
         # Need to pack first to save the image
         if image.is_dirty:
-            if is_bl_newer_than(2, 80):
-                image.pack()
-            else:
-                if image.is_float:
-                    pack_float_image(image)
-                else: image.pack(as_png=True)
+            pack_image(image)
 
         # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
         # Packing and unpacking sometimes does not work if the blend file is not saved yet
@@ -1102,11 +1190,19 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             unpacked_to_disk = True
             self.unpack_image(context)
 
-        # Some image need to set to srgb when saving
-        ori_colorspace = image.colorspace_settings.name
-        if not image.is_float and not image.is_dirty:
-            image.colorspace_settings.name = get_srgb_name()
+        if not image.is_dirty:
+            if not image.is_float:
+                # HACK: Non float image need to set to srgb when saving
+                image.colorspace_settings.name = get_srgb_name()
 
+            else:
+
+                # HACK: Need to change flip alpha mode before saving float image
+                if image.alpha_mode == 'PREMUL':
+                    image.alpha_mode = 'STRAIGHT'
+                elif image.alpha_mode == 'STRAIGHT':
+                    image.alpha_mode = 'PREMUL'
+        
         # Save image
         if image.source == 'TILED':
             override = bpy.context.copy()
@@ -1167,6 +1263,10 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if image.colorspace_settings.name != ori_colorspace:
             image.colorspace_settings.name = ori_colorspace
 
+        # Set back alpha mode
+        if image.alpha_mode != ori_alpha_mode:
+            image.alpha_mode = ori_alpha_mode
+
         # Delete copied image
         if self.copy:
             remove_datablock(bpy.data.images, image)
@@ -1175,7 +1275,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
 class YSavePackAll(bpy.types.Operator):
     """Save and Pack All Image Layers"""
-    bl_idname = "node.y_save_pack_all"
+    bl_idname = "wm.y_save_pack_all"
     bl_label = "Save and Pack All Image Layers"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1192,6 +1292,70 @@ class YSavePackAll(bpy.types.Operator):
         ypui.refresh_image_hack = False
         return {'FINISHED'}
 
+def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_colorspace=False):
+
+    if image.yua.is_udim_atlas or image.yia.is_image_atlas: return
+
+    # Create new image based on original image but with different bit depth
+    if image.source == 'TILED':
+
+        # Make sure image has filepath
+        if image.filepath == '': UDIM.initial_pack_udim(image)
+
+        tilenums = [tile.number for tile in image.tiles]
+        new_image = bpy.data.images.new(
+            image.name, width=image.size[0], height=image.size[1], 
+            alpha=True, float_buffer=not image.is_float, tiled=True
+        )
+
+        # Fill tiles
+        color = (0, 0, 0, 0)
+        for tilenum in tilenums:
+            ori_width = image.tiles.get(tilenum).size[0]
+            ori_height = image.tiles.get(tilenum).size[1]
+            UDIM.fill_tile(new_image, tilenum, color, ori_width, ori_height)
+        UDIM.initial_pack_udim(new_image, color)
+
+    else:
+        new_image = bpy.data.images.new(
+            image.name, width=image.size[0], height=image.size[1], 
+            alpha=True, float_buffer=not image.is_float
+        )
+
+        if image.filepath != '':
+            new_image.filepath = image.filepath
+
+    if force_srgb:
+        new_image.colorspace_settings.name = get_srgb_name()
+    elif convert_colorspace:
+        if new_image.is_float:
+            # Float image will use linear color and premultiplied alpha
+            new_image.colorspace_settings.name = get_linear_color_name()
+            new_image.alpha_mode = 'PREMUL'
+        else:
+            # Byte image will use srgb color and straight alpha
+            new_image.colorspace_settings.name = get_srgb_name()
+            new_image.alpha_mode = 'STRAIGHT'
+    else: new_image.colorspace_settings.name = image.colorspace_settings.name
+
+    # Copy image pixels
+    if no_copy == False:
+        if image.source == 'TILED':
+            UDIM.copy_udim_pixels(image, new_image, convert_colorspace=convert_colorspace)
+        else: 
+            if convert_colorspace:
+                copy_image_pixels_with_conversion(image, new_image)
+            else: copy_image_pixels(image, new_image)
+
+    # Pack image
+    if image.source != 'TILED' and image.packed_file:
+        pack_image(new_image, reload_float=True)
+
+    # Replace image
+    replace_image(image, new_image)
+
+    return new_image
+
 class YConvertImageBitDepth(bpy.types.Operator):
     """Convert Image Bit Depth"""
     bl_idname = "image.y_convert_image_bit_depth"
@@ -1206,70 +1370,41 @@ class YConvertImageBitDepth(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
+        # Do not convert colorspace if entity is a mask
+        convert_colorspace = False
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', context.entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', context.entity.path_from_id())
+        m3 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', context.entity.path_from_id())
+        if m1:
+            layer = yp.layers[int(m1.group(1))]
+            convert_colorspace = True
+        elif m2: 
+            layer = yp.layers[int(m2.group(1))]
+        elif m3: 
+            layer = yp.layers[int(m3.group(1))]
+        else:
+            self.report({'ERROR'}, "Wrong context!")
+            return {'CANCELLED'}
+
         image = context.image
 
         if image.yua.is_udim_atlas or image.yia.is_image_atlas:
             self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
             return {'CANCELLED'}
 
-        # Create new image based on original image but with different bit depth
-        if image.source == 'TILED':
-
-            # Make sure image has filepath
-            if image.filepath == '': UDIM.initial_pack_udim(image)
-
-            tilenums = [tile.number for tile in image.tiles]
-            new_image = bpy.data.images.new(
-                image.name, width=image.size[0], height=image.size[1], 
-                alpha=True, float_buffer=not image.is_float, tiled=True
-            )
-
-            # Fill tiles
-            color = (0, 0, 0, 0)
-            for tilenum in tilenums:
-                ori_width = image.tiles.get(tilenum).size[0]
-                ori_height = image.tiles.get(tilenum).size[1]
-                UDIM.fill_tile(new_image, tilenum, color, ori_width, ori_height)
-            UDIM.initial_pack_udim(new_image, color)
-
-        else:
-            new_image = bpy.data.images.new(
-                image.name, width=image.size[0], height=image.size[1], 
-                alpha=True, float_buffer=not image.is_float
-            )
-
-            if image.filepath != '':
-                new_image.filepath = image.filepath
-
-        new_image.colorspace_settings.name = image.colorspace_settings.name
-
-        # Copy image pixels
-        if image.source == 'TILED':
-            UDIM.copy_udim_pixels(image, new_image)
-        else: copy_image_pixels(image, new_image)
-
-        # Pack image
-        if image.packed_file and image.source != 'TILED':
-            if is_bl_newer_than(2, 80):
-                new_image.pack()
-            else:
-                if new_image.is_float:
-                    pack_float_image(new_image)
-                else: new_image.pack(as_png=True)
-
-            # HACK: Float image need to be reloaded after packing to be showed correctly
-            if new_image.is_float:
-                new_image.reload()
-
-        # Replace image
-        replace_image(image, new_image)
+        toggle_image_bit_depth(image, convert_colorspace=convert_colorspace)
 
         # Update image editor by setting active layer index
         yp.active_layer_index = yp.active_layer_index
 
+        # Refresh linear nodes
+        subtree.check_yp_linear_nodes(yp, specific_layer=layer, reconnect=True)
+
         return {'FINISHED'}
 
 def register():
+    bpy.utils.register_class(YCopyImagePathToClipboard)
+    bpy.utils.register_class(YOpenContainingImageFolder)
     bpy.utils.register_class(YInvertImage)
     bpy.utils.register_class(YRefreshImage)
     bpy.utils.register_class(YPackImage)
@@ -1280,6 +1415,8 @@ def register():
     bpy.utils.register_class(YConvertImageBitDepth)
 
 def unregister():
+    bpy.utils.unregister_class(YCopyImagePathToClipboard)
+    bpy.utils.unregister_class(YOpenContainingImageFolder)
     bpy.utils.unregister_class(YInvertImage)
     bpy.utils.unregister_class(YRefreshImage)
     bpy.utils.unregister_class(YPackImage)

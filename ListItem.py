@@ -53,11 +53,11 @@ def refresh_list_items(yp, repoint_active=False):
                 for i, ch in enumerate(layer.channels):
                     if not ch.enable: continue
                     root_ch = yp.channels[i]
-                    if ch.override and ch.override_type in {'IMAGE', 'VCOL'} and ch.active_edit:
+                    if ch.override and ch.override_type != 'DEFAULT' and ch.active_edit:
                         active_item_name = layer.name + ' ' + root_ch.name
                         active_item_type = 'CHANNEL_OVERRIDE'
 
-                    if root_ch.type == 'NORMAL' and ch.override_1 and ch.override_1_type == 'IMAGE' and ch.active_edit_1:
+                    if root_ch.type == 'NORMAL' and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.active_edit_1:
                         active_item_name = layer.name + ' ' + root_ch.name + ' 1'
                         active_item_type = 'CHANNEL_OVERRIDE'
                         active_item_is_second_member = True
@@ -110,7 +110,7 @@ def refresh_list_items(yp, repoint_active=False):
                 # Channel Override
                 if (layer.expand_subitems and 
                     (root_ch.type != 'NORMAL' or ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}) and 
-                    (ch.override and ch.override_type in {'IMAGE', 'VCOL'}) and
+                    (ch.override and ch.override_type != 'DEFAULT') and
                     ch.enable and
                     yp.enable_expandable_subitems
                     ):
@@ -136,7 +136,7 @@ def refresh_list_items(yp, repoint_active=False):
                 # Channel Override 1 / Normal
                 if (layer.expand_subitems and 
                     (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}) and 
-                    (ch.override_1 and ch.override_1_type in {'IMAGE', 'VCOL'}) and
+                    (ch.override_1 and ch.override_1_type != 'DEFAULT') and
                     ch.enable and
                     yp.enable_expandable_subitems
                     ):
@@ -213,7 +213,7 @@ class YListItem(bpy.types.PropertyGroup):
     )
 
 class YRefreshListItems(bpy.types.Operator):
-    bl_idname = "node.y_refresh_list_items"
+    bl_idname = "wm.y_refresh_list_items"
     bl_label = "Refresh List Items"
     bl_description = "Refresh List Items"
     bl_options = {'REGISTER', 'UNDO'}
