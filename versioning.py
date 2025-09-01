@@ -205,6 +205,17 @@ def update_bake_info_baked_entity_props(yp):
             bi.bake_type = 'BEVEL_MASK'
             bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
 
+def update_bake_info_use_cages(yp):
+
+    images = get_yp_images(yp)
+
+    for i, image in enumerate(images):
+        bi = image.y_bake_info
+
+        if bi.is_baked and bi.bake_type.startswith('OTHER_OBJECT_'):
+            if bi.cage_object_name != '':
+                bi.use_cage = True
+
 def update_yp_tree(tree):
     cur_version = get_current_version_str()
     yp = tree.yp
@@ -213,6 +224,53 @@ def update_yp_tree(tree):
     updated_to_yp_200_displacement = False
 
     # SECTION I: Update based on yp version
+
+    ## EARLY UPDATE
+    # NOTE: These update should happen earlier since it affects how the node connections
+
+    # Version 2.3.2 has ramp modifier affect option
+    if version_tuple(yp.version) < (2, 3, 2):
+        yp.halt_update = True
+
+        for ch in yp.channels:
+            for mod in ch.modifiers:
+                if mod.type == 'COLOR_RAMP':
+                    mod.affect_alpha = True
+
+        for layer in yp.layers:
+            for mod in layer.modifiers:
+                if mod.type == 'COLOR_RAMP':
+                    mod.affect_alpha = True
+
+            for ch in layer.channels:
+                for mod in ch.modifiers:
+                    if mod.type == 'COLOR_RAMP':
+                        mod.affect_alpha = True
+
+                for mod in ch.modifiers_1:
+                    if mod.type == 'COLOR_RAMP':
+                        mod.affect_alpha = True
+
+        yp.halt_update = False
+
+    # Version 2.3.3 has new vdisp_blend node
+    if version_tuple(yp.version) < (2, 3, 3):
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                if height_ch:
+                    # Convert standard blend node to vdisp_blend
+                    if height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP' and layer.type != 'GROUP':
+                        height_ch.vdisp_blend = height_ch.blend
+                        height_ch.blend = ''
+                        layer_tree = get_tree(layer)
+                        if layer_tree:
+                            vdisp_blend = layer_tree.nodes.get(height_ch.vdisp_blend)
+                            if vdisp_blend: vdisp_blend.label = 'VDisp Blend'
+
+    ## LATER UPDATE
+    # NOTE: These updates probably can be run after the above
 
     # Version 0.9.1 and above will fix wrong bake type stored on images bake type
     if version_tuple(yp.version) < (0, 9, 1):
@@ -432,7 +490,7 @@ def update_yp_tree(tree):
             if layer.type == 'IMAGE':
 
                 source = get_layer_source(layer)
-                if source and source.image and not source.image.is_float: 
+                if source and source.image and source.image.users == 1 and not source.image.is_float: 
                     if source.image.colorspace_settings.name != get_srgb_name():
                         source.image.colorspace_settings.name = get_srgb_name()
                         print('INFO:', source.image.name, 'image is now using sRGB!')
@@ -445,7 +503,7 @@ def update_yp_tree(tree):
                 if ch.override_type == 'IMAGE':
 
                     source = get_channel_source(ch)
-                    if source and source.image and not source.image.is_float:
+                    if source and source.image and source.image.users == 1 and not source.image.is_float:
                         if source.image.colorspace_settings.name != get_srgb_name():
                             source.image.colorspace_settings.name = get_srgb_name()
                             print('INFO:', source.image.name, 'image is now using sRGB!')
@@ -457,7 +515,7 @@ def update_yp_tree(tree):
 
                 if mask.type == 'IMAGE':
                     source = get_mask_source(mask)
-                    if source and source.image and not source.image.is_float:
+                    if source and source.image and source.image.users == 1 and not source.image.is_float:
                         if source.image.colorspace_settings.name != get_srgb_name():
                             source.image.colorspace_settings.name = get_srgb_name()
                             print('INFO:', source.image.name, 'image is now using sRGB!')
@@ -919,6 +977,58 @@ def update_yp_tree(tree):
 
         # Update linear nodes since it gets refactored
         check_yp_linear_nodes(yp, reconnect=True)
+
+    # Version 2.3.2 has bake cage option
+    if version_tuple(yp.version) < (2, 3, 2):
+
+        # Mark use cage object for older bake info
+        update_bake_info_use_cages(yp)
+
+    # Version 2.3.3 has scale correction on normal from unwritten height bump map
+    if version_tuple(yp.version) < (2, 3, 3):
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and not height_root_ch.enable_smooth_bump:
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                if height_ch:
+                    if height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and not height_ch.write_height:
+                        height = get_entity_prop_value(height_ch, 'bump_distance')
+                        set_entity_prop_value(height_ch, 'bump_distance', height * 5)
+
+    # Version 2.3.5 has blur bake type, and no longer use get/set prop for Blender 5.0 compatibility
+    if version_tuple(yp.version) < (2, 3, 5):
+        images = get_yp_images(yp)
+
+        for i, image in enumerate(images):
+            bi = image.y_bake_info
+
+            if bi.is_baked_entity:
+                if bi.blur:
+                    bi.blur_type = 'NOISE'
+
+        # Update original name for channel
+        for ch in yp.channels:
+            ch.original_name = ch.name
+
+            if ch.bake_to_vcol_name == '':
+                ch.bake_to_vcol_name = 'Baked ' + ch.name
+
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            for layer in yp.layers:
+                height_ch = get_height_channel(layer)
+                if height_ch:
+
+                    # Update to proper 'Add' max height calculation node
+                    if height_ch.normal_blend_type == 'OVERLAY' and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                        check_all_layer_channel_io_and_nodes(layer, specific_ch=height_ch)
+                        reconnect_layer_nodes(layer)
+                        rearrange_layer_nodes(layer)
+
+                    # Transition bump distance now can do negative value, so reset the value by reenabling and enabling back
+                    if height_ch.enable_transition_bump:
+                        height_ch.enable_transition_bump = False
+                        height_ch.enable_transition_bump = True
 
     # SECTION II: Updates based on the blender version
 

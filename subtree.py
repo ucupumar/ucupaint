@@ -612,6 +612,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 if root_ch.type == 'NORMAL':
                     if remove_node(tree, c, 'mix_pure'): need_reconnect = True
                     if remove_node(tree, c, 'mix_normal'): need_reconnect = True
+                    if remove_node(tree, c, 'mix_vdisp'): need_reconnect = True
                 continue
 
             if (root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and height_process_needed and
@@ -687,6 +688,20 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         set_mix_clamp(mix_normal, True)
                 else:
                     if remove_node(tree, c, 'mix_normal'): need_reconnect = True
+
+                if layer.type == 'GROUP' and is_layer_using_vdisp_map(layer):
+                    mix_vdisp = tree.nodes.get(c.mix_vdisp)
+                    if not mix_vdisp:
+                        need_reconnect = True
+                        mix_vdisp = new_mix_node(tree, c, 'mix_vdisp', 'Mask VDisp')
+                        mix_vdisp.inputs[0].default_value = mask.intensity_value
+                    if mix_vdisp.blend_type != mask.blend_type:
+                        mix_vdisp.blend_type = mask.blend_type
+                    # Use clamp to keep value between 0.0 to 1.0
+                    if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
+                        set_mix_clamp(mix_vdisp, True)
+                else:
+                    if remove_node(tree, c, 'mix_vdisp'): need_reconnect = True
 
             else: 
                 if (trans_bump and i >= chain and (
@@ -1661,6 +1676,16 @@ def check_uv_nodes(yp, generate_missings=False):
             if uv.name not in uv_names: 
                 uv_names.append(uv.name)
 
+        if layer.use_baked and layer.baked_uv_name != '':
+            uv = yp.uvs.get(layer.baked_uv_name)
+            if not uv: 
+                dirty = True
+                uv = yp.uvs.add()
+                uv.name = layer.baked_uv_name
+
+            if uv.name not in uv_names: 
+                uv_names.append(uv.name)
+
         for mask in layer.masks:
             if mask.texcoord_type == 'UV' and mask.uv_name != '':
                 uv = yp.uvs.get(mask.uv_name)
@@ -1668,6 +1693,16 @@ def check_uv_nodes(yp, generate_missings=False):
                     dirty = True
                     uv = yp.uvs.add()
                     uv.name = mask.uv_name
+
+                if uv.name not in uv_names: 
+                    uv_names.append(uv.name)
+
+            if mask.use_baked and mask.baked_uv_name != '':
+                uv = yp.uvs.get(mask.baked_uv_name)
+                if not uv: 
+                    dirty = True
+                    uv = yp.uvs.add()
+                    uv.name = mask.baked_uv_name
 
                 if uv.name not in uv_names: 
                     uv_names.append(uv.name)
@@ -1867,7 +1902,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     lib_name = lib.CH_MAX_HEIGHT_TB_ADD_CALC
                 else: lib_name = lib.CH_MAX_HEIGHT_TB_CALC
         else:
-            lib_name = lib.CH_MAX_HEIGHT_CALC
+            if ch.normal_blend_type == 'OVERLAY':
+                lib_name = lib.CH_MAX_HEIGHT_ADD_CALC
+            else: lib_name = lib.CH_MAX_HEIGHT_CALC
 
         if ch.write_height:
             max_height_calc, need_reconnect = replace_new_node(
@@ -1881,7 +1918,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             if remove_node(tree, ch, 'max_height_calc'): need_reconnect = True
 
         # Height Process
-        if ch.normal_map_type == 'NORMAL_MAP':
+        if layer.type != 'GROUP' and ch.normal_map_type == 'NORMAL_MAP':
             if root_ch.enable_smooth_bump:
                 if ch.enable_transition_bump:
                     if ch.transition_bump_crease and not ch.transition_bump_flip:
@@ -2067,7 +2104,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 lib_name = lib.NORMAL_MAP
 
         # Normal map
-        if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+        if layer.type != 'GROUP' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             normal_map_proc, need_reconnect = check_new_node(tree, ch, 'normal_map_proc', 'ShaderNodeNormalMap', 'Normal Map Process', True)
             normal_map_proc.uv_map = layer.uv_name
             normal_map_proc.space = ch.normal_space
@@ -2113,24 +2150,56 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
         if remove_node(tree, ch, 'normal_flip'): need_reconnect = True
 
-    if channel_enabled and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+    if channel_enabled and is_vdisp_process_needed(layer):
 
-        if ch.vdisp_enable_flip_yz:
-            vdisp_flip_yz, dirty = check_new_node(tree, ch, 'vdisp_flip_yz', 'ShaderNodeGroup', 'Flip Y/Z', True)
-            vdisp_flip_yz.node_tree = lib.get_node_tree_lib(lib.FLIP_YZ)
+        # Dedicated vdisp intensity currently is needed for group
+        if layer.type == 'GROUP':
+            vdisp_intensity, dirty = check_new_node(tree, ch, 'vdisp_intensity', 'ShaderNodeMath', 'VDisp Opacity', True)
+            vdisp_intensity.operation = 'MULTIPLY'
             if dirty: need_reconnect = True
-        else:
+
+            if remove_node(tree, ch, 'vdisp_proc'): need_reconnect = True
             if remove_node(tree, ch, 'vdisp_flip_yz'): need_reconnect = True
 
-        vdisp_proc, need_reconnect = replace_new_mix_node(
-            tree, ch, 'vdisp_proc', 'Vector Displacement Process',
-            return_status=True, hard_replace=True, dirty=need_reconnect
-        )
-        vdisp_proc.blend_type = 'MULTIPLY'
-        vdisp_proc.inputs[0].default_value = 1.0
+        else:
+            if ch.vdisp_enable_flip_yz:
+                vdisp_flip_yz, dirty = check_new_node(tree, ch, 'vdisp_flip_yz', 'ShaderNodeGroup', 'Flip Y/Z', True)
+                vdisp_flip_yz.node_tree = lib.get_node_tree_lib(lib.FLIP_YZ)
+                if dirty: need_reconnect = True
+            else:
+                if remove_node(tree, ch, 'vdisp_flip_yz'): need_reconnect = True
+
+            vdisp_proc, need_reconnect = replace_new_mix_node(
+                tree, ch, 'vdisp_proc', 'Vector Displacement Process',
+                return_status=True, hard_replace=True, dirty=need_reconnect
+            )
+            vdisp_proc.blend_type = 'MULTIPLY'
+            vdisp_proc.inputs[0].default_value = 1.0
+
+            if remove_node(tree, ch, 'vdisp_intensity'): need_reconnect = True
+
+        if layer.parent_idx != -1 and ch.normal_blend_type == 'MIX':
+            vdisp_blend, need_reconnect = replace_new_node(
+                tree, ch, 'vdisp_blend', 'ShaderNodeGroup', 'VDisp Blend', lib.STRAIGHT_OVER_HEIGHT_MIX, 
+                return_status=True, hard_replace=True, dirty=need_reconnect
+            )
+        elif layer.parent_idx != -1 and ch.normal_blend_type == 'OVERLAY':
+            vdisp_blend, need_reconnect = replace_new_node(
+                tree, ch, 'vdisp_blend', 'ShaderNodeGroup', 'VDisp Blend', lib.STRAIGHT_OVER_HEIGHT_ADD, 
+                return_status=True, hard_replace=True, dirty=need_reconnect
+            )
+        else:
+            vdisp_blend, need_reconnect = replace_new_mix_node(
+                tree, ch, 'vdisp_blend', 'VDisp Blend',
+                return_status=True, hard_replace=True, dirty=need_reconnect
+            )
+            vdisp_blend.blend_type = 'ADD' if ch.normal_blend_type == 'OVERLAY' else 'MIX'
+
     else:
         if remove_node(tree, ch, 'vdisp_proc'): need_reconnect = True
         if remove_node(tree, ch, 'vdisp_flip_yz'): need_reconnect = True
+        if remove_node(tree, ch, 'vdisp_blend'): need_reconnect = True
+        if remove_node(tree, ch, 'vdisp_intensity'): need_reconnect = True
 
     return need_reconnect
 
@@ -2409,13 +2478,13 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     return_status=True, hard_replace=True, dirty=need_reconnect
                 )
 
-        elif channel_enabled and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+        #elif channel_enabled and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
 
-            blend, need_reconnect = replace_new_mix_node(
-                tree, ch, 'blend', 'Blend',
-                return_status=True, hard_replace=True, dirty=need_reconnect
-            )
-            blend.blend_type = 'ADD' if ch.normal_blend_type == 'OVERLAY' else 'MIX'
+        #    blend, need_reconnect = replace_new_mix_node(
+        #        tree, ch, 'blend', 'Blend',
+        #        return_status=True, hard_replace=True, dirty=need_reconnect
+        #    )
+        #    blend.blend_type = 'ADD' if ch.normal_blend_type == 'OVERLAY' else 'MIX'
 
         else:
             if remove_node(tree, ch, 'blend'): need_reconnect = True
@@ -2426,7 +2495,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
             # Intensity nodes
             intensity = tree.nodes.get(ch.intensity)
             if not intensity:
-                intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Channel Intensity')
+                intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Channel Opacity')
                 intensity.operation = 'MULTIPLY'
 
             # Channel intensity

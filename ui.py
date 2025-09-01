@@ -771,7 +771,7 @@ def draw_mask_modifier_stack(layer, mask, layout, ui):
             box.active = m.enable
             MaskModifier.draw_modifier_properties(tree, m, box)
 
-def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False, use_modifier_1=False, layout_active=True):
+def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False, use_modifier_1=False, layout_active=True, is_root_ch=False):
 
     ypui = context.window_manager.ypui
 
@@ -881,7 +881,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
             row.label(text='', icon='BLANK1')
             box = row.box()
             box.active = m.enable
-            Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, box, False)
+            Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, parent, box, is_root_ch=is_root_ch)
 
             #row.label(text='', icon='BLANK1')
 
@@ -1144,7 +1144,7 @@ def draw_root_channels_ui(context, layout, node):
             baked = nodes.get(channel.baked)
             layout_active = not yp.use_baked or not baked
 
-            draw_modifier_stack(context, channel, channel.type, bcol, chui, layout_active=layout_active)
+            draw_modifier_stack(context, channel, channel.type, bcol, chui, layout_active=layout_active, is_root_ch=True)
 
             inp = node.inputs[channel.io_index]
 
@@ -1486,48 +1486,29 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     label = ''
     #label += pgettext_iface('Layer') + ': '
     if image:
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_image')
-        #else: icon_value = lib.get_icon('collapsed_image')
         icon_value = lib.get_icon('image')
         if image.yia.is_image_atlas or image.yua.is_udim_atlas:
             label += layer.name
         else: label += image.name
     elif vcol:
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_vertex_color')
-        #else: icon_value = lib.get_icon('collapsed_vertex_color')
         icon_value = lib.get_icon('vertex_color')
         label += vcol.name
     elif layer.type == 'BACKGROUND':
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_background')
-        #else: icon_value = lib.get_icon('collapsed_background')
         icon_value = lib.get_icon('background')
         label += layer.name
     elif layer.type == 'COLOR':
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_color')
-        #else: icon_value = lib.get_icon('collapsed_color')
         icon_value = lib.get_icon('color')
         label += layer.name
     elif layer.type == 'GROUP':
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_group')
-        #else: icon_value = lib.get_icon('collapsed_group')
         icon_value = lib.get_icon('group')
         label += layer.name
     elif layer.type == 'HEMI':
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_hemi')
-        #else: icon_value = lib.get_icon('collapsed_hemi')
         icon_value = lib.get_icon('hemi')
         label += layer.name
+    elif layer.type in {'EDGE_DETECT', 'AO'}:
+        icon_value = lib.get_icon('edge_detect')
+        label += layer.name
     else:
-        title = source.bl_idname.replace('ShaderNodeTex', '')
-        #if lui.expand_content:
-        #    icon_value = lib.get_icon('uncollapsed_texture')
-        #else: icon_value = lib.get_icon('collapsed_texture')
         icon_value = lib.get_icon('texture')
         label += layer.name
 
@@ -2100,11 +2081,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 #if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
                 if ch.enable:
-                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override:
                         if ch.override_type == 'IMAGE':
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
                         elif ch.override_type == 'VCOL':
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+                        elif ch.override_type != 'DEFAULT':
+                            rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
                     if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type == 'IMAGE':
                         rrrow.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
@@ -2127,6 +2110,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
                         elif ch.override_type == 'VCOL':
                             rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+                        elif ch.override_type != 'DEFAULT':
+                            rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
             else:
                 label = get_layer_channel_input_label(layer, ch)
                 ssplit.menu("NODE_MT_y_layer_channel_input_menu", text=label)
@@ -2402,7 +2387,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     #row.label(text='', icon='BLANK1')
 
             # Write height
-            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump:
+            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump or layer.type == 'GROUP':
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 row.label(text='Write Height:')
@@ -3283,11 +3268,11 @@ def draw_layers_ui(context, layout, node):
                 baked_normal_overlay = nodes.get(root_ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image:
                     row = bcol.row(align=True)
-                    row.active = not root_ch.disable_global_baked
+                    row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
                     if baked_normal_overlay.image.is_dirty:
                         title = baked_normal_overlay.image.name + ' *'
                     else: title = baked_normal_overlay.image.name
-                    if root_ch.disable_global_baked:
+                    if root_ch.disable_global_baked and not yp.enable_baked_outside:
                         title += ' (Disabled)'
                     row.label(text=title, icon_value=lib.get_icon('image'))
 
@@ -3297,15 +3282,29 @@ def draw_layers_ui(context, layout, node):
                 baked_disp = nodes.get(root_ch.baked_disp)
                 if baked_disp and baked_disp.image:
                     row = bcol.row(align=True)
-                    row.active = not root_ch.disable_global_baked
+                    row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
                     if baked_disp.image.is_dirty:
                         title = baked_disp.image.name + ' *'
                     else: title = baked_disp.image.name
-                    if root_ch.disable_global_baked:
+                    if root_ch.disable_global_baked and not yp.enable_baked_outside:
                         title += ' (Disabled)'
                     row.label(text=title, icon_value=lib.get_icon('image'))
 
                     if baked_disp.image.packed_file:
+                        row.label(text='', icon='PACKAGE')
+
+                baked_vdisp = nodes.get(root_ch.baked_vdisp)
+                if baked_vdisp and baked_vdisp.image:
+                    row = bcol.row(align=True)
+                    row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
+                    if baked_vdisp.image.is_dirty:
+                        title = baked_vdisp.image.name + ' *'
+                    else: title = baked_vdisp.image.name
+                    if root_ch.disable_global_baked and not yp.enable_baked_outside:
+                        title += ' (Disabled)'
+                    row.label(text=title, icon_value=lib.get_icon('image'))
+
+                    if baked_vdisp.image.packed_file:
                         row.label(text='', icon='PACKAGE')
 
             btimages = []
@@ -3812,11 +3811,11 @@ def draw_layers_ui(context, layout, node):
 
             if is_bl_newer_than(4, 3) and in_texture_paint_mode:
                 brush = context.tool_settings.image_paint.brush
-                if brush and brush.image_tool != 'MASK':
+                if brush and get_brush_image_tool(brush) != 'MASK':
                     bbox = col.box()
                     row = bbox.row(align=True)
                     label = 'Toggle Eraser'
-                    if brush.name in tex_eraser_asset_names:
+                    if brush.name in tex_eraser_asset_names or (brush not in tex_default_brushes and brush.blend == 'ERASE_ALPHA'):
                         row.alert = True
                         label = 'Disable Eraser'
                     row.operator('paint.y_toggle_eraser', text=label)
@@ -4165,6 +4164,22 @@ def main_draw(self, context):
         col.label(text=group_tree.name + ' (' + yp.version + ')', icon_value=lib.get_icon('nodetree'))
         col.operator("wm.y_update_yp_trees", text='Update node to version ' + get_current_version_str(), icon='ERROR')
         return
+
+    # Message will appear when opening file with newer node version
+    if version_tuple(yp.version) > version_tuple(get_current_version_str()):
+        col = layout.column()
+        col.alert = True
+        col.label(text='This node uses newer version!', icon='ERROR')
+        if 'addon_updater_ops' not in dir():
+            # Extension platform releases link
+            col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://extensions.blender.org/add-ons/ucupaint/'
+        else: 
+            if is_online():
+                # Blender with online access already has the update button
+                col.label(text='Please update the addon!', icon='BLANK1')
+            else:
+                # Github releases link
+                col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://github.com/ucupumar/ucupaint/releases'
 
     if ypup.developer_mode:
         height_root_ch = get_root_height_channel(yp)
@@ -4545,7 +4560,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict[item.type])
         row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
 
-        if not yp.use_baked or item.no_layer_using:
+        if not yp.use_baked or (item.no_layer_using and not (yp.use_baked and yp.enable_baked_outside)):
             if item.type == 'RGB':
                 row = row.row(align=True)
 
@@ -4581,7 +4596,7 @@ def any_subitem_in_layer(layer):
         root_ch = yp.channels[i]
 
         if (root_ch.type == 'NORMAL' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} 
-            and ch.override and ch.override_type in {'IMAGE', 'VCOL'}
+            and ch.override and ch.override_type != 'DEFAULT'
             ):
             return True
 
@@ -4590,7 +4605,7 @@ def any_subitem_in_layer(layer):
             ):
             return True
 
-        elif root_ch.type != 'NORMAL' and ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+        elif root_ch.type != 'NORMAL' and ch.override and ch.override_type != 'DEFAULT':
             return True
 
     return False
@@ -4633,6 +4648,20 @@ def get_ch_type_icon_prefix(layer, ch):
     if get_layer_channel_type(layer, ch) == 'VALUE': return 'value_'
     if get_layer_channel_type(layer, ch) == 'NORMAL': return 'vector_'
     return ''
+
+def get_ch_override_label(layer, ch, is_normal_override=False):
+    yp = ch.id_data.yp
+
+    label = channel_override_labels[ch.override_type]
+
+    root_ch = yp.channels[get_layer_channel_index(layer, ch)]
+    channel_label = root_ch.name
+    if root_ch.type == 'NORMAL' and not is_normal_override:
+        channel_label = 'Bump'
+
+    label += ' ('+channel_label+')'
+
+    return label
 
 def layer_listing(layout, layer, show_expand=False):
     yp = layer.id_data.yp
@@ -4727,6 +4756,8 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
         elif layer.type == 'HEMI': 
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('hemi'))
+        elif layer.type in {'EDGE_DETECT', 'AO'}:
+            row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
         elif layer.type == 'COLOR': 
             row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
@@ -4751,6 +4782,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(active_override, ae_prop, text='', emboss=False, icon='COLOR')
             elif layer.type == 'HEMI': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('hemi'))
+            elif layer.type in {'EDGE_DETECT', 'AO'}:
+                row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
             elif layer.type == 'BACKGROUND': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
@@ -4769,6 +4802,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon='COLOR')
             elif layer.type == 'HEMI': 
                 row.label(text='', icon_value=lib.get_icon('hemi'))
+            elif layer.type in {'EDGE_DETECT', 'AO'}:
+                row.label(text='', icon_value=lib.get_icon('edge_detect'))
             elif layer.type == 'BACKGROUND': 
                 row.label(text='', icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
@@ -4800,7 +4835,8 @@ def layer_listing(layout, layer, show_expand=False):
                     icon_name = get_ch_type_icon_prefix(layer, c) + 'vertex_color'
                     row.label(text='', icon_value=lib.get_icon(icon_name))
                 else:
-                    row.label(text='', icon_value=lib.get_icon('texture'))
+                    icon_name = get_ch_type_icon_prefix(layer, c) + 'texture'
+                    row.label(text='', icon_value=lib.get_icon(icon_name))
             else:
                 if c.override_type == 'IMAGE':
                     src = get_channel_source(c, layer)
@@ -4815,7 +4851,8 @@ def layer_listing(layout, layer, show_expand=False):
                     icon_name = get_ch_type_icon_prefix(layer, c) + 'vertex_color'
                     row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(icon_name))
                 else:
-                    row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
+                    icon_name = get_ch_type_icon_prefix(layer, c) + 'texture'
+                    row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(icon_name))
 
         if c.override_1 and c.override_1_type != 'DEFAULT' and c.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             row = master.row(align=True)
@@ -4924,7 +4961,7 @@ def layer_listing(layout, layer, show_expand=False):
                 #row.label(text='Vertex Color Override')
                 row.prop(override_ch, 'override_vcol_name', text='', emboss=False)
             else:
-                row.label(text='Channel Override')
+                row.label(text=get_ch_override_label(layer, override_ch, override_ch.active_edit_1))
         elif active_mask_image:
             if active_mask_image.yia.is_image_atlas or active_mask_image.yua.is_udim_atlas:
                 row.prop(mask, 'name', text='', emboss=False)
@@ -5092,8 +5129,6 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     ch_source = get_channel_source_1(ch, layer)
                     override_type = ch.override_1_type
 
-                channel_icon = lib.channel_custom_icon_dict[root_ch.type]
-
                 ch_image = None
                 if override_type == 'IMAGE' and ch_source and ch_source.image:
                     ch_image = ch_source.image
@@ -5107,7 +5142,8 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     icon_name = get_ch_type_icon_prefix(layer, ch) + 'vertex_color'
                     row.prop(ch, 'override_vcol_name', text='', emboss=False, icon_value=lib.get_icon(icon_name))
                 else: 
-                    row.prop(item, 'name', text='', emboss=False, icon_value=lib.get_icon(channel_icon))
+                    icon_name = get_ch_type_icon_prefix(layer, ch) + 'texture'
+                    row.label(text=get_ch_override_label(layer, ch, item.is_second_member), icon_value=lib.get_icon(icon_name))
 
                 if ch_image:
                     # Asterisk icon to indicate dirty image
@@ -5118,10 +5154,6 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     if ch_image.packed_file:
                         row.label(text='', icon='PACKAGE')
 
-                #rrow = row.row(align=True)
-                #rrow.alignment = 'RIGHT'
-                #rrow.label(text=root_ch.name)
-                #rrow.label(text='', icon_value=lib.get_icon(channel_icon))
                 row.label(text='', icon='BLANK1')
 
         # Masks
@@ -5713,7 +5745,7 @@ class YNewLayerMenu(bpy.types.Menu):
         if is_bl_newer_than(2, 77):
             col.separator()
 
-            c = col.operator("wm.y_bake_to_layer", text='Other Objects Emission')
+            c = col.operator("wm.y_bake_to_layer", text='Other Objects Color')
             c.type = 'OTHER_OBJECT_EMISSION'
             c.target_type = 'LAYER'
             c.overwrite_current = False
@@ -6917,8 +6949,12 @@ class YLayerTypeMenu(bpy.types.Menu):
             icon = 'RADIOBUT_ON' if layer.type == 'IMAGE' else 'RADIOBUT_OFF'
             col.label(text='Image' + suffix, icon=icon)
 
-        label = 'Open Available Image' if layer.type != 'IMAGE' else 'Replace Image'
-        op = col.operator('wm.y_replace_layer_type', text=folder_emoji+label) #, icon_value=lib.get_icon('open_image'))
+        label = 'Open Image' if layer.type != 'IMAGE' else 'Replace Image'
+        op = col.operator('wm.y_open_image_to_replace_layer', text=folder_emoji+label)
+
+        label = 'Open Available Image' if layer.type != 'IMAGE' else 'Replace with Available Image'
+        #label = 'Open Available Image'
+        op = col.operator('wm.y_replace_layer_type', text=folder_emoji+label)
         op.type = 'IMAGE'
         op.load_item = True
 
@@ -7030,8 +7066,11 @@ class YMaskTypeMenu(bpy.types.Menu):
             icon = 'RADIOBUT_ON' if mask.type == 'IMAGE' else 'RADIOBUT_OFF'
             col.label(text='Image' + suffix, icon=icon)
 
-        label = 'Open Available Image' if mask.type != 'IMAGE' else 'Replace Image'
-        op = col.operator('wm.y_replace_mask_type', text=folder_emoji+label) #, icon_value=lib.get_icon('open_image'))
+        label = 'Open Image' if mask.type != 'IMAGE' else 'Replace Image'
+        op = col.operator('wm.y_open_image_to_replace_mask', text=folder_emoji+label)
+
+        label = 'Open Available Image' if mask.type != 'IMAGE' else 'Replace with Available Image'
+        op = col.operator('wm.y_replace_mask_type', text=folder_emoji+label)
         op.type = 'IMAGE'
         op.load_item = True
 
@@ -7938,6 +7977,9 @@ def unregister():
 
     if is_bl_newer_than(3):
         bpy.types.ASSETBROWSER_MT_context_menu.remove(draw_yp_asset_browser_menu)
+
+    if is_bl_newer_than(2, 81):
+        bpy.types.FILEBROWSER_MT_context_menu.remove(draw_yp_file_browser_menu)
 
     # Remove Handlers
     bpy.app.handlers.load_post.remove(yp_load_ui_settings)

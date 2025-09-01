@@ -148,6 +148,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     # Add new channel
     channel = yp.channels.add()
     channel.name = name
+    channel.original_name = name
     channel.bake_to_vcol_name = 'Baked ' + name
     channel.type = channel_type
 
@@ -455,12 +456,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     roughness : BoolProperty(name='Roughness', default=True)
     normal : BoolProperty(name='Normal', default=True)
 
-    mute_texture_paint_overlay : BoolProperty(
-        name = 'Mute Stencil Mask Opacity',
-        description = 'Set Stencil Mask Opacity found in the 3D Viewport\'s Overlays menu to 0',
-        default = True
-    )
-
     use_linear_blending : BoolProperty(
         name = 'Use Linear Color Blending',
         description = 'Use more accurate linear color blending (it will behave differently than Photoshop)',
@@ -474,7 +469,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     )
 
     target_bsdf_name : StringProperty(default='')
-    not_muted_paint_opacity : BoolProperty(default=False)
     not_on_material_view : BoolProperty(default=True)
 
     @classmethod
@@ -504,17 +498,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             if bsdf_node:
                 self.type = bsdf_node.type
                 self.target_bsdf_name = bsdf_node.name
-
-        # Normal channel does not works to non mesh object
-        if obj.type != 'MESH':
-            self.normal = False
-
-        self.not_muted_paint_opacity = False
-        if is_bl_newer_than(2, 80):
-            for area in context.screen.areas:
-                if area.type == 'VIEW_3D':
-                    self.not_muted_paint_opacity = area.spaces[0].overlay.texture_paint_mode_opacity > 0.0
-                    break
 
         self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_bl_newer_than(2, 80) and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_bl_newer_than(2, 80) and space.shading.type not in {'MATERIAL', 'RENDERED'}))
 
@@ -559,9 +542,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ccol.prop(self, 'normal', toggle=True)
 
         col.prop(self, 'use_linear_blending')
-
-        if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity:
-            col.prop(self, 'mute_texture_paint_overlay')
 
         if self.not_on_material_view:
             col.prop(self, 'switch_to_material_view')
@@ -802,10 +782,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # Disable overlay in Blender 2.8
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
-                if is_bl_newer_than(2, 80) and self.not_muted_paint_opacity and self.mute_texture_paint_overlay:
-                    area.spaces[0].overlay.texture_paint_mode_opacity = 0.0
-                    area.spaces[0].overlay.vertex_paint_mode_opacity = 0.0
-
                 if self.not_on_material_view and self.switch_to_material_view:
                     if not is_bl_newer_than(2, 80):
                         area.spaces[0].viewport_shade = 'MATERIAL'
@@ -1483,10 +1459,13 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         inputs = get_tree_inputs(group_tree)
         outputs = get_tree_outputs(group_tree)
 
-        # Disable layer preview mode to avoid error
+        # Disable preview mode to avoid error
         ori_layer_preview_mode = yp.layer_preview_mode
+        ori_preview_mode = yp.preview_mode
         if yp.layer_preview_mode:
             yp.layer_preview_mode = False
+        if yp.preview_mode:
+            yp.preview_mode = False
 
         # Get active channel
         channel_idx = yp.active_channel_index
@@ -1664,6 +1643,9 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         if ori_layer_preview_mode:
             yp.layer_preview_mode = True
+
+        if ori_preview_mode:
+            yp.preview_mode = True
 
         # Repoint channel index
         #repoint_channel_index(yp)
@@ -2122,7 +2104,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def fix_missing_vcol(obj, name, src):
+def fix_missing_vcol(obj, name, src, entity=None, entities=[]):
 
     ref_vcol = None
 
@@ -2137,13 +2119,19 @@ def fix_missing_vcol(obj, name, src):
                 ref_vcol = ovcols.get(name)
                 break
 
-    if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain)
-    else: vcol = new_vertex_color(obj, name)
+    # Default recovered missing vcol is black
+    color = (0.0, 0.0, 0.0, 0.0)
 
+    # Create missing vertex color
+    if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain, color_fill=color)
+    else: vcol = new_vertex_color(obj, name, color_fill=color)
+
+    # Set attribute name back to source in case the name is different
     set_source_vcol_name(src, vcol.name)
 
-    # Default recovered missing vcol is black
-    set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 0.0))
+    # Set the name back to entity
+    if entity and vcol.name not in entity.name:
+        entity.name = get_unique_name(vcol.name, entities)
 
 def fix_missing_img(name, src, is_mask=False):
     img = bpy.data.images.new(
@@ -2267,13 +2255,13 @@ class YFixMissingData(bpy.types.Operator):
                 if layer.type == 'VCOL':
                     src = get_layer_source(layer)
                     if not get_vcol_from_source(obj, src):
-                        fix_missing_vcol(obj, src.attribute_name, src)
+                        fix_missing_vcol(obj, src.attribute_name, src, entity=layer, entities=yp.layers)
 
                 for mask in layer.masks:
                     if mask.type == 'VCOL': 
                         src = get_mask_source(mask)
                         if not get_vcol_from_source(obj, src):
-                            fix_missing_vcol(obj, src.attribute_name, src)
+                            fix_missing_vcol(obj, src.attribute_name, src, entity=mask, entities=layer.masks)
 
                     if mask.type == 'COLOR_ID':
                         vcols = get_vertex_colors(obj)
@@ -2428,22 +2416,6 @@ class YCleanYPCaches(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def get_channel_name(self):
-    name = self.get('name', '') # May be null
-    return name
-
-def set_channel_name(self, value):
-    yp = self.id_data.yp 
-
-    # Update bake target channel name
-    for bt in yp.bake_targets:
-        for letter in rgba_letters:
-            btc = getattr(bt, letter)
-            if btc.channel_name != '' and btc.channel_name == self.name:
-                btc.channel_name  = value
-
-    self['name'] = value
-
 def update_channel_name(self, context):
     T = time.time()
 
@@ -2453,6 +2425,16 @@ def update_channel_name(self, context):
 
     if yp.halt_reconnect or yp.halt_update:
         return
+
+    # Update bake target channel name
+    for bt in yp.bake_targets:
+        for letter in rgba_letters:
+            btc = getattr(bt, letter)
+            if btc.channel_name != '' and btc.channel_name == self.original_name:
+                btc.channel_name  = self.name
+
+    # Update channel's original name
+    self.original_name = self.name
 
     input_index = self.io_index
     output_index = get_output_index(self)
@@ -2574,8 +2556,13 @@ def set_srgb_view_transform():
         scene.yp.ori_look = scene.view_settings.look
         scene.view_settings.look = 'None'
 
-        scene.yp.ori_use_compositing = scene.use_nodes
-        scene.use_nodes = False
+        if is_bl_newer_than(5):
+            if scene.compositing_node_group:
+                scene.yp.ori_compositing_node_name = scene.compositing_node_group.name
+                scene.compositing_node_group = None
+        else:
+            scene.yp.ori_use_compositing = scene.use_nodes
+            scene.use_nodes = False
 
         scene.yp.ori_view_transform = scene.view_settings.view_transform
         if is_bl_newer_than(2, 80):
@@ -2622,7 +2609,12 @@ def remove_preview(mat, advanced=False):
             scene.view_settings.exposure = scene.yp.ori_exposure
             scene.view_settings.gamma = scene.yp.ori_gamma
             scene.view_settings.use_curve_mapping = scene.yp.ori_use_curve_mapping
-            scene.use_nodes = scene.yp.ori_use_compositing
+            if is_bl_newer_than(5):
+                if scene.yp.ori_compositing_node_name != '':
+                    cng = bpy.data.node_groups.get(scene.yp.ori_compositing_node_name)
+                    if cng: scene.compositing_node_group = cng
+                    scene.yp.ori_compositing_node_name = ''
+            else: scene.use_nodes = scene.yp.ori_use_compositing
 
 #def update_merge_mask_mode(self, context):
 #    if not self.layer_preview_mode:
@@ -2795,6 +2787,7 @@ def update_active_yp_channel(self, context):
     obj = context.object
     tree = self.id_data
     yp = tree.yp
+    if len(yp.channels) == 0: return
     ch = yp.channels[yp.active_channel_index]
 
     if yp.preview_mode: update_preview_mode(yp, context)
@@ -3153,8 +3146,8 @@ def update_channel_alpha(self, context):
     outputs = get_tree_outputs(group_tree)
 
     # Baked outside nodes
-    frame = get_node(mat.node_tree, yp.baked_outside_frame)
-    tex = get_node(mat.node_tree, self.baked_outside, parent=frame)
+    frame = get_node(mat.node_tree, yp.baked_outside_frame) if mat else None
+    tex = get_node(mat.node_tree, self.baked_outside, parent=frame) if mat else None
 
     # Shift fcurves
     if self.enable_alpha:
@@ -3169,7 +3162,7 @@ def update_channel_alpha(self, context):
 
     if not self.enable_alpha:
 
-        if not any(alpha_chs):
+        if yp.alpha_auto_setup and not any(alpha_chs) and mat:
 
             # Set material to use opaque (only for legacy renderer)
             if not is_bl_newer_than(4, 2):
@@ -3180,29 +3173,32 @@ def update_channel_alpha(self, context):
                     mat.game_settings.alpha_blend = 'OPAQUE'
 
         node = get_active_ypaint_node()
-        inp = node.inputs[self.io_index + 1]
+        inp = node.inputs[self.io_index + 1] if node else None
+        outp = None
 
         if yp.use_baked and yp.enable_baked_outside and tex:
             outp = tex.outputs[1]
-        else:
+        elif node:
             outp = node.outputs[self.io_index + 1]
 
         # Remember the connections
-        if len(inp.links) > 0:
+        if inp and len(inp.links) > 0:
             self.ori_alpha_from.node = inp.links[0].from_node.name
             self.ori_alpha_from.socket = inp.links[0].from_socket.name
-        for link in outp.links:
-            con = self.ori_alpha_to.add()
-            con.node = link.to_node.name
-            con.socket = link.to_socket.name
+
+        if outp:
+            for link in outp.links:
+                con = self.ori_alpha_to.add()
+                con.node = link.to_node.name
+                con.socket = link.to_socket.name
 
         # Remove connection for baked outside
-        if yp.use_baked and yp.enable_baked_outside and tex:
+        if yp.use_baked and yp.enable_baked_outside and tex and outp and mat:
             for l in outp.links:
                 mat.node_tree.links.remove(link)
 
         # Try to reconnect input to output
-        fn = mat.node_tree.nodes.get(self.ori_alpha_from.node)
+        fn = mat.node_tree.nodes.get(self.ori_alpha_from.node) if mat else None
         if fn:
             fs = fn.outputs.get(self.ori_alpha_from.socket)
             if fs:
@@ -3219,7 +3215,7 @@ def update_channel_alpha(self, context):
 
     if self.enable_alpha:
 
-        if any(alpha_chs):
+        if yp.alpha_auto_setup and any(alpha_chs) and mat:
 
             if is_bl_newer_than(4, 2):
                 # Settings for eevee next
@@ -3239,30 +3235,30 @@ def update_channel_alpha(self, context):
 
         # Set node default_value
         node = get_active_ypaint_node()
-        node.inputs[alpha_name].default_value = 0.0
+        node.inputs[alpha_name].default_value = self.ori_alpha_value
 
         alpha_connected = False
 
         # Try to relink to original connections
-        #tree = context.object.active_material.node_tree
-        tree = mat.node_tree
-        try:
-            node_from = tree.nodes.get(self.ori_alpha_from.node)
-            socket_from = node_from.outputs[self.ori_alpha_from.socket]
-            tree.links.new(socket_from, node.inputs[alpha_name])
-        except: pass
+        tree = mat.node_tree if mat else None
+        if tree:
+            try:
+                node_from = tree.nodes.get(self.ori_alpha_from.node)
+                socket_from = node_from.outputs[self.ori_alpha_from.socket]
+                tree.links.new(socket_from, node.inputs[alpha_name])
+            except: pass
 
-        for con in self.ori_alpha_to:
-            node_to = tree.nodes.get(con.node)
-            if not node_to: continue
-            socket_to = node_to.inputs.get(con.socket)
-            if not socket_to: continue
-            if len(socket_to.links) < 1:
-                if yp.use_baked and yp.enable_baked_outside and tex:
-                    mat.node_tree.links.new(tex.outputs[1], socket_to)
-                else:
-                    tree.links.new(node.outputs[alpha_name], socket_to)
-                alpha_connected = True
+            for con in self.ori_alpha_to:
+                node_to = tree.nodes.get(con.node)
+                if not node_to: continue
+                socket_to = node_to.inputs.get(con.socket)
+                if not socket_to: continue
+                if len(socket_to.links) < 1:
+                    if yp.use_baked and yp.enable_baked_outside and tex:
+                        mat.node_tree.links.new(tex.outputs[1], socket_to)
+                    else:
+                        tree.links.new(node.outputs[alpha_name], socket_to)
+                    alpha_connected = True
 
         # Try to connect alpha without prior memory
         if yp.alpha_auto_setup and not alpha_connected:
@@ -3371,19 +3367,6 @@ def update_enable_height_tweak(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
-# Prevent vcol name from being null
-def get_channel_vcol_name(self):
-    name = self.get('bake_to_vcol_name', '') # May be null
-    if name == '':
-        self['bake_to_vcol_name'] = 'Baked ' + self.name
-    return self['bake_to_vcol_name']
-
-def set_channel_vcol_name(self, value):
-    if value == '':
-        self['bake_to_vcol_name'] = 'Baked ' + self.name
-    else:
-        self['bake_to_vcol_name'] = value
-
 def update_use_linear_blending(self, context):
     Modifier.check_yp_modifier_linear_nodes(self)
     check_start_end_root_ch_nodes(self.id_data)
@@ -3457,8 +3440,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
         description = 'Name of the channel',
         default = 'Albedo',
         update = update_channel_name,
-        get = get_channel_name,
-        set = set_channel_name
+    )
+
+    original_name : StringProperty(
+        name = 'Original Channel Name',
+        description = 'Original channel name for updating',
+        default = ''
     )
 
     type : EnumProperty(
@@ -3558,8 +3545,6 @@ class YPaintChannel(bpy.types.PropertyGroup):
         name = 'Target Vertex Color Name',
         description = 'Target Vertex Color Name',
         default = '',
-        get = get_channel_vcol_name,
-        set = set_channel_vcol_name
     )
 
     # Displacement for normal channel
@@ -3813,6 +3798,10 @@ class YPaintChannel(bpy.types.PropertyGroup):
     ori_height_to : CollectionProperty(type=YNodeConnections)
     ori_max_height_to : CollectionProperty(type=YNodeConnections)
 
+    # Default value related
+    ori_alpha_value : FloatProperty(default=0.0)
+    ori_max_height_value : FloatProperty(default=0.1)
+
 class YPaintUV(bpy.types.PropertyGroup):
     name : StringProperty(default='')
 
@@ -3949,7 +3938,7 @@ class YPaint(bpy.types.PropertyGroup):
         items = (
             ('LAYER', 'Layer', ''),
             ('ALPHA', 'Alpha', ''),
-            ('SPECIFIC_MASK', 'Active Mask / Override', ''),
+            ('SPECIFIC_MASK', 'Active Mask / Custom Data', ''),
         ),
         #items = layer_preview_mode_type_items,
         default = 'LAYER',
@@ -4021,7 +4010,7 @@ class YPaint(bpy.types.PropertyGroup):
         update = update_enable_tangent_sign_hacks
     )
 
-    # When enabled, alpha can create some node setup, disable this to avoid that
+    # When enabled, alpha can create some node setup and change material settings, disable this to avoid that
     alpha_auto_setup : BoolProperty(default=True)
 
     # HACK: Refresh tree to remove glitchy normal
@@ -4061,12 +4050,6 @@ class YPaintMaterialProps(bpy.types.PropertyGroup):
 class YPaintTimer(bpy.types.PropertyGroup):
     time : StringProperty(default='')
 
-class YPaintBrushAssetCache(bpy.types.PropertyGroup):
-    name : StringProperty(default='')
-    library_type : StringProperty(default='')
-    library_name : StringProperty(default='')
-    blend_path : StringProperty(default='')
-
 class YPaintWMProps(bpy.types.PropertyGroup):
     clipboard_tree : StringProperty(default='')
     clipboard_layer : StringProperty(default='')
@@ -4087,7 +4070,7 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     test_result_error : IntProperty(default=0)
     test_result_failed : IntProperty(default=0)
 
-    brush_asset_caches : CollectionProperty(type=YPaintBrushAssetCache)
+    default_builtin_brush : StringProperty(default='')
 
     correct_paint_image_name : StringProperty(default='')
 
@@ -4106,6 +4089,7 @@ class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_look : StringProperty(default='')
     ori_use_curve_mapping : BoolProperty(default=False)
     ori_use_compositing : BoolProperty(default=False)
+    ori_compositing_node_name : StringProperty(default='')
 
 class YPaintObjectUVHash(bpy.types.PropertyGroup):
     name : StringProperty(default='')
@@ -4387,7 +4371,6 @@ def register():
     bpy.utils.register_class(YPaint)
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
-    bpy.utils.register_class(YPaintBrushAssetCache)
     bpy.utils.register_class(YPaintWMProps)
     bpy.utils.register_class(YPaintSceneProps)
     bpy.utils.register_class(YPaintObjectUVHash)
@@ -4441,7 +4424,6 @@ def unregister():
     bpy.utils.unregister_class(YPaint)
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)
-    bpy.utils.unregister_class(YPaintBrushAssetCache)
     bpy.utils.unregister_class(YPaintWMProps)
     bpy.utils.unregister_class(YPaintSceneProps)
     bpy.utils.unregister_class(YPaintObjectUVHash)

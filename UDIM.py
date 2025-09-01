@@ -36,7 +36,8 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
                 bpy.ops.image.tile_add(number=tilenum, count=1, label="", color=color, width=width, height=height, float=image.is_float, alpha=True)
         else: bpy.ops.image.tile_add(override, number=tilenum, count=1, label="", color=color, width=width, height=height, float=image.is_float, alpha=True)
 
-    elif not empty_only:
+    # HACK: UDIM image with size of 0 always need to be filled first
+    elif not empty_only or (tilenum == 1001 and image.size[0] == 0):
 
         image.tiles.active = tile
 
@@ -547,6 +548,9 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
     def execute(self, context):
         T = time.time()
+
+        if not hasattr(context, 'layer'):
+            return {'CANCELLED'}
 
         yp = context.layer.id_data.yp
         entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp)

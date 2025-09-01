@@ -210,6 +210,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, ch.layer_intensity, frame)
         check_set_node_parent(tree, ch.intensity, frame)
         check_set_node_parent(tree, ch.extra_alpha, frame)
+        check_set_node_parent(tree, ch.vdisp_blend, frame)
         check_set_node_parent(tree, ch.blend, frame)
 
         if root_ch.type == 'NORMAL':
@@ -236,6 +237,8 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, ch.normal_proc, frame)
             check_set_node_parent(tree, ch.normal_flip, frame)
 
+            check_set_node_parent(tree, ch.vdisp_intensity, frame)
+            check_set_node_parent(tree, ch.vdisp_flip_yz, frame)
             check_set_node_parent(tree, ch.vdisp_proc, frame)
 
             #check_set_node_parent(tree, ch.blend_height, frame)
@@ -1277,9 +1280,10 @@ def rearrange_layer_nodes(layer, tree=None):
             mix_pure = tree.nodes.get(c.mix_pure)
             mix_remains = tree.nodes.get(c.mix_remains)
             mix_normal = tree.nodes.get(c.mix_normal)
+            mix_vdisp = tree.nodes.get(c.mix_vdisp)
             mix_limit_normal = tree.nodes.get(c.mix_limit_normal)
 
-            if mix_pure or mix_remains or mix_normal or mix_limit_normal:
+            if mix_pure or mix_remains or mix_normal or mix_limit_normal or mix_vdisp:
 
                 if check_set_node_loc(tree, c.mix, loc, True):
                     loc.y -= 40
@@ -1291,6 +1295,9 @@ def rearrange_layer_nodes(layer, tree=None):
                     loc.y -= 40
 
                 if check_set_node_loc(tree, c.mix_normal, loc, True):
+                    loc.y -= 40
+
+                if check_set_node_loc(tree, c.mix_vdisp, loc, True):
                     loc.y -= 40
 
                 if check_set_node_loc(tree, c.mix_limit_normal, loc, True):
@@ -1542,6 +1549,9 @@ def rearrange_layer_nodes(layer, tree=None):
             if check_set_node_loc(tree, ch.normal_flip, loc):
                 loc.x += 200
 
+            if check_set_node_loc(tree, ch.vdisp_intensity, loc):
+                loc.x += 200
+
             if check_set_node_loc(tree, ch.vdisp_flip_yz, loc):
                 loc.x += 200
 
@@ -1570,6 +1580,9 @@ def rearrange_layer_nodes(layer, tree=None):
         #    loc.x = save_x
 
         if check_set_node_loc(tree, ch.extra_alpha, loc):
+            loc.x += 200
+
+        if check_set_node_loc(tree, ch.vdisp_blend, loc):
             loc.x += 200
 
         if check_set_node_loc(tree, ch.blend, loc):

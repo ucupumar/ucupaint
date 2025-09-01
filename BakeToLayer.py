@@ -160,9 +160,11 @@ def get_bake_properties_from_self(self):
         'uv_map_1',
         'interpolation',
         'type',
+        'use_cage',
         'cage_object_name',
         'cage_extrusion',
         'max_ray_distance',
+        'normalize',
         'ao_distance',
         'bevel_samples',
         'bevel_radius',
@@ -184,7 +186,9 @@ def get_bake_properties_from_self(self):
         'use_image_atlas',
         'use_udim',
         'blur',
-        'blur_factor'
+        'blur_type',
+        'blur_factor',
+        'blur_size'
     ]
 
     for prop in props:
@@ -237,6 +241,13 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     )
 
     # Other objects props
+
+    use_cage : BoolProperty(
+        name = 'Cage Object',
+        description = 'Cast rays to active material objects from a cage',
+        default = False
+    )
+
     cage_object_name : StringProperty(
         name = 'Cage Object',
         description = 'Object to use as cage instead of calculating the cage from the active object with cage extrusion',
@@ -255,6 +266,12 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         name = 'Max Ray Distance',
         description = 'The maximum ray distance for matching points between the active and selected objects. If zero, there is no limit',
         default=0.2, min=0.0, max=1.0
+    )
+
+    normalize : BoolProperty(
+        name = 'Normalize Bake Result',
+        description = 'Normalize the bake result',
+        default = True,
     )
     
     # AO Props
@@ -460,6 +477,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 self.normal_blend_type = 'OVERLAY'
 
         elif self.type == 'OTHER_OBJECT_EMISSION':
+            self.blend_type = 'MIX'
             self.subsurf_influence = False
 
             self.margin = 0
@@ -476,6 +494,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 self.margin = 0
 
         elif self.type == 'OTHER_OBJECT_CHANNELS':
+            self.blend_type = 'MIX'
             self.subsurf_influence = False
             self.use_image_atlas = False
             self.margin = 0
@@ -678,10 +697,14 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text='Name:')
 
         if self.type.startswith('OTHER_OBJECT_'):
-            col.label(text='Cage Object:')
-            col.label(text='Cage Extrusion:')
-            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
-                col.label(text='Max Ray Distance:')
+            col.label(text='')
+            if self.use_cage:
+                col.label(text='Cage Object:')
+                col.label(text='Cage Extrusion:')
+                if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
+                    col.label(text='Max Ray Distance:')
+        elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
+            col.label(text='')
         elif self.type == 'AO':
             col.label(text='AO Distance:')
             col.label(text='')
@@ -756,12 +779,14 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text=self.overwrite_name)
 
         if self.type.startswith('OTHER_OBJECT_'):
-            col.prop_search(self, "cage_object_name", self, "cage_object_coll", text='', icon='OBJECT_DATA')
-            rrow = col.row(align=True)
-            rrow.active = self.cage_object_name == ''
-            rrow.prop(self, 'cage_extrusion', text='')
-            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
-                col.prop(self, 'max_ray_distance', text='')
+            col.prop(self, 'use_cage')
+            if self.use_cage:
+                col.prop_search(self, "cage_object_name", self, "cage_object_coll", text='', icon='OBJECT_DATA')
+                col.prop(self, 'cage_extrusion', text='')
+                if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
+                    col.prop(self, 'max_ray_distance', text='')
+        elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
+            col.prop(self, 'normalize', text='Normalize Pointiness')
         elif self.type == 'AO':
             col.prop(self, 'ao_distance', text='')
             col.prop(self, 'only_local')
@@ -883,6 +908,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             ypui.layer_ui.expand_source = True
         ypui.need_update = True
 
+        if image: 
+            self.report({'INFO'}, 'Baking '+bake_type_labels[self.type]+' is done in '+'{:0.2f}'.format(rdict['time_elapsed'])+' seconds!')
+
         return {'FINISHED'}
 
 class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
@@ -915,17 +943,40 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         description = 'Use Image Atlas',
         default = False
     )
+    
+    blur_type : EnumProperty(
+        name = 'Blur Type', 
+        description = 'Blur type for the baked image',
+        items = (
+            ('NOISE', 'Noise', 'Noisy and need more samples but has matching value to the blur vector option'),
+            ('FLAT', 'Flat', 'Flat blur'),
+            ('TENT', 'Tent', 'Tent blur'),
+            ('QUAD', 'Quadratic', 'Quadratic blur'),
+            ('CUBIC', 'Cubic', 'Cubic blur'),
+            ('GAUSS', 'Gaussian', 'Gausssian blur'),
+            ('FAST_GAUSS', 'Fast Gaussian', 'Fast gausssian blur'),
+            ('CATROM', 'Catrom', 'Catrom blur'),
+            ('MITCH', 'Mitch', 'Mitch blur')
+        ),
+        default='GAUSS'
+    )
 
     blur : BoolProperty(
         name = 'Use Blur', 
-        description = 'Use blur to baked image',
+        description = 'Use blur to the baked image',
         default = False
     )
 
     blur_factor : FloatProperty(
         name = 'Blur Factor',
-        description = 'Blur factor to baked image',
+        description = 'Blur factor to the baked image',
         default=1.0, min=0.0, max=100.0
+    )
+
+    blur_size : FloatProperty(
+        name = 'Blur Size',
+        description = 'Blur size (in pixels) to the baked image',
+        default=10.0, min=0.0
     )
 
     duplicate_entity : BoolProperty(
@@ -1112,6 +1163,14 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             col.label(text='Bake Device:')
         col.separator()
         col.label(text='')
+
+        if self.blur:
+            if self.blur_type == 'NOISE':
+                col.label(text='Blur Factor:')
+            else: col.label(text='Blur Size:')
+            col.separator()
+
+        col.label(text='')
         if is_bl_newer_than(2, 81):
             col.label(text='')
         col.label(text='')
@@ -1143,15 +1202,23 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             col.separator()
             col.prop(self, 'bake_device', text='')
         col.separator()
-        col.prop(self, 'fxaa')
-        if is_bl_newer_than(2, 81):
-            col.prop(self, 'denoise', text='Use Denoise')
-        ccol = col.column(align=True)
 
         rrow = col.row(align=True)
         rrow.prop(self, 'blur')
         if self.blur:
-            rrow.prop(self, 'blur_factor', text='')
+            rrow.prop(self, 'blur_type', text='')
+
+            rrow = col.row(align=True)
+            if self.blur_type == 'NOISE':
+                rrow.prop(self, 'blur_factor', text='')
+            else: rrow.prop(self, 'blur_size', text='')
+
+            col.separator()
+
+        col.prop(self, 'fxaa')
+        if is_bl_newer_than(2, 81):
+            col.prop(self, 'denoise', text='Use Denoise')
+        ccol = col.column(align=True)
 
         if self.mask:
             col.prop(self, 'duplicate_entity', text='Duplicate Mask')
@@ -1186,6 +1253,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         # Entity checking
         entity = self.mask if self.mask else self.layer
+        entity_label = mask_type_labels[entity.type] if self.mask else layer_type_labels[entity.type]
 
         # Get bake properties
         bprops = get_bake_properties_from_self(self)
@@ -1213,7 +1281,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                 new_entity_name = get_unique_name(self.name, self.entities) if self.use_image_atlas else image.name
 
                 # Create new mask
-                mask = Mask.add_new_mask(self.layer, new_entity_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
+                mask = Mask.add_new_mask(self.layer, new_entity_name, 'IMAGE', 'UV', self.uv_map, image, '', segment)
 
                 # Set mask properties
                 mask.intensity_value = self.mask.intensity_value
@@ -1255,6 +1323,16 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
+
+        # Expand entity source to show rebake button
+        ypui = context.window_manager.ypui
+        if self.mask and not self.duplicate_entity:
+            self.mask.expand_content = True
+            self.mask.expand_source = True
+        ypui.need_update = True
+
+        if image: 
+            self.report({'INFO'}, 'Baking '+entity_label+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {"FINISHED"}
 
@@ -1350,9 +1428,13 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        rebake_baked_images(yp)
+        baked_counts = rebake_baked_images(yp)
 
-        print('REBAKE ALL IMAGES: Rebaking all images is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        if baked_counts == 0:
+            self.report({'ERROR'}, 'No baked layer/mask used!')
+            return {'CANCELLED'}
+
+        self.report({'INFO'}, 'Rebaking all baked layers & masks is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
         return {'FINISHED'}
 
 class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):

@@ -260,7 +260,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 remove_node(group_tree, channel, 'end_max_height_tweak')
 
             # Engine filter is needed if subdiv is on and channel is baked
-            if yp.use_baked and channel.enable_subdiv_setup and any_layers_using_displacement(channel):
+            if yp.use_baked and channel.enable_subdiv_setup and (any_layers_using_disp(channel) or any_layers_using_vdisp(channel)):
 
                 lib_name = lib.ENGINE_FILTER if is_bl_newer_than(2, 80) else lib.ENGINE_FILTER_LEGACY
                 end_normal_engine_filter = replace_new_node(
@@ -328,6 +328,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
     #print("Checking YP IO. Specific Layer: " + str(specific_layer))
 
+    group_node = get_active_ypaint_node()
     group_tree = yp.id_data
 
     input_index = 0
@@ -394,8 +395,6 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         # Displacement IO
         if ch.type == 'NORMAL' and (ch.enable_subdiv_setup or force_height_io):
 
-            group_node = get_active_ypaint_node()
-
             name = ch.name + io_suffix['HEIGHT']
 
             height_default_value = 0.0
@@ -403,7 +402,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, 
                 min_value=0.0, max_value=1.0, default_value=height_default_value, hide_value=True
             )
-            if group_node.node_tree == group_tree:
+            if group_node and group_node.node_tree == group_tree:
                 group_node.inputs[name].default_value = height_default_value
             input_index += 1
 
@@ -412,11 +411,10 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
             name = ch.name + io_suffix['MAX_HEIGHT']
 
-            max_height_default_value = 0.1
-            create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=max_height_default_value)
-            # Set node default value
-            if group_node.node_tree == group_tree:
-                group_node.inputs[name].default_value = max_height_default_value
+            if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=0.1):
+                # Set node default value
+                if group_node and group_node.node_tree == group_tree:
+                    group_node.inputs[name].default_value = ch.ori_max_height_value
             input_index += 1
 
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
@@ -445,6 +443,19 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     # Check for invalid io
     for inp in get_tree_inputs(group_tree):
         if inp not in valid_inputs:
+
+            # Remember default values
+            for ch in yp.channels:
+
+                if group_node and inp.name == ch.name + io_suffix['ALPHA']:
+                    node_inp = group_node.inputs.get(inp.name)
+                    ch.ori_alpha_value = node_inp.default_value
+
+                if ch.type == 'NORMAL':
+                    if group_node and inp.name == ch.name + io_suffix['MAX_HEIGHT']:
+                        node_inp = group_node.inputs.get(inp.name)
+                        ch.ori_max_height_value = node_inp.default_value
+
             remove_tree_input(group_tree, inp)
 
     for outp in get_tree_outputs(group_tree):
@@ -460,7 +471,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         specific_ch = None
         if yp.layer_preview_mode and yp.active_channel_index < len(layer.channels):
             specific_ch = layer.channels[yp.active_channel_index]
-        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=False, hard_reset=hard_reset)
+        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=remove_props, hard_reset=hard_reset)
 
     if reconnect:
         # Rearrange layers
@@ -530,7 +541,7 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
                 source.extension = 'CLIP'
 
         # Set decal aspect ratio
-        if image:
+        if image and image.size[0] > 0 and image.size[1] > 0:
             if image.size[0] > image.size[1]:
                 decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
             else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
@@ -600,7 +611,7 @@ def check_layer_texcoord_nodes(layer, tree=None):
                 source.extension = 'CLIP'
 
         # Set decal aspect ratio
-        if image:
+        if image and image.size[0] > 0 and image.size[1] > 0:
             if image.size[0] > image.size[1]:
                 decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
             else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
@@ -662,7 +673,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
     #    check_uv_nodes(yp)
 
     # Check layer tree io
-    check_layer_tree_ios(layer, tree, remove_props, hard_reset=hard_reset)
+    check_layer_tree_ios(layer, tree, remove_props=remove_props, hard_reset=hard_reset)
 
     # Check texcoord nodes
     check_layer_texcoord_nodes(layer, tree)
@@ -919,29 +930,31 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
             if root_ch.type == 'NORMAL':
 
-                # Height/bump distance input
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                    dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty)
-                    input_index += 1
+                if layer.type != 'GROUP':
 
-                # Height/bump midlevel input
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                    dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                # Normal map strength input
-                if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                    dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty)
-                    input_index += 1
-                elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                    dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty)
-                    input_index += 1
-
-                # Smooth bump multiplier input:
-                if root_ch.enable_smooth_bump:
+                    # Height/bump distance input
                     if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                        dirty = create_prop_input(ch, 'bump_smooth_multiplier', valid_inputs, input_index, dirty)
+                        dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty)
                         input_index += 1
+
+                    # Height/bump midlevel input
+                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                        dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    # Normal map strength input
+                    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                        dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty)
+                        input_index += 1
+                    elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                        dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    # Smooth bump multiplier input:
+                    if root_ch.enable_smooth_bump:
+                        if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                            dirty = create_prop_input(ch, 'bump_smooth_multiplier', valid_inputs, input_index, dirty)
+                            input_index += 1
 
                 # Normal height/bump distance input
                 #if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
@@ -1141,6 +1154,18 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                 output_index += 1
 
+            if has_parent:
+                name = root_ch.name + io_suffix['VDISP'] + io_suffix['ALPHA']
+
+                if channel_enabled: # or force_normal_input:
+
+                    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                if channel_enabled:
+                    dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
+                    output_index += 1
+
     # Tree background inputs
     if layer.type in {'BACKGROUND', 'GROUP'}:
 
@@ -1173,36 +1198,47 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                     input_index += 1
 
             # Displacement Input
-            if root_ch.type == 'NORMAL' and layer.type == 'GROUP' and is_height_process_needed(layer):
+            if root_ch.type == 'NORMAL' and layer.type == 'GROUP':
 
-                #if not root_ch.enable_smooth_bump:
+                if is_height_process_needed(layer):
 
-                name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP']
-                dirty = create_input(tree, name, 'NodeSocketFloat',
-                        valid_inputs, input_index, dirty)
-                input_index += 1
+                    name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketFloat',
+                            valid_inputs, input_index, dirty)
+                    input_index += 1
 
-                if root_ch.enable_smooth_bump:
+                    if root_ch.enable_smooth_bump:
 
-                    for letter in nsew_letters:
-                        name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['GROUP']
-                        dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                        input_index += 1
+                        for letter in nsew_letters:
+                            name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['GROUP']
+                            dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                            input_index += 1
 
-                name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP']
-                dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                input_index += 1
+                    name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                    input_index += 1
 
-                if root_ch.enable_smooth_bump:
+                    if root_ch.enable_smooth_bump:
 
-                    for letter in nsew_letters:
-                        name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['ALPHA'] + io_suffix['GROUP']
-                        dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                        input_index += 1
+                        for letter in nsew_letters:
+                            name = root_ch.name + io_suffix['HEIGHT_' + letter.upper()] + io_suffix['ALPHA'] + io_suffix['GROUP']
+                            dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                            input_index += 1
 
-                name = root_ch.name + io_suffix['MAX_HEIGHT'] + io_suffix['GROUP']
-                dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
-                input_index += 1
+                    name = root_ch.name + io_suffix['MAX_HEIGHT'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                if is_vdisp_process_needed(layer):
+
+                    name = root_ch.name + io_suffix['VDISP'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketVector',
+                            valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                    name = root_ch.name + io_suffix['VDISP'] + io_suffix['ALPHA'] + io_suffix['GROUP']
+                    dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                    input_index += 1
 
     # Create UV inputs
     for uv in yp.uvs:

@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem
+from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -62,7 +62,7 @@ def setup_modifier_mask_source(tree, mask, modifier_type):
     return source
 
 def add_new_mask(
-        layer, name, mask_type, texcoord_type, uv_name, image=None, vcol=None, segment=None,
+        layer, name, mask_type, texcoord_type, uv_name, image=None, vcol_name='', segment=None,
         object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False,
         color_id=(1, 0, 1), source_input='RGB', edge_detect_radius=0.05,
         modifier_type='INVERT', interpolation='Linear', ao_distance=1.0
@@ -102,7 +102,7 @@ def add_new_mask(
             source.color_space = 'NONE'
         source.interpolation = interpolation
     elif mask_type == 'VCOL':
-        if vcol: set_source_vcol_name(source, vcol.name)
+        if vcol_name != '': set_source_vcol_name(source, vcol_name)
         else: set_source_vcol_name(source, name)
 
     if mask_type == 'HEMI':
@@ -126,8 +126,13 @@ def add_new_mask(
         mask.ao_distance = ao_distance
         enable_eevee_ao()
 
+    # Set default uv name if it's an empty string
+    if uv_name == '':
+        uv_name = get_default_uv_name()
+
+    mask.uv_name = uv_name
+
     if is_mapping_possible(mask_type):
-        mask.uv_name = uv_name
 
         mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
         mapping.vector_type = 'POINT' if segment else 'TEXTURE'
@@ -178,6 +183,7 @@ def remove_mask_channel_nodes(tree, c):
     remove_node(tree, c, 'mix_pure')
     remove_node(tree, c, 'mix_remains')
     remove_node(tree, c, 'mix_normal')
+    remove_node(tree, c, 'mix_vdisp')
     remove_node(tree, c, 'mix_limit')
     remove_node(tree, c, 'mix_limit_normal')
 
@@ -197,7 +203,7 @@ def remove_mask_channel(tree, layer, ch_index):
     for mask in layer.masks:
         mask.channels.remove(ch_index)
 
-def remove_mask(layer, mask, obj):
+def remove_mask(layer, mask, obj, refresh_list=True):
 
     tree = get_tree(layer)
     yp = layer.id_data.yp
@@ -251,7 +257,8 @@ def remove_mask(layer, mask, obj):
     layer.masks.remove(mask_index)
 
     # Update list items
-    ListItem.refresh_list_items(yp)
+    if refresh_list:
+        ListItem.refresh_list_items(yp)
 
 def get_new_mask_name(obj, layer, mask_type, modifier_type=''):
     surname = '(' + layer.name + ')'
@@ -382,6 +389,10 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
             source.image = image
+
+            if mask.texcoord_type == 'Decal':
+                source.extension = 'CLIP'
+
             if hasattr(source, 'color_space'):
                 source.color_space = 'NONE'
             if image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
@@ -738,9 +749,10 @@ class YNewLayerMask(bpy.types.Operator):
         if not is_mapping_possible(self.type) and self.texcoord_type == 'Decal':
             self.texcoord_type = 'UV'
 
-        if obj.type != 'MESH':
+        if not is_object_work_with_uv(obj):
             self.texcoord_type = 'Generated'
-        elif len(obj.data.uv_layers) > 0:
+
+        if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
 
             self.uv_name = get_default_uv_name(obj, yp)
 
@@ -901,11 +913,12 @@ class YNewLayerMask(bpy.types.Operator):
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 crow.prop_search(self, "uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
-                if self.type == 'IMAGE':
-                    if UDIM.is_udim_supported():
-                        col.prop(self, 'use_udim')
-                    ccol = col.column()
-                    ccol.prop(self, 'use_image_atlas')
+
+            if self.type == 'IMAGE':
+                if UDIM.is_udim_supported():
+                    col.prop(self, 'use_udim')
+                ccol = col.column()
+                ccol.prop(self, 'use_image_atlas')
 
         if self.get_to_be_cleared_image_atlas(context, yp):
             col = self.layout.column(align=True)
@@ -962,7 +975,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         alpha = False
         img = None
-        vcol = None
+        vcol_name = ''
         segment = None
 
         # New image
@@ -1026,12 +1039,16 @@ class YNewLayerMask(bpy.types.Operator):
                 for o in objs:
                     if self.name not in get_vertex_colors(o):
                         if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
-                        vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
+
+                        color = ()
                         if self.color_option == 'WHITE':
-                            set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                            color = (1.0, 1.0, 1.0, 1.0)
                         elif self.color_option == 'BLACK':
-                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
+                            color = (0.0, 0.0, 0.0, 1.0)
+
+                        vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain, color_fill=color)
                         set_active_vertex_color(o, vcol)
+                        vcol_name = vcol.name
 
                 # Fill selected geometry if in edit mode
                 if self.vcol_fill and bpy.context.mode == 'EDIT_MESH' and self.color_option == 'BLACK':
@@ -1049,7 +1066,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         # Add new mask
         mask = add_new_mask(
-            layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
+            layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol_name, segment, self.object_index, self.blend_type, 
             self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, edge_detect_radius=self.edge_detect_radius,
             modifier_type=self.modifier_type, interpolation=self.interpolation, ao_distance=self.ao_distance
         )
@@ -1073,32 +1090,11 @@ class YNewLayerMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
+class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
     """Open Image as Mask"""
     bl_idname = "wm.y_open_image_as_mask"
     bl_label = "Open Image as Mask"
     bl_options = {'REGISTER', 'UNDO'}
-
-    # File related
-    files : CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
-    directory : StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
-
-    # File browser filter
-    filter_folder : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_image : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-
-    display_type : EnumProperty(
-        items = (
-            ('FILE_DEFAULTDISPLAY', 'Default', ''),
-            ('FILE_SHORTDISLPAY', 'Short List', ''),
-            ('FILE_LONGDISPLAY', 'Long List', ''),
-            ('FILE_IMGDISPLAY', 'Thumbnails', '')
-        ),
-        default = 'FILE_IMGDISPLAY',
-        options = {'HIDDEN', 'SKIP_SAVE'}
-    )
-
-    relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
     interpolation : EnumProperty(
         name = 'Image Interpolation Type',
@@ -1142,9 +1138,6 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
     file_browser_filepath : StringProperty(default='')
 
-    def generate_paths(self):
-        return (fn.name for fn in self.files), self.directory
-
     @classmethod
     def poll(cls, context):
         node = get_active_ypaint_node()
@@ -1164,8 +1157,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             yp = node.node_tree.yp
             self.layer = yp.layers[yp.active_layer_index]
 
-        if obj.type != 'MESH':
-            self.texcoord_type = 'Object'
+        if not is_object_work_with_uv(obj):
+            self.texcoord_type = 'Generated'
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
@@ -1198,8 +1191,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 return self.execute(context)
             return context.window_manager.invoke_props_dialog(self)
 
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
+        return self.running_fileselect_modal(context, event)
 
     def check(self, context):
         return True
@@ -1287,7 +1279,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
             # Add new mask
             mask = add_new_mask(
-                layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, 
+                layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, '', 
                 blend_type=self.blend_type, source_input=self.source_input,
                 interpolation = self.interpolation
             )
@@ -1308,29 +1300,6 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
-
-''' Check if data is used as layer, if so, source input will change to ALPHA '''
-def update_available_data_name_as_mask(self, context):
-    node = get_active_ypaint_node()
-    yp = node.node_tree.yp
-
-    if self.type == 'IMAGE':
-        for layer in yp.layers:
-            if layer.type == 'IMAGE':
-                source = get_layer_source(layer)
-                if source.image and source.image.name == self.image_name:
-                    self.source_input = 'ALPHA'
-                    return
-
-    elif self.type == 'VCOL' and is_bl_newer_than(2, 92):
-        for layer in yp.layers:
-            if layer.type == 'VCOL':
-                source = get_layer_source(layer)
-                if source.attribute_name == self.vcol_name:
-                    self.source_input = 'ALPHA'
-                    return
-
-    self.source_input = 'RGB'
 
 class YOpenAvailableDataAsMask(bpy.types.Operator):
     bl_idname = "wm.y_open_available_data_as_mask"
@@ -1374,10 +1343,10 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    image_name : StringProperty(name="Image", update=update_available_data_name_as_mask)
+    image_name : StringProperty(name="Image")
     image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    vcol_name : StringProperty(name="Vertex Color", update=update_available_data_name_as_mask)
+    vcol_name : StringProperty(name="Vertex Color")
     vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     blend_type : EnumProperty(
@@ -1569,13 +1538,12 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                 if self.vcol_name not in get_vertex_colors(o):
                     if not is_bl_newer_than(3, 3) and len(get_vertex_colors(o)) >= 8: continue
                     data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
-                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
-                    set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 1.0))
+                    other_v = new_vertex_color(o, self.vcol_name, data_type, domain, color_fill=(1.0, 1.0, 1.0, 1.0))
                     set_active_vertex_color(o, other_v)
 
         # Add new mask
         mask = add_new_mask(
-            layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, 
+            layer, name, self.type, self.texcoord_type, self.uv_map, image, self.vcol_name, 
             blend_type=self.blend_type, source_input=self.source_input,
             interpolation = self.interpolation
         )
@@ -1769,6 +1737,44 @@ class YRemoveLayerMask(bpy.types.Operator):
         for area in bpy.context.screen.areas:
             if area.type in ['VIEW_3D', 'IMAGE_EDITOR', 'NODE_EDITOR']:
                 area.tag_redraw()
+
+        return {'FINISHED'}
+
+class YOpenImageToReplaceMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
+    """Open Image to Replace Mask"""
+    bl_idname = "wm.y_open_image_to_replace_mask"
+    bl_label = "Open Image to Replace Mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def invoke(self, context, event):
+        self.mask = context.mask
+        return self.running_fileselect_modal(context, event)
+
+    def execute(self, context):
+
+        T = time.time()
+
+        wm = context.window_manager
+        mask = self.mask
+        yp = mask.id_data.yp
+
+        loaded_images = self.get_loaded_images()
+
+        if len(loaded_images) == 0 or loaded_images[0] == None:
+            self.report({'ERROR'}, "No image is selected!")
+            return {'CANCELLED'}
+
+        image = loaded_images[0]
+
+        replace_mask_type(mask, 'IMAGE', image.name)
+
+        print('INFO: Layer', mask.name, 'is updated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -2307,6 +2313,9 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
     # Normal and height has its own alpha if using group, this one is for normal
     mix_normal : StringProperty(default='')
 
+    # ... and this one for vector displacement
+    mix_vdisp : StringProperty(default='')
+
     # To limit mix value to not go above original channel value, useful for group layer
     mix_limit : StringProperty(default='')
     mix_limit_normal : StringProperty(default='')
@@ -2350,8 +2359,8 @@ class YLayerMask(bpy.types.PropertyGroup):
     )
 
     active_edit : BoolProperty(
-        name = 'Active mask for editing or preview', 
-        description = 'Active mask for editing or preview', 
+        name = 'Active Mask', 
+        description = 'Active mask for Blender\'s paint mode and edit mode, or '+get_addon_title()+'\'s Mask preview mode',
         default = False,
         update = update_mask_active_edit
     )
@@ -2552,7 +2561,7 @@ class YLayerMask(bpy.types.PropertyGroup):
     edge_detect_radius : FloatProperty(
         name = 'Edge Detect Radius',
         description = 'Edge detect radius',
-        default=0.05, min=0.0, max=10.0,
+        default=0.05, min=0.0, max=10.0, precision=3,
         update = update_mask_edge_detect_radius
     )
 
@@ -2646,6 +2655,7 @@ def register():
     bpy.utils.register_class(YNewLayerMask)
     bpy.utils.register_class(YOpenImageAsMask)
     bpy.utils.register_class(YOpenAvailableDataAsMask)
+    bpy.utils.register_class(YOpenImageToReplaceMask)
     bpy.utils.register_class(YMoveLayerMask)
     bpy.utils.register_class(YRemoveLayerMask)
     bpy.utils.register_class(YReplaceMaskType)
@@ -2657,6 +2667,7 @@ def unregister():
     bpy.utils.unregister_class(YNewLayerMask)
     bpy.utils.unregister_class(YOpenImageAsMask)
     bpy.utils.unregister_class(YOpenAvailableDataAsMask)
+    bpy.utils.unregister_class(YOpenImageToReplaceMask)
     bpy.utils.unregister_class(YMoveLayerMask)
     bpy.utils.unregister_class(YRemoveLayerMask)
     bpy.utils.unregister_class(YReplaceMaskType)
