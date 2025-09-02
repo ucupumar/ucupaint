@@ -137,66 +137,6 @@ def update_bake_to_layer_uv_map(self, context):
         objs = get_all_objects_with_same_materials(mat)
         self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
-def get_bake_properties_from_self(self):
-
-    bprops = dotdict()
-
-    # NOTE: Getting props from keys doesn't work
-    #for prop in self.properties.keys():
-    #    try: bprops[prop] = getattr(self, prop)
-    #    except Exception as e: print(e)
-
-    props = [
-        'bake_device',
-        'samples',
-        'margin',
-        'margin_type',
-        'width',
-        'height',
-        'image_resolution',
-        'use_custom_resolution',
-        'name',
-        'uv_map',
-        'uv_map_1',
-        'interpolation',
-        'type',
-        'use_cage',
-        'cage_object_name',
-        'cage_extrusion',
-        'max_ray_distance',
-        'normalize',
-        'ao_distance',
-        'bevel_samples',
-        'bevel_radius',
-        'multires_base',
-        'target_type',
-        'fxaa',
-        'ssaa',
-        'denoise',
-        'channel_idx',
-        'blend_type',
-        'normal_blend_type',
-        'normal_map_type',
-        'hdr',
-        'use_baked_disp',
-        'flip_normals',
-        'only_local',
-        'subsurf_influence',
-        'force_bake_all_polygons',
-        'use_image_atlas',
-        'use_udim',
-        'blur',
-        'blur_type',
-        'blur_factor',
-        'blur_size'
-    ]
-
-    for prop in props:
-        if hasattr(self, prop):
-            bprops[prop] = getattr(self, prop)
-
-    return bprops
-
 class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_to_layer"
     bl_label = "Bake To Layer"

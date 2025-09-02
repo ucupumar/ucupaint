@@ -1666,6 +1666,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             bake_device=self.bake_device, margin_type=self.margin_type, use_osl=self.use_osl
         )
 
+        # Get bake properties
+        bprops = get_bake_properties_from_self(self)
+
         # Get tilenums
         tilenums = UDIM.get_tile_numbers(objs, self.uv_map) if self.use_udim else [1001]
 
@@ -1692,7 +1695,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
                     tilenums=tilenums, interpolation=self.interpolation, 
                     use_float_for_displacement=self.use_float_for_displacement, 
-                    use_float_for_normal=self.use_float_for_normal
+                    use_float_for_normal=self.use_float_for_normal, bprops=bprops
                 )
 
         # Process baked images
@@ -2877,129 +2880,6 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
         return {'FINISHED'}
 
-class YBakeTempImage(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "wm.y_bake_temp_image"
-    bl_label = "Bake temporary image of layer"
-    bl_description = "Bake temporary image of layer, can be useful to prefent glitching with cycles"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    uv_map : StringProperty(default='')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
-
-    hdr : BoolProperty(name='32 bit Float', default=True)
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node() #and hasattr(context, 'parent')
-
-    def invoke(self, context, event):
-        self.invoke_operator(context)
-
-        obj = context.object
-        ypup = get_user_preferences()
-
-        self.auto_cancel = False
-        if not hasattr(context, 'parent'):
-            self.auto_cancel = True
-            return self.execute(context)
-
-        self.parent = context.parent
-
-        if self.parent.type not in {'HEMI'}:
-            self.auto_cancel = True
-            return self.execute(context)
-
-        # Use active uv layer name by default
-        uv_layers = get_uv_layers(obj)
-
-        # UV Map collections update
-        self.uv_map_coll.clear()
-        for uv in uv_layers:
-            if not uv.name.startswith(TEMP_UV):
-                self.uv_map_coll.add().name = uv.name
-
-        if len(self.uv_map_coll) > 0:
-            self.uv_map = self.uv_map_coll[0].name
-
-        if get_user_preferences().skip_property_popups and not event.shift:
-            return self.execute(context)
-
-        return context.window_manager.invoke_props_dialog(self, width=320)
-
-    def draw(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-
-        row = split_layout(self.layout, 0.4)
-
-        col = row.column(align=False)
-
-        #col.label(text='')
-        col.label(text='Width:')
-        col.label(text='Height:')
-        col.label(text='')
-        col.label(text='UV Map:')
-        col.label(text='Samples:')
-
-        col.label(text='Margin:')
-
-        col = row.column(align=False)
-
-        #col.prop(self, 'hdr')
-        col.prop(self, 'width', text='')
-        col.prop(self, 'height', text='')
-        col.prop(self, 'hdr')
-        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
-        col.prop(self, 'samples', text='')
-
-        if is_bl_newer_than(3, 1):
-            split = split_layout(col, 0.4, align=True)
-            split.prop(self, 'margin', text='')
-            split.prop(self, 'margin_type', text='')
-        else:
-            col.prop(self, 'margin', text='')
-
-    def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-
-        if not hasattr(self, 'parent'):
-            self.report({'ERROR'}, "Context is incorrect!")
-            return {'CANCELLED'}
-
-        entity = self.parent
-        if entity.type not in {'HEMI'}:
-            self.report({'ERROR'}, "This layer type is not supported (yet)!")
-            return {'CANCELLED'}
-
-        # Bake temp image
-        image = temp_bake(
-            context, entity, self.width, self.height, self.hdr, self.samples,
-            self.margin, self.uv_map, margin_type=self.margin_type,
-            bake_device=self.bake_device
-        )
-
-        return {'FINISHED'}
-
-class YDisableTempImage(bpy.types.Operator):
-    bl_idname = "wm.y_disable_temp_image"
-    bl_label = "Disable Baked temporary image of layer"
-    bl_description = "Disable bake temporary image of layer"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node() and hasattr(context, 'parent')
-
-    def execute(self, context):
-        entity = context.parent
-        if not entity.use_temp_bake:
-            self.report({'ERROR'}, "This layer is not temporarily baked!")
-            return {'CANCELLED'}
-
-        disable_temp_bake(entity)
-
-        return {'FINISHED'}
-
 def copy_default_value(inp_source, inp_target):
     if inp_target.bl_idname == inp_source.bl_idname:
         inp_target.default_value = inp_source.default_value
@@ -3969,8 +3849,6 @@ def register():
     bpy.utils.register_class(YBakeChannelToVcol)
     bpy.utils.register_class(YMergeLayer)
     bpy.utils.register_class(YMergeMask)
-    bpy.utils.register_class(YBakeTempImage)
-    bpy.utils.register_class(YDisableTempImage)
     bpy.utils.register_class(YDeleteBakedChannelImages)
 
 def unregister():
@@ -3981,6 +3859,4 @@ def unregister():
     bpy.utils.unregister_class(YBakeChannelToVcol)
     bpy.utils.unregister_class(YMergeLayer)
     bpy.utils.unregister_class(YMergeMask)
-    bpy.utils.unregister_class(YBakeTempImage)
-    bpy.utils.unregister_class(YDisableTempImage)
     bpy.utils.unregister_class(YDeleteBakedChannelImages)

@@ -4611,10 +4611,6 @@ class YReplaceLayerType(bpy.types.Operator):
         layer = self.layer
         yp = layer.id_data.yp
 
-        if layer.use_temp_bake:
-            self.report({'ERROR'}, "Cannot replace temporarily baked layer!")
-            return {'CANCELLED'}
-
         if self.type == layer.type and self.type not in {'IMAGE', 'VCOL'}: return {'CANCELLED'}
         #if layer.type == 'GROUP':
         #    self.report({'ERROR'}, "You can't change type of group layer!")
@@ -6992,14 +6988,6 @@ class YLayer(bpy.types.PropertyGroup):
         items = voronoi_feature_items,
         default = 'F1',
         update = update_voronoi_feature
-    )
-
-    # For temporary bake
-    use_temp_bake : BoolProperty(
-        name = 'Use Temporary Bake',
-        description = 'Use temporary bake, it can be useful for prevent glitching with cycles',
-        default = False,
-        #update=update_layer_temp_bake
     )
 
     original_type : EnumProperty(

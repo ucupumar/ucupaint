@@ -1850,10 +1850,6 @@ class YReplaceMaskType(bpy.types.Operator):
         mask = self.mask
         yp = mask.id_data.yp
 
-        if mask.use_temp_bake:
-            self.report({'ERROR'}, "Cannot replace temporarily baked mask!")
-            return {'CANCELLED'}
-
         if self.type == mask.type and self.type not in {'IMAGE', 'VCOL', 'MODIFIER'}: return {'CANCELLED'}
 
         if self.load_item and self.type in {'VCOL', 'IMAGE'} and self.item_name == '':
@@ -2533,13 +2529,6 @@ class YLayerMask(bpy.types.PropertyGroup):
         description = 'Object Pass Index',
         default=0, min=0,
         update = update_mask_object_index
-    )
-
-    # For temporary bake
-    use_temp_bake : BoolProperty(
-        name = 'Use Temporary Bake',
-        description = 'Use temporary bake, it can be useful to prevent glitching with cycles',
-        default = False,
     )
 
     original_type : EnumProperty(

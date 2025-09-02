@@ -1522,10 +1522,6 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     row.context_pointer_set('layer', layer)
     row.context_pointer_set('layer_ui', lui)
 
-    if layer.use_temp_bake:
-        row = row.row(align=True)
-        row.operator('wm.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
-
     if layer.type not in {'GROUP', 'PREFERENCES'}:
         #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         icon = 'MODIFIER_ON' if is_bl_newer_than(2, 80) else 'MODIFIER'
@@ -1613,10 +1609,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         ccol = rrcol.column()
         ccol.active = not layer.use_baked
 
-        if layer.use_temp_bake:
-            ccol.context_pointer_set('parent', layer)
-            ccol.operator('wm.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
-        elif image:
+        if image:
             draw_image_props(context, source, ccol, layer, show_flip_y=True, show_datablock=False)
 
             # NOTE: Divide rgb by alpha is mostly useless for image layer, 
@@ -2941,10 +2934,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             #rbcol = rbox.column()
             rbcol = rrow.column()
             rbcol.active = not mask.use_baked
-            if mask.use_temp_bake:
-                rbcol.context_pointer_set('parent', mask)
-                rbcol.operator('wm.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
-            elif mask_image:
+            if mask_image:
                 draw_image_props(context, mask_source, rbcol, mask, show_datablock=False, show_source_input=True)
             elif mask.type == 'HEMI':
                 draw_hemi_props(mask, mask_source, rbcol)
@@ -6623,17 +6613,6 @@ class YLayerMaskMenu(bpy.types.Menu):
         #    col.separator()
         #    col.prop(mask, 'enable_blur_vector', text='Blur Vector')
 
-        ypup = get_user_preferences()
-
-        if ypup.developer_mode:
-            col = row.column(align=True)
-            col.context_pointer_set('parent', mask)
-            col.label(text='Advanced')
-            if not mask.use_temp_bake:
-                col.operator('wm.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
-            else:
-                col.operator('wm.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
-
 class YMaterialSpecialMenu(bpy.types.Menu):
     bl_idname = "MATERIAL_MT_y_special_menu"
     bl_label = "Material Special Menu"
@@ -7208,15 +7187,9 @@ class YLayerSpecialMenu(bpy.types.Menu):
                 col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
         if ypup.developer_mode:
-            #if context.parent.type == 'HEMI':
             col = row.column()
             col.label(text='Advanced')
-            if context.parent.use_temp_bake:
-                col.operator('wm.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
-            else:
-                col.operator('wm.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
 
-            #col.separator()
             col.context_pointer_set('entity', context.parent)
             col.context_pointer_set('layer', context.parent)
             col.operator('wm.y_bake_entity_to_image', icon_value=lib.get_icon('bake'), text='Bake Layer as Image')
