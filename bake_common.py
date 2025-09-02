@@ -1995,14 +1995,14 @@ def bake_channel(
 
             if lay.type in {'HEMI'} and not lay.use_baked:
                 bprops['name'] = 'Baked ' + lay.name
-                bprops['hdr'] = True
+                bprops['hdr'] = is_bl_newer_than(2, 80)
                 bake_entity_as_image(lay, bprops, set_image_to_entity=True)
                 bake_happened = True
 
             for mask in lay.masks:
                 if mask.type in {'HEMI'} and not mask.use_baked:
                     bprops['name'] = 'Baked ' + mask.name
-                    bprops['hdr'] = True
+                    bprops['hdr'] = is_bl_newer_than(2, 80)
                     bake_entity_as_image(mask, bprops, set_image_to_entity=True)
                     bake_happened = True
 
