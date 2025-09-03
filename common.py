@@ -7788,3 +7788,69 @@ def enable_eevee_ao():
 def is_image_available_to_open(image):
     return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node'}
 
+def fix_missing_vcol(obj, name, src=None, entity=None, entities=[]):
+
+    ref_vcol = None
+
+    if is_bl_newer_than(3, 2):
+        # Try to get reference vcol
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+
+        for o in objs:
+            ovcols = get_vertex_colors(o)
+            if name in ovcols:
+                ref_vcol = ovcols.get(name)
+                break
+
+    # Default recovered missing vcol is black
+    color = (0.0, 0.0, 0.0, 0.0)
+
+    # Create missing vertex color
+    if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain, color_fill=color)
+    else: vcol = new_vertex_color(obj, name, color_fill=color)
+
+    # Set attribute name back to source in case the name is different
+    if src: set_source_vcol_name(src, vcol.name)
+
+    # Set the name back to entity
+    if entity and vcol.name not in entity.name:
+        entity.name = get_unique_name(vcol.name, entities)
+
+def fix_missing_object_vcols(yp, objs, enabled_only=False):
+    need_color_id_vcol = False
+
+    for obj in objs:
+        if obj.type != 'MESH': continue
+
+        for layer in yp.layers:
+            if enabled_only and not layer.enable: continue
+
+            if layer.type == 'VCOL':
+                src = get_layer_source(layer)
+                if not get_vcol_from_source(obj, src):
+                    fix_missing_vcol(obj, src.attribute_name, src, entity=layer, entities=yp.layers)
+
+            for mask in layer.masks:
+                if enabled_only and not mask.enable: continue
+
+                if mask.type == 'VCOL': 
+                    src = get_mask_source(mask)
+                    if not get_vcol_from_source(obj, src):
+                        fix_missing_vcol(obj, src.attribute_name, src, entity=mask, entities=layer.masks)
+
+                if mask.type == 'COLOR_ID':
+                    vcols = get_vertex_colors(obj)
+                    if COLOR_ID_VCOL_NAME not in vcols:
+                        need_color_id_vcol = True
+
+            for ch in layer.channels:
+                if enabled_only and not ch.enable: continue
+
+                if ch.override and ch.override_type == 'VCOL':
+                    src = get_channel_source(ch, layer)
+                    if not get_vcol_from_source(obj, src):
+                        fix_missing_vcol(obj, src.attribute_name, src)
+
+    # Fix missing color id missing vcol
+    if need_color_id_vcol: check_colorid_vcol(objs)

@@ -1651,6 +1651,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         temp_objs = []
         ori_objs = []
         if (len(objs) > 1 or any_uv_geonodes) and not is_join_objects_problematic(yp, mat):
+
+            # Make sure there's no missing vertex color on any objects
+            fix_missing_object_vcols(yp, objs, enabled_only=True)
+
             ori_objs = objs
             objs = temp_objs = [get_merged_mesh_objects(scene, objs)]
             
