@@ -2811,8 +2811,6 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         mat.node_tree.links.new(node.outputs[LAYER_ALPHA_VIEWER], emit.inputs[0])
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
-        #return {'FINISHED'}
-
         # Bake
         bake_object_op()
 

@@ -150,8 +150,10 @@ def is_there_any_missmatched_attribute_types(objs):
 
 def is_join_objects_problematic(yp, mat=None):
     for layer in yp.layers:
+        if not layer.enable: continue
 
         for mask in layer.masks:
+            if not mask.enable: continue
             if mask.type in {'VCOL', 'HEMI', 'COLOR_ID'}: 
                 continue
             if mask.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS or mask.type in {'OBJECT_INDEX'}:

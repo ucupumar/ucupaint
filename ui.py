@@ -3389,7 +3389,7 @@ def draw_layers_ui(context, layout, node):
     #        #box.prop(ypui, 'make_image_single_user')
     #        return
 
-    # Check source for missing data
+    # Check for missing data
     missing_data = False
     for layer in yp.layers:
         if layer.type in {'IMAGE' , 'VCOL'}:
