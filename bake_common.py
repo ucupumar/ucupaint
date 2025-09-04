@@ -3994,6 +3994,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     # Recover bake settings
     recover_bake_settings(book, yp, mat=mat)
 
+    # Hide other objects after baking
+    if is_bl_newer_than(2, 79) and bprops.type.startswith('OTHER_OBJECT_') and other_objs:
+        for oo in other_objs:
+            oo.hide_viewport = True
+
     # Remove temporary objects
     if temp_objs:
         for o in temp_objs:

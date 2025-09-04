@@ -1408,6 +1408,60 @@ class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
 
         return {'FINISHED'}
 
+class YSelectAllOtherObjects(bpy.types.Operator):
+    bl_idname = "wm.y_select_all_other_objects"
+    bl_label = "Select All Other Objects"
+    bl_description = "Select all objects in the other objects list"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and hasattr(context, 'bake_info')
+
+    def execute(self, context):
+        bpy.ops.object.select_all(action='DESELECT')
+
+        for i in range(len(context.bake_info.other_objects)):
+            so = context.bake_info.other_objects[i]
+            if so.object:
+                so_object = so.object
+                so_object.hide_viewport = False
+                set_object_select(so_object, True)
+        if so_object:
+            set_active_object(so_object)
+
+        return {'FINISHED'}
+
+class YToggleOtherObjectsVisibility(bpy.types.Operator):
+    bl_idname = "wm.y_toggle_other_objects_visibility"
+    bl_label = "Toggle Other Objects Visibility"
+    bl_description = "Toggle visibility of all objects in the other objects list"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and hasattr(context, 'bake_info')
+
+    def execute(self, context):
+        bi = context.bake_info
+
+        reference_obj = None
+        for oo in bi.other_objects:
+            if oo.object:
+                reference_obj = oo.object
+                break
+
+        if not reference_obj:
+            return {'CANCELLED'}
+
+        current_hidden_state = reference_obj.hide_viewport
+
+        for oo in bi.other_objects:
+            if oo.object:
+                oo.object.hide_viewport = not current_hidden_state
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YBakeEntityToImage)
@@ -1416,6 +1470,8 @@ def register():
     bpy.utils.register_class(YRemoveBakedEntity)
     bpy.utils.register_class(YRebakeBakedImages)
     bpy.utils.register_class(YRebakeSpecificLayers)
+    bpy.utils.register_class(YSelectAllOtherObjects)
+    bpy.utils.register_class(YToggleOtherObjectsVisibility)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
@@ -1425,3 +1481,5 @@ def unregister():
     bpy.utils.unregister_class(YRemoveBakedEntity)
     bpy.utils.unregister_class(YRebakeBakedImages)
     bpy.utils.unregister_class(YRebakeSpecificLayers)
+    bpy.utils.unregister_class(YSelectAllOtherObjects)
+    bpy.utils.unregister_class(YToggleOtherObjectsVisibility)

@@ -180,17 +180,22 @@ def draw_bake_info(bake_info, layout, entity):
         layout.label(text='List of Objects:')
         box = layout.box()
         bcol = box.column()
+        bcol.context_pointer_set('bake_info', bi)
 
         if num_oos > 0:
             for oo in bi.other_objects:
                 if is_bl_newer_than(2,79) and not oo.object: continue
                 brow = bcol.row()
                 brow.context_pointer_set('other_object', oo)
-                brow.context_pointer_set('bake_info', bi)
                 if is_bl_newer_than(2, 79):
                     brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
                 else: brow.label(text=oo.object_name, icon_value=lib.get_icon('object_index'))
                 brow.operator('wm.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
+
+            if is_bl_newer_than(2, 79):
+                bbcol = bcol.column(align=True)
+                bbcol.operator('wm.y_select_all_other_objects', text='Select All', icon='RESTRICT_SELECT_OFF')
+                bbcol.operator('wm.y_toggle_other_objects_visibility', text='Toggle Hide', icon='RESTRICT_VIEW_OFF')
         else:
             brow = bcol.row()
             brow.label(text='No source objects found!', icon='ERROR')
