@@ -2694,6 +2694,88 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
 
         return {'FINISHED'}
 
+class YOpenLayersFromMaterial(bpy.types.Operator):
+    bl_idname = "wm.y_open_layers_from_material"
+    bl_label = "Open Layers from " + get_addon_title() + " Material"
+    bl_description = "Open layers from material to current " + get_addon_title() + " material"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    mat_name : StringProperty(default='')
+    asset_library_path : StringProperty(default='')
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and get_active_ypaint_node()
+
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
+    def execute(self, context):
+        if self.mat_name == '':
+            self.report({'ERROR'}, "Source material cannot be empty!")
+            return {'CANCELLED'}
+
+        obj = context.object
+        if not obj.data or not hasattr(obj.data, 'materials'):
+            self.report({'ERROR'}, "Cannot use " + get_addon_title() + " with object '" + obj.name + "'!")
+            return {'CANCELLED'}
+
+        # Get material from local first
+        mat = bpy.data.materials.get(self.mat_name)
+
+        # If not found get from the asset library
+        from_asset_library = self.asset_library_path != ''
+        if not mat and from_asset_library and is_bl_newer_than(3):
+            with bpy.data.libraries.load(str(self.asset_library_path), assets_only=True) as (data_from, data_to):
+                for mat_name in data_from.materials:
+                    if mat_name == self.mat_name:
+                        data_to.materials.append(mat_name)
+            mat = bpy.data.materials.get(self.mat_name)
+
+        if not mat:
+            self.report({'ERROR'}, "Material cannot be found!")
+            return {'CANCELLED'}
+
+        if not mat.node_tree:
+            self.report({'ERROR'}, "Material has no node tree!")
+            return {'CANCELLED'}
+
+        # Find yp node in source material
+        source_yp_node = None
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and hasattr(node.node_tree, 'yp') and node.node_tree.yp.is_ypaint_node:
+                source_yp_node = node
+                break
+
+        if not source_yp_node:
+            self.report({'ERROR'}, "Material has no " + get_addon_title() + " node!")
+            return {'CANCELLED'}
+
+        source_tree = source_yp_node.node_tree
+        source_yp = source_tree.yp
+
+        if len(source_yp.layers) == 0:
+            self.report({'ERROR'}, "Material has no layers!")
+            return {'CANCELLED'}
+
+        # Copy all layers to clipboard
+        wmp = context.window_manager.ypprops
+        wmp.clipboard_tree = source_tree.name
+        wmp.clipboard_layer = '' # Empty means all layers
+
+        try:
+            bpy.ops.wm.y_paste_layer('INVOKE_DEFAULT')
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to paste layers: {str(e)}")
+            return {'CANCELLED'}
+
+        # Remove material if it has only fake users (from asset library)
+        if from_asset_library and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
+            remove_datablock(bpy.data.materials, mat)
+
+        return {'FINISHED'}
+
 class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
     bl_idname = "wm.y_open_images_to_single_layer"
     bl_label = "Open Images to single Layer"
@@ -7220,6 +7302,7 @@ def register():
     bpy.utils.register_class(YOpenImageToLayer)
     bpy.utils.register_class(YOpenImagesToSingleLayer)
     bpy.utils.register_class(YOpenImagesFromMaterialToLayer)
+    bpy.utils.register_class(YOpenLayersFromMaterial)
     bpy.utils.register_class(YOpenImageToReplaceLayer)
     bpy.utils.register_class(YOpenImageToOverrideChannel)
     bpy.utils.register_class(YOpenImageToOverride1Channel)
@@ -7255,6 +7338,7 @@ def unregister():
     bpy.utils.unregister_class(YNewVcolToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToLayer)
     bpy.utils.unregister_class(YOpenImagesToSingleLayer)
+    bpy.utils.unregister_class(YOpenLayersFromMaterial)
     bpy.utils.unregister_class(YOpenImagesFromMaterialToLayer)
     bpy.utils.unregister_class(YOpenImageToReplaceLayer)
     bpy.utils.unregister_class(YOpenImageToOverrideChannel)
