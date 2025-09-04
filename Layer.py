@@ -2711,6 +2711,11 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
     def description(self, context, properties):
         return get_operator_description(self)
 
+    def remove_mat(self, mat, from_asset_library):
+        # Remove material if it has only fake users (from asset library)
+        if from_asset_library and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
+            remove_datablock(bpy.data.materials, mat)
+
     def execute(self, context):
         if self.mat_name == '':
             self.report({'ERROR'}, "Source material cannot be empty!")
@@ -2718,7 +2723,7 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
 
         obj = context.object
         if not obj.data or not hasattr(obj.data, 'materials'):
-            self.report({'ERROR'}, "Cannot use " + get_addon_title() + " with object '" + obj.name + "'!")
+            self.report({'ERROR'}, "Cannot use "+get_addon_title()+" with object '"+obj.name+"'!")
             return {'CANCELLED'}
 
         # Get material from local first
@@ -2738,6 +2743,7 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
             return {'CANCELLED'}
 
         if not mat.node_tree:
+            self.remove_mat(mat, from_asset_library)
             self.report({'ERROR'}, "Material has no node tree!")
             return {'CANCELLED'}
 
@@ -2749,13 +2755,15 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
                 break
 
         if not source_yp_node:
-            self.report({'ERROR'}, "Material has no " + get_addon_title() + " node!")
+            self.remove_mat(mat, from_asset_library)
+            self.report({'ERROR'}, "Material has no "+get_addon_title()+" node!")
             return {'CANCELLED'}
 
         source_tree = source_yp_node.node_tree
         source_yp = source_tree.yp
 
         if len(source_yp.layers) == 0:
+            self.remove_mat(mat, from_asset_library)
             self.report({'ERROR'}, "Material has no layers!")
             return {'CANCELLED'}
 
@@ -2767,12 +2775,10 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
         try:
             bpy.ops.wm.y_paste_layer('INVOKE_DEFAULT')
         except Exception as e:
-            self.report({'ERROR'}, f"Failed to paste layers: {str(e)}")
+            self.report({'ERROR'}, "Failed to paste layers: "+str(e))
             return {'CANCELLED'}
 
-        # Remove material if it has only fake users (from asset library)
-        if from_asset_library and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
-            remove_datablock(bpy.data.materials, mat)
+        self.remove_mat(mat, from_asset_library)
 
         return {'FINISHED'}
 
