@@ -1,7 +1,7 @@
 import bpy, time, re, os, random, numpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, BaseOperator
+from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, BaseOperator, Decal
 from .common import *
 #from . import bake_common
 from .node_arrangements import *
@@ -3902,7 +3902,7 @@ def remove_layer(yp, index, remove_on_disk=False):
     wm = bpy.context.window_manager
 
     # Dealing with decal object
-    remove_decal_object(layer_tree, layer)
+    Decal.remove_decal_object(layer_tree, layer)
 
     # Dealing with image atlas segments
     if layer.type == 'IMAGE': # and layer.segment_name != '':
@@ -3935,7 +3935,7 @@ def remove_layer(yp, index, remove_on_disk=False):
     for mask in layer.masks:
 
         # Dealing with decal object
-        remove_decal_object(layer_tree, mask)
+        Decal.remove_decal_object(layer_tree, mask)
 
         # Dealing with image atlas segments
         if mask.type == 'IMAGE': # and mask.segment_name != '':
@@ -5164,7 +5164,7 @@ class YDuplicateLayer(bpy.types.Operator):
         if not self.duplicate_blank:
             self.any_packed_image = any(get_layer_images(layer, packed_only=True))
             self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
-            self.any_decal = any_decal_inside_layer(layer)
+            self.any_decal = Decal.any_decal_inside_layer(layer)
 
             if get_user_preferences().skip_property_popups and not event.shift:
                 return self.execute(context)
@@ -5393,7 +5393,7 @@ class YPasteLayer(bpy.types.Operator):
             for layer in source_layers:
                 if not self.any_packed_image: self.any_packed_image = any(get_layer_images(layer, packed_only=True))
                 if not self.any_ondisk_image: self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
-                if not self.any_decal: self.any_decal = any_decal_inside_layer(layer)
+                if not self.any_decal: self.any_decal = Decal.any_decal_inside_layer(layer)
 
                 # Do not check baked if current yp == yp_source
                 if yp != yp_source:
@@ -5656,80 +5656,6 @@ class YPasteLayer(bpy.types.Operator):
 
         print('INFO: Layer(s) pasted in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
-
-        return {'FINISHED'}
-
-class YSelectDecalObject(bpy.types.Operator):
-    bl_idname = "wm.y_select_decal_object"
-    bl_label = "Select Decal Object"
-    bl_description = "Select Decal Object"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return group_node and hasattr(context, 'entity')
-
-    def execute(self, context):
-        scene = context.scene
-        entity = context.entity
-
-        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-
-        if m1: tree = get_tree(entity)
-        elif m2: tree = get_mask_tree(entity)
-        else: return {'CANCELLED'}
-
-        texcoord = tree.nodes.get(entity.texcoord)
-
-        if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-            try: bpy.ops.object.mode_set(mode='OBJECT')
-            except: pass
-            bpy.ops.object.select_all(action='DESELECT')
-            if texcoord.object.name not in get_scene_objects():
-                parent = texcoord.object.parent
-                custom_collection = parent.users_collection[0] if is_bl_newer_than(2, 80) and parent and len(parent.users_collection) > 0 else None
-                link_object(scene, texcoord.object, custom_collection)
-            set_active_object(texcoord.object)
-            set_object_select(texcoord.object, True)
-        else: return {'CANCELLED'}
-
-        return {'FINISHED'}
-
-class YSetDecalObjectPositionToCursor(bpy.types.Operator):
-    bl_idname = "wm.y_set_decal_object_position_to_sursor"
-    bl_label = "Set Decal Position to Cursor"
-    bl_description = "Set the position of the decal object to the 3D cursor"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return group_node and hasattr(context, 'entity')
-
-    def execute(self, context):
-        scene = bpy.context.scene
-        entity = context.entity
-
-        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-
-        if m1: tree = get_tree(entity)
-        elif m2: tree = get_mask_tree(entity)
-        else: return {'CANCELLED'}
-
-        texcoord = tree.nodes.get(entity.texcoord)
-
-        if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-            # Move decal object to 3D cursor
-            if is_bl_newer_than(2, 80):
-                texcoord.object.location = scene.cursor.location.copy()
-                texcoord.object.rotation_euler = scene.cursor.rotation_euler.copy()
-            else: 
-                texcoord.object.location = scene.cursor_location.copy()
-
-        else: return {'CANCELLED'}
 
         return {'FINISHED'}
 
@@ -6987,7 +6913,7 @@ def update_layer_use_baked(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
-class YLayer(bpy.types.PropertyGroup):
+class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
     name : StringProperty(
         name = 'Layer Name',
         description = 'Layer name',
@@ -7195,12 +7121,6 @@ class YLayer(bpy.types.PropertyGroup):
         update = update_layer_blur_vector_factor
     )
 
-    decal_distance_value : FloatProperty(
-        name = 'Decal Distance',
-        description = 'Distance between surface and the decal object',
-        min=0.0, max=100.0, default=0.5, precision=3
-    )
-
     use_baked : BoolProperty(
         name = 'Use Baked',
         description = 'Use baked layer image',
@@ -7331,8 +7251,6 @@ def register():
     bpy.utils.register_class(YDuplicateLayer)
     bpy.utils.register_class(YCopyLayer)
     bpy.utils.register_class(YPasteLayer)
-    bpy.utils.register_class(YSelectDecalObject)
-    bpy.utils.register_class(YSetDecalObjectPositionToCursor)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YLayer)
 
@@ -7368,7 +7286,5 @@ def unregister():
     bpy.utils.unregister_class(YDuplicateLayer)
     bpy.utils.unregister_class(YCopyLayer)
     bpy.utils.unregister_class(YPasteLayer)
-    bpy.utils.unregister_class(YSelectDecalObject)
-    bpy.utils.unregister_class(YSetDecalObjectPositionToCursor)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YLayer)

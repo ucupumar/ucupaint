@@ -5684,16 +5684,6 @@ def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=Fals
 
     return filtered_images
 
-def any_decal_inside_layer(layer):
-    if layer.texcoord_type == 'Decal':
-        return True
-
-    for mask in layer.masks:
-        if mask.texcoord_type == 'Decal':
-            return True
-
-    return False
-
 def any_dirty_images_inside_layer(layer):
     for image in get_layer_images(layer):
         if image.is_dirty:
@@ -7745,17 +7735,6 @@ def get_uv_hash(obj, uv_name):
 
     h = hash(uv_np.tobytes())
     return str(h)
-
-def remove_decal_object(tree, entity):
-    if not tree: return
-    # NOTE: This will remove the texcoord object even if the entity is not using decal
-    #if entity.texcoord_type == 'Decal':
-    texcoord = tree.nodes.get(entity.texcoord)
-    if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-        decal_obj = texcoord.object
-        if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
-            texcoord.object = None
-            remove_datablock(bpy.data.objects, decal_obj)
 
 def load_image(path, directory, check_existing=True):
     if not is_bl_newer_than(2, 77):

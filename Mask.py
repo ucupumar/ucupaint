@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator
+from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator, Decal
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -213,7 +213,7 @@ def remove_mask(layer, mask, obj, refresh_list=True):
     mask_index = [i for i, m in enumerate(layer.masks) if m == mask][0]
 
     # Dealing with decal object
-    remove_decal_object(tree, mask)
+    Decal.remove_decal_object(tree, mask)
 
     # Remove mask fcurves first
     remove_entity_fcurves(mask)
@@ -2339,7 +2339,7 @@ def update_mask_uniform_scale_enabled(self, context):
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-class YLayerMask(bpy.types.PropertyGroup):
+class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
 
     name : StringProperty(default='', update=update_mask_name)
 
@@ -2494,12 +2494,6 @@ class YLayerMask(bpy.types.PropertyGroup):
         name = 'Blur Vector Factor', 
         description = 'Mask Intensity Factor',
         default=1.0, min=0.0, max=100.0, precision=3
-    )
-
-    decal_distance_value : FloatProperty(
-        name = 'Decal Distance',
-        description = 'Distance between surface and the decal object',
-        min=0.0, max=100.0, default=0.5, precision=3
     )
 
     color_id : FloatVectorProperty(

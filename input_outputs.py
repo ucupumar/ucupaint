@@ -1,5 +1,5 @@
 import bpy, re
-from . import lib
+from . import lib, Decal
 from .common import *
 from .transition_common import *
 from .subtree import *
@@ -484,28 +484,6 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
-def create_decal_empty():
-    obj = bpy.context.object
-    scene = bpy.context.scene
-    empty_name = get_unique_name('Decal', bpy.data.objects)
-    empty = bpy.data.objects.new(empty_name, None)
-    if is_bl_newer_than(2, 80):
-        empty.empty_display_type = 'SINGLE_ARROW'
-    else: empty.empty_draw_type = 'SINGLE_ARROW'
-    custom_collection = obj.users_collection[0] if is_bl_newer_than(2, 80) and len(obj.users_collection) > 0 else None
-    link_object(scene, empty, custom_collection)
-    if is_bl_newer_than(2, 80):
-        empty.location = scene.cursor.location.copy()
-        empty.rotation_euler = scene.cursor.rotation_euler.copy()
-    else: 
-        empty.location = scene.cursor_location.copy()
-
-    # Parent empty to active object
-    empty.parent = obj
-    empty.matrix_parent_inverse = obj.matrix_world.inverted()
-
-    return empty
-
 def check_mask_texcoord_nodes(layer, mask, tree=None):
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
@@ -526,7 +504,7 @@ def check_mask_texcoord_nodes(layer, mask, tree=None):
 
         # Create new empty object if there's no texcoord yet
         if not texcoord:
-            empty = create_decal_empty()
+            empty = Decal.create_decal_empty()
             texcoord = new_node(tree, mask, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
             texcoord.object = empty
 
@@ -596,7 +574,7 @@ def check_layer_texcoord_nodes(layer, tree=None):
 
         # Create new empty object if there's no texcoord yet
         if not texcoord:
-            empty = create_decal_empty()
+            empty = Decal.create_decal_empty()
             texcoord = new_node(tree, layer, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
             texcoord.object = empty
 
