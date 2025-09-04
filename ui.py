@@ -5269,16 +5269,16 @@ class YPAssetBrowserMenu(bpy.types.Menu):
         op.mat_name = mat_name
         op.asset_library_path = asset_library_path
 
+        if obj.type == 'MESH':
+            op.texcoord_type = 'UV'
+            active_uv_name = get_active_render_uv(obj)
+            op.uv_map = active_uv_name
+        else:
+            op.texcoord_type = 'Generated'
+
         op = self.layout.operator("wm.y_open_layers_from_material", icon='PASTEDOWN')
         op.mat_name = mat_name
         op.asset_library_path = asset_library_path
-
-        #if obj.type == 'MESH':
-        #    op.texcoord_type = 'UV'
-        #    active_uv_name = get_active_render_uv(obj)
-        #    op.uv_map = active_uv_name
-        #else:
-        #    op.texcoord_type = 'Generated'
 
 def draw_yp_asset_browser_menu(self, context):
 
