@@ -2116,7 +2116,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
             'alpha' : ['opacity', 'a'], 
             'ambient occlusion' : ['ao'], 
             'metallic' : ['metalness', 'm'],
-            'roughness' : ['glossiness', 'r'],
+            'roughness' : ['glossiness', 'smoothness', 'r'],
             'normal' : ['displacement', 'height', 'bump', 'n'], # Prioritize displacement/bump before actual normal map
         }
 
@@ -2266,7 +2266,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                     if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
 
                     # Add invert modifier for glosiness
-                    if syname == 'glossiness':
+                    if syname in {'glossiness', 'smoothness'}:
                         Modifier.add_new_modifier(ch, 'INVERT')
 
                     if image == main_image:
