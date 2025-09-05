@@ -1,4 +1,5 @@
 import bpy, re
+from . import lib
 from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
@@ -17,7 +18,7 @@ def get_decal_object(entity):
 
     return decal_obj
 
-def get_decal_consraint(decal_obj):
+def get_decal_constraint(decal_obj):
     cs = [c for c in decal_obj.constraints if c.type == 'SHRINKWRAP']
     if len(cs) > 0: return cs[0]
     return None
@@ -64,6 +65,132 @@ def create_decal_empty():
     empty.matrix_parent_inverse = obj.matrix_world.inverted()
 
     return empty
+
+def check_entity_decal_nodes(entity, tree=None):
+    yp = entity.id_data.yp
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if m1: 
+        entity_enabled = get_layer_enabled(entity)
+        source = get_layer_source(entity)
+        if not tree: tree = get_tree(entity)
+        layer = entity
+        mask = None
+    elif m2: 
+        entity_enabled = get_mask_enabled(entity)
+        source = get_mask_source(entity)
+        layer = yp.layers[int(m2.group(1))]
+        if not tree: tree = get_tree(entity)
+        mask = entity
+    else: return
+
+    # Get height channel
+    height_ch = get_height_channel(layer)
+
+    # Create texcoord node if decal is used
+    texcoord = tree.nodes.get(entity.texcoord)
+    if entity_enabled and entity.texcoord_type == 'Decal' and is_mapping_possible(entity.type):
+
+        # Set image extension type to clip
+        image = None
+        if entity.type == 'IMAGE' and source:
+            image = source.image
+
+        # Create new empty object if there's no texcoord yet
+        if not texcoord:
+            empty = create_decal_empty()
+            texcoord = new_node(tree, entity, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
+            texcoord.object = empty
+
+        decal_process = tree.nodes.get(entity.decal_process)
+        if not decal_process:
+            decal_process = new_node(tree, entity, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
+            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+
+            # Set image extension only after decal process node is initialized
+            if image and source:
+                entity.original_image_extension = source.extension
+                source.extension = 'CLIP'
+
+        # Set decal aspect ratio
+        if image and image.size[0] > 0 and image.size[1] > 0:
+            if image.size[0] > image.size[1]:
+                decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
+            else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
+
+        # Create decal alpha nodes
+        if mask:
+
+            # Check if height channel is enabled
+            height_root_ch = get_root_height_channel(yp)
+            height_ch_enabled = get_channel_enabled(height_ch) if height_ch else False
+
+            decal_alpha = check_new_node(tree, mask, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
+            if decal_alpha.operation != 'MULTIPLY':
+                decal_alpha.operation = 'MULTIPLY'
+
+            if height_ch and height_ch_enabled and height_root_ch.enable_smooth_bump:
+                for letter in nsew_letters:
+                    decal_alpha = check_new_node(tree, mask, 'decal_alpha_' + letter, 'ShaderNodeMath', 'Decal Alpha ' + letter.upper())
+                    if decal_alpha.operation != 'MULTIPLY':
+                        decal_alpha.operation = 'MULTIPLY'
+            else:
+                for letter in nsew_letters:
+                    remove_node(tree, mask, 'decal_alpha_' + letter)
+
+        else:
+
+            for i, ch in enumerate(layer.channels):
+                root_ch = yp.channels[i]
+                ch_enabled = get_channel_enabled(ch)
+                if ch_enabled:
+                    decal_alpha = check_new_node(tree, ch, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
+                    if decal_alpha.operation != 'MULTIPLY':
+                        decal_alpha.operation = 'MULTIPLY'
+                else:
+                    remove_node(tree, ch, 'decal_alpha')
+
+                if root_ch.type == 'NORMAL':
+                    if ch_enabled and root_ch.enable_smooth_bump:
+                        for letter in nsew_letters:
+                            decal_alpha = check_new_node(tree, ch, 'decal_alpha_' + letter, 'ShaderNodeMath', 'Decal Alpha ' + letter.upper())
+                            if decal_alpha.operation != 'MULTIPLY':
+                                decal_alpha.operation = 'MULTIPLY'
+                    else:
+                        for letter in nsew_letters:
+                            remove_node(tree, ch, 'decal_alpha_' + letter)
+    else:
+
+        if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
+            remove_node(tree, entity, 'texcoord')
+        remove_node(tree, entity, 'decal_process')
+
+        if mask: 
+            remove_node(tree, mask, 'decal_alpha')
+
+            if height_ch:
+                for letter in nsew_letters:
+                    remove_node(tree, mask, 'decal_alpha_' + letter)
+        else:
+            for i, ch in enumerate(layer.channels):
+                root_ch = yp.channels[i]
+                remove_node(tree, ch, 'decal_alpha')
+
+                if root_ch.type == 'NORMAL':
+                    for letter in nsew_letters:
+                        remove_node(tree, ch, 'decal_alpha_' + letter)
+
+        # Recover image extension type
+        if entity.type == 'IMAGE' and entity.original_texcoord == 'Decal' and entity.original_image_extension != '':
+            source = get_mask_source(mask) if mask else get_layer_source(layer)
+            if source:
+                source.extension = entity.original_image_extension
+                entity.original_image_extension = ''
+
+    # Save original texcoord type
+    if entity.original_texcoord != entity.texcoord_type:
+        entity.original_texcoord = entity.texcoord_type
 
 class YSelectDecalObject(bpy.types.Operator):
     bl_idname = "wm.y_select_decal_object"
@@ -136,6 +263,17 @@ class BaseDecal():
         name = 'Decal Distance',
         description = 'Distance between surface and the decal object',
         min=0.0, max=100.0, default=0.5, precision=3
+    )
+
+    original_texcoord : EnumProperty(
+        name = 'Original Texture Coordinate Type',
+        items = texcoord_type_items,
+        default = 'UV'
+    )
+
+    original_image_extension : StringProperty(
+        name = 'Original Image Extension Type',
+        default = ''
     )
 
 def register():

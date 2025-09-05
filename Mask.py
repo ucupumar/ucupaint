@@ -2390,17 +2390,6 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
             update_mask_texcoord_type(self, context)
     )
 
-    original_texcoord : EnumProperty(
-        name = 'Original Layer Coordinate Type',
-        items = mask_texcoord_type_items,
-        default = 'UV'
-    )
-
-    original_image_extension : StringProperty(
-        name = 'Original Image Extension Type',
-        default = ''
-    )
-
     modifier_type : EnumProperty(
         name = 'Mask Modifier Type',
         items = MaskModifier.mask_modifier_type_items,
