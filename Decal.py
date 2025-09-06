@@ -49,14 +49,13 @@ def update_enable_decal_object_constraint(self, context):
     decal_obj = self.id_data
     decal_const = get_decal_constraint(decal_obj)
 
-    print(self.enable_constraint)
-
     if self.enable_constraint:
         if not decal_const and obj:
             c = decal_obj.constraints.new('SHRINKWRAP')
             c.target = obj
-            c.use_track_normal = True
-            c.track_axis = 'TRACK_Z'
+            if is_bl_newer_than(2, 80):
+                c.use_track_normal = True
+                c.track_axis = 'TRACK_Z'
     else:
         if decal_const:
             decal_obj.constraints.remove(decal_const)
