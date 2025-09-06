@@ -2,7 +2,7 @@ import bpy, re, time, os, sys
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
-from . import lib, Modifier, MaskModifier, UDIM, ListItem
+from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal
 from .common import *
 
 
@@ -1764,6 +1764,25 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                 splits.label(text='Decal Distance:')
                 draw_input_prop(splits, layer, 'decal_distance_value')
 
+                if texcoord and texcoord.object:
+
+                    rrow = boxcol.row(align=True)
+                    rrow.label(text='', icon='BLANK1')
+                    rrrow = rrow.row()
+                    rrrow.label(text='Decal Constraint:')
+                    draw_input_prop(rrrow, texcoord.object.yp_decal, 'enable_constraint')
+
+                    # NOTE: Show constraint target when there's more than one material users
+                    decal_const = Decal.get_decal_constraint(texcoord.object)
+                    if decal_const:
+                        mat = get_active_material()
+                        if mat.users > 1 or decal_const.target == None:
+                            rrow = boxcol.row(align=True)
+                            rrow.label(text='', icon='BLANK1')
+                            rrrow = rrow.row()
+                            rrrow.label(text='Constraint Target:')
+                            draw_input_prop(rrrow, decal_const, 'target')
+
                 boxcol.context_pointer_set('entity', layer)
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
@@ -3066,6 +3085,20 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                     splits = split_layout(boxcol, 0.5, align=True)
                     splits.label(text='Decal Distance:')
                     draw_input_prop(splits, mask, 'decal_distance_value')
+
+                    if texcoord and texcoord.object:
+                        rrow = boxcol.row(align=True)
+                        rrow.label(text='Decal Constraint:')
+                        draw_input_prop(rrow, texcoord.object.yp_decal, 'enable_constraint')
+
+                        # NOTE: Show constraint target when there's more than one material users
+                        decal_const = Decal.get_decal_constraint(texcoord.object)
+                        if decal_const:
+                            mat = get_active_material()
+                            if mat.users > 1 or decal_const.target == None:
+                                rrow = boxcol.row(align=True)
+                                rrow.label(text='Constraint Target:')
+                                draw_input_prop(rrow, decal_const, 'target')
 
                     boxcol.context_pointer_set('entity', mask)
                     if is_bl_newer_than(2, 80):

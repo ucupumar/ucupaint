@@ -44,6 +44,23 @@ def remove_decal_object(tree, entity):
             texcoord.object = None
             remove_datablock(bpy.data.objects, decal_obj)
 
+def update_enable_decal_object_constraint(self, context):
+    obj = context.object
+    decal_obj = self.id_data
+    decal_const = get_decal_constraint(decal_obj)
+
+    print(self.enable_constraint)
+
+    if self.enable_constraint:
+        if not decal_const and obj:
+            c = decal_obj.constraints.new('SHRINKWRAP')
+            c.target = obj
+            c.use_track_normal = True
+            c.track_axis = 'TRACK_Z'
+    else:
+        if decal_const:
+            decal_obj.constraints.remove(decal_const)
+
 def create_decal_empty():
     obj = bpy.context.object
     scene = bpy.context.scene
@@ -276,10 +293,61 @@ class BaseDecal():
         default = ''
     )
 
+class YPaintDecalObjectProps(bpy.types.PropertyGroup):
+    enable_constraint : BoolProperty(
+        name = 'Enable Decal Constraint',
+        description = 'Enable decal constraint to always follow an object',
+        default = False,
+        update = update_enable_decal_object_constraint
+    )
+
+    last_operator : StringProperty(default='')
+    last_operator_pointer : StringProperty(default='')
+
+@persistent
+def ypaint_decal_constraint_update(scene):
+    wm = bpy.context.window_manager
+    if len(wm.operators) == 0: return
+    op = wm.operators[-1]
+    if not op.bl_idname.startswith('TRANSFORM_OT_'): return
+
+    for obj in bpy.context.selected_objects:
+        if not obj.yp_decal.enable_constraint: continue
+
+        # Get constraint
+        c = get_decal_constraint(obj)
+        if not c or c.mute: continue
+
+        if obj.yp_decal.last_operator != op.bl_idname or obj.yp_decal.last_operator_pointer != str(op.as_pointer()):
+            obj.yp_decal.last_operator = op.bl_idname
+            obj.yp_decal.last_operator_pointer = str(op.as_pointer())
+
+            # Apply the constraint after transforming
+            mat = obj.matrix_world.copy()
+            c.mute = True
+            try: obj.matrix_world = mat
+            except Exception as e: print('EXCEPTIION:', e)
+            c.mute = False
+
 def register():
     bpy.utils.register_class(YSelectDecalObject)
     bpy.utils.register_class(YSetDecalObjectPositionToCursor)
+    bpy.utils.register_class(YPaintDecalObjectProps)
+
+    # YPaint Props
+    bpy.types.Object.yp_decal = PointerProperty(type=YPaintDecalObjectProps)
+
+    # Handlers
+    if is_bl_newer_than(2, 80):
+        bpy.app.handlers.depsgraph_update_post.append(ypaint_decal_constraint_update)
+    else: bpy.app.handlers.scene_update_pre.append(ypaint_decal_constraint_update)
 
 def unregister():
     bpy.utils.unregister_class(YSelectDecalObject)
     bpy.utils.unregister_class(YSetDecalObjectPositionToCursor)
+    bpy.utils.unregister_class(YPaintDecalObjectProps)
+
+    # Handlers
+    if is_bl_newer_than(2, 80):
+        bpy.app.handlers.depsgraph_update_post.remove(ypaint_decal_constraint_update)
+    else: bpy.app.handlers.scene_update_pre.remove(ypaint_decal_constraint_update)
