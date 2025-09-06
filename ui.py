@@ -1769,7 +1769,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
                     rrrow = rrow.row()
-                    rrrow.label(text='Decal Shrinkwrap:')
+                    rrrow.label(text='Decal Constraint:')
                     draw_input_prop(rrrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
 
                     # NOTE: Show constraint target when there's more than one material users
@@ -1780,7 +1780,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
                             rrrow = rrow.row()
-                            rrrow.label(text='Shrinkwrap Target:')
+                            rrrow.label(text='Constraint Target:')
                             draw_input_prop(rrrow, decal_const, 'target')
 
                 boxcol.context_pointer_set('entity', layer)
@@ -3088,7 +3088,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
                     if texcoord and texcoord.object:
                         rrow = boxcol.row(align=True)
-                        rrow.label(text='Decal Shrinkwrap:')
+                        rrow.label(text='Decal Constraint:')
                         draw_input_prop(rrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
 
                         # NOTE: Show constraint target when there's more than one material users
@@ -3097,7 +3097,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             mat = get_active_material()
                             if mat.users > 1 or decal_const.target == None:
                                 rrow = boxcol.row(align=True)
-                                rrow.label(text='Shrinkwrap Target:')
+                                rrow.label(text='Constraint Target:')
                                 draw_input_prop(rrow, decal_const, 'target')
 
                     boxcol.context_pointer_set('entity', mask)

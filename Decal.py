@@ -294,7 +294,7 @@ class BaseDecal():
 
 class YPaintDecalObjectProps(bpy.types.PropertyGroup):
     enable_shrinkwrap : BoolProperty(
-        name = 'Enable Decal Shrinkwrap',
+        name = 'Enable Decal Shrinkwrap Constraint',
         description = 'Enable shrinkwrap constraint, so decal object always follow the target object',
         default = False,
         update = update_enable_decal_object_constraint
@@ -323,10 +323,11 @@ def ypaint_decal_constraint_update(scene):
 
             # Apply the constraint after transforming
             mat = obj.matrix_world.copy()
-            c.mute = True
-            try: obj.matrix_world = mat
+            try: 
+                c.mute = True
+                obj.matrix_world = mat
+                c.mute = False
             except Exception as e: print('EXCEPTIION:', e)
-            c.mute = False
 
 def register():
     bpy.utils.register_class(YSelectDecalObject)
