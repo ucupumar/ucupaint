@@ -18,7 +18,7 @@ def get_decal_object(entity):
 
     return decal_obj
 
-def get_decal_constraint(decal_obj):
+def get_decal_shrinkwrap_constraint(decal_obj):
     cs = [c for c in decal_obj.constraints if c.type == 'SHRINKWRAP']
     if len(cs) > 0: return cs[0]
     return None
@@ -47,9 +47,9 @@ def remove_decal_object(tree, entity):
 def update_enable_decal_object_constraint(self, context):
     obj = context.object
     decal_obj = self.id_data
-    decal_const = get_decal_constraint(decal_obj)
+    decal_const = get_decal_shrinkwrap_constraint(decal_obj)
 
-    if self.enable_constraint:
+    if self.enable_shrinkwrap:
         if not decal_const and obj:
             c = decal_obj.constraints.new('SHRINKWRAP')
             c.target = obj
@@ -293,9 +293,9 @@ class BaseDecal():
     )
 
 class YPaintDecalObjectProps(bpy.types.PropertyGroup):
-    enable_constraint : BoolProperty(
-        name = 'Enable Decal Constraint',
-        description = 'Enable decal constraint to always follow an object',
+    enable_shrinkwrap : BoolProperty(
+        name = 'Enable Decal Shrinkwrap',
+        description = 'Enable shrinkwrap constraint, so decal object always follow the target object',
         default = False,
         update = update_enable_decal_object_constraint
     )
@@ -311,10 +311,10 @@ def ypaint_decal_constraint_update(scene):
     if not op.bl_idname.startswith('TRANSFORM_OT_'): return
 
     for obj in bpy.context.selected_objects:
-        if not obj.yp_decal.enable_constraint: continue
+        if not obj.yp_decal.enable_shrinkwrap: continue
 
         # Get constraint
-        c = get_decal_constraint(obj)
+        c = get_decal_shrinkwrap_constraint(obj)
         if not c or c.mute: continue
 
         if obj.yp_decal.last_operator != op.bl_idname or obj.yp_decal.last_operator_pointer != str(op.as_pointer()):

@@ -1769,18 +1769,18 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
                     rrrow = rrow.row()
-                    rrrow.label(text='Decal Constraint:')
-                    draw_input_prop(rrrow, texcoord.object.yp_decal, 'enable_constraint')
+                    rrrow.label(text='Decal Shrinkwrap:')
+                    draw_input_prop(rrrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
 
                     # NOTE: Show constraint target when there's more than one material users
-                    decal_const = Decal.get_decal_constraint(texcoord.object)
+                    decal_const = Decal.get_decal_shrinkwrap_constraint(texcoord.object)
                     if decal_const:
                         mat = get_active_material()
                         if mat.users > 1 or decal_const.target == None:
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
                             rrrow = rrow.row()
-                            rrrow.label(text='Constraint Target:')
+                            rrrow.label(text='Shrinkwrap Target:')
                             draw_input_prop(rrrow, decal_const, 'target')
 
                 boxcol.context_pointer_set('entity', layer)
@@ -3088,16 +3088,16 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
                     if texcoord and texcoord.object:
                         rrow = boxcol.row(align=True)
-                        rrow.label(text='Decal Constraint:')
-                        draw_input_prop(rrow, texcoord.object.yp_decal, 'enable_constraint')
+                        rrow.label(text='Decal Shrinkwrap:')
+                        draw_input_prop(rrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
 
                         # NOTE: Show constraint target when there's more than one material users
-                        decal_const = Decal.get_decal_constraint(texcoord.object)
+                        decal_const = Decal.get_decal_shrinkwrap_constraint(texcoord.object)
                         if decal_const:
                             mat = get_active_material()
                             if mat.users > 1 or decal_const.target == None:
                                 rrow = boxcol.row(align=True)
-                                rrow.label(text='Constraint Target:')
+                                rrow.label(text='Shrinkwrap Target:')
                                 draw_input_prop(rrow, decal_const, 'target')
 
                     boxcol.context_pointer_set('entity', mask)
