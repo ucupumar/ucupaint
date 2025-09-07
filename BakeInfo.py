@@ -20,12 +20,19 @@ class YBakeInfoSelectedObject(bpy.types.PropertyGroup):
 class YBakeInfoProps(bpy.types.PropertyGroup):
     is_baked : BoolProperty(default=False) # Flag to mark if the image is from baking or not
     is_baked_channel : BoolProperty(default=False) # Flag to mark if the image baked from main channel
+    is_baked_entity : BoolProperty(default=False) # Flag to mark if the image baked from entity
 
     bake_type : EnumProperty(
         name = 'Bake Type',
         description = 'Bake Type',
         items = bake_type_items,
         default = 'AO'
+    )
+
+    baked_entity_type : StringProperty(
+        name = 'Baked Entity Type',
+        description = 'Baked entity type',
+        default = ''
     )
 
     samples : IntProperty(
@@ -99,10 +106,33 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         default = False
     )
 
+    blur_type : EnumProperty(
+        name = 'Blur Type', 
+        description = 'Blur type for the baked image',
+        items = (
+            ('NOISE', 'Noise Blur', 'Noisy and need more samples but has matching value to the blur vector option'),
+            ('FLAT', 'Flat', 'Flat blur'),
+            ('TENT', 'Tent', 'Tent blur'),
+            ('QUAD', 'Quadratic', 'Quadratic blur'),
+            ('CUBIC', 'Cubic', 'Cubic blur'),
+            ('GAUSS', 'Gaussian', 'Gausssian blur'),
+            ('FAST_GAUSS', 'Fast Gaussian', 'Fast gausssian blur'),
+            ('CATROM', 'Catrom', 'Catrom blur'),
+            ('MITCH', 'Mitch', 'Mitch blur')
+        ),
+        default='GAUSS'
+    )
+
     blur_factor : FloatProperty(
         name = 'Blur Factor',
         description = "Blur factor to baked image",
         default=1.0, min=0.0, max=100.0
+    )
+
+    blur_size : FloatProperty(
+        name = 'Blur Size',
+        description = 'Blur size (in pixels) to the baked image',
+        default=10.0, min=0.0
     )
 
     use_baked_disp : BoolProperty(
@@ -119,6 +149,12 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             ('CPU', 'CPU', '')
         ),
         default = 'CPU'
+    )
+
+    use_cage : BoolProperty(
+        name = 'Cage Object',
+        description = 'Cast rays to active material objects from a cage',
+        default = False
     )
 
     cage_object_name : StringProperty(
@@ -170,12 +206,36 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         default = False
     )
 
+    use_osl : BoolProperty(
+        name = 'Use OSL',
+        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
+        default = False
+    )
+
+    use_dithering : BoolProperty(
+        name = 'Use Dithering',
+        description = 'Use dithering for less banding color',
+        default = False
+    )
+
+    dither_intensity : FloatProperty(
+        name = 'Dither Intensity',
+        description = 'Amount of dithering noise added to the rendered image to break up banding',
+        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
+    )
+
     bake_disabled_layers : BoolProperty(
         name = 'Bake Disabled Layers',  
         description = 'Take disabled layers into account when baking',
         default = False
     )
 
+    normalize : BoolProperty(
+        name = 'Normalize Bake Result',
+        description = 'Normalize the bake result',
+        default = False,
+    )
+    
     # To store other objects info
     other_objects : CollectionProperty(type=YBakeInfoOtherObject)
     

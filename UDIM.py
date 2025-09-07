@@ -36,7 +36,8 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
                 bpy.ops.image.tile_add(number=tilenum, count=1, label="", color=color, width=width, height=height, float=image.is_float, alpha=True)
         else: bpy.ops.image.tile_add(override, number=tilenum, count=1, label="", color=color, width=width, height=height, float=image.is_float, alpha=True)
 
-    elif not empty_only:
+    # HACK: UDIM image with size of 0 always need to be filled first
+    elif not empty_only or (tilenum == 1001 and image.size[0] == 0):
 
         image.tiles.active = tile
 
@@ -60,25 +61,32 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
 
     return True
 
-def copy_udim_pixels(src, dest):
-    for tile in src.tiles:
+def copy_udim_pixels(src, dest, convert_colorspace=False):
+
+    tilenums = [tile.number for tile in src.tiles]
+
+    for tilenum in tilenums:
+        tile = src.tiles.get(tilenum)
+
         # Check if tile number exists on both images and has same sizes
-        dtile = dest.tiles.get(tile.number)
+        dtile = dest.tiles.get(tilenum)
         if not dtile: continue
         if tile.size[0] != dtile.size[0] or tile.size[1] != dtile.size[1]: continue
 
         # Swap first
-        if tile.number != 1001:
-            swap_tile(src, 1001, tile.number)
-            swap_tile(dest, 1001, tile.number)
+        if tilenum != 1001:
+            swap_tile(src, 1001, tilenum)
+            swap_tile(dest, 1001, tilenum)
 
         # Set pixels
-        dest.pixels = list(src.pixels)
+        if convert_colorspace:
+            copy_image_pixels_with_conversion(src, dest)
+        else: dest.pixels = list(src.pixels)
 
         # Swap back
-        if tile.number != 1001:
-            swap_tile(src, 1001, tile.number)
-            swap_tile(dest, 1001, tile.number)
+        if tilenum != 1001:
+            swap_tile(src, 1001, tilenum)
+            swap_tile(dest, 1001, tilenum)
 
 def get_tile_numbers(objs, uv_name):
 
@@ -529,7 +537,7 @@ def remove_tile(image, tilenum):
     remove_tiles(image, [tilenum])
 
 class YRefillUDIMTiles(bpy.types.Operator):
-    bl_idname = "node.y_refill_udim_tiles"
+    bl_idname = "wm.y_refill_udim_tiles"
     bl_label = "Refill UDIM Tiles"
     bl_description = "Refill all UDIM tiles used by all layers and masks based on their UV"
     bl_options = {'REGISTER', 'UNDO'}
@@ -540,6 +548,9 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
     def execute(self, context):
         T = time.time()
+
+        if not hasattr(context, 'layer'):
+            return {'CANCELLED'}
 
         yp = context.layer.id_data.yp
         entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp)
@@ -662,6 +673,10 @@ def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0, 0, 0
     )
     image.yua.is_udim_atlas = True
     image.yui.base_color = color
+
+    # Float image atlas always use premultipled alpha
+    if hdr:
+        image.alpha_mode = 'PREMUL'
 
     # Pack image
     initial_pack_udim(image)
@@ -1155,6 +1170,10 @@ class YConvertImageTiled(bpy.types.Operator):
     def execute(self, context):
         image = context.image
 
+        if image.yua.is_udim_atlas or image.yia.is_image_atlas:
+            self.report({'ERROR'}, 'Converting image atlas to/from UDIM is not supported yet!')
+            return {'CANCELLED'}
+
         # Create new image
         new_image = bpy.data.images.new(
             image.name, width=image.size[0], height=image.size[1], 
@@ -1183,6 +1202,10 @@ class YConvertImageTiled(bpy.types.Operator):
                 fill_tile(new_image, tilenum, color, image.size[0], image.size[1])
 
             initial_pack_udim(new_image, color)
+
+        # Copy colorspace and alpha mode
+        new_image.colorspace_settings.name = image.colorspace_settings.name
+        new_image.alpha_mode = image.alpha_mode
 
         # Copy image pixels
         copy_image_pixels(image, new_image)

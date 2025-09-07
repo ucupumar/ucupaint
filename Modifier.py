@@ -112,12 +112,22 @@ def add_new_modifier(parent, modifier_type):
     m = modifiers[0]
     m.type = modifier_type
 
+    # Color ramp modifier has affect_color and affect_alpha enabled by default
+    if modifier_type == 'COLOR_RAMP':
+        ori_halt_update = yp.halt_update
+        yp.halt_update = True
+
+        m.affect_color = True
+        m.affect_alpha = True
+
+        yp.halt_update = ori_halt_update
+
     check_modifiers_trees(parent)
 
     return m
 
 class YNewYPaintModifier(bpy.types.Operator):
-    bl_idname = "node.y_new_ypaint_modifier"
+    bl_idname = "wm.y_new_ypaint_modifier"
     bl_label = "New " + get_addon_title() + " Modifier"
     bl_description = "New " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -179,7 +189,7 @@ class YNewYPaintModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveYPaintModifier(bpy.types.Operator):
-    bl_idname = "node.y_move_ypaint_modifier"
+    bl_idname = "wm.y_move_ypaint_modifier"
     bl_label = "Move " + get_addon_title() + " Modifier"
     bl_description = "Move " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -244,7 +254,7 @@ class YMoveYPaintModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveYPaintModifier(bpy.types.Operator):
-    bl_idname = "node.y_remove_ypaint_modifier"
+    bl_idname = "wm.y_remove_ypaint_modifier"
     bl_label = "Remove " + get_addon_title() + " Modifier"
     bl_description = "Remove " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -304,7 +314,7 @@ class YRemoveYPaintModifier(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_layer_ch=False):
+def draw_modifier_properties(context, channel_type, nodes, modifier, parent, layout, is_root_ch=False):
 
     if modifier.type == 'INVERT':
         row = layout.row(align=True)
@@ -326,12 +336,6 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
             row.prop(rgb2i.inputs[3], 'default_value', text='')
         else: row.prop(modifier, 'rgb2i_col', text='')
 
-        # Shortcut only available on layer channel
-        if is_layer_ch:
-            row = col.row(align=True)
-            row.label(text='Shortcut on layer list:')
-            row.prop(modifier, 'shortcut', text='')
-
     elif modifier.type == 'OVERRIDE_COLOR':
         col = layout.column(align=True)
 
@@ -348,9 +352,21 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
             row.prop(modifier, 'shortcut', text='')
 
     elif modifier.type == 'COLOR_RAMP':
+        col = layout.column()
         color_ramp = nodes.get(modifier.color_ramp)
         if color_ramp:
-            layout.template_color_ramp(color_ramp, "color_ramp", expand=True)
+            ccol = col.column()
+            ccol.active = modifier.affect_color or modifier.affect_alpha
+            ccol.template_color_ramp(color_ramp, "color_ramp", expand=True)
+
+        if not is_root_ch or parent.enable_alpha or not modifier.affect_color or not modifier.affect_alpha:
+            split = split_layout(col, 0.3, align=True)
+            split.label(text='Affect:')
+            row = split.row(align=True)
+
+            label = 'Color' if channel_type != 'VALUE' else 'Value'
+            row.prop(modifier, 'affect_color', text=label, toggle=True)
+            row.prop(modifier, 'affect_alpha', text='Alpha', toggle=True)
 
     elif modifier.type == 'RGB_CURVE':
         rgb_curve = nodes.get(modifier.rgb_curve)
@@ -525,6 +541,14 @@ def update_use_clamp(self, context):
             math.node_tree.nodes.get('Math.G').use_clamp = self.use_clamp
             math.node_tree.nodes.get('Math.B').use_clamp = self.use_clamp
 
+def update_affect_color(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
+    tree = get_mod_tree(self)
+
+    if self.type == 'COLOR_RAMP':
+        update_modifier_enable(self, context)
+
 def update_affect_alpha(self, context):
     yp = self.id_data.yp
     if yp.halt_update or not self.enable: return
@@ -537,6 +561,9 @@ def update_affect_alpha(self, context):
             alpha.mute = False
         else:
             alpha.mute = True
+
+    elif self.type == 'COLOR_RAMP':
+        update_modifier_enable(self, context)
 
 def update_math_method(self, context):
     yp = self.id_data.yp
@@ -638,8 +665,8 @@ class YPaintModifier(bpy.types.PropertyGroup):
     color_ramp_linear_start : StringProperty(default='')
     color_ramp_linear : StringProperty(default='')
     color_ramp_alpha_multiply : StringProperty(default='')
-    color_ramp_mix_rgb : StringProperty(default='')
-    color_ramp_mix_alpha : StringProperty(default='')
+    color_ramp_mix_rgb : StringProperty(default='') # Deprecated
+    color_ramp_mix_alpha : StringProperty(default='') # Deprecated
 
     # RGB Curve nodes
     rgb_curve : StringProperty(default='')
@@ -689,7 +716,8 @@ class YPaintModifier(bpy.types.PropertyGroup):
         update = update_math_method
     )
 
-    affect_alpha : BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
+    affect_color : BoolProperty(name='Affect Color', description='Ramp will affect the color value', default=True, update=update_affect_color) 
+    affect_alpha : BoolProperty(name='Affect Alpha', description='Ramp will affect the alpha value', default=False, update=update_affect_alpha) 
 
     # Individual modifier node frame
     frame : StringProperty(default='')
@@ -887,6 +915,8 @@ def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
 
         else:
             return
+    
+    if not parent_tree: return
 
     # Get modifier group
     mod_group = parent_tree.nodes.get(parent.mod_group)
