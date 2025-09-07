@@ -1030,6 +1030,16 @@ def update_yp_tree(tree):
                         height_ch.enable_transition_bump = False
                         height_ch.enable_transition_bump = True
 
+    # Version 2.3.6 will remove the remains of mistakenly baked fake lighting layers/masks
+    # NOTE: The function won't run because version 2.3.6 is not finalized yet
+    if False and version_tuple(yp.version) < (2, 3, 6):
+        for layer in yp.layers:
+            ltree = get_tree(layer)
+            for n in ltree.nodes:
+                if n.type == 'TEX_IMAGE' and n.image and len(n.outputs[0].links) == 0 and 'Fake Lighting' in n.image.name and ' Temp' in n.image.name:
+                    print('INFO: Unused image named \''+n.image.name+'\' is removed!')
+                    simple_remove_node(ltree, n)
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

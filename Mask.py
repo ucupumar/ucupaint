@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator
+from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator, Decal
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -213,7 +213,7 @@ def remove_mask(layer, mask, obj, refresh_list=True):
     mask_index = [i for i, m in enumerate(layer.masks) if m == mask][0]
 
     # Dealing with decal object
-    remove_decal_object(tree, mask)
+    Decal.remove_decal_object(tree, mask)
 
     # Remove mask fcurves first
     remove_entity_fcurves(mask)
@@ -1850,10 +1850,6 @@ class YReplaceMaskType(bpy.types.Operator):
         mask = self.mask
         yp = mask.id_data.yp
 
-        if mask.use_temp_bake:
-            self.report({'ERROR'}, "Cannot replace temporarily baked mask!")
-            return {'CANCELLED'}
-
         if self.type == mask.type and self.type not in {'IMAGE', 'VCOL', 'MODIFIER'}: return {'CANCELLED'}
 
         if self.load_item and self.type in {'VCOL', 'IMAGE'} and self.item_name == '':
@@ -2343,7 +2339,7 @@ def update_mask_uniform_scale_enabled(self, context):
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-class YLayerMask(bpy.types.PropertyGroup):
+class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
 
     name : StringProperty(default='', update=update_mask_name)
 
@@ -2392,17 +2388,6 @@ class YLayerMask(bpy.types.PropertyGroup):
         # Using a lambda because update function is expected to have an arity of 2
         update = lambda self, context:
             update_mask_texcoord_type(self, context)
-    )
-
-    original_texcoord : EnumProperty(
-        name = 'Original Layer Coordinate Type',
-        items = mask_texcoord_type_items,
-        default = 'UV'
-    )
-
-    original_image_extension : StringProperty(
-        name = 'Original Image Extension Type',
-        default = ''
     )
 
     modifier_type : EnumProperty(
@@ -2500,12 +2485,6 @@ class YLayerMask(bpy.types.PropertyGroup):
         default=1.0, min=0.0, max=100.0, precision=3
     )
 
-    decal_distance_value : FloatProperty(
-        name = 'Decal Distance',
-        description = 'Distance between surface and the decal object',
-        min=0.0, max=100.0, default=0.5, precision=3
-    )
-
     color_id : FloatVectorProperty(
         name = 'Color ID',
         size = 3,
@@ -2533,13 +2512,6 @@ class YLayerMask(bpy.types.PropertyGroup):
         description = 'Object Pass Index',
         default=0, min=0,
         update = update_mask_object_index
-    )
-
-    # For temporary bake
-    use_temp_bake : BoolProperty(
-        name = 'Use Temporary Bake',
-        description = 'Use temporary bake, it can be useful to prevent glitching with cycles',
-        default = False,
     )
 
     original_type : EnumProperty(

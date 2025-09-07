@@ -2,7 +2,7 @@ import bpy, re, time, os, sys
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
-from . import lib, Modifier, MaskModifier, UDIM, ListItem
+from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal
 from .common import *
 
 
@@ -180,17 +180,22 @@ def draw_bake_info(bake_info, layout, entity):
         layout.label(text='List of Objects:')
         box = layout.box()
         bcol = box.column()
+        bcol.context_pointer_set('bake_info', bi)
 
         if num_oos > 0:
             for oo in bi.other_objects:
                 if is_bl_newer_than(2,79) and not oo.object: continue
                 brow = bcol.row()
                 brow.context_pointer_set('other_object', oo)
-                brow.context_pointer_set('bake_info', bi)
                 if is_bl_newer_than(2, 79):
                     brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
                 else: brow.label(text=oo.object_name, icon_value=lib.get_icon('object_index'))
                 brow.operator('wm.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
+
+            if is_bl_newer_than(2, 79):
+                bbcol = bcol.column(align=True)
+                bbcol.operator('wm.y_select_all_other_objects', text='Select All', icon='RESTRICT_SELECT_OFF')
+                bbcol.operator('wm.y_toggle_other_objects_visibility', text='Toggle Hide', icon='RESTRICT_VIEW_OFF')
         else:
             brow = bcol.row()
             brow.label(text='No source objects found!', icon='ERROR')
@@ -1522,10 +1527,6 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     row.context_pointer_set('layer', layer)
     row.context_pointer_set('layer_ui', lui)
 
-    if layer.use_temp_bake:
-        row = row.row(align=True)
-        row.operator('wm.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
-
     if layer.type not in {'GROUP', 'PREFERENCES'}:
         #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         icon = 'MODIFIER_ON' if is_bl_newer_than(2, 80) else 'MODIFIER'
@@ -1613,10 +1614,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         ccol = rrcol.column()
         ccol.active = not layer.use_baked
 
-        if layer.use_temp_bake:
-            ccol.context_pointer_set('parent', layer)
-            ccol.operator('wm.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
-        elif image:
+        if image:
             draw_image_props(context, source, ccol, layer, show_flip_y=True, show_datablock=False)
 
             # NOTE: Divide rgb by alpha is mostly useless for image layer, 
@@ -1765,6 +1763,25 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.label(text='Decal Distance:')
                 draw_input_prop(splits, layer, 'decal_distance_value')
+
+                if texcoord and texcoord.object:
+
+                    rrow = boxcol.row(align=True)
+                    rrow.label(text='', icon='BLANK1')
+                    rrrow = rrow.row()
+                    rrrow.label(text='Decal Constraint:')
+                    draw_input_prop(rrrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
+
+                    # NOTE: Show constraint target when there's more than one material users
+                    decal_const = Decal.get_decal_shrinkwrap_constraint(texcoord.object)
+                    if decal_const:
+                        mat = get_active_material()
+                        if mat.users > 1 or decal_const.target == None:
+                            rrow = boxcol.row(align=True)
+                            rrow.label(text='', icon='BLANK1')
+                            rrrow = rrow.row()
+                            rrrow.label(text='Constraint Target:')
+                            draw_input_prop(rrrow, decal_const, 'target')
 
                 boxcol.context_pointer_set('entity', layer)
                 rrow = boxcol.row(align=True)
@@ -2941,10 +2958,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             #rbcol = rbox.column()
             rbcol = rrow.column()
             rbcol.active = not mask.use_baked
-            if mask.use_temp_bake:
-                rbcol.context_pointer_set('parent', mask)
-                rbcol.operator('wm.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
-            elif mask_image:
+            if mask_image:
                 draw_image_props(context, mask_source, rbcol, mask, show_datablock=False, show_source_input=True)
             elif mask.type == 'HEMI':
                 draw_hemi_props(mask, mask_source, rbcol)
@@ -3071,6 +3085,20 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                     splits = split_layout(boxcol, 0.5, align=True)
                     splits.label(text='Decal Distance:')
                     draw_input_prop(splits, mask, 'decal_distance_value')
+
+                    if texcoord and texcoord.object:
+                        rrow = boxcol.row(align=True)
+                        rrow.label(text='Decal Constraint:')
+                        draw_input_prop(rrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
+
+                        # NOTE: Show constraint target when there's more than one material users
+                        decal_const = Decal.get_decal_shrinkwrap_constraint(texcoord.object)
+                        if decal_const:
+                            mat = get_active_material()
+                            if mat.users > 1 or decal_const.target == None:
+                                rrow = boxcol.row(align=True)
+                                rrow.label(text='Constraint Target:')
+                                draw_input_prop(rrow, decal_const, 'target')
 
                     boxcol.context_pointer_set('entity', mask)
                     if is_bl_newer_than(2, 80):
@@ -3399,7 +3427,7 @@ def draw_layers_ui(context, layout, node):
     #        #box.prop(ypui, 'make_image_single_user')
     #        return
 
-    # Check source for missing data
+    # Check for missing data
     missing_data = False
     for layer in yp.layers:
         if layer.type in {'IMAGE' , 'VCOL'}:
@@ -5270,9 +5298,14 @@ class YPAssetBrowserMenu(bpy.types.Menu):
 
     def draw(self, context):
         obj = context.object
+
+        mat_asset = getattr(context, 'mat_asset', None)
+        mat_name = mat_asset.name if mat_asset else ''
+        asset_library_path = mat_asset.full_library_path if mat_asset else ''
+
         op = self.layout.operator("wm.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Material Images to Layer')
-        op.mat_name = context.mat_asset.name if hasattr(context, 'mat_asset') else ''
-        op.asset_library_path = context.mat_asset.full_library_path if hasattr(context, 'mat_asset') else ''
+        op.mat_name = mat_name
+        op.asset_library_path = asset_library_path
 
         if obj.type == 'MESH':
             op.texcoord_type = 'UV'
@@ -5280,6 +5313,10 @@ class YPAssetBrowserMenu(bpy.types.Menu):
             op.uv_map = active_uv_name
         else:
             op.texcoord_type = 'Generated'
+
+        op = self.layout.operator("wm.y_open_layers_from_material", icon='PASTEDOWN')
+        op.mat_name = mat_name
+        op.asset_library_path = asset_library_path
 
 def draw_yp_asset_browser_menu(self, context):
 
@@ -6546,6 +6583,9 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         new_mask_button(col, 'wm.y_bake_to_layer', 'Paint Base', otype='PAINT_BASE', target_type='MASK', overwrite_current=False)
         new_mask_button(col, 'wm.y_bake_to_layer', 'Bevel Grayscale', otype='BEVEL_MASK', target_type='MASK', overwrite_current=False)
         new_mask_button(col, 'wm.y_bake_to_layer', 'Selected Vertices', otype='SELECTED_VERTICES', target_type='MASK', overwrite_current=False)
+        if is_bl_newer_than(2, 77):
+            col.separator()
+            new_mask_button(col, 'wm.y_bake_to_layer', 'Other Objects Color', otype='OTHER_OBJECT_EMISSION', target_type='MASK', overwrite_current=False)
 
         col.separator()
         col.label(text='Inbetween Modifier Mask:')
@@ -6622,17 +6662,6 @@ class YLayerMaskMenu(bpy.types.Menu):
         #if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
         #    col.separator()
         #    col.prop(mask, 'enable_blur_vector', text='Blur Vector')
-
-        ypup = get_user_preferences()
-
-        if ypup.developer_mode:
-            col = row.column(align=True)
-            col.context_pointer_set('parent', mask)
-            col.label(text='Advanced')
-            if not mask.use_temp_bake:
-                col.operator('wm.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
-            else:
-                col.operator('wm.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
 
 class YMaterialSpecialMenu(bpy.types.Menu):
     bl_idname = "MATERIAL_MT_y_special_menu"
@@ -7208,15 +7237,9 @@ class YLayerSpecialMenu(bpy.types.Menu):
                 col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
         if ypup.developer_mode:
-            #if context.parent.type == 'HEMI':
             col = row.column()
             col.label(text='Advanced')
-            if context.parent.use_temp_bake:
-                col.operator('wm.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
-            else:
-                col.operator('wm.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
 
-            #col.separator()
             col.context_pointer_set('entity', context.parent)
             col.context_pointer_set('layer', context.parent)
             col.operator('wm.y_bake_entity_to_image', icon_value=lib.get_icon('bake'), text='Bake Layer as Image')

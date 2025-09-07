@@ -20,6 +20,7 @@ if "bpy" in locals():
     imp.reload(bake_common)
     imp.reload(modifier_common)
     imp.reload(lib)
+    imp.reload(Decal)
     imp.reload(ui)
     imp.reload(subtree)
     imp.reload(transition_common)
@@ -53,7 +54,7 @@ if "bpy" in locals():
     imp.reload(tex_ui)
 else:
     from . import Localization
-    from . import BaseOperator, image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
+    from . import BaseOperator, image_ops, common, bake_common, modifier_common, lib, Decal, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
     from . import vector_displacement_lib, vector_displacement
     from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
     from . import addon_updater_ops
@@ -68,6 +69,7 @@ def register():
     image_ops.register()
     preferences.register()
     lib.register()
+    Decal.register()
     ui.register()
     vcol_editor.register()
     transition.register()
@@ -101,6 +103,7 @@ def unregister():
     image_ops.unregister()
     preferences.unregister()
     lib.unregister()
+    Decal.unregister()
     ui.unregister()
     vcol_editor.unregister()
     transition.unregister()

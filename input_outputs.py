@@ -1,5 +1,5 @@
 import bpy, re
-from . import lib
+from . import lib, Decal
 from .common import *
 from .transition_common import *
 from .subtree import *
@@ -484,183 +484,6 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
-def create_decal_empty():
-    obj = bpy.context.object
-    scene = bpy.context.scene
-    empty_name = get_unique_name('Decal', bpy.data.objects)
-    empty = bpy.data.objects.new(empty_name, None)
-    if is_bl_newer_than(2, 80):
-        empty.empty_display_type = 'SINGLE_ARROW'
-    else: empty.empty_draw_type = 'SINGLE_ARROW'
-    custom_collection = obj.users_collection[0] if is_bl_newer_than(2, 80) and len(obj.users_collection) > 0 else None
-    link_object(scene, empty, custom_collection)
-    if is_bl_newer_than(2, 80):
-        empty.location = scene.cursor.location.copy()
-        empty.rotation_euler = scene.cursor.rotation_euler.copy()
-    else: 
-        empty.location = scene.cursor_location.copy()
-
-    # Parent empty to active object
-    empty.parent = obj
-    empty.matrix_parent_inverse = obj.matrix_world.inverted()
-
-    return empty
-
-def check_mask_texcoord_nodes(layer, mask, tree=None):
-    yp = layer.id_data.yp
-    if not tree: tree = get_tree(layer)
-
-    height_root_ch = get_root_height_channel(yp)
-    height_ch = get_height_channel(layer)
-    height_ch_enabled = get_channel_enabled(height_ch) if height_ch else False
-
-    # Create texcoord node if decal is used
-    texcoord = tree.nodes.get(mask.texcoord)
-    if get_mask_enabled(mask) and mask.texcoord_type == 'Decal' and is_mapping_possible(mask.type):
-
-        # Set image extension type to clip
-        image = None
-        source = get_mask_source(mask)
-        if mask.type == 'IMAGE' and source:
-            image = source.image
-
-        # Create new empty object if there's no texcoord yet
-        if not texcoord:
-            empty = create_decal_empty()
-            texcoord = new_node(tree, mask, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
-            texcoord.object = empty
-
-        decal_process = tree.nodes.get(mask.decal_process)
-        if not decal_process:
-            decal_process = new_node(tree, mask, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
-            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
-
-            # Set image extension only after decal process node is initialized
-            if image and source:
-                mask.original_image_extension = source.extension
-                source.extension = 'CLIP'
-
-        # Set decal aspect ratio
-        if image and image.size[0] > 0 and image.size[1] > 0:
-            if image.size[0] > image.size[1]:
-                decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
-            else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
-
-        decal_alpha = check_new_node(tree, mask, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
-        if decal_alpha.operation != 'MULTIPLY':
-            decal_alpha.operation = 'MULTIPLY'
-
-        if height_ch and height_ch_enabled and height_root_ch.enable_smooth_bump:
-            for letter in nsew_letters:
-                decal_alpha = check_new_node(tree, mask, 'decal_alpha_' + letter, 'ShaderNodeMath', 'Decal Alpha ' + letter.upper())
-                if decal_alpha.operation != 'MULTIPLY':
-                    decal_alpha.operation = 'MULTIPLY'
-        else:
-            for letter in nsew_letters:
-                remove_node(tree, mask, 'decal_alpha_' + letter)
-
-    else:
-        if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
-            remove_node(tree, mask, 'texcoord')
-        remove_node(tree, mask, 'decal_process')
-        remove_node(tree, mask, 'decal_alpha')
-
-        if height_ch:
-            for letter in nsew_letters:
-                remove_node(tree, mask, 'decal_alpha_' + letter)
-
-        # Recover image extension type
-        if mask.type == 'IMAGE' and mask.original_texcoord == 'Decal' and mask.original_image_extension != '':
-            source = get_mask_source(mask)
-            if source:
-                source.extension = mask.original_image_extension
-                mask.original_image_extension = ''
-
-    # Save original texcoord type
-    if mask.original_texcoord != mask.texcoord_type:
-        mask.original_texcoord = mask.texcoord_type
-
-def check_layer_texcoord_nodes(layer, tree=None):
-    yp = layer.id_data.yp
-    if not tree: tree = get_tree(layer)
-
-    # Create texcoord node if decal is used
-    texcoord = tree.nodes.get(layer.texcoord)
-    if get_layer_enabled(layer) and layer.texcoord_type == 'Decal' and is_mapping_possible(layer.type):
-
-        # Set image extension type to clip
-        image = None
-        source = get_layer_source(layer)
-        if layer.type == 'IMAGE' and source:
-            image = source.image
-
-        # Create new empty object if there's no texcoord yet
-        if not texcoord:
-            empty = create_decal_empty()
-            texcoord = new_node(tree, layer, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
-            texcoord.object = empty
-
-        decal_process = tree.nodes.get(layer.decal_process)
-        if not decal_process:
-            decal_process = new_node(tree, layer, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
-            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
-
-            # Set image extension only after decal process node is initialized
-            if image and source:
-                layer.original_image_extension = source.extension
-                source.extension = 'CLIP'
-
-        # Set decal aspect ratio
-        if image and image.size[0] > 0 and image.size[1] > 0:
-            if image.size[0] > image.size[1]:
-                decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
-            else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
-
-        # Create decal alpha nodes
-        for i, ch in enumerate(layer.channels):
-            root_ch = yp.channels[i]
-            ch_enabled = get_channel_enabled(ch)
-            if ch_enabled:
-                decal_alpha = check_new_node(tree, ch, 'decal_alpha', 'ShaderNodeMath', 'Decal Alpha')
-                if decal_alpha.operation != 'MULTIPLY':
-                    decal_alpha.operation = 'MULTIPLY'
-            else:
-                remove_node(tree, ch, 'decal_alpha')
-
-            if root_ch.type == 'NORMAL':
-                if ch_enabled and root_ch.enable_smooth_bump:
-                    for letter in nsew_letters:
-                        decal_alpha = check_new_node(tree, ch, 'decal_alpha_' + letter, 'ShaderNodeMath', 'Decal Alpha ' + letter.upper())
-                        if decal_alpha.operation != 'MULTIPLY':
-                            decal_alpha.operation = 'MULTIPLY'
-                else:
-                    for letter in nsew_letters:
-                        remove_node(tree, ch, 'decal_alpha_' + letter)
-
-    else:
-        if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
-            remove_node(tree, layer, 'texcoord')
-        remove_node(tree, layer, 'decal_process')
-
-        for i, ch in enumerate(layer.channels):
-            root_ch = yp.channels[i]
-            remove_node(tree, ch, 'decal_alpha')
-
-            if root_ch.type == 'NORMAL':
-                for letter in nsew_letters:
-                    remove_node(tree, ch, 'decal_alpha_' + letter)
-
-        # Recover image extension type
-        if layer.type == 'IMAGE' and layer.original_texcoord == 'Decal' and layer.original_image_extension != '':
-            source = get_layer_source(layer)
-            if source:
-                source.extension = layer.original_image_extension
-                layer.original_image_extension = ''
-
-    # Save original texcoord type
-    if layer.original_texcoord != layer.texcoord_type:
-        layer.original_texcoord = layer.texcoord_type
-
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True, remove_props=False, hard_reset=False): #, check_uvs=False): #, has_parent=False):
 
     #print("Checking layer IO. Layer: " + layer.name + ' Specific Channel: ' + str(specific_ch))
@@ -676,7 +499,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
     check_layer_tree_ios(layer, tree, remove_props=remove_props, hard_reset=hard_reset)
 
     # Check texcoord nodes
-    check_layer_texcoord_nodes(layer, tree)
+    Decal.check_entity_decal_nodes(layer, tree)
 
     # Create mapping if necessary
     if is_layer_using_vector(layer):
@@ -723,7 +546,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
 
     # Mask nodes
     for mask in layer.masks:
-        check_mask_texcoord_nodes(layer, mask, tree)
+        Decal.check_entity_decal_nodes(mask, tree)
         #check_mask_image_linear_node(mask)
 
     # Linear nodes
