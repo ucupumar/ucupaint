@@ -351,6 +351,10 @@ def add_new_layer(
             if layer.type in {'BACKGROUND'}:
                 ch.bump_distance = 0.0
 
+            # Blender 5.0 has native VDM baking so no need to use flipped Y/Z
+            if is_bl_newer_than(5):
+                ch.vdisp_enable_flip_yz = False
+
         # Set linear node of layer channel
         check_layer_channel_linear_node(ch, layer, root_ch)
 

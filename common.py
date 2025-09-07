@@ -6497,6 +6497,8 @@ def get_mix_color_indices(mix):
             return 2, 3, 0
         elif mix.data_type == 'VECTOR':
             return 4, 5, 1
+        elif mix.data_type == 'ROTATION':
+            return 8, 9, 3
         return 6, 7, 2
 
     # Check for Color1 input name

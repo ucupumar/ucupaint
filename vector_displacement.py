@@ -43,6 +43,10 @@ def _remember_before_bake(obj):
     book['ori_bake_margin'] = get_scene_bake_margin(scene)
     book['ori_view_transform'] = scene.view_settings.view_transform
 
+    if is_bl_newer_than(5):
+        book['ori_displacement_space'] = scene.render.bake.displacement_space
+        book['ori_use_lores_mesh'] = scene.render.bake.use_lores_mesh
+
     # Remember world settings
     if scene.world:
         book['ori_distance'] = scene.world.light_settings.distance
@@ -59,7 +63,7 @@ def _remember_before_bake(obj):
 
     return book
 
-def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_device='CPU'):
+def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_device='CPU', bake_type='EMIT'):
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
@@ -79,15 +83,22 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
     scene.render.bake.use_cage = False
     scene.render.use_simplify = False
     scene.render.bake.target = 'IMAGE_TEXTURES'
-    set_scene_bake_multires(scene, False)
     set_scene_bake_margin(scene, margin)
     set_scene_bake_clear(scene, False)
     scene.cycles.samples = samples
     scene.cycles.use_denoising = False
-    scene.cycles.bake_type = 'EMIT'
     scene.cycles.device = bake_device
     scene.view_settings.view_transform = 'Standard' if is_bl_newer_than(2, 80) else 'Default'
     bpy.context.view_layer.material_override = None
+
+    if bake_type == 'VECTOR_DISPLACEMENT':
+        set_scene_bake_multires(scene, True)
+        set_scene_render_bake_type(scene, bake_type)
+        scene.render.bake.displacement_space = 'TANGENT'
+        scene.render.bake.use_lores_mesh = False
+    else:
+        set_scene_bake_multires(scene, False)
+        scene.cycles.bake_type = bake_type
 
     # Show viewport and render of object layer collection
     obj.hide_select = False
@@ -145,6 +156,10 @@ def _recover_bake_settings(book, recover_active_uv=False):
     set_scene_bake_clear(scene, book['ori_use_bake_clear'])
     set_scene_render_bake_type(scene, book['ori_render_bake_type'])
     set_scene_bake_margin(scene, book['ori_bake_margin'])
+
+    if is_bl_newer_than(5):
+        scene.render.bake.displacement_space = book['ori_displacement_space']
+        scene.render.bake.use_lores_mesh = book['ori_use_lores_mesh']
 
     # Recover world settings
     if scene.world:
@@ -225,6 +240,11 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
 
     context = bpy.context
     scene = context.scene
+    mat = obj.active_material
+
+    # Get multires modifier
+    multires = get_multires_modifier(obj)
+    if not multires: return
 
     # Get combined but active layer disabled image
     layer_disabled_vdm_image = None
@@ -255,105 +275,130 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
             mod.show_render = False
             ori_mod_show_render.append(mod.name)
 
-    # Temp object 0: Base
-    temp0 = obj.copy()
-    link_object(scene, temp0)
-    temp0.data = temp0.data.copy()
-    temp0.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
-
-    # Delete multires and shape keys
-    set_active_object(temp0)
-    if temp0.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
-    max_level = 0
-    for mod in temp0.modifiers:
-        if mod.type == 'MULTIRES':
-            max_level = mod.total_levels
-            bpy.ops.object.modifier_remove(modifier=mod.name)
-            break
-
     # Disable use simplify before apply modifier
     ori_use_simplify = scene.render.use_simplify
     scene.render.use_simplify = False
 
-    # Apply subsurf
-    tsubsurf = get_subsurf_modifier(temp0)
-    if not tsubsurf:
-        bpy.ops.object.modifier_add(type='SUBSURF')
-        tsubsurf = [m for m in temp0.modifiers if m.type == 'SUBSURF'][0]
-    tsubsurf.show_viewport = True
-    tsubsurf.levels = max_level
-    tsubsurf.render_levels = max_level
-    bpy.ops.object.modifier_apply(modifier=tsubsurf.name)
+    # Remember multires levels
+    ori_multires_levels = multires.levels
 
-    # Temp object 2: Sculpted/Multires mesh
-    temp2 = obj.copy()
-    link_object(scene, temp2)
-    temp2.data = temp2.data.copy()
-    temp2.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 3, 0.0, 0.0))
-    
-    # Apply multires
-    set_active_object(temp2)
-    if temp2.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
-    for mod in temp2.modifiers:
-        if mod.type == 'MULTIRES':
-            mod.levels = max_level
-            bpy.ops.object.modifier_apply(modifier=mod.name)
-            break  
+    native_baking = is_bl_newer_than(5) and flip_yz and not layer_disabled_vdm_image
 
-    # Get tangent and bitangent images
-    tanimage, bitimage = get_tangent_bitangent_images(obj, uv_name)
+    temp0 = temp1 = temp2 = None
+    temp_mat = None
+    tex = None
+    if native_baking:
+        bake_type = 'VECTOR_DISPLACEMENT'
+        bake_obj = obj
 
-    # Temp object 1: Half combined vdm mesh
-    temp1 = None
-    if layer_disabled_vdm_image:
-        temp1 = temp0.copy()
-        link_object(scene, temp1)
-        temp1.data = temp1.data.copy()
-        temp1.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 2, 0.0, 0.0))
-        set_active_object(temp1)
+        # Target image
+        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        tex.image = image
+        mat.node_tree.nodes.active = tex
 
-        vdm_loader = get_vdm_loader_geotree(uv_name, layer_disabled_vdm_image, tanimage, bitimage)
-        bpy.ops.object.modifier_add(type='NODES')
-        geomod = temp1.modifiers[-1]
-        geomod.node_group = vdm_loader
-        temp1.modifiers.active = geomod
-        set_modifier_input_value(geomod, 'Flip Y/Z', False)
+        # Need to set the multires level to 0 to make this work
+        multires.levels = 0
 
-        # Apply geomod
-        bpy.ops.object.modifier_apply(modifier=geomod.name)
+    else:
 
-        # Remove vdm loader group
-        bpy.data.node_groups.remove(vdm_loader)
+        # Temp object 0: Base
+        temp0 = obj.copy()
+        link_object(scene, temp0)
+        temp0.data = temp0.data.copy()
+        temp0.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
 
-    # Calculate offset from two temp objects
-    att, max_value = get_offset_attributes(temp0, temp2, temp1, intensity)
+        bake_type = 'EMIT'
+        bake_obj = temp0
 
-    # Set material to temp object 0
-    temp0.data.materials.clear()
-    mat = get_offset_bake_mat(uv_name, target_image=image, bitangent_image=bitimage, flip_yz=flip_yz)
-    temp0.data.materials.append(mat)
+        # Delete multires and shape keys
+        set_active_object(temp0)
+        if temp0.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
+        max_level = 0
+        for mod in temp0.modifiers:
+            if mod.type == 'MULTIRES':
+                max_level = mod.total_levels
+                bpy.ops.object.modifier_remove(modifier=mod.name)
+                break
+
+        # Apply subsurf
+        tsubsurf = get_subsurf_modifier(temp0)
+        if not tsubsurf:
+            bpy.ops.object.modifier_add(type='SUBSURF')
+            tsubsurf = [m for m in temp0.modifiers if m.type == 'SUBSURF'][0]
+        tsubsurf.show_viewport = True
+        tsubsurf.levels = max_level
+        tsubsurf.render_levels = max_level
+        bpy.ops.object.modifier_apply(modifier=tsubsurf.name)
+
+        # Temp object 2: Sculpted/Multires mesh
+        temp2 = obj.copy()
+        link_object(scene, temp2)
+        temp2.data = temp2.data.copy()
+        temp2.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 3, 0.0, 0.0))
+        
+        # Apply multires
+        set_active_object(temp2)
+        if temp2.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
+        for mod in temp2.modifiers:
+            if mod.type == 'MULTIRES':
+                mod.levels = max_level
+                bpy.ops.object.modifier_apply(modifier=mod.name)
+                break  
+
+        # Get tangent and bitangent images
+        tanimage, bitimage = get_tangent_bitangent_images(obj, uv_name)
+
+        # Temp object 1: Half combined vdm mesh
+        temp1 = None
+        if layer_disabled_vdm_image:
+            temp1 = temp0.copy()
+            link_object(scene, temp1)
+            temp1.data = temp1.data.copy()
+            temp1.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 2, 0.0, 0.0))
+            set_active_object(temp1)
+
+            vdm_loader = get_vdm_loader_geotree(uv_name, layer_disabled_vdm_image, tanimage, bitimage)
+            bpy.ops.object.modifier_add(type='NODES')
+            geomod = temp1.modifiers[-1]
+            geomod.node_group = vdm_loader
+            temp1.modifiers.active = geomod
+            set_modifier_input_value(geomod, 'Flip Y/Z', False)
+
+            # Apply geomod
+            bpy.ops.object.modifier_apply(modifier=geomod.name)
+
+            # Remove vdm loader group
+            bpy.data.node_groups.remove(vdm_loader)
+
+        # Calculate offset from two temp objects
+        att, max_value = get_offset_attributes(temp0, temp2, temp1, intensity)
+
+        # Set material to temp object 0
+        temp0.data.materials.clear()
+        temp_mat = get_offset_bake_mat(uv_name, target_image=image, bitangent_image=bitimage, flip_yz=flip_yz)
+        temp0.data.materials.append(temp_mat)
 
     # Bake preparations
     book = _remember_before_bake(obj)
-    _prepare_bake_settings(book, temp0, uv_name)
+    _prepare_bake_settings(book, bake_obj, uv_name, bake_type=bake_type)
 
     # Bake offest
     print('INFO: Baking vdm...')
-    bpy.ops.object.bake()
+    if native_baking: bpy.ops.object.bake_image()
+    else: bpy.ops.object.bake()
     print('INFO: Baking vdm is finished!')
 
-    # Pack image
-    #image.pack()
-
-    # Recover use simplify
-    if ori_use_simplify: scene.render.use_simplify = True
+    # HACK: Native baking need the image to be reloaded
+    if native_baking and (image.packed_file or image.filepath == ''):
+        image.pack()
+        image.reload()
 
     # Recover bake settings
     _recover_bake_settings(book, True) 
 
     # Remove temp data
-    remove_mesh_obj(temp0)
-    remove_mesh_obj(temp2)
+    if temp0: remove_mesh_obj(temp0)
+    if temp2: remove_mesh_obj(temp2)
     if temp1: remove_mesh_obj(temp1)
     #bpy.data.images.remove(tanimage)
     #bpy.data.images.remove(bitimage)
@@ -361,7 +406,8 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
         bpy.data.images.remove(layer_disabled_vdm_image)
 
     # Remove material
-    if mat.users <= 1: bpy.data.materials.remove(mat, do_unlink=True)
+    if temp_mat and temp_mat.users <= 1: bpy.data.materials.remove(temp_mat, do_unlink=True)
+    if mat and tex: mat.node_tree.nodes.remove(tex)
 
     # Recover disabled modifiers
     for mod in obj.modifiers:
@@ -369,6 +415,13 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
             mod.show_viewport = True
         if mod.name in ori_mod_show_render:
             mod.show_render = True
+
+    # Recover multires levels
+    if multires.levels != ori_multires_levels:
+        multires.levels = ori_multires_levels
+
+    # Recover use simplify
+    if ori_use_simplify: scene.render.use_simplify = True
 
     # Set back object to active
     set_active_object(obj)
