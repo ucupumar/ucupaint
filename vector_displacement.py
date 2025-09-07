@@ -246,13 +246,17 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     multires = get_multires_modifier(obj)
     if not multires: return
 
+    # Blender 5.0 introduce native VDM baking from multires
+    native_baking = is_bl_newer_than(5)
+
     # Get combined but active layer disabled image
     layer_disabled_vdm_image = None
     node = get_active_ypaint_node(obj)
     if node:
         yp = node.node_tree.yp
         if is_multi_disp_used(yp):
-            layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True)
+            # NOTE: Non-native baking need flipped YZ
+            layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True, flip_yz=not native_baking)
 
     set_active_object(obj)
     if obj.mode != 'OBJECT':
@@ -282,9 +286,8 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     # Remember multires levels
     ori_multires_levels = multires.levels
 
-    native_baking = is_bl_newer_than(5) and flip_yz and not layer_disabled_vdm_image
-
     temp0 = temp1 = temp2 = None
+    tanimage = bitimage = None
     temp_mat = None
     tex = None
     if native_baking:
@@ -375,7 +378,8 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
 
         # Set material to temp object 0
         temp0.data.materials.clear()
-        temp_mat = get_offset_bake_mat(uv_name, target_image=image, bitangent_image=bitimage, flip_yz=flip_yz)
+        # NOTE: Flipping YZ is unintuitively necessary when the layer is not flipped
+        temp_mat = get_offset_bake_mat(uv_name, target_image=image, bitangent_image=bitimage, flip_yz=not flip_yz)
         temp0.data.materials.append(temp_mat)
 
     # Bake preparations
@@ -387,6 +391,83 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     if native_baking: bpy.ops.object.bake_image()
     else: bpy.ops.object.bake()
     print('INFO: Baking vdm is finished!')
+
+    # Extra pass for native baking
+    if native_baking:
+        extra_pass = flip_yz or intensity != 1.0 or layer_disabled_vdm_image
+        if extra_pass:
+
+            mat_out = get_active_mat_output_node(mat.node_tree)
+            ori_bsdf = mat_out.inputs[0].links[0].from_socket
+
+            emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+            separate_xyz = None
+            combine_xyz = None
+            divider = None
+            layer_disabled_tex = None
+            subtractor = None
+
+            # Copy image
+            pixels = list(image.pixels)
+            image_copy = image.copy()
+            image_copy.pixels = pixels
+
+            source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+            source_tex.image = image_copy
+
+            vec = source_tex.outputs[0]
+
+            if layer_disabled_vdm_image:
+                layer_disabled_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+                layer_disabled_tex.image = layer_disabled_vdm_image
+
+                subtractor = mat.node_tree.nodes.new('ShaderNodeVectorMath')
+                subtractor.operation = 'SUBTRACT'
+
+                mat.node_tree.links.new(vec, subtractor.inputs[0])
+                mat.node_tree.links.new(layer_disabled_tex.outputs[0], subtractor.inputs[1])
+                vec = subtractor.outputs[0]
+
+            if flip_yz:
+                separate_xyz = mat.node_tree.nodes.new('ShaderNodeSeparateXYZ')
+                combine_xyz = mat.node_tree.nodes.new('ShaderNodeCombineXYZ')
+
+                mat.node_tree.links.new(vec, separate_xyz.inputs[0])
+                mat.node_tree.links.new(separate_xyz.outputs[0], combine_xyz.inputs[0])
+                mat.node_tree.links.new(separate_xyz.outputs[1], combine_xyz.inputs[2])
+                mat.node_tree.links.new(separate_xyz.outputs[2], combine_xyz.inputs[1])
+                vec = combine_xyz.outputs[0]
+
+            if intensity != 1.0 or intensity != 0.0:
+                divider = mat.node_tree.nodes.new('ShaderNodeVectorMath')
+                divider.operation = 'DIVIDE'
+                divider.inputs[1].default_value = (intensity, intensity, intensity)
+
+                mat.node_tree.links.new(vec, divider.inputs[0])
+                vec = divider.outputs[0]
+
+            mat.node_tree.links.new(vec, emit.inputs[0])
+            mat.node_tree.links.new(emit.outputs[0], mat_out.inputs[0])
+
+            # Set bake type
+            scene.cycles.bake_type = 'EMIT'
+
+            # Bake
+            print('INFO: Baking extra pass for vdm...')
+            bpy.ops.object.bake()
+            print('INFO: Baking extra pass for vdm is finished!')
+
+            # Remove bake nodes
+            if separate_xyz: simple_remove_node(mat.node_tree, separate_xyz)
+            if combine_xyz: simple_remove_node(mat.node_tree, combine_xyz)
+            if divider: simple_remove_node(mat.node_tree, divider)
+            if layer_disabled_tex: simple_remove_node(mat.node_tree, layer_disabled_tex, remove_data=False)
+            if subtractor: simple_remove_node(mat.node_tree, subtractor)
+            simple_remove_node(mat.node_tree, emit)
+            simple_remove_node(mat.node_tree, source_tex, remove_data=True)
+
+            # Recover original bsdf
+            mat.node_tree.links.new(ori_bsdf, mat_out.inputs[0])
 
     # HACK: Native baking need the image to be reloaded
     if native_baking and (image.packed_file or image.filepath == ''):
@@ -400,8 +481,8 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     if temp0: remove_mesh_obj(temp0)
     if temp2: remove_mesh_obj(temp2)
     if temp1: remove_mesh_obj(temp1)
-    #bpy.data.images.remove(tanimage)
-    #bpy.data.images.remove(bitimage)
+    #if tanimage: bpy.data.images.remove(tanimage)
+    #if bitimage: bpy.data.images.remove(bitimage)
     if layer_disabled_vdm_image:
         bpy.data.images.remove(layer_disabled_vdm_image)
 
@@ -427,7 +508,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     set_active_object(obj)
     set_object_select(obj, True)
 
-def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_current_layer=False):
+def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_current_layer=False, flip_yz=False):
     # Bake preparations
     book = _remember_before_bake(obj)
     _prepare_bake_settings(book, obj, uv_name)     
@@ -458,10 +539,11 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
         cur_layer.enable = False
 
     # Flip all flip Y/Z
-    for i, l in enumerate(yp.layers):
-        height_ch = get_height_channel(l)
-        if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-        height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
+    if flip_yz:
+        for i, l in enumerate(yp.layers):
+            height_ch = get_height_channel(l)
+            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
+            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
 
     # Make sure vdm output exists
     if not height_root_ch.enable_subdiv_setup:
@@ -532,10 +614,11 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
         check_all_channel_ios(yp)
 
     # Recover flip yzs
-    for i, l in enumerate(yp.layers):
-        height_ch = get_height_channel(l)
-        if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-        height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
+    if flip_yz:
+        for i, l in enumerate(yp.layers):
+            height_ch = get_height_channel(l)
+            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
+            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
 
     # Recover sculpt mode
     if ori_sculpt_mode:
@@ -835,9 +918,9 @@ class YSculptImage(bpy.types.Operator):
         geomod.node_group = vdm_loader
         temp.modifiers.active = geomod
 
-        # Combined vdm image won't use flipped yz
+        # NOTE: Geometry nodes need YZ flipped displacement
         if combined_vdm_image:
-            set_modifier_input_value(geomod, 'Flip Y/Z', False)
+            set_modifier_input_value(geomod, 'Flip Y/Z', True)
         else: set_modifier_input_value(geomod, 'Flip Y/Z', not height_ch.vdisp_enable_flip_yz)
 
         # Select back active object
@@ -932,7 +1015,7 @@ class YApplySculptToImage(bpy.types.Operator):
             uv_name = layer.uv_name
 
             intensity = get_vdm_intensity(layer, height_ch)
-            flip_yz = not height_ch.vdisp_enable_flip_yz
+            flip_yz = height_ch.vdisp_enable_flip_yz
 
             # Bake multires image
             bake_multires_image(obj, image, uv_name, intensity, flip_yz=flip_yz)
