@@ -221,7 +221,7 @@ def get_offset_attributes(base, sclupted_mesh, layer_disabled_mesh=None, intensi
 
     return att, max_value
 
-def bake_multires_image(obj, image, uv_name, intensity=1.0):
+def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
 
     context = bpy.context
     scene = context.scene
@@ -317,6 +317,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
         geomod = temp1.modifiers[-1]
         geomod.node_group = vdm_loader
         temp1.modifiers.active = geomod
+        set_modifier_input_value(geomod, 'Flip Y/Z', False)
 
         # Apply geomod
         bpy.ops.object.modifier_apply(modifier=geomod.name)
@@ -329,7 +330,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
 
     # Set material to temp object 0
     temp0.data.materials.clear()
-    mat = get_offset_bake_mat(uv_name, target_image=image, bitangent_image=bitimage)
+    mat = get_offset_bake_mat(uv_name, target_image=image, bitangent_image=bitimage, flip_yz=flip_yz)
     temp0.data.materials.append(mat)
 
     # Bake preparations
@@ -403,13 +404,11 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     if disable_current_layer:
         cur_layer.enable = False
 
-    # Disable all flip Y/Z
-    ori_flip_yzs = {}
+    # Flip all flip Y/Z
     for i, l in enumerate(yp.layers):
         height_ch = get_height_channel(l)
-        if not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-        ori_flip_yzs[str(i)] = height_ch.vdisp_enable_flip_yz
-        height_ch.vdisp_enable_flip_yz = False
+        if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
+        height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
 
     # Make sure vdm output exists
     if not height_root_ch.enable_subdiv_setup:
@@ -480,11 +479,10 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
         check_all_channel_ios(yp)
 
     # Recover flip yzs
-    for key, val in ori_flip_yzs.items():
-        l = yp.layers[int(key)]
+    for i, l in enumerate(yp.layers):
         height_ch = get_height_channel(l)
-        if height_ch.vdisp_enable_flip_yz != val:
-            height_ch.vdisp_enable_flip_yz = val
+        if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
+        height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
 
     # Recover sculpt mode
     if ori_sculpt_mode:
@@ -784,6 +782,11 @@ class YSculptImage(bpy.types.Operator):
         geomod.node_group = vdm_loader
         temp.modifiers.active = geomod
 
+        # Combined vdm image won't use flipped yz
+        if combined_vdm_image:
+            set_modifier_input_value(geomod, 'Flip Y/Z', False)
+        else: set_modifier_input_value(geomod, 'Flip Y/Z', not height_ch.vdisp_enable_flip_yz)
+
         # Select back active object
         set_active_object(obj)
         set_object_select(obj, True)
@@ -876,9 +879,10 @@ class YApplySculptToImage(bpy.types.Operator):
             uv_name = layer.uv_name
 
             intensity = get_vdm_intensity(layer, height_ch)
+            flip_yz = not height_ch.vdisp_enable_flip_yz
 
             # Bake multires image
-            bake_multires_image(obj, image, uv_name, intensity)
+            bake_multires_image(obj, image, uv_name, intensity, flip_yz=flip_yz)
 
         # Remove multires
         multires = get_multires_modifier(obj)

@@ -2652,6 +2652,14 @@ def get_tree_output_by_name(tree, name):
 
     return None
 
+def set_modifier_input_value(mod, socket_name, value):
+    if mod.type != 'NODES' or not mod.node_group: return
+
+    inp = get_tree_input_by_name(mod.node_group, socket_name)
+    if not inp: return
+
+    mod[inp.identifier] = value
+
 def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not is_bl_newer_than(4):
         return tree.inputs.new(socket_type, name)
