@@ -420,11 +420,18 @@ def apply_mirror_modifier(obj):
 
     if not mirror: return
 
+    # Check if mirror modifier has only one axis
+    axis = [mirror.use_axis[0], mirror.use_axis[1], mirror.use_axis[2]]
+    axis_num = 0
+    for a in axis:
+        if a: axis_num += 1
+    if axis_num > 1 or axis_num == 0:
+        return
+
     # Get number of vertices to know which vertices need to deleted after applying the sculpt
     obj.yp_vdm.num_verts = len(obj.data.vertices)
 
     # Remember mirror properties
-    axis = [mirror.use_axis[0], mirror.use_axis[1], mirror.use_axis[2]]
     use_mirror_merge = mirror.use_mirror_merge
     use_clip = mirror.use_clip
     use_mirror_vertex_groups = mirror.use_mirror_vertex_groups
