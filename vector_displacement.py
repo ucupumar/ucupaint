@@ -458,8 +458,7 @@ def apply_mirror_modifier(obj):
     obj.yp_vdm.mirror_modifier_name = new_mirror.name
 
     # Move up new mirror modifier
-    for i in range(len(obj.modifiers) - mirror_idx - 1):
-        bpy.ops.object.modifier_move_up(modifier = new_mirror.name)
+    bpy.ops.object.modifier_move_to_index(modifier=new_mirror.name, index=mirror_idx)
 
     # Bring back modifier attributes
     new_mirror.use_axis[0] = axis[0]
@@ -1310,8 +1309,11 @@ class YSculptImage(bpy.types.Operator):
             if m: m.show_render = ori_show_render  
 
         # Set armature to the top
-        arm = get_armature_modifier(obj)
-        if arm: bpy.ops.object.modifier_move_to_index(modifier=arm.name, index=0)
+        arm, arm_idx = get_armature_modifier(obj, return_index=True)
+        if arm: 
+            # Remember original armature index
+            obj.yp_vdm.armature_index = arm_idx-1
+            bpy.ops.object.modifier_move_to_index(modifier=arm.name, index=0)
 
         bpy.ops.object.mode_set(mode='SCULPT')
 
@@ -1377,6 +1379,10 @@ class YApplySculptToImage(bpy.types.Operator):
         # Recover mirror modifier
         recover_mirror_modifier(obj)
 
+        # Recover armature index
+        arm = get_armature_modifier(obj)
+        if arm: bpy.ops.object.modifier_move_to_index(modifier=arm.name, index=obj.yp_vdm.armature_index)
+
         # Go back to material view
         space = bpy.context.space_data
         if space.type == 'VIEW_3D' and space.shading.type not in {'MATERIAL', 'RENDERED'}:
@@ -1423,6 +1429,10 @@ class YCancelSculptToImage(bpy.types.Operator):
         # Recover mirror modifier
         recover_mirror_modifier(obj)
 
+        # Recover armature index
+        arm = get_armature_modifier(obj)
+        if arm: bpy.ops.object.modifier_move_to_index(modifier=arm.name, index=obj.yp_vdm.armature_index)
+
         # Go back to material view
         space = bpy.context.space_data
         if space.type == 'VIEW_3D' and space.shading.type not in {'MATERIAL', 'RENDERED'}:
@@ -1460,6 +1470,7 @@ class YFixVDMMismatchUV(bpy.types.Operator):
 class YPaintVDMObjectProps(bpy.types.PropertyGroup):
     num_verts : IntProperty(default=0)
     mirror_modifier_name : StringProperty(default='')
+    armature_index : IntProperty(default=0)
 
 def register():
     bpy.utils.register_class(YSculptImage)
