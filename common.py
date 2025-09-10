@@ -3529,7 +3529,7 @@ def remove_temp_uv(obj, entity):
             except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
 def refresh_temp_uv(obj, entity): 
-    if obj.type != 'MESH':
+    if not obj or obj.type != 'MESH':
         return False
 
     if not entity:

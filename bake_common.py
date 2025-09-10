@@ -2677,6 +2677,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     rdict = {}
     rdict['message'] = ''
 
+    if not obj:
+        rdict['message'] = "There's no active object!"
+        return rdict
+
     if bprops.type == 'SELECTED_VERTICES' and obj.mode != 'EDIT':
         rdict['message'] = "Should be in edit mode!"
         return rdict
@@ -2694,7 +2698,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         return rdict
 
     if (hasattr(obj, 'hide_viewport') and obj.hide_viewport) or obj.hide_render:
-        rdict['message'] = "Please unhide render and viewport of active object!"
+        rdict['message'] = "Please unhide render and viewport of the active object!"
         return rdict
 
     if bprops.type == 'FLOW' and (bprops.uv_map == '' or bprops.uv_map_1 == '' or bprops.uv_map == bprops.uv_map_1):
@@ -4065,6 +4069,15 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     yp = entity.id_data.yp
     mat = get_active_material()
     obj = bpy.context.object
+
+    if not obj:
+        rdict['message'] = "There's no active object!"
+        return rdict
+
+    if (hasattr(obj, 'hide_viewport') and obj.hide_viewport) or obj.hide_render:
+        rdict['message'] = "Please unhide render and viewport of the active object!"
+        return rdict
+
     objs = [obj] if is_object_bakeable(obj) else []
     if mat.users > 1:
         objs, _ = get_bakeable_objects_and_meshes(mat)
