@@ -1,4 +1,5 @@
 import bpy, re, time, os, sys
+import requests, threading
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
@@ -5372,6 +5373,8 @@ def draw_ypaint_about(self, context):
     icon_name = 'USER' if is_bl_newer_than(2, 80) else 'ARMATURE_DATA'
 
     per_column = 3
+
+    missing_column = per_column - (len(previews_users.contributors) % per_column)
     for cl, key in enumerate(previews_users.contributors.keys()):
         item = previews_users.contributors[key]
         if cl % per_column == 0:
@@ -5381,13 +5384,18 @@ def draw_ypaint_about(self, context):
         rw = row.column(align=True)
 
         thumb = item['thumb']
+        if not thumb:
+            thumb = previews_users.default_pic
+        # print("draw thumb", key, "=", thumb)
         rw.template_icon(icon_value = thumb, scale = 3.0)
         rw.operator('wm.url_open', text=item["id"], emboss=False).url = item["url"]
 
-    rw = row.column(align=True)
+    if missing_column != per_column:
+        for i in range(missing_column):
+            rw = row.column(align=True)
 
-    rw.template_icon(icon_value = previews_users.default_pic, scale = 3.0)
-    rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
+            rw.template_icon(icon_value = previews_users.default_pic, scale = 3.0)
+            rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
 
     # col.operator('wm.url_open', text='arsa', icon=icon_name).url = 'https://sites.google.com/view/arsanagara'
     # col.operator('wm.url_open', text='swifterik', icon=icon_name).url = 'https://jblaha.art/'
@@ -5398,6 +5406,9 @@ def draw_ypaint_about(self, context):
     # col.operator('wm.url_open', text='bappity', icon=icon_name).url = 'https://github.com/bappitybup'
     # col.operator('wm.url_open', text='bittie', icon=icon_name).url = 'https://github.com/BittieByte'
     col.separator()
+
+    # for cl, key in enumerate(previews_users.contributors.keys()):
+    #     col.operator('wm.url_open', text=key, icon=icon_name).url = previews_users.contributors[key]["url"]
 
     col.label(text='Documentation:')
     col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
@@ -7823,23 +7834,21 @@ def load_mat_ui_settings():
             mui.active_ypaint_node = mat.yp.active_ypaint_node
 
 def load_contributors():    
-    # import requests
-    # try:
-    #     response = requests.get("https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/docs/01.05.modifier.md", verify=False, timeout=10)
-    #     if response.status_code == 200:
-    #         print("content=", response.text)
-    # except requests.exceptions.ReadTimeout:
-    #     pass
-    
-    path = get_addon_filepath()
-    print("load path", path)
 
     content = '''
     ucupumar, https://github.com/ucupumar, https://avatars.githubusercontent.com/u/5253453?v=4
     rifai, https://github.com/rifai, https://avatars.githubusercontent.com/u/765774?v=4
     passivestar, https://github.com/passivestar, https://avatars.githubusercontent.com/u/60579014?v=4
-    agnira, https://github.com/agnira, https://avatars.githubusercontent.com/u/67183228?v=4
 ''' 
+
+    try:
+        response = requests.get("https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/contributors.csv", verify=False, timeout=10)
+        if response.status_code == 200:
+            content = response.text
+            print("content=", response.text)
+    except requests.exceptions.ReadTimeout:
+        pass
+
     previews_users.contributors.clear()
     for line in content.strip().splitlines():
         parts = [p.strip() for p in line.split(',')]
@@ -7847,12 +7856,53 @@ def load_contributors():
             contributor = {
                 'id': parts[0],
                 'url': parts[1],
-                'image_url': parts[2]
+                'image_url': parts[2],
+                'thumb': None
             }
             previews_users.contributors[contributor['id']] = contributor
-            print('Loaded contributor:', contributor)
+            
+    path = get_addon_filepath()
 
+    folders = os.path.join(path, "icons", "contributors")
+    if not os.path.exists(folders):
+        os.makedirs(folders)
+    print("load path", folders)
 
+    # Download contributor images
+    links = [c['image_url']+"&s=108" for c in previews_users.contributors.values()]
+    file_names = [f"{folders}{os.sep}{c['id']}.png" for c in previews_users.contributors.values()]
+    ids = [c['id'] for c in previews_users.contributors.values()]
+
+    new_thread = threading.Thread(target=download_stream, args=(links,file_names,ids))
+    new_thread.start()
+
+def download_stream(links:list[str], file_names:list[str], ids:list[str], timeout:int = 10):
+    for idx, file_name in enumerate(file_names):
+        link = links[idx]
+        print("Downloading", link, "to", file_name)
+        with open(file_name, "wb") as f:
+            try:
+                response = requests.get(link, stream=True, timeout = timeout)
+                total_length = response.headers.get('content-length')
+                print("total size = "+total_length)
+                if not total_length:
+                    print('Error #1 while downloading', link, ':', "Empty Response.")
+                    return
+                
+                dl = 0
+                total_length = int(total_length)
+                # TODO a way for calculating the chunk size
+                for data in response.iter_content(chunk_size = 4096):
+
+                    dl += len(data)
+                    f.write(data)
+            except Exception as e:
+                print('Error #2 while downloading', link, ':', e)
+
+        k = ids[idx]
+        img = previews_users.load(k, file_name, 'IMAGE')
+        previews_users.contributors[k]['thumb'] = img.icon_id
+        print("loaded", k, " = ", previews_users.contributors[k])        
 
 @persistent
 def yp_save_ui_settings(scene):
@@ -7957,22 +8007,12 @@ def register():
 
     global previews_users
     previews_users = bpy.utils.previews.new()
-    ucupumar = previews_users.load('blank', "/home/bocilmania/.config/Ucupaint/Thumbnails/blank.png", 'IMAGE')
+    blank_path = os.path.join(get_addon_filepath(), "icons", "blank.png")
+    ucupumar = previews_users.load('blank', blank_path, 'IMAGE')
     previews_users.contributors = {}
-
     previews_users.default_pic = ucupumar.icon_id
 
     load_contributors()
-
-    img1 = previews_users.load('img1', "/home/bocilmania/.config/Ucupaint/Thumbnails/1.png", 'IMAGE')
-    img2 = previews_users.load('img2', "/home/bocilmania/.config/Ucupaint/Thumbnails/2.png", 'IMAGE')
-    img3 = previews_users.load('img3', "/home/bocilmania/.config/Ucupaint/Thumbnails/3.jpeg", 'IMAGE')
-    img4 = previews_users.load('img4', "/home/bocilmania/.config/Ucupaint/Thumbnails/4.png", 'IMAGE')
-    
-    previews_users.contributors['ucupumar']['thumb'] = img1.icon_id
-    previews_users.contributors['rifai']['thumb'] = img2.icon_id
-    previews_users.contributors['passivestar']['thumb'] = img3.icon_id
-    previews_users.contributors['agnira']['thumb'] = img4.icon_id
 
 
 def unregister():
