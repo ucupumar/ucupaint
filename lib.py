@@ -250,7 +250,7 @@ icon_synonyms = {
 }
 
 icon_synonyms_27x = {
-    'mask' : 'MOD_MASK',
+    #'mask' : 'MOD_MASK', # NOTE: The built in mask icon in Blender 2.7x has too many gradients
     'bake' : 'RENDER_STILL',
     'image' : 'IMAGE_DATA',
     'background' : 'IMAGE_RGB',
