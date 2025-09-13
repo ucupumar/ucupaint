@@ -225,6 +225,82 @@ channel_custom_icon_dict = {
     'NORMAL' : 'vector_channel',
 }
 
+icon_synonyms = {
+    'mask' : 'CLIPUV_DEHLT',
+    'bake' : 'OUTPUT',
+    'image' : 'IMAGE_DATA',
+    'background' : 'IMAGE_RGB_ALPHA',
+    'backface' : 'ORIENTATION_NORMAL',
+    'vertex_color' : 'GROUP_VCOL',
+    'blend' : 'IMAGE_ZDEPTH',
+    'close' : 'CANCEL',
+    'mask_off' : 'CHECKBOX_DEHLT',
+    'edge_detect' : 'MOD_WIREFRAME',
+    'group' : 'FILE_FOLDER',
+    'hemi' : 'LIGHT',
+    'input' : 'INFO',
+    'object_index' : 'OBJECT_DATA',
+    #'r' : 'COLOR_RED', NOTE: There's no alpha icon in native blender, so it's better to keep using custom icon for consistency
+    #'g' : 'COLOR_GREEN',
+    #'b' : 'COLOR_BLUE',
+    'rename' : 'GREASEPENCIL',
+    'rgb_channel' : 'NODE_SOCKET_RGBA',
+    'value_channel' : 'NODE_SOCKET_FLOAT',
+    'vector_channel' : 'NODE_SOCKET_VECTOR',
+}
+
+icon_synonyms_27x = {
+    'mask' : 'MOD_MASK',
+    'bake' : 'RENDER_STILL',
+    'image' : 'IMAGE_DATA',
+    'background' : 'IMAGE_RGB',
+    'vertex_color' : 'GROUP_VCOL',
+    'blend' : 'IMAGE_ZDEPTH',
+    'close' : 'CANCEL',
+    'group' : 'FILE_FOLDER',
+    'hemi' : 'LAMP',
+    'input' : 'INFO',
+    'object_index' : 'OBJECT_DATA',
+    'rename' : 'GREASEPENCIL',
+}
+
+def get_icon(icon_name=''):
+    ypup = get_user_preferences()
+
+    # Get default blender icons
+    icons = bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items
+
+    # Default icon is QUESTION
+    default_value = icons['QUESTION'].value
+    icon_value = default_value
+
+    if ypup.icons == 'DEFAULT':
+
+        # Check icon synonyms
+        syname = ''
+        if not is_bl_newer_than(2, 80):
+            if icon_name in icon_synonyms_27x:
+                syname = icon_synonyms_27x[icon_name]
+        else:
+            if icon_name in icon_synonyms:
+                syname = icon_synonyms[icon_name]
+
+        if syname in icons:
+            icon_value = icons[syname].value
+
+        if icon_value == default_value:
+
+            # Check forced uppercase icon name
+            upper_name = icon_name.upper()
+            if upper_name in icons:
+                icon_value = icons[upper_name].value
+
+    # Get from custom icons
+    if icon_value == default_value and icon_name in custom_icons:
+        icon_value = custom_icons[icon_name].icon_id
+
+    return icon_value
+
 def get_icon_folder():
     if not is_bl_newer_than(2, 80):
         icon_set = 'legacy'
@@ -258,9 +334,6 @@ def unload_custom_icons():
     if hasattr(bpy.utils, 'previews'):
         bpy.utils.previews.remove(custom_icons)
         custom_icons = None
-
-def get_icon(custom_icon_name):
-    return custom_icons[custom_icon_name].icon_id
 
 def check_uv_difference_to_main_uv(entity):
     yp = entity.id_data.yp
