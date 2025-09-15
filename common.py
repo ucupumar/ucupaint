@@ -1586,6 +1586,9 @@ def get_material_output(mat):
     if mat != None and mat.node_tree:
         output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
         if output: return output[0]
+
+        # Create new material output if there's none
+        return mat.node_tree.nodes.new('ShaderNodeOutputMaterial')
     return None
 
 def get_all_image_users(image):
