@@ -2425,7 +2425,7 @@ def get_preview(mat, output=None, advanced=False, normal_viewer=False):
 
     # Search for output
     if not output:
-        output = get_active_mat_output_node(tree)
+        output = get_material_output(mat)
 
     if not output: return None
 
@@ -2535,7 +2535,7 @@ def remove_preview(mat, advanced=False):
     if preview: 
         simple_remove_node(mat.node_tree, preview)
         bsdf = nodes.get(mat.yp.ori_bsdf)
-        output = get_active_mat_output_node(mat.node_tree)
+        output = get_material_output(mat)
         mat.yp.ori_bsdf = ''
 
         if bsdf and output:
@@ -2614,7 +2614,7 @@ def update_layer_preview_mode(self, context):
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
 
-        output = get_active_mat_output_node(mat.node_tree)
+        output = get_material_output(mat)
         if yp.layer_preview_mode_type in {'ALPHA', 'SPECIFIC_MASK'}:
             preview = get_preview(mat, output, False)
             if not preview: return
@@ -2685,7 +2685,7 @@ def update_preview_mode(self, context):
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
 
-        output = get_active_mat_output_node(mat.node_tree)
+        output = get_material_output(mat)
 
         # Get preview node by name first
         preview = mat.node_tree.nodes.get(EMISSION_VIEWER)

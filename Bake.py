@@ -156,7 +156,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         mapp.scale[2] = mapping.scale[2]
 
     # Get material output
-    output = get_active_mat_output_node(mat.node_tree)
+    output = get_material_output(mat)
     ori_bsdf = output.inputs[0].links[0].from_socket
 
     straight_over = None
@@ -2800,7 +2800,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             objs = temp_objs = [get_merged_mesh_objects(scene, objs)]
 
         # Get material output
-        output = get_active_mat_output_node(mat.node_tree)
+        output = get_material_output(mat)
         ori_bsdf = output.inputs[0].links[0].from_socket
 
         # Create bake nodes

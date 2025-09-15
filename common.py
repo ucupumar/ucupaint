@@ -1574,14 +1574,6 @@ def create_essential_nodes(tree, solid_value=False, texcoord=False, geometry=Fal
         node = tree.nodes.new('ShaderNodeTexCoord')
         node.name = TEXCOORD
 
-def get_active_mat_output_node(tree):
-    # Search for output
-    for node in tree.nodes:
-        if node.bl_idname == 'ShaderNodeOutputMaterial' and node.is_active_output:
-            return node
-
-    return None
-
 def get_material_output(mat):
     if mat != None and mat.node_tree:
         output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
