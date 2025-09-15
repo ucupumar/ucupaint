@@ -7835,19 +7835,62 @@ def load_mat_ui_settings():
 
 def load_contributors():    
 
-    content = '''
-    ucupumar, https://github.com/ucupumar, https://avatars.githubusercontent.com/u/5253453?v=4
-    rifai, https://github.com/rifai, https://avatars.githubusercontent.com/u/765774?v=4
-    passivestar, https://github.com/passivestar, https://avatars.githubusercontent.com/u/60579014?v=4
-''' 
+    reload_contributors = False
+    path = get_addon_filepath()
+    path_last_check = os.path.join(path, "last_check.txt") # to store last check time
 
-    try:
-        response = requests.get("https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/contributors.csv", verify=False, timeout=10)
-        if response.status_code == 200:
-            content = response.text
-            print("content=", response.text)
-    except requests.exceptions.ReadTimeout:
-        pass
+    current_time = time.time()
+
+    if os.path.exists(path_last_check):
+        with open(path_last_check, "r", encoding="utf-8") as f:
+            content_last_check = f.read().strip()
+            
+            # convert to float
+            try:
+                last_check = float(content_last_check)
+            except:
+                last_check = 0.0
+            
+
+            span_time = current_time - last_check
+            # if last check more than a day ago, reload
+            if span_time > 24 * 60 * 60:
+                reload_contributors = True
+            else:
+                # format span in hours
+                span_hours = span_time / 3600
+                format_last_check = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_check))
+                print(f"Last check was {span_hours:.2f} hours ago. Checked at {format_last_check}. Not reloading contributors.")
+    else:
+        reload_contributors = True       
+
+
+    path_contributors = os.path.join(path, "contributors.csv")
+    content = ""
+
+    # read file if exists
+    if os.path.exists(path_contributors):
+        with open(path_contributors, "r", encoding="utf-8") as f:
+            content = f.read()
+
+
+    if reload_contributors and is_online():
+        try:
+            response = requests.get("https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/contributors.csv", verify=False, timeout=10)
+            if response.status_code == 200:
+                content = response.text
+
+                with open(path_last_check, "w", encoding="utf-8") as f:
+                    f.write(str(current_time))
+
+                with open(path_contributors, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+        except requests.exceptions.ReadTimeout:
+            reload_contributors = False
+    else:
+        reload_contributors = False
+
 
     previews_users.contributors.clear()
     for line in content.strip().splitlines():
@@ -7860,21 +7903,27 @@ def load_contributors():
                 'thumb': None
             }
             previews_users.contributors[contributor['id']] = contributor
-            
-    path = get_addon_filepath()
 
     folders = os.path.join(path, "icons", "contributors")
     if not os.path.exists(folders):
         os.makedirs(folders)
-    print("load path", folders)
 
     # Download contributor images
     links = [c['image_url']+"&s=108" for c in previews_users.contributors.values()]
     file_names = [f"{folders}{os.sep}{c['id']}.png" for c in previews_users.contributors.values()]
     ids = [c['id'] for c in previews_users.contributors.values()]
 
-    new_thread = threading.Thread(target=download_stream, args=(links,file_names,ids))
-    new_thread.start()
+    if reload_contributors:
+        new_thread = threading.Thread(target=download_stream, args=(links,file_names,ids))
+        new_thread.start()
+    else:
+        for idx, file_name in enumerate(file_names):
+            k = ids[idx]
+            if os.path.exists(file_name):
+                img = previews_users.load(k, file_name, 'IMAGE')
+                previews_users.contributors[k]['thumb'] = img.icon_id
+            else:
+                print("file not found", file_name)
 
 def download_stream(links:list[str], file_names:list[str], ids:list[str], timeout:int = 10):
     for idx, file_name in enumerate(file_names):
