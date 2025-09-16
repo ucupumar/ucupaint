@@ -724,7 +724,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
         extra_pass = flip_yz or intensity != 1.0 or layer_disabled_vdm_image
         if extra_pass:
 
-            mat_out = get_material_output(mat)
+            mat_out = get_material_output(mat, create_one=True)
             ori_bsdf = mat_out.inputs[0].links[0].from_socket
 
             emit = mat.node_tree.nodes.new('ShaderNodeEmission')
@@ -889,7 +889,7 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     image.generated_color = (0, 0, 0, 1)
 
     # Get output node and remember original bsdf input
-    mat_out = get_material_output(mat)
+    mat_out = get_material_output(mat, create_one=True)
     ori_bsdf = mat_out.inputs[0].links[0].from_socket
 
     # Create setup nodes

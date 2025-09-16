@@ -2614,7 +2614,7 @@ def update_layer_preview_mode(self, context):
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
 
-        output = get_material_output(mat)
+        output = get_material_output(mat, create_one=True)
         if yp.layer_preview_mode_type in {'ALPHA', 'SPECIFIC_MASK'}:
             preview = get_preview(mat, output, False)
             if not preview: return
@@ -2685,7 +2685,7 @@ def update_preview_mode(self, context):
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
 
-        output = get_material_output(mat)
+        output = get_material_output(mat, create_one=True)
 
         # Get preview node by name first
         preview = mat.node_tree.nodes.get(EMISSION_VIEWER)

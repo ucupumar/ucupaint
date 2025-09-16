@@ -156,7 +156,7 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
         mapp.scale[2] = mapping.scale[2]
 
     # Get material output
-    output = get_material_output(mat)
+    output = get_material_output(mat, create_one=True)
     ori_bsdf = output.inputs[0].links[0].from_socket
 
     straight_over = None
@@ -2800,8 +2800,8 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             objs = temp_objs = [get_merged_mesh_objects(scene, objs)]
 
         # Get material output
-        output = get_material_output(mat)
-        ori_bsdf = output.inputs[0].links[0].from_socket
+        output = get_material_output(mat, create_one=True)
+        ori_bsdf = output.inputs[0].links[0].from_socket if len(output.inputs[0].links) > 0 else None
 
         # Create bake nodes
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -2854,7 +2854,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         simple_remove_node(mat.node_tree, emit)
 
         # Recover original bsdf
-        mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+        if ori_bsdf: mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
         # Remove temporary objects
         if temp_objs:
@@ -3171,8 +3171,9 @@ def update_enable_baked_outside(self, context):
                         gltf_outp.node_tree = get_node_tree_lib(node_name)
                         gltf_outp.name = node_name
                         gltf_outp.label = node_name
-                        gltf_outp.location.x = output_mat.location.x
-                        gltf_outp.location.y = output_mat.location.y + 200
+                        if output_mat:
+                            gltf_outp.location.x = output_mat.location.x
+                            gltf_outp.location.y = output_mat.location.y + 200
                         shift_nodes.append(gltf_outp)
 
                     if ch.name in {'Ambient Occlusion', 'Occlusion', 'AO'} and 'Occlusion' in gltf_outp.inputs:

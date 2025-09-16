@@ -53,7 +53,7 @@ def get_tangent_bake_mat(uv_name='', target_image=None):
         bake_target.name = bake_target.label = 'Bake Target'
         nodes.active = bake_target
 
-        end = get_material_output(mat)
+        end = get_material_output(mat, create_one=True)
 
         # Node Arrangements
         loc = Vector((0, 0))
@@ -130,7 +130,7 @@ def get_bitangent_bake_mat(uv_name='', target_image=None):
         bake_target.name = bake_target.label = 'Bake Target'
         nodes.active = bake_target
 
-        end = get_material_output(mat)
+        end = get_material_output(mat, create_one=True)
 
         # Node Arrangements
         loc = Vector((0, 0))
@@ -470,7 +470,7 @@ def get_offset_bake_mat(uv_name='', target_image=None, bitangent_image=None, fli
         bake_target.name = bake_target.label = 'Bake Target'
         nodes.active = bake_target
 
-        end = get_material_output(mat)
+        end = get_material_output(mat, create_one=True)
 
         # Node Arrangements
         loc = Vector((0, 0))

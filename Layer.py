@@ -2588,7 +2588,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
         channel_image_dict = {}
 
         # Get active material output
-        output = get_material_output(mat)
+        output = get_material_output(mat, create_one=True)
 
         if self.read_method == 'READ_NODE':
             # Search images based on node connections

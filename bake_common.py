@@ -1437,7 +1437,7 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
     plane_obj.active_material = mat
 
     # Create nodes
-    output = get_material_output(mat)
+    output = get_material_output(mat, create_one=True)
     emi = mat.node_tree.nodes.new('ShaderNodeEmission')
 
     uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
@@ -1571,7 +1571,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
     plane_obj.active_material = mat
 
     # Create nodes
-    output = get_material_output(mat)
+    output = get_material_output(mat, create_one=True)
     emi = mat.node_tree.nodes.new('ShaderNodeEmission')
 
     target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -1700,7 +1700,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
         else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
 
     # Get output node and remember original bsdf input
-    output = get_material_output(mat)
+    output = get_material_output(mat, create_one=True)
     ori_bsdf = output.inputs[0].links[0].from_socket
 
     # Connect emit to output material
@@ -2043,7 +2043,7 @@ def bake_channel(
     use_udim = force_use_udim or len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED')
 
     # Get output node and remember original bsdf input
-    output = get_material_output(mat)
+    output = get_material_output(mat, create_one=True)
     ori_bsdf = output.inputs[0].links[0].from_socket
 
     # Create setup nodes
@@ -3137,7 +3137,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         bsdf = mat.node_tree.nodes.new('ShaderNodeEmission')
 
     # Get output node and remember original bsdf input
-    output = get_material_output(mat)
+    output = get_material_output(mat, create_one=True)
     ori_bsdf = output.inputs[0].links[0].from_socket
 
     if bprops.type == 'AO':
@@ -4657,7 +4657,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     mat.use_nodes = True
     plane_obj.active_material = mat
 
-    output = get_material_output(mat)
+    output = get_material_output(mat, create_one=True)
     emi = mat.node_tree.nodes.new('ShaderNodeEmission')
     uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
     #uv_map.uv_map = 'UVMap' # Will use active UV instead since every language has different default UV name
@@ -4852,7 +4852,7 @@ def get_temp_emit_white_mat():
         mat.use_nodes = True
 
         # Create nodes
-        output = get_material_output(mat)
+        output = get_material_output(mat, create_one=True)
         emi = mat.node_tree.nodes.new('ShaderNodeEmission')
         mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
 
