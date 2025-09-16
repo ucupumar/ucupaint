@@ -26,6 +26,18 @@ ACTIVE_UV_NODE = '___ACTIVE_UV__'
 TEMP_EMIT_WHITE = '__EMIT_WHITE__'
 TEMP_MATERIAL = '__TEMP_MATERIAL_'
 
+blur_type_labels = {
+    'NOISE' : 'Noise',
+    'FLAT' : 'Flat',
+    'TENT' : 'Tent',
+    'QUAD' : 'Quadratic',
+    'CUBIC' : 'Cubic',
+    'GAUSS' : 'Gaussian',
+    'FAST_GAUSS' : 'Fast Gaussian',
+    'CATROM' : 'Catrom',
+    'MITCH' : 'Mitch',
+}
+
 def get_problematic_modifiers(obj):
     pms = []
 
@@ -1152,7 +1164,9 @@ def blur_image(image, filter_type='GAUSS', size=10):
     tree = get_compositor_node_tree(scene)
     composite = get_compositor_output_node(tree)
     blur = tree.nodes.new('CompositorNodeBlur')
-    blur.filter_type = filter_type
+    if not is_bl_newer_than(5):
+        blur.filter_type = filter_type
+    else: blur.inputs[2].default_value = blur_type_labels[filter_type]
     if is_bl_newer_than(4, 5):
         blur.inputs['Size'].default_value[0] = size
         blur.inputs['Size'].default_value[1] = size
