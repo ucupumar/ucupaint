@@ -4493,9 +4493,48 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     #    row = layout.row(align=True)
 
     #    row.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
-
     def draw(self, context):
         main_draw(self, context)
+
+class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
+    bl_label = "Support " + get_addon_title()
+    bl_space_type = 'VIEW_3D'
+    #bl_context = "object"
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    def draw_header_preset(self, context):
+       layout = self.layout
+       row = layout.row(align=True)
+       row.label(text='', icon='FUND')
+       
+    def draw(self, context):
+        self.layout.label(text="Current Sponsors")
+        col = self.layout.column(align=True)
+        per_column = 3
+        missing_column = per_column - (len(previews_users.sponsors) % per_column)
+        for cl, key in enumerate(previews_users.sponsors.keys()):
+            item = previews_users.sponsors[key]
+            if cl % per_column == 0:
+                row = col.row(align=True)
+                row.alignment = 'LEFT'
+            # bx = row.box()
+            rw = row.column(align=True)
+
+            thumb = item['thumb']
+            if not thumb:
+                thumb = previews_users.default_pic
+            # print("draw thumb", key, "=", thumb)
+            rw.template_icon(icon_value = thumb, scale = 3.0)
+            rw.operator('wm.url_open', text=item["id"], emboss=False).url = item["url"]
+
+        if missing_column != per_column:
+            for i in range(missing_column):
+                rw = row.column(align=True)
+
+                rw.template_icon(icon_value = previews_users.default_pic, scale = 3.0)
+                rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
 
 def is_output_unconnected(node, index, root_ch=None):
     yp = node.node_tree.yp
@@ -7873,6 +7912,12 @@ def load_contributors():
         with open(path_contributors, "r", encoding="utf-8") as f:
             content = f.read()
 
+    path_sponsors = os.path.join(path, "sponsors.csv")
+    content_sponsors = ""
+
+    if os.path.exists(path_sponsors):
+        with open(path_sponsors, "r", encoding="utf-8") as f:
+            content_sponsors = f.read()
 
     if reload_contributors and is_online():
         try:
@@ -7880,11 +7925,19 @@ def load_contributors():
             if response.status_code == 200:
                 content = response.text
 
-                with open(path_last_check, "w", encoding="utf-8") as f:
-                    f.write(str(current_time))
-
                 with open(path_contributors, "w", encoding="utf-8") as f:
                     f.write(content)
+
+            response = requests.get("https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/sponsors.csv", verify=False, timeout=10)
+            if response.status_code == 200:
+                content_sponsors = response.text
+
+                with open(path_sponsors, "w", encoding="utf-8") as f:
+                    f.write(content_sponsors)
+
+            current_time = time.time()
+            with open(path_last_check, "w", encoding="utf-8") as f:
+                f.write(str(current_time))
 
         except requests.exceptions.ReadTimeout:
             reload_contributors = False
@@ -7908,14 +7961,34 @@ def load_contributors():
     if not os.path.exists(folders):
         os.makedirs(folders)
 
+    previews_users.sponsors.clear()
+    for line in content_sponsors.strip().splitlines():
+        parts = [p.strip() for p in line.split(',')]
+        if len(parts) == 3:
+            sponsor = {
+                'id': parts[0],
+                'url': parts[1],
+                'image_url': parts[2],
+                'thumb': None
+            }
+            previews_users.sponsors[sponsor['id']] = sponsor
+
     # Download contributor images
     links = [c['image_url']+"&s=108" for c in previews_users.contributors.values()]
     file_names = [f"{folders}{os.sep}{c['id']}.png" for c in previews_users.contributors.values()]
     ids = [c['id'] for c in previews_users.contributors.values()]
 
+    # Download sponsor images
+    links_sponsors = [c['image_url']+"&s=108" for c in previews_users.sponsors.values()]
+    file_names_sponsors = [f"{folders}{os.sep}{c['id']}.png" for c in previews_users.sponsors.values()]
+    ids_sponsors = [c['id'] for c in previews_users.sponsors.values()]
+
     if reload_contributors:
-        new_thread = threading.Thread(target=download_stream, args=(links,file_names,ids))
+        new_thread = threading.Thread(target=download_stream, args=(links,file_names,ids, previews_users.contributors))
         new_thread.start()
+
+        new_thread_sponsors = threading.Thread(target=download_stream, args=(links_sponsors,file_names_sponsors,ids_sponsors, previews_users.sponsors))
+        new_thread_sponsors.start()
     else:
         for idx, file_name in enumerate(file_names):
             k = ids[idx]
@@ -7925,7 +7998,15 @@ def load_contributors():
             else:
                 print("file not found", file_name)
 
-def download_stream(links:list[str], file_names:list[str], ids:list[str], timeout:int = 10):
+        for idx, file_name in enumerate(file_names_sponsors):
+            k = ids_sponsors[idx]
+            if os.path.exists(file_name):
+                img = previews_users.load(k, file_name, 'IMAGE')
+                previews_users.sponsors[k]['thumb'] = img.icon_id
+            else:
+                print("file not found", file_name)
+
+def download_stream(links:list[str], file_names:list[str], ids:list[str], dict, timeout:int = 10):
     for idx, file_name in enumerate(file_names):
         link = links[idx]
         print("Downloading", link, "to", file_name)
@@ -7950,8 +8031,8 @@ def download_stream(links:list[str], file_names:list[str], ids:list[str], timeou
 
         k = ids[idx]
         img = previews_users.load(k, file_name, 'IMAGE')
-        previews_users.contributors[k]['thumb'] = img.icon_id
-        print("loaded", k, " = ", previews_users.contributors[k])        
+        dict[k]['thumb'] = img.icon_id
+        # print("loaded", k, " = ", previews_users.contributors[k])
 
 @persistent
 def yp_save_ui_settings(scene):
@@ -7969,6 +8050,12 @@ def yp_load_ui_settings(scene):
 
     # Update UI
     wmui.need_update = True
+
+def register_support():
+    bpy.utils.register_class(VIEW3D_PT_YPaint_support_ui)
+
+def unregister_support():
+    bpy.utils.unregister_class(VIEW3D_PT_YPaint_support_ui)
 
 def register():
 
@@ -8059,6 +8146,7 @@ def register():
     blank_path = os.path.join(get_addon_filepath(), "icons", "blank.png")
     ucupumar = previews_users.load('blank', blank_path, 'IMAGE')
     previews_users.contributors = {}
+    previews_users.sponsors = {}
     previews_users.default_pic = ucupumar.icon_id
 
     load_contributors()
