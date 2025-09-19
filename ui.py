@@ -4510,15 +4510,22 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
        row.label(text='', icon='FUND')
        
     def draw(self, context):
-
+        layout = self.layout
         goal = previews_users.sponsorship_goal
         if goal and 'targetValue' in goal:
-            self.layout.label(text="Sponsorship Goal: %" + str(goal['targetValue']))
-            self.layout.label(text="Current: " + str(goal['percentComplete']) + "%")
+            layout.label(text="Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
+            target = goal['targetValue']
+            percentage = goal['percentComplete']
+            donation = target * percentage / 100
         
+            goal_ui = context.window_manager.ypui_goal
+            goal_ui.progress = goal['percentComplete']
+            layout.prop(goal_ui, 'progress', text=f"${donation}", slider=True)
 
-        self.layout.label(text="Current Sponsors")
-        col = self.layout.column(align=True)
+        layout.operator('wm.url_open', text="Donate Us").url = "https://github.com/sponsors/ucupumar"
+
+        layout.label(text="Current Sponsors")
+        col = layout.column(align=True)
         per_column = 3
         missing_column = per_column - (len(previews_users.sponsors) % per_column)
 
@@ -4533,9 +4540,10 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             thumb = item['thumb']
             if not thumb:
                 thumb = previews_users.default_pic
-            # print("draw thumb", key, "=", thumb)
+
             rw.template_icon(icon_value = thumb, scale = 3.0)
             rw.operator('wm.url_open', text=item["id"], emboss=False).url = item["url"]
+        # todo : paging
 
         if missing_column != per_column:
             for i in range(missing_column):
@@ -5433,6 +5441,7 @@ def draw_ypaint_about(self, context):
         thumb = item['thumb']
         if not thumb:
             thumb = previews_users.default_pic
+            
         # print("draw thumb", key, "=", thumb)
         rw.template_icon(icon_value = thumb, scale = 3.0)
         rw.operator('wm.url_open', text=item["id"], emboss=False).url = item["url"]
@@ -5443,6 +5452,7 @@ def draw_ypaint_about(self, context):
 
             rw.template_icon(icon_value = previews_users.default_pic, scale = 3.0)
             rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
+    # todo : paging
 
     # col.operator('wm.url_open', text='arsa', icon=icon_name).url = 'https://sites.google.com/view/arsanagara'
     # col.operator('wm.url_open', text='swifterik', icon=icon_name).url = 'https://jblaha.art/'
@@ -7740,6 +7750,15 @@ class YMaterialUI(bpy.types.PropertyGroup):
     name : StringProperty(default='')
     active_ypaint_node : StringProperty(default='') #, update=update_mat_active_yp_node)
 
+class YGoal(bpy.types.PropertyGroup):
+	progress : IntProperty(
+		default = 0,
+		min = 0,
+		max = 100,
+		description = 'Progress of goal',
+		subtype = 'PERCENTAGE'
+	)
+
 class YPaintUI(bpy.types.PropertyGroup):
     show_object : BoolProperty(
         name = 'Active Object',
@@ -8180,6 +8199,7 @@ def register():
 
     bpy.utils.register_class(VIEW3D_PT_YPaint_ui)
     bpy.utils.register_class(YPaintUI)
+    bpy.utils.register_class(YGoal)
 
     bpy.types.Scene.ypui = PointerProperty(type=YPaintUI)
     bpy.types.WindowManager.ypui = PointerProperty(type=YPaintUI)
@@ -8199,12 +8219,16 @@ def register():
 
     global previews_users
     previews_users = bpy.utils.previews.new()
+
     blank_path = os.path.join(get_addon_filepath(), "icons", "blank.png")
-    ucupumar = load_preview('ucupumar', blank_path)
+    blank_img = load_preview('blank', blank_path)
+    previews_users.default_pic = blank_img.icon_id
+
     previews_users.contributors = {}
     previews_users.sponsors = {}
-    previews_users.default_pic = ucupumar.icon_id
     previews_users.sponsorship_goal = {}
+
+    bpy.types.WindowManager.ypui_goal = PointerProperty(type=YGoal)
 
     load_contributors()
 
@@ -8268,6 +8292,7 @@ def unregister():
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
     bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
+    bpy.utils.unregister_class(YGoal)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
