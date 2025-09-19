@@ -84,10 +84,13 @@ def register():
     addon_updater_ops.register()
     Test.register()
 
+    ui.register_support()
+
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is registered!')
 
 def unregister():
     Localization.unregister_module(ui)
+    ui.unregister_support()
 
     image_ops.unregister()
     preferences.unregister()

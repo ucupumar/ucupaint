@@ -1,4 +1,4 @@
-import bpy, re, time, os, sys
+import bpy, re, time, os, sys, json
 import requests, threading
 from bpy.props import *
 from bpy.app.handlers import persistent
@@ -4510,10 +4510,18 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
        row.label(text='', icon='FUND')
        
     def draw(self, context):
+
+        goal = previews_users.sponsorship_goal
+        if goal and 'targetValue' in goal:
+            self.layout.label(text="Sponsorship Goal: %" + str(goal['targetValue']))
+            self.layout.label(text="Current: " + str(goal['percentComplete']) + "%")
+        
+
         self.layout.label(text="Current Sponsors")
         col = self.layout.column(align=True)
         per_column = 3
         missing_column = per_column - (len(previews_users.sponsors) % per_column)
+
         for cl, key in enumerate(previews_users.sponsors.keys()):
             item = previews_users.sponsors[key]
             if cl % per_column == 0:
@@ -7911,6 +7919,8 @@ def load_contributors():
     if os.path.exists(path_contributors):
         with open(path_contributors, "r", encoding="utf-8") as f:
             content = f.read()
+    else:
+        reload_contributors = True
 
     path_sponsors = os.path.join(path, "sponsors.csv")
     content_sponsors = ""
@@ -7918,22 +7928,47 @@ def load_contributors():
     if os.path.exists(path_sponsors):
         with open(path_sponsors, "r", encoding="utf-8") as f:
             content_sponsors = f.read()
+    else:
+        reload_contributors = True
+
+    path_sponsorship_goal = os.path.join(path, "sponsorship-goal.json")
+    content_sponsorship_goal = ""
+
+    if os.path.exists(path_sponsorship_goal):
+        with open(path_sponsorship_goal, "r", encoding="utf-8") as f:
+            content_sponsorship_goal = f.read()
+            previews_users.sponsorship_goal = json.loads(content_sponsorship_goal)
+    else:
+        reload_contributors = True
 
     if reload_contributors and is_online():
+
+        data_url = "https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/"
         try:
-            response = requests.get("https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/contributors.csv", verify=False, timeout=10)
+            print("Reloading contributors...")
+            response = requests.get(data_url + "contributors.csv", verify=False, timeout=10)
             if response.status_code == 200:
                 content = response.text
+                print("Response:", content)
 
                 with open(path_contributors, "w", encoding="utf-8") as f:
                     f.write(content)
 
-            response = requests.get("https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/sponsors.csv", verify=False, timeout=10)
+            print("Reloading sponsors...")
+            response = requests.get(data_url + "sponsors.csv", verify=False, timeout=10)
             if response.status_code == 200:
                 content_sponsors = response.text
-
+                print("Response:", content_sponsors)
                 with open(path_sponsors, "w", encoding="utf-8") as f:
                     f.write(content_sponsors)
+
+            response = requests.get(data_url + "sponsorship-goal.json", verify=False, timeout=10)
+            if response.status_code == 200:
+                content_sponsorship_goal = response.text
+                print("Response:", content_sponsorship_goal)
+                with open(path_sponsorship_goal, "w", encoding="utf-8") as f:
+                    f.write(content_sponsorship_goal)
+                previews_users.sponsorship_goal = json.loads(content_sponsorship_goal)
 
             current_time = time.time()
             with open(path_last_check, "w", encoding="utf-8") as f:
@@ -7948,7 +7983,7 @@ def load_contributors():
     previews_users.contributors.clear()
     for line in content.strip().splitlines():
         parts = [p.strip() for p in line.split(',')]
-        if len(parts) == 3:
+        if len(parts) >= 3:
             contributor = {
                 'id': parts[0],
                 'url': parts[1],
@@ -7964,7 +7999,7 @@ def load_contributors():
     previews_users.sponsors.clear()
     for line in content_sponsors.strip().splitlines():
         parts = [p.strip() for p in line.split(',')]
-        if len(parts) == 3:
+        if len(parts) >= 6:
             sponsor = {
                 'id': parts[0],
                 'url': parts[1],
@@ -7978,10 +8013,22 @@ def load_contributors():
     file_names = [f"{folders}{os.sep}{c['id']}.png" for c in previews_users.contributors.values()]
     ids = [c['id'] for c in previews_users.contributors.values()]
 
+    # check images exist
+    for file_name in file_names:
+        if not os.path.exists(file_name):
+            reload_contributors = True
+            break
+
     # Download sponsor images
     links_sponsors = [c['image_url']+"&s=108" for c in previews_users.sponsors.values()]
     file_names_sponsors = [f"{folders}{os.sep}{c['id']}.png" for c in previews_users.sponsors.values()]
     ids_sponsors = [c['id'] for c in previews_users.sponsors.values()]
+
+    # check images exist
+    for file_name in file_names_sponsors:
+        if not os.path.exists(file_name):
+            reload_contributors = True
+            break
 
     if reload_contributors:
         new_thread = threading.Thread(target=download_stream, args=(links,file_names,ids, previews_users.contributors))
@@ -7993,18 +8040,27 @@ def load_contributors():
         for idx, file_name in enumerate(file_names):
             k = ids[idx]
             if os.path.exists(file_name):
-                img = previews_users.load(k, file_name, 'IMAGE')
+                img = load_preview(k, file_name)
                 previews_users.contributors[k]['thumb'] = img.icon_id
+                print("loaded contributor ", k, " = ", previews_users.contributors[k])
             else:
                 print("file not found", file_name)
 
         for idx, file_name in enumerate(file_names_sponsors):
             k = ids_sponsors[idx]
             if os.path.exists(file_name):
-                img = previews_users.load(k, file_name, 'IMAGE')
+                img = load_preview(k, file_name)
                 previews_users.sponsors[k]['thumb'] = img.icon_id
+                print("loaded sponsor ", k, " = ", previews_users.sponsors[k])
             else:
                 print("file not found", file_name)
+
+def load_preview(key:str, file_name:str):
+    if key in previews_users:
+        img = previews_users[key]
+    else:
+        img = previews_users.load(key, file_name, 'IMAGE', True)
+    return img
 
 def download_stream(links:list[str], file_names:list[str], ids:list[str], dict, timeout:int = 10):
     for idx, file_name in enumerate(file_names):
@@ -8030,9 +8086,9 @@ def download_stream(links:list[str], file_names:list[str], ids:list[str], dict, 
                 print('Error #2 while downloading', link, ':', e)
 
         k = ids[idx]
-        img = previews_users.load(k, file_name, 'IMAGE')
+        img = load_preview(k, file_name)
         dict[k]['thumb'] = img.icon_id
-        # print("loaded", k, " = ", previews_users.contributors[k])
+        print("loaded", k, " = ", dict[k])
 
 @persistent
 def yp_save_ui_settings(scene):
@@ -8144,10 +8200,11 @@ def register():
     global previews_users
     previews_users = bpy.utils.previews.new()
     blank_path = os.path.join(get_addon_filepath(), "icons", "blank.png")
-    ucupumar = previews_users.load('blank', blank_path, 'IMAGE')
+    ucupumar = load_preview('ucupumar', blank_path)
     previews_users.contributors = {}
     previews_users.sponsors = {}
     previews_users.default_pic = ucupumar.icon_id
+    previews_users.sponsorship_goal = {}
 
     load_contributors()
 
