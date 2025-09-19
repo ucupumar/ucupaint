@@ -47,6 +47,7 @@ if "bpy" in locals():
     imp.reload(versioning)
     imp.reload(addon_updater_ops)
     imp.reload(Test)
+    imp.reload(sponsor_ui)
 else:
     from . import Localization
     from . import BaseOperator, image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
@@ -54,6 +55,7 @@ else:
     from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
     from . import addon_updater_ops
     from . import Test
+    from . import sponsor_ui
 
 import bpy 
 
@@ -83,15 +85,14 @@ def register():
     versioning.register()
     addon_updater_ops.register()
     Test.register()
-
-    ui.register_support()
+    sponsor_ui.register()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is registered!')
 
 def unregister():
     Localization.unregister_module(ui)
-    ui.unregister_support()
 
+    sponsor_ui.unregister()
     image_ops.unregister()
     preferences.unregister()
     lib.unregister()

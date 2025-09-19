@@ -4496,62 +4496,6 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     def draw(self, context):
         main_draw(self, context)
 
-class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
-    bl_label = "Support " + get_addon_title()
-    bl_space_type = 'VIEW_3D'
-    #bl_context = "object"
-    bl_region_type = 'UI'
-    bl_category = get_addon_title()
-    bl_options = {'DEFAULT_CLOSED'} 
-
-    def draw_header_preset(self, context):
-       layout = self.layout
-       row = layout.row(align=True)
-       row.label(text='', icon='FUND')
-       
-    def draw(self, context):
-        layout = self.layout
-        goal = previews_users.sponsorship_goal
-        if goal and 'targetValue' in goal:
-            layout.label(text="Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
-            target = goal['targetValue']
-            percentage = goal['percentComplete']
-            donation = target * percentage / 100
-        
-            goal_ui = context.window_manager.ypui_goal
-            goal_ui.progress = goal['percentComplete']
-            layout.prop(goal_ui, 'progress', text=f"${donation}", slider=True)
-
-        layout.operator('wm.url_open', text="Donate Us").url = "https://github.com/sponsors/ucupumar"
-
-        layout.label(text="Current Sponsors")
-        col = layout.column(align=True)
-        per_column = 3
-        missing_column = per_column - (len(previews_users.sponsors) % per_column)
-
-        for cl, key in enumerate(previews_users.sponsors.keys()):
-            item = previews_users.sponsors[key]
-            if cl % per_column == 0:
-                row = col.row(align=True)
-                row.alignment = 'LEFT'
-            # bx = row.box()
-            rw = row.column(align=True)
-
-            thumb = item['thumb']
-            if not thumb:
-                thumb = previews_users.default_pic
-
-            rw.template_icon(icon_value = thumb, scale = 3.0)
-            rw.operator('wm.url_open', text=item["id"], emboss=False).url = item["url"]
-        # todo : paging
-
-        if missing_column != per_column:
-            for i in range(missing_column):
-                rw = row.column(align=True)
-
-                rw.template_icon(icon_value = previews_users.default_pic, scale = 3.0)
-                rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
-
 def is_output_unconnected(node, index, root_ch=None):
     yp = node.node_tree.yp
     unconnected = len(node.outputs[index].links) == 0 and not (yp.use_baked and yp.enable_baked_outside)
@@ -5422,16 +5366,20 @@ def draw_yp_file_browser_menu(self, context):
             self.layout.context_pointer_set('params', params)
             self.layout.menu("NODE_MT_ypaint_file_browser_menu", text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
 
+from .sponsor_ui import get_collaborators
+
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
     col.label(text=get_addon_title() + ' is created by:')
-    icon_name = 'USER' if is_bl_newer_than(2, 80) else 'ARMATURE_DATA'
 
     per_column = 3
 
-    missing_column = per_column - (len(previews_users.contributors) % per_column)
-    for cl, key in enumerate(previews_users.contributors.keys()):
-        item = previews_users.contributors[key]
+    collaborators = get_collaborators()
+    contributors = collaborators.contributors
+
+    missing_column = per_column - (len(contributors) % per_column)
+    for cl, key in enumerate(contributors.keys()):
+        item = contributors[key]
         if cl % per_column == 0:
             row = col.row(align=True)
             row.alignment = 'LEFT'
@@ -5440,7 +5388,7 @@ def draw_ypaint_about(self, context):
 
         thumb = item['thumb']
         if not thumb:
-            thumb = previews_users.default_pic
+            thumb = collaborators.default_pic
             
         # print("draw thumb", key, "=", thumb)
         rw.template_icon(icon_value = thumb, scale = 3.0)
@@ -5450,18 +5398,10 @@ def draw_ypaint_about(self, context):
         for i in range(missing_column):
             rw = row.column(align=True)
 
-            rw.template_icon(icon_value = previews_users.default_pic, scale = 3.0)
+            rw.template_icon(icon_value = collaborators.default_pic, scale = 3.0)
             rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
     # todo : paging
 
-    # col.operator('wm.url_open', text='arsa', icon=icon_name).url = 'https://sites.google.com/view/arsanagara'
-    # col.operator('wm.url_open', text='swifterik', icon=icon_name).url = 'https://jblaha.art/'
-    # col.operator('wm.url_open', text='rifai', icon=icon_name).url = 'https://github.com/rifai'
-    # col.operator('wm.url_open', text='morirain', icon=icon_name).url = 'https://github.com/morirain'
-    # col.operator('wm.url_open', text='kareemov03', icon=icon_name).url = 'https://www.artstation.com/kareem'
-    # col.operator('wm.url_open', text='passivestar', icon=icon_name).url = 'https://github.com/passivestar'
-    # col.operator('wm.url_open', text='bappity', icon=icon_name).url = 'https://github.com/bappitybup'
-    # col.operator('wm.url_open', text='bittie', icon=icon_name).url = 'https://github.com/BittieByte'
     col.separator()
 
     # for cl, key in enumerate(previews_users.contributors.keys()):
@@ -7750,15 +7690,6 @@ class YMaterialUI(bpy.types.PropertyGroup):
     name : StringProperty(default='')
     active_ypaint_node : StringProperty(default='') #, update=update_mat_active_yp_node)
 
-class YGoal(bpy.types.PropertyGroup):
-	progress : IntProperty(
-		default = 0,
-		min = 0,
-		max = 100,
-		description = 'Progress of goal',
-		subtype = 'PERCENTAGE'
-	)
-
 class YPaintUI(bpy.types.PropertyGroup):
     show_object : BoolProperty(
         name = 'Active Object',
@@ -7899,216 +7830,6 @@ def load_mat_ui_settings():
             mui.material = mat
             mui.active_ypaint_node = mat.yp.active_ypaint_node
 
-def load_contributors():    
-
-    reload_contributors = False
-    path = get_addon_filepath()
-    path_last_check = os.path.join(path, "last_check.txt") # to store last check time
-
-    current_time = time.time()
-
-    if os.path.exists(path_last_check):
-        with open(path_last_check, "r", encoding="utf-8") as f:
-            content_last_check = f.read().strip()
-            
-            # convert to float
-            try:
-                last_check = float(content_last_check)
-            except:
-                last_check = 0.0
-            
-
-            span_time = current_time - last_check
-            # if last check more than a day ago, reload
-            if span_time > 24 * 60 * 60:
-                reload_contributors = True
-            else:
-                # format span in hours
-                span_hours = span_time / 3600
-                format_last_check = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_check))
-                print(f"Last check was {span_hours:.2f} hours ago. Checked at {format_last_check}. Not reloading contributors.")
-    else:
-        reload_contributors = True       
-
-
-    path_contributors = os.path.join(path, "contributors.csv")
-    content = ""
-
-    # read file if exists
-    if os.path.exists(path_contributors):
-        with open(path_contributors, "r", encoding="utf-8") as f:
-            content = f.read()
-    else:
-        reload_contributors = True
-
-    path_sponsors = os.path.join(path, "sponsors.csv")
-    content_sponsors = ""
-
-    if os.path.exists(path_sponsors):
-        with open(path_sponsors, "r", encoding="utf-8") as f:
-            content_sponsors = f.read()
-    else:
-        reload_contributors = True
-
-    path_sponsorship_goal = os.path.join(path, "sponsorship-goal.json")
-    content_sponsorship_goal = ""
-
-    if os.path.exists(path_sponsorship_goal):
-        with open(path_sponsorship_goal, "r", encoding="utf-8") as f:
-            content_sponsorship_goal = f.read()
-            previews_users.sponsorship_goal = json.loads(content_sponsorship_goal)
-    else:
-        reload_contributors = True
-
-    if reload_contributors and is_online():
-
-        data_url = "https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/"
-        try:
-            print("Reloading contributors...")
-            response = requests.get(data_url + "contributors.csv", verify=False, timeout=10)
-            if response.status_code == 200:
-                content = response.text
-                print("Response:", content)
-
-                with open(path_contributors, "w", encoding="utf-8") as f:
-                    f.write(content)
-
-            print("Reloading sponsors...")
-            response = requests.get(data_url + "sponsors.csv", verify=False, timeout=10)
-            if response.status_code == 200:
-                content_sponsors = response.text
-                print("Response:", content_sponsors)
-                with open(path_sponsors, "w", encoding="utf-8") as f:
-                    f.write(content_sponsors)
-
-            response = requests.get(data_url + "sponsorship-goal.json", verify=False, timeout=10)
-            if response.status_code == 200:
-                content_sponsorship_goal = response.text
-                print("Response:", content_sponsorship_goal)
-                with open(path_sponsorship_goal, "w", encoding="utf-8") as f:
-                    f.write(content_sponsorship_goal)
-                previews_users.sponsorship_goal = json.loads(content_sponsorship_goal)
-
-            current_time = time.time()
-            with open(path_last_check, "w", encoding="utf-8") as f:
-                f.write(str(current_time))
-
-        except requests.exceptions.ReadTimeout:
-            reload_contributors = False
-    else:
-        reload_contributors = False
-
-
-    previews_users.contributors.clear()
-    for line in content.strip().splitlines():
-        parts = [p.strip() for p in line.split(',')]
-        if len(parts) >= 3:
-            contributor = {
-                'id': parts[0],
-                'url': parts[1],
-                'image_url': parts[2],
-                'thumb': None
-            }
-            previews_users.contributors[contributor['id']] = contributor
-
-    folders = os.path.join(path, "icons", "contributors")
-    if not os.path.exists(folders):
-        os.makedirs(folders)
-
-    previews_users.sponsors.clear()
-    for line in content_sponsors.strip().splitlines():
-        parts = [p.strip() for p in line.split(',')]
-        if len(parts) >= 6:
-            sponsor = {
-                'id': parts[0],
-                'url': parts[1],
-                'image_url': parts[2],
-                'thumb': None
-            }
-            previews_users.sponsors[sponsor['id']] = sponsor
-
-    # Download contributor images
-    links = [c['image_url']+"&s=108" for c in previews_users.contributors.values()]
-    file_names = [f"{folders}{os.sep}{c['id']}.png" for c in previews_users.contributors.values()]
-    ids = [c['id'] for c in previews_users.contributors.values()]
-
-    # check images exist
-    for file_name in file_names:
-        if not os.path.exists(file_name):
-            reload_contributors = True
-            break
-
-    # Download sponsor images
-    links_sponsors = [c['image_url']+"&s=108" for c in previews_users.sponsors.values()]
-    file_names_sponsors = [f"{folders}{os.sep}{c['id']}.png" for c in previews_users.sponsors.values()]
-    ids_sponsors = [c['id'] for c in previews_users.sponsors.values()]
-
-    # check images exist
-    for file_name in file_names_sponsors:
-        if not os.path.exists(file_name):
-            reload_contributors = True
-            break
-
-    if reload_contributors:
-        new_thread = threading.Thread(target=download_stream, args=(links,file_names,ids, previews_users.contributors))
-        new_thread.start()
-
-        new_thread_sponsors = threading.Thread(target=download_stream, args=(links_sponsors,file_names_sponsors,ids_sponsors, previews_users.sponsors))
-        new_thread_sponsors.start()
-    else:
-        for idx, file_name in enumerate(file_names):
-            k = ids[idx]
-            if os.path.exists(file_name):
-                img = load_preview(k, file_name)
-                previews_users.contributors[k]['thumb'] = img.icon_id
-                print("loaded contributor ", k, " = ", previews_users.contributors[k])
-            else:
-                print("file not found", file_name)
-
-        for idx, file_name in enumerate(file_names_sponsors):
-            k = ids_sponsors[idx]
-            if os.path.exists(file_name):
-                img = load_preview(k, file_name)
-                previews_users.sponsors[k]['thumb'] = img.icon_id
-                print("loaded sponsor ", k, " = ", previews_users.sponsors[k])
-            else:
-                print("file not found", file_name)
-
-def load_preview(key:str, file_name:str):
-    if key in previews_users:
-        img = previews_users[key]
-    else:
-        img = previews_users.load(key, file_name, 'IMAGE', True)
-    return img
-
-def download_stream(links:list[str], file_names:list[str], ids:list[str], dict, timeout:int = 10):
-    for idx, file_name in enumerate(file_names):
-        link = links[idx]
-        print("Downloading", link, "to", file_name)
-        with open(file_name, "wb") as f:
-            try:
-                response = requests.get(link, stream=True, timeout = timeout)
-                total_length = response.headers.get('content-length')
-                print("total size = "+total_length)
-                if not total_length:
-                    print('Error #1 while downloading', link, ':', "Empty Response.")
-                    return
-                
-                dl = 0
-                total_length = int(total_length)
-                # TODO a way for calculating the chunk size
-                for data in response.iter_content(chunk_size = 4096):
-
-                    dl += len(data)
-                    f.write(data)
-            except Exception as e:
-                print('Error #2 while downloading', link, ':', e)
-
-        k = ids[idx]
-        img = load_preview(k, file_name)
-        dict[k]['thumb'] = img.icon_id
-        print("loaded", k, " = ", dict[k])
-
 @persistent
 def yp_save_ui_settings(scene):
     save_mat_ui_settings()
@@ -8125,12 +7846,6 @@ def yp_load_ui_settings(scene):
 
     # Update UI
     wmui.need_update = True
-
-def register_support():
-    bpy.utils.register_class(VIEW3D_PT_YPaint_support_ui)
-
-def unregister_support():
-    bpy.utils.unregister_class(VIEW3D_PT_YPaint_support_ui)
 
 def register():
 
@@ -8199,7 +7914,6 @@ def register():
 
     bpy.utils.register_class(VIEW3D_PT_YPaint_ui)
     bpy.utils.register_class(YPaintUI)
-    bpy.utils.register_class(YGoal)
 
     bpy.types.Scene.ypui = PointerProperty(type=YPaintUI)
     bpy.types.WindowManager.ypui = PointerProperty(type=YPaintUI)
@@ -8217,25 +7931,7 @@ def register():
     bpy.app.handlers.load_post.append(yp_load_ui_settings)
     bpy.app.handlers.save_pre.append(yp_save_ui_settings)
 
-    global previews_users
-    previews_users = bpy.utils.previews.new()
-
-    blank_path = os.path.join(get_addon_filepath(), "icons", "blank.png")
-    blank_img = load_preview('blank', blank_path)
-    previews_users.default_pic = blank_img.icon_id
-
-    previews_users.contributors = {}
-    previews_users.sponsors = {}
-    previews_users.sponsorship_goal = {}
-
-    bpy.types.WindowManager.ypui_goal = PointerProperty(type=YGoal)
-
-    load_contributors()
-
-
 def unregister():
-
-    bpy.utils.previews.remove(previews_users)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(YPaintAboutMenu)
@@ -8292,7 +7988,6 @@ def unregister():
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
     bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
-    bpy.utils.unregister_class(YGoal)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
