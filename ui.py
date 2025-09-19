@@ -3161,6 +3161,11 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             col.separator()
 
 def draw_layers_ui(context, layout, node):
+
+    # NOTE: Blender 4.2+ can detect if user is currently in a modal operation
+    in_active_modal = is_bl_newer_than(4, 2) and len(bpy.context.window.modal_operators) > 0
+
+    scene = context.scene
     group_tree = node.node_tree
     nodes = group_tree.nodes
     yp = group_tree.yp
@@ -3427,57 +3432,63 @@ def draw_layers_ui(context, layout, node):
     #        #box.prop(ypui, 'make_image_single_user')
     #        return
 
-    # Check for missing data
-    missing_data = False
-    for layer in yp.layers:
-        if layer.type in {'IMAGE' , 'VCOL'}:
-            src = get_layer_source(layer)
+    # NOTE: Avoid checking missing data when in modal operation to avoid performance loss
+    if in_active_modal:
+        missing_data = ypui.cache_missing_data
+    else:
+        # Check for missing data
+        missing_data = False
+        for layer in yp.layers:
+            if layer.type in {'IMAGE' , 'VCOL'}:
+                src = get_layer_source(layer)
 
-            if (
-                    not src or
-                    (layer.type == 'IMAGE' and not src.image) or 
-                    (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
-                ):
-                missing_data = True
-                break
-
-        # Also check mask source
-        for mask in layer.masks:
-            if mask.type in {'IMAGE' , 'VCOL'}:
-                mask_src = get_mask_source(mask)
-
-                if (
-                        not mask_src or
-                        (mask.type == 'IMAGE' and mask_src and not mask_src.image) or 
-                        (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_src))
-                    ):
-                    missing_data = True
-                    break
-
-            if mask.type == 'COLOR_ID':
-                if obj.type == 'MESH' and COLOR_ID_VCOL_NAME not in vcols:
-                    missing_data = True
-                    break
-
-        for ch in layer.channels:
-            if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
-                src = get_channel_source(ch, layer)
                 if (
                         not src or
-                        (ch.override_type == 'IMAGE' and not src.image) or 
-                        (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
+                        (layer.type == 'IMAGE' and not src.image) or 
+                        (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
                     ):
                     missing_data = True
                     break
 
-            if ch.override_1 and ch.override_1_type == 'IMAGE':
-                src = get_channel_source_1(ch, layer)
-                if not src or not src.image:
-                    missing_data = True
-                    break
+            # Also check mask source
+            for mask in layer.masks:
+                if mask.type in {'IMAGE' , 'VCOL'}:
+                    mask_src = get_mask_source(mask)
 
-        if missing_data:
-            break
+                    if (
+                            not mask_src or
+                            (mask.type == 'IMAGE' and mask_src and not mask_src.image) or 
+                            (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_src))
+                        ):
+                        missing_data = True
+                        break
+
+                if mask.type == 'COLOR_ID':
+                    if obj.type == 'MESH' and COLOR_ID_VCOL_NAME not in vcols:
+                        missing_data = True
+                        break
+
+            for ch in layer.channels:
+                if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                    src = get_channel_source(ch, layer)
+                    if (
+                            not src or
+                            (ch.override_type == 'IMAGE' and not src.image) or 
+                            (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
+                        ):
+                        missing_data = True
+                        break
+
+                if ch.override_1 and ch.override_1_type == 'IMAGE':
+                    src = get_channel_source_1(ch, layer)
+                    if not src or not src.image:
+                        missing_data = True
+                        break
+
+            if missing_data:
+                break
+
+        ypui.cache_missing_data = missing_data
     
     # Show missing data button
     if missing_data:
@@ -3488,10 +3499,8 @@ def draw_layers_ui(context, layout, node):
         return
 
     # Check if any uv is missing
+    uv_missings = []
     if is_a_mesh:
-
-        # Get missing uvs
-        uv_missings = []
 
         # Check baked images
         if yp.baked_uv_name != '':
@@ -3521,13 +3530,14 @@ def draw_layers_ui(context, layout, node):
                         uv_missings.append(mask.uv_name)
                         #entities.append(mask.name)
 
-        for uv_name in uv_missings:
-            row = box.row(align=True)
-            row.alert = True
-            title = 'UV ' + uv_name + ' is missing or renamed!'
-            row.operator("wm.y_fix_missing_uv", text=title, icon='ERROR').source_uv_name = uv_name
-            #print(entities)
-            row.alert = False
+    # Show missing UV buttons
+    for uv_name in uv_missings:
+        row = box.row(align=True)
+        row.alert = True
+        title = 'UV ' + uv_name + ' is missing or renamed!'
+        row.operator("wm.y_fix_missing_uv", text=title, icon='ERROR').source_uv_name = uv_name
+        #print(entities)
+        row.alert = False
 
     # Check if tangent refresh is needed
     need_tangent_refresh = False
@@ -3720,36 +3730,42 @@ def draw_layers_ui(context, layout, node):
         col = box.column()
         col.active = layer.enable and not is_parent_hidden(layer)
 
-        linear = source_tree.nodes.get(layer.linear)
-
         # Get active vcol
         if mask_vcol: active_vcol = mask_vcol
         elif override_vcol: active_vcol = override_vcol
         elif vcol: active_vcol = vcol
         else: active_vcol = None
 
-        # Check if any images aren't using proper linear pipelines
-        if any_linear_images_problem(yp):
+        # NOTE: Avoid checking linear and AO problem when in modal operation to avoid performance loss
+        if in_active_modal:
+            linear_problem = ypui.cache_linear_problem
+            ao_problem = ypui.cache_ao_problem
+        else: 
+            # Check if any images aren't using proper linear pipelines
+            linear_problem = ypui.cache_linear_problem = any_linear_images_problem(yp)
+
+            # Check if there's AO problem
+            ao_problem = False
+            if is_bl_newer_than(2, 93) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao:
+                for l in yp.layers:
+                    if l.type in {'EDGE_DETECT', 'AO'} and l.enable:
+                        ao_problem = True
+                        break
+                    for m in l.masks:
+                        if m.type in {'EDGE_DETECT', 'AO'} and get_mask_enabled(m, l):
+                            ao_problem = True
+                            break
+            ypui.cache_ao_problem = ao_problem
+
+        if linear_problem:
             col.alert = True
             col.operator('wm.y_use_linear_color_space', text='Refresh Linear Color Space', icon='ERROR')
             col.alert = False
 
-        # Check if AO is enabled or not
-        scene = bpy.context.scene
-        if is_bl_newer_than(2, 93) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao:
-            ao_found = False
-            for l in yp.layers:
-                if l.type in {'EDGE_DETECT', 'AO'} and l.enable:
-                    ao_found = True
-                    break
-                for m in l.masks:
-                    if m.type in {'EDGE_DETECT', 'AO'} and get_mask_enabled(m, l):
-                        ao_found = True
-                        break
-            if ao_found:
-                col.alert = True
-                col.operator('wm.y_fix_edge_detect_ao', text='Fix EEVEE Edge Detect AO', icon='ERROR')
-                col.alert = False
+        if ao_problem:
+            col.alert = True
+            col.operator('wm.y_fix_edge_detect_ao', text='Fix EEVEE Edge Detect AO', icon='ERROR')
+            col.alert = False
 
         if obj.type == 'MESH' and colorid_vcol:
 
@@ -3786,7 +3802,7 @@ def draw_layers_ui(context, layout, node):
                 col.alert = False
 
             elif obj.mode == 'EDIT':
-                ve = context.scene.ve_edit
+                ve = scene.ve_edit
 
                 bbox = col.box()
                 ccol = bbox.column()
@@ -3865,7 +3881,7 @@ def draw_layers_ui(context, layout, node):
                         label = 'Disable Eraser'
                 row.operator('paint.y_toggle_eraser', text=label)
 
-        ve = context.scene.ve_edit
+        ve = scene.ve_edit
         if is_bl_newer_than(4, 3) and in_texture_paint_mode:
             brush = context.tool_settings.image_paint.brush
             if brush and ((mask_image and mask.source_input == 'RGB') or override_image) and (brush.name in tex_eraser_asset_names or brush.blend == 'ERASE_ALPHA'):
@@ -4018,6 +4034,7 @@ def draw_test_ui(context, layout):
                 col.label(text=pgettext_iface('Test Failed Count: ') + str(wmyp.test_result_failed))
 
 def main_draw(self, context):
+    #T = time.time()
 
     wm = context.window_manager
     area = context.area
@@ -4461,6 +4478,8 @@ def main_draw(self, context):
 
     # Test
     draw_test_ui(context=context, layout=layout)
+
+    #print(get_addon_title()+': UI is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
@@ -7795,6 +7814,11 @@ class YPaintUI(bpy.types.PropertyGroup):
 
     hide_update : BoolProperty(default=False)
     #random_prop : BoolProperty(default=False)
+
+    # Caches
+    cache_linear_problem : BoolProperty(default=False)
+    cache_ao_problem : BoolProperty(default=False)
+    cache_missing_data : BoolProperty(default=False)
 
 def add_new_ypaint_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}: return
