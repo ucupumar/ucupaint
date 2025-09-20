@@ -153,6 +153,8 @@ SMOOTH_PREFIX = '~yPL Smooth '
 # Nodes that require Blender 2.81 at minimum
 EDGE_DETECT = '~yPL Edge Detect'
 EDGE_DETECT_CUSTOM_NORMAL = '~yPL Edge Detect Custom Normal'
+EDGE_DETECT_DOT = '~yPL Edge Detect Dot'
+EDGE_DETECT_CUSTOM_NORMAL_DOT = '~yPL Edge Detect Custom Normal Dot'
 
 # Legacy nodes for Blender 2.79
 FLIP_BACKFACE_NORMAL_LEGACY = '~yPL Flip Backface Normal Legacy'

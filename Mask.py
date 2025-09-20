@@ -32,10 +32,25 @@ def setup_object_idx_source(mask, source, object_index=None):
 
     source.inputs[0].default_value = object_index
 
-def setup_edge_detect_source(entity, source, edge_detect_radius=None):
-    if entity.hemi_use_prev_normal:
-        lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL
-    else: lib_name = lib.EDGE_DETECT
+def setup_edge_detect_source(entity, source, edge_detect_radius=None, edge_detect_method=None):
+    yp = entity.id_data.yp
+
+    if edge_detect_method == None:
+        edge_detect_method = entity.edge_detect_method
+    elif entity.edge_detect_method != edge_detect_method:
+        ori_halt_update = yp.halt_update
+        yp.halt_update = True
+        entity.edge_detect_method = edge_detect_method
+        yp.halt_update = ori_halt_update
+
+    if edge_detect_method == 'CROSS':
+        if entity.hemi_use_prev_normal:
+            lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL
+        else: lib_name = lib.EDGE_DETECT
+    else:
+        if entity.hemi_use_prev_normal:
+            lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL_DOT
+        else: lib_name = lib.EDGE_DETECT_DOT
 
     ori_lib = source.node_tree
     if not ori_lib or ori_lib.name != lib_name:
@@ -64,7 +79,7 @@ def setup_modifier_mask_source(tree, mask, modifier_type):
 def add_new_mask(
         layer, name, mask_type, texcoord_type, uv_name, image=None, vcol_name='', segment=None,
         object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False,
-        color_id=(1, 0, 1), source_input='RGB', edge_detect_radius=0.05,
+        color_id=(1, 0, 1), source_input='RGB', edge_detect_radius=0.05, edge_detect_method='CROSS',
         modifier_type='INVERT', interpolation='Linear', ao_distance=1.0
     ):
     yp = layer.id_data.yp
@@ -119,7 +134,7 @@ def add_new_mask(
 
     elif mask_type == 'EDGE_DETECT':
         mask.hemi_use_prev_normal = hemi_use_prev_normal
-        setup_edge_detect_source(mask, source, edge_detect_radius)
+        setup_edge_detect_source(mask, source, edge_detect_radius, edge_detect_method)
 
     elif mask_type == 'AO':
         mask.hemi_use_prev_normal = hemi_use_prev_normal
@@ -2270,6 +2285,20 @@ def update_mask_edge_detect_radius(self, context):
     source = get_mask_source(mask)
     if source: source.inputs[0].default_value = self.edge_detect_radius
 
+def update_mask_edge_detect_method(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = self
+    
+    source = get_mask_source(mask)
+    setup_edge_detect_source(mask, source)
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
 def update_mask_source_input(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -2535,6 +2564,17 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0, precision=3,
         update = update_mask_edge_detect_radius
+    )
+
+    edge_detect_method : EnumProperty(
+        name = 'Edge Detection Calculation Type',
+        description = 'Edge detection calculation type (Cycles Only)',
+        items = (
+            ('DOT', 'Dot Product', ''),
+            ('CROSS', 'Cross Product', '')
+        ),
+        default='CROSS',
+        update = update_mask_edge_detect_method
     )
 
     # For AO

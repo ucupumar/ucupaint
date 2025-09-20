@@ -57,8 +57,8 @@ def add_new_layer(
         mask_color_id=(1, 0, 1), mask_vcol_fill=True,
         mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha=False, use_udim_for_mask=False,
-        interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05,
-        normal_space = 'TANGENT', edge_detect_radius=0.05, mask_use_prev_normal=True,
+        interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05, mask_edge_detect_method='CROSS',
+        normal_space = 'TANGENT', edge_detect_radius=0.05, edge_detect_method='CROSS', mask_use_prev_normal=True,
         ao_distance=1.0
     ):
 
@@ -187,7 +187,7 @@ def add_new_layer(
 
     elif layer_type == 'EDGE_DETECT':
         layer.hemi_use_prev_normal = hemi_use_prev_normal
-        Mask.setup_edge_detect_source(layer, source, edge_detect_radius)
+        Mask.setup_edge_detect_source(layer, source, edge_detect_radius, edge_detect_method)
 
     elif layer_type == 'AO':
         layer.hemi_use_prev_normal = hemi_use_prev_normal
@@ -322,7 +322,7 @@ def add_new_layer(
             layer, mask_name, mask_type, mask_texcoord_type,
             mask_uv_name, mask_image, mask_vcol_name, mask_segment,
             interpolation=mask_interpolation, color_id=mask_color_id,
-            edge_detect_radius=mask_edge_detect_radius,
+            edge_detect_radius=mask_edge_detect_radius, edge_detect_method=mask_edge_detect_method,
             hemi_use_prev_normal=mask_use_prev_normal
         )
         mask.active_edit = True
@@ -1039,10 +1039,30 @@ class YNewLayer(bpy.types.Operator):
         default=0.05, min=0.0, max=10.0
     )
 
+    edge_detect_method : EnumProperty(
+        name = 'Edge Detection Method',
+        description = 'Edge detection method (Cycles Only)',
+        items = (
+            ('DOT', 'Dot Product', ''),
+            ('CROSS', 'Cross Product', '')
+        ),
+        default='CROSS',
+    )
+
     mask_edge_detect_radius : FloatProperty(
         name = 'Edge Detect Mask Radius',
         description = 'Edge detect mask radius',
         default=0.05, min=0.0, max=10.0
+    )
+
+    mask_edge_detect_method : EnumProperty(
+        name = 'Edge Detection Method for Mask',
+        description = 'Edge detection method for mask(Cycles Only)',
+        items = (
+            ('DOT', 'Dot Product', ''),
+            ('CROSS', 'Cross Product', '')
+        ),
+        default='CROSS',
     )
 
     mask_use_prev_normal : BoolProperty(
@@ -1266,6 +1286,7 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'EDGE_DETECT':
             col.label(text='Edge Detect Radius:')
+            col.label(text='Cycles Method:')
 
         if self.type == 'AO':
             col.label(text='AO Distance:')
@@ -1301,6 +1322,7 @@ class YNewLayer(bpy.types.Operator):
                         col.label(text='')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.label(text='Edge Detect Radius:')
+                    col.label(text='Cycles Method:')
                 else:
                     if self.mask_type == 'IMAGE':
                         if self.mask_image_filepath:
@@ -1359,6 +1381,8 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'EDGE_DETECT':
             col.prop(self, 'edge_detect_radius', text='')
+            rrow = col.row(align=True)
+            rrow.prop(self, 'edge_detect_method', expand=True)
 
         if self.type == 'AO':
             col.prop(self, 'ao_distance', text='')
@@ -1407,6 +1431,8 @@ class YNewLayer(bpy.types.Operator):
                         col.prop(self, 'mask_vcol_fill', text='Fill Selected Faces')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.prop(self, 'mask_edge_detect_radius', text='')
+                    rrow = col.row(align=True)
+                    rrow.prop(self, 'mask_edge_detect_method', expand=True)
                     col.prop(self, 'mask_use_prev_normal', text='Use Previous Normal')
                 else:
                     if self.mask_type == 'IMAGE':
@@ -1596,7 +1622,8 @@ class YNewLayer(bpy.types.Operator):
             mask_color_id=self.mask_color_id, mask_vcol_fill=self.mask_vcol_fill,
             mask_vcol_data_type=self.mask_vcol_data_type, mask_vcol_domain=self.mask_vcol_domain, use_divider_alpha=self.use_divider_alpha,
             use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
-            mask_edge_detect_radius=self.mask_edge_detect_radius, edge_detect_radius=self.edge_detect_radius,
+            mask_edge_detect_radius=self.mask_edge_detect_radius, mask_edge_detect_method=self.mask_edge_detect_method,
+            edge_detect_radius=self.edge_detect_radius, edge_detect_method=self.edge_detect_method,
             mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance
         )
 
@@ -6065,6 +6092,18 @@ def update_hemi_camera_ray_mask(self, context):
 
         source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
 
+def update_layer_edge_detect_method(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    layer = self
+    tree = get_tree(layer)
+    
+    source = get_layer_source(layer)
+    Mask.setup_edge_detect_source(layer, source)
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
 def update_hemi_use_prev_normal(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -6978,6 +7017,17 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0, precision=3,
         update = update_layer_edge_detect_radius
+    )
+
+    edge_detect_method : EnumProperty(
+        name = 'Edge Detection Method',
+        description = 'Edge detection method (Cycles Only)',
+        items = (
+            ('DOT', 'Dot Product', ''),
+            ('CROSS', 'Cross Product', '')
+        ),
+        default='CROSS',
+        update = update_layer_edge_detect_method
     )
 
     # For AO
