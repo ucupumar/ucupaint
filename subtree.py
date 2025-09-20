@@ -2619,13 +2619,11 @@ def check_mask_image_linear_node(mask, mask_tree=None):
 def check_yp_linear_nodes(yp, specific_layer=None, reconnect=True):
     for layer in yp.layers:
         if specific_layer and layer != specific_layer: continue
-        if layer.type == 'IMAGE':
-            check_layer_image_linear_node(layer)
+        check_layer_image_linear_node(layer)
         for ch in layer.channels:
             check_layer_channel_linear_node(ch)
         for mask in layer.masks:
-            if mask.type == 'IMAGE':
-                check_mask_image_linear_node(mask)
+            check_mask_image_linear_node(mask)
 
         if reconnect:
             reconnect_layer_nodes(layer)

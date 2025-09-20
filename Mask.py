@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator
+from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator, Decal
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -32,10 +32,25 @@ def setup_object_idx_source(mask, source, object_index=None):
 
     source.inputs[0].default_value = object_index
 
-def setup_edge_detect_source(entity, source, edge_detect_radius=None):
-    if entity.hemi_use_prev_normal:
-        lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL
-    else: lib_name = lib.EDGE_DETECT
+def setup_edge_detect_source(entity, source, edge_detect_radius=None, edge_detect_method=None):
+    yp = entity.id_data.yp
+
+    if edge_detect_method == None:
+        edge_detect_method = entity.edge_detect_method
+    elif entity.edge_detect_method != edge_detect_method:
+        ori_halt_update = yp.halt_update
+        yp.halt_update = True
+        entity.edge_detect_method = edge_detect_method
+        yp.halt_update = ori_halt_update
+
+    if edge_detect_method == 'CROSS':
+        if entity.hemi_use_prev_normal:
+            lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL
+        else: lib_name = lib.EDGE_DETECT
+    else:
+        if entity.hemi_use_prev_normal:
+            lib_name = lib.EDGE_DETECT_CUSTOM_NORMAL_DOT
+        else: lib_name = lib.EDGE_DETECT_DOT
 
     ori_lib = source.node_tree
     if not ori_lib or ori_lib.name != lib_name:
@@ -64,7 +79,7 @@ def setup_modifier_mask_source(tree, mask, modifier_type):
 def add_new_mask(
         layer, name, mask_type, texcoord_type, uv_name, image=None, vcol_name='', segment=None,
         object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False,
-        color_id=(1, 0, 1), source_input='RGB', edge_detect_radius=0.05,
+        color_id=(1, 0, 1), source_input='RGB', edge_detect_radius=0.05, edge_detect_method='CROSS',
         modifier_type='INVERT', interpolation='Linear', ao_distance=1.0, socket_input_name='Color'
     ):
     yp = layer.id_data.yp
@@ -119,7 +134,7 @@ def add_new_mask(
 
     elif mask_type == 'EDGE_DETECT':
         mask.hemi_use_prev_normal = hemi_use_prev_normal
-        setup_edge_detect_source(mask, source, edge_detect_radius)
+        setup_edge_detect_source(mask, source, edge_detect_radius, edge_detect_method)
 
     elif mask_type == 'AO':
         mask.hemi_use_prev_normal = hemi_use_prev_normal
@@ -213,7 +228,7 @@ def remove_mask(layer, mask, obj, refresh_list=True):
     mask_index = [i for i, m in enumerate(layer.masks) if m == mask][0]
 
     # Dealing with decal object
-    remove_decal_object(tree, mask)
+    Decal.remove_decal_object(tree, mask)
 
     # Remove mask fcurves first
     remove_entity_fcurves(mask)
@@ -1847,10 +1862,6 @@ class YReplaceMaskType(bpy.types.Operator):
         mask = self.mask
         yp = mask.id_data.yp
 
-        if mask.use_temp_bake:
-            self.report({'ERROR'}, "Cannot replace temporarily baked mask!")
-            return {'CANCELLED'}
-
         if self.type == mask.type and self.type not in {'IMAGE', 'VCOL', 'MODIFIER'}: return {'CANCELLED'}
 
         if self.load_item and self.type in {'VCOL', 'IMAGE'} and self.item_name == '':
@@ -2288,6 +2299,20 @@ def update_mask_edge_detect_radius(self, context):
     source = get_mask_source(mask)
     if source: source.inputs[0].default_value = self.edge_detect_radius
 
+def update_mask_edge_detect_method(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = self
+    
+    source = get_mask_source(mask)
+    setup_edge_detect_source(mask, source)
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
 def update_mask_source_input(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -2357,7 +2382,7 @@ def update_mask_uniform_scale_enabled(self, context):
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-class YLayerMask(bpy.types.PropertyGroup):
+class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
 
     name : StringProperty(default='', update=update_mask_name)
 
@@ -2421,17 +2446,6 @@ class YLayerMask(bpy.types.PropertyGroup):
         # Using a lambda because update function is expected to have an arity of 2
         update = lambda self, context:
             update_mask_texcoord_type(self, context)
-    )
-
-    original_texcoord : EnumProperty(
-        name = 'Original Layer Coordinate Type',
-        items = mask_texcoord_type_items,
-        default = 'UV'
-    )
-
-    original_image_extension : StringProperty(
-        name = 'Original Image Extension Type',
-        default = ''
     )
 
     modifier_type : EnumProperty(
@@ -2529,12 +2543,6 @@ class YLayerMask(bpy.types.PropertyGroup):
         default=1.0, min=0.0, max=100.0, precision=3
     )
 
-    decal_distance_value : FloatProperty(
-        name = 'Decal Distance',
-        description = 'Distance between surface and the decal object',
-        min=0.0, max=100.0, default=0.5, precision=3
-    )
-
     color_id : FloatVectorProperty(
         name = 'Color ID',
         size = 3,
@@ -2564,13 +2572,6 @@ class YLayerMask(bpy.types.PropertyGroup):
         update = update_mask_object_index
     )
 
-    # For temporary bake
-    use_temp_bake : BoolProperty(
-        name = 'Use Temporary Bake',
-        description = 'Use temporary bake, it can be useful to prevent glitching with cycles',
-        default = False,
-    )
-
     original_type : EnumProperty(
         name = 'Original Mask Type',
         items = mask_type_items,
@@ -2592,6 +2593,17 @@ class YLayerMask(bpy.types.PropertyGroup):
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0, precision=3,
         update = update_mask_edge_detect_radius
+    )
+
+    edge_detect_method : EnumProperty(
+        name = 'Edge Detection Calculation Type',
+        description = 'Edge detection calculation type (Cycles Only)',
+        items = (
+            ('DOT', 'Dot Product', ''),
+            ('CROSS', 'Cross Product', '')
+        ),
+        default='CROSS',
+        update = update_mask_edge_detect_method
     )
 
     # For AO

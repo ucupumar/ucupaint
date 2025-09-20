@@ -806,6 +806,11 @@ def set_object_select(obj, val):
         obj.select_set(val)
     else: obj.select = val
 
+def get_object_hide(obj):
+    if is_bl_newer_than(2, 80):
+        return obj.hide_get()
+    return obj.hide
+
 def set_object_hide(obj, val):
     if is_bl_newer_than(2, 80):
         obj.hide_set(val)
@@ -1581,18 +1586,14 @@ def create_essential_nodes(tree, solid_value=False, texcoord=False, geometry=Fal
         node = tree.nodes.new('ShaderNodeTexCoord')
         node.name = TEXCOORD
 
-def get_active_mat_output_node(tree):
-    # Search for output
-    for node in tree.nodes:
-        if node.bl_idname == 'ShaderNodeOutputMaterial' and node.is_active_output:
-            return node
-
-    return None
-
-def get_material_output(mat):
+def get_material_output(mat, create_one=False):
     if mat != None and mat.node_tree:
         output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
         if output: return output[0]
+
+        # Create new material output if there's none
+        if create_one:
+            return mat.node_tree.nodes.new('ShaderNodeOutputMaterial')
     return None
 
 def get_all_image_users(image):
@@ -2662,6 +2663,14 @@ def get_tree_output_by_name(tree, name):
 
     return None
 
+def set_modifier_input_value(mod, socket_name, value):
+    if mod.type != 'NODES' or not mod.node_group: return
+
+    inp = get_tree_input_by_name(mod.node_group, socket_name)
+    if not inp: return
+
+    mod[inp.identifier] = value
+
 def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not is_bl_newer_than(4):
         return tree.inputs.new(socket_type, name)
@@ -3531,7 +3540,7 @@ def remove_temp_uv(obj, entity):
             except: print('EXCEPTIION: Cannot set modifier mirror offset!')
 
 def refresh_temp_uv(obj, entity): 
-    if obj.type != 'MESH':
+    if not obj or obj.type != 'MESH':
         return False
 
     if not entity:
@@ -5694,16 +5703,6 @@ def get_layer_images(layer, udim_only=False, ondisk_only=False, packed_only=Fals
 
     return filtered_images
 
-def any_decal_inside_layer(layer):
-    if layer.texcoord_type == 'Decal':
-        return True
-
-    for mask in layer.masks:
-        if mask.texcoord_type == 'Decal':
-            return True
-
-    return False
-
 def any_dirty_images_inside_layer(layer):
     for image in get_layer_images(layer):
         if image.is_dirty:
@@ -6509,6 +6508,8 @@ def get_mix_color_indices(mix):
             return 2, 3, 0
         elif mix.data_type == 'VECTOR':
             return 4, 5, 1
+        elif mix.data_type == 'ROTATION':
+            return 8, 9, 3
         return 6, 7, 2
 
     # Check for Color1 input name
@@ -7756,17 +7757,6 @@ def get_uv_hash(obj, uv_name):
     h = hash(uv_np.tobytes())
     return str(h)
 
-def remove_decal_object(tree, entity):
-    if not tree: return
-    # NOTE: This will remove the texcoord object even if the entity is not using decal
-    #if entity.texcoord_type == 'Decal':
-    texcoord = tree.nodes.get(entity.texcoord)
-    if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-        decal_obj = texcoord.object
-        if decal_obj.type == 'EMPTY' and decal_obj.users <= 2:
-            texcoord.object = None
-            remove_datablock(bpy.data.objects, decal_obj)
-
 def load_image(path, directory, check_existing=True):
     if not is_bl_newer_than(2, 77):
         return bpy_extras.image_utils.load_image(path, directory)
@@ -7798,6 +7788,72 @@ def enable_eevee_ao():
 def is_image_available_to_open(image):
     return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node'}
 
+def fix_missing_vcol(obj, name, src=None, entity=None, entities=[]):
+
+    ref_vcol = None
+
+    if is_bl_newer_than(3, 2):
+        # Try to get reference vcol
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+
+        for o in objs:
+            ovcols = get_vertex_colors(o)
+            if name in ovcols:
+                ref_vcol = ovcols.get(name)
+                break
+
+    # Default recovered missing vcol is black
+    color = (0.0, 0.0, 0.0, 0.0)
+
+    # Create missing vertex color
+    if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain, color_fill=color)
+    else: vcol = new_vertex_color(obj, name, color_fill=color)
+
+    # Set attribute name back to source in case the name is different
+    if src: set_source_vcol_name(src, vcol.name)
+
+    # Set the name back to entity
+    if entity and vcol.name not in entity.name:
+        entity.name = get_unique_name(vcol.name, entities)
+
+def fix_missing_object_vcols(yp, objs, enabled_only=False):
+    need_color_id_vcol = False
+
+    for obj in objs:
+        if obj.type != 'MESH': continue
+
+        for layer in yp.layers:
+            if enabled_only and not layer.enable: continue
+
+            if layer.type == 'VCOL':
+                src = get_layer_source(layer)
+                if not get_vcol_from_source(obj, src):
+                    fix_missing_vcol(obj, src.attribute_name, src, entity=layer, entities=yp.layers)
+
+            for mask in layer.masks:
+                if enabled_only and not mask.enable: continue
+
+                if mask.type == 'VCOL': 
+                    src = get_mask_source(mask)
+                    if not get_vcol_from_source(obj, src):
+                        fix_missing_vcol(obj, src.attribute_name, src, entity=mask, entities=layer.masks)
+
+                if mask.type == 'COLOR_ID':
+                    vcols = get_vertex_colors(obj)
+                    if COLOR_ID_VCOL_NAME not in vcols:
+                        need_color_id_vcol = True
+
+            for ch in layer.channels:
+                if enabled_only and not ch.enable: continue
+
+                if ch.override and ch.override_type == 'VCOL':
+                    src = get_channel_source(ch, layer)
+                    if not get_vcol_from_source(obj, src):
+                        fix_missing_vcol(obj, src.attribute_name, src)
+
+    # Fix missing color id missing vcol
+    if need_color_id_vcol: check_colorid_vcol(objs)
 
 def get_channel_input_socket_name(layer, ch, source=None):
     if not source: source = get_layer_source(layer)

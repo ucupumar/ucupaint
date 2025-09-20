@@ -250,6 +250,16 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     bevel_samples : IntProperty(default=4, min=2, max=16)
     bevel_radius : FloatProperty(default=0.05, min=0.0, max=1000.0)
 
+    edge_detect_method : EnumProperty(
+        name = 'Edge Detection Method',
+        description = 'Edge detection method',
+        items = (
+            ('DOT', 'Dot Product', ''),
+            ('CROSS', 'Cross Product', '')
+        ),
+        default='CROSS'
+    )
+
     use_image_atlas : BoolProperty(
         name = 'Use Image Atlas',
         description = 'Use Image Atlas',

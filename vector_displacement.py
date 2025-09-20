@@ -43,6 +43,10 @@ def _remember_before_bake(obj):
     book['ori_bake_margin'] = get_scene_bake_margin(scene)
     book['ori_view_transform'] = scene.view_settings.view_transform
 
+    if is_bl_newer_than(5):
+        book['ori_displacement_space'] = scene.render.bake.displacement_space
+        book['ori_use_lores_mesh'] = scene.render.bake.use_lores_mesh
+
     # Remember world settings
     if scene.world:
         book['ori_distance'] = scene.world.light_settings.distance
@@ -59,7 +63,7 @@ def _remember_before_bake(obj):
 
     return book
 
-def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_device='CPU'):
+def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_device='CPU', bake_type='EMIT'):
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
@@ -79,15 +83,22 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
     scene.render.bake.use_cage = False
     scene.render.use_simplify = False
     scene.render.bake.target = 'IMAGE_TEXTURES'
-    set_scene_bake_multires(scene, False)
     set_scene_bake_margin(scene, margin)
     set_scene_bake_clear(scene, False)
     scene.cycles.samples = samples
     scene.cycles.use_denoising = False
-    scene.cycles.bake_type = 'EMIT'
     scene.cycles.device = bake_device
     scene.view_settings.view_transform = 'Standard' if is_bl_newer_than(2, 80) else 'Default'
     bpy.context.view_layer.material_override = None
+
+    if bake_type == 'VECTOR_DISPLACEMENT':
+        set_scene_bake_multires(scene, True)
+        set_scene_render_bake_type(scene, bake_type)
+        scene.render.bake.displacement_space = 'TANGENT'
+        scene.render.bake.use_lores_mesh = False
+    else:
+        set_scene_bake_multires(scene, False)
+        scene.cycles.bake_type = bake_type
 
     # Show viewport and render of object layer collection
     obj.hide_select = False
@@ -146,6 +157,10 @@ def _recover_bake_settings(book, recover_active_uv=False):
     set_scene_render_bake_type(scene, book['ori_render_bake_type'])
     set_scene_bake_margin(scene, book['ori_bake_margin'])
 
+    if is_bl_newer_than(5):
+        scene.render.bake.displacement_space = book['ori_displacement_space']
+        scene.render.bake.use_lores_mesh = book['ori_use_lores_mesh']
+
     # Recover world settings
     if scene.world:
         scene.world.light_settings.distance = book['ori_distance']
@@ -168,6 +183,368 @@ def _recover_bake_settings(book, recover_active_uv=False):
 
     # Bring back the hack functions
     wmyp.halt_hacks = False
+
+''' Applying modifier with shape keys. Based on implementation by Przemysław Bągard.'''
+def apply_modifiers_with_shape_keys(obj, selected_modifiers, disable_armatures=True):
+
+    list_properties = []
+    properties = ["interpolation", "mute", "name", "relative_key", "slider_max", "slider_min", "value", "vertex_group"]
+    T = time.time()
+
+    scene = bpy.context.scene
+
+    disabled_armature_modifiers = []
+    if disable_armatures:
+        for modifier in obj.modifiers:
+            if modifier.name not in selected_modifiers and modifier.type == 'ARMATURE' and modifier.show_viewport == True:
+                disabled_armature_modifiers.append(modifier)
+                modifier.show_viewport = False
+    
+    num_shapes = 0
+    if obj.data.shape_keys:
+        num_shapes = len(obj.data.shape_keys.key_blocks)
+
+    # Remember original selected objects
+    ori_selected_objs = [o for o in bpy.context.selected_objects]
+    ori_active = get_active_object()
+    set_active_object(obj)
+    
+    if(num_shapes == 0):
+        for mod_name in selected_modifiers:
+            try: bpy.ops.object.modifier_apply(modifier=mod_name)
+            except Exception as e: print(e)
+        if disable_armatures:
+            for modifier in disabled_armature_modifiers:
+                modifier.show_viewport = True
+        set_active_object(ori_active)
+        return (True, None)
+
+    # We want to preserve original object, so all shapes will be joined to it.
+    if obj.mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    set_object_select(obj, True)
+    ori_key_idx = obj.active_shape_key_index
+
+    ori_hide = get_object_hide(obj)
+    set_object_hide(obj, False)
+    
+    # Copy object which has the modifiers applied
+    applied_obj = obj.copy()
+    applied_obj.data = applied_obj.data.copy()
+    link_object(scene, applied_obj)
+
+    # Remove shape keys and apply modifiers
+    set_active_object(applied_obj)
+    bpy.ops.object.shape_key_remove(all=True)
+    for mod_name in selected_modifiers:
+        try: bpy.ops.object.modifier_apply(modifier=mod_name)
+        except Exception as e: print(e)
+
+    # Get applied vertex count
+    vert_count = len(applied_obj.data.vertices)
+
+    # Remove applied copy of the object.
+    remove_mesh_obj(applied_obj)
+    
+    # Return selection to original object.
+    set_active_object(obj)
+    set_object_select(obj, True)
+
+    # Get key objects and save key shape properties
+    key_objs = [None]
+    for i in range(0, num_shapes):
+        key_b = obj.data.shape_keys.key_blocks[i]
+        properties_object = {p:None for p in properties}
+        properties_object["name"] = key_b.name
+        properties_object["mute"] = key_b.mute
+        properties_object["interpolation"] = key_b.interpolation
+        properties_object["relative_key"] = key_b.relative_key.name
+        properties_object["slider_max"] = key_b.slider_max
+        properties_object["slider_min"] = key_b.slider_min
+        properties_object["value"] = key_b.value
+        properties_object["vertex_group"] = key_b.vertex_group
+        list_properties.append(properties_object)
+
+        if i == 0: continue
+
+        # Copy as key object.
+        key_obj = obj.copy()
+        key_obj.data = key_obj.data.copy()
+        link_object(scene, key_obj)
+        set_active_object(key_obj)
+        bpy.ops.object.shape_key_remove(all=True)
+        
+        # Get right shape-key.
+        obj.active_shape_key_index = i
+        bpy.ops.object.shape_key_transfer()
+        key_obj.active_shape_key_index = 0
+        bpy.ops.object.shape_key_remove()
+        bpy.ops.object.shape_key_remove(all=True)
+        
+        # Apply modifier on temporary object
+        for mod_name in selected_modifiers:
+            try: bpy.ops.object.modifier_apply(modifier=mod_name)
+            except Exception as e: print(e)
+
+        # Get shape key vertex count
+        key_vert_count = len(key_obj.data.vertices)
+
+        # Store key objects
+        key_objs.append(key_obj)
+
+        # Deselect key object
+        set_object_select(key_obj, False)
+        
+        # Verify number of vertices.
+        if vert_count != key_vert_count:
+
+            # Remove temporary objects
+            for o in reversed(key_objs): 
+                if o != None: remove_mesh_obj(o)
+
+            # Recover selected objects
+            bpy.ops.object.select_all(action='DESELECT')
+            for o in ori_selected_objs:
+                set_object_select(o, True)
+            set_active_object(ori_active)
+    
+            # Enable armatures back
+            if disable_armatures:
+                for modifier in disabled_armature_modifiers:
+                    modifier.show_viewport = True
+
+            # Recover hide
+            set_object_hide(obj, ori_hide)
+
+            errorInfo = ("Shape keys ended up with different number of vertices!\n"
+                         "All shape keys needs to have the same number of vertices after modifier is applied.\n"
+                         "Otherwise joining such shape keys will fail!")
+            return (False, errorInfo)
+
+    # Save animation data
+    ori_fcurves = []
+    ori_action_name = ''
+    if obj.data.shape_keys.animation_data and obj.data.shape_keys.animation_data.action:
+        ori_action_name = obj.data.shape_keys.animation_data.action.name
+        for fc in obj.data.shape_keys.animation_data.action.fcurves:
+            fc_dic = {}
+
+            for prop in dir(fc):
+                copy_props_to_dict(fc, fc_dic) #, True)
+
+            ori_fcurves.append(fc_dic)
+
+    # Handle base shape in original object
+    print("apply_modifiers_with_shape_keys: Applying base shape key")
+
+    # Return selection to original object.
+    set_active_object(obj)
+    set_object_select(obj, True)
+
+    # Make sure active shape key index is set to avoid error
+    obj.active_shape_key_index = 0
+
+    bpy.ops.object.shape_key_remove(all=True)
+    for mod_name in selected_modifiers:
+        try: bpy.ops.object.modifier_apply(modifier=mod_name)
+        except Exception as e: print(e)
+    bpy.ops.object.shape_key_add(from_mix=False)
+
+    # Create new shape keys based on key objects
+    for i in range(1, num_shapes):
+
+        # Select key object
+        key_obj = key_objs[i]
+        set_object_select(key_obj, True)
+
+        # Join with original object
+        bpy.ops.object.join_shapes()
+
+        # Deselect again
+        set_object_select(key_obj, False)
+    
+    # Restore shape key properties like name, mute etc.
+    for i in range(0, num_shapes):
+        key_b = obj.data.shape_keys.key_blocks[i]
+        key_b.name = list_properties[i]["name"]
+        key_b.interpolation = list_properties[i]["interpolation"]
+        key_b.mute = list_properties[i]["mute"]
+        key_b.slider_max = list_properties[i]["slider_max"]
+        key_b.slider_min = list_properties[i]["slider_min"]
+        key_b.value = list_properties[i]["value"]
+        key_b.vertex_group = list_properties[i]["vertex_group"]
+        rel_key = list_properties[i]["relative_key"]
+    
+        for j in range(0, num_shapes):
+            key_brel = obj.data.shape_keys.key_blocks[j]
+            if rel_key == key_brel.name:
+                key_b.relative_key = key_brel
+                break
+    
+    # Remove key objects
+    for o in reversed(key_objs):
+        if o != None: remove_mesh_obj(o)
+    
+    # Enable armatures back
+    if disable_armatures:
+        for modifier in disabled_armature_modifiers:
+            modifier.show_viewport = True
+
+    # Set to original key
+    obj.active_shape_key_index = ori_key_idx
+
+    # Recover animation data
+    if any(ori_fcurves):
+
+        obj.data.shape_keys.animation_data_create()
+        obj.data.shape_keys.animation_data.action = bpy.data.actions.new(name=ori_action_name)
+
+        for ofc in ori_fcurves:
+            fcurve = obj.data.shape_keys.animation_data.action.fcurves.new(
+                data_path=ofc['data_path'], #index=2
+            )
+
+            for key, val in ofc.items():
+                if key in {'data_path', 'keyframe_points'}: continue
+                try: setattr(fcurve, key, val)
+                except Exception as e: pass
+
+            for kp in ofc['keyframe_points']:
+                k = fcurve.keyframe_points.insert(
+                frame=kp['co'][0],
+                value=kp['co'][1]
+                )
+
+                for key, val in kp.items():
+                    try: setattr(k, key, val)
+                    except Exception as e: pass
+
+            for mod in ofc['modifiers']:
+                m = fcurve.modifiers.new(type=mod['type'])
+                for key, val in mod.items():
+                    try: setattr(m, key, val)
+                    except Exception as e: pass
+
+    # Recover hide
+    set_object_hide(obj, ori_hide)
+
+    # Recover selected objects
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in ori_selected_objs:
+        set_object_select(o, True)
+    set_active_object(ori_active)
+    
+    return (True, None)
+
+def apply_mirror_modifier(obj):
+    mirror = None
+    mirror_idx = -1
+
+    # Get uv mirrored mirror modifier
+    for i, mod in enumerate(obj.modifiers):
+        if not mod.show_viewport or not mod.show_render: continue
+        if mod.type == 'MIRROR' and (mod.use_mirror_u or mod.use_mirror_v):
+            mirror = mod
+            mirror_idx = i
+            break
+
+    if not mirror: return
+
+    # Check if mirror modifier has only one axis
+    axis = [mirror.use_axis[0], mirror.use_axis[1], mirror.use_axis[2]]
+    axis_num = 0
+    for a in axis:
+        if a: axis_num += 1
+    if axis_num > 1 or axis_num == 0:
+        return
+
+    # Get number of vertices to know which vertices need to deleted after applying the sculpt
+    obj.yp_vdm.num_verts = len(obj.data.vertices)
+
+    # Remember mirror properties
+    use_mirror_merge = mirror.use_mirror_merge
+    use_clip = mirror.use_clip
+    use_mirror_vertex_groups = mirror.use_mirror_vertex_groups
+    use_mirror_u = mirror.use_mirror_u
+    use_mirror_v = mirror.use_mirror_v
+    use_mirror_udim = mirror.use_mirror_udim
+    mirror_offset_u = mirror.mirror_offset_u
+    mirror_offset_v = mirror.mirror_offset_v
+    offset_u = mirror.offset_u
+    offset_v = mirror.offset_v
+    mirror_object = mirror.mirror_object
+    merge_threshold = mirror.merge_threshold
+    show_in_editmode = mirror.show_in_editmode
+    show_on_cage = mirror.show_on_cage
+
+    # Apply modifier
+    success, errorInfo = apply_modifiers_with_shape_keys(obj, [mirror.name])
+    if not success:
+        print('apply_modifiers_with_shape_keys FAILED:', errorInfo)
+        obj.yp_vdm.mirror_modifier_name = ''
+        return
+
+    # Bring back the mirror but disable it
+    bpy.ops.object.modifier_add(type='MIRROR')
+    new_mirror = obj.modifiers[-1]
+    new_mirror.show_viewport = False
+    new_mirror.show_render = False
+    obj.yp_vdm.mirror_modifier_name = new_mirror.name
+
+    # Move up new mirror modifier
+    bpy.ops.object.modifier_move_to_index(modifier=new_mirror.name, index=mirror_idx)
+
+    # Bring back modifier attributes
+    new_mirror.use_axis[0] = axis[0]
+    new_mirror.use_axis[1] = axis[1]
+    new_mirror.use_axis[2] = axis[2]
+    new_mirror.use_mirror_merge = use_mirror_merge
+    new_mirror.use_clip = use_clip
+    new_mirror.use_mirror_vertex_groups = use_mirror_vertex_groups
+    new_mirror.use_mirror_u = use_mirror_u
+    new_mirror.use_mirror_v = use_mirror_v
+    new_mirror.use_mirror_udim = use_mirror_udim
+    new_mirror.mirror_offset_u = mirror_offset_u
+    new_mirror.mirror_offset_v = mirror_offset_v
+    new_mirror.offset_u = offset_u
+    new_mirror.offset_v = offset_v
+    new_mirror.mirror_object = mirror_object
+    new_mirror.merge_threshold = merge_threshold
+    new_mirror.show_in_editmode = show_in_editmode
+    new_mirror.show_on_cage = show_on_cage
+
+def recover_mirror_modifier(obj):
+    if obj.yp_vdm.mirror_modifier_name == '': return
+
+    # Go to edit mode to delete mirrored verts
+    bpy.ops.object.mode_set(mode='EDIT')
+
+    # Get bmesh
+    bm = bmesh.from_edit_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+
+    # Deselect all first
+    bpy.ops.mesh.select_all(action='DESELECT')
+
+    # Select all vertices outside
+    for i in range(obj.yp_vdm.num_verts, len(bm.verts)):
+        bm.verts[i].select = True
+
+    # Delete mirrored vertices
+    bpy.ops.mesh.delete(type='VERT')
+
+    # Back to object mode
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # Show up the modifier back
+    mirror = obj.modifiers.get(obj.yp_vdm.mirror_modifier_name)
+    if mirror:
+        mirror.show_viewport = True
+        mirror.show_render = True
+    
+    obj.yp_vdm.mirror_modifier_name = ''
+    obj.yp_vdm.num_verts = 0
 
 def get_offset_attributes(base, sclupted_mesh, layer_disabled_mesh=None, intensity=1.0):
 
@@ -221,10 +598,18 @@ def get_offset_attributes(base, sclupted_mesh, layer_disabled_mesh=None, intensi
 
     return att, max_value
 
-def bake_multires_image(obj, image, uv_name, intensity=1.0):
+def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
 
     context = bpy.context
     scene = context.scene
+    mat = obj.active_material
+
+    # Get multires modifier
+    multires = get_multires_modifier(obj)
+    if not multires: return
+
+    # Blender 5.0 introduce native VDM baking from multires
+    native_baking = is_bl_newer_than(5)
 
     # Get combined but active layer disabled image
     layer_disabled_vdm_image = None
@@ -232,7 +617,8 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
     if node:
         yp = node.node_tree.yp
         if is_multi_disp_used(yp):
-            layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True)
+            # NOTE: Non-native baking need flipped YZ
+            layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True, flip_yz=not native_baking)
 
     set_active_object(obj)
     if obj.mode != 'OBJECT':
@@ -255,112 +641,216 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
             mod.show_render = False
             ori_mod_show_render.append(mod.name)
 
-    # Temp object 0: Base
-    temp0 = obj.copy()
-    link_object(scene, temp0)
-    temp0.data = temp0.data.copy()
-    temp0.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
-
-    # Delete multires and shape keys
-    set_active_object(temp0)
-    if temp0.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
-    max_level = 0
-    for mod in temp0.modifiers:
-        if mod.type == 'MULTIRES':
-            max_level = mod.total_levels
-            bpy.ops.object.modifier_remove(modifier=mod.name)
-            break
-
     # Disable use simplify before apply modifier
     ori_use_simplify = scene.render.use_simplify
     scene.render.use_simplify = False
 
-    # Apply subsurf
-    tsubsurf = get_subsurf_modifier(temp0)
-    if not tsubsurf:
-        bpy.ops.object.modifier_add(type='SUBSURF')
-        tsubsurf = [m for m in temp0.modifiers if m.type == 'SUBSURF'][0]
-    tsubsurf.show_viewport = True
-    tsubsurf.levels = max_level
-    tsubsurf.render_levels = max_level
-    bpy.ops.object.modifier_apply(modifier=tsubsurf.name)
+    # Remember multires levels
+    ori_multires_levels = multires.levels
 
-    # Temp object 2: Sculpted/Multires mesh
-    temp2 = obj.copy()
-    link_object(scene, temp2)
-    temp2.data = temp2.data.copy()
-    temp2.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 3, 0.0, 0.0))
-    
-    # Apply multires
-    set_active_object(temp2)
-    if temp2.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
-    for mod in temp2.modifiers:
-        if mod.type == 'MULTIRES':
-            mod.levels = max_level
-            bpy.ops.object.modifier_apply(modifier=mod.name)
-            break  
+    temp0 = temp1 = temp2 = None
+    tanimage = bitimage = None
+    temp_mat = None
+    tex = None
+    if native_baking:
+        bake_type = 'VECTOR_DISPLACEMENT'
+        bake_obj = obj
 
-    # Get tangent and bitangent images
-    tanimage, bitimage = get_tangent_bitangent_images(obj, uv_name)
+        # Target image
+        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        tex.image = image
+        mat.node_tree.nodes.active = tex
 
-    # Temp object 1: Half combined vdm mesh
-    temp1 = None
-    if layer_disabled_vdm_image:
-        temp1 = temp0.copy()
-        link_object(scene, temp1)
-        temp1.data = temp1.data.copy()
-        temp1.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 2, 0.0, 0.0))
-        set_active_object(temp1)
+        # Need to set the multires level to 0 to make this work
+        multires.levels = 0
 
-        vdm_loader = get_vdm_loader_geotree(uv_name, layer_disabled_vdm_image, tanimage, bitimage)
-        bpy.ops.object.modifier_add(type='NODES')
-        geomod = temp1.modifiers[-1]
-        geomod.node_group = vdm_loader
-        temp1.modifiers.active = geomod
+    else:
 
-        # Apply geomod
-        bpy.ops.object.modifier_apply(modifier=geomod.name)
+        # Temp object 0: Base
+        temp0 = obj.copy()
+        link_object(scene, temp0)
+        temp0.data = temp0.data.copy()
+        temp0.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
 
-        # Remove vdm loader group
-        bpy.data.node_groups.remove(vdm_loader)
+        bake_type = 'EMIT'
+        bake_obj = temp0
 
-    # Calculate offset from two temp objects
-    att, max_value = get_offset_attributes(temp0, temp2, temp1, intensity)
+        # Delete multires and shape keys
+        set_active_object(temp0)
+        if temp0.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
+        max_level = 0
+        for mod in temp0.modifiers:
+            if mod.type == 'MULTIRES':
+                max_level = mod.total_levels
+                bpy.ops.object.modifier_remove(modifier=mod.name)
+                break
 
-    # Set material to temp object 0
-    temp0.data.materials.clear()
-    mat = get_offset_bake_mat(uv_name, target_image=image, bitangent_image=bitimage)
-    temp0.data.materials.append(mat)
+        # Apply subsurf
+        tsubsurf = get_subsurf_modifier(temp0)
+        if not tsubsurf:
+            bpy.ops.object.modifier_add(type='SUBSURF')
+            tsubsurf = [m for m in temp0.modifiers if m.type == 'SUBSURF'][0]
+        tsubsurf.show_viewport = True
+        tsubsurf.levels = max_level
+        tsubsurf.render_levels = max_level
+        bpy.ops.object.modifier_apply(modifier=tsubsurf.name)
+
+        # Temp object 2: Sculpted/Multires mesh
+        temp2 = obj.copy()
+        link_object(scene, temp2)
+        temp2.data = temp2.data.copy()
+        temp2.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 3, 0.0, 0.0))
+        
+        # Apply multires
+        set_active_object(temp2)
+        if temp2.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
+        for mod in temp2.modifiers:
+            if mod.type == 'MULTIRES':
+                mod.levels = max_level
+                bpy.ops.object.modifier_apply(modifier=mod.name)
+                break  
+
+        # Get tangent and bitangent images
+        tanimage, bitimage = get_tangent_bitangent_images(obj, uv_name)
+
+        # Temp object 1: Half combined vdm mesh
+        temp1 = None
+        if layer_disabled_vdm_image:
+            temp1 = temp0.copy()
+            link_object(scene, temp1)
+            temp1.data = temp1.data.copy()
+            temp1.location = obj.location + Vector(((obj.dimensions[0] + 0.1) * 2, 0.0, 0.0))
+            set_active_object(temp1)
+
+            vdm_loader = get_vdm_loader_geotree(uv_name, layer_disabled_vdm_image, tanimage, bitimage)
+            bpy.ops.object.modifier_add(type='NODES')
+            geomod = temp1.modifiers[-1]
+            geomod.node_group = vdm_loader
+            temp1.modifiers.active = geomod
+            set_modifier_input_value(geomod, 'Flip Y/Z', False)
+
+            # Apply geomod
+            bpy.ops.object.modifier_apply(modifier=geomod.name)
+
+            # Remove vdm loader group
+            bpy.data.node_groups.remove(vdm_loader)
+
+        # Calculate offset from two temp objects
+        att, max_value = get_offset_attributes(temp0, temp2, temp1, intensity)
+
+        # Set material to temp object 0
+        temp0.data.materials.clear()
+        # NOTE: Flipping YZ is unintuitively necessary when the layer is not flipped
+        temp_mat = get_offset_bake_mat(uv_name, target_image=image, bitangent_image=bitimage, flip_yz=not flip_yz)
+        temp0.data.materials.append(temp_mat)
 
     # Bake preparations
     book = _remember_before_bake(obj)
-    _prepare_bake_settings(book, temp0, uv_name)
+    _prepare_bake_settings(book, bake_obj, uv_name, bake_type=bake_type)
 
     # Bake offest
     print('INFO: Baking vdm...')
-    bpy.ops.object.bake()
+    if native_baking: bpy.ops.object.bake_image()
+    else: bpy.ops.object.bake()
     print('INFO: Baking vdm is finished!')
 
-    # Pack image
-    #image.pack()
+    # Extra pass for native baking
+    if native_baking:
+        extra_pass = flip_yz or intensity != 1.0 or layer_disabled_vdm_image
+        if extra_pass:
 
-    # Recover use simplify
-    if ori_use_simplify: scene.render.use_simplify = True
+            mat_out = get_material_output(mat, create_one=True)
+            ori_bsdf = mat_out.inputs[0].links[0].from_socket
+
+            emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+            separate_xyz = None
+            combine_xyz = None
+            divider = None
+            layer_disabled_tex = None
+            subtractor = None
+
+            # Copy image
+            pixels = list(image.pixels)
+            image_copy = image.copy()
+            image_copy.pixels = pixels
+
+            source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+            source_tex.image = image_copy
+
+            vec = source_tex.outputs[0]
+
+            if layer_disabled_vdm_image:
+                layer_disabled_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+                layer_disabled_tex.image = layer_disabled_vdm_image
+
+                subtractor = mat.node_tree.nodes.new('ShaderNodeVectorMath')
+                subtractor.operation = 'SUBTRACT'
+
+                mat.node_tree.links.new(vec, subtractor.inputs[0])
+                mat.node_tree.links.new(layer_disabled_tex.outputs[0], subtractor.inputs[1])
+                vec = subtractor.outputs[0]
+
+            if flip_yz:
+                separate_xyz = mat.node_tree.nodes.new('ShaderNodeSeparateXYZ')
+                combine_xyz = mat.node_tree.nodes.new('ShaderNodeCombineXYZ')
+
+                mat.node_tree.links.new(vec, separate_xyz.inputs[0])
+                mat.node_tree.links.new(separate_xyz.outputs[0], combine_xyz.inputs[0])
+                mat.node_tree.links.new(separate_xyz.outputs[1], combine_xyz.inputs[2])
+                mat.node_tree.links.new(separate_xyz.outputs[2], combine_xyz.inputs[1])
+                vec = combine_xyz.outputs[0]
+
+            if intensity != 1.0 or intensity != 0.0:
+                divider = mat.node_tree.nodes.new('ShaderNodeVectorMath')
+                divider.operation = 'DIVIDE'
+                divider.inputs[1].default_value = (intensity, intensity, intensity)
+
+                mat.node_tree.links.new(vec, divider.inputs[0])
+                vec = divider.outputs[0]
+
+            mat.node_tree.links.new(vec, emit.inputs[0])
+            mat.node_tree.links.new(emit.outputs[0], mat_out.inputs[0])
+
+            # Set bake type
+            scene.cycles.bake_type = 'EMIT'
+
+            # Bake
+            print('INFO: Baking extra pass for vdm...')
+            bpy.ops.object.bake()
+            print('INFO: Baking extra pass for vdm is finished!')
+
+            # Remove bake nodes
+            if separate_xyz: simple_remove_node(mat.node_tree, separate_xyz)
+            if combine_xyz: simple_remove_node(mat.node_tree, combine_xyz)
+            if divider: simple_remove_node(mat.node_tree, divider)
+            if layer_disabled_tex: simple_remove_node(mat.node_tree, layer_disabled_tex, remove_data=False)
+            if subtractor: simple_remove_node(mat.node_tree, subtractor)
+            simple_remove_node(mat.node_tree, emit)
+            simple_remove_node(mat.node_tree, source_tex, remove_data=True)
+
+            # Recover original bsdf
+            mat.node_tree.links.new(ori_bsdf, mat_out.inputs[0])
+
+    # HACK: Native baking need the image to be reloaded
+    if native_baking and (image.packed_file or image.filepath == ''):
+        image.pack()
+        image.reload()
 
     # Recover bake settings
     _recover_bake_settings(book, True) 
 
     # Remove temp data
-    remove_mesh_obj(temp0)
-    remove_mesh_obj(temp2)
+    if temp0: remove_mesh_obj(temp0)
+    if temp2: remove_mesh_obj(temp2)
     if temp1: remove_mesh_obj(temp1)
-    #bpy.data.images.remove(tanimage)
-    #bpy.data.images.remove(bitimage)
+    #if tanimage: bpy.data.images.remove(tanimage)
+    #if bitimage: bpy.data.images.remove(bitimage)
     if layer_disabled_vdm_image:
         bpy.data.images.remove(layer_disabled_vdm_image)
 
     # Remove material
-    if mat.users <= 1: bpy.data.materials.remove(mat, do_unlink=True)
+    if temp_mat and temp_mat.users <= 1: bpy.data.materials.remove(temp_mat, do_unlink=True)
+    if mat and tex: mat.node_tree.nodes.remove(tex)
 
     # Recover disabled modifiers
     for mod in obj.modifiers:
@@ -369,11 +859,18 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0):
         if mod.name in ori_mod_show_render:
             mod.show_render = True
 
+    # Recover multires levels
+    if multires.levels != ori_multires_levels:
+        multires.levels = ori_multires_levels
+
+    # Recover use simplify
+    if ori_use_simplify: scene.render.use_simplify = True
+
     # Set back object to active
     set_active_object(obj)
     set_object_select(obj, True)
 
-def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_current_layer=False):
+def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_current_layer=False, flip_yz=False):
     # Bake preparations
     book = _remember_before_bake(obj)
     _prepare_bake_settings(book, obj, uv_name)     
@@ -403,13 +900,12 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     if disable_current_layer:
         cur_layer.enable = False
 
-    # Disable all flip Y/Z
-    ori_flip_yzs = {}
-    for i, l in enumerate(yp.layers):
-        height_ch = get_height_channel(l)
-        if not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-        ori_flip_yzs[str(i)] = height_ch.vdisp_enable_flip_yz
-        height_ch.vdisp_enable_flip_yz = False
+    # Flip all flip Y/Z
+    if flip_yz:
+        for i, l in enumerate(yp.layers):
+            height_ch = get_height_channel(l)
+            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
+            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
 
     # Make sure vdm output exists
     if not height_root_ch.enable_subdiv_setup:
@@ -428,7 +924,7 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     image.generated_color = (0, 0, 0, 1)
 
     # Get output node and remember original bsdf input
-    mat_out = get_active_mat_output_node(mat.node_tree)
+    mat_out = get_material_output(mat, create_one=True)
     ori_bsdf = mat_out.inputs[0].links[0].from_socket
 
     # Create setup nodes
@@ -480,11 +976,11 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
         check_all_channel_ios(yp)
 
     # Recover flip yzs
-    for key, val in ori_flip_yzs.items():
-        l = yp.layers[int(key)]
-        height_ch = get_height_channel(l)
-        if height_ch.vdisp_enable_flip_yz != val:
-            height_ch.vdisp_enable_flip_yz = val
+    if flip_yz:
+        for i, l in enumerate(yp.layers):
+            height_ch = get_height_channel(l)
+            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
+            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
 
     # Recover sculpt mode
     if ori_sculpt_mode:
@@ -728,6 +1224,9 @@ class YSculptImage(bpy.types.Operator):
         # Enable sculpt mode to disable all vector displacement layers
         yp.sculpt_mode = True
 
+        # Mirror modifier with mirror U will be temporarily applied
+        apply_mirror_modifier(obj)
+
         # Get related modifiers
         subsurf = get_subsurf_modifier(obj)
         multires = get_multires_modifier(obj)
@@ -783,6 +1282,11 @@ class YSculptImage(bpy.types.Operator):
         geomod = temp.modifiers[-1]
         geomod.node_group = vdm_loader
         temp.modifiers.active = geomod
+
+        # NOTE: Geometry nodes need YZ flipped displacement
+        if combined_vdm_image:
+            set_modifier_input_value(geomod, 'Flip Y/Z', True)
+        else: set_modifier_input_value(geomod, 'Flip Y/Z', not height_ch.vdisp_enable_flip_yz)
 
         # Select back active object
         set_active_object(obj)
@@ -840,8 +1344,15 @@ class YSculptImage(bpy.types.Operator):
             if m: m.show_render = ori_show_render  
 
         # Set armature to the top
-        arm = get_armature_modifier(obj)
-        if arm: bpy.ops.object.modifier_move_to_index(modifier=arm.name, index=0)
+        arm, arm_idx = get_armature_modifier(obj, return_index=True)
+        if arm: 
+            # Remember original armature index
+            obj.yp_vdm.armature_index = arm_idx-1
+            bpy.ops.object.modifier_move_to_index(modifier=arm.name, index=0)
+
+        # Unhide object if it's hidden
+        if get_object_hide(obj):
+            set_object_hide(obj, False)
 
         bpy.ops.object.mode_set(mode='SCULPT')
 
@@ -876,9 +1387,10 @@ class YApplySculptToImage(bpy.types.Operator):
             uv_name = layer.uv_name
 
             intensity = get_vdm_intensity(layer, height_ch)
+            flip_yz = height_ch.vdisp_enable_flip_yz
 
             # Bake multires image
-            bake_multires_image(obj, image, uv_name, intensity)
+            bake_multires_image(obj, image, uv_name, intensity, flip_yz=flip_yz)
 
         # Remove multires
         multires = get_multires_modifier(obj)
@@ -902,6 +1414,13 @@ class YApplySculptToImage(bpy.types.Operator):
         # Disable sculpt mode to bring back all vector displacement layers
         yp.sculpt_mode = False
         bpy.ops.object.mode_set(mode='OBJECT')
+
+        # Recover mirror modifier
+        recover_mirror_modifier(obj)
+
+        # Recover armature index
+        arm = get_armature_modifier(obj)
+        if arm: bpy.ops.object.modifier_move_to_index(modifier=arm.name, index=obj.yp_vdm.armature_index)
 
         # Go back to material view
         space = bpy.context.space_data
@@ -946,6 +1465,13 @@ class YCancelSculptToImage(bpy.types.Operator):
         yp.sculpt_mode = False
         bpy.ops.object.mode_set(mode='OBJECT')
 
+        # Recover mirror modifier
+        recover_mirror_modifier(obj)
+
+        # Recover armature index
+        arm = get_armature_modifier(obj)
+        if arm: bpy.ops.object.modifier_move_to_index(modifier=arm.name, index=obj.yp_vdm.armature_index)
+
         # Go back to material view
         space = bpy.context.space_data
         if space.type == 'VIEW_3D' and space.shading.type not in {'MATERIAL', 'RENDERED'}:
@@ -980,14 +1506,23 @@ class YFixVDMMismatchUV(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YPaintVDMObjectProps(bpy.types.PropertyGroup):
+    num_verts : IntProperty(default=0)
+    mirror_modifier_name : StringProperty(default='')
+    armature_index : IntProperty(default=0)
+
 def register():
     bpy.utils.register_class(YSculptImage)
     bpy.utils.register_class(YApplySculptToImage)
     bpy.utils.register_class(YCancelSculptToImage)
     bpy.utils.register_class(YFixVDMMismatchUV)
+    bpy.utils.register_class(YPaintVDMObjectProps)
+
+    bpy.types.Object.yp_vdm = PointerProperty(type=YPaintVDMObjectProps)
 
 def unregister():
     bpy.utils.unregister_class(YSculptImage)
     bpy.utils.unregister_class(YApplySculptToImage)
     bpy.utils.unregister_class(YCancelSculptToImage)
     bpy.utils.unregister_class(YFixVDMMismatchUV)
+    bpy.utils.unregister_class(YPaintVDMObjectProps)
