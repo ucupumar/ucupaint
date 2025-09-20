@@ -799,6 +799,11 @@ def set_object_select(obj, val):
         obj.select_set(val)
     else: obj.select = val
 
+def get_object_hide(obj):
+    if is_bl_newer_than(2, 80):
+        return obj.hide_get()
+    return obj.hide
+
 def set_object_hide(obj, val):
     if is_bl_newer_than(2, 80):
         obj.hide_set(val)

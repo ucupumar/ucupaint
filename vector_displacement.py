@@ -185,67 +185,76 @@ def _recover_bake_settings(book, recover_active_uv=False):
     wmyp.halt_hacks = False
 
 ''' Applying modifier with shape keys. Based on implementation by Przemysław Bągard.'''
-def apply_modifiers_with_shape_keys(obj, selectedModifiers, disable_armatures=True):
+def apply_modifiers_with_shape_keys(obj, selected_modifiers, disable_armatures=True):
 
     list_properties = []
     properties = ["interpolation", "mute", "name", "relative_key", "slider_max", "slider_min", "value", "vertex_group"]
-    shapesCount = 0
-    vertCount = -1
-    startTime = time.time()
+    T = time.time()
 
-    view_layer = bpy.context.view_layer
     scene = bpy.context.scene
 
     disabled_armature_modifiers = []
     if disable_armatures:
         for modifier in obj.modifiers:
-            if modifier.name not in selectedModifiers and modifier.type == 'ARMATURE' and modifier.show_viewport == True:
+            if modifier.name not in selected_modifiers and modifier.type == 'ARMATURE' and modifier.show_viewport == True:
                 disabled_armature_modifiers.append(modifier)
                 modifier.show_viewport = False
     
+    num_shapes = 0
     if obj.data.shape_keys:
-        shapesCount = len(obj.data.shape_keys.key_blocks)
+        num_shapes = len(obj.data.shape_keys.key_blocks)
 
-    ori_active = view_layer.objects.active
-    view_layer.objects.active = obj
+    # Remember original selected objects
+    ori_selected_objs = [o for o in bpy.context.selected_objects]
+    ori_active = get_active_object()
+    set_active_object(obj)
     
-    if(shapesCount == 0):
-        for modifierName in selectedModifiers:
-            try: bpy.ops.object.modifier_apply(modifier=modifierName)
+    if(num_shapes == 0):
+        for mod_name in selected_modifiers:
+            try: bpy.ops.object.modifier_apply(modifier=mod_name)
             except Exception as e: print(e)
         if disable_armatures:
             for modifier in disabled_armature_modifiers:
                 modifier.show_viewport = True
-        view_layer.objects.active = ori_active
+        set_active_object(ori_active)
         return (True, None)
 
-    # Remember original selected objects
-    ori_selected_objs = [o for o in view_layer.objects if o.select_get()]
-    
     # We want to preserve original object, so all shapes will be joined to it.
     if obj.mode != 'OBJECT':
         bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
-    obj.select_set(True)
-    originalIndex = obj.active_shape_key_index
+    set_object_select(obj, True)
+    ori_key_idx = obj.active_shape_key_index
+
+    ori_hide = get_object_hide(obj)
+    set_object_hide(obj, False)
     
-    originalHide = obj.hide_get()
-    obj.hide_set(False)
-    
-    # Copy object which will holds all shape keys.
-    copyObject = obj.copy()
-    scene.collection.objects.link(copyObject)
-    copyObject.data = copyObject.data.copy()
-    copyObject.select_set(False)
+    # Copy object which has the modifiers applied
+    applied_obj = obj.copy()
+    applied_obj.data = applied_obj.data.copy()
+    link_object(scene, applied_obj)
+
+    # Remove shape keys and apply modifiers
+    set_active_object(applied_obj)
+    bpy.ops.object.shape_key_remove(all=True)
+    for mod_name in selected_modifiers:
+        try: bpy.ops.object.modifier_apply(modifier=mod_name)
+        except Exception as e: print(e)
+
+    # Get applied vertex count
+    vert_count = len(applied_obj.data.vertices)
+
+    # Remove applied copy of the object.
+    remove_mesh_obj(applied_obj)
     
     # Return selection to original object.
-    view_layer.objects.active = obj
-    obj.select_set(True)
-    
-    # Save key shape properties
-    for i in range(0, shapesCount):
+    set_active_object(obj)
+    set_object_select(obj, True)
+
+    # Get key objects and save key shape properties
+    key_objs = [None]
+    for i in range(0, num_shapes):
         key_b = obj.data.shape_keys.key_blocks[i]
-        print (obj.data.shape_keys.key_blocks[i].name, key_b.name)
         properties_object = {p:None for p in properties}
         properties_object["name"] = key_b.name
         properties_object["mute"] = key_b.mute
@@ -256,6 +265,62 @@ def apply_modifiers_with_shape_keys(obj, selectedModifiers, disable_armatures=Tr
         properties_object["value"] = key_b.value
         properties_object["vertex_group"] = key_b.vertex_group
         list_properties.append(properties_object)
+
+        if i == 0: continue
+
+        # Copy as key object.
+        key_obj = obj.copy()
+        key_obj.data = key_obj.data.copy()
+        link_object(scene, key_obj)
+        set_active_object(key_obj)
+        bpy.ops.object.shape_key_remove(all=True)
+        
+        # Get right shape-key.
+        obj.active_shape_key_index = i
+        bpy.ops.object.shape_key_transfer()
+        key_obj.active_shape_key_index = 0
+        bpy.ops.object.shape_key_remove()
+        bpy.ops.object.shape_key_remove(all=True)
+        
+        # Apply modifier on temporary object
+        for mod_name in selected_modifiers:
+            try: bpy.ops.object.modifier_apply(modifier=mod_name)
+            except Exception as e: print(e)
+
+        # Get shape key vertex count
+        key_vert_count = len(key_obj.data.vertices)
+
+        # Store key objects
+        key_objs.append(key_obj)
+
+        # Deselect key object
+        set_object_select(key_obj, False)
+        
+        # Verify number of vertices.
+        if vert_count != key_vert_count:
+
+            # Remove temporary objects
+            for o in reversed(key_objs): 
+                if o != None: remove_mesh_obj(o)
+
+            # Recover selected objects
+            bpy.ops.object.select_all(action='DESELECT')
+            for o in ori_selected_objs:
+                set_object_select(o, True)
+            set_active_object(ori_active)
+    
+            # Enable armatures back
+            if disable_armatures:
+                for modifier in disabled_armature_modifiers:
+                    modifier.show_viewport = True
+
+            # Recover hide
+            set_object_hide(obj, ori_hide)
+
+            errorInfo = ("Shape keys ended up with different number of vertices!\n"
+                         "All shape keys needs to have the same number of vertices after modifier is applied.\n"
+                         "Otherwise joining such shape keys will fail!")
+            return (False, errorInfo)
 
     # Save animation data
     ori_fcurves = []
@@ -273,69 +338,35 @@ def apply_modifiers_with_shape_keys(obj, selectedModifiers, disable_armatures=Tr
     # Handle base shape in original object
     print("apply_modifiers_with_shape_keys: Applying base shape key")
 
+    # Return selection to original object.
+    set_active_object(obj)
+    set_object_select(obj, True)
+
     # Make sure active shape key index is set to avoid error
     obj.active_shape_key_index = 0
 
     bpy.ops.object.shape_key_remove(all=True)
-    for modifierName in selectedModifiers:
-        try: bpy.ops.object.modifier_apply(modifier=modifierName)
+    for mod_name in selected_modifiers:
+        try: bpy.ops.object.modifier_apply(modifier=mod_name)
         except Exception as e: print(e)
-    vertCount = len(obj.data.vertices)
     bpy.ops.object.shape_key_add(from_mix=False)
-    obj.select_set(False)
 
-    # Handle other shape-keys: copy object, get right shape-key, apply modifiers and merge with original object.
-    # We handle one object at time here.
-    for i in range(1, shapesCount):
-        currTime = time.time()
-        elapsedTime = currTime - startTime
+    # Create new shape keys based on key objects
+    for i in range(1, num_shapes):
 
-        print("apply_modifiers_with_shape_keys: Applying shape key %d/%d ('%s', %0.2f seconds since start)" % (i+1, shapesCount, list_properties[i]["name"], elapsedTime))
+        # Select key object
+        key_obj = key_objs[i]
+        set_object_select(key_obj, True)
 
-        # Select copy object.
-        copyObject.select_set(True)
-        
-        # Copy temp object.
-        tmpObject = copyObject.copy()
-        scene.collection.objects.link(tmpObject)
-        tmpObject.data = tmpObject.data.copy()
-        view_layer.objects.active = tmpObject
-
-        bpy.ops.object.shape_key_remove(all=True)
-        copyObject.active_shape_key_index = i
-        
-        # Get right shape-key.
-        bpy.ops.object.shape_key_transfer()
-        tmpObject.active_shape_key_index = 0
-        bpy.ops.object.shape_key_remove()
-        bpy.ops.object.shape_key_remove(all=True)
-        
-        # Time to apply modifiers.
-        for modifierName in selectedModifiers:
-            try: bpy.ops.object.modifier_apply(modifier=modifierName)
-            except Exception as e: print(e)
-        
-        # Verify number of vertices.
-        if vertCount != len(tmpObject.data.vertices):
-            errorInfo = ("Shape keys ended up with different number of vertices!\n"
-                         "All shape keys needs to have the same number of vertices after modifier is applied.\n"
-                         "Otherwise joining such shape keys will fail!")
-            return (False, errorInfo)
-    
         # Join with original object
-        copyObject.select_set(False)
-        view_layer.objects.active = obj
-        obj.select_set(True)
         bpy.ops.object.join_shapes()
-        obj.select_set(False)
-        
-        # Remove tmpObject
-        bpy.data.objects.remove(tmpObject, do_unlink=True)
+
+        # Deselect again
+        set_object_select(key_obj, False)
     
     # Restore shape key properties like name, mute etc.
-    view_layer.objects.active = obj
-    for i in range(0, shapesCount):
-        key_b = view_layer.objects.active.data.shape_keys.key_blocks[i]
+    for i in range(0, num_shapes):
+        key_b = obj.data.shape_keys.key_blocks[i]
         key_b.name = list_properties[i]["name"]
         key_b.interpolation = list_properties[i]["interpolation"]
         key_b.mute = list_properties[i]["mute"]
@@ -345,24 +376,23 @@ def apply_modifiers_with_shape_keys(obj, selectedModifiers, disable_armatures=Tr
         key_b.vertex_group = list_properties[i]["vertex_group"]
         rel_key = list_properties[i]["relative_key"]
     
-        for j in range(0, shapesCount):
-            key_brel = view_layer.objects.active.data.shape_keys.key_blocks[j]
+        for j in range(0, num_shapes):
+            key_brel = obj.data.shape_keys.key_blocks[j]
             if rel_key == key_brel.name:
                 key_b.relative_key = key_brel
                 break
     
-    # Remove copyObject.
-    bpy.data.objects.remove(copyObject, do_unlink=True)
+    # Remove key objects
+    for o in reversed(key_objs):
+        if o != None: remove_mesh_obj(o)
     
-    # Select original object.
-    view_layer.objects.active = obj
-    view_layer.objects.active.select_set(True)
-    
+    # Enable armatures back
     if disable_armatures:
         for modifier in disabled_armature_modifiers:
             modifier.show_viewport = True
 
-    obj.active_shape_key_index = originalIndex
+    # Set to original key
+    obj.active_shape_key_index = ori_key_idx
 
     # Recover animation data
     if any(ori_fcurves):
@@ -396,13 +426,14 @@ def apply_modifiers_with_shape_keys(obj, selectedModifiers, disable_armatures=Tr
                     try: setattr(m, key, val)
                     except Exception as e: pass
 
-    obj.hide_set(originalHide)
+    # Recover hide
+    set_object_hide(obj, ori_hide)
 
     # Recover selected objects
     bpy.ops.object.select_all(action='DESELECT')
     for o in ori_selected_objs:
-        o.select_set(True)
-    view_layer.objects.active = ori_active
+        set_object_select(o, True)
+    set_active_object(ori_active)
     
     return (True, None)
 
@@ -448,7 +479,11 @@ def apply_mirror_modifier(obj):
     show_on_cage = mirror.show_on_cage
 
     # Apply modifier
-    apply_modifiers_with_shape_keys(obj, [mirror.name])
+    success, errorInfo = apply_modifiers_with_shape_keys(obj, [mirror.name])
+    if not success:
+        print('apply_modifiers_with_shape_keys FAILED:', errorInfo)
+        obj.yp_vdm.mirror_modifier_name = ''
+        return
 
     # Bring back the mirror but disable it
     bpy.ops.object.modifier_add(type='MIRROR')
@@ -1314,6 +1349,10 @@ class YSculptImage(bpy.types.Operator):
             # Remember original armature index
             obj.yp_vdm.armature_index = arm_idx-1
             bpy.ops.object.modifier_move_to_index(modifier=arm.name, index=0)
+
+        # Unhide object if it's hidden
+        if get_object_hide(obj):
+            set_object_hide(obj, False)
 
         bpy.ops.object.mode_set(mode='SCULPT')
 
