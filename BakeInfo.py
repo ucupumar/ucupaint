@@ -250,9 +250,9 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     bevel_samples : IntProperty(default=4, min=2, max=16)
     bevel_radius : FloatProperty(default=0.05, min=0.0, max=1000.0)
 
-    bevel_grayscale_method : EnumProperty(
-        name = 'Bevel Grayscale Method',
-        description = 'Bevel grayscale method',
+    edge_detect_method : EnumProperty(
+        name = 'Edge Detection Method',
+        description = 'Edge detection method',
         items = (
             ('DOT', 'Dot Product', ''),
             ('CROSS', 'Cross Product', '')

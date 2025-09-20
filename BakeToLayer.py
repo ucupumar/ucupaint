@@ -221,9 +221,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     bevel_samples : IntProperty(default=4, min=2, max=16)
     bevel_radius : FloatProperty(default=0.05, min=0.0, max=1000.0)
 
-    bevel_grayscale_method : EnumProperty(
-        name = 'Bevel Grayscale Method',
-        description = 'Bevel grayscale method',
+    edge_detect_method : EnumProperty(
+        name = 'Edge Detection Method',
+        description = 'Edge detection method',
         items = (
             ('DOT', 'Dot Product', ''),
             ('CROSS', 'Cross Product', '')
@@ -662,7 +662,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text='Bevel Samples:')
             col.label(text='Bevel Radius:')
             if self.type == 'BEVEL_MASK':
-                col.label(text='Bevel Method:')
+                col.label(text='Edge Detect Method:')
         elif self.type.startswith('MULTIRES_'):
             col.label(text='Base Level:')
         #elif self.type.startswith('OTHER_OBJECT_'):
@@ -747,7 +747,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'bevel_radius', text='')
             if self.type == 'BEVEL_MASK':
                 crow = col.row(align=True)
-                crow.prop(self, 'bevel_grayscale_method', expand=True)
+                crow.prop(self, 'edge_detect_method', expand=True)
         elif self.type.startswith('MULTIRES_'):
             col.prop(self, 'multires_base', text='')
 
