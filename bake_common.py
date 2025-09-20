@@ -1947,6 +1947,7 @@ def get_bake_properties_from_self(self):
         'ao_distance',
         'bevel_samples',
         'bevel_radius',
+        'bevel_grayscale_method',
         'multires_base',
         'target_type',
         'fxaa',
@@ -3142,10 +3143,16 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     elif bprops.type == 'BEVEL_MASK':
         geometry = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
         vector_math = mat.node_tree.nodes.new('ShaderNodeVectorMath')
-        vector_math.operation = 'CROSS_PRODUCT'
-        if is_bl_newer_than(2, 81):
-            vector_math_1 = mat.node_tree.nodes.new('ShaderNodeVectorMath')
-            vector_math_1.operation = 'LENGTH'
+        if bprops.bevel_grayscale_method == 'CROSS':
+            vector_math.operation = 'CROSS_PRODUCT'
+            if is_bl_newer_than(2, 81):
+                vector_math_1 = mat.node_tree.nodes.new('ShaderNodeVectorMath')
+                vector_math_1.operation = 'LENGTH'
+        else:
+            vector_math.operation = 'DOT_PRODUCT'
+            vector_math_1 = mat.node_tree.nodes.new('ShaderNodeMath')
+            vector_math_1.operation = 'SUBTRACT'
+            vector_math_1.inputs[0].default_value = 1.0
 
     if not bsdf:
         bsdf = mat.node_tree.nodes.new('ShaderNodeEmission')
@@ -3236,11 +3243,16 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         mat.node_tree.links.new(geometry.outputs['Normal'], vector_math.inputs[0])
         mat.node_tree.links.new(src.outputs[0], vector_math.inputs[1])
         #mat.node_tree.links.new(src.outputs[0], bsdf.inputs['Normal'])
-        if is_bl_newer_than(2, 81):
-            mat.node_tree.links.new(vector_math.outputs[0], vector_math_1.inputs[0])
-            mat.node_tree.links.new(vector_math_1.outputs[1], bsdf.inputs[0])
+        if bprops.bevel_grayscale_method == 'CROSS':
+            if is_bl_newer_than(2, 81):
+                mat.node_tree.links.new(vector_math.outputs[0], vector_math_1.inputs[0])
+                mat.node_tree.links.new(vector_math_1.outputs[1], bsdf.inputs[0])
+            else:
+                mat.node_tree.links.new(vector_math.outputs[1], bsdf.inputs[0])
         else:
-            mat.node_tree.links.new(vector_math.outputs[1], bsdf.inputs[0])
+            mat.node_tree.links.new(vector_math.outputs['Value'], vector_math_1.inputs[1])
+            mat.node_tree.links.new(vector_math_1.outputs[0], bsdf.inputs[0])
+
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
     elif bprops.type == 'SELECTED_VERTICES':
@@ -3717,6 +3729,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         set_entity_prop_value(ent, 'ao_distance', bprops.ao_distance)
                     elif bprops.type == 'BEVEL_MASK' and ent.type == 'EDGE_DETECT':
                         set_entity_prop_value(ent, 'edge_detect_radius', bprops.bevel_radius)
+                        ent.edge_detect_method = bprops.bevel_grayscale_method
 
                 if bprops.target_type == 'LAYER':
                     layer_ids = [i for i, l in enumerate(yp.layers) if l in entities]
@@ -4391,6 +4404,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         if entity.type == 'EDGE_DETECT':
             bi.bake_type = 'BEVEL_MASK'
             bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
+            bi.bevel_grayscale_method = entity.edge_detect_method
         elif entity.type == 'AO':
             source = get_entity_source(entity)
             bi.bake_type = 'AO'
