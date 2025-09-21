@@ -27,6 +27,7 @@ def _remember_before_bake(obj):
     book['ori_use_clear'] = scene.render.bake.use_clear
     book['ori_normal_space'] = scene.render.bake.normal_space
     book['ori_simplify'] = scene.render.use_simplify
+    book['ori_dither_intensity'] = scene.render.dither_intensity
     book['ori_device'] = scene.cycles.device
     book['ori_use_selected_to_active'] = scene.render.bake.use_selected_to_active
     book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
@@ -83,6 +84,7 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
     scene.render.bake.use_cage = False
     scene.render.use_simplify = False
     scene.render.bake.target = 'IMAGE_TEXTURES'
+    scene.render.dither_intensity = 0.0
     set_scene_bake_margin(scene, margin)
     set_scene_bake_clear(scene, False)
     scene.cycles.samples = samples
@@ -141,6 +143,7 @@ def _recover_bake_settings(book, recover_active_uv=False):
     scene.render.bake.margin_type = book['ori_margin_type']
     scene.render.bake.use_clear = book['ori_use_clear']
     scene.render.use_simplify = book['ori_simplify']
+    scene.render.dither_intensity = book['ori_dither_intensity']
     scene.cycles.device = book['ori_device']
     scene.cycles.use_denoising = book['ori_use_denoising']
     scene.render.bake.target = book['ori_bake_target']
@@ -598,6 +601,19 @@ def get_offset_attributes(base, sclupted_mesh, layer_disabled_mesh=None, intensi
 
     return att, max_value
 
+def mute_all_shape_keys(obj):
+    ori_shape_key_mutes = []
+    if obj and obj.data and obj.data.shape_keys:
+        for kb in obj.data.shape_keys.key_blocks:
+            ori_shape_key_mutes.append(kb.mute)
+            kb.mute = True
+
+    return ori_shape_key_mutes
+
+def recover_shape_key_mutes(obj, ori_shape_key_mutes):
+    for i, val in enumerate(ori_shape_key_mutes):
+        obj.data.shape_keys.key_blocks[i].mute = val
+
 def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
 
     context = bpy.context
@@ -644,6 +660,9 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     # Disable use simplify before apply modifier
     ori_use_simplify = scene.render.use_simplify
     scene.render.use_simplify = False
+
+    # Mute all shape keys
+    ori_shape_key_mutes = mute_all_shape_keys(obj)
 
     # Remember multires levels
     ori_multires_levels = multires.levels
@@ -863,6 +882,9 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     if multires.levels != ori_multires_levels:
         multires.levels = ori_multires_levels
 
+    # Recover shape keys
+    recover_shape_key_mutes(obj, ori_shape_key_mutes)
+
     # Recover use simplify
     if ori_use_simplify: scene.render.use_simplify = True
 
@@ -1038,6 +1060,9 @@ def get_tangent_bitangent_images(obj, uv_name):
         temp.data = temp.data.copy()
         context.view_layer.objects.active = temp
         temp.location += Vector(((obj.dimensions[0] + 0.1) * 1, 0.0, 0.0))     
+
+        # Remove shape keys
+        if temp.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
 
         # Set active uv
         uv_layers = get_uv_layers(temp)
@@ -1271,6 +1296,9 @@ class YSculptImage(bpy.types.Operator):
         set_active_object(temp)
         set_object_select(temp, True)
 
+        # Remove shape keys
+        if temp.data.shape_keys: bpy.ops.object.shape_key_remove(all=True)
+
         # Create geometry nodes to load vdm
         sculpt_image = image
         if combined_vdm_image:
@@ -1321,11 +1349,17 @@ class YSculptImage(bpy.types.Operator):
         ori_use_simplify = scene.render.use_simplify
         scene.render.use_simplify = False
 
+        # Mute all shape keys before reshape
+        ori_shape_key_mutes = mute_all_shape_keys(obj)
+
         # Reshape multires
         bpy.ops.object.multires_reshape(modifier=multires.name)
 
         # Recover use simplify
         if ori_use_simplify: scene.render.use_simplify = True
+
+        # Recover shape keys
+        recover_shape_key_mutes(obj, ori_shape_key_mutes)
 
         # Remove temp data
         remove_mesh_obj(temp) 
