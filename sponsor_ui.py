@@ -13,16 +13,14 @@ class YSponsorProp(bpy.types.PropertyGroup):
         description = 'Progress of goal',
         subtype = 'PERCENTAGE'
     )
-    expand_monthly : bpy.props.BoolProperty(
-        name = "Expand Monthly Sponsors",
-        description = "Expand Monthly Sponsors List",
-        default = True,
+
+    expand_tiers : bpy.props.BoolVectorProperty(
+        name = "Expand Tiers",
+        description = "Expand Tiers List",
     )
 
-    expand_one_time : bpy.props.BoolProperty(
-        name = "Expand One-Time Sponsors",
-        description = "Expand One-Time Sponsors List",
-        default = True,
+    initialized : bpy.props.BoolProperty(
+        default = False,
     )
 
     expanded : bpy.props.BoolProperty(
@@ -46,6 +44,65 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         goal_ui.expanded = False
 
+    def draw_tier_members(self, goal_ui, layout, title:str, tier_index:int, per_column:int = 3, scale_icon:float = 3.0):
+
+        expand = goal_ui.expand_tiers[tier_index] if tier_index < len(goal_ui.expand_tiers) else False
+
+        icon = 'TRIA_DOWN' if expand else 'TRIA_RIGHT'
+        row = layout.row(align=True)
+        rrow = row.row(align=True)
+        filtered_items = list()
+
+        for item in collaborators.sponsors.values():
+            if item['tier'] != tier_index:
+                continue
+            filtered_items.append(item)
+
+
+        text_object = f'{title.strip()} ({len(filtered_items)})'
+
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+            rrow.prop(goal_ui, 'expand_tiers', index=tier_index, emboss=False, text=text_object, icon=icon)
+        else:
+            rrow.prop(goal_ui, 'expand_tiers', index=tier_index, emboss=False, text='', icon=icon)
+            rrow.label(text=text_object)
+
+        if expand:
+            
+            if len(filtered_items) == 0:
+                layout.label(text="No sponsors yet. Be the first one!")
+            else:
+                col = layout.column(align=True)
+                missing_column = per_column - (len(filtered_items) % per_column)
+
+                counter_member = 0
+                for cl, item in enumerate(filtered_items):
+                    counter_member += 1
+                    if cl % per_column == 0:
+                        row = col.row(align=True)
+                        row.alignment = 'LEFT'
+
+                    rw = row.column(align=True)
+
+                    thumb = item['thumb']
+                    if not thumb:
+                        thumb = collaborators.default_pic
+
+                    rw.template_icon(icon_value = thumb, scale = scale_icon)
+                    id = item["id"]
+                    if item['one_time']:
+                        id = "*" + id
+                    rw.operator('wm.url_open', text=id, emboss=False).url = item["url"]
+
+                if missing_column != per_column:
+                    for i in range(missing_column):
+                        rw = row.column(align=True)
+
+                        rw.template_icon(icon_value = collaborators.default_pic, scale = scale_icon)
+                        rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
+
     def draw(self, context):
         layout = self.layout
         goal = collaborators.sponsorship_goal
@@ -61,52 +118,24 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             layout.prop(goal_ui, 'progress', text=f"${donation}", slider=True)
 
         don_col = layout.column(align=True)
-        # don_col.alert = True
         don_col.scale_y = 1.5
         don_col.operator('wm.url_open', text="Donate Us", icon='FUND').url = "https://github.com/sponsors/ucupumar"
         
-        icon = 'TRIA_DOWN' if goal_ui.expand_monthly else 'TRIA_RIGHT'
-        row = layout.row(align=True)
-        rrow = row.row(align=True)
-        text_object = '☕️ Monthly Sponsors (2)'
-       
-        if is_bl_newer_than(2, 80):
-            rrow.alignment = 'LEFT'
-            rrow.scale_x = 0.95
-            rrow.prop(goal_ui, 'expand_monthly', emboss=False, text=text_object, icon=icon)
-        else:
-            rrow.prop(goal_ui, 'expand_monthly', emboss=False, text='', icon=icon)
-            rrow.label(text=text_object)
+        if is_online():
+            if not goal_ui.initialized: # first time init
+                goal_ui.initialized = True
+                print("first time init, loading contributors...")
+                load_contributors()
+            layout.separator()
 
-        if goal_ui.expand_monthly:
+            tiers:list = goal.get('tiers', [])
+            if tiers:
+                for tier in reversed(tiers):
+                    idx = tiers.index(tier)
+                    self.draw_tier_members(goal_ui,layout, tier['name'], idx, 3, 4.0)
             
-            col = layout.column(align=True)
-            per_column = 3
-            missing_column = per_column - (len(collaborators.sponsors) % per_column)
-
-            for cl, key in enumerate(collaborators.sponsors.keys()):
-                item = collaborators.sponsors[key]
-                if cl % per_column == 0:
-                    row = col.row(align=True)
-                    row.alignment = 'LEFT'
-                # bx = row.box()
-                rw = row.column(align=True)
-
-                thumb = item['thumb']
-                if not thumb:
-                    thumb = collaborators.default_pic
-
-                rw.template_icon(icon_value = thumb, scale = 3.0)
-                rw.operator('wm.url_open', text="*"+item["id"], emboss=False).url = item["url"]
-            # todo : paging
-
-            if missing_column != per_column:
-                for i in range(missing_column):
-                    rw = row.column(align=True)
-
-                    rw.template_icon(icon_value = collaborators.default_pic, scale = 3.0)
-                    rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
-        
+            layout.separator()
+            layout.label(text="* One-time sponsor")
         goal_ui.expanded = True
 
 def load_preview(key:str, file_name:str):
@@ -241,6 +270,9 @@ def load_contributors():
                 'id': parts[0],
                 'url': parts[1],
                 'image_url': parts[2],
+                'one_time' : parts[5] == 'True',
+                'tier': int(parts[6]),
+                
                 'thumb': None
             }
             collaborators.sponsors[sponsor['id']] = sponsor
@@ -355,8 +387,8 @@ def register():
 
     bpy.types.WindowManager.ypui_sponsor = PointerProperty(type=YSponsorProp)
 
-    load_contributors()
-
+    ui_sp = bpy.context.window_manager.ypui_sponsor
+    ui_sp.initialized = False
 
 def unregister():
     for cls in classes:
