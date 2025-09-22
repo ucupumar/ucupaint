@@ -44,7 +44,20 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         goal_ui.expanded = False
 
-    def draw_tier_members(self, goal_ui, layout, title:str, tier_index:int, per_column:int = 3, scale_icon:float = 3.0):
+    def draw_item(self, layout, icon, label, url = '', scale_icon:float = 3.0, horizontal_mode:bool = True):
+        if horizontal_mode:
+            row = layout.row(align=True)
+            row.alignment = 'LEFT'
+            row.template_icon(icon_value = icon, scale = scale_icon)
+            btn_url = row.operator('wm.url_open', text=label, emboss=False, )
+            btn_url.url = url
+            
+        else:
+            col = layout.column(align=True)
+            col.template_icon(icon_value = icon, scale = scale_icon)
+            col.operator('wm.url_open', text=label, emboss=False).url = url
+
+    def draw_tier_members(self, goal_ui, layout, title:str, tier_index:int, per_column:int = 3, scale_icon:float = 3.0, horizontal_mode:bool = True):
 
         expand = goal_ui.expand_tiers[tier_index] if tier_index < len(goal_ui.expand_tiers) else False
 
@@ -82,26 +95,22 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                     counter_member += 1
                     if cl % per_column == 0:
                         row = col.row(align=True)
-                        row.alignment = 'LEFT'
-
-                    rw = row.column(align=True)
+                        if horizontal_mode:
+                            row.alignment = 'LEFT'
+                            row.label( text=' ') # spacer
 
                     thumb = item['thumb']
                     if not thumb:
                         thumb = collaborators.default_pic
 
-                    rw.template_icon(icon_value = thumb, scale = scale_icon)
                     id = item["id"]
                     if item['one_time']:
                         id = "*" + id
-                    rw.operator('wm.url_open', text=id, emboss=False).url = item["url"]
+                    self.draw_item(row, thumb, id, item["url"], scale_icon, horizontal_mode)
 
                 if missing_column != per_column:
                     for i in range(missing_column):
-                        rw = row.column(align=True)
-
-                        rw.template_icon(icon_value = collaborators.default_pic, scale = scale_icon)
-                        rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
+                        self.draw_item(row, collaborators.default_pic, '', '', scale_icon, horizontal_mode)
 
     def draw(self, context):
         layout = self.layout
@@ -121,19 +130,21 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         don_col.scale_y = 1.5
         don_col.operator('wm.url_open', text="Donate Us", icon='FUND').url = "https://github.com/sponsors/ucupumar"
         
-        if is_online():
-            if not goal_ui.initialized: # first time init
-                goal_ui.initialized = True
-                print("first time init, loading contributors...")
-                load_contributors()
-            layout.separator()
+        if not goal_ui.initialized: # first time init
+            goal_ui.initialized = True
+            print("first time init, loading contributors...")
+            load_contributors()
 
+        if is_online():
+            layout.separator()
             tiers:list = goal.get('tiers', [])
             if tiers:
                 for tier in reversed(tiers):
                     idx = tiers.index(tier)
-                    self.draw_tier_members(goal_ui,layout, tier['name'], idx, 3, 4.0)
-            
+
+                    # self.draw_tier_members(goal_ui,layout, tier['name'], idx, 1, 1.0, True)
+                    self.draw_tier_members(goal_ui,layout, tier['name'], idx, 3, 3.0, False)
+
             layout.separator()
             layout.label(text="* One-time sponsor")
         goal_ui.expanded = True
