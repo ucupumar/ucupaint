@@ -7727,6 +7727,24 @@ def get_first_vdm_layer(yp):
 
     return None
 
+def any_vdm_layer(yp):
+    return get_first_vdm_layer(yp) != None
+
+def get_all_vdm_layers(yp, return_index=False):
+    ls = []
+    ids = []
+
+    for i, l in enumerate(yp.layers):
+        if not l.enable: continue
+        if is_layer_vdm(l):
+            ls.append(l)
+            ids.append(i)
+
+    if return_index:
+        return ls, ids
+
+    return ls
+
 def get_mesh_hash(obj):
     if obj.type != 'MESH': return ''
     vertex_count = len(obj.data.vertices)

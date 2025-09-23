@@ -4135,8 +4135,6 @@ class YRemoveLayer(bpy.types.Operator):
         parent_dict = get_parent_dict(yp)
         index_dict = get_index_dict(yp)
 
-        need_reconnect_layers = False
-
         # Remove layer fcurves first
         remove_entity_fcurves(layer)
 
@@ -4184,7 +4182,6 @@ class YRemoveLayer(bpy.types.Operator):
         check_uv_nodes(yp)
 
         # Check children
-        #if need_reconnect_layers:
         for i in child_ids:
             lay = yp.layers[i-1]
             check_all_layer_channel_io_and_nodes(lay)
