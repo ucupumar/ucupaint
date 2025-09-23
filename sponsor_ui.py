@@ -1,9 +1,29 @@
 import bpy
 import os, requests, time, threading, json
-from bpy.props import PointerProperty, IntProperty
+from bpy.props import PointerProperty, IntProperty, StringProperty
 import bpy.utils.previews
 
 from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title
+
+
+class YSponsorPopover(bpy.types.Panel):
+    bl_idname = "NODE_PT_ysponsor_popover"
+    bl_label = get_addon_title() + " Sponsor Popover"
+    bl_description = get_addon_title() + " Sponsor Popover"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "WINDOW"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        layout = self.layout
+        # layout.label(text="Ucupaint sponsor is updated daily.")
+
+        goal = collaborators.sponsorship_goal
+        layout.label(text=goal.get('description', ''), )
+
 
 class YSponsorProp(bpy.types.PropertyGroup):
     progress : IntProperty(
@@ -17,6 +37,7 @@ class YSponsorProp(bpy.types.PropertyGroup):
     expand_tiers : bpy.props.BoolVectorProperty(
         name = "Expand Tiers",
         description = "Expand Tiers List",
+        size = 5, # cannot be dynamic
     )
 
     initialized : bpy.props.BoolProperty(
@@ -59,7 +80,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
     def draw_tier_members(self, goal_ui, layout, title:str, tier_index:int, per_column:int = 3, scale_icon:float = 3.0, horizontal_mode:bool = True):
 
-        expand = goal_ui.expand_tiers[tier_index] if tier_index < len(goal_ui.expand_tiers) else False
+        expand = goal_ui.expand_tiers[tier_index]
 
         icon = 'TRIA_DOWN' if expand else 'TRIA_RIGHT'
         row = layout.row(align=True)
@@ -87,67 +108,86 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             if len(filtered_items) == 0:
                 layout.label(text="No sponsors yet. Be the first one!")
             else:
-                col = layout.column(align=True)
+                # col = layout.column(align=True)
+                grid = layout.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
+
                 missing_column = per_column - (len(filtered_items) % per_column)
 
                 counter_member = 0
                 for cl, item in enumerate(filtered_items):
                     counter_member += 1
-                    if cl % per_column == 0:
-                        row = col.row(align=True)
-                        if horizontal_mode:
-                            row.alignment = 'LEFT'
-                            row.label( text=' ') # spacer
-
                     thumb = item['thumb']
                     if not thumb:
                         thumb = collaborators.default_pic
 
                     id = item["id"]
                     if item['one_time']:
-                        id = "*" + id
-                    self.draw_item(row, thumb, id, item["url"], scale_icon, horizontal_mode)
+                        if horizontal_mode:
+                            id +=  "*"
+                        else:
+                            id =  "*" + id
+                    self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
 
                 if missing_column != per_column:
                     for i in range(missing_column):
-                        self.draw_item(row, collaborators.default_pic, '', '', scale_icon, horizontal_mode)
+                        self.draw_item(grid, collaborators.default_pic, '', '', scale_icon, horizontal_mode)
 
     def draw(self, context):
+
+        region = context.region
+        panel_width = region.width
+
         layout = self.layout
         goal = collaborators.sponsorship_goal
         goal_ui = context.window_manager.ypui_sponsor
 
         if goal and 'targetValue' in goal:
-            layout.label(text="Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
+            
+            desc = layout.row()
+            desc.label(text="Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
+            desc.popover("NODE_PT_ysponsor_popover", text='', icon='INFO')
+
             target = goal['targetValue']
             percentage = goal['percentComplete']
             donation = target * percentage / 100
         
             goal_ui.progress = goal['percentComplete']
             layout.prop(goal_ui, 'progress', text=f"${donation}", slider=True)
+            
 
         don_col = layout.column(align=True)
         don_col.scale_y = 1.5
         don_col.operator('wm.url_open', text="Donate Us", icon='FUND').url = "https://github.com/sponsors/ucupumar"
-        
-        if not goal_ui.initialized: # first time init
-            goal_ui.initialized = True
-            print("first time init, loading contributors...")
-            load_contributors()
+
+        check_contributors(context)
 
         if is_online():
             layout.separator()
+
             tiers:list = goal.get('tiers', [])
             if tiers:
                 for tier in reversed(tiers):
                     idx = tiers.index(tier)
 
-                    # self.draw_tier_members(goal_ui,layout, tier['name'], idx, 1, 1.0, True)
-                    self.draw_tier_members(goal_ui,layout, tier['name'], idx, 3, 3.0, False)
+                    scale_icon = tier.get('scale', 3)
+                    horizontal_mode = tier.get('horizontal', True)
+                    per_column_width = tier.get('per_item_width', 200)
+
+                    column_count = panel_width // per_column_width
+                    if column_count <= 0:
+                        column_count = 1
+                    
+                    self.draw_tier_members(goal_ui,layout, tier['name'], idx, column_count, scale_icon, horizontal_mode)
 
             layout.separator()
             layout.label(text="* One-time sponsor")
         goal_ui.expanded = True
+# todo :
+# settingan per tier (mode, show default, scale icon, width_size)
+# column di horizontal mode
+# bug dummy items
+# info : update per hari
+# UCUPAINt goal description dropdown
 
 def load_preview(key:str, file_name:str):
     if key in previews_users:
@@ -156,6 +196,18 @@ def load_preview(key:str, file_name:str):
         img = previews_users.load(key, file_name, 'IMAGE', True)
     return img
 
+def check_contributors(context):
+    goal_ui = context.window_manager.ypui_sponsor
+    if not goal_ui.initialized: # first time init
+        goal_ui.initialized = True
+        print("first time init, loading contributors...")
+        load_contributors()
+
+        # tier setup
+        tiers = collaborators.sponsorship_goal.get('tiers', [])
+        for i, tier in enumerate(tiers):
+            if i < len(goal_ui.expand_tiers):
+                goal_ui.expand_tiers[i] = tier.get('default_expanded', False)
 
 def load_contributors():    
 
@@ -288,8 +340,23 @@ def load_contributors():
             }
             collaborators.sponsors[sponsor['id']] = sponsor
 
+            # for i in range(20):
+            #     collaborators.sponsors[sponsor['id']+str(i)] = sponsor
+    
+    # extra dummy
+    tiers = collaborators.sponsorship_goal.get('tiers', [])
+    tier_count = len(tiers)
+    for i, contributor in enumerate(collaborators.contributors.values()):
+        random_num = hash(contributor['id']) % 1000
+
+        contributor['tier'] = i % tier_count
+        contributor['one_time'] = True if (random_num % 2) == 0 else False
+        collaborators.sponsors[contributor['id']] = contributor
+
+    icon_size = 128
+
     # Download contributor images
-    links = [c['image_url']+"&s=108" for c in collaborators.contributors.values()]
+    links = [c['image_url']+f"&s={icon_size}" for c in collaborators.contributors.values()]
     file_names = [f"{folders}{os.sep}{c['id']}.png" for c in collaborators.contributors.values()]
     ids = [c['id'] for c in collaborators.contributors.values()]
 
@@ -300,7 +367,7 @@ def load_contributors():
             break
 
     # Download sponsor images
-    links_sponsors = [c['image_url']+"&s=108" for c in collaborators.sponsors.values()]
+    links_sponsors = [c['image_url']+f"&s={icon_size}" for c in collaborators.sponsors.values()]
     file_names_sponsors = [f"{folders}{os.sep}{c['id']}.png" for c in collaborators.sponsors.values()]
     ids_sponsors = [c['id'] for c in collaborators.sponsors.values()]
 
@@ -311,6 +378,15 @@ def load_contributors():
             break
 
     if reload_contributors:
+        # remove all images in folder 
+        for f in os.listdir(folders):
+            file_path = os.path.join(folders, f)
+            try:
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                print("Error removing file", file_path, ":", e)
+
         new_thread = threading.Thread(target=download_stream, args=(links,file_names,ids, collaborators.contributors))
         new_thread.start()
 
@@ -365,7 +441,8 @@ def download_stream(links:list[str], file_names:list[str], ids:list[str], dict, 
 
 classes = [
     VIEW3D_PT_YPaint_support_ui,
-    YSponsorProp
+    YSponsorProp,
+    YSponsorPopover
 ]
 
 class Collaborators:

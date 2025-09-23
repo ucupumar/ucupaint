@@ -5366,9 +5366,11 @@ def draw_yp_file_browser_menu(self, context):
             self.layout.context_pointer_set('params', params)
             self.layout.menu("NODE_MT_ypaint_file_browser_menu", text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
 
-from .sponsor_ui import get_collaborators
+from .sponsor_ui import get_collaborators, check_contributors
 
 def draw_ypaint_about(self, context):
+    check_contributors(context)
+    
     col = self.layout.column(align=True)
     col.label(text=get_addon_title() + ' is created by:')
 
