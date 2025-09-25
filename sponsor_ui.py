@@ -150,6 +150,22 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             col.template_icon(icon_value = icon, scale = scale_icon)
             col.operator('wm.url_open', text=label, emboss=False).url = url
 
+    def draw_empty_member(self, layout, scale_icon:float = 3.0, horizontal_mode:bool = True):
+        content = '[Your name]'
+        if horizontal_mode:
+            row = layout.row(align=True)
+            row.alignment = 'LEFT'
+            if scale_icon != 0.0:
+                row.template_icon(icon_value = collaborators.empty_pic, scale = scale_icon)
+                btn_url = row.operator('wm.url_open', text=content, emboss=False, )
+                btn_url.url = "https://github.com/sponsors/ucupumar"
+            else:
+                row.label(text=content)
+        else:
+            col = layout.column(align=True)
+            col.template_icon(icon_value = collaborators.empty_pic, scale = scale_icon)
+            col.operator('wm.url_open', text=content, emboss=False).url = "https://github.com/sponsors/ucupumar"
+
     def draw_tier_members(self, panel_width, goal_ui, layout, title:str, price, tier_index:int, per_column:int = 3, current_page:int = 0, per_page_item:int = 4, scale_icon:float = 3.0, horizontal_mode:bool = True):
         
         filtered_items = list()
@@ -164,12 +180,15 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         stripped_title = ''.join(c for c in title if ord(c) < 128)
         stripped_title = stripped_title.strip()
 
-        text_object = f'{stripped_title}'
+        text_object = f'{stripped_title} ({member_count})'
 
         expand = goal_ui.expand_tiers[tier_index]
         title_row = self.draw_expanding_title(layout, expand, goal_ui, 'expand_tiers', text_object, tier_index)
         paging_layout = title_row.row(align=True)
         paging_layout.alignment = 'RIGHT'
+
+        if per_page_item < per_column:
+            per_page_item = per_column
 
         if expand:
             
@@ -177,12 +196,13 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             # col = layout.column(align=True)
             #row.label(text='', icon='BLANK1')
             box = row.box()
-            if len(filtered_items) == 0:
+            if member_count == 0:
+                self.draw_empty_member(box, scale_icon, horizontal_mode)
                 box.label(text="No sponsors yet. Be the first one!")
             else:
                 grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
 
-                missing_column = per_column - (len(filtered_items) % per_column)
+                missing_column = per_column - (per_page_item % per_column)
 
                 counter_member = 0
 
@@ -207,7 +227,8 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                         lowest_members += id + ', '
                     else:
                         self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
-
+                # if tier_index == 3:
+                #     print("Tier", tier_index, "has", member_count, "members", "page", current_page, "per page =", per_page_item, "per column =", per_column, "missing column =", missing_column)
                 if lowest_tier and lowest_members != '':
                     lowest_members = lowest_members[:-2] # remove last comma
                     self.draw_multiline(box, lowest_members, panel_width)
@@ -546,7 +567,8 @@ def load_contributors():
                 print("file not found", file_name)
 
         # extra dummy
-    show_extra_dummy = True
+    show_extra_dummy = False
+    empty_all_sponsors = False
 
     if show_extra_dummy:
         tiers = collaborators.sponsorship_goal.get('tiers', [])
@@ -571,6 +593,8 @@ def load_contributors():
                     collaborators.sponsors[contributor['id']+str(m)] = new_contributor
 
                 print(new_contributor)
+    elif empty_all_sponsors:
+        collaborators.sponsors.clear()
 
 def download_stream(links:list[str], file_names:list[str], ids:list[str], dict, timeout:int = 10):
     for idx, file_name in enumerate(file_names):
@@ -609,6 +633,7 @@ classes = [
 
 class Collaborators:
     default_pic = None
+    empty_pic = None
     contributors = {}
     sponsors = {}
     sponsorship_goal = {}
@@ -630,7 +655,12 @@ def register():
     blank_path = os.path.join(get_addon_filepath(), "icons", "blank.png")
     blank_img = load_preview('blank', blank_path)
 
+    empty_path = os.path.join(get_addon_filepath(), "icons", "empty.png")
+    empty_img = load_preview('empty', empty_path)
+
     collaborators.default_pic = blank_img.icon_id
+    collaborators.empty_pic = empty_img.icon_id
+
     collaborators.contributors = {}
     collaborators.sponsors = {}
     collaborators.sponsorship_goal = {}
