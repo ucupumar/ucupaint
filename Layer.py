@@ -1,7 +1,7 @@
 import bpy, time, re, os, random, numpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, BaseOperator
+from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, BaseOperator, Decal
 from .common import *
 #from . import bake_common
 from .node_arrangements import *
@@ -57,8 +57,8 @@ def add_new_layer(
         mask_color_id=(1, 0, 1), mask_vcol_fill=True,
         mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha=False, use_udim_for_mask=False,
-        interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05,
-        normal_space = 'TANGENT', edge_detect_radius=0.05, mask_use_prev_normal=True,
+        interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05, mask_edge_detect_method='CROSS',
+        normal_space = 'TANGENT', edge_detect_radius=0.05, edge_detect_method='CROSS', mask_use_prev_normal=True,
         ao_distance=1.0
     ):
 
@@ -187,7 +187,7 @@ def add_new_layer(
 
     elif layer_type == 'EDGE_DETECT':
         layer.hemi_use_prev_normal = hemi_use_prev_normal
-        Mask.setup_edge_detect_source(layer, source, edge_detect_radius)
+        Mask.setup_edge_detect_source(layer, source, edge_detect_radius, edge_detect_method)
 
     elif layer_type == 'AO':
         layer.hemi_use_prev_normal = hemi_use_prev_normal
@@ -322,7 +322,7 @@ def add_new_layer(
             layer, mask_name, mask_type, mask_texcoord_type,
             mask_uv_name, mask_image, mask_vcol_name, mask_segment,
             interpolation=mask_interpolation, color_id=mask_color_id,
-            edge_detect_radius=mask_edge_detect_radius,
+            edge_detect_radius=mask_edge_detect_radius, edge_detect_method=mask_edge_detect_method,
             hemi_use_prev_normal=mask_use_prev_normal
         )
         mask.active_edit = True
@@ -350,6 +350,9 @@ def add_new_layer(
             # Background layer has default bump distance of 0.0
             if layer.type in {'BACKGROUND'}:
                 ch.bump_distance = 0.0
+
+            # Flip YZ is no longer enabled by default for faster calculation
+            ch.vdisp_enable_flip_yz = False
 
         # Set linear node of layer channel
         check_layer_channel_linear_node(ch, layer, root_ch)
@@ -1036,10 +1039,30 @@ class YNewLayer(bpy.types.Operator):
         default=0.05, min=0.0, max=10.0
     )
 
+    edge_detect_method : EnumProperty(
+        name = 'Edge Detection Method',
+        description = 'Edge detection method (Cycles Only)',
+        items = (
+            ('DOT', 'Dot Product', ''),
+            ('CROSS', 'Cross Product', '')
+        ),
+        default='CROSS',
+    )
+
     mask_edge_detect_radius : FloatProperty(
         name = 'Edge Detect Mask Radius',
         description = 'Edge detect mask radius',
         default=0.05, min=0.0, max=10.0
+    )
+
+    mask_edge_detect_method : EnumProperty(
+        name = 'Edge Detection Method for Mask',
+        description = 'Edge detection method for mask(Cycles Only)',
+        items = (
+            ('DOT', 'Dot Product', ''),
+            ('CROSS', 'Cross Product', '')
+        ),
+        default='CROSS',
     )
 
     mask_use_prev_normal : BoolProperty(
@@ -1263,6 +1286,7 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'EDGE_DETECT':
             col.label(text='Edge Detect Radius:')
+            col.label(text='Cycles Method:')
 
         if self.type == 'AO':
             col.label(text='AO Distance:')
@@ -1298,6 +1322,7 @@ class YNewLayer(bpy.types.Operator):
                         col.label(text='')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.label(text='Edge Detect Radius:')
+                    col.label(text='Cycles Method:')
                 else:
                     if self.mask_type == 'IMAGE':
                         if self.mask_image_filepath:
@@ -1356,6 +1381,8 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'EDGE_DETECT':
             col.prop(self, 'edge_detect_radius', text='')
+            rrow = col.row(align=True)
+            rrow.prop(self, 'edge_detect_method', expand=True)
 
         if self.type == 'AO':
             col.prop(self, 'ao_distance', text='')
@@ -1404,6 +1431,8 @@ class YNewLayer(bpy.types.Operator):
                         col.prop(self, 'mask_vcol_fill', text='Fill Selected Faces')
                 elif self.mask_type == 'EDGE_DETECT':
                     col.prop(self, 'mask_edge_detect_radius', text='')
+                    rrow = col.row(align=True)
+                    rrow.prop(self, 'mask_edge_detect_method', expand=True)
                     col.prop(self, 'mask_use_prev_normal', text='Use Previous Normal')
                 else:
                     if self.mask_type == 'IMAGE':
@@ -1593,7 +1622,8 @@ class YNewLayer(bpy.types.Operator):
             mask_color_id=self.mask_color_id, mask_vcol_fill=self.mask_vcol_fill,
             mask_vcol_data_type=self.mask_vcol_data_type, mask_vcol_domain=self.mask_vcol_domain, use_divider_alpha=self.use_divider_alpha,
             use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
-            mask_edge_detect_radius=self.mask_edge_detect_radius, edge_detect_radius=self.edge_detect_radius,
+            mask_edge_detect_radius=self.mask_edge_detect_radius, mask_edge_detect_method=self.mask_edge_detect_method,
+            edge_detect_radius=self.edge_detect_radius, edge_detect_method=self.edge_detect_method,
             mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance
         )
 
@@ -2116,7 +2146,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
             'alpha' : ['opacity', 'a'], 
             'ambient occlusion' : ['ao'], 
             'metallic' : ['metalness', 'm'],
-            'roughness' : ['glossiness', 'r'],
+            'roughness' : ['glossiness', 'smoothness', 'r'],
             'normal' : ['displacement', 'height', 'bump', 'n'], # Prioritize displacement/bump before actual normal map
         }
 
@@ -2266,7 +2296,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                     if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
 
                     # Add invert modifier for glosiness
-                    if syname == 'glossiness':
+                    if syname in {'glossiness', 'smoothness'}:
                         Modifier.add_new_modifier(ch, 'INVERT')
 
                     if image == main_image:
@@ -2585,7 +2615,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
         channel_image_dict = {}
 
         # Get active material output
-        output = get_material_output(mat)
+        output = get_material_output(mat, create_one=True)
 
         if self.read_method == 'READ_NODE':
             # Search images based on node connections
@@ -2691,6 +2721,94 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
             if quick_setup_happen:
                 bpy.ops.wm.y_remove_yp_node()
             return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+class YOpenLayersFromMaterial(bpy.types.Operator):
+    bl_idname = "wm.y_open_layers_from_material"
+    bl_label = "Open Layers from " + get_addon_title() + " Material"
+    bl_description = "Open layers from material to current " + get_addon_title() + " material"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    mat_name : StringProperty(default='')
+    asset_library_path : StringProperty(default='')
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and get_active_ypaint_node()
+
+    @classmethod
+    def description(self, context, properties):
+        return get_operator_description(self)
+
+    def remove_mat(self, mat, from_asset_library):
+        # Remove material if it has only fake users (from asset library)
+        if from_asset_library and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
+            remove_datablock(bpy.data.materials, mat)
+
+    def execute(self, context):
+        if self.mat_name == '':
+            self.report({'ERROR'}, "Source material cannot be empty!")
+            return {'CANCELLED'}
+
+        obj = context.object
+        if not obj.data or not hasattr(obj.data, 'materials'):
+            self.report({'ERROR'}, "Cannot use "+get_addon_title()+" with object '"+obj.name+"'!")
+            return {'CANCELLED'}
+
+        # Get material from local first
+        mat = bpy.data.materials.get(self.mat_name)
+
+        # If not found get from the asset library
+        from_asset_library = self.asset_library_path != ''
+        if not mat and from_asset_library and is_bl_newer_than(3):
+            with bpy.data.libraries.load(str(self.asset_library_path), assets_only=True) as (data_from, data_to):
+                for mat_name in data_from.materials:
+                    if mat_name == self.mat_name:
+                        data_to.materials.append(mat_name)
+            mat = bpy.data.materials.get(self.mat_name)
+
+        if not mat:
+            self.report({'ERROR'}, "Material cannot be found!")
+            return {'CANCELLED'}
+
+        if not mat.node_tree:
+            self.remove_mat(mat, from_asset_library)
+            self.report({'ERROR'}, "Material has no node tree!")
+            return {'CANCELLED'}
+
+        # Find yp node in source material
+        source_yp_node = None
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and hasattr(node.node_tree, 'yp') and node.node_tree.yp.is_ypaint_node:
+                source_yp_node = node
+                break
+
+        if not source_yp_node:
+            self.remove_mat(mat, from_asset_library)
+            self.report({'ERROR'}, "Material has no "+get_addon_title()+" node!")
+            return {'CANCELLED'}
+
+        source_tree = source_yp_node.node_tree
+        source_yp = source_tree.yp
+
+        if len(source_yp.layers) == 0:
+            self.remove_mat(mat, from_asset_library)
+            self.report({'ERROR'}, "Material has no layers!")
+            return {'CANCELLED'}
+
+        # Copy all layers to clipboard
+        wmp = context.window_manager.ypprops
+        wmp.clipboard_tree = source_tree.name
+        wmp.clipboard_layer = '' # Empty means all layers
+
+        try:
+            bpy.ops.wm.y_paste_layer('INVOKE_DEFAULT')
+        except Exception as e:
+            self.report({'ERROR'}, "Failed to paste layers: "+str(e))
+            return {'CANCELLED'}
+
+        self.remove_mat(mat, from_asset_library)
 
         return {'FINISHED'}
 
@@ -3093,7 +3211,8 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
             for vcol_name in get_vertex_color_names(obj):
-                self.vcol_coll.add().name = vcol_name
+                if vcol_name != COLOR_ID_VCOL_NAME:
+                    self.vcol_coll.add().name = vcol_name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -3335,7 +3454,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
             for vcol_name in get_vertex_color_names(obj):
-                self.vcol_coll.add().name = vcol_name
+                if vcol_name != COLOR_ID_VCOL_NAME:
+                    self.vcol_coll.add().name = vcol_name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -3814,7 +3934,7 @@ def remove_layer(yp, index, remove_on_disk=False):
     wm = bpy.context.window_manager
 
     # Dealing with decal object
-    remove_decal_object(layer_tree, layer)
+    Decal.remove_decal_object(layer_tree, layer)
 
     # Dealing with image atlas segments
     if layer.type == 'IMAGE': # and layer.segment_name != '':
@@ -3847,7 +3967,7 @@ def remove_layer(yp, index, remove_on_disk=False):
     for mask in layer.masks:
 
         # Dealing with decal object
-        remove_decal_object(layer_tree, mask)
+        Decal.remove_decal_object(layer_tree, mask)
 
         # Dealing with image atlas segments
         if mask.type == 'IMAGE': # and mask.segment_name != '':
@@ -4017,8 +4137,6 @@ class YRemoveLayer(bpy.types.Operator):
         parent_dict = get_parent_dict(yp)
         index_dict = get_index_dict(yp)
 
-        need_reconnect_layers = False
-
         # Remove layer fcurves first
         remove_entity_fcurves(layer)
 
@@ -4066,7 +4184,6 @@ class YRemoveLayer(bpy.types.Operator):
         check_uv_nodes(yp)
 
         # Check children
-        #if need_reconnect_layers:
         for i in child_ids:
             lay = yp.layers[i-1]
             check_all_layer_channel_io_and_nodes(lay)
@@ -4611,10 +4728,6 @@ class YReplaceLayerType(bpy.types.Operator):
         layer = self.layer
         yp = layer.id_data.yp
 
-        if layer.use_temp_bake:
-            self.report({'ERROR'}, "Cannot replace temporarily baked layer!")
-            return {'CANCELLED'}
-
         if self.type == layer.type and self.type not in {'IMAGE', 'VCOL'}: return {'CANCELLED'}
         #if layer.type == 'GROUP':
         #    self.report({'ERROR'}, "You can't change type of group layer!")
@@ -5080,7 +5193,7 @@ class YDuplicateLayer(bpy.types.Operator):
         if not self.duplicate_blank:
             self.any_packed_image = any(get_layer_images(layer, packed_only=True))
             self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
-            self.any_decal = any_decal_inside_layer(layer)
+            self.any_decal = Decal.any_decal_inside_layer(layer)
 
             if get_user_preferences().skip_property_popups and not event.shift:
                 return self.execute(context)
@@ -5309,7 +5422,7 @@ class YPasteLayer(bpy.types.Operator):
             for layer in source_layers:
                 if not self.any_packed_image: self.any_packed_image = any(get_layer_images(layer, packed_only=True))
                 if not self.any_ondisk_image: self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
-                if not self.any_decal: self.any_decal = any_decal_inside_layer(layer)
+                if not self.any_decal: self.any_decal = Decal.any_decal_inside_layer(layer)
 
                 # Do not check baked if current yp == yp_source
                 if yp != yp_source:
@@ -5572,80 +5685,6 @@ class YPasteLayer(bpy.types.Operator):
 
         print('INFO: Layer(s) pasted in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
-
-        return {'FINISHED'}
-
-class YSelectDecalObject(bpy.types.Operator):
-    bl_idname = "wm.y_select_decal_object"
-    bl_label = "Select Decal Object"
-    bl_description = "Select Decal Object"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return group_node and hasattr(context, 'entity')
-
-    def execute(self, context):
-        scene = context.scene
-        entity = context.entity
-
-        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-
-        if m1: tree = get_tree(entity)
-        elif m2: tree = get_mask_tree(entity)
-        else: return {'CANCELLED'}
-
-        texcoord = tree.nodes.get(entity.texcoord)
-
-        if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-            try: bpy.ops.object.mode_set(mode='OBJECT')
-            except: pass
-            bpy.ops.object.select_all(action='DESELECT')
-            if texcoord.object.name not in get_scene_objects():
-                parent = texcoord.object.parent
-                custom_collection = parent.users_collection[0] if is_bl_newer_than(2, 80) and parent and len(parent.users_collection) > 0 else None
-                link_object(scene, texcoord.object, custom_collection)
-            set_active_object(texcoord.object)
-            set_object_select(texcoord.object, True)
-        else: return {'CANCELLED'}
-
-        return {'FINISHED'}
-
-class YSetDecalObjectPositionToCursor(bpy.types.Operator):
-    bl_idname = "wm.y_set_decal_object_position_to_sursor"
-    bl_label = "Set Decal Position to Cursor"
-    bl_description = "Set the position of the decal object to the 3D cursor"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return group_node and hasattr(context, 'entity')
-
-    def execute(self, context):
-        scene = bpy.context.scene
-        entity = context.entity
-
-        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-
-        if m1: tree = get_tree(entity)
-        elif m2: tree = get_mask_tree(entity)
-        else: return {'CANCELLED'}
-
-        texcoord = tree.nodes.get(entity.texcoord)
-
-        if texcoord and hasattr(texcoord, 'object') and texcoord.object:
-            # Move decal object to 3D cursor
-            if is_bl_newer_than(2, 80):
-                texcoord.object.location = scene.cursor.location.copy()
-                texcoord.object.rotation_euler = scene.cursor.rotation_euler.copy()
-            else: 
-                texcoord.object.location = scene.cursor_location.copy()
-
-        else: return {'CANCELLED'}
 
         return {'FINISHED'}
 
@@ -6051,6 +6090,18 @@ def update_hemi_camera_ray_mask(self, context):
             rearrange_layer_nodes(self)
 
         source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
+
+def update_layer_edge_detect_method(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    layer = self
+    tree = get_tree(layer)
+    
+    source = get_layer_source(layer)
+    Mask.setup_edge_detect_source(layer, source)
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
 def update_hemi_use_prev_normal(self, context):
     yp = self.id_data.yp
@@ -6903,7 +6954,7 @@ def update_layer_use_baked(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
-class YLayer(bpy.types.PropertyGroup):
+class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
     name : StringProperty(
         name = 'Layer Name',
         description = 'Layer name',
@@ -6951,17 +7002,6 @@ class YLayer(bpy.types.PropertyGroup):
         update = update_texcoord_type
     )
 
-    original_texcoord : EnumProperty(
-        name = 'Original Layer Coordinate Type',
-        items = texcoord_type_items,
-        default = 'UV'
-    )
-
-    original_image_extension : StringProperty(
-        name = 'Original Image Extension Type',
-        default = ''
-    )
-
     projection_blend : FloatProperty(
         name = 'Box Projection Blend',
         description = 'Amount of blend to use between sides',
@@ -6978,6 +7018,17 @@ class YLayer(bpy.types.PropertyGroup):
         update = update_layer_edge_detect_radius
     )
 
+    edge_detect_method : EnumProperty(
+        name = 'Edge Detection Method',
+        description = 'Edge detection method (Cycles Only)',
+        items = (
+            ('DOT', 'Dot Product', ''),
+            ('CROSS', 'Cross Product', '')
+        ),
+        default='CROSS',
+        update = update_layer_edge_detect_method
+    )
+
     # For AO
     ao_distance : FloatProperty(
         name = 'Ambient Occlusion Distance',
@@ -6992,14 +7043,6 @@ class YLayer(bpy.types.PropertyGroup):
         items = voronoi_feature_items,
         default = 'F1',
         update = update_voronoi_feature
-    )
-
-    # For temporary bake
-    use_temp_bake : BoolProperty(
-        name = 'Use Temporary Bake',
-        description = 'Use temporary bake, it can be useful for prevent glitching with cycles',
-        default = False,
-        #update=update_layer_temp_bake
     )
 
     original_type : EnumProperty(
@@ -7119,12 +7162,6 @@ class YLayer(bpy.types.PropertyGroup):
         update = update_layer_blur_vector_factor
     )
 
-    decal_distance_value : FloatProperty(
-        name = 'Decal Distance',
-        description = 'Distance between surface and the decal object',
-        min=0.0, max=100.0, default=0.5, precision=3
-    )
-
     use_baked : BoolProperty(
         name = 'Use Baked',
         description = 'Use baked layer image',
@@ -7232,6 +7269,7 @@ def register():
     bpy.utils.register_class(YOpenImageToLayer)
     bpy.utils.register_class(YOpenImagesToSingleLayer)
     bpy.utils.register_class(YOpenImagesFromMaterialToLayer)
+    bpy.utils.register_class(YOpenLayersFromMaterial)
     bpy.utils.register_class(YOpenImageToReplaceLayer)
     bpy.utils.register_class(YOpenImageToOverrideChannel)
     bpy.utils.register_class(YOpenImageToOverride1Channel)
@@ -7254,8 +7292,6 @@ def register():
     bpy.utils.register_class(YDuplicateLayer)
     bpy.utils.register_class(YCopyLayer)
     bpy.utils.register_class(YPasteLayer)
-    bpy.utils.register_class(YSelectDecalObject)
-    bpy.utils.register_class(YSetDecalObjectPositionToCursor)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YLayer)
 
@@ -7267,6 +7303,7 @@ def unregister():
     bpy.utils.unregister_class(YNewVcolToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToLayer)
     bpy.utils.unregister_class(YOpenImagesToSingleLayer)
+    bpy.utils.unregister_class(YOpenLayersFromMaterial)
     bpy.utils.unregister_class(YOpenImagesFromMaterialToLayer)
     bpy.utils.unregister_class(YOpenImageToReplaceLayer)
     bpy.utils.unregister_class(YOpenImageToOverrideChannel)
@@ -7290,7 +7327,5 @@ def unregister():
     bpy.utils.unregister_class(YDuplicateLayer)
     bpy.utils.unregister_class(YCopyLayer)
     bpy.utils.unregister_class(YPasteLayer)
-    bpy.utils.unregister_class(YSelectDecalObject)
-    bpy.utils.unregister_class(YSetDecalObjectPositionToCursor)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YLayer)

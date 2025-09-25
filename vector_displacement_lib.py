@@ -4,6 +4,7 @@ from .common import *
 GEO_TANGENT2OBJECT = '~yPL GEO Tangent2Object'
 GEO_VDM_LOADER = '~yPL GEO VDM Loader'
 MAT_OFFSET_TANGENT_SPACE = '~yPL MAT Tangent Space Offset'
+MAT_OFFSET_TANGENT_SPACE_FLIP_YZ = '~yPL MAT Tangent Space Offset Flip YZ'
 MAT_TANGENT_BAKE = '~yPL MAT Tangent Bake'
 MAT_BITANGENT_BAKE = '~yPL MAT Bitangent Bake'
 SHA_PACK_VECTOR = '~yPL SHA Pack Vector'
@@ -52,7 +53,7 @@ def get_tangent_bake_mat(uv_name='', target_image=None):
         bake_target.name = bake_target.label = 'Bake Target'
         nodes.active = bake_target
 
-        end = nodes.get('Material Output')
+        end = get_material_output(mat, create_one=True)
 
         # Node Arrangements
         loc = Vector((0, 0))
@@ -129,7 +130,7 @@ def get_bitangent_bake_mat(uv_name='', target_image=None):
         bake_target.name = bake_target.label = 'Bake Target'
         nodes.active = bake_target
 
-        end = nodes.get('Material Output')
+        end = get_material_output(mat, create_one=True)
 
         # Node Arrangements
         loc = Vector((0, 0))
@@ -411,10 +412,12 @@ def get_object2tangent_shader_tree():
 
     return tree
 
-def get_offset_bake_mat(uv_name='', target_image=None, bitangent_image=None):
-    mat = bpy.data.materials.get(MAT_OFFSET_TANGENT_SPACE)
+def get_offset_bake_mat(uv_name='', target_image=None, bitangent_image=None, flip_yz=False):
+    lib_name = MAT_OFFSET_TANGENT_SPACE if not flip_yz else MAT_OFFSET_TANGENT_SPACE_FLIP_YZ
+
+    mat = bpy.data.materials.get(lib_name)
     if not mat:
-        mat = bpy.data.materials.new(MAT_OFFSET_TANGENT_SPACE)
+        mat = bpy.data.materials.new(lib_name)
         mat.use_nodes = True
 
         tree = mat.node_tree
@@ -454,6 +457,10 @@ def get_offset_bake_mat(uv_name='', target_image=None, bitangent_image=None):
         object2tangent.node_tree = get_object2tangent_shader_tree()
         object2tangent.name = object2tangent.label = 'Object to Tangent'
 
+        if flip_yz:
+            separate_xyz = tree.nodes.new('ShaderNodeSeparateXYZ')
+            combine_xyz = tree.nodes.new('ShaderNodeCombineXYZ')
+
         pack_vector = nodes.new('ShaderNodeGroup')
         pack_vector.node_tree = get_pack_vector_shader_tree()
         pack_vector.name = pack_vector.label = 'Pack Vector'
@@ -463,7 +470,7 @@ def get_offset_bake_mat(uv_name='', target_image=None, bitangent_image=None):
         bake_target.name = bake_target.label = 'Bake Target'
         nodes.active = bake_target
 
-        end = nodes.get('Material Output')
+        end = get_material_output(mat, create_one=True)
 
         # Node Arrangements
         loc = Vector((0, 0))
@@ -487,6 +494,13 @@ def get_offset_bake_mat(uv_name='', target_image=None, bitangent_image=None):
         loc.x += 200
 
         object2tangent.location = loc
+
+        if flip_yz:
+            loc.x += 200
+            separate_xyz.location = loc
+
+            loc.x += 200
+            combine_xyz.location = loc
 
         loc.y = 0
         loc.x += 200
@@ -513,7 +527,16 @@ def get_offset_bake_mat(uv_name='', target_image=None, bitangent_image=None):
         links.new(bitangent_uv.outputs[0], bitangent.inputs['Vector'])
         links.new(bitangent.outputs[0], object2tangent.inputs['Bitangent'])
 
-        links.new(object2tangent.outputs['Vector'], pack_vector.inputs['Vector'])
+        if flip_yz:
+            links.new(object2tangent.outputs['Vector'], separate_xyz.inputs['Vector'])
+            links.new(separate_xyz.outputs[0], combine_xyz.inputs[0])
+            links.new(separate_xyz.outputs[1], combine_xyz.inputs[2])
+            links.new(separate_xyz.outputs[2], combine_xyz.inputs[1])
+
+            links.new(combine_xyz.outputs[0], pack_vector.inputs['Vector'])
+        else:
+            links.new(object2tangent.outputs['Vector'], pack_vector.inputs['Vector'])
+
         links.new(pack_vector.outputs['Vector'], emission.inputs[0])
         links.new(emission.outputs[0], end.inputs[0])
 
@@ -658,6 +681,7 @@ def get_vdm_loader_geotree(uv_name='', vdm_image=None, tangent_image=None, bitan
 
     if not tree:
         tree = bpy.data.node_groups.new(GEO_VDM_LOADER, 'GeometryNodeTree')
+        if is_bl_newer_than(4): tree.is_modifier = True
         nodes = tree.nodes
         links = tree.links
 
@@ -668,11 +692,16 @@ def get_vdm_loader_geotree(uv_name='', vdm_image=None, tangent_image=None, bitan
         # Create IO
         new_tree_input(tree, 'Geometry', 'NodeSocketGeometry')
         new_tree_output(tree, 'Geometry', 'NodeSocketGeometry')
+        flip_yz_inp = new_tree_input(tree, 'Flip Y/Z', 'NodeSocketBool')
 
         # Create nodes
         vdm = tree.nodes.new('GeometryNodeImageTexture')
         vdm.label = 'VDM'
         vdm.inputs[0].default_value = vdm_image
+
+        separate_xyz = tree.nodes.new('ShaderNodeSeparateXYZ')
+        combine_xyz = tree.nodes.new('ShaderNodeCombineXYZ')
+        mix_flip_yz = simple_new_mix_node(tree, 'VECTOR', 'Flip Y/Z')
 
         tangent = tree.nodes.new('GeometryNodeImageTexture')
         tangent.label = 'Tangent'
@@ -712,6 +741,15 @@ def get_vdm_loader_geotree(uv_name='', vdm_image=None, tangent_image=None, bitan
         start.location = loc
         loc.y -= 100
 
+        mix_flip_yz.location = loc
+        loc.y -= 220
+
+        combine_xyz.location = loc
+        loc.y -= 150
+
+        separate_xyz.location = loc
+        loc.y -= 150
+
         vdm.location = loc
         loc.y -= 200
 
@@ -745,7 +783,17 @@ def get_vdm_loader_geotree(uv_name='', vdm_image=None, tangent_image=None, bitan
         links.new(uv_map.outputs[0], tangent.inputs[1])
         links.new(uv_map.outputs[0], bitangent.inputs[1])
 
-        links.new(vdm.outputs[0], tangent2object.inputs[0])
+        links.new(vdm.outputs[0], separate_xyz.inputs[0])
+        links.new(separate_xyz.outputs[0], combine_xyz.inputs[0])
+        links.new(separate_xyz.outputs[1], combine_xyz.inputs[2])
+        links.new(separate_xyz.outputs[2], combine_xyz.inputs[1])
+
+        mixin0, mixin1, mixout = get_mix_color_indices(mix_flip_yz)
+        links.new(vdm.outputs[0], mix_flip_yz.inputs[mixin0])
+        links.new(combine_xyz.outputs[0], mix_flip_yz.inputs[mixin1])
+        links.new(start.outputs[1], mix_flip_yz.inputs[0])
+
+        links.new(mix_flip_yz.outputs[mixout], tangent2object.inputs[0])
         links.new(tangent.outputs[0], tangent2object.inputs[1])
         links.new(bitangent.outputs[0], tangent2object.inputs[2])
 

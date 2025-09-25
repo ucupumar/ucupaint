@@ -2104,35 +2104,6 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def fix_missing_vcol(obj, name, src, entity=None, entities=[]):
-
-    ref_vcol = None
-
-    if is_bl_newer_than(3, 2):
-        # Try to get reference vcol
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-
-        for o in objs:
-            ovcols = get_vertex_colors(o)
-            if name in ovcols:
-                ref_vcol = ovcols.get(name)
-                break
-
-    # Default recovered missing vcol is black
-    color = (0.0, 0.0, 0.0, 0.0)
-
-    # Create missing vertex color
-    if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain, color_fill=color)
-    else: vcol = new_vertex_color(obj, name, color_fill=color)
-
-    # Set attribute name back to source in case the name is different
-    set_source_vcol_name(src, vcol.name)
-
-    # Set the name back to entity
-    if entity and vcol.name not in entity.name:
-        entity.name = get_unique_name(vcol.name, entities)
-
 def fix_missing_img(name, src, is_mask=False):
     img = bpy.data.images.new(
         name=name, width=1024, height=1024,
@@ -2246,36 +2217,7 @@ class YFixMissingData(bpy.types.Operator):
                     objs.append(ob)
 
         # Fix missing vcols
-        need_color_id_vcol = False
-
-        for obj in objs:
-            if obj.type != 'MESH': continue
-
-            for layer in yp.layers:
-                if layer.type == 'VCOL':
-                    src = get_layer_source(layer)
-                    if not get_vcol_from_source(obj, src):
-                        fix_missing_vcol(obj, src.attribute_name, src, entity=layer, entities=yp.layers)
-
-                for mask in layer.masks:
-                    if mask.type == 'VCOL': 
-                        src = get_mask_source(mask)
-                        if not get_vcol_from_source(obj, src):
-                            fix_missing_vcol(obj, src.attribute_name, src, entity=mask, entities=layer.masks)
-
-                    if mask.type == 'COLOR_ID':
-                        vcols = get_vertex_colors(obj)
-                        if COLOR_ID_VCOL_NAME not in vcols:
-                            need_color_id_vcol = True
-
-                for ch in layer.channels:
-                    if ch.override and ch.override_type == 'VCOL':
-                        src = get_channel_source(ch, layer)
-                        if not get_vcol_from_source(obj, src):
-                            fix_missing_vcol(obj, src.attribute_name, src)
-
-        # Fix missing color id missing vcol
-        if need_color_id_vcol: check_colorid_vcol(objs)
+        fix_missing_object_vcols(yp, objs)
 
         # Fix missing uvs
         check_uv_nodes(yp, generate_missings=True)
@@ -2483,7 +2425,7 @@ def get_preview(mat, output=None, advanced=False, normal_viewer=False):
 
     # Search for output
     if not output:
-        output = get_active_mat_output_node(tree)
+        output = get_material_output(mat)
 
     if not output: return None
 
@@ -2593,7 +2535,7 @@ def remove_preview(mat, advanced=False):
     if preview: 
         simple_remove_node(mat.node_tree, preview)
         bsdf = nodes.get(mat.yp.ori_bsdf)
-        output = get_active_mat_output_node(mat.node_tree)
+        output = get_material_output(mat)
         mat.yp.ori_bsdf = ''
 
         if bsdf and output:
@@ -2672,7 +2614,7 @@ def update_layer_preview_mode(self, context):
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
 
-        output = get_active_mat_output_node(mat.node_tree)
+        output = get_material_output(mat, create_one=True)
         if yp.layer_preview_mode_type in {'ALPHA', 'SPECIFIC_MASK'}:
             preview = get_preview(mat, output, False)
             if not preview: return
@@ -2743,7 +2685,7 @@ def update_preview_mode(self, context):
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
 
-        output = get_active_mat_output_node(mat.node_tree)
+        output = get_material_output(mat, create_one=True)
 
         # Get preview node by name first
         preview = mat.node_tree.nodes.get(EMISSION_VIEWER)

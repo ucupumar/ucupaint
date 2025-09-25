@@ -216,7 +216,9 @@ class YToggleEraser(bpy.types.Operator):
 
             # Toggle 'Erase Alpha' if new brush is the same
             if brush.name == new_brush_name:
-                brush.blend = ve.ori_texpaint_blending_mode if brush.blend == 'ERASE_ALPHA' else 'ERASE_ALPHA'
+                if brush.blend == 'ERASE_ALPHA': 
+                    brush.blend = ve.ori_texpaint_blending_mode if ve.ori_texpaint_blending_mode != '' else 'MIX'
+                else: brush.blend = 'ERASE_ALPHA'
             else:
 
                 # HACK: Set brush to 'builtin.brush' brush first before using non-draw brush

@@ -1030,6 +1030,16 @@ def update_yp_tree(tree):
                         height_ch.enable_transition_bump = False
                         height_ch.enable_transition_bump = True
 
+    # Version 2.3.6 will remove the remains of mistakenly baked fake lighting layers/masks
+    # NOTE: The function won't run because version 2.3.6 is not finalized yet
+    if False and version_tuple(yp.version) < (2, 3, 6):
+        for layer in yp.layers:
+            ltree = get_tree(layer)
+            for n in ltree.nodes:
+                if n.type == 'TEX_IMAGE' and n.image and len(n.outputs[0].links) == 0 and 'Fake Lighting' in n.image.name and ' Temp' in n.image.name:
+                    print('INFO: Unused image named \''+n.image.name+'\' is removed!')
+                    simple_remove_node(ltree, n)
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
@@ -1697,11 +1707,12 @@ class YUpdateRemoveSmoothBump(bpy.types.Operator):
                     # Check if material use subsurface scattering
                     sss_enabled = False
                     outp = get_material_output(mat)
-                    bsdf = get_closest_bsdf_backward(outp, ['BSDF_PRINCIPLED'])
-                    if bsdf:
-                        inp = bsdf.inputs.get('Subsurface Weight') if is_bl_newer_than(4) else bsdf.inputs.get('Subsurface')
-                        if inp and (inp.default_value > 0.0 or len(inp.links) > 0):
-                            sss_enabled = True
+                    if outp:
+                        bsdf = get_closest_bsdf_backward(outp, ['BSDF_PRINCIPLED'])
+                        if bsdf:
+                            inp = bsdf.inputs.get('Subsurface Weight') if is_bl_newer_than(4) else bsdf.inputs.get('Subsurface')
+                            if inp and (inp.default_value > 0.0 or len(inp.links) > 0):
+                                sss_enabled = True
                 
                 for layer in yp.layers:
                     height_ch = get_height_channel(layer)
