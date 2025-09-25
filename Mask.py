@@ -1454,7 +1454,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             self.vcol_coll.clear()
             for vcol_name in get_vertex_color_names(obj):
                 if vcol_name != layer_vcol_name and vcol_name not in mask_vcol_names:
-                    self.vcol_coll.add().name = vcol_name
+                    if vcol_name != COLOR_ID_VCOL_NAME:
+                        self.vcol_coll.add().name = vcol_name
 
             # Make sure default vcol is available in the collection and update the source input based on the default name
             if self.vcol_name not in self.vcol_coll:

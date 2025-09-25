@@ -3211,7 +3211,8 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
             for vcol_name in get_vertex_color_names(obj):
-                self.vcol_coll.add().name = vcol_name
+                if vcol_name != COLOR_ID_VCOL_NAME:
+                    self.vcol_coll.add().name = vcol_name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -3453,7 +3454,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
             for vcol_name in get_vertex_color_names(obj):
-                self.vcol_coll.add().name = vcol_name
+                if vcol_name != COLOR_ID_VCOL_NAME:
+                    self.vcol_coll.add().name = vcol_name
 
         return context.window_manager.invoke_props_dialog(self)
 
