@@ -5,6 +5,32 @@ import bpy.utils.previews
 
 from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title
 
+class YTierPagingButton(bpy.types.Operator):
+    """Paging"""
+    bl_idname = "wm.y_sponsor_paging"
+    bl_label = "Next Page"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    is_next_button : bpy.props.BoolProperty(default=True)
+    tier_index : bpy.props.IntProperty(default=0)
+    max_page : bpy.props.IntProperty(default=0)
+
+    def execute(self, context):
+        # print("Paging", "Next" if self.is_next_button else "Previous")
+        goal_ui = context.window_manager.ypui_sponsor
+        current_page = goal_ui.page_tiers[self.tier_index]
+        if self.is_next_button:
+            current_page += 1
+            if self.max_page > 0 and current_page >= self.max_page:
+                current_page = self.max_page - 1
+        else:
+            current_page -= 1
+            if current_page < 0:
+                current_page = 0
+        goal_ui.page_tiers[self.tier_index] = current_page
+
+        # print("New page for tier", self.tier_index, "=", current_page)
+        return {'FINISHED'}
 
 class YSponsorPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ysponsor_popover"
@@ -19,10 +45,8 @@ class YSponsorPopover(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        # layout.label(text="Ucupaint sponsor is updated daily.")
 
-        goal = collaborators.sponsorship_goal
-        layout.label(text=goal.get('description', ''), )
+        layout.label(text="Ucupaint's sponsor is updated daily", )
 
 
 class YSponsorProp(bpy.types.PropertyGroup):
@@ -37,7 +61,18 @@ class YSponsorProp(bpy.types.PropertyGroup):
     expand_tiers : bpy.props.BoolVectorProperty(
         name = "Expand Tiers",
         description = "Expand Tiers List",
-        size = 5, # cannot be dynamic
+        size = 8, # cannot be dynamic
+    )
+
+    page_tiers : bpy.props.IntVectorProperty(
+        name = "Page Tiers",
+        description = "Page Tiers",
+        size = 8, # cannot be dynamic
+    )
+
+    expand_description : bpy.props.BoolProperty(
+        default = False,
+        description = "Ucupaint's sponsor is updated daily",
     )
 
     initialized : bpy.props.BoolProperty(
@@ -45,7 +80,7 @@ class YSponsorProp(bpy.types.PropertyGroup):
     )
 
     expanded : bpy.props.BoolProperty(
-        default = True,
+        default = False,
     )
 
 class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
@@ -56,35 +91,67 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
     bl_category = get_addon_title()
     bl_options = {'DEFAULT_CLOSED'} 
 
+
+    def draw_multiline(self, layout, text:str, panel_width:int):
+        all_desc = text.split(' ')
+
+        current_text = ''
+        for d in all_desc:
+            if len(current_text + d) > panel_width // 13: # rough estimate
+                layout.label(text=current_text)
+                current_text = ''
+            current_text += d + ' '
+        layout.label(text=current_text)
+
+    def draw_expanding_title(self, layout, expand, object, prop_name, title, index_prop = -1):
+
+        icon = 'TRIA_DOWN' if expand else 'TRIA_RIGHT'
+        row = layout.row(align=True)
+        rrow = row.row(align=True)
+
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+            if index_prop == -1:
+                rrow.prop(object, prop_name, emboss=False, text=title, icon=icon)
+            else:
+                rrow.prop(object, prop_name, index=index_prop, emboss=False, text=title, icon=icon)
+        else:
+            if index_prop == -1:
+                rrow.prop(object, prop_name, emboss=False, text='', icon=icon)
+            else:
+                rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
+            rrow.label(text=title)
+
+        return row
+
     def draw_header_preset(self, context):
         goal_ui = context.window_manager.ypui_sponsor
         if not goal_ui.expanded:
             layout = self.layout
             row = layout.row(align=True)
             row.operator('wm.url_open', text="Donate Us", icon='FUND').url = "https://github.com/sponsors/ucupumar"
-
         goal_ui.expanded = False
+
 
     def draw_item(self, layout, icon, label, url = '', scale_icon:float = 3.0, horizontal_mode:bool = True):
         if horizontal_mode:
             row = layout.row(align=True)
             row.alignment = 'LEFT'
-            row.template_icon(icon_value = icon, scale = scale_icon)
-            btn_url = row.operator('wm.url_open', text=label, emboss=False, )
-            btn_url.url = url
+            if scale_icon != 0.0:
+                row.template_icon(icon_value = icon, scale = scale_icon)
+                btn_url = row.operator('wm.url_open', text=label, emboss=False, )
+                btn_url.url = url
+            else:
+                row.label(text=label)
             
         else:
             col = layout.column(align=True)
             col.template_icon(icon_value = icon, scale = scale_icon)
             col.operator('wm.url_open', text=label, emboss=False).url = url
 
-    def draw_tier_members(self, goal_ui, layout, title:str, tier_index:int, per_column:int = 3, scale_icon:float = 3.0, horizontal_mode:bool = True):
-
-        expand = goal_ui.expand_tiers[tier_index]
-
-        icon = 'TRIA_DOWN' if expand else 'TRIA_RIGHT'
-        row = layout.row(align=True)
-        rrow = row.row(align=True)
+    def draw_tier_members(self, panel_width, goal_ui, layout, title:str, price, tier_index:int, per_column:int = 3, current_page:int = 0, per_page_item:int = 4, scale_icon:float = 3.0, horizontal_mode:bool = True):
+        
         filtered_items = list()
 
         for item in collaborators.sponsors.values():
@@ -92,45 +159,79 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                 continue
             filtered_items.append(item)
 
+        member_count = len(filtered_items)
 
-        text_object = f'{title.strip()} ({len(filtered_items)})'
+        stripped_title = ''.join(c for c in title if ord(c) < 128)
+        stripped_title = stripped_title.strip()
 
-        if is_bl_newer_than(2, 80):
-            rrow.alignment = 'LEFT'
-            rrow.scale_x = 0.95
-            rrow.prop(goal_ui, 'expand_tiers', index=tier_index, emboss=False, text=text_object, icon=icon)
-        else:
-            rrow.prop(goal_ui, 'expand_tiers', index=tier_index, emboss=False, text='', icon=icon)
-            rrow.label(text=text_object)
+        text_object = f'{stripped_title}'
+
+        expand = goal_ui.expand_tiers[tier_index]
+        title_row = self.draw_expanding_title(layout, expand, goal_ui, 'expand_tiers', text_object, tier_index)
+        paging_layout = title_row.row(align=True)
+        paging_layout.alignment = 'RIGHT'
 
         if expand:
             
+            row = layout.row(align=True)
+            # col = layout.column(align=True)
+            #row.label(text='', icon='BLANK1')
+            box = row.box()
             if len(filtered_items) == 0:
-                layout.label(text="No sponsors yet. Be the first one!")
+                box.label(text="No sponsors yet. Be the first one!")
             else:
-                # col = layout.column(align=True)
-                grid = layout.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
+                grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
 
                 missing_column = per_column - (len(filtered_items) % per_column)
 
                 counter_member = 0
-                for cl, item in enumerate(filtered_items):
+
+                paged_items = filtered_items[current_page * per_page_item : (current_page + 1) * per_page_item]
+
+                lowest_tier = scale_icon == 0.0
+                lowest_members = ''
+
+                for cl, item in enumerate(paged_items):
                     counter_member += 1
                     thumb = item['thumb']
                     if not thumb:
                         thumb = collaborators.default_pic
 
-                    id = item["id"]
+                    id = item["name"]
                     if item['one_time']:
                         if horizontal_mode:
                             id +=  "*"
                         else:
                             id =  "*" + id
-                    self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
+                    if lowest_tier:
+                        lowest_members += id + ', '
+                    else:
+                        self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
 
-                if missing_column != per_column:
+                if lowest_tier and lowest_members != '':
+                    lowest_members = lowest_members[:-2] # remove last comma
+                    self.draw_multiline(box, lowest_members, panel_width)
+
+                elif missing_column != per_column:
                     for i in range(missing_column):
                         self.draw_item(grid, collaborators.default_pic, '', '', scale_icon, horizontal_mode)
+
+            if member_count > per_page_item:
+
+                prev = paging_layout.operator('wm.y_sponsor_paging', text='', icon='TRIA_LEFT')
+                prev.is_next_button = False
+                prev.tier_index = tier_index
+                prev.max_page = (member_count + per_page_item - 1) // per_page_item
+
+                paging_layout.label(text=f"{current_page + 1}/{prev.max_page}")
+
+                next = paging_layout.operator('wm.y_sponsor_paging', text='', icon='TRIA_RIGHT')
+                next.is_next_button = True
+                next.tier_index = tier_index
+                next.max_page = prev.max_page
+                
+        # paging_layout.separator()
+        # paging_layout.popover("NODE_PT_ysponsor_popover", text='', icon='INFO')
 
     def draw(self, context):
 
@@ -142,11 +243,21 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         goal_ui = context.window_manager.ypui_sponsor
 
         if goal and 'targetValue' in goal:
-            
-            desc = layout.row()
-            desc.label(text="Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
-            desc.popover("NODE_PT_ysponsor_popover", text='', icon='INFO')
+            expand = goal_ui.expand_description
+            # desc = layout.row()
+            row_title = self.draw_expanding_title(layout, expand, goal_ui, 'expand_description', "Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
 
+            paging_layout = row_title.row(align=True)
+            paging_layout.alignment = 'RIGHT'
+            paging_layout.popover("NODE_PT_ysponsor_popover", text='', icon='INFO')
+
+            if expand:
+                box = layout.box()
+                box = box.column(align=True)
+
+                description = goal.get('description', '')
+                self.draw_multiline(box, description, panel_width)
+            
             target = goal['targetValue']
             percentage = goal['percentComplete']
             donation = target * percentage / 100
@@ -176,12 +287,19 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                     column_count = panel_width // per_column_width
                     if column_count <= 0:
                         column_count = 1
-                    
-                    self.draw_tier_members(goal_ui,layout, tier['name'], idx, column_count, scale_icon, horizontal_mode)
+
+                    self.draw_tier_members(panel_width, goal_ui, layout, tier['name'], tier['price'], idx, column_count, goal_ui.page_tiers[idx], tier['per_page_item'], scale_icon, horizontal_mode)
 
             layout.separator()
             layout.label(text="* One-time sponsor")
+        else:
+            layout.label(text="No internet connection, cannot load sponsors.")
+            # open online access 
+
         goal_ui.expanded = True
+
+
+
 # todo :
 # settingan per tier (mode, show default, scale icon, width_size)
 # column di horizontal mode
@@ -189,6 +307,16 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 # info : update per hari
 # UCUPAINt goal description dropdown
 
+# cari : View lock di View
+# 2 teratas tier with member > expand  
+# icon tier
+# override user
+# max user visible per tier
+# paging per tier
+# tombol info per tier
+
+# [your name] here, empty tier
+# include one time 
 def load_preview(key:str, file_name:str):
     if key in previews_users:
         img = previews_users[key]
@@ -203,11 +331,26 @@ def check_contributors(context):
         print("first time init, loading contributors...")
         load_contributors()
 
+        expanding_top_tier = 2 # todo : from settings
         # tier setup
         tiers = collaborators.sponsorship_goal.get('tiers', [])
-        for i, tier in enumerate(tiers):
-            if i < len(goal_ui.expand_tiers):
-                goal_ui.expand_tiers[i] = tier.get('default_expanded', False)
+
+        # reset expand
+        for i in goal_ui.expand_tiers:
+            i = False
+
+        total_tiers = len(tiers)
+        for idx in range(total_tiers):
+            i = total_tiers - 1 - idx
+            if expanding_top_tier > 0:
+                # check member count 
+                member_count = 0
+                for item in collaborators.sponsors.values():
+                    if item['tier'] == i:
+                        member_count += 1
+                if member_count > 0:
+                    goal_ui.expand_tiers[i] = True
+                    expanding_top_tier -= 1
 
 def load_contributors():    
 
@@ -331,10 +474,11 @@ def load_contributors():
         if len(parts) >= 6:
             sponsor = {
                 'id': parts[0],
-                'url': parts[1],
-                'image_url': parts[2],
-                'one_time' : parts[5] == 'True',
-                'tier': int(parts[6]),
+                'name': parts[1],
+                'url': parts[2],
+                'image_url': parts[3],
+                'one_time' : parts[6] == 'True',
+                'tier': int(parts[7]),
                 
                 'thumb': None
             }
@@ -342,18 +486,8 @@ def load_contributors():
 
             # for i in range(20):
             #     collaborators.sponsors[sponsor['id']+str(i)] = sponsor
-    
-    # extra dummy
-    tiers = collaborators.sponsorship_goal.get('tiers', [])
-    tier_count = len(tiers)
-    for i, contributor in enumerate(collaborators.contributors.values()):
-        random_num = hash(contributor['id']) % 1000
 
-        contributor['tier'] = i % tier_count
-        contributor['one_time'] = True if (random_num % 2) == 0 else False
-        collaborators.sponsors[contributor['id']] = contributor
-
-    icon_size = 128
+    icon_size = 512
 
     # Download contributor images
     links = [c['image_url']+f"&s={icon_size}" for c in collaborators.contributors.values()]
@@ -398,7 +532,7 @@ def load_contributors():
             if os.path.exists(file_name):
                 img = load_preview(k, file_name)
                 collaborators.contributors[k]['thumb'] = img.icon_id
-                print("loaded contributor ", k, " = ", collaborators.contributors[k])
+                # print("loaded contributor ", k, " = ", collaborators.contributors[k])
             else:
                 print("file not found", file_name)
 
@@ -407,9 +541,36 @@ def load_contributors():
             if os.path.exists(file_name):
                 img = load_preview(k, file_name)
                 collaborators.sponsors[k]['thumb'] = img.icon_id
-                print("loaded sponsor ", k, " = ", collaborators.sponsors[k])
+                # print("loaded sponsor ", k, " = ", collaborators.sponsors[k])
             else:
                 print("file not found", file_name)
+
+        # extra dummy
+    show_extra_dummy = True
+
+    if show_extra_dummy:
+        tiers = collaborators.sponsorship_goal.get('tiers', [])
+        tier_count = len(tiers)
+
+        dummy_multiplier = 3
+
+        for m in range(dummy_multiplier):
+            for i, contributor in enumerate(collaborators.contributors.values()):
+                random_num = hash(contributor['id']) % 1000
+
+                new_contributor = contributor.copy()
+
+                new_contributor['tier'] = i % tier_count
+                new_contributor['one_time'] = True if (random_num % 2) == 0 else False
+
+                if m == 0:
+                    new_contributor['name'] = contributor['id']
+                    collaborators.sponsors[contributor['id']] = new_contributor
+                else:
+                    new_contributor['name'] = contributor['id'] + str(m)
+                    collaborators.sponsors[contributor['id']+str(m)] = new_contributor
+
+                print(new_contributor)
 
 def download_stream(links:list[str], file_names:list[str], ids:list[str], dict, timeout:int = 10):
     for idx, file_name in enumerate(file_names):
@@ -442,6 +603,7 @@ def download_stream(links:list[str], file_names:list[str], ids:list[str], dict, 
 classes = [
     VIEW3D_PT_YPaint_support_ui,
     YSponsorProp,
+    YTierPagingButton,
     YSponsorPopover
 ]
 
