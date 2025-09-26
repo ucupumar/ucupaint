@@ -1,6 +1,6 @@
 {
   "kind": "MONTHLY_SPONSORSHIP_AMOUNT",
-  "description": "Thank you so much! This is the beginning of something bigger! I'll start by spending more time developing ucupaint than before.",
+  "description": "Thank you so much! \nThis is the beginning of something bigger! I'll start by spending more time developing ucupaint than before.",
   "percentComplete": 4,
   "targetValue": 500,
   "title": "$500 per month",
@@ -8,22 +8,49 @@
   "fullDescription": "### Fellow 3D artists! \ud83d\udc4b\n\nSince 2017 I've been working on Ucupaint, a free and open source Blender addon that can help you a lot with the material creation. Until September 2025, Ucupaint has been downloaded almost 200k across the [Blender Extension Platform](https://extensions.blender.org/add-ons/ucupaint/) and [GitHub](https://github.com/ucupumar/ucupaint/releases), and the momentum is still building!\n\n### Why sponsoring me? \ud83d\ude4b\n\nSponsoring Ucupaint can help make the development sustainable. There are a lot of ideas and feature requests left to do, but the implementation takes time since I also have other responsibilities. If this funding goes well, I can put much more time into development and doing the documentation/tutorials.",
   "tiers": [
     {
-      "name": "\u2615\ufe0f Backer\r",
-      "price": 10,
-      "description": "### \u2615\ufe0f Backer\r\n- Get a sponsor badge on your profile",
+      "name": "\u2615\ufe0f Bronze\r",
+      "price": 5,
+      "description": "### \u2615\ufe0f Bronze\r\n- Get a sponsor badge on your profile",
       "horizontal": true,
-      "default_expanded": false,
-      "scale": 1.5,
+      "scale": 0.0,
+      "per_page_item": 20,
       "per_item_width": 500
     },
     {
-      "name": "\ud83c\udf69 Generous Backer\r",
+      "name": "\u2615\ufe0f Silver\r",
+      "price": 10,
+      "description": "### \u2615\ufe0f Bronze\r\n- Get a sponsor badge on your profile",
+      "horizontal": true,
+      "scale": 1.0,
+      "per_page_item": 4,
+      "per_item_width": 500
+    },
+    {
+      "name": "\ud83c\udf69 Gold\r",
+      "price": 25,
+      "description": "### \ud83c\udf69 Silver\r\n- Get a sponsor badge on your profile\r\n- Shoutout on Bluesky & Twitter (50k+ combined followers)",
+      "horizontal": true,
+      "scale": 2,
+      "per_page_item": 4,
+      "per_item_width": 280
+    },
+    {
+      "name": "\ud83c\udf69 Platinum\r",
       "price": 50,
-      "description": "### \ud83c\udf69 Generous Backer\r\n- Get a sponsor badge on your profile\r\n- Shoutout on Bluesky & Twitter (50k+ combined followers)",
+      "description": "### \ud83c\udf69 Gold\r\n- Get a sponsor badge on your profile\r\n- Shoutout on Bluesky & Twitter (50k+ combined followers)",
       "horizontal": false,
-      "default_expanded": true,
       "scale": 3,
+      "per_page_item": 3,
       "per_item_width": 180
+    },
+    {
+      "name": "\ud83c\udf69 Titanium\r",
+      "price": 100,
+      "description": "### \ud83c\udf69 Platinum\r\n- Get a sponsor badge on your profile\r\n- Shoutout on Bluesky & Twitter (50k+ combined followers)",
+      "horizontal": false,
+      "scale": 5,
+      "per_page_item": 2,
+      "per_item_width": 280
     }
   ]
 }

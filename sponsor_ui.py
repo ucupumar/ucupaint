@@ -103,25 +103,41 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             current_text += d + ' '
         layout.label(text=current_text)
 
-    def draw_expanding_title(self, layout, expand, object, prop_name, title, index_prop = -1):
+    def draw_expanding_title(self, layout, expand, object, prop_name, title):
 
-        icon = 'TRIA_DOWN' if expand else 'TRIA_RIGHT'
+        icon = 'DOWNARROW_HLT' if expand else 'RIGHTARROW'
         row = layout.row(align=True)
         rrow = row.row(align=True)
 
         if is_bl_newer_than(2, 80):
             rrow.alignment = 'LEFT'
             rrow.scale_x = 0.95
-            if index_prop == -1:
-                rrow.prop(object, prop_name, emboss=False, text=title, icon=icon)
-            else:
-                rrow.prop(object, prop_name, index=index_prop, emboss=False, text=title, icon=icon)
+            rrow.prop(object, prop_name, emboss=False, text=title, icon=icon)
         else:
-            if index_prop == -1:
-                rrow.prop(object, prop_name, emboss=False, text='', icon=icon)
-            else:
-                rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
+            rrow.prop(object, prop_name, emboss=False, text='', icon=icon)
             rrow.label(text=title)
+
+        return row
+
+    def draw_tier_title(self, layout, expand, object, prop_name, title, index_prop):
+
+        # icons = ['KEYTYPE_KEYFRAME_VEC', 'KEYTYPE_BREAKDOWN_VEC', 'KEYTYPE_JITTER_VEC', 'KEYTYPE_EXTREME_VEC', 'KEYTYPE_MOVING_HOLD_VEC', 'KEYTYPE_GENERATED_VEC']
+        icons = ['NODE_SOCKET_OBJECT', 'NODE_SOCKET_FLOAT', 'NODE_SOCKET_RGBA', 'NODE_SOCKET_STRING', 'NODE_SOCKET_BOOLEAN', 'NODE_SOCKET_GEOMETRY']
+
+        icon = 'DOWNARROW_HLT' if expand else 'RIGHTARROW'
+        row = layout.row(align=True)
+        rrow = row.row(align=True)
+
+        index_icon = index_prop % len(icons)
+
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+            rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
+        else:
+            rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
+            # rrow.label(text=title)
+        rrow.prop(object, prop_name, index=index_prop, text=title, icon=icons[index_icon], emboss=False)
 
         return row
 
@@ -151,13 +167,16 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             col.operator('wm.url_open', text=label, emboss=False).url = url
 
     def draw_empty_member(self, layout, scale_icon:float = 3.0, horizontal_mode:bool = True):
-        content = '[Your name]'
+
+        content = 'No sponsors yet, be the first one!'
         if horizontal_mode:
             row = layout.row(align=True)
             row.alignment = 'LEFT'
             if scale_icon != 0.0:
                 row.template_icon(icon_value = collaborators.empty_pic, scale = scale_icon)
-                btn_url = row.operator('wm.url_open', text=content, emboss=False, )
+                btn_row = row.row(align=True)
+                btn_row.scale_y = scale_icon
+                btn_url = btn_row.operator('wm.url_open', text=content, emboss=False, )
                 btn_url.url = "https://github.com/sponsors/ucupumar"
             else:
                 row.label(text=content)
@@ -180,10 +199,12 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         stripped_title = ''.join(c for c in title if ord(c) < 128)
         stripped_title = stripped_title.strip()
 
-        text_object = f'{stripped_title} ({member_count})'
+        text_object = f'{stripped_title}'
+        if member_count > 0:
+            text_object += f' ({member_count})'
 
         expand = goal_ui.expand_tiers[tier_index]
-        title_row = self.draw_expanding_title(layout, expand, goal_ui, 'expand_tiers', text_object, tier_index)
+        title_row = self.draw_tier_title(layout, expand, goal_ui, 'expand_tiers', text_object, tier_index)
         paging_layout = title_row.row(align=True)
         paging_layout.alignment = 'RIGHT'
 
@@ -194,13 +215,16 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             
             row = layout.row(align=True)
             # col = layout.column(align=True)
-            #row.label(text='', icon='BLANK1')
+            row.label(text='', icon='BLANK1')
             box = row.box()
+            grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
             if member_count == 0:
-                self.draw_empty_member(box, scale_icon, horizontal_mode)
-                box.label(text="No sponsors yet. Be the first one!")
+                # for i in range(per_column):
+                self.draw_empty_member(grid, scale_icon, horizontal_mode)
+                # box_row = box.row(align=True)
+                # box_row.alignment = 'CENTER'
+                # box_row.label(text="No sponsors yet. Be the first one!")
             else:
-                grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
 
                 missing_column = per_column - (per_page_item % per_column)
 
@@ -263,7 +287,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         goal = collaborators.sponsorship_goal
         goal_ui = context.window_manager.ypui_sponsor
 
-        if goal and 'targetValue' in goal:
+        if is_online() and goal and 'targetValue' in goal:
             expand = goal_ui.expand_description
             # desc = layout.row()
             row_title = self.draw_expanding_title(layout, expand, goal_ui, 'expand_description', "Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
@@ -295,6 +319,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         if is_online():
             layout.separator()
+            layout.label(text="Our Sponsors :", icon='HEART')
 
             tiers:list = goal.get('tiers', [])
             if tiers:
@@ -311,10 +336,14 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
                     self.draw_tier_members(panel_width, goal_ui, layout, tier['name'], tier['price'], idx, column_count, goal_ui.page_tiers[idx], tier['per_page_item'], scale_icon, horizontal_mode)
 
-            layout.separator()
-            layout.label(text="* One-time sponsor")
+            # check one time sponsor exist
+            for item in collaborators.sponsors.values():
+                if item['one_time']:
+                    layout.separator()
+                    layout.label(text="* One-time sponsor")
+                    break
         else:
-            layout.label(text="No internet connection, cannot load sponsors.")
+            layout.label(text="No internet access, can't load sponsors.", icon='ERROR')
             # open online access 
 
         goal_ui.expanded = True
@@ -338,6 +367,12 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
 # [your name] here, empty tier
 # include one time 
+
+# blender 2.8
+# link empty
+# title : supporters
+# panah kurus + icon 
+# one time sponsor legend (only if one time exist)
 def load_preview(key:str, file_name:str):
     if key in previews_users:
         img = previews_users[key]
@@ -654,11 +689,10 @@ def register():
 
     blank_path = os.path.join(get_addon_filepath(), "icons", "blank.png")
     blank_img = load_preview('blank', blank_path)
+    collaborators.default_pic = blank_img.icon_id
 
     empty_path = os.path.join(get_addon_filepath(), "icons", "empty.png")
     empty_img = load_preview('empty', empty_path)
-
-    collaborators.default_pic = blank_img.icon_id
     collaborators.empty_pic = empty_img.icon_id
 
     collaborators.contributors = {}
