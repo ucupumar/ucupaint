@@ -117,13 +117,14 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
     def draw_multiline(self, layout, text:str, panel_width:int):
         all_desc = text.split(' ')
+        column = layout.column(align=True)
         current_text = ''
         for d in all_desc:
-            if len(current_text + d) > panel_width // 13: # rough estimate
-                layout.label(text=current_text)
+            if len(current_text + d) > panel_width // 15: # rough estimate
+                column.label(text=current_text)
                 current_text = ''
             current_text += d + ' '
-        layout.label(text=current_text)
+        column.label(text=current_text)
 
     def draw_expanding_title(self, layout, expand, object, prop_name, title):
 
@@ -264,8 +265,10 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                 # box_row.alignment = 'CENTER'
                 # box_row.label(text="No sponsors yet. Be the first one!")
             else:
+                lowest_tier = scale_icon == 0.0
 
-                grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
+                if not lowest_tier:
+                    grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
 
                 missing_column = per_column - (per_page_item % per_column)
 
@@ -273,7 +276,6 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
                 paged_items = filtered_items[current_page * per_page_item : (current_page + 1) * per_page_item]
 
-                lowest_tier = scale_icon == 0.0
                 lowest_members = ''
 
                 for cl, item in enumerate(paged_items):
@@ -288,15 +290,15 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                             id +=  "*"
                         else:
                             id =  "*" + id
-                    # if lowest_tier:
-                    #     lowest_members += id + ', '
-                    # else:
-                    self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
+                    if lowest_tier:
+                        lowest_members += id + ', '
+                    else:
+                        self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
                 # if tier_index == 3:
                 #     print("Tier", tier_index, "has", member_count, "members", "page", current_page, "per page =", per_page_item, "per column =", per_column, "missing column =", missing_column)
-                # if lowest_tier and lowest_members != '':
-                #     lowest_members = lowest_members[:-2] # remove last comma
-                #     self.draw_multiline(box, lowest_members, panel_width)
+                if lowest_tier and lowest_members != '':
+                    lowest_members = lowest_members[:-2] # remove last comma
+                    self.draw_multiline(box, lowest_members, panel_width)
 
                 if missing_column != per_column:
                     for i in range(missing_column):
@@ -329,21 +331,13 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         goal_ui = context.window_manager.ypui_sponsor
 
         if is_online() and goal and 'targetValue' in goal:
-            expand = goal_ui.expand_description
-            # desc = layout.row()
+           
             row_title = layout.row(align=True)
             row_title.label(text="Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
 
             paging_layout = row_title.row(align=True)
             paging_layout.alignment = 'RIGHT'
             paging_layout.menu("NODE_MT_ysponsor_menu", text='', icon='QUESTION')
-
-            if expand:
-                box = layout.box()
-                box = box.column(align=True)
-
-                description = goal.get('description', '')
-                self.draw_multiline(box, description, panel_width)
             
             target = goal['targetValue']
             percentage = goal['percentComplete']
