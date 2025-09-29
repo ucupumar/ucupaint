@@ -31,12 +31,13 @@ class YTierPagingButton(bpy.types.Operator):
         # print("New page for tier", self.tier_index, "=", current_page)
         return {'FINISHED'}
 
-class YSponsorPopover(bpy.types.Menu):
-    bl_idname = "NODE_MT_ysponsor_menu"
+class YSponsorPopover(bpy.types.Panel):
+    bl_idname = "NODE_PT_ysponsor_popover"
     bl_label = get_addon_title() + " Sponsor Menu"
     bl_description = get_addon_title() + " Sponsor Menu"
-    # bl_space_type = "VIEW_3D"
-    # bl_region_type = "WINDOW"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "WINDOW"
+    bl_ui_units_x = 15
 
     @classmethod
     def poll(cls, context):
@@ -45,39 +46,45 @@ class YSponsorPopover(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         goal = collaborators.sponsorship_goal
-        one_time_total = 0
-        print("Checking one-time sponsors...", len(collaborators.sponsors))
-        for i in collaborators.sponsors.keys():
-            sp = collaborators.sponsors[i]
-            print(i, sp)
-            if sp["one_time"]:
-                one_time_total += sp["amount"]
-                break
+        # one_time_total = 0
+        # print("Checking one-time sponsors...", len(collaborators.sponsors))
+        # for i in collaborators.sponsors.keys():
+        #     sp = collaborators.sponsors[i]
+        #     print(i, sp)
+        #     if sp["one_time"]:
+        #         one_time_total += sp["amount"]
+        #         break
         
-        if one_time_total > 0:
-            layout.label(text=f"One-time sponsors this month: ${one_time_total:.2f}")
-            layout.separator()
+        # if one_time_total > 0:
+        #     layout.label(text=f"One-time sponsors this month: ${one_time_total:.2f}")
+        #     layout.separator()
         desc = goal.get('description', '')
 
-        char_per_line = 50
+        row_quote = layout.row()
+        char_per_line = 40
         split_desc = desc.split(' ')
-        current_text = ''
+        current_text = '"'
+        ucupumar = collaborators.contributors.get('ucupumar', None)
+        ucup_icon = ucupumar['thumb'] if ucupumar else 0
+        row_quote.template_icon(icon_value = ucup_icon, scale = 3.0)
+        col = row_quote.column(align=True)
         for d in split_desc:
             if len(current_text + d) > char_per_line: # rough estimate
-                layout.label(text=current_text)
+                col.label(text=current_text)
                 current_text = ''
             current_text += d + ' '
-        layout.label(text=current_text)
-        layout.separator()
+        col.label(text=current_text+"\"")
+        col.label(text="~ ucupumar")
+        col.separator()
 
-        layout.label(text="Ucupaint's sponsor is updated daily", )
+        layout.label(text="The supporters list is updated daily")
 
 class YSponsorProp(bpy.types.PropertyGroup):
     progress : IntProperty(
         default = 0,
         min = 0,
         max = 100,
-        description = 'Progress of goal',
+        description = 'Only counting recurring supporters',
         subtype = 'PERCENTAGE'
     )
 
@@ -337,7 +344,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
             paging_layout = row_title.row(align=True)
             paging_layout.alignment = 'RIGHT'
-            paging_layout.menu("NODE_MT_ysponsor_menu", text='', icon='QUESTION')
+            paging_layout.popover("NODE_PT_ysponsor_popover", text='', icon='QUESTION')
             
             target = goal['targetValue']
             percentage = goal['percentComplete']
@@ -378,7 +385,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                     tier = item['tier']
                     if goal_ui.expand_tiers[tier]:
                         layout.separator()
-                        layout.label(text="* One-time sponsor")
+                        layout.label(text="* One-time supporters")
                         break
         else:
             layout.label(text="No internet access, can't load sponsors.", icon='ERROR')
@@ -414,6 +421,8 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
 # description, update daily, one time ditaruh di [?]
 # one time, --> check visible one time member
+
+# paging contributors
 
 def load_preview(key:str, file_name:str):
     if key in previews_users:
@@ -532,6 +541,7 @@ def load_contributors():
                 with open(path_sponsors, "w", encoding="utf-8") as f:
                     f.write(content_sponsors)
 
+            print("Reloading sponsorship goal...", data_url + "sponsorship-goal.json")
             response = requests.get(data_url + "sponsorship-goal.json", verify=False, timeout=10)
             if response.status_code == 200:
                 content_sponsorship_goal = response.text
