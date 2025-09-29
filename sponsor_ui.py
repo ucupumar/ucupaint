@@ -2,7 +2,6 @@ import bpy
 import os, requests, time, threading, json
 from bpy.props import PointerProperty, IntProperty, StringProperty
 import bpy.utils.previews
-
 from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title
 
 class YTierPagingButton(bpy.types.Operator):
@@ -32,12 +31,12 @@ class YTierPagingButton(bpy.types.Operator):
         # print("New page for tier", self.tier_index, "=", current_page)
         return {'FINISHED'}
 
-class YSponsorPopover(bpy.types.Panel):
-    bl_idname = "NODE_PT_ysponsor_popover"
-    bl_label = get_addon_title() + " Sponsor Popover"
-    bl_description = get_addon_title() + " Sponsor Popover"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "WINDOW"
+class YSponsorPopover(bpy.types.Menu):
+    bl_idname = "NODE_MT_ysponsor_menu"
+    bl_label = get_addon_title() + " Sponsor Menu"
+    bl_description = get_addon_title() + " Sponsor Menu"
+    # bl_space_type = "VIEW_3D"
+    # bl_region_type = "WINDOW"
 
     @classmethod
     def poll(cls, context):
@@ -45,9 +44,33 @@ class YSponsorPopover(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        goal = collaborators.sponsorship_goal
+        one_time_total = 0
+        print("Checking one-time sponsors...", len(collaborators.sponsors))
+        for i in collaborators.sponsors.keys():
+            sp = collaborators.sponsors[i]
+            print(i, sp)
+            if sp["one_time"]:
+                one_time_total += sp["amount"]
+                break
+        
+        if one_time_total > 0:
+            layout.label(text=f"One-time sponsors this month: ${one_time_total:.2f}")
+            layout.separator()
+        desc = goal.get('description', '')
+
+        char_per_line = 50
+        split_desc = desc.split(' ')
+        current_text = ''
+        for d in split_desc:
+            if len(current_text + d) > char_per_line: # rough estimate
+                layout.label(text=current_text)
+                current_text = ''
+            current_text += d + ' '
+        layout.label(text=current_text)
+        layout.separator()
 
         layout.label(text="Ucupaint's sponsor is updated daily", )
-
 
 class YSponsorProp(bpy.types.PropertyGroup):
     progress : IntProperty(
@@ -94,7 +117,6 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
     def draw_multiline(self, layout, text:str, panel_width:int):
         all_desc = text.split(' ')
-
         current_text = ''
         for d in all_desc:
             if len(current_text + d) > panel_width // 13: # rough estimate
@@ -122,7 +144,10 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
     def draw_tier_title(self, layout, expand, object, prop_name, title, index_prop):
 
         # icons = ['KEYTYPE_KEYFRAME_VEC', 'KEYTYPE_BREAKDOWN_VEC', 'KEYTYPE_JITTER_VEC', 'KEYTYPE_EXTREME_VEC', 'KEYTYPE_MOVING_HOLD_VEC', 'KEYTYPE_GENERATED_VEC']
-        icons = ['NODE_SOCKET_OBJECT', 'NODE_SOCKET_FLOAT', 'NODE_SOCKET_RGBA', 'NODE_SOCKET_STRING', 'NODE_SOCKET_BOOLEAN', 'NODE_SOCKET_GEOMETRY']
+        if is_bl_newer_than(2, 81):
+            icons = ['NODE_SOCKET_OBJECT', 'NODE_SOCKET_FLOAT', 'NODE_SOCKET_RGBA', 'NODE_SOCKET_STRING', 'NODE_SOCKET_BOOLEAN', 'NODE_SOCKET_GEOMETRY']
+        else:
+            icons = ['KEYTYPE_MOVING_HOLD_VEC']
 
         icon = 'DOWNARROW_HLT' if expand else 'RIGHTARROW'
         row = layout.row(align=True)
@@ -130,14 +155,19 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         index_icon = index_prop % len(icons)
 
-        if is_bl_newer_than(2, 80):
+        if is_bl_newer_than(2, 81):
             rrow.alignment = 'LEFT'
             rrow.scale_x = 0.95
             rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
+            rrow.prop(object, prop_name, index=index_prop, text=title, icon=icons[index_icon], emboss=False)
+        elif is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+            rrow.prop(object, prop_name, index=index_prop, emboss=False, text=title, icon=icon)
+            # rrow.prop(object, prop_name, index=index_prop, text=title, icon=icons[index_icon], emboss=False)
         else:
             rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
             # rrow.label(text=title)
-        rrow.prop(object, prop_name, index=index_prop, text=title, icon=icons[index_icon], emboss=False)
 
         return row
 
@@ -156,7 +186,9 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             row.alignment = 'LEFT'
             if scale_icon != 0.0:
                 row.template_icon(icon_value = icon, scale = scale_icon)
-                btn_url = row.operator('wm.url_open', text=label, emboss=False, )
+                btn_row = row.row(align=True)
+                btn_row.scale_y = scale_icon
+                btn_url = btn_row.operator('wm.url_open', text=label, emboss=False, )
                 btn_url.url = url
             else:
                 row.label(text=label)
@@ -182,8 +214,15 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                 row.label(text=content)
         else:
             col = layout.column(align=True)
-            col.template_icon(icon_value = collaborators.empty_pic, scale = scale_icon)
-            col.operator('wm.url_open', text=content, emboss=False).url = "https://github.com/sponsors/ucupumar"
+            row = col.row(align=True)
+            row.alignment = 'LEFT'
+            row.template_icon(icon_value = collaborators.empty_pic, scale = scale_icon)
+
+            row = col.row(align=True)
+            row.alignment = 'LEFT'
+            row.scale_x = 0.95
+            row.operator('wm.url_open', text=content, emboss=False).url = "https://github.com/sponsors/ucupumar"
+
 
     def draw_tier_members(self, panel_width, goal_ui, layout, title:str, price, tier_index:int, per_column:int = 3, current_page:int = 0, per_page_item:int = 4, scale_icon:float = 3.0, horizontal_mode:bool = True):
         
@@ -217,14 +256,16 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             # col = layout.column(align=True)
             row.label(text='', icon='BLANK1')
             box = row.box()
-            grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
             if member_count == 0:
+                col_box = box.column(align=True)
                 # for i in range(per_column):
-                self.draw_empty_member(grid, scale_icon, horizontal_mode)
+                self.draw_empty_member(col_box, scale_icon, horizontal_mode)
                 # box_row = box.row(align=True)
                 # box_row.alignment = 'CENTER'
                 # box_row.label(text="No sponsors yet. Be the first one!")
             else:
+
+                grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
 
                 missing_column = per_column - (per_page_item % per_column)
 
@@ -247,17 +288,17 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                             id +=  "*"
                         else:
                             id =  "*" + id
-                    if lowest_tier:
-                        lowest_members += id + ', '
-                    else:
-                        self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
+                    # if lowest_tier:
+                    #     lowest_members += id + ', '
+                    # else:
+                    self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
                 # if tier_index == 3:
                 #     print("Tier", tier_index, "has", member_count, "members", "page", current_page, "per page =", per_page_item, "per column =", per_column, "missing column =", missing_column)
-                if lowest_tier and lowest_members != '':
-                    lowest_members = lowest_members[:-2] # remove last comma
-                    self.draw_multiline(box, lowest_members, panel_width)
+                # if lowest_tier and lowest_members != '':
+                #     lowest_members = lowest_members[:-2] # remove last comma
+                #     self.draw_multiline(box, lowest_members, panel_width)
 
-                elif missing_column != per_column:
+                if missing_column != per_column:
                     for i in range(missing_column):
                         self.draw_item(grid, collaborators.default_pic, '', '', scale_icon, horizontal_mode)
 
@@ -290,11 +331,12 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         if is_online() and goal and 'targetValue' in goal:
             expand = goal_ui.expand_description
             # desc = layout.row()
-            row_title = self.draw_expanding_title(layout, expand, goal_ui, 'expand_description', "Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
+            row_title = layout.row(align=True)
+            row_title.label(text="Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
 
             paging_layout = row_title.row(align=True)
             paging_layout.alignment = 'RIGHT'
-            paging_layout.popover("NODE_PT_ysponsor_popover", text='', icon='INFO')
+            paging_layout.menu("NODE_MT_ysponsor_menu", text='', icon='QUESTION')
 
             if expand:
                 box = layout.box()
@@ -319,7 +361,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         if is_online():
             layout.separator()
-            layout.label(text="Our Sponsors :", icon='HEART')
+            layout.label(text="Our Supporters :", icon='HEART')
 
             tiers:list = goal.get('tiers', [])
             if tiers:
@@ -336,12 +378,14 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
                     self.draw_tier_members(panel_width, goal_ui, layout, tier['name'], tier['price'], idx, column_count, goal_ui.page_tiers[idx], tier['per_page_item'], scale_icon, horizontal_mode)
 
-            # check one time sponsor exist
+            # check one time sponsor exist and expanded
             for item in collaborators.sponsors.values():
                 if item['one_time']:
-                    layout.separator()
-                    layout.label(text="* One-time sponsor")
-                    break
+                    tier = item['tier']
+                    if goal_ui.expand_tiers[tier]:
+                        layout.separator()
+                        layout.label(text="* One-time sponsor")
+                        break
         else:
             layout.label(text="No internet access, can't load sponsors.", icon='ERROR')
             # open online access 
@@ -373,6 +417,10 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 # title : supporters
 # panah kurus + icon 
 # one time sponsor legend (only if one time exist)
+
+# description, update daily, one time ditaruh di [?]
+# one time, --> check visible one time member
+
 def load_preview(key:str, file_name:str):
     if key in previews_users:
         img = previews_users[key]
@@ -533,6 +581,7 @@ def load_contributors():
                 'name': parts[1],
                 'url': parts[2],
                 'image_url': parts[3],
+                'amount': float(parts[5]) if parts[5] != '' else 0.0,
                 'one_time' : parts[6] == 'True',
                 'tier': int(parts[7]),
                 
@@ -540,8 +589,7 @@ def load_contributors():
             }
             collaborators.sponsors[sponsor['id']] = sponsor
 
-            # for i in range(20):
-            #     collaborators.sponsors[sponsor['id']+str(i)] = sponsor
+    # retrieve images
 
     icon_size = 512
 
@@ -601,7 +649,7 @@ def load_contributors():
             else:
                 print("file not found", file_name)
 
-        # extra dummy
+    # extra dummy
     show_extra_dummy = False
     empty_all_sponsors = False
 
@@ -631,7 +679,7 @@ def load_contributors():
     elif empty_all_sponsors:
         collaborators.sponsors.clear()
 
-def download_stream(links:list[str], file_names:list[str], ids:list[str], dict, timeout:int = 10):
+def download_stream(links, file_names, ids, dict, timeout:int = 10):
     for idx, file_name in enumerate(file_names):
         link = links[idx]
         print("Downloading", link, "to", file_name)
