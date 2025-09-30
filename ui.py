@@ -5441,21 +5441,34 @@ def draw_ypaint_about(self, context):
     check_contributors(context)
     
     col = self.layout.column(align=True)
-    col.label(text=get_addon_title() + ' is created by:')
+
+    row_title = col.row(align=True)
+    row_title_label = row_title.row(align=True)
+
+    row_title_label.label(text=get_addon_title() + ' is created by:')
+
+    paging_layout = row_title.row(align=True)
+    paging_layout.alignment = 'RIGHT'
 
     per_column = 3
+    per_page_item = 9
 
     collaborators = get_collaborators()
     contributors = collaborators.contributors
 
-    missing_column = per_column - (len(contributors) % per_column)
-    for cl, key in enumerate(contributors.keys()):
-        item = contributors[key]
-        if cl % per_column == 0:
-            row = col.row(align=True)
-            row.alignment = 'LEFT'
-        # bx = row.box()
-        rw = row.column(align=True)
+    goal_ui = context.window_manager.ypui_sponsor
+
+    current_page = goal_ui.page_collaborators
+
+
+    grid = col.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
+    member_count = len(contributors)
+
+    paged_contributors = list(contributors.values())[current_page*per_page_item:(current_page+1)*per_page_item]
+    missing_column = per_column - (len(paged_contributors) % per_column)
+
+    for cl, item in enumerate(paged_contributors):
+        rw = grid.column(align=True)
 
         thumb = item['thumb']
         if not thumb:
@@ -5467,11 +5480,22 @@ def draw_ypaint_about(self, context):
 
     if missing_column != per_column:
         for i in range(missing_column):
-            rw = row.column(align=True)
+            rw = grid.column(align=True)
 
             rw.template_icon(icon_value = collaborators.default_pic, scale = 3.0)
             rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
     # todo : paging
+
+    if member_count > per_page_item:
+        prev = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_LEFT')
+        prev.is_next_button = False
+        prev.max_page = (member_count + per_page_item - 1) // per_page_item
+
+        paging_layout.label(text=f"{current_page + 1}/{prev.max_page}")
+
+        next = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_RIGHT')
+        next.is_next_button = True
+        next.max_page = prev.max_page
 
     col.separator()
 

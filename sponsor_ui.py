@@ -30,7 +30,32 @@ class YTierPagingButton(bpy.types.Operator):
 
         # print("New page for tier", self.tier_index, "=", current_page)
         return {'FINISHED'}
+    
+class YCollaboratorPagingButton(bpy.types.Operator):
+    """Paging"""
+    bl_idname = "wm.y_collaborator_paging"
+    bl_label = "Next Page"
+    bl_options = {'REGISTER', 'UNDO'}
 
+    is_next_button : bpy.props.BoolProperty(default=True)
+    max_page : bpy.props.IntProperty(default=0)
+
+    def execute(self, context):
+        # print("Paging", "Next" if self.is_next_button else "Previous")
+        goal_ui = context.window_manager.ypui_sponsor
+        current_page = goal_ui.page_collaborators
+        if self.is_next_button:
+            current_page += 1
+            if self.max_page > 0 and current_page >= self.max_page:
+                current_page = self.max_page - 1
+        else:
+            current_page -= 1
+            if current_page < 0:
+                current_page = 0
+        goal_ui.page_collaborators = current_page
+
+        return {'FINISHED'}
+    
 class YSponsorPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ysponsor_popover"
     bl_label = get_addon_title() + " Sponsor Menu"
@@ -46,18 +71,25 @@ class YSponsorPopover(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         goal = collaborators.sponsorship_goal
-        # one_time_total = 0
-        # print("Checking one-time sponsors...", len(collaborators.sponsors))
-        # for i in collaborators.sponsors.keys():
-        #     sp = collaborators.sponsors[i]
-        #     print(i, sp)
-        #     if sp["one_time"]:
-        #         one_time_total += sp["amount"]
-        #         break
+        one_time_total = 0
+        recurring_total = 0
+        print("Checking one-time sponsors...", len(collaborators.sponsors))
+        for sp in collaborators.sponsors.values():
+            if sp["one_time"]:
+                one_time_total += sp["amount"]
+            else:
+                recurring_total += sp["amount"]
         
-        # if one_time_total > 0:
-        #     layout.label(text=f"One-time sponsors this month: ${one_time_total:.2f}")
-        #     layout.separator()
+        if one_time_total > 0:
+            # layout.label(text=f"One-time sponsors this month: ${one_time_total:.2f}")
+            # layout.separator()
+            print("One-time sponsors total this month: $", one_time_total)
+        
+        if recurring_total > 0:
+            # layout.label(text=f"Recurring sponsors total: ${recurring_total:.2f}")
+            # layout.separator()
+            print("Recurring sponsors total: $", recurring_total)
+
         desc = goal.get('description', '')
 
         row_quote = layout.row()
@@ -99,6 +131,9 @@ class YSponsorProp(bpy.types.PropertyGroup):
         description = "Page Tiers",
         size = 8, # cannot be dynamic
     )
+
+    page_collaborators : IntProperty(
+        default = 0)
 
     expand_description : bpy.props.BoolProperty(
         default = False,
@@ -211,8 +246,8 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         content = 'No sponsors yet, be the first one!'
         if horizontal_mode:
             row = layout.row(align=True)
-            row.alignment = 'LEFT'
             if scale_icon != 0.0:
+                row.alignment = 'LEFT'
                 row.template_icon(icon_value = collaborators.empty_pic, scale = scale_icon)
                 btn_row = row.row(align=True)
                 btn_row.scale_y = scale_icon
@@ -237,7 +272,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         filtered_items = list()
 
         for item in collaborators.sponsors.values():
-            if item['tier'] != tier_index:
+            if item['tier'] != tier_index or not item['public']:
                 continue
             filtered_items.append(item)
 
@@ -305,6 +340,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                 #     print("Tier", tier_index, "has", member_count, "members", "page", current_page, "per page =", per_page_item, "per column =", per_column, "missing column =", missing_column)
                 if lowest_tier and lowest_members != '':
                     lowest_members = lowest_members[:-2] # remove last comma
+                    box.alignment = 'EXPAND'
                     self.draw_multiline(box, lowest_members, panel_width)
 
                 if missing_column != per_column:
@@ -588,14 +624,16 @@ def load_contributors():
                 'amount': float(parts[5]) if parts[5] != '' else 0.0,
                 'one_time' : parts[6] == 'True',
                 'tier': int(parts[7]),
+                'public': parts[8] == 'True',
                 
                 'thumb': None
             }
             collaborators.sponsors[sponsor['id']] = sponsor
+            print("Loaded sponsor", sponsor['id'], "=", sponsor)
 
     # retrieve images
 
-    icon_size = 512
+    icon_size = 128
 
     # Download contributor images
     links = [c['image_url']+f"&s={icon_size}" for c in collaborators.contributors.values()]
@@ -609,9 +647,16 @@ def load_contributors():
             break
 
     # Download sponsor images
-    links_sponsors = [c['image_url']+f"&s={icon_size}" for c in collaborators.sponsors.values()]
-    file_names_sponsors = [f"{folders}{os.sep}{c['id']}.png" for c in collaborators.sponsors.values()]
-    ids_sponsors = [c['id'] for c in collaborators.sponsors.values()]
+    links_sponsors = []
+    file_names_sponsors = []
+    ids_sponsors = []
+
+    for s in collaborators.sponsors.values():
+        is_public:bool = s.get('public', True)
+        if is_public:
+            links_sponsors.append(s['image_url']+f"&s={icon_size}")
+            file_names_sponsors.append(f"{folders}{os.sep}{s['id']}.png")
+            ids_sponsors.append(s['id'])
 
     # check images exist
     for file_name in file_names_sponsors:
@@ -671,6 +716,7 @@ def load_contributors():
 
                 new_contributor['tier'] = i % tier_count
                 new_contributor['one_time'] = True if (random_num % 2) == 0 else False
+                new_contributor['public'] = True
 
                 if m == 0:
                     new_contributor['name'] = contributor['id']
@@ -715,7 +761,8 @@ classes = [
     VIEW3D_PT_YPaint_support_ui,
     YSponsorProp,
     YTierPagingButton,
-    YSponsorPopover
+    YSponsorPopover,
+    YCollaboratorPagingButton
 ]
 
 class Collaborators:
