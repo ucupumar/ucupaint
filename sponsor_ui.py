@@ -1,6 +1,6 @@
 import bpy
 import os, requests, time, threading, json
-from bpy.props import PointerProperty, IntProperty, StringProperty
+from bpy.props import PointerProperty, IntProperty, FloatProperty
 import bpy.utils.previews
 from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title
 
@@ -8,7 +8,6 @@ class YTierPagingButton(bpy.types.Operator):
     """Paging"""
     bl_idname = "wm.y_sponsor_paging"
     bl_label = "Next Page"
-    bl_options = {'REGISTER', 'UNDO'}
 
     is_next_button : bpy.props.BoolProperty(default=True)
     tier_index : bpy.props.IntProperty(default=0)
@@ -35,7 +34,6 @@ class YCollaboratorPagingButton(bpy.types.Operator):
     """Paging"""
     bl_idname = "wm.y_collaborator_paging"
     bl_label = "Next Page"
-    bl_options = {'REGISTER', 'UNDO'}
 
     is_next_button : bpy.props.BoolProperty(default=True)
     max_page : bpy.props.IntProperty(default=0)
@@ -112,10 +110,10 @@ class YSponsorPopover(bpy.types.Panel):
         layout.label(text="The supporters list is updated daily")
 
 class YSponsorProp(bpy.types.PropertyGroup):
-    progress : IntProperty(
-        default = 0,
-        min = 0,
-        max = 100,
+    progress : FloatProperty(
+        default = 0.0,
+        min = 0.0,
+        max = 100.0,
         description = 'Only counting recurring supporters',
         subtype = 'PERCENTAGE'
     )
@@ -383,10 +381,15 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             paging_layout.popover("NODE_PT_ysponsor_popover", text='', icon='QUESTION')
             
             target = goal['targetValue']
-            percentage = goal['percentComplete']
-            donation = target * percentage / 100
-        
-            goal_ui.progress = goal['percentComplete']
+
+            donation = 0.0
+            for i in collaborators.sponsors.values():
+                if not i['one_time']:
+                    donation += i['amount']
+
+            percentage = 100 * donation / target
+
+            goal_ui.progress = percentage
             layout.prop(goal_ui, 'progress', text=f"${donation}", slider=True)
             
 
@@ -432,33 +435,12 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
 
 # todo :
-# settingan per tier (mode, show default, scale icon, width_size)
-# column di horizontal mode
-# bug dummy items
-# info : update per hari
-# UCUPAINt goal description dropdown
-
-# cari : View lock di View
-# 2 teratas tier with member > expand  
-# icon tier
-# override user
-# max user visible per tier
-# paging per tier
-# tombol info per tier
-
-# [your name] here, empty tier
-# include one time 
-
-# blender 2.8
-# link empty
-# title : supporters
-# panah kurus + icon 
-# one time sponsor legend (only if one time exist)
-
-# description, update daily, one time ditaruh di [?]
-# one time, --> check visible one time member
-
-# paging contributors
+# column name semua csv
+# tambah page wiki credits
+# override-users jadi override-sponsors
+# override-contributors
+# loading supporters di background thread
+# button force update
 
 def load_preview(key:str, file_name:str):
     if key in previews_users:
@@ -489,7 +471,7 @@ def check_contributors(context):
                 # check member count 
                 member_count = 0
                 for item in collaborators.sponsors.values():
-                    if item['tier'] == i:
+                    if item['tier'] == i and item['public']:
                         member_count += 1
                 if member_count > 0:
                     goal_ui.expand_tiers[i] = True
@@ -717,6 +699,7 @@ def load_contributors():
                 new_contributor['tier'] = i % tier_count
                 new_contributor['one_time'] = True if (random_num % 2) == 0 else False
                 new_contributor['public'] = True
+                new_contributor['amount'] = ((random_num % 20) + 1) * (new_contributor['tier'] + 1) * 5
 
                 if m == 0:
                     new_contributor['name'] = contributor['id']
