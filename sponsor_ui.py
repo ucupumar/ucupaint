@@ -579,13 +579,18 @@ def load_contributors():
 
 
     collaborators.contributors.clear()
+    skip_header = True
     for line in content.strip().splitlines():
+        if skip_header:
+            skip_header = False
+            continue
         parts = [p.strip() for p in line.split(',')]
         if len(parts) >= 3:
             contributor = {
                 'id': parts[0],
-                'url': parts[1],
-                'image_url': parts[2],
+                'name': parts[1],
+                'url': parts[2],
+                'image_url': parts[3],
                 'thumb': None
             }
             collaborators.contributors[contributor['id']] = contributor
@@ -595,7 +600,11 @@ def load_contributors():
         os.makedirs(folders)
 
     collaborators.sponsors.clear()
+    skip_header = True
     for line in content_sponsors.strip().splitlines():
+        if skip_header:
+            skip_header = False
+            continue
         parts = [p.strip() for p in line.split(',')]
         if len(parts) >= 6:
             sponsor = {

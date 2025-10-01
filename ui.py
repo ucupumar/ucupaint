@@ -5476,7 +5476,11 @@ def draw_ypaint_about(self, context):
             
         # print("draw thumb", key, "=", thumb)
         rw.template_icon(icon_value = thumb, scale = 3.0)
-        rw.operator('wm.url_open', text=item["id"], emboss=False).url = item["url"]
+
+        user_name = item["name"].strip()
+        if user_name == '':
+            user_name = item["id"]
+        rw.operator('wm.url_open', text=user_name, emboss=False).url = item["url"]
 
     if missing_column != per_column:
         for i in range(missing_column):
