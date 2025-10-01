@@ -1963,6 +1963,7 @@ def get_bake_properties_from_self(self):
         'only_local',
         'subsurf_influence',
         'force_bake_all_polygons',
+        'use_osl',
         'use_image_atlas',
         'use_udim',
         'blur',
@@ -2972,7 +2973,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         max_ray_distance=bprops.max_ray_distance, cage_extrusion=bprops.cage_extrusion,
         source_objs=other_objs, use_denoising=False, margin_type=bprops.margin_type,
         use_cage = bprops.use_cage, cage_object_name = bprops.cage_object_name,
-        normal_space = 'TANGENT' if bprops.type != 'OBJECT_SPACE_NORMAL' else 'OBJECT'
+        normal_space = 'TANGENT' if bprops.type != 'OBJECT_SPACE_NORMAL' else 'OBJECT',
+        use_osl = bprops.use_osl
     )
     # Set multires level
     #ori_multires_levels = {}
@@ -4254,7 +4256,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     prepare_bake_settings(
         book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
         uv_map=bprops.uv_map, bake_type='EMIT', bake_device=bprops.bake_device, 
-        margin_type = bprops.margin_type
+        margin_type = bprops.margin_type, use_osl=bprops.use_osl
     )
 
     # Create bake nodes
