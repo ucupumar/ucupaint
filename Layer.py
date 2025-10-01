@@ -3952,6 +3952,11 @@ def remove_layer(yp, index, remove_on_disk=False):
     source_tree = get_source_tree(layer) #, layer_tree)
     remove_node(source_tree, layer, 'source', remove_on_disk=remove_on_disk)
 
+    # Remove baked source
+    baked_source = get_layer_source(layer, get_baked=True)
+    if baked_source:
+        remove_node(source_tree, layer, 'baked_source', remove_on_disk=remove_on_disk)
+
     # Remove channel source
     for ch in layer.channels:
         src = get_channel_source(ch)
@@ -3983,6 +3988,11 @@ def remove_layer(yp, index, remove_on_disk=False):
 
         mask_tree = get_mask_tree(mask)
         remove_node(mask_tree, mask, 'source', remove_on_disk=remove_on_disk)
+
+        # Remove baked source
+        baked_source = get_mask_source(mask, get_baked=True)
+        if baked_source:
+            remove_node(mask_tree, mask, 'baked_source', remove_on_disk=remove_on_disk)
 
     # Remove node group and layer tree
     if layer_tree: 
