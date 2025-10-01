@@ -13,6 +13,7 @@
       "description": "### \ud83e\udd0e Bronze\r\n- Sponsor badge on your profile\r\n- Small profile name in the sponsorship panel (v2.4+)",
       "horizontal": true,
       "scale": 0.0,
+      "icon_size": 0,
       "per_page_item": 20,
       "per_item_width": 500
     },
@@ -22,6 +23,7 @@
       "description": "### \ud83e\ude76 Silver\r\n- Sponsor badge on your profile\r\n- Small profile icon in the sponsorship panel (v2.4+)",
       "horizontal": true,
       "scale": 1.0,
+      "icon_size": 32,
       "per_page_item": 4,
       "per_item_width": 500
     },
@@ -30,7 +32,8 @@
       "price": 25,
       "description": "### \ud83d\udc9b Gold\r\n- Sponsor badge on your profile\r\n- Medium profile icon in the sponsorship panel (v2.4+)",
       "horizontal": true,
-      "scale": 2,
+      "scale": 2.0,
+      "icon_size": 32,
       "per_page_item": 4,
       "per_item_width": 280
     },
@@ -39,7 +42,8 @@
       "price": 50,
       "description": "### \ud83e\udd0d Platinum\r\n- Sponsor badge on your profile\r\n- Large profile icon in the sponsorship panel (v2.4+)",
       "horizontal": false,
-      "scale": 3,
+      "scale": 3.0,
+      "icon_size": 96,
       "per_page_item": 3,
       "per_item_width": 180
     },
@@ -48,7 +52,8 @@
       "price": 100,
       "description": "### \ud83e\ude75 Titanium\r\n- Sponsor badge on your profile\r\n- Very large profile icon in the sponsorship panel (v2.4+)",
       "horizontal": false,
-      "scale": 5,
+      "scale": 5.0,
+      "icon_size": 128,
       "per_page_item": 2,
       "per_item_width": 280
     }

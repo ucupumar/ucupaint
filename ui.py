@@ -5435,7 +5435,7 @@ def draw_yp_file_browser_menu(self, context):
             self.layout.context_pointer_set('params', params)
             self.layout.menu("NODE_MT_ypaint_file_browser_menu", text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
 
-from .sponsor_ui import get_collaborators, check_contributors
+from .sponsor_ui import get_collaborators, check_contributors, load_expanded_images
 
 def draw_ypaint_about(self, context):
     check_contributors(context)
@@ -5451,7 +5451,7 @@ def draw_ypaint_about(self, context):
     paging_layout.alignment = 'RIGHT'
 
     per_column = 3
-    per_page_item = 9
+    per_page_item = 9 # todo : put in settings
 
     collaborators = get_collaborators()
     contributors = collaborators.contributors
@@ -5472,7 +5472,7 @@ def draw_ypaint_about(self, context):
 
         thumb = item['thumb']
         if not thumb:
-            thumb = collaborators.default_pic
+            thumb = collaborators.loading_pic
             
         # print("draw thumb", key, "=", thumb)
         rw.template_icon(icon_value = thumb, scale = 3.0)

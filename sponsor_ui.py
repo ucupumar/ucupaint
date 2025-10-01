@@ -2,7 +2,38 @@ import bpy
 import os, requests, time, threading, json
 from bpy.props import PointerProperty, IntProperty, FloatProperty
 import bpy.utils.previews
-from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title
+from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title, get_user_preferences
+
+class YForceUpdateSponsors(bpy.types.Operator):
+    """Force Update Sponsors"""
+    bl_idname = "wm.y_force_update_sponsors"
+    bl_label = "Force Update Sponsors"
+
+    def execute(self, context):
+        print("Force update sponsors...")
+        path = get_addon_filepath()
+        path_last_check = os.path.join(path, "last_check.txt") # to store last check time
+
+        if os.path.exists(path_last_check):
+            os.remove(path_last_check)
+
+        goal_ui = context.window_manager.ypui_sponsor
+        goal_ui.initialized = False
+
+        folders = os.path.join(path, "icons", "contributors")
+        if not os.path.exists(folders):
+            os.makedirs(folders)
+
+        # remove all images in folder 
+        for f in os.listdir(folders):
+            file_path = os.path.join(folders, f)
+            try:
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                print("Error removing file", file_path, ":", e)
+
+        return {'FINISHED'}
 
 class YTierPagingButton(bpy.types.Operator):
     """Paging"""
@@ -218,6 +249,9 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             layout = self.layout
             row = layout.row(align=True)
             row.operator('wm.url_open', text="Donate Us", icon='FUND').url = "https://github.com/sponsors/ucupumar"
+            if get_user_preferences().developer_mode:
+                row.operator('wm.y_force_update_sponsors', text="", icon='FILE_REFRESH')
+
         goal_ui.expanded = False
 
 
@@ -311,18 +345,15 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                     grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
 
                 missing_column = per_column - (per_page_item % per_column)
-
                 counter_member = 0
-
                 paged_items = filtered_items[current_page * per_page_item : (current_page + 1) * per_page_item]
-
                 lowest_members = ''
 
                 for cl, item in enumerate(paged_items):
                     counter_member += 1
                     thumb = item['thumb']
                     if not thumb:
-                        thumb = collaborators.default_pic
+                        thumb = collaborators.loading_pic
 
                     id = item["name"]
                     if item['one_time']:
@@ -432,6 +463,9 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         goal_ui.expanded = True
 
+        if get_user_preferences().developer_mode:
+            layout.separator()
+            layout.operator('wm.y_force_update_sponsors', text="Force Update Sponsors", icon='FILE_REFRESH')
 
 
 # todo :
@@ -454,30 +488,41 @@ def check_contributors(context):
     if not goal_ui.initialized: # first time init
         goal_ui.initialized = True
         print("first time init, loading contributors...")
-        load_contributors()
 
-        expanding_top_tier = 2 # todo : from settings
-        # tier setup
-        tiers = collaborators.sponsorship_goal.get('tiers', [])
+        load_thread = threading.Thread(target=load_contributors, args=(context,))
+        load_thread.start()
+    else:
+        load_expanded_images(context)
 
-        # reset expand
-        for i in goal_ui.expand_tiers:
-            i = False
+def load_local_contributors():
+    path = get_addon_filepath()
+    path_contributors = os.path.join(path, "contributors.csv")
 
-        total_tiers = len(tiers)
-        for idx in range(total_tiers):
-            i = total_tiers - 1 - idx
-            if expanding_top_tier > 0:
-                # check member count 
-                member_count = 0
-                for item in collaborators.sponsors.values():
-                    if item['tier'] == i and item['public']:
-                        member_count += 1
-                if member_count > 0:
-                    goal_ui.expand_tiers[i] = True
-                    expanding_top_tier -= 1
+    content = ""
+    # read file if exists
+    if os.path.exists(path_contributors):
+        with open(path_contributors, "r", encoding="utf-8") as f:
+            content = f.read()
 
-def load_contributors():    
+    collaborators.contributors.clear()
+    if content != "":
+        skip_header = True
+        for line in content.strip().splitlines():
+            if skip_header:
+                skip_header = False
+                continue
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 3:
+                contributor = {
+                    'id': parts[0],
+                    'name': parts[1],
+                    'url': parts[2],
+                    'image_url': parts[3],
+                    'thumb': None
+                }
+                collaborators.contributors[contributor['id']] = contributor
+
+def load_contributors(context):    
 
     reload_contributors = False
     path = get_addon_filepath()
@@ -595,10 +640,6 @@ def load_contributors():
             }
             collaborators.contributors[contributor['id']] = contributor
 
-    folders = os.path.join(path, "icons", "contributors")
-    if not os.path.exists(folders):
-        os.makedirs(folders)
-
     collaborators.sponsors.clear()
     skip_header = True
     for line in content_sponsors.strip().splitlines():
@@ -621,41 +662,36 @@ def load_contributors():
             }
             collaborators.sponsors[sponsor['id']] = sponsor
             print("Loaded sponsor", sponsor['id'], "=", sponsor)
+    
+    goal_ui: YSponsorProp = context.window_manager.ypui_sponsor
 
-    # retrieve images
+    # expand top 2 tiers that have members
+    expanding_top_tier = 2 # todo : from settings
+    # tier setup
+    tiers = collaborators.sponsorship_goal.get('tiers', [])
 
-    icon_size = 128
+    # reset expand
+    for i in goal_ui.expand_tiers:
+        i = False
 
-    # Download contributor images
-    links = [c['image_url']+f"&s={icon_size}" for c in collaborators.contributors.values()]
-    file_names = [f"{folders}{os.sep}{c['id']}.png" for c in collaborators.contributors.values()]
-    ids = [c['id'] for c in collaborators.contributors.values()]
-
-    # check images exist
-    for file_name in file_names:
-        if not os.path.exists(file_name):
-            reload_contributors = True
-            break
-
-    # Download sponsor images
-    links_sponsors = []
-    file_names_sponsors = []
-    ids_sponsors = []
-
-    for s in collaborators.sponsors.values():
-        is_public:bool = s.get('public', True)
-        if is_public:
-            links_sponsors.append(s['image_url']+f"&s={icon_size}")
-            file_names_sponsors.append(f"{folders}{os.sep}{s['id']}.png")
-            ids_sponsors.append(s['id'])
-
-    # check images exist
-    for file_name in file_names_sponsors:
-        if not os.path.exists(file_name):
-            reload_contributors = True
-            break
+    total_tiers = len(tiers)
+    for idx in range(total_tiers):
+        i = total_tiers - 1 - idx
+        if expanding_top_tier > 0:
+            # check member count 
+            member_count = 0
+            for item in collaborators.sponsors.values():
+                if item['tier'] == i and item['public']:
+                    member_count += 1
+            if member_count > 0:
+                goal_ui.expand_tiers[i] = True
+                expanding_top_tier -= 1
 
     if reload_contributors:
+        folders = os.path.join(path, "icons", "contributors")
+        if not os.path.exists(folders):
+            os.makedirs(folders)
+
         # remove all images in folder 
         for f in os.listdir(folders):
             file_path = os.path.join(folders, f)
@@ -665,95 +701,154 @@ def load_contributors():
             except Exception as e:
                 print("Error removing file", file_path, ":", e)
 
-        new_thread = threading.Thread(target=download_stream, args=(links,file_names,ids, collaborators.contributors))
-        new_thread.start()
+    refresh_ui()
 
-        new_thread_sponsors = threading.Thread(target=download_stream, args=(links_sponsors,file_names_sponsors,ids_sponsors, collaborators.sponsors))
-        new_thread_sponsors.start()
-    else:
-        for idx, file_name in enumerate(file_names):
-            k = ids[idx]
-            if os.path.exists(file_name):
-                img = load_preview(k, file_name)
-                collaborators.contributors[k]['thumb'] = img.icon_id
-                # print("loaded contributor ", k, " = ", collaborators.contributors[k])
-            else:
-                print("file not found", file_name)
+    if get_user_preferences().developer_mode:
+        # extra dummy
+        show_extra_dummy = True
+        empty_all_sponsors = False
 
-        for idx, file_name in enumerate(file_names_sponsors):
-            k = ids_sponsors[idx]
-            if os.path.exists(file_name):
-                img = load_preview(k, file_name)
-                collaborators.sponsors[k]['thumb'] = img.icon_id
-                # print("loaded sponsor ", k, " = ", collaborators.sponsors[k])
-            else:
-                print("file not found", file_name)
+        if show_extra_dummy:
+            tiers = collaborators.sponsorship_goal.get('tiers', [])
+            tier_count = len(tiers)
 
-    # extra dummy
-    show_extra_dummy = False
-    empty_all_sponsors = False
+            dummy_multiplier = 3
 
-    if show_extra_dummy:
-        tiers = collaborators.sponsorship_goal.get('tiers', [])
-        tier_count = len(tiers)
+            for m in range(dummy_multiplier):
+                for i, contributor in enumerate(collaborators.contributors.values()):
+                    random_num = hash(contributor['id']) % 1000
 
-        dummy_multiplier = 3
+                    new_contributor = contributor.copy()
 
-        for m in range(dummy_multiplier):
-            for i, contributor in enumerate(collaborators.contributors.values()):
-                random_num = hash(contributor['id']) % 1000
+                    new_contributor['tier'] = i % tier_count
+                    new_contributor['one_time'] = True if (random_num % 2) == 0 else False
+                    new_contributor['public'] = True
+                    new_contributor['amount'] = ((random_num % 20) + 1) * (new_contributor['tier'] + 1) * 5
+                    new_contributor['id'] = contributor['id'] + str(m)
 
-                new_contributor = contributor.copy()
+                    new_contributor['name'] = new_contributor['id']
+                    collaborators.sponsors[new_contributor['id']] = new_contributor
 
-                new_contributor['tier'] = i % tier_count
-                new_contributor['one_time'] = True if (random_num % 2) == 0 else False
-                new_contributor['public'] = True
-                new_contributor['amount'] = ((random_num % 20) + 1) * (new_contributor['tier'] + 1) * 5
+                    print("Added dummy sponsor", new_contributor['id'], "=", new_contributor)
+        elif empty_all_sponsors:
+            collaborators.sponsors.clear()
 
-                if m == 0:
-                    new_contributor['name'] = contributor['id']
-                    collaborators.sponsors[contributor['id']] = new_contributor
-                else:
-                    new_contributor['name'] = contributor['id'] + str(m)
-                    collaborators.sponsors[contributor['id']+str(m)] = new_contributor
 
-                print(new_contributor)
-    elif empty_all_sponsors:
-        collaborators.sponsors.clear()
+    load_expanded_images(context)
 
-def download_stream(links, file_names, ids, dict, timeout:int = 10):
+def load_expanded_images(context):
+    if collaborators.load_thread and collaborators.load_thread.is_alive():
+        return
+
+    goal_ui: YSponsorProp = context.window_manager.ypui_sponsor
+
+    current_page_contributors = goal_ui.page_collaborators
+    per_page_item_contributors = 9
+
+    paged_contributors = list(collaborators.contributors.values())[current_page_contributors*per_page_item_contributors:(current_page_contributors+1)*per_page_item_contributors]
+    size_icon_contributor = 96
+
+    to_load_users = []
+    
+    path = get_addon_filepath()
+    folders = os.path.join(path, "icons", "contributors")
+    if not os.path.exists(folders):
+        os.makedirs(folders)
+
+    for c in paged_contributors:
+        if c['thumb'] is None:
+            file_name = f"{folders}{os.sep}{c['id']}.png"
+            link = c['image_url'] + f"&s={size_icon_contributor}"
+            id = c['id']
+            to_load_users.append( (link, file_name, id) )
+
+    tiers = collaborators.sponsorship_goal.get('tiers', [])
+
+    for i in range(len(tiers)):
+        tier = tiers[i]
+        if tier.get('icon_size', 0) <= 0 or not goal_ui.expand_tiers[i]:
+            continue
+
+        current_page = goal_ui.page_tiers[i]
+        per_page_item = tier.get('per_page_item', 4)
+        paged_sponsors = [s for s in collaborators.sponsors.values() if s['tier'] == i and s['public']]
+        paged_sponsors = paged_sponsors[current_page*per_page_item:(current_page+1)*per_page_item]
+
+        size_icon_sponsor = tier.get('icon_size', 0)
+        for sp in paged_sponsors:
+            if sp['thumb'] is None:
+                link = sp['image_url'] + f"&s={size_icon_sponsor}"
+                file_name = f"{folders}{os.sep}{sp['id']}.png"
+                id = sp['id']
+                to_load_users.append( (link, file_name, id) )
+
+    if len(to_load_users) > 0:
+        links = [t[0] for t in to_load_users]
+        file_names = [t[1] for t in to_load_users]
+        ids = [t[2] for t in to_load_users]
+
+        collaborators.load_thread = threading.Thread(target=download_stream, args=(links,file_names,ids, 20))
+        collaborators.load_thread.start()
+
+
+def download_stream(links, file_names, ids, timeout:int = 10):
+    print("Downloading", len(links), "images...")
     for idx, file_name in enumerate(file_names):
-        link = links[idx]
-        print("Downloading", link, "to", file_name)
-        with open(file_name, "wb") as f:
-            try:
-                response = requests.get(link, stream=True, timeout = timeout)
-                total_length = response.headers.get('content-length')
-                print("total size = "+total_length)
-                if not total_length:
-                    print('Error #1 while downloading', link, ':', "Empty Response.")
-                    return
-                
-                dl = 0
-                total_length = int(total_length)
-                # TODO a way for calculating the chunk size
-                for data in response.iter_content(chunk_size = 4096):
+        # check if file exists
+        if os.path.exists(file_name):
+            print("exists", file_name)
+        elif is_online():
+            link = links[idx]
+            with open(file_name, "wb") as f:
+                try:
+                    response = requests.get(link, stream=True, timeout = timeout)
+                    total_length = response.headers.get('content-length')
+                    # print("total size = "+total_length)
+                    if not total_length:
+                        print('Error #1 while downloading', link, ':', "Empty Response.")
+                        return
+                    
+                    dl = 0
+                    total_length = int(total_length)
+                    # TODO a way for calculating the chunk size
+                    for data in response.iter_content(chunk_size = 4096):
 
-                    dl += len(data)
-                    f.write(data)
-            except Exception as e:
-                print('Error #2 while downloading', link, ':', e)
-
+                        dl += len(data)
+                        f.write(data)
+                except Exception as e:
+                    print('Error #2 while downloading', link, ':', e)
+        else:
+            continue
+        
         k = ids[idx]
         img = load_preview(k, file_name)
-        dict[k]['thumb'] = img.icon_id
-        print("loaded", k, " = ", dict[k])
+        if k in collaborators.contributors:
+            collaborators.contributors[k]['thumb'] = img.icon_id
+        if k in collaborators.sponsors:
+            collaborators.sponsors[k]['thumb'] = img.icon_id
+        
+        refresh_ui()
+        
+    collaborators.load_thread = None
+
+def refresh_ui():
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == 'VIEW_3D':
+                for reg in area.regions:
+                    open_tab = reg.width > 1
+                    if reg.type == "UI" and open_tab:
+                        reg.tag_redraw()
+                    # Add refresh for popover region
+                    if reg.type == "WINDOW":
+                        reg.tag_redraw()
 
 classes = [
     VIEW3D_PT_YPaint_support_ui,
     YSponsorProp,
     YTierPagingButton,
     YSponsorPopover,
+    YForceUpdateSponsors,
     YCollaboratorPagingButton
 ]
 
@@ -786,9 +881,16 @@ def register():
     empty_img = load_preview('empty', empty_path)
     collaborators.empty_pic = empty_img.icon_id
 
+    loading_path = os.path.join(get_addon_filepath(), "icons", "loading.png")
+    loading_img = load_preview('loading', loading_path)
+    collaborators.loading_pic = loading_img.icon_id
+
     collaborators.contributors = {}
     collaborators.sponsors = {}
     collaborators.sponsorship_goal = {}
+    collaborators.load_thread = None
+
+    load_local_contributors()
 
     bpy.types.WindowManager.ypui_sponsor = PointerProperty(type=YSponsorProp)
 
