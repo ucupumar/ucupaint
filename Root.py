@@ -2656,6 +2656,10 @@ def update_layer_preview_mode(self, context):
         check_all_channel_ios(yp)
         remove_preview(mat)
 
+def update_layer_preview_mode_type(self, context):
+    if self.layer_preview_mode:
+        update_layer_preview_mode(self, context)
+
 def update_sculpt_mode(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
@@ -3884,7 +3888,7 @@ class YPaint(bpy.types.PropertyGroup):
         ),
         #items = layer_preview_mode_type_items,
         default = 'LAYER',
-        update = update_layer_preview_mode
+        update = update_layer_preview_mode_type
     )
 
     # Mode exclusively for merging mask
