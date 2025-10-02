@@ -20,18 +20,7 @@ class YForceUpdateSponsors(bpy.types.Operator):
         goal_ui = context.window_manager.ypui_sponsor
         goal_ui.initialized = False
 
-        folders = os.path.join(path, "icons", "contributors")
-        if not os.path.exists(folders):
-            os.makedirs(folders)
-
-        # remove all images in folder 
-        for f in os.listdir(folders):
-            file_path = os.path.join(folders, f)
-            try:
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-            except Exception as e:
-                print("Error removing file", file_path, ":", e)
+        refresh_image_caches(True)
 
         return {'FINISHED'}
 
@@ -138,7 +127,9 @@ class YSponsorPopover(bpy.types.Panel):
         col.label(text="~ ucupumar")
         col.separator()
 
-        layout.label(text="The supporters list is updated daily")
+        daily_row = layout.row()
+        daily_row.label(text="The supporters list is updated daily")
+        daily_row.operator('wm.y_force_update_sponsors', text="", icon='FILE_REFRESH')
 
 class YSponsorProp(bpy.types.PropertyGroup):
     progress : FloatProperty(
@@ -339,15 +330,12 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                 # box_row.alignment = 'CENTER'
                 # box_row.label(text="No sponsors yet. Be the first one!")
             else:
-                lowest_tier = scale_icon == 0.0
-
-                if not lowest_tier:
-                    grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
+                # if not lowest_tier:
+                grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
 
                 missing_column = per_column - (per_page_item % per_column)
                 counter_member = 0
                 paged_items = filtered_items[current_page * per_page_item : (current_page + 1) * per_page_item]
-                lowest_members = ''
 
                 for cl, item in enumerate(paged_items):
                     counter_member += 1
@@ -356,21 +344,23 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                         thumb = collaborators.loading_pic
 
                     id = item["name"]
+                    if id == '':
+                        id = item['id'].strip()
                     if item['one_time']:
                         if horizontal_mode:
                             id +=  "*"
                         else:
                             id =  "*" + id
-                    if lowest_tier:
-                        lowest_members += id + ', '
-                    else:
-                        self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
+                    # if lowest_tier:
+                    #     lowest_members += id + ', '
+                    # else:
+                    self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
                 # if tier_index == 3:
                 #     print("Tier", tier_index, "has", member_count, "members", "page", current_page, "per page =", per_page_item, "per column =", per_column, "missing column =", missing_column)
-                if lowest_tier and lowest_members != '':
-                    lowest_members = lowest_members[:-2] # remove last comma
-                    box.alignment = 'EXPAND'
-                    self.draw_multiline(box, lowest_members, panel_width)
+                # if lowest_tier and lowest_members != '':
+                #     lowest_members = lowest_members[:-2] # remove last comma
+                #     box.alignment = 'EXPAND'
+                #     self.draw_multiline(box, lowest_members, panel_width)
 
                 if missing_column != per_column:
                     for i in range(missing_column):
@@ -469,12 +459,60 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
 
 # todo :
-# column name semua csv
-# tambah page wiki credits
-# override-users jadi override-sponsors
-# override-contributors
-# loading supporters di background thread
-# button force update
+# bronze = silver, tanpa icon
+# cleanup timer 1 bulan buat images
+# option force reload (checkbox, delete images)
+# csv legend override
+# force reload di popover (daily updated)
+# contributor settings in json
+# add mantainer in sponsorship-goal.json
+
+def refresh_image_caches(force_reload:bool = False):
+
+    path = get_addon_filepath()
+    folders = os.path.join(path, "icons", "contributors")
+    if not os.path.exists(folders):
+        os.makedirs(folders)
+
+    is_expired = False
+
+    path_last_check = os.path.join(path, "last_check_images.txt") # to store last check time
+    current_time = time.time()
+
+    if not force_reload:
+
+        if os.path.exists(path_last_check):
+            with open(path_last_check, "r", encoding="utf-8") as f:
+                content_last_check = f.read().strip()
+                
+                # convert to float
+                try:
+                    last_check = float(content_last_check)
+                except:
+                    last_check = 0.0
+                
+
+                span_time = current_time - last_check
+                # if last check more than a month ago, reload
+                if span_time > 24 * 60 * 60 * 30:
+                    is_expired = True
+        else:
+            is_expired = True
+    else:
+        is_expired = True
+
+    if is_expired:
+        with open(path_last_check, "w", encoding="utf-8") as f:
+            f.write(str(current_time))
+            
+        # remove all images in folder 
+        for f in os.listdir(folders):
+            file_path = os.path.join(folders, f)
+            try:
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                print("Error removing file", file_path, ":", e)
 
 def load_preview(key:str, file_name:str):
     if key in previews_users:
@@ -504,6 +542,8 @@ def load_local_contributors():
         with open(path_contributors, "r", encoding="utf-8") as f:
             content = f.read()
 
+    folders = os.path.join(path, "icons", "contributors")
+
     collaborators.contributors.clear()
     if content != "":
         skip_header = True
@@ -520,6 +560,9 @@ def load_local_contributors():
                     'image_url': parts[3],
                     'thumb': None
                 }
+                file_name = f"{folders}{os.sep}{contributor['id']}.png"
+                if os.path.exists(file_name):
+                    contributor['thumb'] = load_preview(contributor['id'], file_name).icon_id
                 collaborators.contributors[contributor['id']] = contributor
 
 def load_contributors(context):    
@@ -687,19 +730,7 @@ def load_contributors(context):
                 goal_ui.expand_tiers[i] = True
                 expanding_top_tier -= 1
 
-    if reload_contributors:
-        folders = os.path.join(path, "icons", "contributors")
-        if not os.path.exists(folders):
-            os.makedirs(folders)
-
-        # remove all images in folder 
-        for f in os.listdir(folders):
-            file_path = os.path.join(folders, f)
-            try:
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-            except Exception as e:
-                print("Error removing file", file_path, ":", e)
+    refresh_image_caches()
 
     refresh_ui()
 
@@ -742,11 +773,13 @@ def load_expanded_images(context):
 
     goal_ui: YSponsorProp = context.window_manager.ypui_sponsor
 
+    cont_setting = collaborators.sponsorship_goal.get('contributor_settings', {})
+
     current_page_contributors = goal_ui.page_collaborators
-    per_page_item_contributors = 9
+    per_page_item_contributors = cont_setting.get('per_page_item', 12)
 
     paged_contributors = list(collaborators.contributors.values())[current_page_contributors*per_page_item_contributors:(current_page_contributors+1)*per_page_item_contributors]
-    size_icon_contributor = 96
+    size_icon_contributor = cont_setting.get('icon_size', 0)
 
     to_load_users = []
     
@@ -819,7 +852,7 @@ def download_stream(links, file_names, ids, timeout:int = 10):
                     print('Error #2 while downloading', link, ':', e)
         else:
             continue
-        
+
         k = ids[idx]
         img = load_preview(k, file_name)
         if k in collaborators.contributors:

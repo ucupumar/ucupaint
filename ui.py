@@ -5450,11 +5450,14 @@ def draw_ypaint_about(self, context):
     paging_layout = row_title.row(align=True)
     paging_layout.alignment = 'RIGHT'
 
-    per_column = 3
-    per_page_item = 9 # todo : put in settings
-
     collaborators = get_collaborators()
     contributors = collaborators.contributors
+    
+    cont_setting = collaborators.sponsorship_goal.get('contributor_settings', {})
+
+    per_column = cont_setting.get('per_column', 3)
+    per_page_item = cont_setting.get('per_page_item', 9)
+
 
     goal_ui = context.window_manager.ypui_sponsor
 
