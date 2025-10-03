@@ -3,6 +3,7 @@ import os, requests, time, threading, json
 from bpy.props import PointerProperty, IntProperty, FloatProperty
 import bpy.utils.previews
 from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title, get_user_preferences
+from . import lib
 
 class YForceUpdateSponsors(bpy.types.Operator):
     """Force Update Sponsors"""
@@ -237,29 +238,17 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         return row
 
-    def draw_tier_title(self, layout, expand, object, prop_name, title, index_prop):
-
-        # if is_bl_newer_than(2, 81):
-        #     icons = ['NODE_SOCKET_OBJECT', 'NODE_SOCKET_FLOAT', 'NODE_SOCKET_RGBA', 'NODE_SOCKET_STRING', 'NODE_SOCKET_BOOLEAN', 'NODE_SOCKET_GEOMETRY']
-        # else:
-        #     icons = ['KEYTYPE_MOVING_HOLD_VEC']
+    def draw_tier_title(self, layout, expand, object, prop_name, title, index_prop, icon_val):
 
         icon = 'DOWNARROW_HLT' if expand else 'RIGHTARROW'
         row = layout.row(align=True)
         rrow = row.row(align=True)
 
-        # index_icon = index_prop % len(icons)
-
-        # if is_bl_newer_than(2, 81):
-        #     rrow.alignment = 'LEFT'
-        #     rrow.scale_x = 0.95
-        #     rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
-        #     rrow.prop(object, prop_name, index=index_prop, text=title, icon=icons[index_icon], emboss=False)
         if is_bl_newer_than(2, 80):
             rrow.alignment = 'LEFT'
             rrow.scale_x = 0.95
-            rrow.prop(object, prop_name, index=index_prop, emboss=False, text=title, icon=icon)
-            # rrow.prop(object, prop_name, index=index_prop, text=title, icon=icons[index_icon], emboss=False)
+            rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
+            rrow.prop(object, prop_name, index=index_prop, text=title, icon_value=lib.get_icon(icon_val, 'FAKE_USER_ON'), emboss=False)
         else:
             rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
             # rrow.label(text=title)
@@ -325,12 +314,12 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             row.operator('wm.url_open', text=content, emboss=False).url = url
 
 
-    def draw_tier_members(self, panel_width, goal_ui, layout, title:str, price, tier_index:int, per_column:int = 3, current_page:int = 0, per_page_item:int = 4, scale_icon:float = 3.0, horizontal_mode:bool = True):
+    def draw_tier_members(self, panel_width, goal_ui, layout, title:str, icon_val, tier_index:int, per_column:int = 3, current_page:int = 0, per_page_item:int = 4, scale_icon:float = 3.0, horizontal_mode:bool = True):
         
         filtered_items = list()
 
         for item in collaborators.sponsors.values():
-            if item['tier'] != tier_index or not item['public']:
+            if item['tier'] != tier_index:# or not item['public']:
                 continue
             filtered_items.append(item)
 
@@ -344,7 +333,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             text_object += f' ({member_count})'
 
         expand = goal_ui.expand_tiers[tier_index]
-        title_row = self.draw_tier_title(layout, expand, goal_ui, 'expand_tiers', text_object, tier_index)
+        title_row = self.draw_tier_title(layout, expand, goal_ui, 'expand_tiers', text_object, tier_index, icon_val)
         paging_layout = title_row.row(align=True)
         paging_layout.alignment = 'RIGHT'
 
@@ -476,11 +465,12 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                     if column_count <= 0:
                         column_count = 1
 
-                    self.draw_tier_members(panel_width, goal_ui, layout, tier['name'], tier['price'], idx, column_count, goal_ui.page_tiers[idx], tier['per_page_item'], scale_icon, horizontal_mode)
+                    self.draw_tier_members(panel_width, goal_ui, layout, tier['name'], tier['icon_value'], idx, column_count, goal_ui.page_tiers[idx], tier['per_page_item'], scale_icon, horizontal_mode)
 
             # check one time sponsor exist and expanded
             for item in collaborators.sponsors.values():
-                if item['one_time']:
+                # if item['one_time']:
+                if item['one_time'] and item['public']:
                     tier = item['tier']
                     if goal_ui.expand_tiers[tier]:
                         layout.separator()
@@ -670,7 +660,7 @@ def load_contributors(context):
             content_sponsorship_goal = f.read()
             settings = json.loads(content_sponsorship_goal)
             collaborators.sponsorships = settings["sponsorships"]
-            collaborators.contributor_settings = settings.get("contributor_settings", {})
+            collaborators.contributor_settings = settings.get("contributors", {})
     else:
         reload_contributors = True
 
@@ -704,7 +694,7 @@ def load_contributors(context):
                     f.write(content_sponsorship_goal)
                 settings = json.loads(content_sponsorship_goal)
                 collaborators.sponsorships = settings["sponsorships"]
-                collaborators.contributor_settings = settings.get("contributor_settings", {})
+                collaborators.contributor_settings = settings.get("contributors", {})
 
             current_time = time.time()
             with open(path_last_check, "w", encoding="utf-8") as f:

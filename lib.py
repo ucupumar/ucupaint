@@ -266,14 +266,14 @@ icon_synonyms_27x = {
     'rename' : 'GREASEPENCIL',
 }
 
-def get_icon(icon_name=''):
+def get_icon(icon_name='', default_icon='QUESTION'):
     ypup = get_user_preferences()
 
     # Get default blender icons
     icons = bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items
 
     # Default icon is QUESTION
-    default_value = icons['QUESTION'].value
+    default_value = icons[default_icon].value
     icon_value = default_value
 
     if ypup.icons == 'DEFAULT':
