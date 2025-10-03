@@ -486,9 +486,10 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                         layout.separator()
                         layout.label(text="* One-time supporters")
                         break
+        elif is_online():
+            layout.label(text="Loading data...", icon='TIME')
         else:
             layout.label(text="No internet access, can't load sponsors.", icon='ERROR')
-            # open online access 
 
         goal_ui.expanded = True
 
