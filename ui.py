@@ -5435,7 +5435,7 @@ def draw_yp_file_browser_menu(self, context):
             self.layout.context_pointer_set('params', params)
             self.layout.menu("NODE_MT_ypaint_file_browser_menu", text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
 
-from .sponsor_ui import get_collaborators, check_contributors, load_expanded_images
+from .credits_ui import get_collaborators, check_contributors, load_expanded_images
 
 def draw_ypaint_about(self, context):
     check_contributors(context)
@@ -5453,13 +5453,13 @@ def draw_ypaint_about(self, context):
     collaborators = get_collaborators()
     contributors = collaborators.contributors
     
-    cont_setting = collaborators.sponsorship_goal.get('contributor_settings', {})
+    cont_setting = collaborators.contributor_settings
 
     per_column = cont_setting.get('per_column', 3)
     per_page_item = cont_setting.get('per_page_item', 9)
 
 
-    goal_ui = context.window_manager.ypui_sponsor
+    goal_ui = context.window_manager.ypui_credits
 
     current_page = goal_ui.page_collaborators
 

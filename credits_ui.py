@@ -111,7 +111,7 @@ class YSponsorPopover(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        goal = collaborators.sponsorship_goal
+        goal = collaborators.sponsorships
         one_time_total = 0
         recurring_total = 0
         print("Checking one-time sponsors...", len(collaborators.sponsors))
@@ -270,7 +270,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         if not goal_ui.expanded:
             layout = self.layout
             row = layout.row(align=True)
-            row.operator('wm.url_open', text="Donate Us", icon='FUND').url = collaborators.sponsorship_goal.get('url', "")
+            row.operator('wm.url_open', text="Donate Us", icon='FUND').url = collaborators.sponsorships.get('url', "")
             if get_user_preferences().developer_mode:
                 row.operator('wm.y_force_update_sponsors', text="", icon='FILE_REFRESH')
 
@@ -355,7 +355,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             row.label(text='', icon='BLANK1')
             box = row.box()
             if member_count == 0:
-                url = collaborators.sponsorship_goal.get('url', "")
+                url = collaborators.sponsorships.get('url', "")
                 col_box = box.column(align=True)
                 # for i in range(per_column):
                 self.draw_empty_member(col_box, url, scale_icon, horizontal_mode)
@@ -422,7 +422,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         panel_width = region.width
 
         layout = self.layout
-        goal = collaborators.sponsorship_goal
+        goal = collaborators.sponsorships
         goal_ui = context.window_manager.ypui_credits
 
         if is_online() and goal and 'targetValue' in goal:
@@ -655,13 +655,15 @@ def load_contributors(context):
     else:
         reload_contributors = True
 
-    path_sponsorship_goal = os.path.join(path, "sponsorship-goal.json")
+    path_sponsorship_goal = os.path.join(path, "credits.json")
     content_sponsorship_goal = ""
 
     if os.path.exists(path_sponsorship_goal):
         with open(path_sponsorship_goal, "r", encoding="utf-8") as f:
             content_sponsorship_goal = f.read()
-            collaborators.sponsorship_goal = json.loads(content_sponsorship_goal)
+            settings = json.loads(content_sponsorship_goal)
+            collaborators.sponsorships = settings["sponsorships"]
+            collaborators.contributor_settings = settings.get("contributor_settings", {})
     else:
         reload_contributors = True
 
@@ -686,14 +688,16 @@ def load_contributors(context):
                 with open(path_sponsors, "w", encoding="utf-8") as f:
                     f.write(content_sponsors)
 
-            print("Reloading sponsorship goal...", data_url + "sponsorship-goal.json")
-            response = requests.get(data_url + "sponsorship-goal.json", verify=False, timeout=10)
+            print("Reloading sponsorship goal...", data_url + "credits.json")
+            response = requests.get(data_url + "credits.json", verify=False, timeout=10)
             if response.status_code == 200:
                 content_sponsorship_goal = response.text
-                print("Response:", content_sponsorship_goal)
+                print("Response credits:", content_sponsorship_goal)
                 with open(path_sponsorship_goal, "w", encoding="utf-8") as f:
                     f.write(content_sponsorship_goal)
-                collaborators.sponsorship_goal = json.loads(content_sponsorship_goal)
+                settings = json.loads(content_sponsorship_goal)
+                collaborators.sponsorships = settings["sponsorships"]
+                collaborators.contributor_settings = settings.get("contributor_settings", {})
 
             current_time = time.time()
             with open(path_last_check, "w", encoding="utf-8") as f:
@@ -750,7 +754,7 @@ def load_contributors(context):
     # expand top 2 tiers that have members
     expanding_top_tier = 2 # todo : from settings
     # tier setup
-    tiers = collaborators.sponsorship_goal.get('tiers', [])
+    tiers = collaborators.sponsorships.get('tiers', [])
 
     # reset expand
     for i in goal_ui.expand_tiers:
@@ -779,7 +783,7 @@ def load_contributors(context):
         empty_all_sponsors = False
 
         if show_extra_dummy:
-            tiers = collaborators.sponsorship_goal.get('tiers', [])
+            tiers = collaborators.sponsorships.get('tiers', [])
             tier_count = len(tiers)
 
             dummy_multiplier = 3
@@ -812,7 +816,7 @@ def load_expanded_images(context):
 
     goal_ui: YSponsorProp = context.window_manager.ypui_credits
 
-    cont_setting = collaborators.sponsorship_goal.get('contributor_settings', {})
+    cont_setting = collaborators.contributor_settings
 
     current_page_contributors = goal_ui.page_collaborators
     per_page_item_contributors = cont_setting.get('per_page_item', 12)
@@ -834,7 +838,7 @@ def load_expanded_images(context):
             id = c['id']
             to_load_users.append( (link, file_name, id) )
 
-    tiers = collaborators.sponsorship_goal.get('tiers', [])
+    tiers = collaborators.sponsorships.get('tiers', [])
 
     for i in range(len(tiers)):
         tier = tiers[i]
@@ -929,7 +933,8 @@ class Collaborators:
     empty_pic = None
     contributors = {}
     sponsors = {}
-    sponsorship_goal = {}
+    sponsorships = {}
+    contributor_settings = {}
 
 def get_collaborators():
     return collaborators
@@ -959,7 +964,7 @@ def register():
 
     collaborators.contributors = {}
     collaborators.sponsors = {}
-    collaborators.sponsorship_goal = {}
+    collaborators.sponsorships = {}
     collaborators.load_thread = None
 
     load_local_contributors()
