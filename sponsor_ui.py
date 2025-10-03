@@ -9,6 +9,28 @@ class YForceUpdateSponsors(bpy.types.Operator):
     bl_idname = "wm.y_force_update_sponsors"
     bl_label = "Force Update Sponsors"
 
+    # debugging purpose
+    clear_image_cache : bpy.props.BoolProperty(
+        default = False,
+        description = "Clear image cache",
+    )
+
+    use_dummy_users : bpy.props.BoolProperty(
+        default = False,
+        description = "Use dummy users",
+    )
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=320)
+    
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, 'clear_image_cache', text="Clear Image Cache")
+
+        if get_user_preferences().developer_mode:
+            # goal_ui: YSponsorProp = context.window_manager.ypui_credits
+            layout.prop(self, 'use_dummy_users', text="Use Dummy Users for Testing")
+
     def execute(self, context):
         print("Force update sponsors...")
         path = get_addon_filepath()
@@ -17,10 +39,11 @@ class YForceUpdateSponsors(bpy.types.Operator):
         if os.path.exists(path_last_check):
             os.remove(path_last_check)
 
-        goal_ui = context.window_manager.ypui_sponsor
+        goal_ui: YSponsorProp = context.window_manager.ypui_credits
         goal_ui.initialized = False
+        goal_ui.use_dummy_users = self.use_dummy_users if get_user_preferences().developer_mode else False
 
-        refresh_image_caches(True)
+        refresh_image_caches(self.clear_image_cache)
 
         return {'FINISHED'}
 
@@ -35,7 +58,7 @@ class YTierPagingButton(bpy.types.Operator):
 
     def execute(self, context):
         # print("Paging", "Next" if self.is_next_button else "Previous")
-        goal_ui = context.window_manager.ypui_sponsor
+        goal_ui = context.window_manager.ypui_credits
         current_page = goal_ui.page_tiers[self.tier_index]
         if self.is_next_button:
             current_page += 1
@@ -60,7 +83,7 @@ class YCollaboratorPagingButton(bpy.types.Operator):
 
     def execute(self, context):
         # print("Paging", "Next" if self.is_next_button else "Previous")
-        goal_ui = context.window_manager.ypui_sponsor
+        goal_ui = context.window_manager.ypui_credits
         current_page = goal_ui.page_collaborators
         if self.is_next_button:
             current_page += 1
@@ -114,9 +137,11 @@ class YSponsorPopover(bpy.types.Panel):
         char_per_line = 40
         split_desc = desc.split(' ')
         current_text = '"'
-        ucupumar = collaborators.contributors.get('ucupumar', None)
-        ucup_icon = ucupumar['thumb'] if ucupumar else 0
-        row_quote.template_icon(icon_value = ucup_icon, scale = 3.0)
+        
+        maintaner = goal.get('maintainer')
+        user_maintaner = collaborators.contributors.get(maintaner, None)
+        maintainer_icon = user_maintaner['thumb'] if user_maintaner else 0
+        row_quote.template_icon(icon_value = maintainer_icon, scale = 3.0)
         col = row_quote.column(align=True)
         for d in split_desc:
             if len(current_text + d) > char_per_line: # rough estimate
@@ -124,7 +149,7 @@ class YSponsorPopover(bpy.types.Panel):
                 current_text = ''
             current_text += d + ' '
         col.label(text=current_text+"\"")
-        col.label(text="~ ucupumar")
+        col.label(text=f"~ {maintaner}")
         col.separator()
 
         daily_row = layout.row()
@@ -157,7 +182,7 @@ class YSponsorProp(bpy.types.PropertyGroup):
 
     expand_description : bpy.props.BoolProperty(
         default = False,
-        description = "Ucupaint's sponsor is updated daily",
+        description = get_addon_title() + "'s sponsor is updated daily",
     )
 
     initialized : bpy.props.BoolProperty(
@@ -167,6 +192,13 @@ class YSponsorProp(bpy.types.PropertyGroup):
     expanded : bpy.props.BoolProperty(
         default = False,
     )
+
+    # debugging purpose
+    use_dummy_users : bpy.props.BoolProperty(
+        default = False,
+        description = "Use dummy users",
+    )
+
 
 class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
     bl_label = "Support " + get_addon_title()
@@ -206,24 +238,23 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
     def draw_tier_title(self, layout, expand, object, prop_name, title, index_prop):
 
-        # icons = ['KEYTYPE_KEYFRAME_VEC', 'KEYTYPE_BREAKDOWN_VEC', 'KEYTYPE_JITTER_VEC', 'KEYTYPE_EXTREME_VEC', 'KEYTYPE_MOVING_HOLD_VEC', 'KEYTYPE_GENERATED_VEC']
-        if is_bl_newer_than(2, 81):
-            icons = ['NODE_SOCKET_OBJECT', 'NODE_SOCKET_FLOAT', 'NODE_SOCKET_RGBA', 'NODE_SOCKET_STRING', 'NODE_SOCKET_BOOLEAN', 'NODE_SOCKET_GEOMETRY']
-        else:
-            icons = ['KEYTYPE_MOVING_HOLD_VEC']
+        # if is_bl_newer_than(2, 81):
+        #     icons = ['NODE_SOCKET_OBJECT', 'NODE_SOCKET_FLOAT', 'NODE_SOCKET_RGBA', 'NODE_SOCKET_STRING', 'NODE_SOCKET_BOOLEAN', 'NODE_SOCKET_GEOMETRY']
+        # else:
+        #     icons = ['KEYTYPE_MOVING_HOLD_VEC']
 
         icon = 'DOWNARROW_HLT' if expand else 'RIGHTARROW'
         row = layout.row(align=True)
         rrow = row.row(align=True)
 
-        index_icon = index_prop % len(icons)
+        # index_icon = index_prop % len(icons)
 
-        if is_bl_newer_than(2, 81):
-            rrow.alignment = 'LEFT'
-            rrow.scale_x = 0.95
-            rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
-            rrow.prop(object, prop_name, index=index_prop, text=title, icon=icons[index_icon], emboss=False)
-        elif is_bl_newer_than(2, 80):
+        # if is_bl_newer_than(2, 81):
+        #     rrow.alignment = 'LEFT'
+        #     rrow.scale_x = 0.95
+        #     rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
+        #     rrow.prop(object, prop_name, index=index_prop, text=title, icon=icons[index_icon], emboss=False)
+        if is_bl_newer_than(2, 80):
             rrow.alignment = 'LEFT'
             rrow.scale_x = 0.95
             rrow.prop(object, prop_name, index=index_prop, emboss=False, text=title, icon=icon)
@@ -235,11 +266,11 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         return row
 
     def draw_header_preset(self, context):
-        goal_ui = context.window_manager.ypui_sponsor
+        goal_ui = context.window_manager.ypui_credits
         if not goal_ui.expanded:
             layout = self.layout
             row = layout.row(align=True)
-            row.operator('wm.url_open', text="Donate Us", icon='FUND').url = "https://github.com/sponsors/ucupumar"
+            row.operator('wm.url_open', text="Donate Us", icon='FUND').url = collaborators.sponsorship_goal.get('url', "")
             if get_user_preferences().developer_mode:
                 row.operator('wm.y_force_update_sponsors', text="", icon='FILE_REFRESH')
 
@@ -264,9 +295,10 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             col.template_icon(icon_value = icon, scale = scale_icon)
             col.operator('wm.url_open', text=label, emboss=False).url = url
 
-    def draw_empty_member(self, layout, scale_icon:float = 3.0, horizontal_mode:bool = True):
+    def draw_empty_member(self, layout, url, scale_icon:float = 3.0, horizontal_mode:bool = True):
 
         content = 'No sponsors yet, be the first one!'
+
         if horizontal_mode:
             row = layout.row(align=True)
             if scale_icon != 0.0:
@@ -275,7 +307,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                 btn_row = row.row(align=True)
                 btn_row.scale_y = scale_icon
                 btn_url = btn_row.operator('wm.url_open', text=content, emboss=False, )
-                btn_url.url = "https://github.com/sponsors/ucupumar"
+                btn_url.url = url
             else:
                 row.label(text=content)
         else:
@@ -287,7 +319,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             row = col.row(align=True)
             row.alignment = 'LEFT'
             row.scale_x = 0.95
-            row.operator('wm.url_open', text=content, emboss=False).url = "https://github.com/sponsors/ucupumar"
+            row.operator('wm.url_open', text=content, emboss=False).url = url
 
 
     def draw_tier_members(self, panel_width, goal_ui, layout, title:str, price, tier_index:int, per_column:int = 3, current_page:int = 0, per_page_item:int = 4, scale_icon:float = 3.0, horizontal_mode:bool = True):
@@ -323,9 +355,10 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             row.label(text='', icon='BLANK1')
             box = row.box()
             if member_count == 0:
+                url = collaborators.sponsorship_goal.get('url', "")
                 col_box = box.column(align=True)
                 # for i in range(per_column):
-                self.draw_empty_member(col_box, scale_icon, horizontal_mode)
+                self.draw_empty_member(col_box, url, scale_icon, horizontal_mode)
                 # box_row = box.row(align=True)
                 # box_row.alignment = 'CENTER'
                 # box_row.label(text="No sponsors yet. Be the first one!")
@@ -390,12 +423,12 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         layout = self.layout
         goal = collaborators.sponsorship_goal
-        goal_ui = context.window_manager.ypui_sponsor
+        goal_ui = context.window_manager.ypui_credits
 
         if is_online() and goal and 'targetValue' in goal:
            
             row_title = layout.row(align=True)
-            row_title.label(text="Ucupaint's goal : $" + str(goal['targetValue']) + "/month")
+            row_title.label(text= get_addon_title() + "'s goal : $" + str(goal['targetValue']) + "/month")
 
             paging_layout = row_title.row(align=True)
             paging_layout.alignment = 'RIGHT'
@@ -454,7 +487,6 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         goal_ui.expanded = True
 
         if get_user_preferences().developer_mode:
-            layout.separator()
             layout.operator('wm.y_force_update_sponsors', text="Force Update Sponsors", icon='FILE_REFRESH')
 
 
@@ -466,6 +498,13 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 # force reload di popover (daily updated)
 # contributor settings in json
 # add mantainer in sponsorship-goal.json
+
+# default : ga ada file csv & json. get_addon_title() is created by: ucupumar
+# default : donate url harcode 
+# online access mati : csv & json tidak ada
+# sponsor_ui > credits_ui
+# ypui_sponsor > ypui_credits
+# sponsorship-goal.json > credits.json, rapiin struktur jsonnya
 
 def refresh_image_caches(force_reload:bool = False):
 
@@ -522,7 +561,7 @@ def load_preview(key:str, file_name:str):
     return img
 
 def check_contributors(context):
-    goal_ui = context.window_manager.ypui_sponsor
+    goal_ui = context.window_manager.ypui_credits
     if not goal_ui.initialized: # first time init
         goal_ui.initialized = True
         print("first time init, loading contributors...")
@@ -706,7 +745,7 @@ def load_contributors(context):
             collaborators.sponsors[sponsor['id']] = sponsor
             print("Loaded sponsor", sponsor['id'], "=", sponsor)
     
-    goal_ui: YSponsorProp = context.window_manager.ypui_sponsor
+    goal_ui: YSponsorProp = context.window_manager.ypui_credits
 
     # expand top 2 tiers that have members
     expanding_top_tier = 2 # todo : from settings
@@ -736,7 +775,7 @@ def load_contributors(context):
 
     if get_user_preferences().developer_mode:
         # extra dummy
-        show_extra_dummy = True
+        show_extra_dummy = goal_ui.use_dummy_users
         empty_all_sponsors = False
 
         if show_extra_dummy:
@@ -771,7 +810,7 @@ def load_expanded_images(context):
     if collaborators.load_thread and collaborators.load_thread.is_alive():
         return
 
-    goal_ui: YSponsorProp = context.window_manager.ypui_sponsor
+    goal_ui: YSponsorProp = context.window_manager.ypui_credits
 
     cont_setting = collaborators.sponsorship_goal.get('contributor_settings', {})
 
@@ -925,16 +964,16 @@ def register():
 
     load_local_contributors()
 
-    bpy.types.WindowManager.ypui_sponsor = PointerProperty(type=YSponsorProp)
+    bpy.types.WindowManager.ypui_credits = PointerProperty(type=YSponsorProp)
 
-    ui_sp = bpy.context.window_manager.ypui_sponsor
+    ui_sp = bpy.context.window_manager.ypui_credits
     ui_sp.initialized = False
 
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
 
-    del bpy.types.WindowManager.ypui_sponsor
+    del bpy.types.WindowManager.ypui_credits
 
     global previews_users
 
