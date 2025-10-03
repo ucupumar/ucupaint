@@ -448,7 +448,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         check_contributors(context)
 
-        if 'tiers' in goal:
+        if is_online() and 'tiers' in goal:
             layout.separator()
             layout.label(text="Our Supporters :", icon='HEART')
 
@@ -485,23 +485,6 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         if get_user_preferences().developer_mode:
             layout.operator('wm.y_force_update_sponsors', text="Force Update Sponsors", icon='FILE_REFRESH')
-
-
-# todo :
-# bronze = silver, tanpa icon
-# cleanup timer 1 bulan buat images
-# option force reload (checkbox, delete images)
-# csv legend override
-# force reload di popover (daily updated)
-# contributor settings in json
-# add mantainer in sponsorship-goal.json
-
-# default : ga ada file csv & json. get_addon_title() is created by: ucupumar
-# default : donate url harcode 
-# online access mati : csv & json tidak ada
-# sponsor_ui > credits_ui
-# ypui_sponsor > ypui_credits
-# sponsorship-goal.json > credits.json, rapiin struktur jsonnya
 
 def refresh_image_caches(force_reload:bool = False):
 
@@ -559,14 +542,17 @@ def load_preview(key:str, file_name:str):
 
 def check_contributors(context):
     goal_ui = context.window_manager.ypui_credits
-    if not goal_ui.initialized: # first time init
-        goal_ui.initialized = True
-        print("first time init, loading contributors...")
+    if is_online():
+        if not goal_ui.initialized: # first time init
+            goal_ui.initialized = True
+            print("first time init, loading contributors...")
 
-        load_thread = threading.Thread(target=load_contributors, args=(context,))
-        load_thread.start()
-    else:
-        load_expanded_images(context)
+            load_thread = threading.Thread(target=load_contributors, args=(context,))
+            load_thread.start()
+        else:
+            load_expanded_images(context)
+    elif goal_ui.initialized:
+        goal_ui.initialized = False
 
 def load_local_contributors():
     path = get_addon_filepath()
@@ -966,6 +952,7 @@ def register():
 
     collaborators.default_url = "https://github.com/sponsors/ucupumar"
     collaborators.default_maintainer = "ucupumar"
+    collaborators.default_contributors_url = 'https://github.com/ucupumar/ucupaint/graphs/contributors'
 
     load_local_contributors()
 
