@@ -5445,13 +5445,17 @@ def draw_ypaint_about(self, context):
     row_title = col.row(align=True)
     row_title_label = row_title.row(align=True)
 
-    row_title_label.label(text=get_addon_title() + ' is created by:')
+    collaborators = get_collaborators()
+    contributors = collaborators.contributors
+
+    if not contributors or len(contributors) == 0:
+        row_title_label.label(text=get_addon_title() + ' is created by '+ collaborators.default_maintainer)
+    else:
+        row_title_label.label(text=get_addon_title() + ' is created by:')
 
     paging_layout = row_title.row(align=True)
     paging_layout.alignment = 'RIGHT'
 
-    collaborators = get_collaborators()
-    contributors = collaborators.contributors
     
     cont_setting = collaborators.contributor_settings
 

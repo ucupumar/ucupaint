@@ -141,7 +141,8 @@ class YSponsorPopover(bpy.types.Panel):
         maintaner = goal.get('maintainer')
         user_maintaner = collaborators.contributors.get(maintaner, None)
         maintainer_icon = user_maintaner['thumb'] if user_maintaner else 0
-        row_quote.template_icon(icon_value = maintainer_icon, scale = 3.0)
+        if maintainer_icon:
+            row_quote.template_icon(icon_value = maintainer_icon, scale = 3.0)
         col = row_quote.column(align=True)
         for d in split_desc:
             if len(current_text + d) > char_per_line: # rough estimate
@@ -270,7 +271,9 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         if not goal_ui.expanded:
             layout = self.layout
             row = layout.row(align=True)
-            row.operator('wm.url_open', text="Donate Us", icon='FUND').url = collaborators.sponsorships.get('url', "")
+
+            url = collaborators.sponsorships.get('url', collaborators.default_url)
+            row.operator('wm.url_open', text="Donate Us", icon='FUND').url = url
             if get_user_preferences().developer_mode:
                 row.operator('wm.y_force_update_sponsors', text="", icon='FILE_REFRESH')
 
@@ -425,8 +428,11 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         goal = collaborators.sponsorships
         goal_ui = context.window_manager.ypui_credits
 
-        if is_online() and goal and 'targetValue' in goal:
-           
+        url_donation = collaborators.default_url
+
+        if goal and 'targetValue' in goal:
+            url_donation = goal.get('url', url_donation)
+
             row_title = layout.row(align=True)
             row_title.label(text= get_addon_title() + "'s goal : $" + str(goal['targetValue']) + "/month")
 
@@ -449,11 +455,11 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         don_col = layout.column(align=True)
         don_col.scale_y = 1.5
-        don_col.operator('wm.url_open', text="Donate Us", icon='FUND').url = "https://github.com/sponsors/ucupumar"
+        don_col.operator('wm.url_open', text="Donate Us", icon='FUND').url = url_donation
 
         check_contributors(context)
 
-        if is_online():
+        if 'tiers' in goal:
             layout.separator()
             layout.label(text="Our Supporters :", icon='HEART')
 
@@ -966,6 +972,9 @@ def register():
     collaborators.sponsors = {}
     collaborators.sponsorships = {}
     collaborators.load_thread = None
+
+    collaborators.default_url = "https://github.com/sponsors/ucupumar"
+    collaborators.default_maintainer = "ucupumar"
 
     load_local_contributors()
 
