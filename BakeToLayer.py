@@ -328,6 +328,12 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
     
+    use_osl : BoolProperty(
+        name = 'Use OSL',
+        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
+        default = False
+    )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -772,7 +778,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         if is_bl_newer_than(2, 80):
             col.separator()
-            col.prop(self, 'bake_device', text='')
+            if self.use_osl:
+                col.label(text='CPU (OSL)')
+            else: col.prop(self, 'bake_device', text='')
         col.prop(self, 'interpolation', text='')
 
         if self.target_type == 'MASK':
@@ -803,6 +811,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         if UDIM.is_udim_supported() or self.type not in {'OTHER_OBJECT_CHANNELS'}:
             col.separator()
+
+        col.prop(self, 'use_osl')
 
         if UDIM.is_udim_supported():
             ccol = col.column(align=True)
@@ -949,6 +959,12 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     use_udim : BoolProperty(
         name = 'Use UDIM Tiles',
         description = 'Use UDIM Tiles',
+        default = False
+    )
+
+    use_osl : BoolProperty(
+        name = 'Use OSL',
+        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
         default = False
     )
 
@@ -1155,7 +1171,9 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         if is_bl_newer_than(2, 80):
             col.separator()
-            col.prop(self, 'bake_device', text='')
+            if self.use_osl:
+                col.label(text='CPU (OSL)')
+            else: col.prop(self, 'bake_device', text='')
         col.separator()
 
         rrow = col.row(align=True)
@@ -1173,7 +1191,8 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'fxaa')
         if is_bl_newer_than(2, 81):
             col.prop(self, 'denoise', text='Use Denoise')
-        ccol = col.column(align=True)
+
+        col.prop(self, 'use_osl')
 
         if self.mask:
             col.prop(self, 'duplicate_entity', text='Duplicate Mask')

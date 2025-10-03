@@ -5,6 +5,7 @@ from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal
 from .common import *
 
+USE_CACHE_DELTA = 1000
 
 RGBA_CHANNEL_PREFIX = {
     'Color' : '',
@@ -3212,9 +3213,6 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
 def draw_layers_ui(context, layout, node):
 
-    # NOTE: Blender 4.2+ can detect if user is currently in a modal operation
-    in_active_modal = is_bl_newer_than(4, 2) and len(bpy.context.window.modal_operators) > 0
-
     scene = context.scene
     group_tree = node.node_tree
     nodes = group_tree.nodes
@@ -3224,6 +3222,10 @@ def draw_layers_ui(context, layout, node):
     obj = context.object
     vcols = get_vertex_colors(obj)
     is_a_mesh = True if obj and obj.type == 'MESH' else False
+
+    # NOTE: Blender 4.2+ can detect if user is currently in a modal operation
+    # [HACK] Cache is necessary to improve performace since blender always update the UI in modal operation and when using the sliders
+    use_cache = ypui.use_cache or (is_bl_newer_than(4, 2) and len(bpy.context.window.modal_operators) > 0)
 
     uv_layers = get_uv_layers(obj)
 
@@ -3483,7 +3485,7 @@ def draw_layers_ui(context, layout, node):
     #        return
 
     # NOTE: Avoid checking missing data when in modal operation to avoid performance loss
-    if in_active_modal:
+    if use_cache:
         missing_data = ypui.cache_missing_data
     else:
         # Check for missing data
@@ -3787,7 +3789,7 @@ def draw_layers_ui(context, layout, node):
         else: active_vcol = None
 
         # NOTE: Avoid checking linear and AO problem when in modal operation to avoid performance loss
-        if in_active_modal:
+        if use_cache:
             linear_problem = ypui.cache_linear_problem
             ao_problem = ypui.cache_ao_problem
         else: 
@@ -4087,6 +4089,7 @@ def main_draw(self, context):
     #T = time.time()
 
     wm = context.window_manager
+    ypui = wm.ypui
     area = context.area
     scene = context.scene
     obj = context.object
@@ -4100,11 +4103,17 @@ def main_draw(self, context):
         print('INFO: Scene is updated in', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
         wm.yptimer.time = ''
 
+    # NOTE: [HACK] Disable cache if delta time already pass the limit
+    if ypui.use_cache:
+        delta = get_depsgraph_update_delta_ms()
+        if delta > USE_CACHE_DELTA:
+            #print('Use UI Cache Disabled')
+            ypui.use_cache = False
+
     # Update ui props first
     update_yp_ui()
 
     node = get_active_ypaint_node()
-    ypui = wm.ypui
 
     layout = self.layout
 
@@ -6979,7 +6988,11 @@ class YChannelSpecialMenu(bpy.types.Menu):
 
         col.operator('wm.y_bake_channels', text="Bake " + context.parent.name + " Channel", icon_value=lib.get_icon('bake')).only_active_channel = True
 
-        if context.parent.type != 'NORMAL':
+        if context.parent.type == 'NORMAL':
+            if is_bl_newer_than(3, 2):
+                col.separator()
+                col.operator('object.y_remove_vdm_and_add_multires', text="Apply VDM layers to Multires", icon='SCULPTMODE_HLT')
+        else:
             col.separator()
             col.label(text='Add Modifier')
 
@@ -7918,7 +7931,11 @@ class YPaintUI(bpy.types.PropertyGroup):
     hide_update : BoolProperty(default=False)
     #random_prop : BoolProperty(default=False)
 
-    # Caches
+    # Cache timer
+    use_cache : BoolProperty(default=False)
+    depsgraph_timer : StringProperty(default='0')
+
+    # Cache variables
     cache_linear_problem : BoolProperty(default=False)
     cache_ao_problem : BoolProperty(default=False)
     cache_missing_data : BoolProperty(default=False)
@@ -7954,6 +7971,41 @@ def load_mat_ui_settings():
             mui.material = mat
             mui.active_ypaint_node = mat.yp.active_ypaint_node
 
+def get_depsgraph_update_delta_ms():
+    ypui = bpy.context.window_manager.ypui
+    return (time.time() - float(ypui.depsgraph_timer)) * 1000
+
+@persistent
+def ypui_cache_timer_check(scene, depsgraph):
+    ypui = bpy.context.window_manager.ypui
+
+    # Check if depsgraph update contains material or shader tree
+    relevant_id_found = False
+    for upd in depsgraph.updates:
+        if type(upd.id) == bpy.types.Material:
+            relevant_id_found = True
+            break
+
+        # Check if yp tree is in depsgraph update
+        #elif type(upd.id) == bpy.types.ShaderNodeTree:
+        #    tree = upd.id
+        #    if tree.yp.is_ypaint_node:
+        #        relevant_id_found = True
+        #        break
+
+    if not relevant_id_found: return
+
+    # NOTE: [HACK] If delta time between two depsgraph update is under 100ms, user probably tweaking a slider, 
+    # so it's better to use cache to improve performance
+    if not ypui.use_cache:
+        delta = get_depsgraph_update_delta_ms()
+        if delta < USE_CACHE_DELTA:
+            #print('Use UI Cache Enabled')
+            ypui.use_cache = True
+            return
+
+    ypui.depsgraph_timer = str(time.time())
+    
 @persistent
 def yp_save_ui_settings(scene):
     save_mat_ui_settings()
@@ -8056,6 +8108,9 @@ def register():
     bpy.app.handlers.load_post.append(yp_load_ui_settings)
     bpy.app.handlers.save_pre.append(yp_save_ui_settings)
 
+    if is_bl_newer_than(2, 81):
+        bpy.app.handlers.depsgraph_update_post.append(ypui_cache_timer_check)
+
 def unregister():
 
     if not is_bl_newer_than(2, 80):
@@ -8136,3 +8191,7 @@ def unregister():
     # Remove Handlers
     bpy.app.handlers.load_post.remove(yp_load_ui_settings)
     bpy.app.handlers.save_pre.remove(yp_save_ui_settings)
+
+    if is_bl_newer_than(2, 81):
+        bpy.app.handlers.depsgraph_update_post.remove(ypui_cache_timer_check)
+

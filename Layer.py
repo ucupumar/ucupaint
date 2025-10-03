@@ -3211,7 +3211,8 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
             for vcol_name in get_vertex_color_names(obj):
-                self.vcol_coll.add().name = vcol_name
+                if vcol_name != COLOR_ID_VCOL_NAME:
+                    self.vcol_coll.add().name = vcol_name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -3453,7 +3454,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
             for vcol_name in get_vertex_color_names(obj):
-                self.vcol_coll.add().name = vcol_name
+                if vcol_name != COLOR_ID_VCOL_NAME:
+                    self.vcol_coll.add().name = vcol_name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -3950,6 +3952,11 @@ def remove_layer(yp, index, remove_on_disk=False):
     source_tree = get_source_tree(layer) #, layer_tree)
     remove_node(source_tree, layer, 'source', remove_on_disk=remove_on_disk)
 
+    # Remove baked source
+    baked_source = get_layer_source(layer, get_baked=True)
+    if baked_source:
+        remove_node(source_tree, layer, 'baked_source', remove_on_disk=remove_on_disk)
+
     # Remove channel source
     for ch in layer.channels:
         src = get_channel_source(ch)
@@ -3981,6 +3988,11 @@ def remove_layer(yp, index, remove_on_disk=False):
 
         mask_tree = get_mask_tree(mask)
         remove_node(mask_tree, mask, 'source', remove_on_disk=remove_on_disk)
+
+        # Remove baked source
+        baked_source = get_mask_source(mask, get_baked=True)
+        if baked_source:
+            remove_node(mask_tree, mask, 'baked_source', remove_on_disk=remove_on_disk)
 
     # Remove node group and layer tree
     if layer_tree: 
@@ -4135,8 +4147,6 @@ class YRemoveLayer(bpy.types.Operator):
         parent_dict = get_parent_dict(yp)
         index_dict = get_index_dict(yp)
 
-        need_reconnect_layers = False
-
         # Remove layer fcurves first
         remove_entity_fcurves(layer)
 
@@ -4184,7 +4194,6 @@ class YRemoveLayer(bpy.types.Operator):
         check_uv_nodes(yp)
 
         # Check children
-        #if need_reconnect_layers:
         for i in child_ids:
             lay = yp.layers[i-1]
             check_all_layer_channel_io_and_nodes(lay)

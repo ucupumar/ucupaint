@@ -3313,10 +3313,12 @@ def update_enable_baked_outside(self, context):
             if height_ch.enable_subdiv_setup:
 
                 if height_ch.subdiv_adaptive:
-                    # Adaptive subdivision only works for experimental feature set for now
-                    scene.cycles.feature_set = 'EXPERIMENTAL'
-                    scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
-                    scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
+                    # Adaptive subdivision only works for experimental feature set for Blender older than version 5.0
+                    if not is_bl_newer_than(5):
+                        scene.cycles.feature_set = 'EXPERIMENTAL'
+
+                    # Set global dicing
+                    set_subdiv_global_dicing(height_ch)
 
                 check_displacement_node(mat, node, set_one=True)
 
@@ -3575,12 +3577,11 @@ def check_subdiv_setup(height_ch):
     if height_ch.enable_subdiv_setup:
 
         # Displacement only works with experimental feature set in Blender 2.79
-        if height_ch.subdiv_adaptive or not is_bl_newer_than(2, 80):
+        if not is_bl_newer_than(5) and (height_ch.subdiv_adaptive or not is_bl_newer_than(2, 80)):
             scene.cycles.feature_set = 'EXPERIMENTAL'
 
         if height_ch.subdiv_adaptive:
-            scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
-            scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
+            set_subdiv_global_dicing(height_ch, objs)
 
         # Set displacement mode
         if hasattr(mat, 'displacement_method'):
@@ -3668,9 +3669,15 @@ def check_subdiv_setup(height_ch):
             subsurf.show_viewport = True
 
         # Adaptive subdiv
+        subsurf = get_subsurf_modifier(obj)
         if height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
-            obj.cycles.use_adaptive_subdivision = True
-        else: obj.cycles.use_adaptive_subdivision = False
+            if not is_bl_newer_than(5):
+                obj.cycles.use_adaptive_subdivision = True
+            elif subsurf: subsurf.use_adaptive_subdivision = True
+        else: 
+            if not is_bl_newer_than(5):
+                obj.cycles.use_adaptive_subdivision = False
+            elif subsurf: subsurf.use_adaptive_subdivision = False
 
     set_active_object(ori_active_obj)
 
@@ -3837,12 +3844,29 @@ def update_subdiv_max_polys(self, context):
 #
 #    subsurf.subdivision_type = height_ch.subdiv_standard_type
 
-def update_subdiv_global_dicing(self, context):
-    scene = context.scene
-    height_ch = self
+def set_subdiv_global_dicing(height_ch, objs=[]):
+    scene = bpy.context.scene
 
-    scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
-    scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
+    # Blender 5.0 will set the pixel size in the modifiers rather than setting global settings
+    if is_bl_newer_than(5):
+        if len(objs) == 0:
+            mat = get_active_material()
+            objs = get_all_objects_with_same_materials(mat)
+
+        for obj in objs:
+            subsurf = get_subsurf_modifier(obj)
+            if subsurf:
+                subsurf.adaptive_pixel_size = height_ch.subdiv_global_dicing
+
+        scene.cycles.dicing_rate = 1.0
+        scene.cycles.preview_dicing_rate = 1.0
+
+    else:
+        scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
+        scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
+
+def update_subdiv_global_dicing(self, context):
+    set_subdiv_global_dicing(self)
 
 def register():
     bpy.utils.register_class(YTransferSomeLayerUV)
