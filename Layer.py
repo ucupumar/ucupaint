@@ -6360,6 +6360,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
         update = update_layer_input
     )
 
+    swizzle_input_mode : EnumProperty(
+        name = 'Swizzle Mode',
+        description = 'Swizzle input mode',
+        items = swizzle_items,
+        default = 'RGB',
+        update = update_layer_input
+    )
+
     gamma_space : BoolProperty(
         name = 'Gamma Space',
         description = 'Make sure layer input is in linear space',
@@ -6523,6 +6531,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Flip y node
     flip_y : StringProperty(default='')
     vdisp_flip_yz : StringProperty(default='')
+
+    # Swizzle node
+    separate_color_channels : StringProperty(default='')
 
     # Height related
     height_proc : StringProperty(default='')

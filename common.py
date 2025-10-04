@@ -7885,6 +7885,12 @@ def get_channel_input_socket_name(layer, ch, source=None):
         if outp.enabled and len(outp.links) > 0 and outp.name != 'Alpha':
             return outp.name
 
+def get_channel_input_socket(layer, ch, source=None):
+    if not source: source = get_layer_source(layer)
+
+    socket_name = get_channel_input_socket_name(layer, ch, source)
+    return source.outputs.get(socket_name)
+
 def get_mask_input_socket_name(mask, source=None):
     if not source: source = get_mask_source(mask)
 

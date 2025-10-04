@@ -1061,6 +1061,9 @@ def rearrange_layer_nodes(layer, tree=None):
             if check_set_node_loc(tree, ch.linear, loc):
                 loc.x += 200
 
+        if check_set_node_loc(tree, ch.separate_color_channels, loc):
+            loc.x += 200
+
         # Modifier loop
         if ch.mod_group != '':
             mod_group = nodes.get(ch.mod_group)

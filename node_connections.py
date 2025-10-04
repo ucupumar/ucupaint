@@ -2630,6 +2630,21 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, rgb, ch_linear.inputs[0])
                 rgb = ch_linear.outputs[0]
 
+        # NOTE: Swizzle currently only works with non custom layer channel source
+        if ch.swizzle_input_mode != 'RGB' and not ch.override:
+            src = source #ch_source if ch_source else source
+            soc = get_channel_input_socket(layer, ch, src)
+            if soc.type in {'RGBA', 'RGB', 'VECTOR'}:
+                separate_color_channels = tree.nodes.get(ch.separate_color_channels)
+                if separate_color_channels:
+                    create_link(tree, rgb, separate_color_channels.inputs[0])
+                    if ch.swizzle_input_mode == 'R':
+                        rgb = separate_color_channels.outputs[0]
+                    elif ch.swizzle_input_mode == 'G':
+                        rgb = separate_color_channels.outputs[1]
+                    elif ch.swizzle_input_mode == 'B':
+                        rgb = separate_color_channels.outputs[2]
+
         mod_group = nodes.get(ch.mod_group)
 
         rgb_before_mod = rgb

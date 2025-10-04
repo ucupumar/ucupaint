@@ -2593,6 +2593,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 if root_ch.type != 'NORMAL' or ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP' or ch.override:
 
+                    # NOTE: Swizzle currently only works with non custom layer channel source
+                    soc = get_channel_input_socket(layer, ch, source)
+                    swizzleable = soc.type in {'RGBA', 'RGB', 'VECTOR'} and not ch.override
+
                     input_settings_available = has_layer_input_options(layer) and (ch.layer_input != 'ALPHA' 
                             and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
 
@@ -2601,7 +2605,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     row = srow.row(align=True)
 
                     label = 'Source:' if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Bump Source:'
-                    if ch.override or input_settings_available:
+                    if ch.override or input_settings_available or swizzleable:
                         inbox_dropdown_button(row, chui, 'expand_source', label)
                     else:
                         row.label(text='', icon='BLANK1')
@@ -2633,12 +2637,17 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     if ch.override:
                         ch_source = get_channel_source(ch, layer)
 
-                    if ch.expand_source and (ch.override or input_settings_available): # and ch.override_type != 'DEFAULT':
+                    if ch.expand_source and (ch.override or input_settings_available or swizzleable): # and ch.override_type != 'DEFAULT':
 
                         rrow = mcol.row(align=True)
                         rrow.label(text='', icon='BLANK1')
                         #rrcol = rrow.box()
                         rrcol = rrow.column()
+
+                        if swizzleable:
+                            srow = split_layout(rrcol, 0.375, align=False)
+                            srow.label(text='Swizzle:')
+                            srow.prop(ch, "swizzle_input_mode", text='')
 
                         if ch.override:
                             if ch.override_type == 'DEFAULT':

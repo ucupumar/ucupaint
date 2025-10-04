@@ -2547,6 +2547,7 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
     yp = ch.id_data.yp
     if not layer or not root_ch: layer, root_ch = get_layer_and_root_ch_from_layer_ch(ch)
 
+    layer_tree = get_tree(layer)
     source_tree = get_channel_source_tree(ch, layer)
 
     gamma = get_layer_channel_gamma_value(ch, layer, root_ch)
@@ -2562,12 +2563,16 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
         # Delete linear node
         remove_node(source_tree, ch, 'linear')
 
+    # NOTE: Swizzle currently only works with non custom layer channel source
+    if not ch.override and ch.swizzle_input_mode != 'RGB':
+        check_new_node(layer_tree, ch, 'separate_color_channels', 'ShaderNodeSeparateXYZ', 'Separate Color')
+    else:
+        remove_node(layer_tree, ch, 'separate_color_channels')
 
     if root_ch.type == 'NORMAL':
         gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch)
         if gamma_1 != 1.0:
             # Create linear node
-            layer_tree = get_tree(layer)
             linear_1 = replace_new_node(layer_tree, ch, 'linear_1', 'ShaderNodeGamma', 'Linear 1')
             linear_1.inputs[1].default_value = gamma_1
         else:
