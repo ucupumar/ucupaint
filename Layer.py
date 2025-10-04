@@ -4589,20 +4589,7 @@ class YSetLayerChannelInput(bpy.types.Operator):
     bl_description = "Set layer channel input"
     bl_options = {'UNDO'}
 
-    type : EnumProperty(
-            name = 'Input Type',
-            items = (
-                ('CUSTOM', 'Custom', ''),
-                ('RGB', 'Layer RGB', ''),
-                ('ALPHA', 'Layer Alpha', ''),
-                #('R', 'Layer R', ''),
-                #('G', 'Layer G', ''),
-                #('B', 'Layer B', ''),
-                ),
-            default = 'RGB')
-
-    socket_name : StringProperty(default='Color')
-
+    socket_name : StringProperty(default='')
     set_normal_input : BoolProperty(default=False)
 
     @classmethod
@@ -4614,9 +4601,9 @@ class YSetLayerChannelInput(bpy.types.Operator):
         return self.execute(context)
 
     def execute(self, context):
-        #layer = context.layer
         ch = context.channel
-        if self.type == 'CUSTOM':
+
+        if self.socket_name == '':
             if self.set_normal_input:
                 ch.override_1 = True
                 ch.override_1_type = 'DEFAULT'
@@ -4624,15 +4611,13 @@ class YSetLayerChannelInput(bpy.types.Operator):
                 ch.override = True
                 ch.override_type = 'DEFAULT'
             if not ch.enable: ch.enable = True
-        else: 
+        else:
             if self.set_normal_input:
                 ch.override_1 = False
-                #ch.layer_input = self.type
+                #ch.socket_input_name = self.socket_name
             else:
                 ch.override = False
-                ch.layer_input = self.type
-
-        ch.socket_input_name = self.socket_name
+                ch.socket_input_name = self.socket_name
 
         # Update list items
         ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)

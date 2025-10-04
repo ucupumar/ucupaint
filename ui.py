@@ -6113,48 +6113,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
         col.separator()
 
-        '''
-        # Layer Color
-        if layer.type == 'GROUP':
-            label = 'Group ' + root_ch.name
-        else:
-            label = 'Layer'
-            if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
-                if layer.voronoi_feature == 'DISTANCE_TO_EDGE':
-                    label += ' Distance'
-                elif layer.voronoi_feature == 'N_SPHERE_RADIUS':
-                    label += ' Radius'
-                else:
-                    label += ' Color'
-            else:
-                label += ' Color'
-            if layer.type not in {'IMAGE', 'VCOL'}:
-                label += ' ('+layer_type_labels[layer.type]+')'
-
-        icon = 'RADIOBUT_ON' if not ch.override and (ch.layer_input == 'RGB' or not has_layer_input_options(layer)) else 'RADIOBUT_OFF'
-        op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-        op.type = 'RGB'
-        op.set_normal_input = False
-
-        if has_layer_input_options(layer):
-
-            # Layer Alpha
-            label = 'Layer'
-            if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
-                label += ' Distance'
-            elif layer.type in {'IMAGE', 'VCOL'}:
-                label += ' Alpha'
-            else: label += ' Factor'
-
-            if layer.type not in {'IMAGE', 'VCOL'}:
-                label += ' ('+layer_type_labels[layer.type]+')'
-
-            icon = 'RADIOBUT_ON' if ch.layer_input == 'ALPHA' and not ch.override else 'RADIOBUT_OFF'
-            op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-            op.type = 'ALPHA'
-            op.set_normal_input = False
-        '''
-
         # Layer input based on source output sockets
         col.separator()
         for outp in get_available_source_outputs(layer):
@@ -6167,7 +6125,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
             op.socket_name = outp.name
-            #op.type = 'ALPHA'
             op.set_normal_input = False
 
         col.separator()
@@ -6180,7 +6137,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
         icon = 'RADIOBUT_ON' if ch.override and ch.override_type == 'DEFAULT' else 'RADIOBUT_OFF'
         op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-        op.type = 'CUSTOM'
+        op.socket_name = ''
         op.set_normal_input = False
 
         # Custom Data
