@@ -2379,6 +2379,20 @@ def get_neighbor_uv_space_input(texcoord_type):
 
 def change_vcol_name(yp, obj, src, new_name, layer=None):
 
+    objs = []
+    if obj.type == 'MESH' and is_material_has_tree(obj.active_material, yp.id_data):
+        objs = get_all_objects_with_same_materials(obj.active_material)
+    else:
+        mats = get_all_materials_with_tree(yp.id_data)
+        for mat in mats:
+            obs = get_all_objects_with_same_materials(mat)
+            for ob in obs:
+                if ob not in objs:
+                    objs.append(ob)
+
+        if len(objs) == 0: return
+        obj = objs[0]
+
     # Get vertex color from node
     ori_name = get_source_vcol_name(src)
     vcols = get_vertex_colors(obj)
@@ -2397,7 +2411,6 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
     set_source_vcol_name(src, new_name)
 
     # Replace vertex color name on other objects too
-    objs = get_all_objects_with_same_materials(obj.active_material, True)
     for o in objs:
         if o != obj:
             ovcols = get_vertex_colors(o)
@@ -2454,9 +2467,10 @@ def change_layer_name(yp, obj, src, layer, texes):
 
     yp.halt_update = True
 
-    if layer.type == 'VCOL' and obj.type == 'MESH':
+    if layer.type == 'VCOL':
 
-        change_vcol_name(yp, obj, src, layer.name, layer)
+        if obj.type == 'MESH':
+            change_vcol_name(yp, obj, src, layer.name, layer)
         
     elif layer.type == 'IMAGE':
         src.image.name = '___TEMP___'
@@ -5598,14 +5612,21 @@ def get_all_materials_with_yp_nodes(mesh_only=True):
 
     return mats
 
+def is_material_has_tree(mat, tree):
+    if not mat.node_tree: return False
+
+    for node in mat.node_tree.nodes:
+        if node.type == 'GROUP' and node.node_tree == tree:
+            return True
+
+    return False
+
 def get_all_materials_with_tree(tree):
     mats = []
 
     for mat in bpy.data.materials:
-        if not mat.node_tree: continue
-        for node in mat.node_tree.nodes:
-            if node.type == 'GROUP' and node.node_tree == tree and mat not in mats:
-                mats.append(mat)
+        if mat not in mats and is_material_has_tree(mat, tree):
+            mats.append(mat)
 
     return mats
 
