@@ -2621,9 +2621,17 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                             draw_input_prop(split, ch, 'override_value')
                         else: draw_input_prop(split, ch, 'override_color')
                     else:
-                        rrow = row.row(align=True)
-                        rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
+                        swizzle_shortcut = swizzleable and not ch.expand_source
+                        if swizzle_shortcut:
+                            rrow = split_layout(row, 0.55, align=True)
+                        else: 
+                            rrow = row.row(align=True)
+                            rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
+
                         rrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
+
+                        if swizzle_shortcut:
+                            rrow.prop(ch, "swizzle_input_mode", text='')
 
                     if ch.enable and ch.override: #and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
                         if ch.override_type == 'IMAGE':
@@ -2645,7 +2653,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                         rrcol = rrow.column()
 
                         if swizzleable:
-                            srow = split_layout(rrcol, 0.375, align=False)
+                            srow = split_layout(rrcol, 0.5, align=False)
                             srow.label(text='Swizzle:')
                             srow.prop(ch, "swizzle_input_mode", text='')
 
