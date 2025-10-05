@@ -2564,7 +2564,7 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
         remove_node(source_tree, ch, 'linear')
 
     # NOTE: Swizzle currently only works with non custom layer channel source
-    if not ch.override and ch.swizzle_input_mode != 'RGB':
+    if not ch.override and ch.swizzle_input_mode != 'RGB' and get_channel_enabled(ch, layer, root_ch):
         check_new_node(layer_tree, ch, 'separate_color_channels', 'ShaderNodeSeparateXYZ', 'Separate Color')
     else:
         remove_node(layer_tree, ch, 'separate_color_channels')

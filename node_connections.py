@@ -1923,12 +1923,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         ch_socket_pairs[root_ch.name] = outp.name if outp else None
 
         # When using both bump and normal, extra socket need to be remembered
-        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
-            ch_normal_socket_pairs[root_ch.name] = normal_outp
+        if normal_outp and root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+            ch_normal_socket_pairs[root_ch.name] = normal_outp.name
 
         # Set the output as used output
         if outp and outp not in used_outputs:
             used_outputs.append(outp)
+
+        # Set the normal output as used output
+        if normal_outp and normal_outp not in used_outputs:
+            used_outputs.append(normal_outp)
 
     # Dictionary to trace rgb and alpha connections of source socket
     rgb_connections = {}
@@ -2597,7 +2601,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Override Normal
         if root_ch.name in ch_normal_socket_pairs:
-            normal = ch_normal_socket_pairs[root_ch.name]
+            normal = rgb_connections[ch_normal_socket_pairs[root_ch.name]]
         else: normal = rgb_before_override
         if root_ch.type == 'NORMAL' and ch.override_1: 
             if ch.override_1_type == 'DEFAULT':
@@ -2650,7 +2654,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb = ch_linear.outputs[0]
 
         # NOTE: Swizzle currently only works with non custom layer channel source
-        if ch.swizzle_input_mode != 'RGB' and not ch.override:
+        if ch.swizzle_input_mode != 'RGB' and not ch.override and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
             src = source #ch_source if ch_source else source
             soc = get_channel_input_socket(layer, ch, src)
             if soc.type in {'RGBA', 'RGB', 'VECTOR'}:
