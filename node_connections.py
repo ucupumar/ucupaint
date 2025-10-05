@@ -2654,7 +2654,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb = ch_linear.outputs[0]
 
         # NOTE: Swizzle currently only works with non custom layer channel source
-        if ch.swizzle_input_mode != 'RGB' and not ch.override and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
+        if ch.swizzle_input_mode != 'RGB' and not ch.override and (root_ch.type != 'NORMAL' or ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}):
             src = source #ch_source if ch_source else source
             soc = get_channel_input_socket(layer, ch, src)
             if soc.type in {'RGBA', 'RGB', 'VECTOR'}:

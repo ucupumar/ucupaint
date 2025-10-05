@@ -2597,8 +2597,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 if root_ch.type != 'NORMAL' or ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP' or ch.override:
 
                     # NOTE: Swizzle currently only works with non custom layer channel source
+                    # Only expose swizzle to developer for now
                     soc = get_channel_input_socket(layer, ch, source)
-                    swizzleable = soc.type in {'RGBA', 'RGB', 'VECTOR'} and not ch.override
+                    swizzleable = (ypup.developer_mode or ch.swizzle_input_mode != 'RGB') and soc.type in {'RGBA', 'RGB', 'VECTOR'} and not ch.override
 
                     input_settings_available = has_layer_input_options(layer) and (ch.layer_input != 'ALPHA' 
                             and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
