@@ -1892,15 +1892,28 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     # Get pair of source output name with layer channel
     ch_socket_pairs = {}
+    ch_normal_socket_pairs = {}
     for i, ch in enumerate(layer.channels):
         if not ch.enable: continue
 
         root_ch = yp.channels[i]
 
-        # Check if layer channel socket prop exists in source
+        # Get main socket
         outp = source.outputs.get(ch.socket_input_name)
         if outp not in available_outputs:
             outp = None
+
+        # Get normal socket
+        normal_outp = None
+        if root_ch.type == 'NORMAL':
+            socket_name = ch.socket_input_1_name
+            normal_outp = source.outputs.get(ch.socket_input_1_name)
+            if normal_outp not in available_outputs:
+                normal_outp = None
+        
+        # Use normal socket for normal map only channel
+        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
+            outp = normal_outp
 
         # If not use whatever in the first index
         if not outp and len(available_outputs) > 0:
@@ -1908,7 +1921,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Pair the output name to the layer channel
         ch_socket_pairs[root_ch.name] = outp.name if outp else None
-        
+
+        # When using both bump and normal, extra socket need to be remembered
+        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+            ch_normal_socket_pairs[root_ch.name] = normal_outp
+
         # Set the output as used output
         if outp and outp not in used_outputs:
             used_outputs.append(outp)
@@ -2579,7 +2596,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, rgb, alpha_preview)
 
         # Override Normal
-        normal = rgb_before_override
+        if root_ch.name in ch_normal_socket_pairs:
+            normal = ch_normal_socket_pairs[root_ch.name]
+        else: normal = rgb_before_override
         if root_ch.type == 'NORMAL' and ch.override_1: 
             if ch.override_1_type == 'DEFAULT':
                 ch_override_1_color = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'override_1_color'))

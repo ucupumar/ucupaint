@@ -4614,7 +4614,7 @@ class YSetLayerChannelInput(bpy.types.Operator):
         else:
             if self.set_normal_input:
                 ch.override_1 = False
-                #ch.socket_input_name = self.socket_name
+                ch.socket_input_1_name = self.socket_name
             else:
                 ch.override = False
                 ch.socket_input_name = self.socket_name
@@ -6341,6 +6341,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
     socket_input_name : StringProperty(
         name = 'Socket Input Name',
         description = 'Socket name for layer channel input',
+        default = 'Color',
+        update = update_layer_input
+    )
+
+    socket_input_1_name : StringProperty(
+        name = 'Socket Normal Input Name',
+        description = 'Socket name for layer normal channel input',
         default = 'Color',
         update = update_layer_input
     )

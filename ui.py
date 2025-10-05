@@ -1890,19 +1890,22 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 
             layout.separator()
 
-def get_layer_channel_input_label(layer, ch, source=None):
+def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False):
     yp = layer.id_data.yp
 
-    if ch.override:
+    override = ch.override if not secondary_input else ch.override_1
+    override_type = ch.override_type if not secondary_input else ch.override_1_type
+
+    if override:
         if not source: source = get_channel_source(ch, layer)
         label = 'Custom'
-        if ch.override_type == 'IMAGE' and source and source.image:
+        if override_type == 'IMAGE' and source and source.image:
             label = source.image.name
-        elif ch.override_type == 'VCOL' and source:
+        elif override_type == 'VCOL' and source:
             label = source.attribute_name
-        elif ch.override_type != 'DEFAULT':
-            label = channel_override_labels[ch.override_type]
-        #if ch.override_type == 'DEFAULT':
+        elif override_type != 'DEFAULT':
+            label = channel_override_labels[override_type]
+        #if override_type == 'DEFAULT':
         #    if root_ch.type == 'VALUE':
         #        #label += ' Value'
         #        label = 'Value'
@@ -1928,7 +1931,7 @@ def get_layer_channel_input_label(layer, ch, source=None):
             else: label += ' Factor'
         '''
 
-        label += ' ' + get_channel_input_socket_name(layer, ch)
+        label += ' ' + get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
 
     return label
 
@@ -2702,10 +2705,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                         label = source_1.image.name
                     else: label = 'Custom'
                 else:
-                    label = 'Layer'
-                    if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
-                        label += ' Distance'
-                    else: label += ' Color'
+                    label = get_layer_channel_input_label(layer, ch, source_1, secondary_input=True)
+                    #label = 'Layer'
+                    #if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
+                    #    label += ' Distance'
+                    #else: label += ' Color'
 
                 row = srow.row(align=True)
                 row.context_pointer_set('parent', ch)
@@ -6188,31 +6192,47 @@ class YLayerChannelInput1Menu(bpy.types.Menu):
 
         col.separator()
 
-        # Layer Color
-        label = 'Layer'
-        if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
-            if layer.voronoi_feature == 'DISTANCE_TO_EDGE':
-                label += ' Distance'
-            elif layer.voronoi_feature == 'N_SPHERE_RADIUS':
-                label += ' Radius'
-            else:
-                label += ' Color'
-        else:
-            label += ' Color'
-        if layer.type not in {'IMAGE', 'VCOL'}:
-            label += ' ('+layer_type_labels[layer.type]+')'
+        ## Layer Color
+        #label = 'Layer'
+        #if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
+        #    if layer.voronoi_feature == 'DISTANCE_TO_EDGE':
+        #        label += ' Distance'
+        #    elif layer.voronoi_feature == 'N_SPHERE_RADIUS':
+        #        label += ' Radius'
+        #    else:
+        #        label += ' Color'
+        #else:
+        #    label += ' Color'
+        #if layer.type not in {'IMAGE', 'VCOL'}:
+        #    label += ' ('+layer_type_labels[layer.type]+')'
 
-        icon = 'RADIOBUT_ON' if not ch.override_1 else 'RADIOBUT_OFF'
-        op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-        op.type = 'RGB'
-        op.set_normal_input = True
+        #icon = 'RADIOBUT_ON' if not ch.override_1 else 'RADIOBUT_OFF'
+        #op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
+        #op.type = 'RGB'
+        #op.set_normal_input = True
+
+        # Layer input based on source output sockets
+        col.separator()
+
+        for outp in get_available_source_outputs(layer):
+            if not outp.enabled: continue
+            icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch, secondary_input=True) == outp.name and not ch.override_1 else 'RADIOBUT_OFF'
+            label = 'Layer ' + outp.name
+
+            if layer.type not in {'IMAGE', 'VCOL'}:
+                label += ' ('+layer_type_labels[layer.type]+')'
+
+            op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
+            op.socket_name = outp.name
+            op.set_normal_input = True
 
         col.separator()
 
         # Custom/Override Default
         icon = 'RADIOBUT_ON' if ch.override_1 and ch.override_1_type == 'DEFAULT' else 'RADIOBUT_OFF'
         op = col.operator('wm.y_set_layer_channel_input', text='Custom Color', icon=icon)
-        op.type = 'CUSTOM'
+        #op.type = 'CUSTOM'
+        op.socket_name = ''
         op.set_normal_input = True
 
         # Custom Data

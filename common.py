@@ -7873,22 +7873,24 @@ def fix_missing_object_vcols(yp, objs, enabled_only=False):
     # Fix missing color id missing vcol
     if need_color_id_vcol: check_colorid_vcol(objs)
 
-def get_channel_input_socket_name(layer, ch, source=None):
+def get_channel_input_socket_name(layer, ch, source=None, secondary_input=False):
     if not source: source = get_layer_source(layer)
 
+    socket_input_name = ch.socket_input_name if not secondary_input else ch.socket_input_1_name
+
     # Check if channel prop is in output name
-    outp = source.outputs.get(ch.socket_input_name)
+    outp = source.outputs.get(socket_input_name)
     if outp and outp.enabled:
-        return ch.socket_input_name
+        return socket_input_name
 
     for outp in source.outputs:
         if outp.enabled and len(outp.links) > 0 and outp.name != 'Alpha':
             return outp.name
 
-def get_channel_input_socket(layer, ch, source=None):
+def get_channel_input_socket(layer, ch, source=None, secondary_input=False):
     if not source: source = get_layer_source(layer)
 
-    socket_name = get_channel_input_socket_name(layer, ch, source)
+    socket_name = get_channel_input_socket_name(layer, ch, source, secondary_input)
     return source.outputs.get(socket_name)
 
 def get_mask_input_socket_name(mask, source=None):
