@@ -1208,7 +1208,10 @@ def is_multi_disp_used(yp):
     for l in yp.layers:
         if not l.enable: continue
         hch = get_height_channel(l)
-        if not hch or not hch.enable or hch.normal_map_type not in {'BUMP_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}: continue
+        if (not hch or not hch.enable
+            or hch.normal_map_type not in {'BUMP_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} 
+            or (not hch.write_height and hch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'})
+        ): continue
         num_disps += 1
 
     return num_disps > 1
