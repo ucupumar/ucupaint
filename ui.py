@@ -5444,10 +5444,7 @@ def draw_ypaint_about(self, context):
     collaborators = get_collaborators()
     contributors = collaborators.contributors
 
-    if not is_online() or len(contributors) == 0:
-        col.label(text=get_addon_title() + ' is created by: ')
-        col.operator('wm.url_open', text='View All Contributors', icon='ARMATURE_DATA').url = collaborators.default_contributors_url
-    elif is_online():
+    if is_online() and len(contributors) > 0:
         row_title = col.row(align=True)
         row_title_label = row_title.row(align=True)
 
@@ -5507,7 +5504,12 @@ def draw_ypaint_about(self, context):
             next = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_RIGHT')
             next.is_next_button = True
             next.max_page = prev.max_page
-
+    elif is_online():
+        col.label(text="Loading data...", icon='TIME')
+    else:
+        col.label(text=get_addon_title() + ' is created by: ')
+        col.operator('wm.url_open', text='View All Contributors', icon='ARMATURE_DATA').url = collaborators.default_contributors_url
+    
     col.separator()
 
     # for cl, key in enumerate(previews_users.contributors.keys()):
