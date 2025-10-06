@@ -7884,8 +7884,14 @@ def get_channel_input_socket_name(layer, ch, source=None, secondary_input=False)
         return socket_input_name
 
     for outp in source.outputs:
-        if outp.enabled and len(outp.links) > 0 and outp.name != 'Alpha':
-            return outp.name
+        if outp.enabled:
+            # NOTE: Always return the first socket if layer is baked for now
+            if layer.use_baked:
+                return outp.name
+            elif len(outp.links) > 0 and outp.name != 'Alpha':
+                return outp.name
+
+    return 'Error'
 
 def get_channel_input_socket(layer, ch, source=None, secondary_input=False):
     if not source: source = get_layer_source(layer)

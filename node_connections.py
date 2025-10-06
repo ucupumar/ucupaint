@@ -1885,6 +1885,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if source_s: create_link(tree, uv_neighbor.outputs['s'], source_s.inputs[0])
                 if source_e: create_link(tree, uv_neighbor.outputs['e'], source_e.inputs[0])
                 if source_w: create_link(tree, uv_neighbor.outputs['w'], source_w.inputs[0])
+
+    # Use baked source if available
+    if baked_source:
+        source = baked_source
     
     # Get all available source outputs
     available_outputs = get_available_source_outputs(layer, source)
@@ -1964,6 +1968,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             tree, layer, rgb_connections[name], alpha_connections[name], mod_group
         )
 
+    alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
+
     '''
     # RGB
     if baked_source:
@@ -1985,8 +1991,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         start_alpha = source.outputs['Alpha']
     else: start_alpha = get_essential_node(tree, ONE_VALUE)[0]
     start_alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
-
-    alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
 
     # RGB continued
     if not source_group:
