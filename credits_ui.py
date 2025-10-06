@@ -588,12 +588,15 @@ def load_local_contributors():
 
 def load_contributors(context):    
 
-    reload_contributors = False
     path = credits_path
+    if not os.path.exists(path):
+        os.makedirs(path)
+
     path_last_check = os.path.join(path, "last_check.txt") # to store last check time
 
     current_time = time.time()
 
+    reload_contributors = False
     if os.path.exists(path_last_check):
         with open(path_last_check, "r", encoding="utf-8") as f:
             content_last_check = f.read().strip()
