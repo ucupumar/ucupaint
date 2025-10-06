@@ -34,7 +34,7 @@ class YForceUpdateSponsors(bpy.types.Operator):
 
     def execute(self, context):
         print("Force update sponsors...")
-        path = get_addon_filepath()
+        path = credits_path
         path_last_check = os.path.join(path, "last_check.txt") # to store last check time
 
         if os.path.exists(path_last_check):
@@ -200,7 +200,6 @@ class YSponsorProp(bpy.types.PropertyGroup):
         default = False,
         description = "Use dummy users",
     )
-
 
 class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
     bl_label = "Support " + get_addon_title()
@@ -488,7 +487,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
 def refresh_image_caches(force_reload:bool = False):
 
-    path = get_addon_filepath()
+    path = credits_path
     folders = os.path.join(path, "icons", "contributors")
     if not os.path.exists(folders):
         os.makedirs(folders)
@@ -555,7 +554,7 @@ def check_contributors(context):
         goal_ui.initialized = False
 
 def load_local_contributors():
-    path = get_addon_filepath()
+    path = credits_path
     path_contributors = os.path.join(path, "contributors.csv")
 
     content = ""
@@ -590,7 +589,7 @@ def load_local_contributors():
 def load_contributors(context):    
 
     reload_contributors = False
-    path = get_addon_filepath()
+    path = credits_path
     path_last_check = os.path.join(path, "last_check.txt") # to store last check time
 
     current_time = time.time()
@@ -809,7 +808,7 @@ def load_expanded_images(context):
 
     to_load_users = []
     
-    path = get_addon_filepath()
+    path = credits_path
     folders = os.path.join(path, "icons", "contributors")
     if not os.path.exists(folders):
         os.makedirs(folders)
@@ -928,28 +927,31 @@ def register():
 
     global previews_users
     global collaborators
+    global credits_path
 
-    collaborators = Collaborators()
+    credits_path = os.path.join(get_addon_filepath(), "credits")
+    icon_path = os.path.join(get_addon_filepath(), "icons")
 
     previews_users = bpy.utils.previews.new()
+    collaborators = Collaborators()
 
-    blank_path = os.path.join(get_addon_filepath(), "icons", "blank.png")
+    blank_path = os.path.join(icon_path, "blank.png")
     blank_img = load_preview('blank', blank_path)
     collaborators.default_pic = blank_img.icon_id
 
-    empty_path = os.path.join(get_addon_filepath(), "icons", "empty.png")
+    empty_path = os.path.join(icon_path, "empty.png")
     empty_img = load_preview('empty', empty_path)
     collaborators.empty_pic = empty_img.icon_id
 
-    loading_path = os.path.join(get_addon_filepath(), "icons", "loading.png")
+    loading_path = os.path.join(icon_path, "loading.png")
     loading_img = load_preview('loading', loading_path)
     collaborators.loading_pic = loading_img.icon_id
 
     collaborators.contributors = {}
     collaborators.sponsors = {}
     collaborators.sponsorships = {}
-    collaborators.load_thread = None
 
+    collaborators.load_thread = None
     collaborators.default_url = "https://github.com/sponsors/ucupumar"
     collaborators.default_maintainer = "ucupumar"
     collaborators.default_contributors_url = 'https://github.com/ucupumar/ucupaint/graphs/contributors'
