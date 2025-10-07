@@ -1042,6 +1042,23 @@ def update_yp_tree(tree):
                     print('INFO: Unused image named \''+n.image.name+'\' is removed!')
                     simple_remove_node(ltree, n)
 
+    # Version 2.4.0 has refactored layer channel input
+    if version_tuple(yp.version) < (2, 4, 0):
+        for layer in yp.layers:
+            for ch in layer.channels:
+                if ch.layer_input == 'RGB':
+                    if layer.type == 'GABOR':
+                        ch.socket_input_name = 'Value'
+                    else: ch.socket_input_name = 'Color'
+                elif ch.layer_input == 'ALPHA':
+                    if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
+                        ch.socket_input_name = 'Distance'
+                    elif layer.type == 'GABOR':
+                        ch.socket_input_name = 'Phase'
+                    elif layer.type in {'IMAGE', 'VCOL'}:
+                        ch.socket_input_name = 'Alpha'
+                    else: ch.socket_input_name = 'Factor'
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
