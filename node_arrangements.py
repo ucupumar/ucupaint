@@ -1580,6 +1580,9 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, ch.intensity, loc):
             loc.x += 200
 
+        if check_set_node_loc(tree, ch.group_alpha_multiply, loc):
+            loc.x += 200
+
         bookmark_x1 = loc.x
 
         if (

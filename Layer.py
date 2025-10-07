@@ -5773,6 +5773,13 @@ def update_channel_enable(self, context):
     # Check layer modifier trees
     Modifier.check_layer_modifier_tree(layer)
 
+    # Update alpha channel pair
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    if ch == color_ch:
+        check_all_layer_channel_io_and_nodes(layer, tree, alpha_ch)
+    elif ch == alpha_ch:
+        check_all_layer_channel_io_and_nodes(layer, tree, color_ch)
+
     if yp.halt_reconnect: return
 
     if yp.layer_preview_mode:
@@ -6417,6 +6424,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
         default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3
     )
 
+    unpair_alpha : BoolProperty(
+        name = 'Unpair with Alpha',
+        description = 'Unpair with alpha channel (useful for using Transition Ramp/AO with transparent holes)',
+        default = False,
+        update = update_channel_enable
+    )
+            
     # Modifiers
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
     modifiers_1 : CollectionProperty(type=NormalMapModifier.YNormalMapModifier)
@@ -6526,6 +6540,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Swizzle node
     separate_color_channels : StringProperty(default='')
+
+    # Alpha related
+    group_alpha_multiply : StringProperty(default='')
 
     # Height related
     height_proc : StringProperty(default='')

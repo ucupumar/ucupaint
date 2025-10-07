@@ -2389,6 +2389,20 @@ def get_neighbor_uv_space_input(texcoord_type):
 
 def change_vcol_name(yp, obj, src, new_name, layer=None):
 
+    objs = []
+    if obj.type == 'MESH' and is_material_has_tree(obj.active_material, yp.id_data):
+        objs = get_all_objects_with_same_materials(obj.active_material)
+    else:
+        mats = get_all_materials_with_tree(yp.id_data)
+        for mat in mats:
+            obs = get_all_objects_with_same_materials(mat)
+            for ob in obs:
+                if ob not in objs:
+                    objs.append(ob)
+
+        if len(objs) == 0: return
+        obj = objs[0]
+
     # Get vertex color from node
     ori_name = get_source_vcol_name(src)
     vcols = get_vertex_colors(obj)
@@ -2407,7 +2421,6 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
     set_source_vcol_name(src, new_name)
 
     # Replace vertex color name on other objects too
-    objs = get_all_objects_with_same_materials(obj.active_material, True)
     for o in objs:
         if o != obj:
             ovcols = get_vertex_colors(o)
@@ -2464,9 +2477,10 @@ def change_layer_name(yp, obj, src, layer, texes):
 
     yp.halt_update = True
 
-    if layer.type == 'VCOL' and obj.type == 'MESH':
+    if layer.type == 'VCOL':
 
-        change_vcol_name(yp, obj, src, layer.name, layer)
+        if obj.type == 'MESH':
+            change_vcol_name(yp, obj, src, layer.name, layer)
         
     elif layer.type == 'IMAGE':
         src.image.name = '___TEMP___'
@@ -5409,6 +5423,44 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
 
     return True
 
+def is_unpaired_alpha_chilren_exist(layer):
+    if layer.type != 'GROUP': return False
+
+    lays = get_list_of_direct_children(layer)
+    for l in lays:
+        if not l.enable: continue
+        cc, ac = get_layer_color_alpha_ch_pairs(l)
+        if not ac: continue
+
+        if l.type != 'GROUP' and ((not cc.enable and ac.enable) or (cc.enable and cc.unpair_alpha)):
+            return True
+
+        if l.type == 'GROUP' and ac.enable and is_unpaired_alpha_chilren_exist(l):
+            return True
+
+    return False
+
+def is_blend_node_needed(ch, layer=None, root_ch=None):
+    yp = ch.id_data.yp
+
+    if not layer or not root_ch:
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+
+    # Get alpha and color pair channel
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
+    # Blend node is necessary for alpha channel that is forced to be unpaired from color channel
+    if ch == alpha_ch:
+        if layer.type == 'GROUP':
+            return is_unpaired_alpha_chilren_exist(layer)
+
+        elif get_channel_enabled(color_ch, layer):
+            return color_ch.unpair_alpha
+
+    return get_channel_enabled(ch, layer, root_ch)
+
 def is_any_entity_using_uv(yp, uv_name):
 
     if yp.baked_uv_name != '' and yp.baked_uv_name == uv_name:
@@ -5542,9 +5594,14 @@ def is_any_layer_using_channel(root_ch, node=None):
             if inp and len(inp.links):
                 return True
 
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+    color_ch_idx = get_channel_index(color_ch) if root_ch == alpha_ch else -1
+
     for layer in yp.layers:
         if layer.type in {'GROUP', 'BACKGROUND'}: continue
-        if get_channel_enabled(layer.channels[ch_idx], layer):
+        if (get_channel_enabled(layer.channels[ch_idx], layer) or 
+            (root_ch == alpha_ch and get_channel_enabled(layer.channels[color_ch_idx], layer))
+        ):
             return True
 
     return False
@@ -5608,14 +5665,21 @@ def get_all_materials_with_yp_nodes(mesh_only=True):
 
     return mats
 
+def is_material_has_tree(mat, tree):
+    if not mat.node_tree: return False
+
+    for node in mat.node_tree.nodes:
+        if node.type == 'GROUP' and node.node_tree == tree:
+            return True
+
+    return False
+
 def get_all_materials_with_tree(tree):
     mats = []
 
     for mat in bpy.data.materials:
-        if not mat.node_tree: continue
-        for node in mat.node_tree.nodes:
-            if node.type == 'GROUP' and node.node_tree == tree and mat not in mats:
-                mats.append(mat)
+        if mat not in mats and is_material_has_tree(mat, tree):
+            mats.append(mat)
 
     return mats
 
@@ -7872,6 +7936,75 @@ def fix_missing_object_vcols(yp, objs, enabled_only=False):
 
     # Fix missing color id missing vcol
     if need_color_id_vcol: check_colorid_vcol(objs)
+def get_alpha_channel_pair(root_ch):
+    yp = root_ch.id_data.yp
+    # Look for alpha channel
+    alpha_channel = None
+    for ch in yp.channels:
+        if ch.is_alpha and ch.alpha_pair_name == root_ch.name:
+            return ch
+
+    return None
+
+def is_channel_alpha_enabled(root_ch):
+    return root_ch.enable_alpha or get_alpha_channel_pair(root_ch)
+
+def get_alpha_channel(yp):
+    for ch in yp.channels:
+        if ch.is_alpha and yp.channels.get(ch.alpha_pair_name):
+            return ch
+
+    return None
+
+def get_color_alpha_ch_pairs(yp):
+
+    alpha_ch = get_alpha_channel(yp)
+    color_ch = yp.channels.get(alpha_ch.alpha_pair_name) if alpha_ch else None
+
+    return color_ch, alpha_ch
+
+def get_layer_color_alpha_ch_pairs(layer):
+    yp = layer.id_data.yp
+
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
+    alpha_ch_idx = get_channel_index(alpha_ch) if alpha_ch else -1
+    color_ch_idx = get_channel_index(color_ch) if color_ch else -1
+
+    layer_color_ch = layer.channels[color_ch_idx] if color_ch_idx >= 0 and color_ch_idx < len(layer.channels) else None
+    layer_alpha_ch = layer.channels[alpha_ch_idx] if alpha_ch_idx >= 0 and alpha_ch_idx < len(layer.channels) else None
+
+    return layer_color_ch, layer_alpha_ch
+
+def is_modifier_used_by_paired_alpha_channel(mod):
+    yp = mod.id_data.yp
+    
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+    if not m: return False
+
+    layer = yp.layers[int(m.group(1))]
+    ch = layer.channels[int(m.group(2))]
+
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    if color_ch and alpha_ch and color_ch.enable and alpha_ch == ch:
+        return True
+
+    return False
+
+def is_modifier_used_by_alpha_channel(mod):
+    yp = mod.id_data.yp
+    
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+    if not m: return False
+
+    layer = yp.layers[int(m.group(1))]
+    ch = layer.channels[int(m.group(2))]
+
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    if color_ch and alpha_ch and alpha_ch == ch:
+        return True
+
+    return False
 
 def get_channel_input_socket_name(layer, ch, source=None, secondary_input=False):
     if not source: source = get_layer_source(layer)

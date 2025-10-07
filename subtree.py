@@ -599,7 +599,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
             ch = layer.channels[j]
             root_ch = yp.channels[j]
-            channel_enabled = get_channel_enabled(ch, layer, root_ch)
+            channel_enabled = is_blend_node_needed(ch, layer, root_ch)
             write_height = get_write_height(ch)
 
             if specific_ch and ch != specific_ch: continue
@@ -2358,8 +2358,10 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     has_parent = layer.parent_idx != -1
 
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
     # Check if channel is enabled
-    channel_enabled = get_channel_enabled(ch, layer, root_ch)
+    channel_enabled = is_blend_node_needed(ch, layer, root_ch)
 
     # Background layer always using mix blend type
     if layer.type == 'BACKGROUND':
@@ -2378,7 +2380,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if root_ch.type in {'RGB', 'VALUE'}:
         if channel_enabled:
             if root_ch.type == 'RGB':
-                if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
+                if (has_parent or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX':
 
                     if (
                             layer.type == 'BACKGROUND' and not 
@@ -2388,6 +2390,11 @@ def check_blend_type_nodes(root_ch, layer, ch):
                         ):
                         blend, need_reconnect = replace_new_node(
                             tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG,
+                            return_status=True, hard_replace=True, dirty=need_reconnect
+                        )
+                    elif has_parent and ch == color_ch: 
+                        blend, need_reconnect = replace_new_node(
+                            tree, ch, 'blend',  'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_PAIRED_CHILD, 
                             return_status=True, hard_replace=True, dirty=need_reconnect
                         )
 
@@ -2404,7 +2411,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     )
             elif root_ch.type == 'VALUE':
 
-                if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
+                if (has_parent or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX':
                     if layer.type == 'BACKGROUND':
                         blend, need_reconnect = replace_new_node(
                             tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, 
@@ -2445,10 +2452,10 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if channel_enabled and (is_layer_using_normal_map(layer) or root_ch.enable_alpha):
+        if channel_enabled and (is_layer_using_normal_map(layer) or is_channel_alpha_enabled(root_ch)):
 
             #if has_parent and ch.normal_blend_type == 'MIX':
-            if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
+            if (has_parent or is_channel_alpha_enabled(root_ch)) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
                 if layer.type == 'BACKGROUND':
                     blend, need_reconnect = replace_new_node(
                         tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
@@ -2525,7 +2532,7 @@ def check_extra_alpha(layer, need_reconnect=False):
         if disp_ch == ch: continue
 
         root_ch = yp.channels[i]
-        channel_enabled = get_channel_enabled(ch, layer, root_ch)
+        channel_enabled = is_blend_node_needed(ch, layer, root_ch)
 
         extra_alpha = tree.nodes.get(ch.extra_alpha)
 
@@ -2633,3 +2640,15 @@ def check_yp_linear_nodes(yp, specific_layer=None, reconnect=True):
         if reconnect:
             reconnect_layer_nodes(layer)
             rearrange_layer_nodes(layer)
+
+def check_group_alpha_multiply_node(layer):
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    tree = get_tree(layer)
+    # Group alpha multiply only need if color channel is enabled
+    if layer.type == 'GROUP' and alpha_ch and get_channel_enabled(color_ch, layer):
+        group_alpha_multiply = check_new_node(tree, alpha_ch, 'group_alpha_multiply', 'ShaderNodeMath', 'Group Alpha Multiply')
+        group_alpha_multiply.operation = 'MULTIPLY'
+    else:
+        for ch in layer.channels:
+            remove_node(tree, ch, 'group_alpha_multiply')
+

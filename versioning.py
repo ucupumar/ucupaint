@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake, ListItem, Modifier
+from . import Bake, ListItem, Modifier, Root, Layer
 
 def flip_tangent_sign():
     meshes = []
@@ -1042,8 +1042,128 @@ def update_yp_tree(tree):
                     print('INFO: Unused image named \''+n.image.name+'\' is removed!')
                     simple_remove_node(ltree, n)
 
-    # Version 2.4.0 has refactored layer channel input
+    # Version 2.4.0 has new alpha channel system
     if version_tuple(yp.version) < (2, 4, 0):
+
+        # Get color channel pair for alpha channel
+        color_ch_name = ''
+        backface_mode = ''
+        alpha_socs = {}
+        alpha_soc_defaults = {}
+        background_values = {}
+        mats = get_materials_using_yp(yp)
+        for mat in mats:
+            alpha_socs[mat.name] = {}
+            alpha_soc_defaults[mat.name] = {}
+            yp_nodes = [node for node in mat.node_tree.nodes if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp]
+            for node in yp_nodes:
+                alpha_socs[mat.name][node.name] = []
+                for ch in yp.channels:
+
+                    if ch.enable_alpha:
+
+                        # Remember original connections
+                        inp = node.inputs.get(ch.name + io_suffix['ALPHA'])
+                        outp = node.outputs.get(ch.name + io_suffix['ALPHA'])
+
+                        if inp: 
+                            alpha_soc_defaults[mat.name][node.name] = background_values['Alpha'] = inp.default_value
+                        if outp:
+                            for link in outp.links:
+                                alpha_socs[mat.name][node.name].append(link.to_socket)
+
+                        ch.enable_alpha = False
+                        color_ch_name = ch.name
+                        backface_mode = ch.backface_mode
+
+                    if ch.type != 'NORMAL':
+                        inp = node.inputs.get(ch.name)
+                        if inp:
+                            val = inp.default_value
+                            if ch.type == 'RGB':
+                                val = Color((val[0], val[1], val[2]))
+                            background_values[ch.name] = val
+
+        if color_ch_name != '':
+
+            # Create alpha channel
+            alpha_ch = Root.create_new_yp_channel(tree, 'Alpha', 'VALUE', non_color=True)
+            alpha_ch.is_alpha = True
+            if backface_mode != '':
+                alpha_ch.backface_mode = backface_mode
+            yp.halt_update = True
+            alpha_ch.alpha_pair_name = color_ch_name
+            yp.halt_update = False
+
+            # Move index
+            color_ch = yp.channels.get(color_ch_name)
+            color_idx = get_channel_index(color_ch)
+            Root.set_channel_index(alpha_ch, color_idx+1)
+
+            # Repoint after creating new data
+            color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
+            check_all_channel_ios(yp, yp_node=None)
+
+            mats = get_materials_using_yp(yp)
+            for mat in mats:
+                for node in mat.node_tree.nodes:
+                    if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
+                        if mat.name in alpha_socs and node.name in alpha_socs[mat.name]:
+                            socs = alpha_socs[mat.name][node.name]
+                            outp = node.outputs.get(alpha_ch.name)
+                            # Connect to original sockets
+                            for soc in socs:
+                                mat.node_tree.links.new(outp, soc)
+
+                        if mat.name in alpha_soc_defaults and node.name in alpha_soc_defaults[mat.name]:
+                            inp = node.inputs.get(alpha_ch.name)
+                            inp.default_value = alpha_soc_defaults[mat.name][node.name]
+
+        # Convert background layer to solid color
+        for layer in yp.layers:
+            if layer.type == 'BACKGROUND':
+                Layer.replace_layer_type(layer, 'COLOR')
+                if 'Solid Color' in layer.name: layer.name = 'Hole'
+
+                source = get_layer_source(layer)
+                alpha_base = 1.0
+                if 'Alpha' in background_values:
+                    alpha_base = background_values['Alpha']
+                source.outputs[0].default_value = (alpha_base, alpha_base, alpha_base, 1.0)
+
+                layer_color_ch, layer_alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
+                # Enable the alpha channel
+                if layer_alpha_ch: layer_alpha_ch.enable = True
+
+                if alpha_base != 0.0:
+                    # Dealing with non-zero alpha base
+                    for i, ch in enumerate(layer.channels):
+                        if ch == layer_alpha_ch: continue
+                        root_ch = yp.channels[i]
+                        if root_ch.name in background_values:
+                            val = background_values[root_ch.name]
+                            ch.override = True
+                            if ch == layer_color_ch:
+                                ch.unpair_alpha = True
+
+                            if root_ch.type == 'RGB':
+                                set_entity_prop_value(ch, 'override_color', val)
+                            else: set_entity_prop_value(ch, 'override_value', val)
+                else:
+                    # Disable the color channel if the alpha value is 0.0
+                    layer_color_ch.enable = False
+
+                # Dealing with transition ramp
+                if layer_color_ch and layer_color_ch.enable_transition_ramp:
+                    layer_color_ch.enable = True
+                    layer_color_ch.unpair_alpha = True
+                    height_ch = get_height_channel(layer)
+                    if height_ch and height_ch.enable_transition_bump and not height_ch.transition_bump_flip:
+                        set_entity_prop_value(layer_alpha_ch, 'transition_bump_fac', 0.0)
+
+        # Version 2.4.0 has refactored layer channel input
 
         for layer in yp.layers:
             # Layer channels
@@ -1700,6 +1820,26 @@ class YUpdateYPTrees(bpy.types.Operator):
         update_routine('')
         return {'FINISHED'}
 
+class YDisableLegacyAlpha(bpy.types.Operator):
+    bl_idname = "wm.y_disable_legacy_channel_alpha"
+    bl_label = "Disable Legacy Alpha"
+    bl_description = "Disable legacy channel's alpha"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        for ch in yp.channels:
+            if ch.enable_alpha:
+                ch.enable_alpha = False
+
+        return {'FINISHED'}
+
 class YUpdateRemoveSmoothBump(bpy.types.Operator):
     bl_idname = "wm.y_update_remove_smooth_bump"
     bl_label = "Remove Smooth Bump"
@@ -1777,6 +1917,7 @@ class YUpdateRemoveSmoothBump(bpy.types.Operator):
 
 def register():
     bpy.utils.register_class(YUpdateYPTrees)
+    bpy.utils.register_class(YDisableLegacyAlpha)
     bpy.utils.register_class(YUpdateRemoveSmoothBump)
 
     bpy.app.handlers.load_post.append(update_node_tree_libs)
@@ -1784,6 +1925,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(YUpdateYPTrees)
+    bpy.utils.unregister_class(YDisableLegacyAlpha)
     bpy.utils.unregister_class(YUpdateRemoveSmoothBump)
 
     bpy.app.handlers.load_post.remove(update_node_tree_libs)
