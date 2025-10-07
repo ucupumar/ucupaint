@@ -48,6 +48,26 @@ class YForceUpdateSponsors(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YRefreshSponsors(bpy.types.Operator):
+    """Force Refresh Sponsors"""
+    bl_idname = "wm.y_force_refresh_sponsors"
+    bl_label = "Force Refresh Sponsors"
+
+
+    def execute(self, context):
+        print("Force refresh sponsors...")
+        path = credits_path
+        path_last_check = os.path.join(path, "last_check.txt") # to store last check time
+
+        if os.path.exists(path_last_check):
+            os.remove(path_last_check)
+
+        goal_ui: YSponsorProp = context.window_manager.ypui_credits
+        goal_ui.initialized = False
+        goal_ui.connection_status = 'INIT'
+
+        return {'FINISHED'}
+
 class YTierPagingButton(bpy.types.Operator):
     """Paging"""
     bl_idname = "wm.y_sponsor_paging"
@@ -195,6 +215,17 @@ class YSponsorProp(bpy.types.PropertyGroup):
         default = False,
     )
 
+    connection_status : bpy.props.EnumProperty(
+        name = 'connection status',
+        items = (
+            ('INIT', "INIT", 'Initial'),
+            ('REQUESTING', "REQUESTING", 'Requesting'),
+            ('SUCCESS', "SUCCESS", 'Success'),
+            ('FAILED', 'FAILED', "Failed")
+        ),
+        default='INIT'
+    )
+
     # debugging purpose
     use_dummy_users : bpy.props.BoolProperty(
         default = False,
@@ -208,7 +239,6 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = get_addon_title()
     bl_options = {'DEFAULT_CLOSED'} 
-
 
     def draw_multiline(self, layout, text:str, panel_width:int):
         all_desc = text.split(' ')
@@ -447,7 +477,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         check_contributors(context)
 
-        if is_online() and 'tiers' in goal:
+        if is_online() and 'tiers' in goal and goal_ui.connection_status != "REQUESTING":
             layout.separator()
             layout.label(text="Our Supporters :", icon='HEART')
 
@@ -476,7 +506,14 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                         layout.label(text="* One-time supporters")
                         break
         elif is_online():
-            layout.label(text="Loading data...", icon='TIME')
+            if goal_ui.connection_status == "REQUESTING":
+                layout.label(text="Loading data...", icon='TIME')
+            elif goal_ui.connection_status == "FAILED":
+                layout.label(text="Failed to load data.", icon='ERROR')
+                layout.operator('wm.y_force_refresh_sponsors', text='Reload sponsors', icon='FILE_REFRESH')
+            else:
+                layout.label(text=goal_ui.connection_status, icon='ERROR')
+
         else:
             layout.label(text="No internet access, can't load sponsors.", icon='ERROR')
 
@@ -652,12 +689,24 @@ def load_contributors(context):
     else:
         reload_contributors = True
 
-    if reload_contributors and is_online():
+    goal_ui: YSponsorProp = context.window_manager.ypui_credits
 
+    if reload_contributors and is_online():
+        timeout_seconds = 10
+        goal_ui.connection_status = "REQUESTING"
         data_url = "https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/"
+        
         try:
+            
+            # test_error = True
+
+            # if test_error:
+            #     # delay x seconds
+            #     time.sleep(5)
+            #     # Manual trigger exception for testing
+            #     raise requests.exceptions.ConnectionError("Manual exception triggered for testing purposes")
             print("Reloading contributors...")
-            response = requests.get(data_url + "contributors.csv", verify=False, timeout=10)
+            response = requests.get(data_url + "contributors.csv", verify=False, timeout=timeout_seconds)
             if response.status_code == 200:
                 content = response.text
                 print("Response:", content)
@@ -666,7 +715,7 @@ def load_contributors(context):
                     f.write(content)
 
             print("Reloading sponsors...")
-            response = requests.get(data_url + "sponsors.csv", verify=False, timeout=10)
+            response = requests.get(data_url + "sponsors.csv", verify=False, timeout=timeout_seconds)
             if response.status_code == 200:
                 content_sponsors = response.text
                 print("Response:", content_sponsors)
@@ -674,7 +723,7 @@ def load_contributors(context):
                     f.write(content_sponsors)
 
             print("Reloading sponsorship goal...", data_url + "credits.json")
-            response = requests.get(data_url + "credits.json", verify=False, timeout=10)
+            response = requests.get(data_url + "credits.json", verify=False, timeout=timeout_seconds)
             if response.status_code == 200:
                 content_sponsorship_goal = response.text
                 print("Response credits:", content_sponsorship_goal)
@@ -688,11 +737,20 @@ def load_contributors(context):
             with open(path_last_check, "w", encoding="utf-8") as f:
                 f.write(str(current_time))
 
+            goal_ui.connection_status = "SUCCESS"
         except requests.exceptions.ReadTimeout:
+            print("timeout request")
             reload_contributors = False
+            goal_ui.connection_status = "FAILED"
+        except requests.exceptions.ConnectionError:
+            print("connection error")
+            reload_contributors = False
+            goal_ui.connection_status = "FAILED"
     else:
+        goal_ui.connection_status = "FAILED"
         reload_contributors = False
 
+    print("cont status", goal_ui.connection_status)
 
     collaborators.contributors.clear()
     skip_header = True
@@ -734,8 +792,6 @@ def load_contributors(context):
             collaborators.sponsors[sponsor['id']] = sponsor
             print("Loaded sponsor", sponsor['id'], "=", sponsor)
     
-    goal_ui: YSponsorProp = context.window_manager.ypui_credits
-
     # expand top 2 tiers that have members
     expanding_top_tier = 2 # todo : from settings
     # tier setup
@@ -851,7 +907,6 @@ def load_expanded_images(context):
         collaborators.load_thread = threading.Thread(target=download_stream, args=(links,file_names,ids, 20))
         collaborators.load_thread.start()
 
-
 def download_stream(links, file_names, ids, timeout:int = 10):
     print("Downloading", len(links), "images...")
     for idx, file_name in enumerate(file_names):
@@ -910,6 +965,7 @@ classes = [
     YTierPagingButton,
     YSponsorPopover,
     YForceUpdateSponsors,
+    YRefreshSponsors,
     YCollaboratorPagingButton
 ]
 

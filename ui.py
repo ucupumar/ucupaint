@@ -5444,6 +5444,8 @@ def draw_ypaint_about(self, context):
     collaborators = get_collaborators()
     contributors = collaborators.contributors
 
+    goal_ui = context.window_manager.ypui_credits
+
     if is_online() and len(contributors) > 0:
         row_title = col.row(align=True)
         row_title_label = row_title.row(align=True)
@@ -5458,12 +5460,7 @@ def draw_ypaint_about(self, context):
 
         per_column = cont_setting.get('per_column', 3)
         per_page_item = cont_setting.get('per_page_item', 9)
-
-
-        goal_ui = context.window_manager.ypui_credits
-
         current_page = goal_ui.page_collaborators
-
 
         grid = col.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
         member_count = len(contributors)
@@ -5492,7 +5489,6 @@ def draw_ypaint_about(self, context):
 
                 rw.template_icon(icon_value = collaborators.default_pic, scale = 3.0)
                 rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
-        # todo : paging
 
         if member_count > per_page_item:
             prev = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_LEFT')
@@ -5504,11 +5500,16 @@ def draw_ypaint_about(self, context):
             next = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_RIGHT')
             next.is_next_button = True
             next.max_page = prev.max_page
-    elif is_online():
-        col.label(text="Loading data...", icon='TIME')
     else:
         col.label(text=get_addon_title() + ' is created by: ')
         col.operator('wm.url_open', text='View All Contributors', icon='ARMATURE_DATA').url = collaborators.default_contributors_url
+        if is_online():
+            col.separator()
+            if goal_ui.connection_status == "REQUESTING":
+                col.label(text="Loading contributors...", icon='TIME')
+            elif goal_ui.connection_status == "FAILED":
+                col.label(text="Failed to load contributors.", icon='ERROR')
+                col.operator('wm.y_force_refresh_sponsors', text='Reload sponsors', icon='FILE_REFRESH')
     
     col.separator()
 
