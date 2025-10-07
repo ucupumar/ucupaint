@@ -1,4 +1,5 @@
-import bpy, re, time, os, sys
+import bpy, re, time, os, sys, json
+import requests, threading
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
@@ -4552,7 +4553,6 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     #    row = layout.row(align=True)
 
     #    row.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
-
     def draw(self, context):
         main_draw(self, context)
 
@@ -5435,20 +5435,86 @@ def draw_yp_file_browser_menu(self, context):
             self.layout.context_pointer_set('params', params)
             self.layout.menu("NODE_MT_ypaint_file_browser_menu", text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
 
+from .credits_ui import get_collaborators, check_contributors, load_expanded_images
+
 def draw_ypaint_about(self, context):
+    check_contributors(context)
+    
     col = self.layout.column(align=True)
-    col.label(text=get_addon_title() + ' is created by:')
-    icon_name = 'USER' if is_bl_newer_than(2, 80) else 'ARMATURE_DATA'
-    col.operator('wm.url_open', text='ucupumar', icon=icon_name).url = 'https://github.com/sponsors/ucupumar'
-    col.operator('wm.url_open', text='arsa', icon=icon_name).url = 'https://sites.google.com/view/arsanagara'
-    col.operator('wm.url_open', text='swifterik', icon=icon_name).url = 'https://jblaha.art/'
-    col.operator('wm.url_open', text='rifai', icon=icon_name).url = 'https://github.com/rifai'
-    col.operator('wm.url_open', text='morirain', icon=icon_name).url = 'https://github.com/morirain'
-    col.operator('wm.url_open', text='kareemov03', icon=icon_name).url = 'https://www.artstation.com/kareem'
-    col.operator('wm.url_open', text='passivestar', icon=icon_name).url = 'https://github.com/passivestar'
-    col.operator('wm.url_open', text='bappity', icon=icon_name).url = 'https://github.com/bappitybup'
-    col.operator('wm.url_open', text='bittie', icon=icon_name).url = 'https://github.com/BittieByte'
+    collaborators = get_collaborators()
+    contributors = collaborators.contributors
+
+    goal_ui = context.window_manager.ypui_credits
+
+    if is_online() and len(contributors) > 0:
+        row_title = col.row(align=True)
+        row_title_label = row_title.row(align=True)
+
+        row_title_label.label(text=get_addon_title() + ' is created by:')
+
+        paging_layout = row_title.row(align=True)
+        paging_layout.alignment = 'RIGHT'
+
+        
+        cont_setting = collaborators.contributor_settings
+
+        per_column = cont_setting.get('per_column', 3)
+        per_page_item = cont_setting.get('per_page_item', 9)
+        current_page = goal_ui.page_collaborators
+
+        grid = col.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
+        member_count = len(contributors)
+
+        paged_contributors = list(contributors.values())[current_page*per_page_item:(current_page+1)*per_page_item]
+        missing_column = per_column - (len(paged_contributors) % per_column)
+
+        for cl, item in enumerate(paged_contributors):
+            rw = grid.column(align=True)
+
+            thumb = item['thumb']
+            if not thumb:
+                thumb = collaborators.loading_pic
+                
+            # print("draw thumb", key, "=", thumb)
+            rw.template_icon(icon_value = thumb, scale = 3.0)
+
+            user_name = item["name"].strip()
+            if user_name == '':
+                user_name = item["id"]
+            rw.operator('wm.url_open', text=user_name, emboss=False).url = item["url"]
+
+        if missing_column != per_column:
+            for i in range(missing_column):
+                rw = grid.column(align=True)
+
+                rw.template_icon(icon_value = collaborators.default_pic, scale = 3.0)
+                rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
+
+        if member_count > per_page_item:
+            prev = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_LEFT')
+            prev.is_next_button = False
+            prev.max_page = (member_count + per_page_item - 1) // per_page_item
+
+            paging_layout.label(text=f"{current_page + 1}/{prev.max_page}")
+
+            next = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_RIGHT')
+            next.is_next_button = True
+            next.max_page = prev.max_page
+    else:
+        col.label(text=get_addon_title() + ' is created by: ')
+        col.operator('wm.url_open', text='View All Contributors', icon='ARMATURE_DATA').url = collaborators.default_contributors_url
+        if is_online():
+            col.separator()
+            if goal_ui.connection_status == "FAILED":
+                col.label(text="Failed to load contributors.", icon='ERROR')
+                col.operator('wm.y_force_refresh_sponsors', text='Reload sponsors', icon='FILE_REFRESH')
+            else:
+                col.label(text="Loading contributors...", icon='TIME')
+
     col.separator()
+
+    # for cl, key in enumerate(previews_users.contributors.keys()):
+    #     col.operator('wm.url_open', text=key, icon=icon_name).url = previews_users.contributors[key]["url"]
 
     col.label(text='Documentation:')
     col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
