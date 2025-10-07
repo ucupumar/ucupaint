@@ -1044,7 +1044,9 @@ def update_yp_tree(tree):
 
     # Version 2.4.0 has refactored layer channel input
     if version_tuple(yp.version) < (2, 4, 0):
+
         for layer in yp.layers:
+            # Layer channels
             for ch in layer.channels:
                 if ch.layer_input == 'RGB':
                     if layer.type == 'GABOR':
@@ -1058,6 +1060,20 @@ def update_yp_tree(tree):
                     elif layer.type in {'IMAGE', 'VCOL'}:
                         ch.socket_input_name = 'Alpha'
                     else: ch.socket_input_name = 'Factor'
+            # Masks
+            for mask in layer.masks:
+                if mask.source_input == 'RGB':
+                    if mask.type == 'GABOR':
+                        mask.socket_input_name = 'Value'
+                    else: mask.socket_input_name = 'Color'
+                elif mask.source_input == 'ALPHA':
+                    if is_bl_newer_than(2, 81) and mask.type == 'VORONOI':
+                        mask.socket_input_name = 'Distance'
+                    elif mask.type == 'GABOR':
+                        mask.socket_input_name = 'Phase'
+                    elif mask.type in {'IMAGE', 'VCOL'}:
+                        mask.socket_input_name = 'Alpha'
+                    else: mask.socket_input_name = 'Factor'
 
     # SECTION II: Updates based on the blender version
 

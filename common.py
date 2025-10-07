@@ -7904,9 +7904,11 @@ def get_mask_input_socket_name(mask, source=None):
     if outp and outp.enabled:
         return mask.socket_input_name
 
-    for outp in source.outputs:
-        if outp.enabled and len(outp.links) > 0:
-            return outp.name
+    # NOTE: Always return the first socket if socket input name is not found
+    if len(source.outputs) > 0:
+        return source.outputs[0].name
+
+    return 'Error'
 
 def get_mask_input_socket(mask, source=None):
     if not source: source = get_mask_source(mask)
