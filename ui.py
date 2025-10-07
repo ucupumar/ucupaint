@@ -5505,12 +5505,12 @@ def draw_ypaint_about(self, context):
         col.operator('wm.url_open', text='View All Contributors', icon='ARMATURE_DATA').url = collaborators.default_contributors_url
         if is_online():
             col.separator()
-            if goal_ui.connection_status == "REQUESTING":
-                col.label(text="Loading contributors...", icon='TIME')
-            elif goal_ui.connection_status == "FAILED":
+            if goal_ui.connection_status == "FAILED":
                 col.label(text="Failed to load contributors.", icon='ERROR')
                 col.operator('wm.y_force_refresh_sponsors', text='Reload sponsors', icon='FILE_REFRESH')
-    
+            else:
+                col.label(text="Loading contributors...", icon='TIME')
+
     col.separator()
 
     # for cl, key in enumerate(previews_users.contributors.keys()):
