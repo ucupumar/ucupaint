@@ -506,7 +506,7 @@ def rearrange_source_tree_nodes(layer):
             loc.y += 40
             loc.x += 150
 
-        for mg in parent.mod_groups:
+        for mg in layer.mod_groups:
             if check_set_node_loc(source_tree, mg.name, loc, True):
                 loc.y += 40
         
