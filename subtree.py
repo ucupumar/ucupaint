@@ -42,7 +42,17 @@ def check_entity_image_flip_y(entity):
 
     return layer
 
-def move_mod_group(layer, from_tree, to_tree):
+def move_mod_groups(layer, from_tree, to_tree):
+    for i, mg in enumerate(layer.mod_groups):
+        mod_group = from_tree.nodes.get(mg.name)
+        if mod_group:
+            mod_tree = mod_group.node_tree
+            remove_node(from_tree, mg, 'name', remove_data=False)
+
+            mod_group = new_node(to_tree, mg, 'name', 'ShaderNodeGroup', 'modifier_group_' + str(i))
+            mod_group.node_tree = mod_tree
+
+    '''
     mod_group = from_tree.nodes.get(layer.mod_group)
     if mod_group:
         mod_tree = mod_group.node_tree
@@ -53,6 +63,7 @@ def move_mod_group(layer, from_tree, to_tree):
         mod_group.node_tree = mod_tree
         mod_group_1 = new_node(to_tree, layer, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
         mod_group_1.node_tree = mod_tree
+    '''
 
 def refresh_source_tree_ios(source_tree, layer_type, source):
 
@@ -220,11 +231,11 @@ def enable_layer_source_tree(layer, rearrange=False):
         if divider_alpha_ref: layer_tree.nodes.remove(divider_alpha_ref)
     
         # Bring modifiers to source tree
-        #if layer.type in {'IMAGE', 'MUSGRAVE'}:
-        #    for mod in layer.modifiers:
-        #        Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
-        #else:
-        #    move_mod_group(layer, layer_tree, source_tree)
+        if len(layer.mod_groups) == 0:
+            for mod in layer.modifiers:
+                Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
+        else:
+            move_mod_groups(layer, layer_tree, source_tree)
 
     # Create uv neighbor
     if layer.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
@@ -340,11 +351,11 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
                 copy_node_props(divider_alpha_ref, divider_alpha)
 
             # Bring back layer modifier to original tree
-            #if layer.type in {'IMAGE', 'MUSGRAVE'}:
-            #    for mod in layer.modifiers:
-            #        Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
-            #else:
-            #    move_mod_group(layer, source_group.node_tree, layer_tree)
+            if len(layer.mod_groups) == 0:
+                for mod in layer.modifiers:
+                    Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
+            else:
+                move_mod_groups(layer, source_group.node_tree, layer_tree)
 
             # Remove previous source
             remove_node(layer_tree, layer, 'source_group')

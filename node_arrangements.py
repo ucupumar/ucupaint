@@ -495,22 +495,19 @@ def rearrange_source_tree_nodes(layer):
     if check_set_node_loc(source_tree, layer.flip_y, loc):
         loc.x += 200
 
-    if layer.type in {'IMAGE', 'VCOL', 'MUSGRAVE'}:
-        arrange_modifier_nodes(source_tree, layer, loc)
-    else:
-        if check_set_node_loc(source_tree, layer.mod_group, loc, True):
-            mod_group = source_tree.nodes.get(layer.mod_group)
-            arrange_modifier_nodes(mod_group.node_tree, layer, loc=Vector((0, 0)))
-            loc.y -= 40
-        if check_set_node_loc(source_tree, layer.mod_group_1, loc, True):
-            loc.y += 40
-            loc.x += 150
+    if len(layer.mod_groups) > 0:
+        for i, mg in enumerate(layer.mod_groups):
+            if i == 0:
+                mod_group = source_tree.nodes.get(mg.name)
+                if mod_group: arrange_modifier_nodes(mod_group.node_tree, layer, loc.copy())
 
-        for mg in layer.mod_groups:
             if check_set_node_loc(source_tree, mg.name, loc, True):
-                loc.y += 40
-        
-        loc.x += 150
+                loc.y -= 40
+
+        loc.y = 0
+        loc.x += 200
+    else:
+        arrange_modifier_nodes(source_tree, layer, loc)
 
     check_set_node_loc(source_tree, TREE_END, loc)
 
@@ -1024,11 +1021,14 @@ def rearrange_layer_nodes(layer, tree=None):
             check_set_node_loc(tree, layer.mod_group_1, loc, hide=True)
             loc.y += 40
             '''
-            mod_group = nodes.get(layer.mod_groups[0].name)
-            if mod_group: arrange_modifier_nodes(mod_group.node_tree, layer, loc.copy())
-            for mg in layer.mod_groups:
+            for i, mg in enumerate(layer.mod_groups):
+                if i == 0:
+                    mod_group = nodes.get(mg.name)
+                    if mod_group: arrange_modifier_nodes(mod_group.node_tree, layer, loc.copy())
+
                 if check_set_node_loc(tree, mg.name, loc, True):
                     loc.y -= 40
+
             loc.x += 200
         else:
             loc = arrange_modifier_nodes(tree, layer, loc)

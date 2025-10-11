@@ -1639,7 +1639,7 @@ def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
     # Clean unused essential nodes
     clean_essential_nodes(tree, exclude_texcoord=True, exclude_geometry=True)
 
-def reconnect_source_internal_nodes(layer):
+def reconnect_source_internal_nodes(layer, used_output_names=[]):
     tree = get_source_tree(layer)
 
     source = tree.nodes.get(layer.source)
@@ -1651,8 +1651,8 @@ def reconnect_source_internal_nodes(layer):
 
     create_link(tree, start.outputs[0], source.inputs[0])
 
+    used_output_idx = 0
     vec3_found = False
-
     for outp in get_available_source_outputs(source, layer.type):
         rgb = outp
         if 'Alpha' in source.outputs and outp.name != 'Alpha':
@@ -1673,6 +1673,17 @@ def reconnect_source_internal_nodes(layer):
 
             if flip_y:
                 rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
+
+        # Modifier groups
+        mod_group = None
+        if outp.name in used_output_names:
+            if used_output_idx < len(layer.mod_groups):
+                mod_group = tree.nodes.get(layer.mod_groups[used_output_idx].name)
+            used_output_idx += 1
+        
+        # Modifier connections
+        if outp.name in used_output_names:
+            rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha, mod_group)
 
         create_link(tree, rgb, end.inputs[outp.name])
         alpha_socket_name = outp.name + ' Alpha'
@@ -1768,17 +1779,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     tree = get_tree(layer)
     nodes = tree.nodes
 
-    source_group = nodes.get(layer.source_group)
-
-    #if layer.source_group != '':
-    if source_group:
-        source = source_group
-        reconnect_source_internal_nodes(layer)
-    else: source = nodes.get(layer.source)
-
-    baked_source = None
-    if layer.use_baked:
-        baked_source = nodes.get(layer.baked_source)
+    # Get layer source
+    source = get_layer_source(layer, tree)
 
     # Direction sources
     source_n = nodes.get(layer.source_n)
@@ -1790,19 +1792,88 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     uv_neighbor = nodes.get(layer.uv_neighbor)
     uv_neighbor_1 = nodes.get(layer.uv_neighbor_1)
 
-    #if layer.type == 'GROUP':
-    #    texcoord = source
-    #else: texcoord = nodes.get(layer.texcoord)
-
-    #texcoord = nodes.get(TEXCOORD)
     texcoord = nodes.get(layer.texcoord)
-    #geometry = nodes.get(GEOMETRY)
     blur_vector = nodes.get(layer.blur_vector)
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
     divider_alpha = nodes.get(layer.divider_alpha)
     flip_y = nodes.get(layer.flip_y)
     decal_process = nodes.get(layer.decal_process)
+
+    # Get all available source outputs
+    available_outputs = get_available_source_outputs(source, layer.type)
+    used_output_names = []
+
+    # Get color and alpha channel
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
+    # To store if the layer channel is enabled or not
+    ch_enableds = {}
+
+    # Get pair of source output name with layer channel
+    ch_socket_pairs = {}
+    ch_normal_socket_pairs = {}
+    for i, ch in enumerate(layer.channels):
+
+        # Alpha channel will get ignored if color channel is also enabled
+        channel_enabled = get_channel_enabled(ch, layer) or (ch == alpha_ch and get_channel_enabled(color_ch, layer))
+        ch_enableds[yp.channels[i].name] = channel_enabled
+
+        # Only create channel socket dictionary for enabled channels
+        if not channel_enabled: continue
+
+        root_ch = yp.channels[i]
+
+        # Get main socket
+        outp = source.outputs.get(ch.socket_input_name)
+        if outp not in available_outputs:
+            outp = None
+
+        # Get normal socket
+        normal_outp = None
+        if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+            socket_name = ch.socket_input_1_name
+            normal_outp = source.outputs.get(ch.socket_input_1_name)
+            if normal_outp not in available_outputs:
+                normal_outp = None
+        
+        # Use normal socket for normal map only channel
+        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
+            outp = normal_outp
+
+        # If not use whatever in the first index
+        if not outp and len(available_outputs) > 0:
+            outp = available_outputs[0]
+
+        # Pair the output name to the layer channel
+        ch_socket_pairs[root_ch.name] = outp.name if outp else None
+
+        # When using both bump and normal, extra socket need to be remembered
+        if normal_outp and root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+            ch_normal_socket_pairs[root_ch.name] = normal_outp.name
+
+        # Set the output as used output
+        if outp and outp not in used_output_names:
+            used_output_names.append(outp.name)
+
+        # Set the normal output as used output
+        if normal_outp and normal_outp not in used_output_names:
+            used_output_names.append(normal_outp.name)
+
+    # Check if source is inside a group
+    source_group = nodes.get(layer.source_group)
+    if source_group:
+        source = source_group
+        reconnect_source_internal_nodes(layer, used_output_names)
+
+    # Baked source
+    baked_source = None
+    if layer.use_baked:
+        baked_source = nodes.get(layer.baked_source)
+        baked_vector = get_essential_node(tree, TREE_START).get(layer.baked_uv_name + io_suffix['UV'])
+
+        if baked_vector and baked_source:
+            create_link(tree, baked_vector, baked_source.inputs[0])
 
     # Get tangent and bitangent
     layer_tangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['TANGENT'])
@@ -1862,13 +1933,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     # Find override channels
     #using_vector = is_channel_override_using_vector(layer)
-
-    baked_vector = None
-    if layer.use_baked:
-        baked_vector = get_essential_node(tree, TREE_START).get(layer.baked_uv_name + io_suffix['UV'])
-
-    if baked_vector and baked_source:
-        create_link(tree, baked_vector, baked_source.inputs[0])
 
     # Texcoord
     vector = None
@@ -1938,66 +2002,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if baked_source:
         source = baked_source
     
-    # Get all available source outputs
-    available_outputs = get_available_source_outputs(source, layer.type)
-    used_outputs = []
-
-    # Get color and alpha channel
-    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
-
-    # To store if the layer channel is enabled or not
-    ch_enableds = {}
-
-    # Get pair of source output name with layer channel
-    ch_socket_pairs = {}
-    ch_normal_socket_pairs = {}
-    for i, ch in enumerate(layer.channels):
-
-        # Alpha channel will get ignored if color channel is also enabled
-        channel_enabled = get_channel_enabled(ch, layer) or (ch == alpha_ch and get_channel_enabled(color_ch, layer))
-        ch_enableds[yp.channels[i].name] = channel_enabled
-
-        # Only create channel socket dictionary for enabled channels
-        if not channel_enabled: continue
-
-        root_ch = yp.channels[i]
-
-        # Get main socket
-        outp = source.outputs.get(ch.socket_input_name)
-        if outp not in available_outputs:
-            outp = None
-
-        # Get normal socket
-        normal_outp = None
-        if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-            socket_name = ch.socket_input_1_name
-            normal_outp = source.outputs.get(ch.socket_input_1_name)
-            if normal_outp not in available_outputs:
-                normal_outp = None
-        
-        # Use normal socket for normal map only channel
-        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
-            outp = normal_outp
-
-        # If not use whatever in the first index
-        if not outp and len(available_outputs) > 0:
-            outp = available_outputs[0]
-
-        # Pair the output name to the layer channel
-        ch_socket_pairs[root_ch.name] = outp.name if outp else None
-
-        # When using both bump and normal, extra socket need to be remembered
-        if normal_outp and root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
-            ch_normal_socket_pairs[root_ch.name] = normal_outp.name
-
-        # Set the output as used output
-        if outp and outp not in used_outputs:
-            used_outputs.append(outp)
-
-        # Set the normal output as used output
-        if normal_outp and normal_outp not in used_outputs:
-            used_outputs.append(normal_outp)
-
     # Dictionary to trace rgb and alpha connections of source socket
     rgb_connections = {}
     alpha_connections = {}
@@ -2005,8 +2009,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Alpha will use socket called 'Alpha' otherwise alpha will be considered have one in value
     alpha_outp = source.outputs['Alpha'] if 'Alpha' in source.outputs else get_essential_node(tree, ONE_VALUE)[0]
 
-    for i, outp in enumerate(used_outputs):
-        name = outp.name
+    for i, name in enumerate(used_output_names):
+        outp = source.outputs.get(name)
         if name == alpha_outp: continue
         rgb_connections[name] = outp
         if 'Alpha' in source.outputs and name != 'Alpha':
