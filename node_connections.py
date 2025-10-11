@@ -1685,7 +1685,9 @@ def reconnect_source_internal_nodes(layer, used_output_names=[]):
         if outp.name in used_output_names:
             rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha, mod_group)
 
-        create_link(tree, rgb, end.inputs[outp.name])
+        if outp.name in end.inputs:
+            create_link(tree, rgb, end.inputs[outp.name])
+
         alpha_socket_name = outp.name + ' Alpha'
         if alpha_socket_name in end.inputs:
             create_link(tree, alpha, end.inputs[alpha_socket_name])
@@ -2943,10 +2945,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     rgb_e = source_e.outputs.get(socket_name)
                     rgb_w = source_w.outputs.get(socket_name)
 
-                alpha_n = source_n.outputs.get(socket_alpha_name)
-                alpha_s = source_s.outputs.get(socket_alpha_name)
-                alpha_e = source_e.outputs.get(socket_alpha_name)
-                alpha_w = source_w.outputs.get(socket_alpha_name)
+                if socket_alpha_name in source_n.outputs:
+                    alpha_n = source_n.outputs.get(socket_alpha_name)
+                    alpha_s = source_s.outputs.get(socket_alpha_name)
+                    alpha_e = source_e.outputs.get(socket_alpha_name)
+                    alpha_w = source_w.outputs.get(socket_alpha_name)
 
             elif layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor:
                 rgb_n = uv_neighbor.outputs['n']
