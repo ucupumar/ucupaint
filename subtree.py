@@ -7,7 +7,7 @@ from .node_connections import *
 def check_layer_divider_alpha(layer, tree=None):
     if not tree: tree = get_source_tree(layer)
 
-    if layer.divide_rgb_by_alpha and layer.type in {'IMAGE', 'VCOL'}:
+    if layer.enable and layer.divide_rgb_by_alpha and layer.type in {'IMAGE', 'VCOL'}:
         divider_alpha = check_new_mix_node(tree, layer, 'divider_alpha', 'Spread Fix')
         divider_alpha.blend_type = 'DIVIDE'
         divider_alpha.inputs[0].default_value = 1.0
