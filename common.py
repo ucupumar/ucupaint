@@ -8051,28 +8051,16 @@ def get_mask_input_socket(mask, source=None):
     socket_name = get_mask_input_socket_name(mask, source)
     return source.outputs.get(socket_name)
 
-def get_available_source_outputs(entity, source=None):
-    if not source: 
+def get_available_source_outputs(source, entity_type):
+    # Some entity types only need to acces some of the source outputs
+    valid_socket_names = []
+    if entity_type == 'VCOL':
+        valid_socket_names = ['Color', 'Alpha']
+    elif entity_type == 'BACKFACE':
+        valid_socket_names = ['Backfacing']
+    elif entity_type == 'AO':
+        valid_socket_names = ['Color']
 
-        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-
-        if m1: source = get_layer_source(entity)
-        elif m2: source = get_mask_source(entity)
-        else: return []
-
-    outps = []
-
-    if source:
-        # Some entity types only need to acces some of the source outputs
-        valid_socket_names = []
-        if entity.type == 'VCOL':
-            valid_socket_names = ['Color', 'Alpha']
-        elif entity.type == 'BACKFACE':
-            valid_socket_names = ['Backfacing']
-        elif entity.type == 'AO':
-            valid_socket_names = ['Color']
-
-        outps = [outp for outp in source.outputs if outp.enabled and (not valid_socket_names or outp.name in valid_socket_names)]
+    outps = [outp for outp in source.outputs if outp.enabled and (not valid_socket_names or outp.name in valid_socket_names)]
 
     return outps

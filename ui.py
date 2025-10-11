@@ -6286,7 +6286,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             op.socket_name = get_channel_input_socket_name(layer, ch)
             op.set_normal_input = False
         else:
-            for outp in get_available_source_outputs(layer):
+            source = get_layer_source(layer)
+            for outp in get_available_source_outputs(source, layer.type):
                 if not outp.enabled: continue
                 icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch) == outp.name and not ch.override else 'RADIOBUT_OFF'
                 label = 'Layer ' + outp.name
@@ -6373,7 +6374,8 @@ class YLayerChannelInput1Menu(bpy.types.Menu):
         # Layer input based on source output sockets
         col.separator()
 
-        for outp in get_available_source_outputs(layer):
+        source = get_layer_source(layer)
+        for outp in get_available_source_outputs(source, layer.type):
             if not outp.enabled: continue
             icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch, secondary_input=True) == outp.name and not ch.override_1 else 'RADIOBUT_OFF'
             label = 'Layer ' + outp.name
@@ -6418,7 +6420,8 @@ class YLayerMaskInputMenu(bpy.types.Menu):
 
         col = self.layout.column()
 
-        for outp in get_available_source_outputs(mask):
+        source = get_mask_source(mask)
+        for outp in get_available_source_outputs(source, mask.type):
             if not outp.enabled: continue
             icon = 'RADIOBUT_ON' if get_mask_input_socket_name(mask) == outp.name else 'RADIOBUT_OFF'
 

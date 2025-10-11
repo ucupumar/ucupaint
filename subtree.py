@@ -54,29 +54,45 @@ def move_mod_group(layer, from_tree, to_tree):
         mod_group_1 = new_node(to_tree, layer, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
         mod_group_1.node_tree = mod_tree
 
-def refresh_source_tree_ios(source_tree, layer_type):
+def refresh_source_tree_ios(source_tree, layer_type, source):
 
     # Create input and outputs
     inp = get_tree_input_by_name(source_tree, 'Vector')
     if not inp: new_tree_input(source_tree, 'Vector', 'NodeSocketVector')
 
-    out = get_tree_output_by_name(source_tree, 'Color')
-    if not out: new_tree_output(source_tree, 'Color', 'NodeSocketColor')
+    valid_output_names = []
+    for outp in get_available_source_outputs(source, layer_type):
+        tout = get_tree_output_by_name(source_tree, outp.name)
+        if not tout: new_tree_output(source_tree, outp.name, 'NodeSocketColor')
+        valid_output_names.append(outp.name)
 
-    out = get_tree_output_by_name(source_tree, 'Alpha')
-    if not out: new_tree_output(source_tree, 'Alpha', 'NodeSocketFloat')
+        outp_alpha_name = outp.name + ' Alpha'
+        tout = get_tree_output_by_name(source_tree, outp_alpha_name)
+        if not tout: new_tree_output(source_tree, outp_alpha_name, 'NodeSocketFloat')
+        valid_output_names.append(outp_alpha_name)
 
-    col1 = get_tree_output_by_name(source_tree, 'Color 1')
-    alp1 = get_tree_output_by_name(source_tree, 'Alpha 1')
+    # Remove invalid outputs
+    for outp in reversed(get_tree_outputs(source_tree)):
+        if outp.name not in valid_output_names:
+            remove_tree_output(source_tree, outp)
 
-    if layer_type not in {'IMAGE', 'MUSGRAVE'}:
+    #out = get_tree_output_by_name(source_tree, 'Color')
+    #if not out: new_tree_output(source_tree, 'Color', 'NodeSocketColor')
 
-        if not col1: col1 = new_tree_output(source_tree, 'Color 1', 'NodeSocketColor')
-        if not alp1: alp1 = new_tree_output(source_tree, 'Alpha 1', 'NodeSocketFloat')
+    #out = get_tree_output_by_name(source_tree, 'Alpha')
+    #if not out: new_tree_output(source_tree, 'Alpha', 'NodeSocketFloat')
 
-    else:
-        if col1: remove_tree_output(source_tree, col1)
-        if alp1: remove_tree_output(source_tree, alp1)
+    #col1 = get_tree_output_by_name(source_tree, 'Color 1')
+    #alp1 = get_tree_output_by_name(source_tree, 'Alpha 1')
+
+    #if layer_type not in {'IMAGE', 'MUSGRAVE'}:
+
+    #    if not col1: col1 = new_tree_output(source_tree, 'Color 1', 'NodeSocketColor')
+    #    if not alp1: alp1 = new_tree_output(source_tree, 'Alpha 1', 'NodeSocketFloat')
+
+    #else:
+    #    if col1: remove_tree_output(source_tree, col1)
+    #    if alp1: remove_tree_output(source_tree, alp1)
 
 def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
     #if not ch.override: return
@@ -98,7 +114,7 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
 
         create_essential_nodes(source_tree, True)
 
-        refresh_source_tree_ios(source_tree, ch.override_type)
+        refresh_source_tree_ios(source_tree, ch.override_type, source_ref)
 
         # Copy source from reference
         source = new_node(source_tree, ch, 'source', source_ref.bl_idname)
@@ -166,7 +182,7 @@ def enable_layer_source_tree(layer, rearrange=False):
 
         create_essential_nodes(source_tree, True)
 
-        refresh_source_tree_ios(source_tree, layer.type)
+        refresh_source_tree_ios(source_tree, layer.type, source_ref)
 
         # Copy source from reference
         source = new_node(source_tree, layer, 'source', source_ref.bl_idname)
@@ -204,11 +220,11 @@ def enable_layer_source_tree(layer, rearrange=False):
         if divider_alpha_ref: layer_tree.nodes.remove(divider_alpha_ref)
     
         # Bring modifiers to source tree
-        if layer.type in {'IMAGE', 'MUSGRAVE'}:
-            for mod in layer.modifiers:
-                Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
-        else:
-            move_mod_group(layer, layer_tree, source_tree)
+        #if layer.type in {'IMAGE', 'MUSGRAVE'}:
+        #    for mod in layer.modifiers:
+        #        Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
+        #else:
+        #    move_mod_group(layer, layer_tree, source_tree)
 
     # Create uv neighbor
     if layer.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
@@ -324,11 +340,11 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
                 copy_node_props(divider_alpha_ref, divider_alpha)
 
             # Bring back layer modifier to original tree
-            if layer.type in {'IMAGE', 'MUSGRAVE'}:
-                for mod in layer.modifiers:
-                    Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
-            else:
-                move_mod_group(layer, source_group.node_tree, layer_tree)
+            #if layer.type in {'IMAGE', 'MUSGRAVE'}:
+            #    for mod in layer.modifiers:
+            #        Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
+            #else:
+            #    move_mod_group(layer, source_group.node_tree, layer_tree)
 
             # Remove previous source
             remove_node(layer_tree, layer, 'source_group')

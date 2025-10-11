@@ -1647,53 +1647,80 @@ def reconnect_source_internal_nodes(layer):
     divider_alpha = tree.nodes.get(layer.divider_alpha)
     flip_y = tree.nodes.get(layer.flip_y)
     start = tree.nodes.get(TREE_START)
-    #solid = tree.nodes.get(ONE_VALUE)
     end = tree.nodes.get(TREE_END)
 
     create_link(tree, start.outputs[0], source.inputs[0])
 
-    if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS':
-        rgb = source.outputs['Radius']
-    else: rgb = source.outputs[0]
+    vec3_found = False
 
-    if layer.type == 'MUSGRAVE':
-        alpha = get_essential_node(tree, ONE_VALUE)[0]
-    else: alpha = source.outputs[1]
+    for outp in get_available_source_outputs(source, layer.type):
+        rgb = outp
+        if 'Alpha' in source.outputs and outp.name != 'Alpha':
+            alpha = source.outputs['Alpha']
+        else: alpha = get_essential_node(tree, ONE_VALUE)[0]
 
-    if divider_alpha: 
-        mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
-        rgb = create_link(tree, rgb, divider_alpha.inputs[mixcol0])[mixout]
-        create_link(tree, alpha, divider_alpha.inputs[mixcol1])
+        # First color socket has some extra nodes
+        if not vec3_found and outp.type in {'RGBA', 'RGB', 'VECTOR'}:
+            vec3_found = True
 
-    if linear:
-        rgb = create_link(tree, rgb, linear.inputs[0])[0]
+            if divider_alpha: 
+                mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
+                rgb = create_link(tree, rgb, divider_alpha.inputs[mixcol0])[mixout]
+                create_link(tree, alpha, divider_alpha.inputs[mixcol1])
 
-    if flip_y:
-        rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
+            if linear:
+                rgb = create_link(tree, rgb, linear.inputs[0])[0]
 
-    if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-        rgb_1 = source.outputs[1]
-        alpha = get_essential_node(tree, ONE_VALUE)[0]
-        alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
+            if flip_y:
+                rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
 
-        mod_group = tree.nodes.get(layer.mod_group)
-        if mod_group:
-            rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha, mod_group)
+        create_link(tree, rgb, end.inputs[outp.name])
+        alpha_socket_name = outp.name + ' Alpha'
+        if alpha_socket_name in end.inputs:
+            create_link(tree, alpha, end.inputs[alpha_socket_name])
 
-        mod_group_1 = tree.nodes.get(layer.mod_group_1)
-        if mod_group_1:
-            rgb_1 = create_link(tree, rgb_1, mod_group_1.inputs[0])[0]
-            alpha_1 = create_link(tree, alpha_1, mod_group_1.inputs[1])[1]
+    #if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS':
+    #    rgb = source.outputs['Radius']
+    #else: rgb = source.outputs[0]
 
-        create_link(tree, rgb_1, end.inputs[2])
-        create_link(tree, alpha_1, end.inputs[3])
+    #if layer.type == 'MUSGRAVE':
+    #    alpha = get_essential_node(tree, ONE_VALUE)[0]
+    #else: alpha = source.outputs[1]
 
-    if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
+    #if divider_alpha: 
+    #    mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
+    #    rgb = create_link(tree, rgb, divider_alpha.inputs[mixcol0])[mixout]
+    #    create_link(tree, alpha, divider_alpha.inputs[mixcol1])
 
-        rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha)
+    #if linear:
+    #    rgb = create_link(tree, rgb, linear.inputs[0])[0]
 
-    create_link(tree, rgb, end.inputs[0])
-    create_link(tree, alpha, end.inputs[1])
+    #if flip_y:
+    #    rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
+
+    #if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
+    #    rgb_1 = source.outputs[1]
+    #    alpha = get_essential_node(tree, ONE_VALUE)[0]
+    #    alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
+
+    #    mod_group = tree.nodes.get(layer.mod_group)
+    #    if mod_group:
+    #        rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha, mod_group)
+
+    #    mod_group_1 = tree.nodes.get(layer.mod_group_1)
+    #    if mod_group_1:
+    #        rgb_1 = create_link(tree, rgb_1, mod_group_1.inputs[0])[0]
+    #        alpha_1 = create_link(tree, alpha_1, mod_group_1.inputs[1])[1]
+
+    #    create_link(tree, rgb_1, end.inputs[2])
+    #    create_link(tree, alpha_1, end.inputs[3])
+
+    #if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
+
+    #    rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha)
+
+    #create_link(tree, rgb, end.inputs[0])
+    #create_link(tree, alpha, end.inputs[1])
 
     # Clean unused essential nodes
     clean_essential_nodes(tree, exclude_texcoord=True, exclude_geometry=True)
@@ -1912,7 +1939,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         source = baked_source
     
     # Get all available source outputs
-    available_outputs = get_available_source_outputs(layer, source)
+    available_outputs = get_available_source_outputs(source, layer.type)
     used_outputs = []
 
     # Get color and alpha channel
@@ -1942,7 +1969,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Get normal socket
         normal_outp = None
-        if root_ch.type == 'NORMAL':
+        if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             socket_name = ch.socket_input_1_name
             normal_outp = source.outputs.get(ch.socket_input_1_name)
             if normal_outp not in available_outputs:
@@ -1982,7 +2009,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         name = outp.name
         if name == alpha_outp: continue
         rgb_connections[name] = outp
-        alpha_connections[name] = alpha_outp
+        if 'Alpha' in source.outputs and name != 'Alpha':
+            alpha_connections[name] = source.outputs['Alpha']
+        else: alpha_connections[name] = get_essential_node(tree, ONE_VALUE)[0]
 
         #if layer.type in {'IMAGE', 'VCOL'}:
         if name == 'Color':
@@ -1996,7 +2025,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mod_group = None
         if i < len(layer.mod_groups):
             mod_group = nodes.get(layer.mod_groups[i].name)
-
+        
         rgb_connections[name], alpha_connections[name] = reconnect_all_modifier_nodes(
             tree, layer, rgb_connections[name], alpha_connections[name], mod_group
         )
@@ -2163,7 +2192,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 # Get valid output
                 mask_val = mask_source.outputs.get(mask.socket_input_name)
                 if not mask_val:
-                    available_outputs = get_available_source_outputs(mask, mask_source)
+                    available_outputs = get_available_source_outputs(mask_source, mask.type)
                     if len(available_outputs) > 0:
                         mask_val = available_outputs[0]
 
