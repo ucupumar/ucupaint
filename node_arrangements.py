@@ -481,7 +481,7 @@ def rearrange_source_tree_nodes(layer):
 
     if layer.baked_source != '':
         loc.x = bookmark_x
-        loy.y -= 320
+        loc.y -= 320
         check_set_node_loc(source_tree, layer.baked_source, loc)
         loc.x += 280
         loc.y = 0

@@ -1642,7 +1642,12 @@ def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
 def reconnect_source_internal_nodes(layer, used_output_names=[]):
     tree = get_source_tree(layer)
 
-    source = tree.nodes.get(layer.source)
+    if layer.use_baked:
+        layer_type = 'IMAGE'
+        source = tree.nodes.get(layer.baked_source)
+    else:
+        layer_type = layer.type
+        source = tree.nodes.get(layer.source)
     linear = tree.nodes.get(layer.linear)
     divider_alpha = tree.nodes.get(layer.divider_alpha)
     flip_y = tree.nodes.get(layer.flip_y)
@@ -1653,7 +1658,7 @@ def reconnect_source_internal_nodes(layer, used_output_names=[]):
 
     used_output_idx = 0
     vec3_found = False
-    for outp in get_available_source_outputs(source, layer.type):
+    for outp in get_available_source_outputs(source, layer_type):
         rgb = outp
         if 'Alpha' in source.outputs and outp.name != 'Alpha':
             alpha = source.outputs['Alpha']
@@ -1685,11 +1690,11 @@ def reconnect_source_internal_nodes(layer, used_output_names=[]):
         if outp.name in used_output_names:
             rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha, mod_group)
 
-        if outp.name in end.inputs:
+        if end and outp.name in end.inputs:
             create_link(tree, rgb, end.inputs[outp.name])
 
         alpha_socket_name = outp.name + ' Alpha'
-        if alpha_socket_name in end.inputs:
+        if end and alpha_socket_name in end.inputs:
             create_link(tree, alpha, end.inputs[alpha_socket_name])
 
     #if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS':
@@ -1864,9 +1869,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Find override channels
     #using_vector = is_channel_override_using_vector(layer)
 
+    # Baked source
+    baked_source = nodes.get(layer.baked_source)
+    if layer.use_baked and baked_source: 
+        source = baked_source
+
     # Texcoord
     vector = None
-    if is_layer_using_vector(layer):
+    if layer.use_baked:
+        vector = get_essential_node(tree, TREE_START).get(layer.baked_uv_name + io_suffix['UV'])
+    elif is_layer_using_vector(layer, exclude_baked=True):
         if layer.texcoord_type == 'UV':
             vector = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['UV'])
         elif layer.texcoord_type == 'Decal':
@@ -1900,7 +1912,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if 'Vector' in source.inputs:
             create_link(tree, vector, source.inputs['Vector'])
 
-        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
+        if layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
 
             if uv_neighbor: 
                 create_link(tree, vector, uv_neighbor.inputs[0])
@@ -1928,14 +1940,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if source_e: create_link(tree, uv_neighbor.outputs['e'], source_e.inputs[0])
                 if source_w: create_link(tree, uv_neighbor.outputs['w'], source_w.inputs[0])
 
-    # Baked source
-    baked_source = nodes.get(layer.baked_source)
-    if layer.use_baked and baked_source: 
-        source = baked_source
-
-        baked_vector = get_essential_node(tree, TREE_START).get(layer.baked_uv_name + io_suffix['UV'])
-        if baked_vector: create_link(tree, baked_vector, baked_source.inputs[0])
-    
     # Get all available source outputs
     available_outputs = get_available_source_outputs(source, layer.type)
     used_output_names = []
@@ -2096,7 +2100,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     height_ch = get_height_channel(layer)
 
     # UV neighbor vertex color
-    if layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor and height_ch:
+    if not layer.use_baked and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor and height_ch:
         socket_name = height_ch.socket_input_name
         soc = rgb_connections[socket_name] if socket_name in rgb_connections else source.outputs[0]
 

@@ -87,24 +87,6 @@ def refresh_source_tree_ios(source_tree, layer_type, source):
         if outp.name not in valid_output_names:
             remove_tree_output(source_tree, outp)
 
-    #out = get_tree_output_by_name(source_tree, 'Color')
-    #if not out: new_tree_output(source_tree, 'Color', 'NodeSocketColor')
-
-    #out = get_tree_output_by_name(source_tree, 'Alpha')
-    #if not out: new_tree_output(source_tree, 'Alpha', 'NodeSocketFloat')
-
-    #col1 = get_tree_output_by_name(source_tree, 'Color 1')
-    #alp1 = get_tree_output_by_name(source_tree, 'Alpha 1')
-
-    #if layer_type not in {'IMAGE', 'MUSGRAVE'}:
-
-    #    if not col1: col1 = new_tree_output(source_tree, 'Color 1', 'NodeSocketColor')
-    #    if not alp1: alp1 = new_tree_output(source_tree, 'Alpha 1', 'NodeSocketFloat')
-
-    #else:
-    #    if col1: remove_tree_output(source_tree, col1)
-    #    if alp1: remove_tree_output(source_tree, alp1)
-
 def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
     #if not ch.override: return
 
@@ -175,15 +157,12 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
 
 def enable_layer_source_tree(layer, rearrange=False):
 
-    # Check if source tree is already available
-    if layer.type in {'BACKGROUND', 'COLOR'}: return
-    if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'} and layer.source_group != '': return
-
     layer_tree = get_tree(layer)
 
-    if layer.type not in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
+    if layer.source_group == '' and (layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}):
         # Get current source for reference
         source_ref = layer_tree.nodes.get(layer.source)
+        baked_source_ref = layer_tree.nodes.get(layer.baked_source)
         linear_ref = layer_tree.nodes.get(layer.linear)
         flip_y_ref = layer_tree.nodes.get(layer.flip_y)
         divider_alpha_ref = layer_tree.nodes.get(layer.divider_alpha)
@@ -193,11 +172,17 @@ def enable_layer_source_tree(layer, rearrange=False):
 
         create_essential_nodes(source_tree, True)
 
-        refresh_source_tree_ios(source_tree, layer.type, source_ref)
+        if layer.use_baked:
+            refresh_source_tree_ios(source_tree, 'IMAGE', baked_source_ref)
+        else: refresh_source_tree_ios(source_tree, layer.type, source_ref)
 
         # Copy source from reference
         source = new_node(source_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
+        if baked_source_ref:
+            baked_source = new_node(source_tree, layer, 'baked_source', baked_source_ref.bl_idname)
+            copy_node_props(baked_source_ref, baked_source)
 
         if linear_ref:
             linear = new_node(source_tree, layer, 'linear', linear_ref.bl_idname)
@@ -226,6 +211,7 @@ def enable_layer_source_tree(layer, rearrange=False):
 
         # Remove previous source
         layer_tree.nodes.remove(source_ref)
+        if baked_source_ref: layer_tree.nodes.remove(baked_source_ref)
         if linear_ref: layer_tree.nodes.remove(linear_ref)
         if flip_y_ref: layer_tree.nodes.remove(flip_y_ref)
         if divider_alpha_ref: layer_tree.nodes.remove(divider_alpha_ref)
@@ -238,7 +224,7 @@ def enable_layer_source_tree(layer, rearrange=False):
             move_mod_groups(layer, layer_tree, source_tree)
 
     # Create uv neighbor
-    if layer.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
+    if layer.type in {'VCOL', 'HEMI', 'EDGE_DETECT'} and not layer.use_baked:
         uv_neighbor = replace_new_node(
             layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
             lib.NEIGHBOR_FAKE, hard_replace=True
@@ -321,15 +307,16 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and get_channel_enabled(layer.channels[i], layer, root_ch) and is_height_process_needed(layer):
                 smooth_bump_ch = root_ch
 
-        if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'} and layer.source_group == '') or smooth_bump_ch:
+        if ((layer.use_baked or layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}) and layer.source_group == '') or smooth_bump_ch:
             return
 
     layer_tree = get_tree(layer)
 
-    if force or layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
+    if force or layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'} or layer.use_baked:
         source_group = layer_tree.nodes.get(layer.source_group)
         if source_group:
             source_ref = source_group.node_tree.nodes.get(layer.source)
+            baked_source_ref = source_group.node_tree.nodes.get(layer.baked_source)
             linear_ref = source_group.node_tree.nodes.get(layer.linear)
             flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
             divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
@@ -337,6 +324,10 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             # Create new source
             source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
             copy_node_props(source_ref, source)
+
+            if baked_source_ref:
+                baked_source = new_node(layer_tree, layer, 'baked_source', baked_source_ref.bl_idname)
+                copy_node_props(baked_source_ref, baked_source)
 
             if linear_ref:
                 linear = new_node(layer_tree, layer, 'linear', linear_ref.bl_idname)
