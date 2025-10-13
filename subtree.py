@@ -52,19 +52,6 @@ def move_mod_groups(layer, from_tree, to_tree):
             mod_group = new_node(to_tree, mg, 'name', 'ShaderNodeGroup', 'modifier_group_' + str(i))
             mod_group.node_tree = mod_tree
 
-    '''
-    mod_group = from_tree.nodes.get(layer.mod_group)
-    if mod_group:
-        mod_tree = mod_group.node_tree
-        remove_node(from_tree, layer, 'mod_group', remove_data=False)
-        remove_node(from_tree, layer, 'mod_group_1', remove_data=False)
-
-        mod_group = new_node(to_tree, layer, 'mod_group', 'ShaderNodeGroup', 'mod_group')
-        mod_group.node_tree = mod_tree
-        mod_group_1 = new_node(to_tree, layer, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
-        mod_group_1.node_tree = mod_tree
-    '''
-
 def refresh_source_tree_ios(source_tree, layer_type, source):
 
     # Create input and outputs

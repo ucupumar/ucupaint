@@ -4781,6 +4781,16 @@ def duplicate_decal_empty_reference(texcoord_name, ttree, set_new_decal_position
 
         texcoord.object = new_empty
 
+def duplicate_layer_modifier_tree(layer, tree):
+    mod_tree = None
+    for mg in layer.mod_groups:
+        mod_group = tree.nodes.get(mg.name)
+        if mod_group:
+            if not mod_tree:
+                mod_group.node_tree = mod_group.node_tree.copy()
+                mod_tree = mod_group.node_tree
+            else:
+                mod_group.node_tree = mod_tree
 
 def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False, set_new_decal_position=False):
 
@@ -4815,23 +4825,13 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                 if s: s.node_tree = source_group.node_tree
 
             # Duplicate layer modifier groups
-            mod_group = source_group.node_tree.nodes.get(layer.mod_group)
-            if mod_group:
-                mod_group.node_tree = mod_group.node_tree.copy()
-
-                mod_group_1 = source_group.node_tree.nodes.get(layer.mod_group_1)
-                if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
+            duplicate_layer_modifier_tree(layer, source_group.node_tree)
 
         else:
             source = ttree.nodes.get(layer.source)
 
             # Duplicate layer modifier groups
-            mod_group = ttree.nodes.get(layer.mod_group)
-            if mod_group:
-                mod_group.node_tree = mod_group.node_tree.copy()
-
-                mod_group_1 = ttree.nodes.get(layer.mod_group_1)
-                if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
+            duplicate_layer_modifier_tree(layer, ttree)
 
         # Decal object duplicate
         if layer.texcoord_type == 'Decal':
@@ -7286,9 +7286,8 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
 
     # Modifiers
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
-    mod_group : StringProperty(default='')
-    mod_group_1 : StringProperty(default='')
-
+    mod_group : StringProperty(default='') # Deprecated
+    mod_group_1 : StringProperty(default='') # Deprecated
     mod_groups : CollectionProperty(type=Modifier.YPaintModifierGroupNode)
 
     # Mask

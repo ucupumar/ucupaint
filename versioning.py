@@ -269,6 +269,17 @@ def update_yp_tree(tree):
                             vdisp_blend = layer_tree.nodes.get(height_ch.vdisp_blend)
                             if vdisp_blend: vdisp_blend.label = 'VDisp Blend'
 
+    # Version 2.4.0 has flexible layer modifier group nodes
+    if version_tuple(yp.version) < (2, 4, 0):
+        for layer in yp.layers:
+            if layer.mod_group != '':
+                mg = layer.mod_groups.add()
+                mg.name = layer.mod_group
+            
+            if layer.mod_group_1 != '':
+                mg = layer.mod_groups.add()
+                mg.name = layer.mod_group_1
+
     ## LATER UPDATE
     # NOTE: These updates probably can be run after the above
 
@@ -1042,7 +1053,7 @@ def update_yp_tree(tree):
                     print('INFO: Unused image named \''+n.image.name+'\' is removed!')
                     simple_remove_node(ltree, n)
 
-    # Version 2.4.0 has new alpha channel system
+    # Version 2.4.0 has new alpha channel system and input systems
     if version_tuple(yp.version) < (2, 4, 0):
 
         # Get color channel pair for alpha channel
@@ -1164,7 +1175,6 @@ def update_yp_tree(tree):
                         set_entity_prop_value(layer_alpha_ch, 'transition_bump_fac', 0.0)
 
         # Version 2.4.0 has refactored layer channel input
-
         for layer in yp.layers:
             # Layer channels
             for ch in layer.channels:
