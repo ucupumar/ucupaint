@@ -5819,6 +5819,9 @@ def update_normal_map_type(self, context):
 
     check_layer_tree_ios(layer, tree)
 
+    # Check layer modifiers since the group can change
+    Modifier.check_layer_modifier_tree(layer)
+
     if yp.layer_preview_mode:
         # Set correct active edit
         if self.normal_map_type == 'BUMP_MAP' and self.active_edit_1:
