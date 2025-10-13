@@ -1711,7 +1711,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
         elif layer.baked_source != '':
 
-            baked_source = layer_tree.nodes.get(layer.baked_source)
+            stree = get_source_tree(layer)
+            baked_source = stree.nodes.get(layer.baked_source)
             if baked_source and baked_source.image:
                 brow = rrcol.row(align=True)
                 brow.active = layer.use_baked

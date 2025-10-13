@@ -421,7 +421,7 @@ def check_transition_bump_nodes(layer, tree, ch):
     update_displacement_height_ratio(root_ch)
 
     # Check normal map nodes
-    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
+    #check_channel_normal_map_nodes(tree, layer, root_ch, ch)
 
     # Check extra alpha
     check_extra_alpha(layer)
