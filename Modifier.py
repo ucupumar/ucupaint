@@ -764,7 +764,7 @@ def check_yp_modifier_linear_nodes(yp):
 def create_modifier_tree(name):
 
     # Create modifier tree
-    mod_tree = bpy.data.node_groups.new('~yP Modifiers ' + name, 'ShaderNodeTree')
+    mod_tree = bpy.data.node_groups.new('.yP Modifiers ' + name, 'ShaderNodeTree')
 
     new_tree_input(mod_tree, 'RGB', 'NodeSocketColor')
     new_tree_input(mod_tree, 'Alpha', 'NodeSocketFloat')

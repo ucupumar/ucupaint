@@ -7,8 +7,8 @@ BLENDER_28_GROUP_INPUT_HACK = False
 
 MAX_VERTEX_DATA = 8
 
-LAYERGROUP_PREFIX = '~yP Layer '
-MASKGROUP_PREFIX = '~yP Mask '
+LAYERGROUP_PREFIX = '.yP Layer '
+MASKGROUP_PREFIX = '.yP Mask '
 
 INFO_PREFIX = '__yp_info_'
 
@@ -39,7 +39,7 @@ LAYER_VIEWER = '_Layer Viewer'
 LAYER_ALPHA_VIEWER = '_Layer Alpha Viewer'
 EMISSION_VIEWER = 'Emission Viewer'
 
-ITERATE_GROUP = '~yP Iterate Parallax Group'
+ITERATE_GROUP = '.yP Iterate Parallax Group'
 PARALLAX_DIVIDER = 4
 
 FLOW_VCOL = '__flow_'
