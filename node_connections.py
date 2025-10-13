@@ -1993,11 +1993,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             ch_normal_socket_pairs[root_ch.name] = normal_outp.name
 
         # Set the output as used output
-        if outp and outp not in used_output_names:
+        if outp and outp.name not in used_output_names:
             used_output_names.append(outp.name)
 
         # Set the normal output as used output
-        if normal_outp and normal_outp not in used_output_names:
+        if normal_outp and normal_outp.name not in used_output_names:
             used_output_names.append(normal_outp.name)
 
     # Connection inside a source group (only relevant for smooth bump)
