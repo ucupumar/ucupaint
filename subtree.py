@@ -177,14 +177,11 @@ def check_layer_source_tree(layer, smooth_bump_enabled):
 
             create_essential_nodes(source_tree, True)
 
-            if layer.use_baked:
-                refresh_source_tree_ios(source_tree, 'IMAGE', baked_source_ref)
-            else: refresh_source_tree_ios(source_tree, layer.type, source_ref)
-
             # Copy source from reference
             source = new_node(source_tree, layer, 'source', source_ref.bl_idname)
             copy_node_props(source_ref, source)
 
+            baked_source = None
             if baked_source_ref:
                 baked_source = new_node(source_tree, layer, 'baked_source', baked_source_ref.bl_idname)
                 copy_node_props(baked_source_ref, baked_source)
@@ -227,6 +224,18 @@ def check_layer_source_tree(layer, smooth_bump_enabled):
                     Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
             else:
                 move_mod_groups(layer, layer_tree, source_tree)
+        else:
+            source_tree = source_group.node_tree
+            source = source_tree.nodes.get(layer.source)
+            baked_source = source_tree.nodes.get(layer.baked_source)
+
+        # Refresh source tree input outputs
+        if source_tree and source:
+            layer_type = layer.type
+            if layer.use_baked:
+                source = baked_source
+                layer_type = 'IMAGE'
+            refresh_source_tree_ios(source_tree, layer_type, source)
 
     # Disable source group
     elif source_group:

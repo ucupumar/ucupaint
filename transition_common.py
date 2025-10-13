@@ -489,8 +489,8 @@ def remove_transition_bump_nodes(layer, tree, ch, ch_index):
 
     save_transition_bump_falloff_cache(tree, ch)
 
-    disable_layer_source_tree(layer, False)
-    Modifier.disable_modifiers_tree(ch)
+    #disable_layer_source_tree(layer, False)
+    #Modifier.disable_modifiers_tree(ch)
 
     remove_node(tree, ch, 'intensity_multiplier')
     remove_node(tree, ch, 'tb_bump')
