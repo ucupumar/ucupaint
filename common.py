@@ -8021,7 +8021,7 @@ def get_channel_input_socket_name(layer, ch, source=None, secondary_input=False)
 
         # NOTE: Always return the first socket if socket input name is not found
         # Probably need to be rethinked again when layer types with multiple outputs are finally bakeable
-        for outp in source.outputs:
+        for outp in get_available_source_outputs(source, layer.type):
             if outp.enabled:
                 return outp.name
 
@@ -8043,7 +8043,7 @@ def get_mask_input_socket_name(mask, source=None):
             return mask.socket_input_name
 
         # NOTE: Always return the first socket if socket input name is not found
-        for outp in source.outputs:
+        for outp in get_available_source_outputs(source, mask.type):
             if outp.enabled:
                 return outp.name
 

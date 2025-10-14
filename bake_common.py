@@ -3807,7 +3807,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
                 mask = Mask.add_new_mask(
                     active_layer, mask_name, 'IMAGE', 'UV', bprops.uv_map,
-                    image, '', segment
+                    image=image, vcol_name='', segment=segment
                 )
                 mask.active_edit = True
 

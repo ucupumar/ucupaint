@@ -1697,85 +1697,73 @@ def reconnect_source_internal_nodes(layer, used_output_names=[]):
         if end and alpha_socket_name in end.inputs:
             create_link(tree, alpha, end.inputs[alpha_socket_name])
 
-    #if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS':
-    #    rgb = source.outputs['Radius']
-    #else: rgb = source.outputs[0]
-
-    #if layer.type == 'MUSGRAVE':
-    #    alpha = get_essential_node(tree, ONE_VALUE)[0]
-    #else: alpha = source.outputs[1]
-
-    #if divider_alpha: 
-    #    mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
-    #    rgb = create_link(tree, rgb, divider_alpha.inputs[mixcol0])[mixout]
-    #    create_link(tree, alpha, divider_alpha.inputs[mixcol1])
-
-    #if linear:
-    #    rgb = create_link(tree, rgb, linear.inputs[0])[0]
-
-    #if flip_y:
-    #    rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
-
-    #if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-    #    rgb_1 = source.outputs[1]
-    #    alpha = get_essential_node(tree, ONE_VALUE)[0]
-    #    alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
-
-    #    mod_group = tree.nodes.get(layer.mod_group)
-    #    if mod_group:
-    #        rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha, mod_group)
-
-    #    mod_group_1 = tree.nodes.get(layer.mod_group_1)
-    #    if mod_group_1:
-    #        rgb_1 = create_link(tree, rgb_1, mod_group_1.inputs[0])[0]
-    #        alpha_1 = create_link(tree, alpha_1, mod_group_1.inputs[1])[1]
-
-    #    create_link(tree, rgb_1, end.inputs[2])
-    #    create_link(tree, alpha_1, end.inputs[3])
-
-    #if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-
-    #    rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha)
-
-    #create_link(tree, rgb, end.inputs[0])
-    #create_link(tree, alpha, end.inputs[1])
-
     # Clean unused essential nodes
     clean_essential_nodes(tree, exclude_texcoord=True, exclude_geometry=True)
 
-def reconnect_mask_internal_nodes(mask, mask_source_index=0):
+def reconnect_mask_source_nodes(mask, layer_tree):
 
-    tree = get_mask_tree(mask)
+    # Mask inside a node group has start and end node
+    group_node = layer_tree.nodes.get(mask.group_node)
+    if group_node:
+        tree = group_node.node_tree
+        start = tree.nodes.get(TREE_START)
+        end = tree.nodes.get(TREE_END)
+    else:
+        tree = layer_tree
+        start = end = None
 
+    swizzle_enabled = False
     baked_source = tree.nodes.get(mask.baked_source)
-    if baked_source and mask.use_baked:
+
+    if mask.type == 'BACKFACE':
+        val = get_essential_node(tree, GEOMETRY)['Backfacing']
+        source = tree.nodes.get(GEOMETRY)
+    elif baked_source and mask.use_baked:
         source = baked_source
-    else: source = tree.nodes.get(mask.source)
-    linear = tree.nodes.get(mask.linear)
+        val = source.outputs[0]
+    else: 
+        source = tree.nodes.get(mask.source)
+
+        # Get mask input socket
+        soc = get_mask_input_socket(mask, source)
+        val = soc if soc else get_essential_node(tree, ZERO_VALUE)[0]
+
+        if val.type in {'RGBA', 'RGB', 'VECTOR'}:
+            swizzle_enabled = True
+
+    # Start connections
+    if start:
+        if mask.type == 'MODIFIER' and mask.modifier_type in {'INVERT', 'CURVE'}:
+            create_link(tree, start.outputs[0], source.inputs[1])
+        elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
+            create_link(tree, start.outputs[0], source.inputs[0])
+
+    # Swizzle
     separate_color_channels = tree.nodes.get(mask.separate_color_channels)
-    start = tree.nodes.get(TREE_START)
-    end = tree.nodes.get(TREE_END)
-
-    if mask.type == 'MODIFIER' and mask.modifier_type in {'INVERT', 'CURVE'}:
-        create_link(tree, start.outputs[0], source.inputs[1])
-    elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
-        create_link(tree, start.outputs[0], source.inputs[0])
-
-    val = source.outputs[mask_source_index]
-
-    if mask.swizzle_input_mode in {'R', 'G', 'B'}:
+    if swizzle_enabled and mask.swizzle_input_mode in {'R', 'G', 'B'}:
         separate_color_channels_outputs = create_link(tree, val, separate_color_channels.inputs[0])
-        if mask.source_input == 'R': val = separate_color_channels_outputs[0]
-        elif mask.source_input == 'G': val = separate_color_channels_outputs[1]
-        elif mask.source_input == 'B': val = separate_color_channels_outputs[2]
+        if mask.swizzle_input_mode == 'R': val = separate_color_channels_outputs[0]
+        elif mask.swizzle_input_mode == 'G': val = separate_color_channels_outputs[1]
+        elif mask.swizzle_input_mode == 'B': val = separate_color_channels_outputs[2]
 
+    # Linear
+    linear = tree.nodes.get(mask.linear)
     if linear:
         val = create_link(tree, val, linear.inputs[0])[0]
 
+    # Modifiers
     for mod in mask.modifiers:
         val = reconnect_mask_modifier_nodes(tree, mod, val)
 
-    create_link(tree, val, end.inputs[0])
+    # End connection
+    if end: create_link(tree, val, end.inputs[0])
+
+    # Use group node output if exist
+    if group_node:
+        source = group_node
+        val = group_node.outputs[0]
+
+    return source, val
 
 def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     yp = layer.id_data.yp
@@ -2108,71 +2096,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     # Layer Masks
     for i, mask in enumerate(layer.masks):
-        # Get source output index
-        mask_source_index = 0
-        if not mask.use_baked and mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
-            # Noise and voronoi output has flipped order since Blender 2.81
-            if is_bl_newer_than(2, 81) and mask.type == 'VORONOI' and mask.voronoi_feature == 'DISTANCE_TO_EDGE':
-                mask_source_index = 'Distance'
-            elif is_bl_newer_than(2, 81) and mask.type == 'VORONOI' and mask.voronoi_feature == 'N_SPHERE_RADIUS':
-                mask_source_index = 'Radius'
-            elif is_bl_newer_than(2, 81) and mask.type in {'NOISE', 'VORONOI'}:
-                if mask.source_input == 'RGB':
-                    mask_source_index = 1
-            elif mask.type == 'BACKFACE':
-                mask_source_index = 'Backfacing'
-            elif mask.source_input == 'ALPHA':
-                if mask.type == 'VCOL':
-                    if is_bl_newer_than(2, 92):
-                        mask_source_index = 'Alpha'
-                    else: mask_source_index = 'Fac'
-                else: mask_source_index = 1
 
         # Mask source
-        if mask.group_node != '':
-            mask_source = nodes.get(mask.group_node)
-            reconnect_mask_internal_nodes(mask, mask_source_index)
-
-            #mask_val = mask_source.outputs[mask_source_index]
-            mask_val = mask_source.outputs[0]
-        else:
-            swizzle_enabled = False
-            baked_mask_source = nodes.get(mask.baked_source)
-            if mask.type == 'BACKFACE':
-                mask_val = get_essential_node(tree, GEOMETRY)['Backfacing']
-            elif baked_mask_source and mask.use_baked:
-                mask_source = baked_mask_source
-                mask_val = mask_source.outputs[0]
-            else: 
-                mask_source = nodes.get(mask.source)
-
-                # Get valid output
-                mask_val = mask_source.outputs.get(mask.socket_input_name)
-                if not mask_val:
-                    available_outputs = get_available_source_outputs(mask_source, mask.type)
-                    if len(available_outputs) > 0:
-                        mask_val = available_outputs[0]
-
-                if not mask_val:
-                    mask_val = get_essential_node(tree, ZERO_VALUE)[0]
-
-                if mask_val.type in {'RGBA', 'RGB', 'VECTOR'}:
-                    swizzle_enabled = True
-
-            mask_linear = nodes.get(mask.linear)
-            mask_separate_color_channels = nodes.get(mask.separate_color_channels)
-
-            if mask.swizzle_input_mode in {'R', 'G', 'B'} and swizzle_enabled:
-                separate_color_channels_outputs = create_link(tree, mask_val, mask_separate_color_channels.inputs[0])
-                if mask.swizzle_input_mode == 'R': mask_val = separate_color_channels_outputs[0]
-                elif mask.swizzle_input_mode == 'G': mask_val = separate_color_channels_outputs[1]
-                elif mask.swizzle_input_mode == 'B': mask_val = separate_color_channels_outputs[2]
-
-            if mask_linear:
-                mask_val = create_link(tree, mask_val, mask_linear.inputs[0])[0]
-
-            for mod in mask.modifiers:
-                mask_val = reconnect_mask_modifier_nodes(tree, mod, mask_val)
+        mask_source, mask_val = reconnect_mask_source_nodes(mask, tree)
 
         mask_blur_vector = nodes.get(mask.blur_vector)
         mask_mapping = nodes.get(mask.mapping)

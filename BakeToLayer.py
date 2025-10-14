@@ -1255,7 +1255,10 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                 new_entity_name = get_unique_name(self.name, self.entities) if self.use_image_atlas else image.name
 
                 # Create new mask
-                mask = Mask.add_new_mask(self.layer, new_entity_name, 'IMAGE', 'UV', self.uv_map, image, '', segment)
+                mask = Mask.add_new_mask(
+                    self.layer, new_entity_name, 'IMAGE', 'UV', self.uv_map, 
+                    image=image, vcol_name='', segment=segment
+                )
 
                 # Set mask properties
                 mask.intensity_value = self.mask.intensity_value

@@ -412,21 +412,17 @@ def check_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
     return False
 
-def enable_mask_source_tree(layer, mask, reconnect = False):
-
-    # Check if source tree is already available
-    #if (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}) and mask.group_node != '': return
+def enable_mask_source_tree(layer, mask):
 
     layer_tree = get_tree(layer)
 
-    # Create uv neighbor
-    #check_mask_uv_neighbor(layer_tree, layer, mask)
-
     if mask.group_node == '' and (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}):
+
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
         baked_source_ref = layer_tree.nodes.get(mask.baked_source)
         linear_ref = layer_tree.nodes.get(mask.linear)
+        separate_color_channels_ref = layer_tree.nodes.get(mask.separate_color_channels)
 
         # Create mask tree
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
@@ -450,6 +446,9 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
             linear = new_node(mask_tree, mask, 'linear', linear_ref.bl_idname)
             copy_node_props(linear_ref, linear)
 
+        if separate_color_channels_ref:
+            separate_color_channels = new_node(mask_tree, mask, 'separate_color_channels', separate_color_channels_ref.bl_idname, 'Separate Color')
+
         # Create source node group
         group_node = new_node(layer_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
         source_n = new_node(layer_tree, mask, 'source_n', 'ShaderNodeGroup', 'source_n')
@@ -470,28 +469,19 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         layer_tree.nodes.remove(source_ref)
         if baked_source_ref: layer_tree.nodes.remove(baked_source_ref)
         if linear_ref: layer_tree.nodes.remove(linear_ref)
+        if separate_color_channels_ref: layer_tree.nodes.remove(separate_color_channels_ref)
 
-    if reconnect:
-        # Reconnect outside nodes
-        reconnect_layer_nodes(layer)
+def disable_mask_source_tree(layer, mask):
 
-        # Rearrange nodes
-        rearrange_layer_nodes(layer)
+    if mask.group_node != '':
 
-def disable_mask_source_tree(layer, mask, reconnect=False):
-
-    # Check if source tree is already gone
-    #if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node == '': return
-
-    layer_tree = get_tree(layer)
-
-    if mask.group_node != '': #and (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}):
-
+        layer_tree = get_tree(layer)
         mask_tree = get_mask_tree(mask)
 
         source_ref = mask_tree.nodes.get(mask.source)
         baked_source_ref = mask_tree.nodes.get(mask.baked_source)
         linear_ref = mask_tree.nodes.get(mask.linear)
+        separate_color_channels_ref = mask_tree.nodes.get(mask.separate_color_channels)
         group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
@@ -506,6 +496,9 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
             linear = new_node(layer_tree, mask, 'linear', linear_ref.bl_idname)
             copy_node_props(linear_ref, linear)
 
+        if separate_color_channels_ref:
+            separate_color_channels = new_node(layer_tree, mask, 'separate_color_channels', separate_color_channels_ref.bl_idname, 'Separate Color')
+
         for mod in mask.modifiers:
             MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
 
@@ -519,15 +512,6 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         remove_node(layer_tree, mask, 'bitangent')
         remove_node(layer_tree, mask, 'tangent_flip')
         remove_node(layer_tree, mask, 'bitangent_flip')
-
-    #remove_node(layer_tree, mask, 'uv_neighbor')
-
-    if reconnect:
-        # Reconnect outside nodes
-        reconnect_layer_nodes(layer)
-
-        # Rearrange nodes
-        rearrange_layer_nodes(layer)
 
 def check_create_height_pack(layer, tree, height_root_ch, height_ch):
 

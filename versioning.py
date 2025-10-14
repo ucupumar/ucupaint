@@ -1176,6 +1176,7 @@ def update_yp_tree(tree):
 
         # Version 2.4.0 has refactored layer channel input
         for layer in yp.layers:
+
             # Layer channels
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
@@ -1195,12 +1196,17 @@ def update_yp_tree(tree):
                 # Apparently normal channel use the same input as the bump map in previous versions
                 if root_ch.type == 'NORMAL':
                     ch.socket_input_1_name = ch.socket_input_name
+
             # Masks
             for mask in layer.masks:
-                if mask.source_input == 'RGB':
+                if mask.source_input in {'RGB', 'R', 'G', 'B'}:
                     if mask.type == 'GABOR':
                         mask.socket_input_name = 'Value'
                     else: mask.socket_input_name = 'Color'
+
+                    if mask.source_input in {'R', 'G', 'B'}:
+                        mask.swizzle_input_mode = mask.source_input
+
                 elif mask.source_input == 'ALPHA':
                     if is_bl_newer_than(2, 81) and mask.type == 'VORONOI':
                         mask.socket_input_name = 'Distance'

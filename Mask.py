@@ -77,9 +77,10 @@ def setup_modifier_mask_source(tree, mask, modifier_type):
     return source
 
 def add_new_mask(
-        layer, name, mask_type, texcoord_type, uv_name, image=None, vcol_name='', segment=None,
+        layer, name, mask_type, texcoord_type, uv_name, 
+        image=None, vcol_name='', segment=None,
         object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False,
-        color_id=(1, 0, 1), source_input='RGB', edge_detect_radius=0.05, edge_detect_method='CROSS',
+        color_id=(1, 0, 1), edge_detect_radius=0.05, edge_detect_method='CROSS',
         modifier_type='INVERT', interpolation='Linear', ao_distance=1.0, socket_input_name='Color'
     ):
     yp = layer.id_data.yp
@@ -247,16 +248,21 @@ def remove_mask(layer, mask, obj, refresh_list=True):
                     print('ZEGMENT:', mask.segment_name)
                     UDIM.remove_udim_atlas_segment_by_name(image, mask.segment_name, yp=yp)
 
-    disable_mask_source_tree(layer, mask)
+    group_node = tree.nodes.get(mask.group_node)
+    if group_node:
+        stree = group_node.node_tree
+    else: stree = tree
 
-    remove_node(tree, mask, 'source')
-    remove_node(tree, mask, 'baked_source')
+    remove_node(stree, mask, 'source')
+    remove_node(stree, mask, 'baked_source')
+    remove_node(stree, mask, 'linear')
+    remove_node(stree, mask, 'separate_color_channels')
+
+    remove_node(tree, mask, 'group_node')
     remove_node(tree, mask, 'blur_vector')
-    remove_node(tree, mask, 'separate_color_channels')
     remove_node(tree, mask, 'mapping')
     remove_node(tree, mask, 'texcoord')
     remove_node(tree, mask, 'baked_mapping')
-    remove_node(tree, mask, 'linear')
     remove_node(tree, mask, 'uv_map')
     remove_node(tree, mask, 'uv_neighbor')
 
@@ -1078,9 +1084,17 @@ class YNewLayerMask(bpy.types.Operator):
 
         # Add new mask
         mask = add_new_mask(
-            layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol_name, segment, self.object_index, self.blend_type, 
-            self.hemi_space, self.hemi_use_prev_normal, self.color_id, edge_detect_radius=self.edge_detect_radius,
-            modifier_type=self.modifier_type, interpolation=self.interpolation, ao_distance=self.ao_distance
+            layer, self.name, self.type, self.texcoord_type, self.uv_name, 
+            image=img, vcol_name=vcol_name, segment=segment, 
+            object_index = self.object_index, 
+            blend_type = self.blend_type, 
+            hemi_space = self.hemi_space, 
+            hemi_use_prev_normal = self.hemi_use_prev_normal, 
+            color_id = self.color_id, 
+            edge_detect_radius = self.edge_detect_radius, 
+            modifier_type = self.modifier_type, 
+            interpolation = self.interpolation, 
+            ao_distance = self.ao_distance
         )
 
         # Enable edit mask
@@ -1132,7 +1146,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
         default = 3 if is_bl_newer_than(2, 90) else None,
     )
 
-    source_input : EnumProperty(
+    socket_input_name : EnumProperty(
         name = 'Source Input',
         description = 'Source data for mask input',
         items = (
@@ -1188,7 +1202,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
             self.blend_type = 'MULTIPLY'
 
         # Default source input is always color for now
-        self.source_input = 'Color'
+        self.socket_input_name = 'Color'
 
         # Check if there's height channel and use cubic interpolation if there is one
         height_ch = get_height_channel(self.layer)
@@ -1237,7 +1251,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
             col.prop(self, 'blend_type', text='')
 
         crow = col.row(align=True)
-        crow.prop(self, 'source_input', expand=True)
+        crow.prop(self, 'socket_input_name', expand=True)
 
         layout = col if self.file_browser_filepath != '' else self.layout
 
@@ -1291,8 +1305,9 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
 
             # Add new mask
             mask = add_new_mask(
-                layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, '', 
-                blend_type=self.blend_type, socket_input_name=self.source_input,
+                layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, 
+                image=image, vcol_name='', 
+                blend_type=self.blend_type, socket_input_name=self.socket_input_name,
                 interpolation = self.interpolation
             )
 
@@ -1342,7 +1357,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         default = 'UV'
     )
 
-    source_input : EnumProperty(
+    socket_input_name : EnumProperty(
         name = 'Source Input',
         description = 'Source data for mask input',
         items = (
@@ -1387,7 +1402,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             self.texcoord_type = 'Object'
 
         # Set the default source input first
-        self.source_input = 'Color'
+        self.socket_input_name = 'Color'
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
@@ -1509,7 +1524,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         if is_bl_newer_than(2, 92) or self.type != 'VCOL':
             crow = col.row(align=True)
-            crow.prop(self, 'source_input', expand=True)
+            crow.prop(self, 'socket_input_name', expand=True)
 
     def execute(self, context):
         if self.auto_cancel: return {'CANCELLED'}
@@ -1535,7 +1550,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             image = bpy.data.images.get(self.image_name)
             name = image.name
 
-            if self.source_input == 'Color' and image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
+            if self.socket_input_name == 'Color' and image.colorspace_settings.name != get_noncolor_name() and not image.is_dirty:
                 image.colorspace_settings.name = get_noncolor_name()
         elif self.type == 'VCOL':
             name = self.vcol_name
@@ -1556,13 +1571,14 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         # Add new mask
         mask = add_new_mask(
-            layer, name, self.type, self.texcoord_type, self.uv_map, image, self.vcol_name, 
-            blend_type=self.blend_type, socket_input_name=self.source_input,
+            layer, name, self.type, self.texcoord_type, self.uv_map, 
+            image=image, vcol_name=self.vcol_name, 
+            blend_type=self.blend_type, socket_input_name=self.socket_input_name,
             interpolation = self.interpolation
         )
 
         # Enable edit mask
-        if self.type in {'IMAGE', 'VCOL'} and self.source_input == 'Color':
+        if self.type in {'IMAGE', 'VCOL'} and self.socket_input_name == 'Color':
             mask.active_edit = True
 
         reconnect_layer_nodes(layer)
@@ -2410,7 +2426,7 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         description = 'Source input for mask',
         items = entity_input_items,
         #update = update_mask_source_input
-    )
+    ) # Deprecated
 
     socket_input_name : StringProperty(
         name = 'Socket Input Name',

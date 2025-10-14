@@ -319,11 +319,13 @@ def add_new_layer(
                     bpy.ops.mesh.y_vcol_fill_face_custom(color=(mask_color_id[0], mask_color_id[1], mask_color_id[2], 1.0))
 
         mask = Mask.add_new_mask(
-            layer, mask_name, mask_type, mask_texcoord_type,
-            mask_uv_name, mask_image, mask_vcol_name, mask_segment,
-            interpolation=mask_interpolation, color_id=mask_color_id,
-            edge_detect_radius=mask_edge_detect_radius, edge_detect_method=mask_edge_detect_method,
-            hemi_use_prev_normal=mask_use_prev_normal
+            layer, mask_name, mask_type, mask_texcoord_type, mask_uv_name, 
+            image=mask_image, vcol_name=mask_vcol_name, segment=mask_segment,
+            interpolation = mask_interpolation,
+            color_id = mask_color_id,
+            edge_detect_radius = mask_edge_detect_radius,
+            edge_detect_method = mask_edge_detect_method,
+            hemi_use_prev_normal = mask_use_prev_normal
         )
         mask.active_edit = True
 
