@@ -2797,6 +2797,16 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
             self.report({'ERROR'}, "Material has no layers!")
             return {'CANCELLED'}
 
+        # Do update before copying layers
+        if version_tuple(source_yp.version) < version_tuple(get_current_version_str()):
+            try:
+                print('Open Layers: Updating source layers to version '+get_current_version_str()+'...')
+                bpy.ops.wm.y_update_yp_trees('INVOKE_DEFAULT')
+            except Exception as e:
+                self.remove_mat(mat, from_asset_library)
+                self.report({'ERROR'}, "Failed to update source layers: "+str(e))
+                return {'CANCELLED'}
+
         # Copy all layers to clipboard
         wmp = context.window_manager.ypprops
         wmp.clipboard_tree = source_tree.name
@@ -2805,6 +2815,7 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
         try:
             bpy.ops.wm.y_paste_layer('INVOKE_DEFAULT')
         except Exception as e:
+            self.remove_mat(mat, from_asset_library)
             self.report({'ERROR'}, "Failed to paste layers: "+str(e))
             return {'CANCELLED'}
 
