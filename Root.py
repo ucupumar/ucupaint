@@ -3182,21 +3182,6 @@ def update_channel_colorspace(self, context):
         #Layer.set_layer_channel_linear_node(tree, layer, self, ch)
         check_layer_channel_linear_node(ch, layer, self, reconnect=True)
 
-        # Check for linear node
-        #linear = tree.nodes.get(ch.linear)
-        #if linear:
-        #    if self.colorspace == 'LINEAR':
-        #        #ch.layer_input = 'RGB_LINEAR'
-        #        linear.inputs[1].default_value = 1.0
-        #    else: linear.inputs[1].default_value = 1.0/GAMMA
-
-        # NOTE: STILL BUGGY AS HELL
-        #if self.colorspace == 'LINEAR':
-        #    if ch.layer_input == 'RGB_SRGB':
-        #        ch.layer_input = 'RGB_LINEAR'
-        #    elif ch.layer_input == 'CUSTOM':
-        #        ch.layer_input = 'CUSTOM'
-
         # Change modifier colorspace only on image layer
         if layer.type == 'IMAGE':
             mod_tree = get_mod_tree(layer)

@@ -269,11 +269,6 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
 
     # NOTE: Assuming show source input always used in mask ui
     if entity and show_source_input:
-        '''
-        split = split_layout(col, 0.4)
-        split.label(text='Input:')
-        split.prop(entity, 'source_input', text='')
-        '''
         draw_mask_source_input(col, entity, split_factor=0.4)
 
     unlink_op = 'wm.y_remove_layer'
@@ -465,11 +460,6 @@ def draw_vcol_props(layout, vcol=None, entity=None, show_divide_rgb_alpha=True, 
 
     # NOTE: Assuming show source input always used in mask ui
     if entity and show_source_input:
-        '''
-        split = split_layout(layout, 0.4)
-        split.label(text='Input:')
-        split.prop(entity, 'source_input', text='')
-        '''
         draw_mask_source_input(layout, entity, split_factor=0.4)
 
 def is_input_skipped(inp):
@@ -485,15 +475,6 @@ def draw_tex_props(source, layout, entity=None, show_source_input=False):
     col = layout.column()
     #col.label(text=title + ' Properties:')
     #col.separator()
-
-    '''
-    if entity and show_source_input and (
-        not (is_bl_newer_than(2, 81) and title == 'Voronoi' and entity.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})
-    ):
-        split = split_layout(col, 0.5)
-        split.label(text='Input:')
-        split.prop(entity, 'source_input', text='')
-    '''
 
     # NOTE: Assuming show source input always used in mask ui
     if show_source_input:
@@ -1935,31 +1916,11 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
             label = source.attribute_name
         elif override_type != 'DEFAULT':
             label = channel_override_labels[override_type]
-        #if override_type == 'DEFAULT':
-        #    if root_ch.type == 'VALUE':
-        #        #label += ' Value'
-        #        label = 'Value'
-        #    else: 
-        #        #label += ' Color'
-        #        label = 'Color'
     elif layer.type == 'GROUP':
         root_ch = yp.channels[get_layer_channel_index(layer, ch)]
         label = 'Group ' + root_ch.name
     else:
         label = 'Layer'
-
-        '''
-        if ch.layer_input == 'RGB':
-            if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
-                label += ' Distance'
-            else: label += ' Color'
-        elif ch.layer_input == 'ALPHA':
-            if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
-                label += ' Distance'
-            elif layer.type in {'IMAGE', 'VCOL'}:
-                label += ' Alpha'
-            else: label += ' Factor'
-        '''
 
         if ch == alpha_ch and color_ch.enable and not color_ch.unpair_alpha:
             label += ' Alpha'
@@ -2669,8 +2630,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     # Only expose swizzle to developer for now
                     soc = get_channel_input_socket(layer, ch, source)
                     swizzleable = (ypup.developer_mode or ch.swizzle_input_mode != 'RGB') and soc.type in {'RGBA', 'RGB', 'VECTOR'} and not ch.override
+                    socket_input_name = get_channel_input_socket_name(layer, ch, source)
 
-                    input_settings_available = has_layer_input_options(layer) and (ch.layer_input != 'ALPHA' 
+                    input_settings_available = has_layer_input_options(layer) and (socket_input_name != 'Alpha' 
                             and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
 
                     #row = mcol.row(align=True)
@@ -2910,10 +2872,13 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
         if specific_mask and specific_mask != mask: continue
 
+
         mask_image = None
         mask_tree = get_mask_tree(mask)
         mask_source = mask_tree.nodes.get(mask.source)
         mask_vcol_name = ''
+        socket_input_name = get_mask_input_socket_name(mask, mask_source) if mask_source else ''
+
         if mask.type == 'IMAGE':
             mask_image = mask_source.image
             if mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas:
@@ -2923,7 +2888,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             label_text = mask_vcol_name = mask_source.attribute_name
         else: label_text = mask.name
 
-        if mask.type in {'IMAGE', 'VCOL'} and mask.socket_input_name == 'Alpha':
+        if mask.type in {'IMAGE', 'VCOL'} and socket_input_name == 'Alpha':
             label_text += ' (Alpha)'
 
         mrow = col.row(align=True)
@@ -2965,17 +2930,17 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         mask_icon = ''
         if mask.enable:
             if mask.type == 'IMAGE':
-                #if mask.socket_input_name in {'Alpha', 'R', 'G', 'B'}:
-                if mask.socket_input_name == 'Alpha':
-                    mask_icon = RGBA_CHANNEL_PREFIX[mask.socket_input_name] + 'image'
+                #if socket_input_name in {'Alpha', 'R', 'G', 'B'}:
+                if socket_input_name == 'Alpha':
+                    mask_icon = RGBA_CHANNEL_PREFIX[socket_input_name] + 'image'
                 elif mask.swizzle_input_mode in {'R', 'G', 'B'}:
                     mask_icon = RGBA_CHANNEL_PREFIX[mask.swizzle_input_mode] + 'image'
                 else: 
                     mask_icon = 'image'
             elif mask.type == 'VCOL':
-                #if mask.socket_input_name in {'Alpha', 'R', 'G', 'B'}:
-                if mask.socket_input_name == 'Alpha':
-                    mask_icon = RGBA_CHANNEL_PREFIX[mask.socket_input_name] + 'vertex_color'
+                #if socket_input_name in {'Alpha', 'R', 'G', 'B'}:
+                if socket_input_name == 'Alpha':
+                    mask_icon = RGBA_CHANNEL_PREFIX[socket_input_name] + 'vertex_color'
                 elif mask.swizzle_input_mode in {'R', 'G', 'B'}:
                     mask_icon = RGBA_CHANNEL_PREFIX[mask.swizzle_input_mode] + 'vertex_color'
                 else: 
@@ -3891,6 +3856,10 @@ def draw_layers_ui(context, layout, node):
         elif vcol: active_vcol = vcol
         else: active_vcol = None
 
+        mask_socket_input_name = ''
+        if mask and source:
+            mask_socket_input_name = get_mask_input_socket_name(mask, source)
+
         # NOTE: Avoid checking linear and AO problem when in modal operation to avoid performance loss
         if use_cache:
             linear_problem = ypui.cache_linear_problem
@@ -3977,7 +3946,7 @@ def draw_layers_ui(context, layout, node):
 
                 row.prop(ve, "color", text="", icon='COLOR')
 
-            elif obj.mode == 'VERTEX_PAINT' and is_bl_newer_than(2, 92) and ((layer.type == 'VCOL' and not mask_vcol) or (mask_vcol and mask.socket_input_name == 'Alpha')) and not override_vcol:
+            elif obj.mode == 'VERTEX_PAINT' and is_bl_newer_than(2, 92) and ((layer.type == 'VCOL' and not mask_vcol) or (mask_vcol and mask_socket_input_name == 'Alpha')) and not override_vcol:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 brush = context.tool_settings.vertex_paint.brush
@@ -3987,7 +3956,7 @@ def draw_layers_ui(context, layout, node):
                     label = 'Disable Eraser'
                 row.operator('paint.y_toggle_eraser', text=label)
 
-            elif obj.mode == 'SCULPT' and is_bl_newer_than(3, 2) and ((layer.type == 'VCOL' and not mask_vcol) or (mask_vcol and mask.socket_input_name == 'Alpha')) and not override_vcol:
+            elif obj.mode == 'SCULPT' and is_bl_newer_than(3, 2) and ((layer.type == 'VCOL' and not mask_vcol) or (mask_vcol and mask_socket_input_name == 'Alpha')) and not override_vcol:
 
                 bbox = col.box()
                 row = bbox.row(align=True)
@@ -4006,7 +3975,7 @@ def draw_layers_ui(context, layout, node):
 
         in_texture_paint_mode = obj.mode == 'TEXTURE_PAINT'
 
-        if obj.type == 'MESH' and ((layer.type == 'IMAGE' and not mask_image) or (mask_image and mask.socket_input_name == 'Alpha')) and not override_image:
+        if obj.type == 'MESH' and ((layer.type == 'IMAGE' and not mask_image) or (mask_image and mask_socket_input_name == 'Alpha')) and not override_image:
 
             if is_bl_newer_than(4, 3) and in_texture_paint_mode:
                 brush = context.tool_settings.image_paint.brush
@@ -4039,7 +4008,7 @@ def draw_layers_ui(context, layout, node):
         ve = scene.ve_edit
         if is_bl_newer_than(4, 3) and in_texture_paint_mode:
             brush = context.tool_settings.image_paint.brush
-            if brush and ((mask_image and mask.socket_input_name == 'Color') or override_image) and (brush.name in tex_eraser_asset_names or brush.blend == 'ERASE_ALPHA'):
+            if brush and ((mask_image and mask_socket_input_name == 'Color') or override_image) and (brush.name in tex_eraser_asset_names or brush.blend == 'ERASE_ALPHA'):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -4048,7 +4017,7 @@ def draw_layers_ui(context, layout, node):
 
         elif in_texture_paint_mode or in_sculpt_texture_paint_mode:
             brush = context.tool_settings.image_paint.brush if in_texture_paint_mode else context.tool_settings.sculpt.brush
-            if brush and ((mask_image and mask.socket_input_name == 'Color') or override_image) and brush.name == eraser_names[obj.mode]:
+            if brush and ((mask_image and mask_socket_input_name == 'Color') or override_image) and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -4057,7 +4026,7 @@ def draw_layers_ui(context, layout, node):
 
         elif obj.mode == 'VERTEX_PAINT' and is_bl_newer_than(2, 80): 
             brush = context.tool_settings.vertex_paint.brush
-            if brush and mask_vcol and mask.socket_input_name == 'Color' and brush.name == eraser_names[obj.mode]:
+            if brush and mask_vcol and mask_socket_input_name == 'Color' and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -4066,7 +4035,7 @@ def draw_layers_ui(context, layout, node):
 
         elif obj.mode == 'SCULPT' and is_bl_newer_than(3, 2): 
             brush = context.tool_settings.sculpt.brush
-            if brush and mask_vcol and mask.socket_input_name == 'Color' and brush.name == eraser_names[obj.mode]:
+            if brush and mask_vcol and mask_socket_input_name == 'Color' and brush.name == eraser_names[obj.mode]:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -5153,21 +5122,22 @@ def layer_listing(layout, layer, show_expand=False):
         if m.active_edit:
             mask = m
             src = mask_tree.nodes.get(m.source)
+            socket_input_name = get_mask_input_socket_name(m, src) if src else ''
             if m.type == 'IMAGE':
                 active_mask_image = src.image
                 if ypup.use_image_preview and src.image.preview: 
                     #if not src.image.preview: src.image.preview_ensure()
                     row.label(text='', icon_value=src.image.preview.icon_id)
                 else: 
-                    if m.socket_input_name == 'Alpha':
-                        row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.socket_input_name]+'image'))
+                    if socket_input_name == 'Alpha':
+                        row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'image'))
                     elif m.swizzle_input_mode in {'R', 'G', 'B'}:
                         row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.swizzle_input_mode]+'image'))
                     else: row.label(text='', icon_value=lib.get_icon('image'))
             elif m.type == 'VCOL':
                 active_vcol_mask = m
-                if m.socket_input_name == 'Alpha':
-                    row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.socket_input_name]+'vertex_color'))
+                if socket_input_name == 'Alpha':
+                    row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'vertex_color'))
                 elif m.swizzle_input_mode in {'R', 'G', 'B'}:
                     row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.swizzle_input_mode]+'vertex_color'))
                 else: row.label(text='', icon_value=lib.get_icon('vertex_color'))
@@ -5186,20 +5156,21 @@ def layer_listing(layout, layer, show_expand=False):
             else:
                 row.label(text='', icon_value=lib.get_icon('texture'))
         else:
+            socket_input_name = get_mask_input_socket_name(m)
             if m.type == 'IMAGE':
                 src = mask_tree.nodes.get(m.source)
                 if ypup.use_image_preview and src.image.preview: 
                     #if not src.image.preview: src.image.preview_ensure()
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                 else: 
-                    if m.socket_input_name == 'Alpha':
-                        row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.socket_input_name]+'image'))
+                    if socket_input_name == 'Alpha':
+                        row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'image'))
                     elif m.swizzle_input_mode in {'R', 'G', 'B'}:
                         row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.swizzle_input_mode]+'image'))
                     else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
             elif m.type == 'VCOL':
-                if m.socket_input_name == 'Alpha':
-                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.socket_input_name]+'vertex_color'))
+                if socket_input_name == 'Alpha':
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'vertex_color'))
                 elif m.swizzle_input_mode in {'R', 'G', 'B'}:
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.swizzle_input_mode]+'vertex_color'))
                 else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
@@ -5472,8 +5443,9 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                                 else: row.prop(mask_image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
                     else: row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('mask'))
                 elif mask.type == 'VCOL':
-                    if mask.socket_input_name == 'Alpha':
-                        row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[mask.socket_input_name]+'vertex_color'))
+                    socket_input_name = get_mask_input_socket_name(mask)
+                    if socket_input_name == 'Alpha':
+                        row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'vertex_color'))
                     elif mask.swizzle_input_mode in {'R', 'G', 'B'}:
                         row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[mask.swizzle_input_mode]+'vertex_color'))
                     else: row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))

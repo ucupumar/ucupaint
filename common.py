@@ -6251,6 +6251,8 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
         source = get_layer_source(layer)
         if source: image = source.image
 
+    socket_input_name = get_channel_input_socket_name(layer, ch, source)
+
     if yp.use_linear_blending:
 
         # Convert non image layer data to srgb if gamma space option is enabled
@@ -6259,7 +6261,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
             and ch.gamma_space 
             and root_ch.type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
-            and ch.layer_input == 'RGB' 
+            and socket_input_name == 'Color' 
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
         ):
             return GAMMA
@@ -6292,7 +6294,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
             and not ch.gamma_space 
             and root_ch.type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
-            and ch.layer_input == 'RGB' 
+            and socket_input_name == 'Color' 
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
         ):
             return 1.0 / GAMMA
@@ -8011,16 +8013,17 @@ def get_channel_input_socket_name(layer, ch, source=None, secondary_input=False)
 
     socket_input_name = ch.socket_input_name if not secondary_input else ch.socket_input_1_name
 
-    # Check if channel prop is in output name
-    outp = source.outputs.get(socket_input_name)
-    if outp and outp.enabled:
-        return socket_input_name
+    if source:
+        # Check if channel prop is in output name
+        outp = source.outputs.get(socket_input_name)
+        if outp and outp.enabled:
+            return socket_input_name
 
-    # NOTE: Always return the first socket if socket input name is not found
-    # Probably need to be rethinked again when layer types with multiple outputs are finally bakeable
-    for outp in source.outputs:
-        if outp.enabled:
-            return outp.name
+        # NOTE: Always return the first socket if socket input name is not found
+        # Probably need to be rethinked again when layer types with multiple outputs are finally bakeable
+        for outp in source.outputs:
+            if outp.enabled:
+                return outp.name
 
     return 'Error'
 
@@ -8034,14 +8037,15 @@ def get_mask_input_socket_name(mask, source=None):
     if not source: source = get_mask_source(mask)
 
     # Check if mask prop is in output name
-    outp = source.outputs.get(mask.socket_input_name)
-    if outp and outp.enabled:
-        return mask.socket_input_name
+    if source:
+        outp = source.outputs.get(mask.socket_input_name)
+        if outp and outp.enabled:
+            return mask.socket_input_name
 
-    # NOTE: Always return the first socket if socket input name is not found
-    for outp in source.outputs:
-        if outp.enabled:
-            return outp.name
+        # NOTE: Always return the first socket if socket input name is not found
+        for outp in source.outputs:
+            if outp.enabled:
+                return outp.name
 
     return 'Error'
 

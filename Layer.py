@@ -6357,7 +6357,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
         description = 'Input for layer channel',
         items = entity_input_items,
         #update = update_layer_input
-    )
+    ) # Deprecated
 
     socket_input_name : StringProperty(
         name = 'Socket Input Name',

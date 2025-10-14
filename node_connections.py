@@ -2040,62 +2040,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
 
-    '''
-    # RGB
-    if baked_source:
-        start_rgb = baked_source.outputs[0]
-    elif is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS' and 'Radius' in source.outputs:
-        start_rgb = source.outputs['Radius']
-    else: start_rgb = source.outputs[0]
-
-    start_rgb_1 = None
-    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'} and len(source.outputs) > 1:
-        start_rgb_1 = source.outputs[1]
-
-    # Alpha
-    if baked_source:
-        start_alpha = baked_source.outputs[1]
-    elif layer.type == 'IMAGE' or source_group:
-        start_alpha = source.outputs[1]
-    elif layer.type == 'VCOL' and 'Alpha' in source.outputs:
-        start_alpha = source.outputs['Alpha']
-    else: start_alpha = get_essential_node(tree, ONE_VALUE)[0]
-    start_alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
-
-    # RGB continued
-    if not source_group:
-        if divider_alpha: 
-            mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
-            start_rgb = create_link(tree, start_rgb, divider_alpha.inputs[mixcol0])[mixout]
-            create_link(tree, start_alpha, divider_alpha.inputs[mixcol1])
-        if linear: start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
-        if flip_y: start_rgb = create_link(tree, start_rgb, flip_y.inputs[0])[0]
-
-    if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-        start_rgb_1 = source_group.outputs[2]
-        start_alpha_1 = source_group.outputs[3]
-
-    elif not source_group:
-
-        # Layer source modifier
-        mod_group = nodes.get(layer.mod_group)
-
-        # Background layer won't use modifier outputs
-        if layer.type in {'BACKGROUND', 'GROUP'}:
-            #reconnect_all_modifier_nodes(tree, layer, start_rgb, start_alpha, mod_group)
-            pass
-        else:
-            start_rgb, start_alpha = reconnect_all_modifier_nodes(
-                tree, layer, start_rgb, start_alpha, mod_group
-            )
-
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-            mod_group_1 = nodes.get(layer.mod_group_1)
-            start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
-                tree, layer, source.outputs[1], get_essential_node(tree, ONE_VALUE)[0], mod_group_1
-            )
-    '''
-
     # Get normal/height channel
     height_ch = get_height_channel(layer)
 
@@ -2217,12 +2161,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             mask_linear = nodes.get(mask.linear)
             mask_separate_color_channels = nodes.get(mask.separate_color_channels)
-
-            '''
-            if mask.type == 'BACKFACE':
-                mask_val = get_essential_node(tree, GEOMETRY)[mask_source_index]
-            else: mask_val = mask_source.outputs[mask_source_index]
-            '''
 
             if mask.swizzle_input_mode in {'R', 'G', 'B'} and swizzle_enabled:
                 separate_color_channels_outputs = create_link(tree, mask_val, mask_separate_color_channels.inputs[0])
@@ -2521,10 +2459,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             continue
 
         # Rgb and alpha start
-        '''
-        rgb = start_rgb
-        alpha = start_alpha
-        '''
         if ch_socket_pairs[root_ch.name] != None:
             rgb = rgb_connections[ch_socket_pairs[root_ch.name]]
             alpha = alpha_connections[ch_socket_pairs[root_ch.name]]
@@ -2604,22 +2538,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if root_ch.enable_alpha:
                 bg_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND'])
-
-        # Get source output index
-        source_index = 0
-        '''
-        if not layer.use_baked and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-            # Noise and voronoi output has flipped order since Blender 2.81
-            if is_bl_newer_than(2, 81) and (layer.type == 'NOISE' or (layer.type == 'VORONOI' and layer.voronoi_feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})):
-                if ch.layer_input == 'RGB':
-                    rgb = start_rgb_1
-                    alpha = start_alpha_1
-                    source_index = 2
-            elif ch.layer_input == 'ALPHA':
-                rgb = start_rgb_1
-                alpha = start_alpha_1
-                source_index = 2
-        '''
 
         rgb_before_override = rgb
 
