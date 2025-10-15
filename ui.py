@@ -6253,24 +6253,32 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         col.separator()
         if color_ch and color_ch.enable and not color_ch.unpair_alpha and alpha_ch == ch:
             icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
-            label = 'Layer Alpha'
+            label = 'Layer' if layer.type != 'GROUP' else 'Group'
+            label += ' Alpha'
 
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
             op.socket_name = get_channel_input_socket_name(layer, ch)
             op.set_normal_input = False
         else:
-            source = get_layer_source(layer)
-            for outp in get_available_source_outputs(source, layer.type):
-                if not outp.enabled: continue
-                icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch) == outp.name and not ch.override else 'RADIOBUT_OFF'
-                label = 'Layer ' + outp.name
-
-                if layer.type not in {'IMAGE', 'VCOL'}:
-                    label += ' ('+layer_type_labels[layer.type]+')'
-
+            if layer.type == 'GROUP':
+                label = 'Group ' + root_ch.name
+                icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-                op.socket_name = outp.name
+                op.socket_name = ch.socket_input_name
                 op.set_normal_input = False
+            else:
+                source = get_layer_source(layer)
+                for outp in get_available_source_outputs(source, layer.type):
+                    if not outp.enabled: continue
+                    icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch) == outp.name and not ch.override else 'RADIOBUT_OFF'
+                    label = 'Layer ' + outp.name
+
+                    if layer.type not in {'IMAGE', 'VCOL'}:
+                        label += ' ('+layer_type_labels[layer.type]+')'
+
+                    op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
+                    op.socket_name = outp.name
+                    op.set_normal_input = False
 
         col.separator()
 
@@ -6322,30 +6330,9 @@ class YLayerChannelInput1Menu(bpy.types.Menu):
         
         col = self.layout.column()
         col.label(text='Normal Source')
-
         col.separator()
-
-        ## Layer Color
-        #label = 'Layer'
-        #if is_bl_newer_than(2, 81) and layer.type == 'VORONOI':
-        #    if layer.voronoi_feature == 'DISTANCE_TO_EDGE':
-        #        label += ' Distance'
-        #    elif layer.voronoi_feature == 'N_SPHERE_RADIUS':
-        #        label += ' Radius'
-        #    else:
-        #        label += ' Color'
-        #else:
-        #    label += ' Color'
-        #if layer.type not in {'IMAGE', 'VCOL'}:
-        #    label += ' ('+layer_type_labels[layer.type]+')'
-
-        #icon = 'RADIOBUT_ON' if not ch.override_1 else 'RADIOBUT_OFF'
-        #op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-        #op.type = 'RGB'
-        #op.set_normal_input = True
 
         # Layer input based on source output sockets
-        col.separator()
 
         source = get_layer_source(layer)
         for outp in get_available_source_outputs(source, layer.type):
