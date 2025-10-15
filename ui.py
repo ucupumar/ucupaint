@@ -4548,6 +4548,12 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     def poll(cls, context):
         return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
+    def draw_header_preset(self, context):
+        layout = self.layout
+        row = layout.row(align=True)
+
+        row.popover('VIEW3D_PT_ypaint_support_ui', text="Support Us", icon='FUND')
+
     #def draw_header_preset(self, context):
     #    layout = self.layout
     #    row = layout.row(align=True)
@@ -5435,16 +5441,16 @@ def draw_yp_file_browser_menu(self, context):
             self.layout.context_pointer_set('params', params)
             self.layout.menu("NODE_MT_ypaint_file_browser_menu", text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
 
-from .credits_ui import get_collaborators, check_contributors, load_expanded_images
+from .credits_ui import get_collaborators, check_contributors
 
 def draw_ypaint_about(self, context):
-    check_contributors(context)
+    goal_ui = context.window_manager.ypui_credits
+
+    check_contributors(goal_ui)
     
     col = self.layout.column(align=True)
     collaborators = get_collaborators()
     contributors = collaborators.contributors
-
-    goal_ui = context.window_manager.ypui_credits
 
     if is_online() and len(contributors) > 0:
         row_title = col.row(align=True)

@@ -154,6 +154,12 @@ class YSponsorPopover(bpy.types.Panel):
 
         desc = goal.get('description', '')
 
+        daily_row = layout.row()
+        daily_row.label(text="Only counting recurring sponsors (updated daily).")
+        daily_row.operator('wm.y_force_update_sponsors', text="", icon='FILE_REFRESH')
+
+        layout.separator()
+        
         row_quote = layout.row()
         char_per_line = 40
         split_desc = desc.split(' ')
@@ -172,18 +178,15 @@ class YSponsorPopover(bpy.types.Panel):
             current_text += d + ' '
         col.label(text=current_text+"\"")
         col.label(text=f"~ {maintaner}")
-        col.separator()
 
-        daily_row = layout.row()
-        daily_row.label(text="The supporters list is updated daily")
-        daily_row.operator('wm.y_force_update_sponsors', text="", icon='FILE_REFRESH')
+       
 
 class YSponsorProp(bpy.types.PropertyGroup):
     progress : FloatProperty(
         default = 0.0,
         min = 0.0,
         max = 100.0,
-        description = 'Only counting recurring supporters',
+        description = 'Only counting recurring sponsors',
         subtype = 'PERCENTAGE'
     )
 
@@ -233,12 +236,16 @@ class YSponsorProp(bpy.types.PropertyGroup):
     )
 
 class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
+    bl_idname = "VIEW3D_PT_ypaint_support_ui"
     bl_label = "Support " + get_addon_title()
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
-    bl_region_type = 'UI'
-    bl_category = get_addon_title()
-    bl_options = {'DEFAULT_CLOSED'} 
+    # bl_region_type = 'UI'
+    bl_region_type = 'WINDOW'
+    bl_ui_units_x = 13
+
+    # bl_category = get_addon_title()
+    # bl_options = {'DEFAULT_CLOSED'} 
 
     def draw_multiline(self, layout, text:str, panel_width:int):
         all_desc = text.split(' ')
@@ -454,9 +461,9 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             row_title = layout.row(align=True)
             row_title.label(text= get_addon_title() + "'s goal : $" + str(goal['targetValue']) + "/month")
 
-            paging_layout = row_title.row(align=True)
-            paging_layout.alignment = 'RIGHT'
-            paging_layout.popover("NODE_PT_ysponsor_popover", text='', icon='QUESTION')
+            # paging_layout = row_title.row(align=True)
+            # paging_layout.alignment = 'RIGHT'
+            # paging_layout.popover("NODE_PT_ysponsor_popover", text='', icon='QUESTION')
             
             target = goal['targetValue']
 
@@ -468,18 +475,23 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             percentage = 100 * donation / target
 
             goal_ui.progress = percentage
-            layout.prop(goal_ui, 'progress', text=f"${donation}", slider=True)
+
+            progress_row = layout.row(align=True)
+            progress_row.prop(goal_ui, 'progress', text=f"${donation}", slider=True)
+            #progress_row.separator()
+            progress_row.popover("NODE_PT_ysponsor_popover", text='', icon='QUESTION')
+
             
 
         don_col = layout.column(align=True)
         don_col.scale_y = 1.5
-        don_col.operator('wm.url_open', text="Donate Us", icon='FUND').url = url_donation
+        don_col.operator('wm.url_open', text="Become a Sponsor", icon='FUND').url = url_donation
 
-        check_contributors(context)
+        check_contributors(goal_ui)
 
         if is_online() and 'tiers' in goal and goal_ui.connection_status != "REQUESTING":
             layout.separator()
-            layout.label(text="Our Supporters :", icon='HEART')
+            layout.label(text="Our Sponsors :", icon='HEART')
 
             tiers:list = goal.get('tiers', [])
             if tiers:
@@ -503,7 +515,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                     tier = item['tier']
                     if goal_ui.expand_tiers[tier]:
                         layout.separator()
-                        layout.label(text="* One-time supporters")
+                        layout.label(text="* One-time sponsors")
                         break
         elif is_online():
             if goal_ui.connection_status == "REQUESTING":
@@ -512,7 +524,8 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                 layout.label(text="Failed to load data.", icon='ERROR')
                 layout.operator('wm.y_force_refresh_sponsors', text='Reload sponsors', icon='FILE_REFRESH')
             else:
-                layout.label(text=goal_ui.connection_status, icon='ERROR')
+                # layout.label(text=goal_ui.connection_status, icon='ERROR')
+                pass
 
         else:
             layout.label(text="No internet access, can't load sponsors.", icon='ERROR')
@@ -576,17 +589,16 @@ def load_preview(key:str, file_name:str):
         img = previews_users.load(key, file_name, 'IMAGE', True)
     return img
 
-def check_contributors(context):
-    goal_ui = context.window_manager.ypui_credits
+def check_contributors(goal_ui: YSponsorProp):
     if is_online():
         if not goal_ui.initialized: # first time init
             goal_ui.initialized = True
             print("first time init, loading contributors...")
 
-            load_thread = threading.Thread(target=load_contributors, args=(context,))
+            load_thread = threading.Thread(target=load_contributors, args=(goal_ui,))
             load_thread.start()
         else:
-            load_expanded_images(context)
+            load_expanded_images(goal_ui)
     elif goal_ui.initialized:
         goal_ui.initialized = False
 
@@ -623,7 +635,7 @@ def load_local_contributors():
                     contributor['thumb'] = load_preview(contributor['id'], file_name).icon_id
                 collaborators.contributors[contributor['id']] = contributor
 
-def load_contributors(context):    
+def load_contributors(goal_ui: YSponsorProp):    
 
     path = credits_path
     if not os.path.exists(path):
@@ -688,8 +700,6 @@ def load_contributors(context):
             collaborators.contributor_settings = settings.get("contributors", {})
     else:
         reload_contributors = True
-
-    goal_ui: YSponsorProp = context.window_manager.ypui_credits
 
     if reload_contributors and is_online():
         timeout_seconds = 10
@@ -849,13 +859,11 @@ def load_contributors(context):
             collaborators.sponsors.clear()
 
 
-    load_expanded_images(context)
+    load_expanded_images(goal_ui)
 
-def load_expanded_images(context):
+def load_expanded_images(goal_ui: YSponsorProp):
     if collaborators.load_thread and collaborators.load_thread.is_alive():
         return
-
-    goal_ui: YSponsorProp = context.window_manager.ypui_credits
 
     cont_setting = collaborators.contributor_settings
 
@@ -1021,6 +1029,8 @@ def register():
 
     ui_sp = bpy.context.window_manager.ypui_credits
     ui_sp.initialized = False
+
+    check_contributors(ui_sp)
 
 def unregister():
     for cls in classes:
