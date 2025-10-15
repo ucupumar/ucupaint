@@ -5401,14 +5401,26 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
             lays = [l for i, l in enumerate(yp.layers) if i > layer_idx and l.parent_idx == layer.parent_idx]
         else:
             lays = get_list_of_direct_children(layer)
+
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+        alpha_ch_idx = get_channel_index(alpha_ch) if alpha_ch else -1
+        color_ch_idx = get_channel_index(color_ch) if color_ch else -1
         
         for l in lays:
             if not l.enable: continue
             if channel_idx >= len(l.channels): continue
             c = l.channels[channel_idx]
 
-            if l.type not in {'GROUP', 'BACKGROUND'} and c.enable:
-                return True
+            if l.type not in {'GROUP', 'BACKGROUND'}:
+
+                # NOTE: Only consider child alpha channel to be actually enabled or unpaired
+                if channel_idx == alpha_ch_idx:
+                    cc = l.channels[color_ch_idx]
+                    if cc.enable and not cc.unpair_alpha:
+                        continue
+
+                if c.enable:
+                    return True
 
             if l.type == 'GROUP' and get_channel_enabled(l.channels[channel_idx], l, root_ch):
                 return True
@@ -5455,6 +5467,9 @@ def is_blend_node_needed(ch, layer=None, root_ch=None):
     if ch == alpha_ch:
         if layer.type == 'GROUP':
             return is_unpaired_alpha_chilren_exist(layer)
+
+        #if layer.type == 'GROUP':
+        #    return get_channel_enabled(color_ch, layer) or get_channel_enabled(ch, layer, root_ch)
 
         elif get_channel_enabled(color_ch, layer):
             return color_ch.unpair_alpha

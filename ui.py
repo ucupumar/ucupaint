@@ -2049,9 +2049,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if specific_ch and ch != specific_ch:
             continue
 
-        #if ch == alpha_ch and color_ch.enable:
-        #    continue
-
         root_ch = yp.channels[i]
         ch_count += 1
 
@@ -2093,13 +2090,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             label += ':'
 
         icon_name = lib.channel_custom_icon_dict[root_ch.type]
-        #if chui.expand_content:
-        #    icon_name = 'uncollapsed_' + icon_name
-        #else: icon_name = 'collapsed_' + icon_name
         channel_icon_value = lib.get_icon(icon_name)
 
         icon = get_collapse_arrow_icon(chui.expand_content)
-        #rrow.prop(chui, 'expand_content', text=label, emboss=False, icon_value=channel_icon_value, translate=False)
         rrow.prop(chui, 'expand_content', text='', emboss=False, icon=icon)
 
         if is_bl_newer_than(2, 80):
@@ -2120,22 +2113,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 
                 if root_ch.type == 'NORMAL':
                     label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
-                    #if is_bl_newer_than(2, 80):
-                    #    ssplit.popover("NODE_PT_y_layer_channel_normal_blend_popover", text=label)
-                    #else: ssplit.menu("NODE_MT_y_layer_channel_normal_blend_menu", text=label)
                     ssplit.prop(ch, 'normal_blend_type', text='')
-                    #sssplit = split_layout(ssplit, 0.6, align=True)
-                    #sssplit.prop(ch, 'normal_blend_type', text='')
-                    #draw_input_prop(sssplit, ch, 'intensity_value')
                 elif layer.type != 'BACKGROUND': 
                     label = blend_type_labels[ch.blend_type] + ' ' + '%.1f' % get_entity_prop_value(ch, 'intensity_value')
-                    #if is_bl_newer_than(2, 80):
-                    #    ssplit.popover("NODE_PT_y_layer_channel_blend_popover", text=label)
-                    #else: ssplit.menu("NODE_MT_y_layer_channel_blend_menu", text=label)
                     ssplit.prop(ch, 'blend_type', text='')
-                    #sssplit = split_layout(ssplit, 0.6, align=True)
-                    #sssplit.prop(ch, 'blend_type', text='')
-                    #draw_input_prop(sssplit, ch, 'intensity_value')
                 else:
                     draw_input_prop(ssplit, ch, 'intensity_value')
             else:
@@ -2205,18 +2186,19 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             rrow = row.row(align=True)
             rrow.alignment = 'RIGHT'
 
-        #if ch.enable:
         rrow.context_pointer_set('parent', ch)
         rrow.context_pointer_set('layer', layer)
         rrow.context_pointer_set('channel_ui', chui)
 
-        #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         icon = 'MODIFIER_ON' if is_bl_newer_than(2, 80) else 'MODIFIER'
         rrow.menu("NODE_MT_y_layer_channel_special_menu", icon=icon, text='')
-        #rrow.menu("NODE_MT_y_layer_channel_special_menu", icon_value=channel_icon_value, text='')
 
         if ypui.expand_channels:
-            if ch == alpha_ch and color_ch.enable:
+            color_ch_enabled = False
+            if ch == alpha_ch:
+                color_ch_enabled = get_channel_enabled(color_ch, layer) if layer.type == 'GROUP' else color_ch.enable
+
+            if ch == alpha_ch and color_ch_enabled:
                 row.label(text='', icon='BLANK1')
             else: row.prop(ch, 'enable', text='')
 
@@ -2239,42 +2221,20 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         if show_blend_opacity:
             # Blend type
-            if layer.type != 'BACKGROUND' or root_ch.type == 'NORMAL':
-                row = mcol.row(align=True)
-                split = split_layout(row, 0.375)
+            row = mcol.row(align=True)
+            split = split_layout(row, 0.375)
 
-                rrow = split.row(align=True)
-                inbox_dropdown_button(rrow, chui, 'expand_blend_settings', 'Blend:')
+            rrow = split.row(align=True)
+            inbox_dropdown_button(rrow, chui, 'expand_blend_settings', 'Blend:')
 
-                rrow = split.row(align=True)
+            rrow = split.row(align=True)
 
-                if root_ch.type != 'NORMAL':
-                    rrow.prop(ch, 'blend_type', text='')
-                else: rrow.prop(ch, 'normal_blend_type', text='')
+            if root_ch.type != 'NORMAL':
+                rrow.prop(ch, 'blend_type', text='')
+            else: rrow.prop(ch, 'normal_blend_type', text='')
 
-                if not chui.expand_blend_settings:
-                    draw_input_prop(rrow, ch, 'intensity_value')
-
-                else:
-
-                    # Layer channel opacity
-                    row = mcol.row(align=True)
-                    row.label(text='', icon='BLANK1')
-                    row.label(text='Opacity:')
-                    draw_input_prop(row, ch, 'intensity_value')
-
-                    # Use Clamp
-                    if root_ch.type != 'NORMAL':
-                        row = mcol.row(align=True)
-                        row.label(text='', icon='BLANK1')
-                        row.label(text='Use Clamp:')
-                        row.prop(ch, 'use_clamp', text='')
-                    
-                    if ch == color_ch:
-                        row = mcol.row(align=True)
-                        row.label(text='', icon='BLANK1')
-                        row.label(text='Unpair Alpha:')
-                        row.prop(ch, 'unpair_alpha', text='')
+            if not chui.expand_blend_settings:
+                draw_input_prop(rrow, ch, 'intensity_value')
 
             else:
 
@@ -2283,6 +2243,26 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 row.label(text='', icon='BLANK1')
                 row.label(text='Opacity:')
                 draw_input_prop(row, ch, 'intensity_value')
+
+                # Use Clamp
+                if root_ch.type != 'NORMAL':
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    row.label(text='Use Clamp:')
+                    row.prop(ch, 'use_clamp', text='')
+                
+                if ch == color_ch:
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    row.label(text='Unpair Alpha:')
+                    row.prop(ch, 'unpair_alpha', text='')
+
+        elif layer.type == 'GROUP' and ch == alpha_ch:
+            # Layer channel opacity
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            row.label(text='Opacity:')
+            draw_input_prop(row, ch, 'intensity_value')
 
         if root_ch.type == 'NORMAL':
 
