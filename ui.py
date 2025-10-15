@@ -4312,7 +4312,7 @@ def main_draw(self, context):
             row.label(text='', icon='BLANK1')
             col = row.column(align=False)
 
-            if not is_bl_newer_than(2, 79):
+            if not is_bl_newer_than(2, 80):
                 rrow = col.row(align=True)
                 rrow.label(text='Alpha Blend:')
                 rrow.prop(mat.game_settings, 'alpha_blend', text='')
