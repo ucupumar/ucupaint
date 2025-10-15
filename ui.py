@@ -4552,7 +4552,11 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
         layout = self.layout
         row = layout.row(align=True)
 
-        row.popover('VIEW3D_PT_ypaint_support_ui', text="Support Us", icon='FUND')
+        region = context.region
+        if region.width > 500:
+            row.popover('VIEW3D_PT_ypaint_support_ui', text="Support Us", icon='FUND')
+        else:
+            row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
 
     #def draw_header_preset(self, context):
     #    layout = self.layout
