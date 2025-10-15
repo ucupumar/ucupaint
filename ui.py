@@ -8068,7 +8068,8 @@ def save_mat_ui_settings():
         if mat: 
             try: mat.yp.active_ypaint_node = mui.active_ypaint_node
             except Exception as e: print(e)
-            mat.yp.expand_content = mui.expand_content
+            try: mat.yp.expand_content = mui.expand_content
+            except Exception as e: print(e)
 
 def load_mat_ui_settings():
     ypui = bpy.context.window_manager.ypui
