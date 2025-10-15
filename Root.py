@@ -5,7 +5,7 @@ from .common import *
 from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer, Mask, transition, Bake, BakeTarget, ListItem
+from . import lib, Modifier, Layer, Mask, transition, Bake, BakeTarget, ListItem, BaseOperator
 from .input_outputs import *
 
 YP_GROUP_SUFFIX = ' ' + get_addon_title()
@@ -424,7 +424,72 @@ class YRenameUVMaterial(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YQuickYPaintNodeSetup(bpy.types.Operator):
+def create_ao_node(mat, node, channel=None, shift_other_nodes=False):
+
+    ao_mul = simple_new_mix_node(mat.node_tree)
+    ao_mixcol0, ao_mixcol1, ao_mixout = get_mix_color_indices(ao_mul)
+
+    # Set blend node
+    ao_mul.inputs[0].default_value = 1.0
+    ao_mul.blend_type = 'MULTIPLY'
+    ao_mul.label = get_addon_title() + ' AO Multiply'
+    ao_mul.name = AO_MULTIPLY
+
+    # Set default value
+    ao_mul.inputs[0].default_value = 1.0
+    ao_mul.inputs[ao_mixcol0].default_value = (1.0, 1.0, 1.0, 1.0)
+    ao_mul.inputs[ao_mixcol1].default_value = (1.0, 1.0, 1.0, 1.0)
+
+    # Set AO multiply node location
+    loc = node.location.copy()
+    loc.x += 200
+    ao_mul.location = loc
+
+    # Shift other nodes
+    if shift_other_nodes:
+        for n in mat.node_tree.nodes:
+            if n in {ao_mul, node}: continue
+            if n.location.x > node.location.x:
+                n.location.x += 200
+
+    # Connect node outputs to AO multiply
+    if channel:
+        yp = channel.id_data.yp
+
+        # Get first color channel
+        ch_color = None
+        for ch in yp.channels:
+            if ch.type == 'RGB':
+                ch_color = ch
+                break
+
+        if ch_color and ch_color.name in node.outputs: 
+
+            outp = node.outputs[ch_color.name]
+
+            # Check original color connections
+            to_sockets = []
+            for link in outp.links:
+                to_sockets.append(link.to_socket)
+
+            # Connect to original socket connections
+            for soc in to_sockets:
+                mat.node_tree.links.new(ao_mul.outputs[ao_mixout], soc)
+
+            # Connect color channel to AO multiply
+            mat.node_tree.links.new(outp, ao_mul.inputs[ao_mixcol0])
+
+        # Connect AO channel to AO multiply
+        if channel.name in node.outputs: 
+            mat.node_tree.links.new(node.outputs[channel.name], ao_mul.inputs[ao_mixcol1])
+
+        # Set default value
+        if channel.name in node.inputs: 
+            node.inputs[channel.name].default_value = (1, 1, 1, 1)
+
+    return ao_mul
+
+class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions):
     bl_idname = "wm.y_quick_ypaint_node_setup"
     bl_label = "Quick " + get_addon_title() + " Node Setup"
     bl_description = "Quick " + get_addon_title() + " Node Setup"
@@ -451,6 +516,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     )
 
     color : BoolProperty(name='Color', default=True)
+    alpha : BoolProperty(name='Alpha', default=False)
     ao : BoolProperty(name='Ambient Occlusion', default=False)
     metallic : BoolProperty(name='Metallic', default=True)
     roughness : BoolProperty(name='Roughness', default=True)
@@ -519,12 +585,21 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
             ccol.label(text='Channels:')
-
+            if self.color:
+                ccol.label(text='')
             ccol.label(text='')
             if self.type == 'BSDF_PRINCIPLED':
                 ccol.label(text='')
             ccol.label(text='')
             ccol.label(text='')
+
+        if (self.color or self.type == 'EMISSION') and self.alpha:
+            if self.type == 'EMISSION': 
+                col.label(text='')
+
+            if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
+                col.label(text='Blend Method:')
+                col.label(text='Shadow Method:')
 
         col = row.column()
         rrow = col.row(align=True)
@@ -535,11 +610,21 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
             ccol.prop(self, 'color', toggle=True)
+            if self.color:
+                ccol.prop(self, 'alpha', toggle=True)
             ccol.prop(self, 'ao', toggle=True)
             if self.type == 'BSDF_PRINCIPLED':
                 ccol.prop(self, 'metallic', toggle=True)
             ccol.prop(self, 'roughness', toggle=True)
             ccol.prop(self, 'normal', toggle=True)
+        else:
+            ccol = col.column(align=True)
+            ccol.prop(self, 'alpha', text='Enable Alpha')
+
+        if (self.color or self.type == 'EMISSION') and self.alpha:
+            if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
+                col.prop(self, 'blend_method', text='')
+                col.prop(self, 'shadow_method', text='')
 
         col.prop(self, 'use_linear_blending')
 
@@ -652,19 +737,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             loc.x += 200
 
         if ao_needed:
-            ao_mul = simple_new_mix_node(mat.node_tree)
-            ao_mixcol0, ao_mixcol1, ao_mixout = get_mix_color_indices(ao_mul)
-
-            ao_mul.inputs[0].default_value = 1.0
-            ao_mul.blend_type = 'MULTIPLY'
-            ao_mul.label = get_addon_title() + ' AO Multiply'
-            ao_mul.name = AO_MULTIPLY
-
-            ao_mul.inputs[0].default_value = 1.0
-            ao_mul.inputs[ao_mixcol0].default_value = (1.0, 1.0, 1.0, 1.0)
-            ao_mul.inputs[ao_mixcol1].default_value = (1.0, 1.0, 1.0, 1.0)
-
-            ao_mul.location = loc.copy()
+            ao_mul = create_ao_node(mat, node)
             loc.x += 200
 
         main_bsdf.location = loc.copy()
@@ -693,13 +766,21 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         # Add new channels
         ch_color = None
+        ch_alpha = None
         ch_ao = None
         ch_metallic = None
         ch_roughness = None
         ch_normal = None
 
-        if self.color:
+        if self.color or self.type == 'EMISSION':
             ch_color = create_new_yp_channel(group_tree, 'Color', 'RGB', non_color=False)
+
+        if ch_color and self.alpha:
+            ch_alpha = create_new_yp_channel(group_tree, 'Alpha', 'VALUE', non_color=True)
+            ch_alpha.is_alpha = True
+            group_tree.yp.halt_update = True
+            ch_alpha.alpha_pair_name = ch_color.name
+            group_tree.yp.halt_update = False
 
         if self.type != 'EMISSION':
             if self.ao:
@@ -723,6 +804,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         # HACK: Remap channel pointers, because sometimes pointers are lost at this time
         ch_color = group_tree.yp.channels.get('Color')
+        ch_alpha = group_tree.yp.channels.get('Alpha')
         ch_ao = group_tree.yp.channels.get('Ambient Occlusion')
         ch_metallic = group_tree.yp.channels.get('Metallic')
         ch_roughness = group_tree.yp.channels.get('Roughness')
@@ -737,11 +819,17 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
             set_input_default_value(node, ch_color, inp.default_value)
             if ch_ao and ao_mul:
+                ao_mixcol0, ao_mixcol1, ao_mixout = get_mix_color_indices(ao_mul)
                 links.new(node.outputs[ch_color.name], ao_mul.inputs[ao_mixcol0])
                 links.new(node.outputs[ch_ao.name], ao_mul.inputs[ao_mixcol1])
                 links.new(ao_mul.outputs[ao_mixout], inp)
             else:
                 links.new(node.outputs[ch_color.name], inp)
+
+        if ch_alpha:
+            default_value = do_alpha_setup(mat, node, ch_alpha)
+            set_material_methods(mat, self.blend_method, self.shadow_method)
+            set_input_default_value(node, ch_alpha, default_value)
 
         if ch_ao:
             set_input_default_value(node, ch_ao, (1, 1, 1))
@@ -904,9 +992,10 @@ def update_connect_to(self, context):
         self.name = get_unique_name(item.input_name, yp.channels)
 
     # Emission will not use clamp by default
-    if 'Emission' in self.name:
-        self.use_clamp = False
-    else: self.use_clamp = True
+    self.use_clamp = 'Emission' not in self.name
+
+    # Channel called 'Alpha' will enable the alpha flag
+    self.use_as_alpha = self.name == 'Alpha' and self.type == 'VALUE'
 
 def refresh_input_coll(self, context, ch_type):
     # Refresh input names
@@ -929,20 +1018,42 @@ def refresh_input_coll(self, context, ch_type):
             item.input_name = inp.name
             item.input_index = i
 
+def set_material_methods(mat, blend_method='HASHED', shadow_method='HASHED'):
+    if not is_bl_newer_than(4, 2):
+        if is_bl_newer_than(2, 80):
+            # EEVEE legacy doesn't use alpha dither by default
+            mat.blend_method = blend_method
+            mat.shadow_method = shadow_method
+        else:
+            # There's no alpha dither on legacy blender
+            mat.game_settings.alpha_blend = 'ALPHA'
+
 def do_alpha_setup(mat, node, channel):
     tree = mat.node_tree
     yp = node.node_tree.yp
+    default_value = 1.0
 
-    input_index = channel.io_index
-    alpha_input = node.inputs[input_index+1]
+    if channel.enable_alpha:
+        input_index = channel.io_index
+        alpha_input = node.inputs[input_index+1]
 
-    output_index = get_output_index(channel)
-    output = node.outputs[output_index]
-    alpha_output = node.outputs[output_index+1]
+        output_index = get_output_index(channel)
+        output = node.outputs[output_index]
+        alpha_output = node.outputs[output_index+1]
+    else:
+        alpha_input = node.inputs[channel.name]
+        alpha_output = node.outputs[channel.name]
+
+        try: color_ch = yp.channels[channel.alpha_pair_name]
+        except Exception as e:
+            print(e)
+            return default_value
+
+        output = node.outputs[color_ch.name]
 
     # Main channel output need to be already connected
     if len(output.links) == 0:
-        return
+        return default_value
 
     alpha_input_connected = len(alpha_input.links) > 0
     new_nodes_created = False
@@ -1031,6 +1142,9 @@ def do_alpha_setup(mat, node, channel):
         # Only connect to target socket if the original connection isn't from yp node
         if len(target_socket.links) == 0 or target_socket.links[0].from_node != node:
             tree.links.new(alpha_output, target_socket)
+            default_value = target_socket.default_value
+
+    return default_value
 
 class YConnectYPaintChannelAlpha(bpy.types.Operator):
     bl_idname = "wm.y_connect_ypaint_channel_alpha"
@@ -1104,7 +1218,195 @@ class YConnectYPaintChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YNewYPaintChannel(bpy.types.Operator):
+def make_channel_as_alpha(mat, node, channel, do_setup=False, move_index=False, ch_pair_name=''):
+    yp = channel.id_data.yp
+    if channel.type != 'VALUE': return
+
+    # Mark channel as alpha
+    channel.is_alpha = True
+
+    color_ch = None
+    color_idx = -1
+    if ch_pair_name != '':
+        color_ch = yp.channels.get(ch_pair_name)
+        if color_ch: color_idx = get_channel_index(color_ch)
+
+    if color_ch:
+        yp.halt_update = True
+        channel.alpha_pair_name = color_ch.name
+        yp.halt_update = False
+
+    # Move channel to below color channel
+    if move_index and color_ch:
+        set_channel_index(channel, color_idx+1)
+
+        # Repoint channel to alpha channel since the orders are changed
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+        channel = alpha_ch
+
+    # Update io since alpha is enabled on all color layers
+    check_all_channel_ios(yp, yp_node=node)
+
+    if do_setup:
+        # Set up alpha connections
+        default_value = do_alpha_setup(mat, node, channel)
+        node.inputs[channel.name].default_value = default_value
+
+class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
+    bl_idname = "wm.y_auto_setup_new_ypaint_channel"
+    bl_label = "Auto setup new " + get_addon_title() + " Channel"
+    bl_description = "Auto setup new " + get_addon_title() + " channel"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    mode : EnumProperty(
+        name = 'Auto Node Setup', 
+        description = 'Auto node setup for new channel',
+        items = (
+            ('ALPHA', 'Alpha', ''),
+            ('AO', 'Ambient Occlusion', '')
+        ),
+        default = 'ALPHA'
+    )
+
+    alpha_pair_name : StringProperty(
+        name = 'Alpha Channel Pair',
+        description = 'Color channel pair for alpha channel',
+        default='',
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        if self.mode == 'ALPHA':
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
+
+            # Default alpha pair channel
+            for ch in yp.channels:
+                if ch.type == 'RGB':
+                    self.alpha_pair_name = ch.name
+                    break
+
+            return context.window_manager.invoke_props_dialog(self)
+
+        return self.execute(context)
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        row = split_layout(self.layout, 0.4)
+        col = row.column(align=False)
+        if not is_bl_newer_than(4, 2):
+            col.label(text='Blend Method:')
+            col.label(text='Shadow Method:')
+        col.label(text='Channel Pair:')
+
+        col = row.column(align=False)
+        if not is_bl_newer_than(4, 2):
+            col.prop(self, 'blend_method', text='')
+            col.prop(self, 'shadow_method', text='')
+        col.prop_search(self, "alpha_pair_name", yp, "channels", text='')
+
+    def execute(self, context):
+
+        wm = context.window_manager
+        mat = get_active_material()
+        node = get_active_ypaint_node()
+        group_tree = node.node_tree
+        yp = group_tree.yp
+
+        name = 'Channel'
+        if self.mode == 'AO':
+            name = 'Ambient Occlusion'
+            ch_type = 'RGB'
+        elif self.mode == 'ALPHA':
+            name = 'Alpha'
+            ch_type = 'VALUE'
+
+        # Check if channel with same name is already available
+        same_channel = [c for c in yp.channels if c.name == name]
+        if same_channel:
+            self.report({'ERROR'}, "Channel named '"+name+"' is already available!")
+            return {'CANCELLED'}
+
+        if self.mode == 'ALPHA':
+            existing_alpha_channels = [c for c in yp.channels if c.is_alpha]
+            if any(existing_alpha_channels):
+                self.report({'ERROR'}, "Alpha channel already exists ('"+existing_alpha_channels[0].name+"')!")
+                return {'CANCELLED'}
+
+        color_chs = [c for c in yp.channels if c.type == 'RGB']
+        if not any(color_chs):
+            self.report({'ERROR'}, "Need at least one existing color channel!")
+            return {'CANCELLED'}
+
+        # Create new channel
+        channel = create_new_yp_channel(group_tree, name, ch_type, non_color=True)
+        ch_name = channel.name
+
+        # Update io
+        check_all_channel_ios(yp, yp_node=node)
+
+        # Create the node setup
+        if self.mode == 'AO':
+            create_ao_node(mat, node, channel, shift_other_nodes=True)
+        elif self.mode == 'ALPHA':
+            make_channel_as_alpha(mat, node, channel, do_setup=True, move_index=True, ch_pair_name=self.alpha_pair_name)
+            set_material_methods(mat, self.blend_method, self.shadow_method)
+
+        # Set active channel to the newly created one
+        channel = yp.channels.get(ch_name)
+        yp.active_channel_index = get_channel_index(channel)
+
+        return {'FINISHED'}
+
+class YToggleChannelAsAlpha(bpy.types.Operator, BaseOperator.BlendMethodOptions):
+    bl_idname = "wm.y_toggle_channel_as_alpha"
+    bl_label = "Toggle " + get_addon_title() + " Channel as Alpha"
+    bl_description = "Toggle " + get_addon_title() + " channel as alpha channel"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        node = get_active_ypaint_node()
+        channel = context.parent
+        self.channel = channel
+        yp = channel.id_data.yp
+
+        # Check if there's other alpha channel
+        self.existing_alpha_ch_name = ''
+        for ch in yp.channels:
+            if ch == channel: continue
+            if ch.is_alpha:
+                self.existing_alpha_ch_name = ch.name
+
+        if 'Alpha' in channel.name or self.channel.is_alpha or (not self.channel.is_alpha and self.existing_alpha_ch_name != ''):
+            return self.execute(context)
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        self.layout.label(text='Are you sure to use \''+self.channel.name+'\' as alpha channel?', icon='ERROR')
+
+    def execute(self, context):
+        yp = self.channel.id_data.yp
+        if not self.channel.is_alpha and self.existing_alpha_ch_name != '':
+            self.report({'ERROR'}, "Alpha channel is already enabled in '"+self.existing_alpha_ch_name+"'!")
+            return {'CANCELLED'}
+
+        self.channel.is_alpha = not self.channel.is_alpha
+
+        check_all_channel_ios(yp)
+
+        return {'FINISHED'}
+
+class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
     bl_idname = "wm.y_add_new_ypaint_channel"
     bl_label = "Add new " + get_addon_title() + " Channel"
     bl_description = "Add new " + get_addon_title() + " channel"
@@ -1143,15 +1445,16 @@ class YNewYPaintChannel(bpy.types.Operator):
         default = True
     )
 
-    blend_method : EnumProperty(
-        name = 'Blend Method', 
-        description = 'Blend method for transparent material',
-        items = (
-            ('CLIP', 'Alpha Clip', ''),
-            ('HASHED', 'Alpha Hashed', ''),
-            ('BLEND', 'Alpha Blend', '')
-        ),
-        default = 'HASHED'
+    use_as_alpha : BoolProperty(
+        name = 'Use as Alpha Channel',
+        description = 'Use new channel as alpha channel',
+        default = False
+    )
+
+    alpha_pair_name : StringProperty(
+        name = 'Alpha Channel Pair',
+        description = 'Color channel pair for alpha channel',
+        default='',
     )
 
     @classmethod
@@ -1177,6 +1480,12 @@ class YNewYPaintChannel(bpy.types.Operator):
         refresh_input_coll(self, context, self.type)
         self.connect_to = ''
 
+        # Default alpha pair channel
+        for ch in channels:
+            if ch.type == 'RGB':
+                self.alpha_pair_name = ch.name
+                break
+
         return context.window_manager.invoke_props_dialog(self)
 
     def check(self, context):
@@ -1185,15 +1494,25 @@ class YNewYPaintChannel(bpy.types.Operator):
     def draw(self, context):
 
         mat = get_active_material()
+        item = self.input_coll.get(self.connect_to)
+        target_node = mat.node_tree.nodes.get(item.node_name) if item else None
 
-        # Detect principled alpha
-        is_alpha_channel = False
-        if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
-            item = self.input_coll.get(self.connect_to)
-            if item:
-                target_node = mat.node_tree.nodes.get(item.node_name)
-                if target_node.type == 'BSDF_PRINCIPLED' and item.input_name == 'Alpha':
-                    is_alpha_channel = True
+        show_alpha_option = False
+        show_blend_method_option = False
+        show_strength_option = False
+
+        if item and target_node and target_node.type == 'BSDF_PRINCIPLED':
+
+            # Detect principled alpha
+            if item.input_name == 'Alpha':
+                show_alpha_option = True
+                if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
+                    show_blend_method_option = True
+
+            # Blender 4.0 and above has some default weight and strength set to 0.0
+            if is_bl_newer_than(4):
+                if item.input_name in {'Emission Color', 'Subsurface Scale'}:
+                    show_strength_option = True
 
         row = split_layout(self.layout, 0.4)
 
@@ -1202,9 +1521,15 @@ class YNewYPaintChannel(bpy.types.Operator):
         col.label(text='Connect To:')
         if self.type != 'NORMAL':
             col.label(text='Color Space:')
-        if is_alpha_channel:
+        if show_blend_method_option:
             col.label(text='Blend Method:')
+            col.label(text='Shadow Method:')
         if self.type != 'NORMAL': col.label(text='')
+
+        if show_alpha_option:
+            col.label(text='')
+            if self.use_as_alpha:
+                col.label(text='Channel Pair:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -1212,17 +1537,20 @@ class YNewYPaintChannel(bpy.types.Operator):
                 #lib.custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
         if self.type != 'NORMAL':
             col.prop(self, "colorspace", text='')
-        if is_alpha_channel:
+        if show_blend_method_option:
             col.prop(self, 'blend_method', text='')
+            col.prop(self, 'shadow_method', text='')
         if self.type != 'NORMAL': col.prop(self, 'use_clamp')
 
-        # Blender 4.0 and above has some default weight and strength set to 0.0
-        if is_bl_newer_than(4):
-            item = self.input_coll.get(self.connect_to)
-            if item:
-                target_node = mat.node_tree.nodes.get(item.node_name)
-                if target_node.type == 'BSDF_PRINCIPLED' and item.input_name in {'Emission Color', 'Subsurface Scale'}:
-                    col.prop(self, "set_strength_to_one")
+        if show_strength_option:
+            col.prop(self, "set_strength_to_one")
+
+        if show_alpha_option:
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
+            col.prop(self, "use_as_alpha")
+            if self.use_as_alpha:
+                col.prop_search(self, "alpha_pair_name", yp, "channels", text='')
 
     def execute(self, context):
 
@@ -1301,6 +1629,10 @@ class YNewYPaintChannel(bpy.types.Operator):
         if channel.use_clamp != self.use_clamp:
             channel.use_clamp = self.use_clamp
 
+        # Set use as alpha
+        if self.use_as_alpha and self.type == 'VALUE':
+            make_channel_as_alpha(mat, node, channel, ch_pair_name=self.alpha_pair_name)
+
         # Set blend method
         if set_blend_method:
             mat.blend_method = self.blend_method
@@ -1320,6 +1652,39 @@ class YNewYPaintChannel(bpy.types.Operator):
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
+
+def set_channel_index(channel, new_index):
+    yp = channel.id_data.yp
+
+    index = get_channel_index(channel)
+
+    if index == new_index:
+        return
+
+    # Remove props first
+    check_all_channel_ios(yp, reconnect=False, remove_props=True)
+
+    # Get IO index
+    swap_ch = yp.channels[new_index]
+    io_index = channel.io_index
+    io_index_swap = swap_ch.io_index
+
+    # Move channel
+    yp.channels.move(index, new_index)
+    swap_channel_fcurves(yp, index, new_index)
+
+    # Move layer channels
+    for layer in yp.layers:
+        layer.channels.move(index, new_index)
+        swap_layer_channel_fcurves(layer, index, new_index)
+
+        # Move mask channels
+        for mask in layer.masks:
+            mask.channels.move(index, new_index)
+            swap_mask_channel_fcurves(mask, index, new_index)
+
+    # Move IO
+    check_all_channel_ios(yp)
 
 class YMoveYPaintChannel(bpy.types.Operator):
     bl_idname = "wm.y_move_ypaint_channel"
@@ -1370,30 +1735,7 @@ class YMoveYPaintChannel(bpy.types.Operator):
         #setattr(ypui, 'show_channel_modifiers_' + str(index), temp_1)
         #setattr(ypui, 'show_channel_modifiers_' + str(new_index), temp_0)
 
-        # Remove props first
-        check_all_channel_ios(yp, reconnect=False, remove_props=True)
-
-        # Get IO index
-        swap_ch = yp.channels[new_index]
-        io_index = channel.io_index
-        io_index_swap = swap_ch.io_index
-
-        # Move channel
-        yp.channels.move(index, new_index)
-        swap_channel_fcurves(yp, index, new_index)
-
-        # Move layer channels
-        for layer in yp.layers:
-            layer.channels.move(index, new_index)
-            swap_layer_channel_fcurves(layer, index, new_index)
-
-            # Move mask channels
-            for mask in layer.masks:
-                mask.channels.move(index, new_index)
-                swap_mask_channel_fcurves(mask, index, new_index)
-
-        # Move IO
-        check_all_channel_ios(yp)
+        set_channel_index(channel, new_index)
 
         # Set active index
         yp.active_channel_index = new_index
@@ -1540,6 +1882,9 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'source_1')
             remove_node(ttree, ch, 'linear_1')
             remove_node(ttree, ch, 'flip_y')
+            remove_node(ttree, ch, 'separate_color_channels')
+
+            remove_node(ttree, ch, 'group_alpha_multiply')
 
             remove_node(ttree, ch, 'normal_process')
             remove_node(ttree, ch, 'normal_flip')
@@ -2837,21 +3182,6 @@ def update_channel_colorspace(self, context):
         #Layer.set_layer_channel_linear_node(tree, layer, self, ch)
         check_layer_channel_linear_node(ch, layer, self, reconnect=True)
 
-        # Check for linear node
-        #linear = tree.nodes.get(ch.linear)
-        #if linear:
-        #    if self.colorspace == 'LINEAR':
-        #        #ch.layer_input = 'RGB_LINEAR'
-        #        linear.inputs[1].default_value = 1.0
-        #    else: linear.inputs[1].default_value = 1.0/GAMMA
-
-        # NOTE: STILL BUGGY AS HELL
-        #if self.colorspace == 'LINEAR':
-        #    if ch.layer_input == 'RGB_SRGB':
-        #        ch.layer_input = 'RGB_LINEAR'
-        #    elif ch.layer_input == 'CUSTOM':
-        #        ch.layer_input = 'CUSTOM'
-
         # Change modifier colorspace only on image layer
         if layer.type == 'IMAGE':
             mod_tree = get_mod_tree(layer)
@@ -3217,6 +3547,18 @@ def update_channel_alpha(self, context):
 
     yp.refresh_tree = True
 
+def update_channel_alpha_pair_name(self, context):
+    yp = self.id_data.yp
+    
+    if yp.halt_update: return
+
+    if self.alpha_pair_name == self.name:
+        yp.halt_update = True
+        self.alpha_pair_name = ''
+        yp.halt_update = False
+
+    check_all_channel_ios(yp)
+
 def update_channel_alpha_blend_mode(self, context):
     mat = get_active_material()
     group_tree = self.id_data
@@ -3422,11 +3764,32 @@ class YPaintChannel(bpy.types.PropertyGroup):
     io_index : IntProperty(default=-1)
 
     # Alpha for transparent materials
+
+    # Deprecated
     enable_alpha : BoolProperty(
         name = 'Enable Alpha Blend on Channel',
         description = 'Enable alpha blend on channel',
         default = False,
         update = update_channel_alpha
+    )
+
+    is_alpha : BoolProperty(
+        name = 'Is Alpha Channel',
+        description = 'Is channel an alpha channel',
+        default=False
+    )
+
+    alpha_pair_name : StringProperty(
+        name = 'Alpha Channel Pair',
+        description = 'Color channel pair for alpha channel',
+        default='',
+        update = update_channel_alpha_pair_name
+    )
+
+    alpha_combine_to_baked_color : BoolProperty(
+        name = 'Combine Alpha to Baked Color',
+        description = 'Combine bake result of color and alpha channel',
+        default = True
     )
 
     alpha_blend_mode : EnumProperty(
@@ -3957,7 +4320,7 @@ class YPaint(bpy.types.PropertyGroup):
     )
 
     # When enabled, alpha can create some node setup and change material settings, disable this to avoid that
-    alpha_auto_setup : BoolProperty(default=True)
+    alpha_auto_setup : BoolProperty(default=False)
 
     # HACK: Refresh tree to remove glitchy normal
     refresh_tree : BoolProperty(default=False)
@@ -3992,6 +4355,8 @@ class YPaintMaterialProps(bpy.types.PropertyGroup):
     ori_bsdf_output_index : IntProperty(default=0)
     #ori_blend_method : StringProperty(default='')
     active_ypaint_node : StringProperty(default='')
+
+    expand_content : BoolProperty(default=False)
 
 class YPaintTimer(bpy.types.PropertyGroup):
     time : StringProperty(default='')
@@ -4298,6 +4663,8 @@ def register():
     bpy.utils.register_class(YConnectYPaintChannel)
     bpy.utils.register_class(YConnectYPaintChannelAlpha)
     bpy.utils.register_class(YNewYPaintChannel)
+    bpy.utils.register_class(YToggleChannelAsAlpha)
+    bpy.utils.register_class(YAutoSetupNewYPaintChannel)
     bpy.utils.register_class(YMoveYPaintChannel)
     bpy.utils.register_class(YRemoveYPaintChannel)
     bpy.utils.register_class(YAddSimpleUVs)
@@ -4351,6 +4718,8 @@ def unregister():
     bpy.utils.unregister_class(YConnectYPaintChannel)
     bpy.utils.unregister_class(YConnectYPaintChannelAlpha)
     bpy.utils.unregister_class(YNewYPaintChannel)
+    bpy.utils.unregister_class(YToggleChannelAsAlpha)
+    bpy.utils.unregister_class(YAutoSetupNewYPaintChannel)
     bpy.utils.unregister_class(YMoveYPaintChannel)
     bpy.utils.unregister_class(YRemoveYPaintChannel)
     bpy.utils.unregister_class(YAddSimpleUVs)

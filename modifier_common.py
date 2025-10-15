@@ -251,6 +251,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
 
     # Get channel type and non color status
     channel_type, non_color = get_modifier_channel_type(m, True)
+    used_by_paired_alpha = is_modifier_used_by_paired_alpha_channel(m)
 
     # Check the nodes
     if m.type == 'INVERT':
@@ -382,7 +383,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 color_ramp_linear_ref = ref_tree.nodes.get(m.color_ramp_linear)
 
                 # Create new nodes if reference is used
-                if m.affect_alpha and m.affect_color:
+                if m.affect_alpha and m.affect_color and not used_by_paired_alpha:
                     color_ramp_alpha_multiply = new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply')
 
                 color_ramp_linear_start = new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
@@ -425,7 +426,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                     color_ramp_alpha_multiply.inputs[0].default_value = 1.0
                     color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
 
-            if not m.affect_alpha or not m.affect_color:
+            if not m.affect_alpha or not m.affect_color or used_by_paired_alpha:
                 remove_node(tree, m, 'color_ramp_alpha_multiply')
 
             if non_color or yp.use_linear_blending:

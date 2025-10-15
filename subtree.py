@@ -7,7 +7,7 @@ from .node_connections import *
 def check_layer_divider_alpha(layer, tree=None):
     if not tree: tree = get_source_tree(layer)
 
-    if layer.divide_rgb_by_alpha and layer.type in {'IMAGE', 'VCOL'}:
+    if layer.enable and layer.divide_rgb_by_alpha and layer.type in {'IMAGE', 'VCOL'}:
         divider_alpha = check_new_mix_node(tree, layer, 'divider_alpha', 'Spread Fix')
         divider_alpha.blend_type = 'DIVIDE'
         divider_alpha.inputs[0].default_value = 1.0
@@ -42,41 +42,37 @@ def check_entity_image_flip_y(entity):
 
     return layer
 
-def move_mod_group(layer, from_tree, to_tree):
-    mod_group = from_tree.nodes.get(layer.mod_group)
-    if mod_group:
-        mod_tree = mod_group.node_tree
-        remove_node(from_tree, layer, 'mod_group', remove_data=False)
-        remove_node(from_tree, layer, 'mod_group_1', remove_data=False)
+def move_mod_groups(layer, from_tree, to_tree):
+    for i, mg in enumerate(layer.mod_groups):
+        mod_group = from_tree.nodes.get(mg.name)
+        if mod_group:
+            mod_tree = mod_group.node_tree
+            remove_node(from_tree, mg, 'name', remove_data=False)
 
-        mod_group = new_node(to_tree, layer, 'mod_group', 'ShaderNodeGroup', 'mod_group')
-        mod_group.node_tree = mod_tree
-        mod_group_1 = new_node(to_tree, layer, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
-        mod_group_1.node_tree = mod_tree
+            mod_group = new_node(to_tree, mg, 'name', 'ShaderNodeGroup', 'modifier_group_' + str(i))
+            mod_group.node_tree = mod_tree
 
-def refresh_source_tree_ios(source_tree, layer_type):
+def refresh_source_tree_ios(source_tree, layer_type, source):
 
     # Create input and outputs
     inp = get_tree_input_by_name(source_tree, 'Vector')
     if not inp: new_tree_input(source_tree, 'Vector', 'NodeSocketVector')
 
-    out = get_tree_output_by_name(source_tree, 'Color')
-    if not out: new_tree_output(source_tree, 'Color', 'NodeSocketColor')
+    valid_output_names = []
+    for outp in get_available_source_outputs(source, layer_type):
+        tout = get_tree_output_by_name(source_tree, outp.name)
+        if not tout: new_tree_output(source_tree, outp.name, 'NodeSocketColor')
+        valid_output_names.append(outp.name)
 
-    out = get_tree_output_by_name(source_tree, 'Alpha')
-    if not out: new_tree_output(source_tree, 'Alpha', 'NodeSocketFloat')
+        outp_alpha_name = outp.name + ' Alpha'
+        tout = get_tree_output_by_name(source_tree, outp_alpha_name)
+        if not tout: new_tree_output(source_tree, outp_alpha_name, 'NodeSocketFloat')
+        valid_output_names.append(outp_alpha_name)
 
-    col1 = get_tree_output_by_name(source_tree, 'Color 1')
-    alp1 = get_tree_output_by_name(source_tree, 'Alpha 1')
-
-    if layer_type not in {'IMAGE', 'MUSGRAVE'}:
-
-        if not col1: col1 = new_tree_output(source_tree, 'Color 1', 'NodeSocketColor')
-        if not alp1: alp1 = new_tree_output(source_tree, 'Alpha 1', 'NodeSocketFloat')
-
-    else:
-        if col1: remove_tree_output(source_tree, col1)
-        if alp1: remove_tree_output(source_tree, alp1)
+    # Remove invalid outputs
+    for outp in reversed(get_tree_outputs(source_tree)):
+        if outp.name not in valid_output_names:
+            remove_tree_output(source_tree, outp)
 
 def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
     #if not ch.override: return
@@ -98,7 +94,7 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
 
         create_essential_nodes(source_tree, True)
 
-        refresh_source_tree_ios(source_tree, ch.override_type)
+        refresh_source_tree_ios(source_tree, ch.override_type, source_ref)
 
         # Copy source from reference
         source = new_node(source_tree, ch, 'source', source_ref.bl_idname)
@@ -146,94 +142,153 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
         # Rearrange nodes
         rearrange_layer_nodes(layer)
 
-def enable_layer_source_tree(layer, rearrange=False):
-
-    # Check if source tree is already available
-    if layer.type in {'BACKGROUND', 'COLOR'}: return
-    if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'} and layer.source_group != '': return
+def check_layer_source_tree(layer, smooth_bump_enabled):
 
     layer_tree = get_tree(layer)
+    source_group = layer_tree.nodes.get(layer.source_group)
 
-    if layer.type not in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
-        # Get current source for reference
-        source_ref = layer_tree.nodes.get(layer.source)
-        linear_ref = layer_tree.nodes.get(layer.linear)
-        flip_y_ref = layer_tree.nodes.get(layer.flip_y)
-        divider_alpha_ref = layer_tree.nodes.get(layer.divider_alpha)
+    if (smooth_bump_enabled and
+        (layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'})
+    ):
+        # Enable source group
+        if not source_group:
+            # Get current source for reference
+            source_ref = layer_tree.nodes.get(layer.source)
+            baked_source_ref = layer_tree.nodes.get(layer.baked_source)
+            linear_ref = layer_tree.nodes.get(layer.linear)
+            flip_y_ref = layer_tree.nodes.get(layer.flip_y)
+            divider_alpha_ref = layer_tree.nodes.get(layer.divider_alpha)
 
-        # Create source tree
-        source_tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
+            # Create source tree
+            source_tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
 
-        create_essential_nodes(source_tree, True)
+            create_essential_nodes(source_tree, True)
 
-        refresh_source_tree_ios(source_tree, layer.type)
+            # Copy source from reference
+            source = new_node(source_tree, layer, 'source', source_ref.bl_idname)
+            copy_node_props(source_ref, source)
 
-        # Copy source from reference
-        source = new_node(source_tree, layer, 'source', source_ref.bl_idname)
+            baked_source = None
+            if baked_source_ref:
+                baked_source = new_node(source_tree, layer, 'baked_source', baked_source_ref.bl_idname)
+                copy_node_props(baked_source_ref, baked_source)
+
+            if linear_ref:
+                linear = new_node(source_tree, layer, 'linear', linear_ref.bl_idname)
+                copy_node_props(linear_ref, linear)
+
+            if flip_y_ref:
+                flip_y = new_node(source_tree, layer, 'flip_y', flip_y_ref.bl_idname)
+                copy_node_props(flip_y_ref, flip_y)
+
+            if divider_alpha_ref:
+                divider_alpha = new_node(source_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
+                copy_node_props(divider_alpha_ref, divider_alpha)
+
+            # Create source node group
+            source_group = new_node(layer_tree, layer, 'source_group', 'ShaderNodeGroup', 'source_group')
+            source_n = new_node(layer_tree, layer, 'source_n', 'ShaderNodeGroup', 'source_n')
+            source_s = new_node(layer_tree, layer, 'source_s', 'ShaderNodeGroup', 'source_s')
+            source_e = new_node(layer_tree, layer, 'source_e', 'ShaderNodeGroup', 'source_e')
+            source_w = new_node(layer_tree, layer, 'source_w', 'ShaderNodeGroup', 'source_w')
+
+            source_group.node_tree = source_tree
+            source_n.node_tree = source_tree
+            source_s.node_tree = source_tree
+            source_e.node_tree = source_tree
+            source_w.node_tree = source_tree
+
+            # Remove previous source
+            layer_tree.nodes.remove(source_ref)
+            if baked_source_ref: layer_tree.nodes.remove(baked_source_ref)
+            if linear_ref: layer_tree.nodes.remove(linear_ref)
+            if flip_y_ref: layer_tree.nodes.remove(flip_y_ref)
+            if divider_alpha_ref: layer_tree.nodes.remove(divider_alpha_ref)
+    
+            # Bring modifiers to source tree
+            if len(layer.mod_groups) == 0:
+                for mod in layer.modifiers:
+                    Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
+            else:
+                move_mod_groups(layer, layer_tree, source_tree)
+        else:
+            source_tree = source_group.node_tree
+            source = source_tree.nodes.get(layer.source)
+            baked_source = source_tree.nodes.get(layer.baked_source)
+
+        # Refresh source tree input outputs
+        if source_tree and source:
+            layer_type = layer.type
+            if layer.use_baked:
+                source = baked_source
+                layer_type = 'IMAGE'
+            refresh_source_tree_ios(source_tree, layer_type, source)
+
+    # Disable source group
+    elif source_group:
+        source_ref = source_group.node_tree.nodes.get(layer.source)
+        baked_source_ref = source_group.node_tree.nodes.get(layer.baked_source)
+        linear_ref = source_group.node_tree.nodes.get(layer.linear)
+        flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
+        divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
+
+        # Create new source
+        source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
 
+        if baked_source_ref:
+            baked_source = new_node(layer_tree, layer, 'baked_source', baked_source_ref.bl_idname)
+            copy_node_props(baked_source_ref, baked_source)
+
         if linear_ref:
-            linear = new_node(source_tree, layer, 'linear', linear_ref.bl_idname)
+            linear = new_node(layer_tree, layer, 'linear', linear_ref.bl_idname)
             copy_node_props(linear_ref, linear)
 
         if flip_y_ref:
-            flip_y = new_node(source_tree, layer, 'flip_y', flip_y_ref.bl_idname)
+            flip_y = new_node(layer_tree, layer, 'flip_y', flip_y_ref.bl_idname)
             copy_node_props(flip_y_ref, flip_y)
 
         if divider_alpha_ref:
-            divider_alpha = new_node(source_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
+            divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
             copy_node_props(divider_alpha_ref, divider_alpha)
 
-        # Create source node group
-        source_group = new_node(layer_tree, layer, 'source_group', 'ShaderNodeGroup', 'source_group')
-        source_n = new_node(layer_tree, layer, 'source_n', 'ShaderNodeGroup', 'source_n')
-        source_s = new_node(layer_tree, layer, 'source_s', 'ShaderNodeGroup', 'source_s')
-        source_e = new_node(layer_tree, layer, 'source_e', 'ShaderNodeGroup', 'source_e')
-        source_w = new_node(layer_tree, layer, 'source_w', 'ShaderNodeGroup', 'source_w')
-
-        source_group.node_tree = source_tree
-        source_n.node_tree = source_tree
-        source_s.node_tree = source_tree
-        source_e.node_tree = source_tree
-        source_w.node_tree = source_tree
+        # Bring back layer modifier to original tree
+        if len(layer.mod_groups) == 0:
+            for mod in layer.modifiers:
+                Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
+        else:
+            move_mod_groups(layer, source_group.node_tree, layer_tree)
 
         # Remove previous source
-        layer_tree.nodes.remove(source_ref)
-        if linear_ref: layer_tree.nodes.remove(linear_ref)
-        if flip_y_ref: layer_tree.nodes.remove(flip_y_ref)
-        if divider_alpha_ref: layer_tree.nodes.remove(divider_alpha_ref)
-    
-        # Bring modifiers to source tree
-        if layer.type in {'IMAGE', 'MUSGRAVE'}:
-            for mod in layer.modifiers:
-                Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
-        else:
-            move_mod_group(layer, layer_tree, source_tree)
+        remove_node(layer_tree, layer, 'source_group')
+        remove_node(layer_tree, layer, 'source_n')
+        remove_node(layer_tree, layer, 'source_s')
+        remove_node(layer_tree, layer, 'source_e')
+        remove_node(layer_tree, layer, 'source_w')
 
     # Create uv neighbor
-    if layer.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
-        uv_neighbor = replace_new_node(
-            layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-            lib.NEIGHBOR_FAKE, hard_replace=True
-        )
-        if layer.type == 'VCOL':
-            uv_neighbor_1 = replace_new_node(
-                layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
+    if smooth_bump_enabled:
+
+        if layer.type in {'VCOL', 'HEMI', 'EDGE_DETECT'} and not layer.use_baked:
+            uv_neighbor = replace_new_node(
+                layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.NEIGHBOR_FAKE, hard_replace=True
             )
-    elif layer.type not in {'GROUP', 'OBJECT_INDEX', 'BACKFACE'}: 
-        uv_neighbor = replace_new_node(
-            layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-            lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True
-        )
-        set_uv_neighbor_resolution(layer, uv_neighbor)
+            if layer.type == 'VCOL':
+                uv_neighbor_1 = replace_new_node(
+                    layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
+                    lib.NEIGHBOR_FAKE, hard_replace=True
+                )
+        elif layer.type not in {'GROUP', 'OBJECT_INDEX', 'BACKFACE'}: 
+            uv_neighbor = replace_new_node(
+                layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+                lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True
+            )
+            set_uv_neighbor_resolution(layer, uv_neighbor)
 
-    if rearrange:
-        # Reconnect outside nodes
-        reconnect_layer_nodes(layer)
-
-        # Rearrange nodes
-        rearrange_layer_nodes(layer)
+    else:
+        remove_node(layer_tree, layer, 'uv_neighbor')
+        remove_node(layer_tree, layer, 'uv_neighbor_1')
 
 def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False):
     yp = layer.id_data.yp
@@ -275,70 +330,6 @@ def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False)
 
     remove_node(layer_tree, ch, 'uv_neighbor')
     #remove_node(layer_tree, ch, 'uv_neighbor_1')
-
-    if rearrange:
-        # Reconnect outside nodes
-        reconnect_layer_nodes(layer)
-
-        # Rearrange nodes
-        rearrange_layer_nodes(layer)
-
-def disable_layer_source_tree(layer, rearrange=True, force=False):
-
-    yp = layer.id_data.yp
-
-    # Check if fine bump map is used on some of layer channels
-    if not force:
-        smooth_bump_ch = None
-        for i, root_ch in enumerate(yp.channels):
-            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and get_channel_enabled(layer.channels[i], layer, root_ch) and is_height_process_needed(layer):
-                smooth_bump_ch = root_ch
-
-        if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'} and layer.source_group == '') or smooth_bump_ch:
-            return
-
-    layer_tree = get_tree(layer)
-
-    if force or layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
-        source_group = layer_tree.nodes.get(layer.source_group)
-        if source_group:
-            source_ref = source_group.node_tree.nodes.get(layer.source)
-            linear_ref = source_group.node_tree.nodes.get(layer.linear)
-            flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
-            divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
-
-            # Create new source
-            source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
-            copy_node_props(source_ref, source)
-
-            if linear_ref:
-                linear = new_node(layer_tree, layer, 'linear', linear_ref.bl_idname)
-                copy_node_props(linear_ref, linear)
-
-            if flip_y_ref:
-                flip_y = new_node(layer_tree, layer, 'flip_y', flip_y_ref.bl_idname)
-                copy_node_props(flip_y_ref, flip_y)
-
-            if divider_alpha_ref:
-                divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
-                copy_node_props(divider_alpha_ref, divider_alpha)
-
-            # Bring back layer modifier to original tree
-            if layer.type in {'IMAGE', 'MUSGRAVE'}:
-                for mod in layer.modifiers:
-                    Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
-            else:
-                move_mod_group(layer, source_group.node_tree, layer_tree)
-
-            # Remove previous source
-            remove_node(layer_tree, layer, 'source_group')
-            remove_node(layer_tree, layer, 'source_n')
-            remove_node(layer_tree, layer, 'source_s')
-            remove_node(layer_tree, layer, 'source_e')
-            remove_node(layer_tree, layer, 'source_w')
-
-    remove_node(layer_tree, layer, 'uv_neighbor')
-    remove_node(layer_tree, layer, 'uv_neighbor_1')
 
     if rearrange:
         # Reconnect outside nodes
@@ -421,21 +412,17 @@ def check_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
     return False
 
-def enable_mask_source_tree(layer, mask, reconnect = False):
-
-    # Check if source tree is already available
-    #if (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}) and mask.group_node != '': return
+def enable_mask_source_tree(layer, mask):
 
     layer_tree = get_tree(layer)
 
-    # Create uv neighbor
-    #check_mask_uv_neighbor(layer_tree, layer, mask)
-
     if mask.group_node == '' and (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}):
+
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
         baked_source_ref = layer_tree.nodes.get(mask.baked_source)
         linear_ref = layer_tree.nodes.get(mask.linear)
+        separate_color_channels_ref = layer_tree.nodes.get(mask.separate_color_channels)
 
         # Create mask tree
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
@@ -459,6 +446,9 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
             linear = new_node(mask_tree, mask, 'linear', linear_ref.bl_idname)
             copy_node_props(linear_ref, linear)
 
+        if separate_color_channels_ref:
+            separate_color_channels = new_node(mask_tree, mask, 'separate_color_channels', separate_color_channels_ref.bl_idname, 'Separate Color')
+
         # Create source node group
         group_node = new_node(layer_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
         source_n = new_node(layer_tree, mask, 'source_n', 'ShaderNodeGroup', 'source_n')
@@ -479,28 +469,19 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         layer_tree.nodes.remove(source_ref)
         if baked_source_ref: layer_tree.nodes.remove(baked_source_ref)
         if linear_ref: layer_tree.nodes.remove(linear_ref)
+        if separate_color_channels_ref: layer_tree.nodes.remove(separate_color_channels_ref)
 
-    if reconnect:
-        # Reconnect outside nodes
-        reconnect_layer_nodes(layer)
+def disable_mask_source_tree(layer, mask):
 
-        # Rearrange nodes
-        rearrange_layer_nodes(layer)
+    if mask.group_node != '':
 
-def disable_mask_source_tree(layer, mask, reconnect=False):
-
-    # Check if source tree is already gone
-    #if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node == '': return
-
-    layer_tree = get_tree(layer)
-
-    if mask.group_node != '': #and (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}):
-
+        layer_tree = get_tree(layer)
         mask_tree = get_mask_tree(mask)
 
         source_ref = mask_tree.nodes.get(mask.source)
         baked_source_ref = mask_tree.nodes.get(mask.baked_source)
         linear_ref = mask_tree.nodes.get(mask.linear)
+        separate_color_channels_ref = mask_tree.nodes.get(mask.separate_color_channels)
         group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
@@ -515,6 +496,9 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
             linear = new_node(layer_tree, mask, 'linear', linear_ref.bl_idname)
             copy_node_props(linear_ref, linear)
 
+        if separate_color_channels_ref:
+            separate_color_channels = new_node(layer_tree, mask, 'separate_color_channels', separate_color_channels_ref.bl_idname, 'Separate Color')
+
         for mod in mask.modifiers:
             MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
 
@@ -528,15 +512,6 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         remove_node(layer_tree, mask, 'bitangent')
         remove_node(layer_tree, mask, 'tangent_flip')
         remove_node(layer_tree, mask, 'bitangent_flip')
-
-    #remove_node(layer_tree, mask, 'uv_neighbor')
-
-    if reconnect:
-        # Reconnect outside nodes
-        reconnect_layer_nodes(layer)
-
-        # Rearrange nodes
-        rearrange_layer_nodes(layer)
 
 def check_create_height_pack(layer, tree, height_root_ch, height_ch):
 
@@ -599,7 +574,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
             ch = layer.channels[j]
             root_ch = yp.channels[j]
-            channel_enabled = get_channel_enabled(ch, layer, root_ch)
+            channel_enabled = is_blend_node_needed(ch, layer, root_ch)
             write_height = get_write_height(ch)
 
             if specific_ch and ch != specific_ch: continue
@@ -1778,33 +1753,6 @@ def check_uv_nodes(yp, generate_missings=False):
 
     return dirty
 
-def remove_layer_normal_channel_nodes(root_ch, layer, ch, tree=None):
-
-    if not tree: tree = get_tree(layer)
-
-    # Remove neighbor related nodes
-    if root_ch.enable_smooth_bump:
-        disable_layer_source_tree(layer, False)
-        Modifier.disable_modifiers_tree(ch)
-
-        if ch.override and ch.override_type != 'DEFAULT':
-            disable_channel_source_tree(layer, root_ch, ch, False)
-
-    remove_node(tree, ch, 'spread_alpha')
-
-    remove_node(tree, ch, 'tb_distance_flipper')
-    remove_node(tree, ch, 'tb_delta_calc')
-    remove_node(tree, ch, 'bump_distance_ignorer')
-
-    remove_node(tree, ch, 'height_proc')
-    remove_node(tree, ch, 'height_blend')
-
-    remove_node(tree, ch, 'normal_map_proc')
-    remove_node(tree, ch, 'normal_proc')
-    remove_node(tree, ch, 'normal_flip')
-
-    remove_node(tree, ch, 'max_height_calc')
-
 def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=False):
 
     #print("Checking channel normal map nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
@@ -1820,6 +1768,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     channel_enabled = get_channel_enabled(ch, layer, root_ch)
     height_process_needed = is_height_process_needed(layer)
     write_height = get_write_height(ch)
+    smooth_bump_enabled = channel_enabled and root_ch.enable_smooth_bump and height_process_needed
 
     # Check mask source tree
     check_mask_source_tree(layer) #, ch)
@@ -1831,17 +1780,14 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     if check_create_spread_alpha(layer, tree, root_ch, ch): need_reconnect = True
 
     # Dealing with neighbor related nodes
-    if channel_enabled and root_ch.enable_smooth_bump and height_process_needed:
-        enable_layer_source_tree(layer)
-    else: 
-        disable_layer_source_tree(layer, False)
+    check_layer_source_tree(layer, smooth_bump_enabled)
+
+    # Disable modifier tree when smooth bump is disabled ??
+    if not smooth_bump_enabled:
         Modifier.disable_modifiers_tree(ch)
 
-        #if ch.override and ch.override_type != 'DEFAULT':
-        #    disable_channel_source_tree(layer, root_ch, ch, False)
-
     # Dealing with channel override
-    if channel_enabled and ch.override and root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and height_process_needed:
+    if smooth_bump_enabled and ch.override and ch.override_type != 'DEFAULT' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
         enable_channel_source_tree(layer, root_ch, ch)
     else:
         disable_channel_source_tree(layer, root_ch, ch, False)
@@ -2358,8 +2304,10 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     has_parent = layer.parent_idx != -1
 
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
     # Check if channel is enabled
-    channel_enabled = get_channel_enabled(ch, layer, root_ch)
+    channel_enabled = is_blend_node_needed(ch, layer, root_ch)
 
     # Background layer always using mix blend type
     if layer.type == 'BACKGROUND':
@@ -2378,7 +2326,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if root_ch.type in {'RGB', 'VALUE'}:
         if channel_enabled:
             if root_ch.type == 'RGB':
-                if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
+                if (has_parent or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX':
 
                     if (
                             layer.type == 'BACKGROUND' and not 
@@ -2388,6 +2336,11 @@ def check_blend_type_nodes(root_ch, layer, ch):
                         ):
                         blend, need_reconnect = replace_new_node(
                             tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG,
+                            return_status=True, hard_replace=True, dirty=need_reconnect
+                        )
+                    elif has_parent and ch == color_ch: 
+                        blend, need_reconnect = replace_new_node(
+                            tree, ch, 'blend',  'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_PAIRED_CHILD, 
                             return_status=True, hard_replace=True, dirty=need_reconnect
                         )
 
@@ -2404,7 +2357,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     )
             elif root_ch.type == 'VALUE':
 
-                if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
+                if (has_parent or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX':
                     if layer.type == 'BACKGROUND':
                         blend, need_reconnect = replace_new_node(
                             tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, 
@@ -2445,10 +2398,10 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if channel_enabled and (is_layer_using_normal_map(layer) or root_ch.enable_alpha):
+        if channel_enabled and (is_layer_using_normal_map(layer) or is_channel_alpha_enabled(root_ch)):
 
             #if has_parent and ch.normal_blend_type == 'MIX':
-            if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
+            if (has_parent or is_channel_alpha_enabled(root_ch)) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
                 if layer.type == 'BACKGROUND':
                     blend, need_reconnect = replace_new_node(
                         tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
@@ -2525,7 +2478,7 @@ def check_extra_alpha(layer, need_reconnect=False):
         if disp_ch == ch: continue
 
         root_ch = yp.channels[i]
-        channel_enabled = get_channel_enabled(ch, layer, root_ch)
+        channel_enabled = is_blend_node_needed(ch, layer, root_ch)
 
         extra_alpha = tree.nodes.get(ch.extra_alpha)
 
@@ -2547,6 +2500,7 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
     yp = ch.id_data.yp
     if not layer or not root_ch: layer, root_ch = get_layer_and_root_ch_from_layer_ch(ch)
 
+    layer_tree = get_tree(layer)
     source_tree = get_channel_source_tree(ch, layer)
 
     gamma = get_layer_channel_gamma_value(ch, layer, root_ch)
@@ -2562,12 +2516,16 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
         # Delete linear node
         remove_node(source_tree, ch, 'linear')
 
+    # NOTE: Swizzle currently only works with non custom layer channel source
+    if not ch.override and ch.swizzle_input_mode != 'RGB' and get_channel_enabled(ch, layer, root_ch):
+        check_new_node(layer_tree, ch, 'separate_color_channels', 'ShaderNodeSeparateXYZ', 'Separate Color')
+    else:
+        remove_node(layer_tree, ch, 'separate_color_channels')
 
     if root_ch.type == 'NORMAL':
         gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch)
         if gamma_1 != 1.0:
             # Create linear node
-            layer_tree = get_tree(layer)
             linear_1 = replace_new_node(layer_tree, ch, 'linear_1', 'ShaderNodeGamma', 'Linear 1')
             linear_1.inputs[1].default_value = gamma_1
         else:
@@ -2628,3 +2586,15 @@ def check_yp_linear_nodes(yp, specific_layer=None, reconnect=True):
         if reconnect:
             reconnect_layer_nodes(layer)
             rearrange_layer_nodes(layer)
+
+def check_group_alpha_multiply_node(layer):
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    tree = get_tree(layer)
+    # Group alpha multiply only need if color channel is enabled
+    if layer.type == 'GROUP' and alpha_ch and get_channel_enabled(color_ch, layer):
+        group_alpha_multiply = check_new_node(tree, alpha_ch, 'group_alpha_multiply', 'ShaderNodeMath', 'Group Alpha Multiply')
+        group_alpha_multiply.operation = 'MULTIPLY'
+    else:
+        for ch in layer.channels:
+            remove_node(tree, ch, 'group_alpha_multiply')
+
