@@ -18,6 +18,38 @@ class FileSelectOptions():
         options = {'HIDDEN', 'SKIP_SAVE'}
     )
 
+class BlendMethodOptions():
+    blend_method : EnumProperty(
+        name = 'Blend Method', 
+        description = 'Blend method for transparent material',
+        items = (
+            ('CLIP', 'Alpha Clip', ''),
+            ('HASHED', 'Alpha Hashed', ''),
+            ('BLEND', 'Alpha Blend', '')
+        ),
+        default = 'HASHED'
+    )
+
+    shadow_method : EnumProperty(
+        name = 'Shadow Method', 
+        description = 'Shadow method for transparent material',
+        items = (
+            ('CLIP', 'Alpha Clip', ''),
+            ('HASHED', 'Alpha Hashed', ''),
+        ),
+        default = 'HASHED'
+    )
+
+    surface_render_method : EnumProperty(
+        name = 'Surface Render Method', 
+        description = 'Surface render method for transparent material',
+        items = (
+            ('DITHERED', 'Dithered', ''),
+            ('BLENDED', 'Blended', ''),
+        ),
+        default = 'DITHERED'
+    )
+
 class OpenImage(FileSelectOptions):
 
     # File related

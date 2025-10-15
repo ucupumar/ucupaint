@@ -29,6 +29,8 @@ STRAIGHT_OVER_BG_VEC = '~yPL Straight Over Vector Background Mix'
 STRAIGHT_OVER_HEIGHT_MIX = '~yPL Straight Over Height Mix'
 STRAIGHT_OVER_HEIGHT_ADD = '~yPL Straight Over Height Add'
 
+STRAIGHT_OVER_PAIRED_CHILD = '~yPL Straight Over Paired Child Mix'
+
 #STRAIGHT_OVER_BG_RAMP = '~yPL Straight Over Background Mix Ramp'
 
 SPREAD_ALPHA = '~yPL Spread Alpha'
@@ -61,6 +63,7 @@ RAMP_FLIP = '~yPL Ramp Flip'
 RAMP_FLIP_BLEND = '~yPL Ramp Flip Blend'
 RAMP_FLIP_MIX_BLEND = '~yPL Ramp Flip Mix Blend'
 RAMP_FLIP_STRAIGHT_OVER_BLEND = '~yPL Ramp Flip Straight Over Blend'
+RAMP_FLIP_STRAIGHT_OVER_PAIRED_CHILD_BLEND = '~yPL Ramp Flip Straight Over Paired Child Blend'
 
 VECTOR_MIX ='~yPL Vector Mix'
 #INVERTED_MULTIPLIER ='~yPL Inverted Multiplier'

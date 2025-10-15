@@ -319,11 +319,13 @@ def add_new_layer(
                     bpy.ops.mesh.y_vcol_fill_face_custom(color=(mask_color_id[0], mask_color_id[1], mask_color_id[2], 1.0))
 
         mask = Mask.add_new_mask(
-            layer, mask_name, mask_type, mask_texcoord_type,
-            mask_uv_name, mask_image, mask_vcol_name, mask_segment,
-            interpolation=mask_interpolation, color_id=mask_color_id,
-            edge_detect_radius=mask_edge_detect_radius, edge_detect_method=mask_edge_detect_method,
-            hemi_use_prev_normal=mask_use_prev_normal
+            layer, mask_name, mask_type, mask_texcoord_type, mask_uv_name, 
+            image=mask_image, vcol_name=mask_vcol_name, segment=mask_segment,
+            interpolation = mask_interpolation,
+            color_id = mask_color_id,
+            edge_detect_radius = mask_edge_detect_radius,
+            edge_detect_method = mask_edge_detect_method,
+            hemi_use_prev_normal = mask_use_prev_normal
         )
         mask.active_edit = True
 
@@ -2797,6 +2799,16 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
             self.report({'ERROR'}, "Material has no layers!")
             return {'CANCELLED'}
 
+        # Do update before copying layers
+        if version_tuple(source_yp.version) < version_tuple(get_current_version_str()):
+            try:
+                print('Open Layers: Updating source layers to version '+get_current_version_str()+'...')
+                bpy.ops.wm.y_update_yp_trees('INVOKE_DEFAULT')
+            except Exception as e:
+                self.remove_mat(mat, from_asset_library)
+                self.report({'ERROR'}, "Failed to update source layers: "+str(e))
+                return {'CANCELLED'}
+
         # Copy all layers to clipboard
         wmp = context.window_manager.ypprops
         wmp.clipboard_tree = source_tree.name
@@ -2805,6 +2817,7 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
         try:
             bpy.ops.wm.y_paste_layer('INVOKE_DEFAULT')
         except Exception as e:
+            self.remove_mat(mat, from_asset_library)
             self.report({'ERROR'}, "Failed to paste layers: "+str(e))
             return {'CANCELLED'}
 
@@ -4332,7 +4345,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     layer.type = new_type
 
     # Check modifiers tree
-    Modifier.check_modifiers_trees(layer)
+    Modifier.check_layer_modifier_tree(layer)
 
     # Always remove baked layer when changing type
     if layer.use_baked:
@@ -4589,18 +4602,7 @@ class YSetLayerChannelInput(bpy.types.Operator):
     bl_description = "Set layer channel input"
     bl_options = {'UNDO'}
 
-    type : EnumProperty(
-            name = 'Input Type',
-            items = (
-                ('CUSTOM', 'Custom', ''),
-                ('RGB', 'Layer RGB', ''),
-                ('ALPHA', 'Layer Alpha', ''),
-                #('R', 'Layer R', ''),
-                #('G', 'Layer G', ''),
-                #('B', 'Layer B', ''),
-                ),
-            default = 'RGB')
-
+    socket_name : StringProperty(default='')
     set_normal_input : BoolProperty(default=False)
 
     @classmethod
@@ -4612,9 +4614,9 @@ class YSetLayerChannelInput(bpy.types.Operator):
         return self.execute(context)
 
     def execute(self, context):
-        #layer = context.layer
         ch = context.channel
-        if self.type == 'CUSTOM':
+
+        if self.socket_name == '':
             if self.set_normal_input:
                 ch.override_1 = True
                 ch.override_1_type = 'DEFAULT'
@@ -4622,13 +4624,13 @@ class YSetLayerChannelInput(bpy.types.Operator):
                 ch.override = True
                 ch.override_type = 'DEFAULT'
             if not ch.enable: ch.enable = True
-        else: 
+        else:
             if self.set_normal_input:
                 ch.override_1 = False
-                #ch.layer_input = self.type
+                ch.socket_input_1_name = self.socket_name
             else:
                 ch.override = False
-                ch.layer_input = self.type
+                ch.socket_input_name = self.socket_name
 
         # Update list items
         ListItem.refresh_list_items(ch.id_data.yp, repoint_active=True)
@@ -4792,6 +4794,16 @@ def duplicate_decal_empty_reference(texcoord_name, ttree, set_new_decal_position
 
         texcoord.object = new_empty
 
+def duplicate_layer_modifier_tree(layer, tree):
+    mod_tree = None
+    for mg in layer.mod_groups:
+        mod_group = tree.nodes.get(mg.name)
+        if mod_group:
+            if not mod_tree:
+                mod_group.node_tree = mod_group.node_tree.copy()
+                mod_tree = mod_group.node_tree
+            else:
+                mod_group.node_tree = mod_tree
 
 def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=True, duplicate_blank=False, ondisk_duplicate=False, set_new_decal_position=False):
 
@@ -4826,23 +4838,13 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                 if s: s.node_tree = source_group.node_tree
 
             # Duplicate layer modifier groups
-            mod_group = source_group.node_tree.nodes.get(layer.mod_group)
-            if mod_group:
-                mod_group.node_tree = mod_group.node_tree.copy()
-
-                mod_group_1 = source_group.node_tree.nodes.get(layer.mod_group_1)
-                if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
+            duplicate_layer_modifier_tree(layer, source_group.node_tree)
 
         else:
             source = ttree.nodes.get(layer.source)
 
             # Duplicate layer modifier groups
-            mod_group = ttree.nodes.get(layer.mod_group)
-            if mod_group:
-                mod_group.node_tree = mod_group.node_tree.copy()
-
-                mod_group_1 = ttree.nodes.get(layer.mod_group_1)
-                if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
+            duplicate_layer_modifier_tree(layer, ttree)
 
         # Decal object duplicate
         if layer.texcoord_type == 'Decal':
@@ -5781,6 +5783,16 @@ def update_channel_enable(self, context):
     # Refresh layer IO
     check_all_layer_channel_io_and_nodes(layer, tree, ch)
 
+    # Check layer modifier trees
+    Modifier.check_layer_modifier_tree(layer)
+
+    # Update alpha channel pair
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    if ch == color_ch:
+        check_all_layer_channel_io_and_nodes(layer, tree, alpha_ch)
+    elif ch == alpha_ch:
+        check_all_layer_channel_io_and_nodes(layer, tree, color_ch)
+
     if yp.halt_reconnect: return
 
     if yp.layer_preview_mode:
@@ -5819,6 +5831,9 @@ def update_normal_map_type(self, context):
     check_uv_nodes(yp)
 
     check_layer_tree_ios(layer, tree)
+
+    # Check layer modifiers since the group can change
+    Modifier.check_layer_modifier_tree(layer)
 
     if yp.layer_preview_mode:
         # Set correct active edit
@@ -5943,6 +5958,12 @@ def update_layer_channel_voronoi_feature(self, context):
 def update_layer_input(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
+
+    # Check layer modifier trees
+    m = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', self.path_from_id())
+    if m: 
+        layer = yp.layers[int(m.group(1))]
+        Modifier.check_layer_modifier_tree(layer)
 
     check_layer_channel_linear_node(self, reconnect=True)
 
@@ -6337,6 +6358,28 @@ class YLayerChannel(bpy.types.PropertyGroup):
         name = 'Layer Input',
         description = 'Input for layer channel',
         items = entity_input_items,
+        #update = update_layer_input
+    ) # Deprecated
+
+    socket_input_name : StringProperty(
+        name = 'Socket Input Name',
+        description = 'Socket name for layer channel input',
+        default = 'Color',
+        update = update_layer_input
+    )
+
+    socket_input_1_name : StringProperty(
+        name = 'Socket Normal Input Name',
+        description = 'Socket name for layer normal channel input',
+        default = 'Color',
+        update = update_layer_input
+    )
+
+    swizzle_input_mode : EnumProperty(
+        name = 'Swizzle Mode',
+        description = 'Swizzle input mode',
+        items = swizzle_items,
+        default = 'RGB',
         update = update_layer_input
     )
 
@@ -6397,6 +6440,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
         default=1.0, min=0.0, max=1.0, subtype='FACTOR', precision=3
     )
 
+    unpair_alpha : BoolProperty(
+        name = 'Unpair with Alpha',
+        description = 'Unpair with alpha channel (useful for using Transition Ramp/AO with transparent holes)',
+        default = False,
+        update = update_channel_enable
+    )
+            
     # Modifiers
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
     modifiers_1 : CollectionProperty(type=NormalMapModifier.YNormalMapModifier)
@@ -6503,6 +6553,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Flip y node
     flip_y : StringProperty(default='')
     vdisp_flip_yz : StringProperty(default='')
+
+    # Swizzle node
+    separate_color_channels : StringProperty(default='')
+
+    # Alpha related
+    group_alpha_multiply : StringProperty(default='')
 
     # Height related
     height_proc : StringProperty(default='')
@@ -7243,8 +7299,9 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
 
     # Modifiers
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
-    mod_group : StringProperty(default='')
-    mod_group_1 : StringProperty(default='')
+    mod_group : StringProperty(default='') # Deprecated
+    mod_group_1 : StringProperty(default='') # Deprecated
+    mod_groups : CollectionProperty(type=Modifier.YPaintModifierGroupNode)
 
     # Mask
     enable_masks : BoolProperty(

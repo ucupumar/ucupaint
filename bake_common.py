@@ -2055,6 +2055,10 @@ def bake_channel(
 
         ch = target_layer.channels[channel_idx]
 
+    # Get color and alpha channel
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+    alpha_enabled = root_ch.enable_alpha or (alpha_ch and root_ch == color_ch and alpha_ch.alpha_combine_to_baked_color)
+
     # Check if udim will be used
     use_udim = force_use_udim or len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED')
 
@@ -2177,7 +2181,7 @@ def bake_channel(
             val = node.inputs[root_ch.name].default_value
             color = (val, val, val, 1.0)
 
-        elif root_ch.enable_alpha:
+        elif alpha_enabled:
             color = (0.0, 0.0, 0.0, 1.0)
 
         else:
@@ -2567,12 +2571,16 @@ def bake_channel(
 
     # Bake alpha
     #if root_ch.type != 'NORMAL' and root_ch.enable_alpha:
-    if root_ch.enable_alpha:
+    if alpha_enabled:
 
         # Create temp image
         alpha_img = img.copy()
         alpha_img.colorspace_settings.name = get_noncolor_name()
-        create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], emit.inputs[0])
+
+        if root_ch.enable_alpha:
+            create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], emit.inputs[0])
+        else: create_link(mat.node_tree, node.outputs[alpha_ch.name], emit.inputs[0])
+
         tex.image = alpha_img
 
         # Set temp filepath
@@ -3799,7 +3807,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
                 mask = Mask.add_new_mask(
                     active_layer, mask_name, 'IMAGE', 'UV', bprops.uv_map,
-                    image, '', segment
+                    image=image, vcol_name='', segment=segment
                 )
                 mask.active_edit = True
 

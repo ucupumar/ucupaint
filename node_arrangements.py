@@ -481,7 +481,7 @@ def rearrange_source_tree_nodes(layer):
 
     if layer.baked_source != '':
         loc.x = bookmark_x
-        loy.y -= 320
+        loc.y -= 320
         check_set_node_loc(source_tree, layer.baked_source, loc)
         loc.x += 280
         loc.y = 0
@@ -495,16 +495,19 @@ def rearrange_source_tree_nodes(layer):
     if check_set_node_loc(source_tree, layer.flip_y, loc):
         loc.x += 200
 
-    if layer.type in {'IMAGE', 'VCOL', 'MUSGRAVE'}:
-        arrange_modifier_nodes(source_tree, layer, loc)
+    if len(layer.mod_groups) > 0:
+        for i, mg in enumerate(layer.mod_groups):
+            if i == 0:
+                mod_group = source_tree.nodes.get(mg.name)
+                if mod_group: arrange_modifier_nodes(mod_group.node_tree, layer, loc.copy())
+
+            if check_set_node_loc(source_tree, mg.name, loc, True):
+                loc.y -= 40
+
+        loc.y = 0
+        loc.x += 200
     else:
-        if check_set_node_loc(source_tree, layer.mod_group, loc, True):
-            mod_group = source_tree.nodes.get(layer.mod_group)
-            arrange_modifier_nodes(mod_group.node_tree, layer, loc=Vector((0, 0)))
-            loc.y -= 40
-        if check_set_node_loc(source_tree, layer.mod_group_1, loc, True):
-            loc.y += 40
-            loc.x += 150
+        arrange_modifier_nodes(source_tree, layer, loc)
 
     check_set_node_loc(source_tree, TREE_END, loc)
 
@@ -1006,13 +1009,26 @@ def rearrange_layer_nodes(layer, tree=None):
 
     # Layer modifiers
     if layer.source_group == '':
+        '''
         if layer.mod_group != '':
+        '''
+        if len(layer.mod_groups) > 0:
+            '''
             mod_group = nodes.get(layer.mod_group)
             arrange_modifier_nodes(mod_group.node_tree, layer, loc.copy())
             check_set_node_loc(tree, layer.mod_group, loc, hide=True)
             loc.y -= 40
             check_set_node_loc(tree, layer.mod_group_1, loc, hide=True)
             loc.y += 40
+            '''
+            for i, mg in enumerate(layer.mod_groups):
+                if i == 0:
+                    mod_group = nodes.get(mg.name)
+                    if mod_group: arrange_modifier_nodes(mod_group.node_tree, layer, loc.copy())
+
+                if check_set_node_loc(tree, mg.name, loc, True):
+                    loc.y -= 40
+
             loc.x += 200
         else:
             loc = arrange_modifier_nodes(tree, layer, loc)
@@ -1044,6 +1060,9 @@ def rearrange_layer_nodes(layer, tree=None):
         if ch.source_group == '':
             if check_set_node_loc(tree, ch.linear, loc):
                 loc.x += 200
+
+        if check_set_node_loc(tree, ch.separate_color_channels, loc):
+            loc.x += 200
 
         # Modifier loop
         if ch.mod_group != '':
@@ -1559,6 +1578,9 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x += 200
 
         if check_set_node_loc(tree, ch.intensity, loc):
+            loc.x += 200
+
+        if check_set_node_loc(tree, ch.group_alpha_multiply, loc):
             loc.x += 200
 
         bookmark_x1 = loc.x

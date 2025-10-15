@@ -41,7 +41,7 @@ def check_transition_bump_influences_to_other_channels(layer, tree=None, target_
         # Transition Ramp update
         check_transition_ramp_nodes(tree, layer, c)
 
-        if bump_ch and get_channel_enabled(c):
+        if bump_ch and is_blend_node_needed(c):
             if bump_ch.transition_bump_flip:
                 im = replace_new_node(
                     tree, c, 'intensity_multiplier', 'ShaderNodeGroup', 
@@ -161,6 +161,8 @@ def set_transition_ramp_nodes(tree, layer, ch):
 
     bump_ch = get_transition_bump_channel(layer)
 
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
     # Save previous ramp to cache
     save_ramp(tree, ch)
 
@@ -174,11 +176,17 @@ def set_transition_ramp_nodes(tree, layer, ch):
         if dirty: duplicate_lib_node_tree(tr_ramp)
 
         if (ch.transition_ramp_blend_type == 'MIX' and 
-                ((root_ch.type == 'RGB' and root_ch.enable_alpha) or layer.parent_idx != -1)):
-            tr_ramp_blend = replace_new_node(
-                tree, ch, 'tr_ramp_blend', 'ShaderNodeGroup', 'Transition Ramp Blend',
-                lib.RAMP_FLIP_STRAIGHT_OVER_BLEND, hard_replace=True
-            )
+                ((root_ch.type == 'RGB' and root_ch.enable_alpha) or ch == color_ch or layer.parent_idx != -1)):
+            if layer.parent_idx != -1 and ch == color_ch:
+                tr_ramp_blend = replace_new_node(
+                    tree, ch, 'tr_ramp_blend', 'ShaderNodeGroup', 'Transition Ramp Blend',
+                    lib.RAMP_FLIP_STRAIGHT_OVER_PAIRED_CHILD_BLEND, hard_replace=True
+                )
+            else:
+                tr_ramp_blend = replace_new_node(
+                    tree, ch, 'tr_ramp_blend', 'ShaderNodeGroup', 'Transition Ramp Blend',
+                    lib.RAMP_FLIP_STRAIGHT_OVER_BLEND, hard_replace=True
+                )
         else:
             tr_ramp_blend, dirty = replace_new_node(
                 tree, ch, 'tr_ramp_blend', 'ShaderNodeGroup', 'Transition Ramp Blend',
@@ -413,7 +421,7 @@ def check_transition_bump_nodes(layer, tree, ch):
     update_displacement_height_ratio(root_ch)
 
     # Check normal map nodes
-    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
+    #check_channel_normal_map_nodes(tree, layer, root_ch, ch)
 
     # Check extra alpha
     check_extra_alpha(layer)
@@ -481,8 +489,8 @@ def remove_transition_bump_nodes(layer, tree, ch, ch_index):
 
     save_transition_bump_falloff_cache(tree, ch)
 
-    disable_layer_source_tree(layer, False)
-    Modifier.disable_modifiers_tree(ch)
+    #disable_layer_source_tree(layer, False)
+    #Modifier.disable_modifiers_tree(ch)
 
     remove_node(tree, ch, 'intensity_multiplier')
     remove_node(tree, ch, 'tb_bump')
