@@ -4361,6 +4361,9 @@ class YPaintMaterialProps(bpy.types.PropertyGroup):
 class YPaintTimer(bpy.types.PropertyGroup):
     time : StringProperty(default='')
 
+class YPaintCacheAnimatedTree(bpy.types.PropertyGroup):
+    name : StringProperty(default='')
+
 class YPaintWMProps(bpy.types.PropertyGroup):
     clipboard_tree : StringProperty(default='')
     clipboard_layer : StringProperty(default='')
@@ -4391,6 +4394,8 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     image_editor_pins : StringProperty(default='')
 
     halt_hacks : BoolProperty(default=False)
+
+    cache_animated_trees : CollectionProperty(type=YPaintCacheAnimatedTree)
 
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
@@ -4597,62 +4602,95 @@ def ypaint_missmatch_paint_slot_hack(scene):
 
         wmyp.correct_paint_image_name = ''
 
-@persistent
-def ypaint_force_update_on_anim(scene):
-    #print(scene.frame_current)
+def get_yp_animated_tree_names():
+    wmyp = bpy.context.window_manager.ypprops
 
-    yp_keyframe_found = False
-    for act in bpy.data.actions:
-        if act.id_root == 'NODETREE' and len(act.fcurves) > 0 and act.fcurves[0].data_path.startswith('yp.'):
-            yp_keyframe_found = True
-            break
+    animated_tree_names = []
 
-    if yp_keyframe_found:
-        ngs = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node and ng.animation_data and ng.animation_data.action]
-        for ng in ngs:
-            fcs = ng.animation_data.action.fcurves
+    if any_yp_dot_fcurves():
+
+        trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node and ng.animation_data and ng.animation_data.action]
+        for tree in trees:
+            fcs = get_datablock_fcurves(tree)
+            fc_found = False
             for fc in fcs:
                 if not fc.mute and fc.data_path.startswith('yp.'):
+                    fc_found = True
+                    break
 
-                    # Get the datapath of the keyframed prop
-                    ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
-                    path = ng_string + fc.data_path
+            if fc_found:
+                animated_tree_names.append(tree.name)
 
-                    # Get evaluated value
-                    val = fc.evaluate(scene.frame_current)
+    return animated_tree_names
 
-                    # Check if path is a string
-                    if type(eval(path)) == str:
-                        # Get prop name
-                        m = re.match(r'(.+)\.(.+)$', fc.data_path)
-                        if m:
-                            parent_path = ng_string + m.group(1)
-                            prop_name = m.group(2)
-                            enum_path = parent_path + '.bl_rna.properties["' + prop_name + '"].enum_items[' + str(int(val)) + '].identifier'
-                            val = eval(enum_path)
+@persistent
+def ypaint_playback_preparations(scene):
+    wmyp = bpy.context.window_manager.ypprops
 
-                    # Check if path is an array
-                    elif hasattr(eval(path), '__len__'):
-                        path += '[' + str(fc.array_index) + ']'
+    # When animation is started playing, clear and repopulate all yp tress that has animation data
+    wmyp.cache_animated_trees.clear()
 
-                    # Check if path is a boolean
-                    elif type(eval(path)) == bool:
-                        val = val == 1.0
+    for tree_name in get_yp_animated_tree_names():
+        at = wmyp.cache_animated_trees.add()
+        at.name = tree_name
 
-                    #print(path, val)
+@persistent
+def ypaint_force_update_on_anim(scene):
+    wmyp = bpy.context.window_manager.ypprops
+    ypup = get_user_preferences()
 
-                    # Only run script if needed
-                    if eval(path) != val:
+    # When the preference is enabled, always get the updated animated tree names rather than using caches on window manager
+    if ypup.always_evaluate_frame:
+        animated_tree_names = get_yp_animated_tree_names()
+    else: animated_tree_names = [at.name for at in wmyp.cache_animated_trees]
 
-                        # Convert evaluated value to string
-                        string_val = str(val) if type(val) != str else '"' + val + '"'
+    # Loop animated tree datas 
+    for name in animated_tree_names:
+        ng = bpy.data.node_groups.get(name)
+        if not ng: continue
+        fcs = get_datablock_fcurves(ng)
+        for fc in fcs:
+            if not fc.mute and fc.data_path.startswith('yp.'):
 
-                        # Construct the script
-                        script = path + ' = ' + string_val
+                # Get the datapath of the keyframed prop
+                ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
+                path = ng_string + fc.data_path
 
-                        # Run the script to trigger update
-                        #print(script)
-                        exec(script)
+                # Get evaluated value
+                val = fc.evaluate(scene.frame_current)
+
+                # Check if path is a string
+                if type(eval(path)) == str:
+                    # Get prop name
+                    m = re.match(r'(.+)\.(.+)$', fc.data_path)
+                    if m:
+                        parent_path = ng_string + m.group(1)
+                        prop_name = m.group(2)
+                        enum_path = parent_path + '.bl_rna.properties["' + prop_name + '"].enum_items[' + str(int(val)) + '].identifier'
+                        val = eval(enum_path)
+
+                # Check if path is an array
+                elif hasattr(eval(path), '__len__'):
+                    path += '[' + str(fc.array_index) + ']'
+
+                # Check if path is a boolean
+                elif type(eval(path)) == bool:
+                    val = val == 1.0
+
+                #print(path, val)
+
+                # Only run script if needed
+                if eval(path) != val:
+
+                    # Convert evaluated value to string
+                    string_val = str(val) if type(val) != str else '"' + val + '"'
+
+                    # Construct the script
+                    script = path + ' = ' + string_val
+
+                    # Run the script to trigger update
+                    #print(script)
+                    exec(script)
 
 def register():
     bpy.utils.register_class(YSelectMaterialPolygons)
@@ -4684,6 +4722,7 @@ def register():
     bpy.utils.register_class(YPaint)
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
+    bpy.utils.register_class(YPaintCacheAnimatedTree)
     bpy.utils.register_class(YPaintWMProps)
     bpy.utils.register_class(YPaintSceneProps)
     bpy.utils.register_class(YPaintObjectUVHash)
@@ -4706,6 +4745,9 @@ def register():
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
+
+    if is_bl_newer_than(3, 6):
+        bpy.app.handlers.animation_playback_pre.append(ypaint_playback_preparations)
 
     bpy.app.handlers.frame_change_pre.append(ypaint_force_update_on_anim)
 
@@ -4739,6 +4781,7 @@ def unregister():
     bpy.utils.unregister_class(YPaint)
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)
+    bpy.utils.unregister_class(YPaintCacheAnimatedTree)
     bpy.utils.unregister_class(YPaintWMProps)
     bpy.utils.unregister_class(YPaintSceneProps)
     bpy.utils.unregister_class(YPaintObjectUVHash)
@@ -4752,6 +4795,9 @@ def unregister():
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_last_object_update)
+
+    if is_bl_newer_than(3, 6):
+        bpy.app.handlers.animation_playback_pre.remove(ypaint_playback_preparations)
 
     bpy.app.handlers.frame_change_pre.remove(ypaint_force_update_on_anim)
 

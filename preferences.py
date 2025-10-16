@@ -169,7 +169,13 @@ class YPaintPreferences(AddonPreferences):
         ),
         default = 'DEFAULT'
     )
-    
+
+    always_evaluate_frame : BoolProperty(
+        name = 'Always Evaluate on Frame Change',
+        description = 'Always fo frame change evaluation on '+get_addon_title()+' keyfame data (slow)',
+        default = False
+    )
+
     def draw(self, context):
         if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'default_bake_device')
@@ -186,6 +192,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'skip_property_popups')
         self.layout.prop(self, 'enable_baked_outside_by_default')
+        self.layout.prop(self, 'always_evaluate_frame')
         if is_bl_newer_than(2, 81):
             self.layout.prop(self, 'enable_uniform_uv_scale_by_default')
         if is_udim_supported():
