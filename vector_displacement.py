@@ -10,57 +10,68 @@ TEMP_COMBINED_VDM_IMAGE_SUFFIX = '_YP_TEMP_COMBINED_VDM'
 TEMP_LAYER_DISABLED_VDM_IMAGE_SUFFIX = '_YP_LAYER_DISABLED_VDM'
 
 def _remember_before_bake(obj):
-    book = {}
-    book['scene'] = scene = bpy.context.scene
-    book['obj'] = obj
-    book['mode'] = obj.mode
+    book = dotdict()
+    book.scene = scene = bpy.context.scene
+    book.obj = obj
+    book.mode = obj.mode
     uv_layers = obj.data.uv_layers
     ypui = bpy.context.window_manager.ypui
 
     # Remember render settings
-    book['ori_engine'] = scene.render.engine
-    book['ori_bake_type'] = scene.cycles.bake_type
-    book['ori_samples'] = scene.cycles.samples
-    book['ori_threads_mode'] = scene.render.threads_mode
-    book['ori_margin'] = scene.render.bake.margin
-    book['ori_margin_type'] = scene.render.bake.margin_type
-    book['ori_use_clear'] = scene.render.bake.use_clear
-    book['ori_normal_space'] = scene.render.bake.normal_space
-    book['ori_simplify'] = scene.render.use_simplify
-    book['ori_dither_intensity'] = scene.render.dither_intensity
-    book['ori_device'] = scene.cycles.device
-    book['ori_use_selected_to_active'] = scene.render.bake.use_selected_to_active
-    book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
-    book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
-    book['ori_use_cage'] = scene.render.bake.use_cage
-    book['ori_use_denoising'] = scene.cycles.use_denoising
-    book['ori_bake_target'] = scene.render.bake.target
-    book['ori_material_override'] = bpy.context.view_layer.material_override
+    book.engine = scene.render.engine
+    book.bake_type = scene.cycles.bake_type
+    book.samples = scene.cycles.samples
+    book.threads_mode = scene.render.threads_mode
+    book.margin = scene.render.bake.margin
+    book.margin_type = scene.render.bake.margin_type
+    book.use_clear = scene.render.bake.use_clear
+    book.normal_space = scene.render.bake.normal_space
+    book.simplify = scene.render.use_simplify
+    book.dither_intensity = scene.render.dither_intensity
+    book.device = scene.cycles.device
+    book.use_selected_to_active = scene.render.bake.use_selected_to_active
+    book.max_ray_distance = scene.render.bake.max_ray_distance
+    book.cage_extrusion = scene.render.bake.cage_extrusion
+    book.use_cage = scene.render.bake.use_cage
+    book.use_denoising = scene.cycles.use_denoising
+    book.bake_target = scene.render.bake.target
+    book.material_override = bpy.context.view_layer.material_override
 
     # Multires related
-    book['ori_use_bake_multires'] = get_scene_bake_multires(scene)
-    book['ori_use_bake_clear'] = get_scene_bake_clear(scene)
-    book['ori_render_bake_type'] = get_scene_render_bake_type(scene)
-    book['ori_bake_margin'] = get_scene_bake_margin(scene)
-    book['ori_view_transform'] = scene.view_settings.view_transform
+    book.use_bake_multires = get_scene_bake_multires(scene)
+    book.use_bake_clear = get_scene_bake_clear(scene)
+    book.render_bake_type = get_scene_render_bake_type(scene)
+    book.bake_margin = get_scene_bake_margin(scene)
+    book.view_transform = scene.view_settings.view_transform
 
     if is_bl_newer_than(5):
-        book['ori_displacement_space'] = scene.render.bake.displacement_space
-        book['ori_use_lores_mesh'] = scene.render.bake.use_lores_mesh
+        book.displacement_space = scene.render.bake.displacement_space
+        book.use_lores_mesh = scene.render.bake.use_lores_mesh
 
     # Remember world settings
     if scene.world:
-        book['ori_distance'] = scene.world.light_settings.distance
+        book.distance = scene.world.light_settings.distance
 
     # Remember image editor images
-    book['editor_images'] = [a.spaces[0].image for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']
-    book['editor_pins'] = [a.spaces[0].use_image_pin for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']
+    book.editor_images = [a.spaces[0].image for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']
+    book.editor_pins = [a.spaces[0].use_image_pin for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']
 
     # Remember uv
-    book['ori_active_uv'] = uv_layers.active.name
+    book.active_uv = uv_layers.active.name
     active_render_uvs = [u for u in uv_layers if u.active_render]
     if active_render_uvs:
-        book['ori_active_render_uv'] = active_render_uvs[0].name
+        book.active_render_uv = active_render_uvs[0].name
+
+    # Remember object hides
+    book.hide_viewports = {}
+    book.hide_renders = {}
+    book.hide_selects = {}
+    book.hides = {}
+    for ob in get_scene_objects():
+        book.hide_viewports[ob.name] = ob.hide_viewport
+        book.hide_renders[ob.name] = ob.hide_render
+        book.hide_selects[ob.name] = ob.hide_select
+        book.hides[ob.name] = get_object_hide(ob)
 
     return book
 
@@ -102,6 +113,14 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
         set_scene_bake_multires(scene, False)
         scene.cycles.bake_type = bake_type
 
+    # Disable all other objects for better performance
+    for ob in get_scene_objects():
+        if ob == obj: continue
+        ob.hide_viewport = True
+        ob.hide_render = True
+        ob.hide_select = True
+        set_object_hide(ob, True)
+
     # Show viewport and render of object layer collection
     obj.hide_select = False
     obj.hide_viewport = False
@@ -129,60 +148,68 @@ def _prepare_bake_settings(book, obj, uv_map='', samples=1, margin=15, bake_devi
             uv.active_render = True
 
 def _recover_bake_settings(book, recover_active_uv=False):
-    scene = book['scene']
-    obj = book['obj']
+    scene = book.scene
+    obj = book.obj
     uv_layers = obj.data.uv_layers
     ypui = bpy.context.window_manager.ypui
     wmyp = bpy.context.window_manager.ypprops
 
-    scene.render.engine = book['ori_engine']
-    scene.cycles.samples = book['ori_samples']
-    scene.cycles.bake_type = book['ori_bake_type']
-    scene.render.threads_mode = book['ori_threads_mode']
-    scene.render.bake.margin = book['ori_margin']
-    scene.render.bake.margin_type = book['ori_margin_type']
-    scene.render.bake.use_clear = book['ori_use_clear']
-    scene.render.use_simplify = book['ori_simplify']
-    scene.render.dither_intensity = book['ori_dither_intensity']
-    scene.cycles.device = book['ori_device']
-    scene.cycles.use_denoising = book['ori_use_denoising']
-    scene.render.bake.target = book['ori_bake_target']
-    scene.render.bake.use_selected_to_active = book['ori_use_selected_to_active']
-    scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
-    scene.render.bake.cage_extrusion = book['ori_cage_extrusion']
-    scene.render.bake.use_cage = book['ori_use_cage']
-    scene.view_settings.view_transform = book['ori_view_transform']
-    bpy.context.view_layer.material_override = book['ori_material_override']
+    scene.render.engine = book.engine
+    scene.cycles.samples = book.samples
+    scene.cycles.bake_type = book.bake_type
+    scene.render.threads_mode = book.threads_mode
+    scene.render.bake.margin = book.margin
+    scene.render.bake.margin_type = book.margin_type
+    scene.render.bake.use_clear = book.use_clear
+    scene.render.use_simplify = book.simplify
+    scene.render.dither_intensity = book.dither_intensity
+    scene.cycles.device = book.device
+    scene.cycles.use_denoising = book.use_denoising
+    scene.render.bake.target = book.bake_target
+    scene.render.bake.use_selected_to_active = book.use_selected_to_active
+    scene.render.bake.max_ray_distance = book.max_ray_distance
+    scene.render.bake.cage_extrusion = book.cage_extrusion
+    scene.render.bake.use_cage = book.use_cage
+    scene.view_settings.view_transform = book.view_transform
+    bpy.context.view_layer.material_override = book.material_override
 
     # Multires related
-    set_scene_bake_multires(scene, book['ori_use_bake_multires'])
-    set_scene_bake_clear(scene, book['ori_use_bake_clear'])
-    set_scene_render_bake_type(scene, book['ori_render_bake_type'])
-    set_scene_bake_margin(scene, book['ori_bake_margin'])
+    set_scene_bake_multires(scene, book.use_bake_multires)
+    set_scene_bake_clear(scene, book.use_bake_clear)
+    set_scene_render_bake_type(scene, book.render_bake_type)
+    set_scene_bake_margin(scene, book.bake_margin)
 
     if is_bl_newer_than(5):
-        scene.render.bake.displacement_space = book['ori_displacement_space']
-        scene.render.bake.use_lores_mesh = book['ori_use_lores_mesh']
+        scene.render.bake.displacement_space = book.displacement_space
+        scene.render.bake.use_lores_mesh = book.use_lores_mesh
 
     # Recover world settings
     if scene.world:
-        scene.world.light_settings.distance = book['ori_distance']
+        scene.world.light_settings.distance = book.distance
 
     # Recover image editors
     for i, area in enumerate([a for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']):
         # Some image can be deleted after baking process so use try except
-        try: area.spaces[0].image = book['editor_images'][i]
+        try: area.spaces[0].image = book.editor_images[i]
         except: area.spaces[0].image = None
 
-        area.spaces[0].use_image_pin = book['editor_pins'][i]
+        area.spaces[0].use_image_pin = book.editor_pins[i]
 
     # Recover uv
     if recover_active_uv:
-        uvl = uv_layers.get(book['ori_active_uv'])
+        uvl = uv_layers.get(book.active_uv)
         if uvl: uv_layers.active = uvl
-        if 'ori_active_render_uv' in book:
-            uvl = uv_layers.get(book['ori_active_render_uv'])
+        if 'active_render_uv' in book:
+            uvl = uv_layers.get(book.active_render_uv)
             if uvl: uvl.active_render = True
+
+    # Recover object hides
+    for ob in get_scene_objects():
+        if ob.name not in book.hide_viewports: continue
+        ob.hide_viewport = book.hide_viewports[ob.name]
+        ob.hide_render = book.hide_renders[ob.name]
+        ob.hide_select = book.hide_selects[ob.name]
+        set_object_hide(ob, book.hides[ob.name])
 
     # Bring back the hack functions
     wmyp.halt_hacks = False
@@ -1208,7 +1235,10 @@ def is_multi_disp_used(yp):
     for l in yp.layers:
         if not l.enable: continue
         hch = get_height_channel(l)
-        if not hch or not hch.enable or hch.normal_map_type not in {'BUMP_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}: continue
+        if (not hch or not hch.enable
+            or hch.normal_map_type not in {'BUMP_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} 
+            or (not hch.write_height and hch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'})
+        ): continue
         num_disps += 1
 
     return num_disps > 1

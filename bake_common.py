@@ -1963,6 +1963,7 @@ def get_bake_properties_from_self(self):
         'only_local',
         'subsurf_influence',
         'force_bake_all_polygons',
+        'use_osl',
         'use_image_atlas',
         'use_udim',
         'blur',
@@ -2053,6 +2054,10 @@ def bake_channel(
             img.name = img_name
 
         ch = target_layer.channels[channel_idx]
+
+    # Get color and alpha channel
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+    alpha_enabled = root_ch.enable_alpha or (alpha_ch and root_ch == color_ch and alpha_ch.alpha_combine_to_baked_color)
 
     # Check if udim will be used
     use_udim = force_use_udim or len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED')
@@ -2176,7 +2181,7 @@ def bake_channel(
             val = node.inputs[root_ch.name].default_value
             color = (val, val, val, 1.0)
 
-        elif root_ch.enable_alpha:
+        elif alpha_enabled:
             color = (0.0, 0.0, 0.0, 1.0)
 
         else:
@@ -2566,12 +2571,16 @@ def bake_channel(
 
     # Bake alpha
     #if root_ch.type != 'NORMAL' and root_ch.enable_alpha:
-    if root_ch.enable_alpha:
+    if alpha_enabled:
 
         # Create temp image
         alpha_img = img.copy()
         alpha_img.colorspace_settings.name = get_noncolor_name()
-        create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], emit.inputs[0])
+
+        if root_ch.enable_alpha:
+            create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], emit.inputs[0])
+        else: create_link(mat.node_tree, node.outputs[alpha_ch.name], emit.inputs[0])
+
         tex.image = alpha_img
 
         # Set temp filepath
@@ -2972,7 +2981,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         max_ray_distance=bprops.max_ray_distance, cage_extrusion=bprops.cage_extrusion,
         source_objs=other_objs, use_denoising=False, margin_type=bprops.margin_type,
         use_cage = bprops.use_cage, cage_object_name = bprops.cage_object_name,
-        normal_space = 'TANGENT' if bprops.type != 'OBJECT_SPACE_NORMAL' else 'OBJECT'
+        normal_space = 'TANGENT' if bprops.type != 'OBJECT_SPACE_NORMAL' else 'OBJECT',
+        use_osl = bprops.use_osl
     )
     # Set multires level
     #ori_multires_levels = {}
@@ -3797,7 +3807,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
                 mask = Mask.add_new_mask(
                     active_layer, mask_name, 'IMAGE', 'UV', bprops.uv_map,
-                    image, '', segment
+                    image=image, vcol_name='', segment=segment
                 )
                 mask.active_edit = True
 
@@ -4254,7 +4264,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     prepare_bake_settings(
         book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
         uv_map=bprops.uv_map, bake_type='EMIT', bake_device=bprops.bake_device, 
-        margin_type = bprops.margin_type
+        margin_type = bprops.margin_type, use_osl=bprops.use_osl
     )
 
     # Create bake nodes

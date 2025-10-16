@@ -55,6 +55,8 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
     if not mod.enable:
         return start_rgb, start_alpha
 
+    used_by_paired_alpha = is_modifier_used_by_paired_alpha_channel(mod)
+
     rgb = start_rgb
     alpha = start_alpha
 
@@ -89,7 +91,7 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
     elif mod.type == 'COLOR_RAMP':
 
         color_ramp = tree.nodes.get(mod.color_ramp)
-        if color_ramp and (mod.affect_alpha or mod.affect_color):
+        if color_ramp and (mod.affect_alpha or mod.affect_color or used_by_paired_alpha):
 
             color_ramp_alpha_multiply = tree.nodes.get(mod.color_ramp_alpha_multiply)
             if color_ramp_alpha_multiply:
@@ -97,7 +99,7 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
                 rgb = create_link(tree, rgb, color_ramp_alpha_multiply.inputs[am_mixcol0])[am_mixout]
                 create_link(tree, alpha, color_ramp_alpha_multiply.inputs[am_mixcol1])
 
-            if mod.affect_alpha and not mod.affect_color:
+            if mod.affect_alpha and not mod.affect_color and not used_by_paired_alpha:
                 alpha = create_link(tree, alpha, color_ramp.inputs[0])[0]
             else:
                 color_ramp_linear_start = tree.nodes.get(mod.color_ramp_linear_start)
@@ -957,6 +959,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     baked_parallax = tree.nodes.get(BAKED_PARALLAX)
     baked_parallax_filter = tree.nodes.get(BAKED_PARALLAX_FILTER)
 
+    # Get color and alpha channel
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
     # UVs
 
     uv_maps = {}
@@ -1165,6 +1170,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             node = nodes.get(layer.group_node)
             layer_ch = layer.channels[i]
 
+            # Get alpha channel
+            layer_color_ch, layer_alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
+            if layer_ch != layer_alpha_ch:
+                layer_ch_enable = layer_ch.enable
+            else: layer_ch_enable = layer_color_ch.enable or layer_alpha_ch.enable
+
             #is_hidden = not layer.enable or is_parent_hidden(layer)
 
             if yp.layer_preview_mode: # and yp.layer_preview_mode_type == 'LAYER':
@@ -1205,9 +1217,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             need_prev_normal = check_need_prev_normal(layer)
 
-            #if yp.disable_quick_toggle and not layer_ch.enable:
-            #if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch.enable:
-            if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch.enable:
+            #if yp.disable_quick_toggle and not layer_ch_enable:
+            #if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch_enable:
+            if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch_enable:
                 continue
 
             # UV inputs
@@ -1428,6 +1440,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 create_link(tree, baked_uv_map, baked.inputs[0])
 
+            # Use baked color alpha if baked alpha is not found
+            elif alpha_ch == ch:
+
+                baked_color = nodes.get(color_ch.baked)
+                if baked_color:
+                    rgb = baked_color.outputs[1]
+
             if ch.type == 'NORMAL':
                 baked_normal = nodes.get(ch.baked_normal)
                 baked_normal_overlay = nodes.get(ch.baked_normal_overlay)
@@ -1479,7 +1498,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     max_height = end_max_height.outputs[0]
 
         if end_backface:
-            alpha = create_link(tree, alpha, end_backface.inputs[0])[0]
+            if alpha_ch and alpha_ch == ch:
+                rgb = create_link(tree, rgb, end_backface.inputs[0])[0]
+            else: alpha = create_link(tree, alpha, end_backface.inputs[0])[0]
             #create_link(tree, geometry.outputs['Backfacing'], end_backface.inputs[1])
             create_link(tree, get_essential_node(tree, GEOMETRY)['Backfacing'], end_backface.inputs[1])
 
@@ -1490,7 +1511,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     rgb = baked_vcol.outputs['Alpha']
                 else:
                     rgb = baked_vcol.outputs['Color']
-                if ch.enable_alpha:
+                if is_channel_alpha_enabled(ch):
                     alpha = baked_vcol.outputs['Alpha']
 
         #print(rgb)
@@ -1618,98 +1639,131 @@ def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
     # Clean unused essential nodes
     clean_essential_nodes(tree, exclude_texcoord=True, exclude_geometry=True)
 
-def reconnect_source_internal_nodes(layer):
+def reconnect_source_internal_nodes(layer, used_output_names=[]):
     tree = get_source_tree(layer)
 
-    source = tree.nodes.get(layer.source)
+    if layer.use_baked:
+        layer_type = 'IMAGE'
+        source = tree.nodes.get(layer.baked_source)
+    else:
+        layer_type = layer.type
+        source = tree.nodes.get(layer.source)
     linear = tree.nodes.get(layer.linear)
     divider_alpha = tree.nodes.get(layer.divider_alpha)
     flip_y = tree.nodes.get(layer.flip_y)
     start = tree.nodes.get(TREE_START)
-    #solid = tree.nodes.get(ONE_VALUE)
     end = tree.nodes.get(TREE_END)
 
     create_link(tree, start.outputs[0], source.inputs[0])
 
-    if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS':
-        rgb = source.outputs['Radius']
-    else: rgb = source.outputs[0]
+    used_output_idx = 0
+    vec3_found = False
+    for outp in get_available_source_outputs(source, layer_type):
+        rgb = outp
+        if 'Alpha' in source.outputs and outp.name != 'Alpha':
+            alpha = source.outputs['Alpha']
+        else: alpha = get_essential_node(tree, ONE_VALUE)[0]
 
-    if layer.type == 'MUSGRAVE':
-        alpha = get_essential_node(tree, ONE_VALUE)[0]
-    else: alpha = source.outputs[1]
+        # First color socket has some extra nodes
+        if not vec3_found and outp.type in {'RGBA', 'RGB', 'VECTOR'}:
+            vec3_found = True
 
-    if divider_alpha: 
-        mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
-        rgb = create_link(tree, rgb, divider_alpha.inputs[mixcol0])[mixout]
-        create_link(tree, alpha, divider_alpha.inputs[mixcol1])
+            if divider_alpha: 
+                mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
+                rgb = create_link(tree, rgb, divider_alpha.inputs[mixcol0])[mixout]
+                create_link(tree, alpha, divider_alpha.inputs[mixcol1])
 
-    if linear:
-        rgb = create_link(tree, rgb, linear.inputs[0])[0]
+            if linear:
+                rgb = create_link(tree, rgb, linear.inputs[0])[0]
 
-    if flip_y:
-        rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
+            if flip_y:
+                rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
 
-    if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-        rgb_1 = source.outputs[1]
-        alpha = get_essential_node(tree, ONE_VALUE)[0]
-        alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
-
-        mod_group = tree.nodes.get(layer.mod_group)
-        if mod_group:
+        # Modifier groups
+        mod_group = None
+        if outp.name in used_output_names:
+            if used_output_idx < len(layer.mod_groups):
+                mod_group = tree.nodes.get(layer.mod_groups[used_output_idx].name)
+            used_output_idx += 1
+        
+        # Modifier connections
+        if outp.name in used_output_names:
             rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha, mod_group)
 
-        mod_group_1 = tree.nodes.get(layer.mod_group_1)
-        if mod_group_1:
-            rgb_1 = create_link(tree, rgb_1, mod_group_1.inputs[0])[0]
-            alpha_1 = create_link(tree, alpha_1, mod_group_1.inputs[1])[1]
+        if end and outp.name in end.inputs:
+            create_link(tree, rgb, end.inputs[outp.name])
 
-        create_link(tree, rgb_1, end.inputs[2])
-        create_link(tree, alpha_1, end.inputs[3])
-
-    if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-
-        rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha)
-
-    create_link(tree, rgb, end.inputs[0])
-    create_link(tree, alpha, end.inputs[1])
+        alpha_socket_name = outp.name + ' Alpha'
+        if end and alpha_socket_name in end.inputs:
+            create_link(tree, alpha, end.inputs[alpha_socket_name])
 
     # Clean unused essential nodes
     clean_essential_nodes(tree, exclude_texcoord=True, exclude_geometry=True)
 
-def reconnect_mask_internal_nodes(mask, mask_source_index=0):
+def reconnect_mask_source_nodes(mask, layer_tree):
 
-    tree = get_mask_tree(mask)
+    # Mask inside a node group has start and end node
+    group_node = layer_tree.nodes.get(mask.group_node)
+    if group_node:
+        tree = group_node.node_tree
+        start = tree.nodes.get(TREE_START)
+        end = tree.nodes.get(TREE_END)
+    else:
+        tree = layer_tree
+        start = end = None
 
+    swizzle_enabled = False
     baked_source = tree.nodes.get(mask.baked_source)
-    if baked_source and mask.use_baked:
+
+    if mask.type == 'BACKFACE':
+        val = get_essential_node(tree, GEOMETRY)['Backfacing']
+        source = tree.nodes.get(GEOMETRY)
+    elif baked_source and mask.use_baked:
         source = baked_source
-    else: source = tree.nodes.get(mask.source)
-    linear = tree.nodes.get(mask.linear)
+        val = source.outputs[0]
+    else: 
+        source = tree.nodes.get(mask.source)
+
+        # Get mask input socket
+        soc = get_mask_input_socket(mask, source)
+        val = soc if soc else get_essential_node(tree, ZERO_VALUE)[0]
+
+        if val.type in {'RGBA', 'RGB', 'VECTOR'}:
+            swizzle_enabled = True
+
+    # Start connections
+    if start:
+        if mask.type == 'MODIFIER' and mask.modifier_type in {'INVERT', 'CURVE'}:
+            create_link(tree, start.outputs[0], source.inputs[1])
+        elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
+            create_link(tree, start.outputs[0], source.inputs[0])
+
+    # Swizzle
     separate_color_channels = tree.nodes.get(mask.separate_color_channels)
-    start = tree.nodes.get(TREE_START)
-    end = tree.nodes.get(TREE_END)
-
-    if mask.type == 'MODIFIER' and mask.modifier_type in {'INVERT', 'CURVE'}:
-        create_link(tree, start.outputs[0], source.inputs[1])
-    elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
-        create_link(tree, start.outputs[0], source.inputs[0])
-
-    val = source.outputs[mask_source_index]
-
-    if mask.source_input in {'R', 'G', 'B'}:
+    if swizzle_enabled and mask.swizzle_input_mode in {'R', 'G', 'B'}:
         separate_color_channels_outputs = create_link(tree, val, separate_color_channels.inputs[0])
-        if mask.source_input == 'R': val = separate_color_channels_outputs[0]
-        elif mask.source_input == 'G': val = separate_color_channels_outputs[1]
-        elif mask.source_input == 'B': val = separate_color_channels_outputs[2]
+        if mask.swizzle_input_mode == 'R': val = separate_color_channels_outputs[0]
+        elif mask.swizzle_input_mode == 'G': val = separate_color_channels_outputs[1]
+        elif mask.swizzle_input_mode == 'B': val = separate_color_channels_outputs[2]
 
+    # Linear
+    linear = tree.nodes.get(mask.linear)
     if linear:
         val = create_link(tree, val, linear.inputs[0])[0]
 
+    # Modifiers
     for mod in mask.modifiers:
         val = reconnect_mask_modifier_nodes(tree, mod, val)
 
-    create_link(tree, val, end.inputs[0])
+    # End connection
+    if end: create_link(tree, val, end.inputs[0])
+
+    # Use group node output if exist
+    if group_node:
+        source = group_node
+        val = group_node.outputs[0]
+
+    return source, val
 
 def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     yp = layer.id_data.yp
@@ -1720,17 +1774,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     tree = get_tree(layer)
     nodes = tree.nodes
 
+    # Get layer source
     source_group = nodes.get(layer.source_group)
-
-    #if layer.source_group != '':
     if source_group:
         source = source_group
-        reconnect_source_internal_nodes(layer)
-    else: source = nodes.get(layer.source)
-
-    baked_source = None
-    if layer.use_baked:
-        baked_source = nodes.get(layer.baked_source)
+    else: source = get_layer_source(layer, tree)
 
     # Direction sources
     source_n = nodes.get(layer.source_n)
@@ -1742,13 +1790,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     uv_neighbor = nodes.get(layer.uv_neighbor)
     uv_neighbor_1 = nodes.get(layer.uv_neighbor_1)
 
-    #if layer.type == 'GROUP':
-    #    texcoord = source
-    #else: texcoord = nodes.get(layer.texcoord)
-
-    #texcoord = nodes.get(TEXCOORD)
     texcoord = nodes.get(layer.texcoord)
-    #geometry = nodes.get(GEOMETRY)
     blur_vector = nodes.get(layer.blur_vector)
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
@@ -1815,16 +1857,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Find override channels
     #using_vector = is_channel_override_using_vector(layer)
 
-    baked_vector = None
-    if layer.use_baked:
-        baked_vector = get_essential_node(tree, TREE_START).get(layer.baked_uv_name + io_suffix['UV'])
-
-    if baked_vector and baked_source:
-        create_link(tree, baked_vector, baked_source.inputs[0])
+    # Baked source
+    baked_source = nodes.get(layer.baked_source)
+    if layer.use_baked and baked_source: 
+        source = baked_source
 
     # Texcoord
     vector = None
-    if is_layer_using_vector(layer):
+    if layer.use_baked:
+        vector = get_essential_node(tree, TREE_START).get(layer.baked_uv_name + io_suffix['UV'])
+    elif is_layer_using_vector(layer, exclude_baked=True):
         if layer.texcoord_type == 'UV':
             vector = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['UV'])
         elif layer.texcoord_type == 'Decal':
@@ -1858,7 +1900,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if 'Vector' in source.inputs:
             create_link(tree, vector, source.inputs['Vector'])
 
-        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
+        if layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
 
             if uv_neighbor: 
                 create_link(tree, vector, uv_neighbor.inputs[0])
@@ -1886,74 +1928,124 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if source_e: create_link(tree, uv_neighbor.outputs['e'], source_e.inputs[0])
                 if source_w: create_link(tree, uv_neighbor.outputs['w'], source_w.inputs[0])
 
+    # Get all available source outputs
+    available_outputs = get_available_source_outputs(source, layer.type)
+    used_output_names = []
 
-    # RGB
-    if baked_source:
-        start_rgb = baked_source.outputs[0]
-    elif is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS' and 'Radius' in source.outputs:
-        start_rgb = source.outputs['Radius']
-    else: start_rgb = source.outputs[0]
+    # Get color and alpha channel
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
 
-    start_rgb_1 = None
-    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'} and len(source.outputs) > 1:
-        start_rgb_1 = source.outputs[1]
+    # To store if the layer channel is enabled or not
+    ch_enableds = {}
 
-    # Alpha
-    if baked_source:
-        start_alpha = baked_source.outputs[1]
-    elif layer.type == 'IMAGE' or source_group:
-        start_alpha = source.outputs[1]
-    elif layer.type == 'VCOL' and 'Alpha' in source.outputs:
-        start_alpha = source.outputs['Alpha']
-    else: start_alpha = get_essential_node(tree, ONE_VALUE)[0]
-    start_alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
+    # Get pair of source output name with layer channel
+    ch_socket_pairs = {}
+    ch_normal_socket_pairs = {}
+    for i, ch in enumerate(layer.channels):
+
+        # Alpha channel will get ignored if color channel is also enabled
+        channel_enabled = get_channel_enabled(ch, layer) or (ch == alpha_ch and get_channel_enabled(color_ch, layer))
+        ch_enableds[yp.channels[i].name] = channel_enabled
+
+        # Only create channel socket dictionary for enabled channels
+        if not channel_enabled: continue
+
+        root_ch = yp.channels[i]
+
+        # Get main socket
+        outp = source.outputs.get(ch.socket_input_name)
+        if outp not in available_outputs:
+            outp = None
+
+        # Get normal socket
+        normal_outp = None
+        if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+            socket_name = ch.socket_input_1_name
+            normal_outp = source.outputs.get(ch.socket_input_1_name)
+            if normal_outp not in available_outputs:
+                normal_outp = None
+        
+        # Use normal socket for normal map only channel
+        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
+            outp = normal_outp
+
+        # If not use whatever in the first index
+        if not outp and len(available_outputs) > 0:
+            outp = available_outputs[0]
+
+        # Pair the output name to the layer channel
+        ch_socket_pairs[root_ch.name] = outp.name if outp else None
+
+        # When using both bump and normal, extra socket need to be remembered
+        if normal_outp and root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+            ch_normal_socket_pairs[root_ch.name] = normal_outp.name
+
+        # Set the output as used output
+        if outp and outp.name not in used_output_names:
+            used_output_names.append(outp.name)
+
+        # Set the normal output as used output
+        if normal_outp and normal_outp.name not in used_output_names:
+            used_output_names.append(normal_outp.name)
+
+    # Connection inside a source group (only relevant for smooth bump)
+    if source_group:
+        reconnect_source_internal_nodes(layer, used_output_names)
+
+    # Dictionary to trace rgb and alpha connections of source socket
+    rgb_connections = {}
+    alpha_connections = {}
+
+    for i, name in enumerate(used_output_names):
+        rgb_connections[name] = source.outputs.get(name)
+
+        # Alpha from source that is inside a group node (Relevant only if smooth bump is enabled)
+        grouped_alpha_name = name + ' Alpha'
+        if layer.source_group != '' and grouped_alpha_name in source.outputs:
+            alpha_connections[name] = source.outputs.get(grouped_alpha_name)
+
+        # Alpha will use socket called 'Alpha' otherwise alpha will be considered have one in value
+        elif 'Alpha' not in source.outputs or name == 'Alpha':
+            alpha_connections[name] = get_essential_node(tree, ONE_VALUE)[0]
+        else: alpha_connections[name] = source.outputs.get('Alpha')
+
+        #if layer.type in {'IMAGE', 'VCOL'}:
+        if name == 'Color':
+            if divider_alpha: 
+                mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
+                rgb_connections[name] = create_link(tree, rgb_connections[name], divider_alpha.inputs[mixcol0])[mixout]
+                create_link(tree, alpha_connections[name], divider_alpha.inputs[mixcol1])
+            if linear: rgb_connections[name] = create_link(tree, rgb_connections[name], linear.inputs[0])[0]
+            if flip_y: rgb_connections[name] = create_link(tree, rgb_connections[name], flip_y.inputs[0])[0]
+
+        mod_group = None
+        if i < len(layer.mod_groups):
+            mod_group = nodes.get(layer.mod_groups[i].name)
+        
+        rgb_connections[name], alpha_connections[name] = reconnect_all_modifier_nodes(
+            tree, layer, rgb_connections[name], alpha_connections[name], mod_group
+        )
 
     alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
 
-    # RGB continued
-    if not source_group:
-        if divider_alpha: 
-            mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
-            start_rgb = create_link(tree, start_rgb, divider_alpha.inputs[mixcol0])[mixout]
-            create_link(tree, start_alpha, divider_alpha.inputs[mixcol1])
-        if linear: start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
-        if flip_y: start_rgb = create_link(tree, start_rgb, flip_y.inputs[0])[0]
-
-    if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-        start_rgb_1 = source_group.outputs[2]
-        start_alpha_1 = source_group.outputs[3]
-
-    elif not source_group:
-
-        # Layer source modifier
-        mod_group = nodes.get(layer.mod_group)
-
-        # Background layer won't use modifier outputs
-        if layer.type in {'BACKGROUND', 'GROUP'}:
-            #reconnect_all_modifier_nodes(tree, layer, start_rgb, start_alpha, mod_group)
-            pass
-        else:
-            start_rgb, start_alpha = reconnect_all_modifier_nodes(
-                tree, layer, start_rgb, start_alpha, mod_group
-            )
-
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-            mod_group_1 = nodes.get(layer.mod_group_1)
-            start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
-                tree, layer, source.outputs[1], get_essential_node(tree, ONE_VALUE)[0], mod_group_1
-            )
+    # Get normal/height channel
+    height_ch = get_height_channel(layer)
 
     # UV neighbor vertex color
-    if layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor:
+    if not layer.use_baked and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor and height_ch:
+        socket_name = height_ch.socket_input_name
+        soc = rgb_connections[socket_name] if socket_name in rgb_connections else source.outputs[0]
+
         if layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
-            create_link(tree, start_rgb, uv_neighbor.inputs[0])
+            create_link(tree, soc, uv_neighbor.inputs[0])
 
         if tangent and bitangent:
             if 'Tangent' in uv_neighbor.inputs: create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
             if 'Bitangent' in uv_neighbor.inputs: create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
 
         if layer.type == 'VCOL' and uv_neighbor_1:
-            create_link(tree, start_alpha, uv_neighbor_1.inputs[0])
+            soc = alpha_connections[socket_name] if socket_name in alpha_connections else source.outputs['Alpha']
+            create_link(tree, soc, uv_neighbor_1.inputs[0])
 
             if tangent and bitangent:
                 if 'Tangent' in uv_neighbor_1.inputs: create_link(tree, tangent, uv_neighbor_1.inputs['Tangent'])
@@ -1970,9 +2062,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         #trans_bump_flip = trans_bump_ch.transition_bump_flip
         #fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
 
-    # Get normal/height channel
     compare_alpha = None
-    height_ch = get_height_channel(layer)
     bump_smooth_multiplier_value = None
     if height_ch:
         if height_ch.normal_blend_type == 'COMPARE':
@@ -2006,56 +2096,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     # Layer Masks
     for i, mask in enumerate(layer.masks):
-        # Get source output index
-        mask_source_index = 0
-        if not mask.use_baked and mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
-            # Noise and voronoi output has flipped order since Blender 2.81
-            if is_bl_newer_than(2, 81) and mask.type == 'VORONOI' and mask.voronoi_feature == 'DISTANCE_TO_EDGE':
-                mask_source_index = 'Distance'
-            elif is_bl_newer_than(2, 81) and mask.type == 'VORONOI' and mask.voronoi_feature == 'N_SPHERE_RADIUS':
-                mask_source_index = 'Radius'
-            elif is_bl_newer_than(2, 81) and mask.type in {'NOISE', 'VORONOI'}:
-                if mask.source_input == 'RGB':
-                    mask_source_index = 1
-            elif mask.type == 'BACKFACE':
-                mask_source_index = 'Backfacing'
-            elif mask.source_input == 'ALPHA':
-                if mask.type == 'VCOL':
-                    if is_bl_newer_than(2, 92):
-                        mask_source_index = 'Alpha'
-                    else: mask_source_index = 'Fac'
-                else: mask_source_index = 1
 
         # Mask source
-        if mask.group_node != '':
-            mask_source = nodes.get(mask.group_node)
-            reconnect_mask_internal_nodes(mask, mask_source_index)
-
-            #mask_val = mask_source.outputs[mask_source_index]
-            mask_val = mask_source.outputs[0]
-        else:
-            baked_mask_source = nodes.get(mask.baked_source)
-            if baked_mask_source and mask.use_baked:
-                mask_source = baked_mask_source
-            else: mask_source = nodes.get(mask.source)
-            mask_linear = nodes.get(mask.linear)
-            mask_separate_color_channels = nodes.get(mask.separate_color_channels)
-
-            if mask.type == 'BACKFACE':
-                mask_val = get_essential_node(tree, GEOMETRY)[mask_source_index]
-            else: mask_val = mask_source.outputs[mask_source_index]
-
-            if mask.source_input in {'R', 'G', 'B'}:
-                separate_color_channels_outputs = create_link(tree, mask_val, mask_separate_color_channels.inputs[0])
-                if mask.source_input == 'R': mask_val = separate_color_channels_outputs[0]
-                elif mask.source_input == 'G': mask_val = separate_color_channels_outputs[1]
-                elif mask.source_input == 'B': mask_val = separate_color_channels_outputs[2]
-
-            if mask_linear:
-                mask_val = create_link(tree, mask_val, mask_linear.inputs[0])[0]
-
-            for mod in mask.modifiers:
-                mask_val = reconnect_mask_modifier_nodes(tree, mod, mask_val)
+        mask_source, mask_val = reconnect_mask_source_nodes(mask, tree)
 
         mask_blur_vector = nodes.get(mask.blur_vector)
         mask_mapping = nodes.get(mask.mapping)
@@ -2227,8 +2270,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             ch = layer.channels[j]
 
             #if yp.disable_quick_toggle and not ch.enable:
-            if not ch.enable:
-                continue
+            #if not ch.enable:
+            #    continue
 
             mask_mix = nodes.get(c.mix)
             mix_pure = nodes.get(c.mix_pure)
@@ -2299,14 +2342,29 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Parent flag
     has_parent = layer.parent_idx != -1
 
-    # Layer Channels
-    for i, ch in enumerate(layer.channels):
+    # Alpha channel rgb connection stream
+    alpha_ch_rgb = None
+    alpha_has_blend = False
 
+    # Make sure alpha channel in earlier list so the output can be used with color channel
+    if color_ch and alpha_ch:
+        layer_channels = [alpha_ch, color_ch]
+        for ch in layer.channels:
+            if ch not in layer_channels:
+                layer_channels.append(ch)
+    else:
+        layer_channels = layer.channels
+
+    # Layer Channels
+    for ch in layer_channels:
+
+        i = get_layer_channel_index(layer, ch)
         root_ch = yp.channels[i]
 
+        channel_enabled = ch_enableds[root_ch.name]
 
         #if yp.disable_quick_toggle and not ch.enable: continue
-        if not get_channel_enabled(ch, layer, root_ch):
+        if not channel_enabled:
             
             # Disabled channel layer preview
             if yp.layer_preview_mode:
@@ -2327,13 +2385,32 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             continue
 
         # Rgb and alpha start
-        rgb = start_rgb
-        alpha = start_alpha
+        if ch_socket_pairs[root_ch.name] != None:
+            rgb = rgb_connections[ch_socket_pairs[root_ch.name]]
+            alpha = alpha_connections[ch_socket_pairs[root_ch.name]]
+        else:
+            rgb = get_essential_node(tree, ONE_VALUE)[0]
+            alpha = get_essential_node(tree, ONE_VALUE)[0]
+
         bg_alpha = None
+
+        # Use alpha channel output as alpha of all other channels if color channel is also enabled
+        if alpha_ch_rgb and get_channel_enabled(color_ch, layer):
+            alpha = alpha_ch_rgb
+        
+        prev_alpha_alpha = None
+        next_alpha_alpha = None
 
         ch_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'intensity_value'))
         prev_rgb = get_essential_node(tree, TREE_START).get(root_ch.name)
-        prev_alpha = get_essential_node(tree, TREE_START).get(root_ch.name + io_suffix['ALPHA'])
+        if alpha_ch and ch == color_ch:
+            alpha_idx = get_layer_channel_index(layer, alpha_ch)
+            root_alpha_ch = yp.channels[alpha_idx]
+            prev_alpha = get_essential_node(tree, TREE_START).get(root_alpha_ch.name)
+            prev_alpha_alpha = get_essential_node(tree, TREE_START).get(root_alpha_ch.name + io_suffix['ALPHA'])
+            next_alpha_alpha = get_essential_node(tree, TREE_END).get(root_alpha_ch.name + io_suffix['ALPHA'])
+        else:
+            prev_alpha = get_essential_node(tree, TREE_START).get(root_ch.name + io_suffix['ALPHA'])
 
         prev_vdisp = None
         next_vdisp = None
@@ -2388,21 +2465,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if root_ch.enable_alpha:
                 bg_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND'])
 
-        # Get source output index
-        source_index = 0
-        if not layer.use_baked and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'EDGE_DETECT', 'AO'}:
-            # Noise and voronoi output has flipped order since Blender 2.81
-            if is_bl_newer_than(2, 81) and (layer.type == 'NOISE' or (layer.type == 'VORONOI' and layer.voronoi_feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})):
-                if ch.layer_input == 'RGB':
-                    rgb = start_rgb_1
-                    alpha = start_alpha_1
-                    source_index = 2
-            elif ch.layer_input == 'ALPHA':
-                rgb = start_rgb_1
-                alpha = start_alpha_1
-                source_index = 2
-
         rgb_before_override = rgb
+
+        # Use layer alpha as rgb of alpha channel if color channel is enabled
+        if ch == alpha_ch and get_channel_enabled(color_ch, layer) and not color_ch.unpair_alpha and layer.type != 'GROUP':
+            rgb = alpha
 
         # Channel Override 
         if ch.override and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
@@ -2483,7 +2550,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, rgb, alpha_preview)
 
         # Override Normal
-        normal = rgb_before_override
+        if root_ch.name in ch_normal_socket_pairs:
+            normal = rgb_connections[ch_normal_socket_pairs[root_ch.name]]
+        else: normal = rgb_before_override
         if root_ch.type == 'NORMAL' and ch.override_1: 
             if ch.override_1_type == 'DEFAULT':
                 ch_override_1_color = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'override_1_color'))
@@ -2533,6 +2602,21 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if ch_linear:
                 create_link(tree, rgb, ch_linear.inputs[0])
                 rgb = ch_linear.outputs[0]
+
+        # NOTE: Swizzle currently only works with non custom layer channel source
+        if ch.swizzle_input_mode != 'RGB' and not ch.override and (root_ch.type != 'NORMAL' or ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}):
+            src = source #ch_source if ch_source else source
+            soc = get_channel_input_socket(layer, ch, src)
+            if soc.type in {'RGBA', 'RGB', 'VECTOR'}:
+                separate_color_channels = tree.nodes.get(ch.separate_color_channels)
+                if separate_color_channels:
+                    create_link(tree, rgb, separate_color_channels.inputs[0])
+                    if ch.swizzle_input_mode == 'R':
+                        rgb = separate_color_channels.outputs[0]
+                    elif ch.swizzle_input_mode == 'G':
+                        rgb = separate_color_channels.outputs[1]
+                    elif ch.swizzle_input_mode == 'B':
+                        rgb = separate_color_channels.outputs[2]
 
         mod_group = nodes.get(ch.mod_group)
 
@@ -2603,7 +2687,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Pass alpha to layer intensity
         if layer_intensity and layer_intensity_value:
-            ch_intensity = create_link(tree, ch_intensity, layer_intensity.inputs[0])[0]
+            if ch_intensity: ch_intensity = create_link(tree, ch_intensity, layer_intensity.inputs[0])[0]
             create_link(tree, layer_intensity_value, layer_intensity.inputs[1])
 
         # Bookmark alpha before intensity because it can be useful
@@ -2699,17 +2783,21 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             group_alpha_w = None
 
             if source_n and source_s and source_e and source_w:
+                socket_name = ch.socket_input_name
+                socket_alpha_name = ch.socket_input_name + ' Alpha'
+
                 # Use override value instead from actual layer if using default override type
                 if not ch.override or ch.override_type != 'DEFAULT':
-                    rgb_n = source_n.outputs[source_index]
-                    rgb_s = source_s.outputs[source_index]
-                    rgb_e = source_e.outputs[source_index]
-                    rgb_w = source_w.outputs[source_index]
+                    rgb_n = source_n.outputs.get(socket_name)
+                    rgb_s = source_s.outputs.get(socket_name)
+                    rgb_e = source_e.outputs.get(socket_name)
+                    rgb_w = source_w.outputs.get(socket_name)
 
-                alpha_n = source_n.outputs[source_index+1]
-                alpha_s = source_s.outputs[source_index+1]
-                alpha_e = source_e.outputs[source_index+1]
-                alpha_w = source_w.outputs[source_index+1]
+                if socket_alpha_name in source_n.outputs:
+                    alpha_n = source_n.outputs.get(socket_alpha_name)
+                    alpha_s = source_s.outputs.get(socket_alpha_name)
+                    alpha_e = source_e.outputs.get(socket_alpha_name)
+                    alpha_w = source_w.outputs.get(socket_alpha_name)
 
             elif layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor:
                 rgb_n = uv_neighbor.outputs['n']
@@ -2723,10 +2811,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     alpha_e = uv_neighbor_1.outputs['e']
                     alpha_w = uv_neighbor_1.outputs['w']
                 else:
-                    alpha_n = start_alpha
-                    alpha_s = start_alpha
-                    alpha_e = start_alpha
-                    alpha_w = start_alpha
+                    socket_alpha = source.outputs['Alpha'] if 'Alpha' in source.outputs else get_essential_node(tree, ONE_VALUE)[0]
+                    alpha_n = socket_alpha
+                    alpha_s = socket_alpha
+                    alpha_e = socket_alpha
+                    alpha_w = socket_alpha
 
             elif layer.type == 'GROUP':
 
@@ -3589,6 +3678,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     if prev_alpha: create_link(tree, prev_alpha, tr_ramp_blend.inputs['Input Alpha'])
                     prev_alpha = tr_ramp_blend.outputs['Input Alpha']
 
+                if 'Input Alpha Alpha' in tr_ramp_blend.inputs:
+                    if prev_alpha_alpha: create_link(tree, prev_alpha_alpha, tr_ramp_blend.inputs['Input Alpha Alpha'])
+                    prev_alpha_alpha = tr_ramp_blend.outputs['Input Alpha Alpha']
+
                 #break_input_link(tree, tr_ramp_blend.inputs['Intensity'])
 
             elif not trans_bump_flip:
@@ -3631,7 +3724,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # End node
         next_rgb = get_essential_node(tree, TREE_END).get(root_ch.name)
-        next_alpha = get_essential_node(tree, TREE_END).get(root_ch.name + io_suffix['ALPHA'])
+        if alpha_ch and ch == color_ch:
+            alpha_idx = get_layer_channel_index(layer, alpha_ch)
+            root_alpha_ch = yp.channels[alpha_idx]
+            # Do not connect color's next alpha if alpha is unpaired or layer is a group and alpha channel has blend node
+            if color_ch.unpair_alpha or (layer.type == 'GROUP' and alpha_has_blend):
+                next_alpha = None
+            else: next_alpha = get_essential_node(tree, TREE_END).get(root_alpha_ch.name)
+        else: next_alpha = get_essential_node(tree, TREE_END).get(root_ch.name + io_suffix['ALPHA'])
 
         # Background layer only know mix
         if layer.type == 'BACKGROUND':
@@ -3640,6 +3740,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if root_ch.type == 'NORMAL':
                 blend_type = ch.normal_blend_type
             else: blend_type = ch.blend_type
+
+        # Get output of alpha channel before blend node
+        if ch == alpha_ch and not color_ch.unpair_alpha:
+            alpha_ch_rgb = rgb
+
+            # Check if alpha has blend node
+            if blend: alpha_has_blend = True
+
+            group_alpha_multiply = tree.nodes.get(ch.group_alpha_multiply) 
+            if alpha and group_alpha_multiply:
+                alpha_ch_rgb = create_link(tree, alpha_ch_rgb, group_alpha_multiply.inputs[0])[0]
+                create_link(tree, alpha, group_alpha_multiply.inputs[1])
 
         if blend:
             bcol0, bcol1, bout = get_mix_color_indices(blend)
@@ -3652,14 +3764,22 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if (
                     #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
-                    (blend_type in {'MIX', 'COMPARE'} and (has_parent or root_ch.enable_alpha))
+                    (blend_type in {'MIX', 'COMPARE'} and (has_parent or is_channel_alpha_enabled(root_ch)))
                     or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 ):
 
-                if prev_rgb: create_link(tree, prev_rgb, blend.inputs[0])
-                if prev_alpha: create_link(tree, prev_alpha, blend.inputs[1])
+                if prev_rgb:
+                    if 'Color1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Color1'])
+                    elif 'Value1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Value1'])
+                if prev_alpha and 'Alpha1' in blend.inputs: create_link(tree, prev_alpha, blend.inputs['Alpha1'])
 
-                create_link(tree, alpha, blend.inputs[3])
+                if prev_alpha_alpha and 'Alpha1 Alpha' in blend.inputs: 
+                    create_link(tree, prev_alpha_alpha, blend.inputs['Alpha1 Alpha'])
+                if not ch.unpair_alpha:
+                    if next_alpha_alpha and 'Alpha Alpha' in blend.outputs: 
+                        create_link(tree, blend.outputs['Alpha Alpha'], next_alpha_alpha)
+
+                if 'Alpha2' in blend.inputs: create_link(tree, alpha, blend.inputs['Alpha2'])
 
                 if bg_alpha and len(blend.inputs) > 4:
                     create_link(tree, bg_alpha, blend.inputs[4])
@@ -3726,7 +3846,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         if next_alpha:
             if not blend or (
-                (blend_type != 'MIX' and (has_parent or root_ch.enable_alpha))
+                (blend_type != 'MIX' and (has_parent or is_channel_alpha_enabled(root_ch)))
                 and not (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 ):
                 if prev_alpha and next_alpha: create_link(tree, prev_alpha, next_alpha)
