@@ -84,7 +84,7 @@ def remove_tangent_sign_vcols(objs=None):
         vcols = get_vertex_colors(ob)
         for vcol in reversed(vcols):
             if vcol.name.startswith(TANGENT_SIGN_PREFIX):
-                print('INFO:', 'Vertex color "' + vcol.name + '" in', ob.name, 'is deleted!')
+                print('INFO:', get_vertex_color_label(10)+'"' + vcol.name + '" in', ob.name, 'is deleted!')
                 vcols.remove(vcol)
 
 def update_tangent_process(tree, lib_name):

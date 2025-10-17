@@ -267,8 +267,8 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     )
 
     vcol_force_first_ch_idx : StringProperty(
-        name = 'Force First Vertex Color Channel',
-        description = 'Force the first channel after baking the Vertex Color',
+        name = 'Force First '+get_vertex_color_label()+' Channel',
+        description = 'Force the first channel after baking the '+get_vertex_color_label(),
         default = 'Do Nothing'
     )
 

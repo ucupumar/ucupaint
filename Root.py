@@ -1757,8 +1757,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     also_del_vcol : BoolProperty(
-        name = 'Also remove baked vertex color',
-        description = 'Also remove baked vertex color',
+        name = 'Also remove baked '+get_vertex_color_label(00),
+        description = 'Also remove baked '+get_vertex_color_label(00),
         default = False
     )
 
@@ -1784,7 +1784,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
     def draw(self, context):
         if self.baked_vcol_name != '':
-            title="Also remove baked vertex color (" + self.baked_vcol_name + ')'
+            title="Also remove baked "+get_vertex_color_label(00)+" (" + self.baked_vcol_name + ')'
             self.layout.prop(self, 'also_del_vcol', text=title)
 
     def execute(self, context):
@@ -2488,7 +2488,7 @@ class YOptimizeNormalProcess(bpy.types.Operator):
 class YFixMissingData(bpy.types.Operator):
     bl_idname = "wm.y_fix_missing_data"
     bl_label = "Fix Missing Data"
-    bl_description = "Fix missing image/vertex color data"
+    bl_description = "Fix missing image/"+get_vertex_color_label(00)+" data"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -2586,8 +2586,8 @@ class YFixMissingData(bpy.types.Operator):
 
 class YRefreshTangentSignVcol(bpy.types.Operator):
     bl_idname = "wm.y_refresh_tangent_sign_vcol"
-    bl_label = "Refresh Tangent Sign Vertex Colors"
-    bl_description = "Refresh Tangent Sign Vertex Colors to make it work in Blender 2.8"
+    bl_label = "Refresh Tangent Sign "+get_vertex_color_label()+"s"
+    bl_description = "Refresh tangent sign "+get_vertex_color_label(00)+"s to make it work in Blender 2.8"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -3831,28 +3831,28 @@ class YPaintChannel(bpy.types.PropertyGroup):
     )
 
     enable_bake_to_vcol : BoolProperty(
-        name = 'Enable Bake to Vertex Color',
-        description = 'Enable vertex color as bake target',
+        name = 'Enable Bake to '+get_vertex_color_label(),
+        description = 'Enable '+get_vertex_color_label(00)+' as bake target',
         default = False,
         update = Bake.update_enable_bake_to_vcol
     )
 
     use_baked_vcol : BoolProperty(
-        name = 'Use Baked Vertex Color',
-        description = 'Use baked vertex color',
+        name = 'Use Baked '+get_vertex_color_label(),
+        description = 'Use baked '+get_vertex_color_label(00),
         default = False,
         update = Bake.update_enable_bake_to_vcol
     )
 
     bake_to_vcol_alpha : BoolProperty(
-        name = 'Bake To Vertex Color Alpha', 
-        description = 'When enabled, the channel are baked only to Alpha with vertex color', 
+        name = 'Bake To '+get_vertex_color_label()+' Alpha', 
+        description = 'When enabled, the channel are baked only to Alpha with '+get_vertex_color_label(00), 
         default = False
     )
 
     bake_to_vcol_name : StringProperty(
-        name = 'Target Vertex Color Name',
-        description = 'Target Vertex Color Name',
+        name = 'Target '+get_vertex_color_label()+' Name',
+        description = 'Target '+get_vertex_color_label(00)+' name',
         default = '',
     )
 
@@ -4314,7 +4314,7 @@ class YPaint(bpy.types.PropertyGroup):
 
     enable_tangent_sign_hacks : BoolProperty(
         name = 'Enable Tangent Sign VCol Hacks for Blender 2.80+ Cycles',
-        description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
+        description = "Tangent sign "+get_vertex_color_label(00)+" needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
         default = False,
         update = update_enable_tangent_sign_hacks
     )

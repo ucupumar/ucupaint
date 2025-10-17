@@ -10,7 +10,9 @@ from .subtree import *
 from .input_outputs import *
 
 DEFAULT_NEW_IMG_SUFFIX = ' Layer'
-DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
+if not is_bl_newer_than(3, 2):
+    DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
+else: DEFAULT_NEW_VCOL_SUFFIX = ' Attribute'
 DEFAULT_NEW_VDM_SUFFIX = ' VDM'
 
 def channel_items(self, context):
@@ -426,22 +428,22 @@ class YUseLinearColorSpace(bpy.types.Operator):
 
 class YNewVcolToOverrideChannel(bpy.types.Operator):
     bl_idname = "wm.y_new_vcol_to_override_channel"
-    bl_label = "New Vertex Color to Layer Channel Source"
-    bl_description = "New Vertex Color to custom layer channel source"
+    bl_label = "New "+get_vertex_color_label()+" to Layer Channel Source"
+    bl_description = "New "+get_vertex_color_label()+" to custom layer channel source"
     bl_options = {'UNDO'}
 
     name : StringProperty(default='')
 
     data_type : EnumProperty(
-        name = 'Vertex Color Data Type',
-        description = 'Vertex color data type',
+        name = get_vertex_color_label()+' Data Type',
+        description = get_vertex_color_label(10)+' data type',
         items = vcol_data_type_items,
         default = 'BYTE_COLOR'
     )
 
     domain : EnumProperty(
-        name = 'Vertex Color Domain',
-        description = 'Vertex color domain',
+        name = get_vertex_color_label()+' Domain',
+        description = get_vertex_color_label(10)+' domain',
         items = vcol_domain_items,
         default = 'CORNER'
     )
@@ -502,7 +504,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         wm = context.window_manager
 
         if self.name == '' :
-            self.report({'ERROR'}, "Vertex color cannot be empty!")
+            self.report({'ERROR'}, get_vertex_color_label(10)+" cannot be empty!")
             return {'CANCELLED'}
 
         # Make sure channel is on
@@ -544,7 +546,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
         # Update UI
         wm.ypui.need_update = True
-        print('INFO: Vertex Color is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: '+get_vertex_color_label()+' is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -883,7 +885,7 @@ class YNewLayer(bpy.types.Operator):
         description = 'Mask type',
         items = (
             ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
-            ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1),
+            ('VCOL', get_vertex_color_label(), '', 'GROUP_VCOL', 1),
             ('COLOR_ID', 'Color ID', '', 'COLOR', 2),
             ('EDGE_DETECT', 'Edge Detect', '', 'MESH_CUBE', 3)
         ),
@@ -940,8 +942,8 @@ class YNewLayer(bpy.types.Operator):
     )
 
     mask_vcol_fill : BoolProperty(
-        name = 'Fill Selected Geometry with Vertex Color / Color ID Mask',
-        description = 'Fill selected geometry with vertex color or color ID mask',
+        name = 'Fill Selected Geometry with '+get_vertex_color_label()+' / Color ID Mask',
+        description = 'Fill selected geometry with '+get_vertex_color_label(00)+' or color ID mask',
         default = True
     )
     
@@ -1001,36 +1003,36 @@ class YNewLayer(bpy.types.Operator):
     )
 
     vcol_data_type : EnumProperty(
-        name = 'Vertex Color Data Type',
-        description = 'Vertex color data type',
+        name = get_vertex_color_label()+' Data Type',
+        description = get_vertex_color_label(10)+' data type',
         items = vcol_data_type_items,
         default = 'BYTE_COLOR'
     )
 
     vcol_domain : EnumProperty(
-        name = 'Vertex Color Domain',
-        description = 'Vertex color domain',
+        name = get_vertex_color_label()+' Domain',
+        description = get_vertex_color_label(10)+' domain',
         items = vcol_domain_items,
         default = 'CORNER'
     )
 
     mask_vcol_data_type : EnumProperty(
-        name = 'Mask Vertex Color Data Type',
-        description = 'Mask Vertex color data type',
+        name = 'Mask '+get_vertex_color_label()+' Data Type',
+        description = 'Mask '+get_vertex_color_label(00)+' data type',
         items = vcol_data_type_items,
         default = 'BYTE_COLOR'
     )
 
     mask_vcol_domain : EnumProperty(
-        name = 'Mask Vertex Color Domain',
-        description = 'Mask Vertex color domain',
+        name = 'Mask '+get_vertex_color_label()+' Domain',
+        description = 'Mask '+get_vertex_color_label(00)+' domain',
         items = vcol_domain_items,
         default = 'CORNER'
     )
 
     use_divider_alpha : BoolProperty(
         name = 'Divide RGB by Alpha',
-        description='Divide RGB by its alpha value (very recommended for vertex color layer)',
+        description='Divide RGB by its alpha value (very recommended for '+get_vertex_color_label(00)+' layer)',
         default = False
     )
 
@@ -1116,7 +1118,7 @@ class YNewLayer(bpy.types.Operator):
             name = obj.active_material.name + DEFAULT_NEW_VCOL_SUFFIX
             items = get_vertex_color_names(obj)
         else:
-            name = [i[1] for i in layer_type_items if i[0] == self.type][0]
+            name = layer_type_labels[self.type]
             items = yp.layers
 
         # Use user preference default image size
@@ -1496,7 +1498,7 @@ class YNewLayer(bpy.types.Operator):
 
         # Check if object is not a mesh
         if (self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) and obj.type != 'MESH':
-            self.report({'ERROR'}, "Vertex color only works with mesh object!")
+            self.report({'ERROR'}, get_vertex_color_label(10)+" only works with mesh object!")
             return {'CANCELLED'}
 
         if (not is_bl_newer_than(3, 3) and
@@ -1508,7 +1510,7 @@ class YNewLayer(bpy.types.Operator):
                 and len(vcol_names) >= 7)
                 )
             ):
-            self.report({'ERROR'}, "Mesh can only use 8 vertex colors!")
+            self.report({'ERROR'}, "Mesh can only use 8 "+get_vertex_color_label(00)+"!")
             return {'CANCELLED'}
 
         # Check if layer with same name is already available
@@ -1521,7 +1523,7 @@ class YNewLayer(bpy.types.Operator):
             if self.type == 'IMAGE':
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
             elif self.type == 'VCOL':
-                self.report({'ERROR'}, "Vertex Color named '" + self.name +"' is already available!")
+                self.report({'ERROR'}, get_vertex_color_label()+" named '" + self.name +"' is already available!")
             else:
                 self.report({'ERROR'}, "Layer named '" + self.name +"' is already available!")
             return {'CANCELLED'}
@@ -1990,7 +1992,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
         description = 'Mask type',
         items = (
             ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
-            ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1)
+            ('VCOL', get_vertex_color_label(), '', 'GROUP_VCOL', 1)
         ),
         default = 'IMAGE'
     )
@@ -3191,7 +3193,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         name = 'Layer Type',
         items = (
             ('IMAGE', 'Image', ''),
-            ('VCOL', 'Vertex Color', '')
+            ('VCOL', get_vertex_color_label(), '')
         ),
         default = 'IMAGE'
     )
@@ -3199,7 +3201,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
     image_name : StringProperty(name="Image")
     image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    vcol_name : StringProperty(name="Vertex Color")
+    vcol_name : StringProperty(name=get_vertex_color_label())
     vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -3304,11 +3306,11 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         elif self.type == 'VCOL':
 
             if self.vcol_name == '':
-                self.report({'ERROR'}, "Vertex Color name cannot be empty!")
+                self.report({'ERROR'}, get_vertex_color_label()+" name cannot be empty!")
                 return {'CANCELLED'}
 
             if self.vcol_name not in get_vertex_color_names(obj):
-                self.report({'ERROR'}, "Vertex Color named " + self.vcol_name + " is not found!")
+                self.report({'ERROR'}, get_vertex_color_label()+" named " + self.vcol_name + " is not found!")
                 return {'CANCELLED'}
 
             vcols = get_vertex_colors(obj)
@@ -3374,7 +3376,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         name = 'Layer Type',
         items = (
             ('IMAGE', 'Image', ''),
-            ('VCOL', 'Vertex Color', '')
+            ('VCOL', get_vertex_color_label(), '')
         ),
         default = 'IMAGE'
     )
@@ -3428,7 +3430,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
     image_name : StringProperty(name="Image")
     image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    vcol_name : StringProperty(name="Vertex Color")
+    vcol_name : StringProperty(name=get_vertex_color_label())
     vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -3533,7 +3535,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "No image selected!")
             return {'CANCELLED'}
         elif self.type == 'VCOL' and self.vcol_name == '':
-            self.report({'ERROR'}, "No vertex color selected!")
+            self.report({'ERROR'}, "No "+get_vertex_color_label(00)+" selected!")
             return {'CANCELLED'}
 
         node.node_tree.yp.halt_update = True
@@ -4729,7 +4731,7 @@ class YReplaceLayerType(bpy.types.Operator):
             split.label(text='Image:')
             split.prop_search(self, "item_name", self, "item_coll", text='', icon='IMAGE_DATA')
         else:
-            split.label(text='Vertex Color:')
+            split.label(text=get_vertex_color_label()+':')
             split.prop_search(self, "item_name", self, "item_coll", text='', icon='GROUP_VCOL')
 
     def execute(self, context):
@@ -6478,8 +6480,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
 	)
 
     override_vcol_name : StringProperty(
-        name = 'Vertex Color Name',
-        description = 'Channel override vertex color name',
+        name = get_vertex_color_label()+' Name',
+        description = 'Channel override '+get_vertex_color_label(00)+' name',
         default = '',
         update = update_layer_channel_override_vcol_name
     )
@@ -7126,7 +7128,7 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
 
     divide_rgb_by_alpha : BoolProperty(
         name = 'Divide RGB by Alpha',
-        description = "Dividing RGB value by its alpha\nThis can be useful remove dark outline on painted image/vertex color\nWARNING: This is a hack solution so the result might not looks right",
+        description = "Dividing RGB value by its alpha\nThis can be useful remove dark outline on painted image/"+get_vertex_color_label(00)+"\nWARNING: This is a hack solution so the result might not looks right",
         default = False,
         update = update_divide_rgb_by_alpha
     )

@@ -290,14 +290,14 @@ def get_new_mask_name(obj, layer, mask_type, modifier_type=''):
         name = get_unique_name(name, bpy.data.images)
         return name
     elif mask_type == 'VCOL' and obj.type == 'MESH':
-        name = 'Mask VCol'
+        name = 'Mask Attribute' if is_bl_newer_than(3, 2) else 'Mask VCol'
         items = get_vertex_color_names(obj)
         return get_unique_name(name, items, surname)
     elif mask_type == 'MODIFIER':
         name = 'Mask ' + modifier_type.title()
         return get_unique_name(name, items, surname)
     else:
-        name = 'Mask ' + [i[1] for i in mask_type_items if i[0] == mask_type][0]
+        name = 'Mask ' + mask_type_labels[mask_type]
         return get_unique_name(name, items, surname)
 
 def update_new_mask_uv_map(self, context):
@@ -628,8 +628,8 @@ class YNewLayerMask(bpy.types.Operator):
     )
 
     vcol_fill : BoolProperty(
-        name = 'Fill Selected Geometry with Vertex Color / Color ID',
-        description = 'Fill selected geometry with vertex color / color ID',
+        name = 'Fill Selected Geometry with '+get_vertex_color_label()+' / Color ID',
+        description = 'Fill selected geometry with '+get_vertex_color_label(00)+' / color ID',
         default = True
     )
 
@@ -691,15 +691,15 @@ class YNewLayerMask(bpy.types.Operator):
     )
 
     vcol_data_type : EnumProperty(
-        name = 'Vertex Color Data Type',
-        description = 'Vertex color data type',
+        name = get_vertex_color_label()+' Data Type',
+        description = get_vertex_color_label(10)+' data type',
         items = vcol_data_type_items,
         default = 'BYTE_COLOR'
     )
 
     vcol_domain : EnumProperty(
-        name = 'Vertex Color Domain',
-        description = 'Vertex color domain',
+        name = get_vertex_color_label()+' Domain',
+        description = get_vertex_color_label(10)+' domain',
         items = vcol_domain_items,
         default = 'CORNER'
     )
@@ -963,11 +963,11 @@ class YNewLayerMask(bpy.types.Operator):
 
         # Check if object is not a mesh
         if self.type == 'VCOL' and obj.type != 'MESH':
-            self.report({'ERROR'}, "Vertex color mask only works with mesh object!")
+            self.report({'ERROR'}, get_vertex_color_label(10)+" mask only works with mesh object!")
             return {'CANCELLED'}
 
         if not is_bl_newer_than(3, 3) and self.type == 'VCOL' and len(get_vertex_color_names(obj)) >= 8:
-            self.report({'ERROR'}, "Mesh can only use 8 vertex colors!")
+            self.report({'ERROR'}, "Mesh can only use 8 "+get_vertex_color_label(00)+"s!")
             return {'CANCELLED'}
 
         # Clearing unused image atlas segments
@@ -985,7 +985,7 @@ class YNewLayerMask(bpy.types.Operator):
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
                 return {'CANCELLED'}
             elif self.type == 'VCOL':
-                self.report({'ERROR'}, "Vertex Color named '" + self.name +"' is already available!")
+                self.report({'ERROR'}, get_vertex_color_label()+" named '" + self.name +"' is already available!")
                 return {'CANCELLED'}
             elif self.options.is_repeat:
                 # Remove the mask before re-adding it on operator repeat
@@ -1338,7 +1338,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         name = 'Layer Type',
         items = (
             ('IMAGE', 'Image', ''),
-            ('VCOL', 'Vertex Color', '')
+            ('VCOL', get_vertex_color_label(), '')
         ),
         default = 'IMAGE'
     )
@@ -1373,7 +1373,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     image_name : StringProperty(name="Image")
     image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    vcol_name : StringProperty(name="Vertex Color")
+    vcol_name : StringProperty(name=get_vertex_color_label())
     vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     blend_type : EnumProperty(
@@ -1507,7 +1507,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='Image Channel:')
         elif self.type == 'VCOL' and is_bl_newer_than(2, 92):
-            col.label(text='Vertex Color Data:')
+            col.label(text=get_vertex_color_label()+' Data:')
 
         col = row.column()
 
@@ -1541,7 +1541,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             self.report({'ERROR'}, "No image selected!")
             return {'CANCELLED'}
         elif self.type == 'VCOL' and self.vcol_name == '':
-            self.report({'ERROR'}, "No vertex color selected!")
+            self.report({'ERROR'}, "No "+get_vertex_color_label(00)+" selected!")
             return {'CANCELLED'}
 
         image = None
@@ -1868,7 +1868,7 @@ class YReplaceMaskType(bpy.types.Operator):
             split.label(text='Image:')
             split.prop_search(self, "item_name", self, "item_coll", text='', icon='IMAGE_DATA')
         else:
-            split.label(text='Vertex Color:')
+            split.label(text=get_vertex_color_label()+':')
             split.prop_search(self, "item_name", self, "item_coll", text='', icon='GROUP_VCOL')
 
     def execute(self, context):
@@ -2442,12 +2442,6 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         default = 'RGB',
         update = update_mask_source_input
     )
-
-    #active_vcol_edit : BoolProperty(
-    #        name='Active vertex color for editing', 
-    #        description='Active vertex color for editing', 
-    #        default=False,
-    #        update=update_mask_active_vcol_edit)
 
     type : EnumProperty(
         name = 'Mask Type',

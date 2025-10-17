@@ -183,6 +183,23 @@ TANGENT_SIGN_PREFIX = '__tsign_'
 
 neighbor_directions = ['n', 's', 'e', 'w']
 
+def get_vertex_color_label(capital=11):
+    if not is_bl_newer_than(3, 2):
+
+        if capital == 10:
+            return 'Vertex color'
+        elif capital == 00:
+            return 'vertex color'
+
+        return 'Vertex Color'
+
+    if capital == 10:
+        return 'Color attribute'
+    elif capital == 00:
+        return 'color attribute'
+
+    return 'Color Attribute'
+
 normal_blend_items = (
     ('MIX', 'Mix', ''),
     ('OVERLAY', 'Add', ''),
@@ -226,7 +243,7 @@ layer_type_items = (
     ('NOISE', 'Noise', ''),
     ('VORONOI', 'Voronoi', ''),
     ('WAVE', 'Wave', ''),
-    ('VCOL', 'Vertex Color', ''),
+    ('VCOL', 'Color Attribute', ''),
     ('BACKGROUND', 'Background', ''),
     ('COLOR', 'Solid Color', ''),
     ('GROUP', 'Group', ''),
@@ -246,7 +263,7 @@ mask_type_items = (
     ('NOISE', 'Noise', ''),
     ('VORONOI', 'Voronoi', ''),
     ('WAVE', 'Wave', ''),
-    ('VCOL', 'Vertex Color', ''),
+    ('VCOL', 'Color Attribute', ''),
     ('HEMI', 'Fake Lighting', ''),
     ('OBJECT_INDEX', 'Object Index', ''),
     ('COLOR_ID', 'Color ID', ''),
@@ -268,7 +285,7 @@ channel_override_type_items = (
     ('NOISE', 'Noise', ''),
     ('VORONOI', 'Voronoi', ''),
     ('WAVE', 'Wave', ''),
-    ('VCOL', 'Vertex Color', ''),
+    ('VCOL', 'Color Attribute', ''),
     ('GABOR', 'Gabor', ''),
 )
 
@@ -294,7 +311,7 @@ layer_type_labels = {
     'NOISE' : 'Noise',
     'VORONOI' : 'Voronoi',
     'WAVE' : 'Wave',
-    'VCOL' : 'Vertex Color',
+    'VCOL' : 'Color Attribute',
     'BACKGROUND' : 'Background',
     'COLOR' : 'Solid Color',
     'GROUP' : 'Group',
@@ -314,7 +331,7 @@ mask_type_labels = {
     'NOISE' : 'Noise',
     'VORONOI' : 'Voronoi',
     'WAVE' : 'Wave',
-    'VCOL' : 'Vertex Color',
+    'VCOL' : 'Color Attribute',
     'HEMI' : 'Fake Lighting',
     'OBJECT_INDEX' : 'Object Index',
     'COLOR_ID' : 'Color ID',
@@ -367,7 +384,7 @@ channel_override_labels = {
     'NOISE' : 'Noise',
     'VORONOI' : 'Voronoi',
     'WAVE' : 'Wave',
-    'VCOL' : 'Vertex Color',
+    'VCOL' : 'Color Attribute',
     'HEMI' : 'Fake Lighting',
     'GABOR' : 'Gabor',
 }
