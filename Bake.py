@@ -851,9 +851,9 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
-    """Bake Channel to Vertex Color"""
     bl_idname = "wm.y_bake_channel_to_vcol"
-    bl_label = "Bake channel to vertex color"
+    bl_label = "Bake channel to "+get_vertex_color_label(00)
+    bl_description = "Bake Channel to "+get_vertex_color_label()
     bl_options = {'REGISTER', 'UNDO'}
 
     all_materials : BoolProperty(
@@ -863,8 +863,8 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
     )
 
     vcol_name : StringProperty(
-        name = 'Target Vertex Color Name', 
-        description = "Target vertex color name, it will create one if it doesn't exist",
+        name = 'Target '+get_vertex_color_label()+' Name', 
+        description = "Target "+get_vertex_color_label(00)+" name, it will create one if it doesn't exist",
         default = ''
     )
     
@@ -882,7 +882,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
 
     force_first_index : BoolProperty(
         name = 'Force First Index', 
-        description = "Force target vertex color to be first on the vertex colors list (useful for exporting)",
+        description = "Force target "+get_vertex_color_label(00)+" to be first on the "+get_vertex_color_label(00)+"s list (useful for exporting)",
         default = True
     )
 
@@ -944,7 +944,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         row = split_layout(self.layout, 0.4)
         col = row.column(align=True)
 
-        col.label(text='Target Vertex Color:')
+        col.label(text='Target '+get_vertex_color_label()+':')
         if self.show_emission_option:
             col.label(text='Add Emission:')
             col.label(text='Emission Multiplier:')
@@ -1094,7 +1094,7 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
     bl_options = {'UNDO'}
 
     also_del_vcol : BoolProperty(
-        name = "Also delete the vertex color",
+        name = "Also delete the "+get_vertex_color_label(00),
         default = False
     )
 
@@ -1126,7 +1126,7 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 
     def draw(self, context):
         if self.any_channel_use_baked_vcol:
-            title="Also remove baked vertex colors"
+            title="Also remove baked "+get_vertex_color_label(00)+"s"
             self.layout.prop(self, 'also_del_vcol', text=title)
 
     def execute(self, context):
@@ -1247,19 +1247,19 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
     enable_bake_as_vcol : BoolProperty(
         name = 'Enable Bake As VCol',
-        description = 'Has any channel enabled Bake As Vertex Color',
+        description = 'Has any channel enabled Bake As '+get_vertex_color_label(),
         default = False
     )
 
     vcol_force_first_ch_idx : EnumProperty(
-        name = 'Force First Vertex Color Channel',
-        description = 'Force the first channel after baking the Vertex Color',
+        name = 'Force First '+get_vertex_color_label()+' Channel',
+        description = 'Force the first channel after baking the '+get_vertex_color_label(),
         items = bake_vcol_channel_items
     )
 
     vcol_force_first_ch_idx_bool : BoolProperty(
-        name = 'Force First Vertex Color Channel',
-        description = 'Force the first channel after baking the Vertex Color',
+        name = 'Force First '+get_vertex_color_label()+' Channel',
+        description = 'Force the first channel after baking the '+get_vertex_color_label(),
         default = False
     )
 
@@ -1597,7 +1597,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if BL28_HACK and height_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
 
             if len(yp.uvs) > MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
-                self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(yp.uvs)) + " vertex color(s) to bake proper normal!")
+                self.report({'WARNING'}, "Maximum "+get_vertex_color_label(00)+"s reached! Need at least " + str(len(yp.uvs)) + " "+get_vertex_color_label(00)+"(s) to bake proper normal!")
             else:
                 print('INFO: Calculating tangent sign before bake...')
                 tangent_sign_calculation = True
@@ -2568,11 +2568,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
                 modifier_found = True
 
             if modifier_found:
-                self.report({'ERROR'}, "Vertex color merge does not works with modifers and masks yet!")
+                self.report({'ERROR'}, get_vertex_color_label(10)+" merge does not works with modifers and masks yet!")
                 return {'CANCELLED'}
 
             if ch.blend_type != 'MIX' or neighbor_ch.blend_type != 'MIX':
-                self.report({'ERROR'}, "Vertex color merge only works with Mix blend type for now!")
+                self.report({'ERROR'}, get_vertex_color_label(10)+" merge only works with Mix blend type for now!")
                 return {'CANCELLED'}
 
             if neighbor_idx > layer_idx:

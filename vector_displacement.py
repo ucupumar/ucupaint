@@ -214,6 +214,34 @@ def _recover_bake_settings(book, recover_active_uv=False):
     # Bring back the hack functions
     wmyp.halt_hacks = False
 
+def copy_props_to_dict(source, target_dict, debug=False):
+    if debug: print()
+
+    for prop in dir(source):
+        if prop in {'bl_rna', 'rna_type'}: continue
+        if prop.startswith('__'): continue
+
+        val = getattr(source, prop)
+        attr_type = str(type(val))
+
+        if attr_type.startswith("<class 'bpy_func"): continue
+        if attr_type.startswith("<class 'NoneType"): continue
+        #if attr_type.startswith("<class 'bpy_prop"): continue
+
+        if debug: print(prop, attr_type)
+
+        if 'bpy_prop_collection' in attr_type:
+            target_dict[prop] = []
+            for c in val:
+                subdict = {}
+                copy_props_to_dict(c, subdict, debug)
+                target_dict[prop].append(subdict)
+        else:
+            try: target_dict[prop] = val
+            except Exception as e: pass
+
+    if debug: print()
+
 ''' Applying modifier with shape keys. Based on implementation by Przemysław Bągard.'''
 def apply_modifiers_with_shape_keys(obj, selected_modifiers, disable_armatures=True):
 
@@ -357,7 +385,8 @@ def apply_modifiers_with_shape_keys(obj, selected_modifiers, disable_armatures=T
     ori_action_name = ''
     if obj.data.shape_keys.animation_data and obj.data.shape_keys.animation_data.action:
         ori_action_name = obj.data.shape_keys.animation_data.action.name
-        for fc in obj.data.shape_keys.animation_data.action.fcurves:
+        sk_fcurves = get_datablock_fcurves(obj.data.shape_keys)
+        for fc in sk_fcurves:
             fc_dic = {}
 
             for prop in dir(fc):
@@ -431,9 +460,7 @@ def apply_modifiers_with_shape_keys(obj, selected_modifiers, disable_armatures=T
         obj.data.shape_keys.animation_data.action = bpy.data.actions.new(name=ori_action_name)
 
         for ofc in ori_fcurves:
-            fcurve = obj.data.shape_keys.animation_data.action.fcurves.new(
-                data_path=ofc['data_path'], #index=2
-            )
+            fcurve = new_fcurve(obj.data.shape_keys, ofc['data_path'])
 
             for key, val in ofc.items():
                 if key in {'data_path', 'keyframe_points'}: continue

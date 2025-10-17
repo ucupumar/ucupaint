@@ -75,7 +75,7 @@ class YBakeTarget(bpy.types.PropertyGroup):
         description = 'Bake target data type',
         items = (
             ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
-            ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1),
+            ('VCOL', get_vertex_color_label(), '', 'GROUP_VCOL', 1),
         ),
         default = 'IMAGE'
     )

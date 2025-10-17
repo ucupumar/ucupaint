@@ -84,7 +84,7 @@ def remove_tangent_sign_vcols(objs=None):
         vcols = get_vertex_colors(ob)
         for vcol in reversed(vcols):
             if vcol.name.startswith(TANGENT_SIGN_PREFIX):
-                print('INFO:', 'Vertex color "' + vcol.name + '" in', ob.name, 'is deleted!')
+                print('INFO:', get_vertex_color_label(10)+'"' + vcol.name + '" in', ob.name, 'is deleted!')
                 vcols.remove(vcol)
 
 def update_tangent_process(tree, lib_name):
@@ -723,15 +723,14 @@ def update_yp_tree(tree):
                     layer.expand_channels = False
 
                 # Transfer fcurve
-                if tree.animation_data and tree.animation_data.action:
-                    fcs = tree.animation_data.action.fcurves
-                    for fc in fcs:
-                        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.intensity_value', fc.data_path)
-                        if m:
-                            mlayer = yp.layers[int(m.group(1))]
-                            mch = mlayer.channels[int(m.group(2))]
-                            if mch != ch: continue
-                            fc.data_path = 'yp.layers[' + m.group(1) + '].intensity_value'
+                fcs = get_datablock_fcurves(tree)
+                for fc in fcs:
+                    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.intensity_value', fc.data_path)
+                    if m:
+                        mlayer = yp.layers[int(m.group(1))]
+                        mch = mlayer.channels[int(m.group(2))]
+                        if mch != ch: continue
+                        fc.data_path = 'yp.layers[' + m.group(1) + '].intensity_value'
 
         # Subdiv tweak is no longer used
         height_root_ch = get_root_height_channel(yp)
@@ -740,100 +739,99 @@ def update_yp_tree(tree):
             height_root_ch.height_tweak = height_root_ch.subdiv_tweak
 
         # Check for mapping actions
-        if tree.animation_data and tree.animation_data.action:
-            fcs = tree.animation_data.action.fcurves
-            new_fcs = []
-            for fc in fcs:
-                #print(fc.data_path)
+        fcs = get_datablock_fcurves(tree)
+        new_fcs = []
+        for fc in fcs:
+            #print(fc.data_path)
 
-                # New fcurve
-                nfc = None
+            # New fcurve
+            nfc = None
 
-                # Get entity
-                mlayer = re.match(r'yp\.layers\[(\d+)\]\.+', fc.data_path)
-                mmask = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.+', fc.data_path)
+            # Get entity
+            mlayer = re.match(r'yp\.layers\[(\d+)\]\.+', fc.data_path)
+            mmask = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.+', fc.data_path)
 
-                if mlayer: entity = yp.layers[int(mlayer.group(1))]
-                if mmask: entity = yp.layers[int(mmask.group(1))].masks[int(mmask.group(2))]
+            if mlayer: entity = yp.layers[int(mlayer.group(1))]
+            if mmask: entity = yp.layers[int(mmask.group(1))].masks[int(mmask.group(2))]
 
-                # Match data path
-                m1 = re.match(r'yp\.layers\[(\d+)\]\.translation', fc.data_path)
-                m2 = re.match(r'yp\.layers\[(\d+)\]\.rotation', fc.data_path)
-                m3 = re.match(r'yp\.layers\[(\d+)\]\.scale', fc.data_path)
-                m4 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.translation', fc.data_path)
-                m5 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.rotation', fc.data_path)
-                m6 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.scale', fc.data_path)
+            # Match data path
+            m1 = re.match(r'yp\.layers\[(\d+)\]\.translation', fc.data_path)
+            m2 = re.match(r'yp\.layers\[(\d+)\]\.rotation', fc.data_path)
+            m3 = re.match(r'yp\.layers\[(\d+)\]\.scale', fc.data_path)
+            m4 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.translation', fc.data_path)
+            m5 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.rotation', fc.data_path)
+            m6 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.scale', fc.data_path)
 
-                # Mapping
-                if m1 or m2 or m3 or m4 or m5 or m6:
-                    mapping = get_entity_mapping(entity)
-                    parent_node = mapping.id_data
+            # Mapping
+            if m1 or m2 or m3 or m4 or m5 or m6:
+                mapping = get_entity_mapping(entity)
+                parent_node = mapping.id_data
 
-                    # Translation
-                    if m1 or m4:
-                        if is_bl_newer_than(2, 81):
-                            new_data_path = 'nodes["' + mapping.name + '"].inputs[1].default_value'
-                        else: new_data_path = 'nodes["' + mapping.name + '"].translation'
+                # Translation
+                if m1 or m4:
+                    if is_bl_newer_than(2, 81):
+                        new_data_path = 'nodes["' + mapping.name + '"].inputs[1].default_value'
+                    else: new_data_path = 'nodes["' + mapping.name + '"].translation'
 
-                    # Rotation
-                    elif m2 or m5:
-                        if is_bl_newer_than(2, 81):
-                            new_data_path = 'nodes["' + mapping.name + '"].inputs[2].default_value'
-                        else: new_data_path = 'nodes["' + mapping.name + '"].rotation'
+                # Rotation
+                elif m2 or m5:
+                    if is_bl_newer_than(2, 81):
+                        new_data_path = 'nodes["' + mapping.name + '"].inputs[2].default_value'
+                    else: new_data_path = 'nodes["' + mapping.name + '"].rotation'
 
-                    # Scale
-                    else: #elif m3 or m6:
-                        if is_bl_newer_than(2, 81):
-                            new_data_path = 'nodes["' + mapping.name + '"].inputs[3].default_value'
-                        else: new_data_path = 'nodes["' + mapping.name + '"].scale'
+                # Scale
+                else: #elif m3 or m6:
+                    if is_bl_newer_than(2, 81):
+                        new_data_path = 'nodes["' + mapping.name + '"].inputs[3].default_value'
+                    else: new_data_path = 'nodes["' + mapping.name + '"].scale'
 
-                    for i, kp in enumerate(fc.keyframe_points):
+                for i, kp in enumerate(fc.keyframe_points):
 
-                        # Set current frame and value
-                        #mapping.inputs[1].default_value[fc.array_index] = fc.evaluate(int(kp.co[0]))
-                        bpy.context.scene.frame_set(int(kp.co[0]))
-                        if m1 or m4: # Translation
-                            mapping.inputs[1].default_value[fc.array_index] = entity.translation[fc.array_index]
-                        elif m2 or m5: # Rotation
-                            mapping.inputs[2].default_value[fc.array_index] = entity.rotation[fc.array_index]
-                        elif m3 or m6: # Scale
-                            mapping.inputs[3].default_value[fc.array_index] = entity.scale[fc.array_index]
+                    # Set current frame and value
+                    #mapping.inputs[1].default_value[fc.array_index] = fc.evaluate(int(kp.co[0]))
+                    bpy.context.scene.frame_set(int(kp.co[0]))
+                    if m1 or m4: # Translation
+                        mapping.inputs[1].default_value[fc.array_index] = entity.translation[fc.array_index]
+                    elif m2 or m5: # Rotation
+                        mapping.inputs[2].default_value[fc.array_index] = entity.rotation[fc.array_index]
+                    elif m3 or m6: # Scale
+                        mapping.inputs[3].default_value[fc.array_index] = entity.scale[fc.array_index]
 
-                        # Insert keyframe
-                        parent_node.keyframe_insert(data_path=new_data_path, frame=int(kp.co[0]))
+                    # Insert keyframe
+                    parent_node.keyframe_insert(data_path=new_data_path, frame=int(kp.co[0]))
 
-                        # Get new fcurve
-                        if not nfc:
-                            nfc = [f for f in parent_node.animation_data.action.fcurves if f.data_path == new_data_path and f.array_index == fc.array_index][0]
+                    # Get new fcurve
+                    if not nfc:
+                        nfc = [f for f in get_datablock_fcurves(parent_node) if f.data_path == new_data_path and f.array_index == fc.array_index][0]
 
-                        # Get new keyframe point
-                        nkp = nfc.keyframe_points[i]
+                    # Get new keyframe point
+                    nkp = nfc.keyframe_points[i]
 
-                        # Copy keyframe props
-                        copy_id_props(kp, nkp)
+                    # Copy keyframe props
+                    copy_id_props(kp, nkp)
 
-                new_fcs.append(nfc)
+            new_fcs.append(nfc)
 
-            for i, fc in reversed(list(enumerate(fcs))):
+        for i, fc in reversed(list(enumerate(fcs))):
 
-                # Get new fcurve
-                nfc = new_fcs[i]
-                if not nfc: continue
+            # Get new fcurve
+            nfc = new_fcs[i]
+            if not nfc: continue
 
-                # Copy modifiers
-                for mod in fc.modifiers:
-                    nmod = nfc.modifiers.new(type=mod.type)
-                    copy_id_props(mod, nmod)
+            # Copy modifiers
+            for mod in fc.modifiers:
+                nmod = nfc.modifiers.new(type=mod.type)
+                copy_id_props(mod, nmod)
 
-                # Copy fcurve props
-                #copy_id_props(fc, nfc)
-                nfc.mute = fc.mute
-                nfc.hide = fc.hide
-                nfc.extrapolation = fc.extrapolation
-                nfc.lock = fc.lock
+            # Copy fcurve props
+            #copy_id_props(fc, nfc)
+            nfc.mute = fc.mute
+            nfc.hide = fc.hide
+            nfc.extrapolation = fc.extrapolation
+            nfc.lock = fc.lock
 
-                # Remove original fcurve
-                fcs.remove(fc)
+            # Remove original fcurve
+            fcs.remove(fc)
 
     # Version 2.1 has new flag for bake info
     if version_tuple(yp.version) < (2, 1, 0):

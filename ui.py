@@ -1317,7 +1317,7 @@ def draw_root_channels_ui(context, layout, node):
             #    brow.label(text='', icon='BLANK1')
 
             if channel.type == 'NORMAL':
-                if ypup.show_experimental or channel.enable_smooth_bump: # or not is_bl_newer_than(2, 80):
+                if ypup.show_experimental or channel.enable_smooth_bump or not is_bl_newer_than(2, 78):
                     brow = bcol.row(align=True)
 
                     if is_bl_newer_than(2, 80):
@@ -1500,10 +1500,7 @@ def draw_root_channels_ui(context, layout, node):
                     brow = bcol.row(align=True)
 
                     vcols = get_vertex_colors(context.object)
-                    #if yp.use_baked and channel.bake_to_vcol_name in vcols:
-                    #    label_text = 'Use Baked Vertex Color:'
-                    #else: 
-                    label_text = 'Bake To Vertex Color:'
+                    label_text = 'Bake To '+get_vertex_color_label()+':'
 
                     rrow = brow.row(align=True)
                     inbox_dropdown_button(rrow, chui, 'expand_bake_to_vcol_settings', label_text, scale_override=0.95)
@@ -1524,7 +1521,7 @@ def draw_root_channels_ui(context, layout, node):
                             brow.prop(channel, 'bake_to_vcol_alpha', text='')
 
                         brow = bbcol.row(align=True)
-                        brow.label(text='Target Vertex Color:')
+                        brow.label(text='Target '+get_vertex_color_label()+':')
                         brow.prop(channel, 'bake_to_vcol_name', text='')
 
 def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
@@ -1636,7 +1633,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         menu_label = vcol.name
         icon_value = lib.get_icon('vertex_color')
     else: 
-        menu_label = [item for item in layer_type_items if layer.type == item[0]][0][1]
+        menu_label = layer_type_labels[layer.type]
         if layer.type == 'COLOR':
             icon_value = lib.get_icon('color')
         elif layer.type == 'BACKGROUND':
@@ -1924,7 +1921,9 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
         label = 'Layer'
 
         if ch == alpha_ch and color_ch.enable and not color_ch.unpair_alpha:
-            label += ' Alpha'
+            if color_ch.socket_input_name == 'Alpha':
+                label = 'Solid Value (1.0)'
+            else: label += ' Alpha'
         else: label += ' ' + get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
 
     return label
@@ -3395,7 +3394,7 @@ def draw_layers_ui(context, layout, node):
                     icon = 'CHECKBOX_HLT' if root_ch.use_baked_vcol else 'CHECKBOX_DEHLT'
                     row.prop(root_ch, 'use_baked_vcol', icon=icon, text='', toggle=True, emboss=False)
                 else:
-                    row.label(text='Baked vertex color is missing!' + title, icon='ERROR')
+                    row.label(text='Baked '+get_vertex_color_label(00)+' is missing!' + title, icon='ERROR')
 
             if root_ch.type == 'NORMAL':
 
@@ -4392,7 +4391,7 @@ def main_draw(self, context):
             col.label(text='Legacy alpha accidentally enabled!', icon='ERROR')
             col.operator("wm.y_disable_legacy_channel_alpha", text='Disable Legacy Alpha')
 
-    if ypup.developer_mode:
+    if ypup.developer_mode and is_bl_newer_than(2, 78):
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and height_root_ch.enable_smooth_bump:
             col = layout.column()
@@ -4629,11 +4628,8 @@ def main_draw(self, context):
 
         box = layout.box()
         col = box.column()
-        #col = layout.column(align=True)
         col.label(text=pgettext_iface('Number of Images: ') + str(len(images)), icon_value=lib.get_icon('image'))
-        #col.label(text='Number of Vertex Colors: ' + str(len(vcols)), icon='GROUP_VCOL')
-        col.label(text=pgettext_iface('Number of Vertex Colors: ') + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
-        #col.label(text='Number of Generated Textures: ' + str(num_gen_texs), icon='TEXTURE')
+        col.label(text=pgettext_iface('Number of '+get_vertex_color_label()+': ') + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
         col.label(text=pgettext_iface('Number of Generated Textures: ') + str(num_gen_texs), icon_value=lib.get_icon('texture'))
         col.label(text=pgettext_iface('Number of Color Ramps: ') + str(num_ramps), icon_value=lib.get_icon('modifier'))
         col.label(text=pgettext_iface('Number of RGB Curves: ') + str(num_curves), icon_value=lib.get_icon('modifier'))
@@ -5193,7 +5189,6 @@ def layer_listing(layout, layer, show_expand=False):
                     row.label(text=override_image.name)
                 else: row.prop(active_override_image, 'name', text='', emboss=False)
             elif override_ch.override_type == 'VCOL':
-                #row.label(text='Vertex Color Override')
                 row.prop(override_ch, 'override_vcol_name', text='', emboss=False)
             else:
                 row.label(text=get_ch_override_label(layer, override_ch, override_ch.active_edit_1))
@@ -5918,7 +5913,7 @@ class YNewLayerMenu(bpy.types.Menu):
         op = col.operator("wm.y_open_image_to_layer", text='Open Image...')
         op.texcoord_type = 'UV'
         op.file_browser_filepath = ''
-        col.operator("wm.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
+        col.operator("wm.y_open_existing_data_to_layer", text='Open Existing Image').type = 'IMAGE'
 
         col.operator("wm.y_open_images_to_single_layer", text='Open Images to Single Layer...')
         col.operator("wm.y_open_images_from_material_to_single_layer", text='Open Images from Material').asset_library_path = ''
@@ -5931,10 +5926,8 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
         col.separator()
 
-        #col.label(text='Vertex Color:')
-        #col.operator("wm.y_new_layer", icon='GROUP_VCOL', text='New Vertex Color').type = 'VCOL'
-        col.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New Vertex Color').type = 'VCOL'
-        col.operator("wm.y_open_available_data_to_layer", text='Open Available Vertex Color').type = 'VCOL'
+        col.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New '+get_vertex_color_label()).type = 'VCOL'
+        col.operator("wm.y_open_existing_data_to_layer", text='Open Existing '+get_vertex_color_label()).type = 'VCOL'
         col.separator()
 
         #col.menu("NODE_MT_y_new_solid_color_layer_menu", text='Solid Color', icon_value=lib.get_icon('color'))
@@ -5949,7 +5942,7 @@ class YNewLayerMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        c = col.operator("wm.y_new_layer", text='Solid Color w/ Vertex Color Mask')
+        c = col.operator("wm.y_new_layer", text='Solid Color w/ '+get_vertex_color_label()+' Mask')
         c.type = 'COLOR'
         c.add_mask = True
         c.mask_type = 'VCOL'
@@ -5965,7 +5958,9 @@ class YNewLayerMenu(bpy.types.Menu):
             c.add_mask = True
             c.mask_type = 'EDGE_DETECT'
 
-        if ypup.developer_mode:
+        # NOTE: Backgound layers are no longer accessible even with developer mode enabled
+        # Just remove the 'False' if anyone wants to test background layer again
+        if False and ypup.developer_mode:
             col.separator()
 
             #col.label(text='Background:')
@@ -5974,10 +5969,7 @@ class YNewLayerMenu(bpy.types.Menu):
             c.add_mask = True
             c.mask_type = 'IMAGE'
 
-            #if is_bl_newer_than(2, 80):
-            #    c = col.operator("wm.y_new_layer", text='Background w/ Vertex Color Mask')
-            #else: c = col.operator("wm.y_new_layer", text='Background w/ Vertex Color Mask')
-            c = col.operator("wm.y_new_layer", text='Background w/ Vertex Color Mask')
+            c = col.operator("wm.y_new_layer", text='Background w/ '+get_vertex_color_label()+' Mask')
 
         c.type = 'BACKGROUND'
         c.add_mask = True
@@ -6309,8 +6301,18 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         col.separator()
         if color_ch and color_ch.enable and not color_ch.unpair_alpha and alpha_ch == ch:
             icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
-            label = 'Layer' if layer.type != 'GROUP' else 'Group'
-            label += ' Alpha'
+
+            if color_ch.socket_input_name == 'Alpha' and layer.type != 'GROUP':
+                label = ' Solid Value (1.0)'
+            else:
+                label = 'Layer' if layer.type != 'GROUP' else 'Group'
+                label += ' Alpha'
+
+                source = get_layer_source(layer)
+                if layer.type == 'IMAGE' and source and source.image:
+                    label += ' ('+source.image.name+')'
+                elif layer.type == 'VCOL' and source:
+                    label += ' ('+source.attribute_name+')'
 
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
             op.socket_name = get_channel_input_socket_name(layer, ch)
@@ -6329,6 +6331,10 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                     icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch) == outp.name and not ch.override else 'RADIOBUT_OFF'
                     label = 'Layer ' + outp.name
 
+                    if layer.type == 'IMAGE' and source and source.image:
+                        label += ' ('+source.image.name+')'
+                    elif layer.type == 'VCOL' and source:
+                        label += ' ('+source.attribute_name+')'
                     if layer.type not in {'IMAGE', 'VCOL'}:
                         label += ' ('+layer_type_labels[layer.type]+')'
 
@@ -6356,7 +6362,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             if ch.override_type == 'IMAGE':
                 label += 'Image (' + source.image.name + ')'
             elif ch.override_type == 'VCOL':
-                label += 'Vertex Color (' + source.attribute_name + ')'
+                label += get_vertex_color_label()+' (' + source.attribute_name + ')'
             else:
                 label += 'Data (' + channel_override_labels[ch.override_type] +')'
         else:
@@ -6572,7 +6578,7 @@ class YNewSolidColorLayerMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        c = col.operator("wm.y_new_layer", text='Solid Color w/ Vertex Color Mask')
+        c = col.operator("wm.y_new_layer", text='Solid Color w/ '+get_vertex_color_label()+' Mask')
         c.type = 'COLOR'
         c.add_mask = True
         c.mask_type = 'VCOL'
@@ -6844,12 +6850,12 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         op = new_mask_button(col, 'wm.y_open_image_as_mask', 'Open Image as Mask...', lib_icon='open_image')
         op.texcoord_type = 'UV'
         op.file_browser_filepath = ''
-        new_mask_button(col, 'wm.y_open_available_data_as_mask', 'Open Available Image as Mask', lib_icon='open_image', otype='IMAGE')
+        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing Image as Mask', lib_icon='open_image', otype='IMAGE')
         col.separator()
 
-        col.label(text='Vertex Color Mask:')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'New Vertex Color Mask', lib_icon='vertex_color', otype='VCOL')
-        new_mask_button(col, 'wm.y_open_available_data_as_mask', 'Open Available Vertex Color as Mask', lib_icon='vertex_color', otype='VCOL')
+        col.label(text=get_vertex_color_label()+' Mask:')
+        new_mask_button(col, 'wm.y_new_layer_mask', 'New '+get_vertex_color_label()+' Mask', lib_icon='vertex_color', otype='VCOL')
+        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing '+get_vertex_color_label()+' as Mask', lib_icon='vertex_color', otype='VCOL')
 
         new_mask_button(col, 'wm.y_new_layer_mask', 'Color ID', lib_icon='color', otype='COLOR_ID')
 
@@ -7038,11 +7044,11 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         ccol = row.column(align=True)
         ccol.operator('wm.y_open_image_to_override_layer_channel', text='Open Image...', icon_value=lib.get_icon('open_image'))
-        ccol.operator('wm.y_open_available_data_to_override_channel', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        ccol.operator('wm.y_open_existing_data_to_override_channel', text='Open Existing Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         
         col.separator()
 
-        label = 'Vertex Color'
+        label = get_vertex_color_label()
         cache_vcol = tree.nodes.get(ch.cache_vcol)
         #source = tree.nodes.get(ch.source)
         if cache_vcol:
@@ -7059,9 +7065,8 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
         row = col.row(align=True)
 
         ccol = row.column(align=True)
-        #ccol.operator('wm.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
-        ccol.operator('wm.y_new_vcol_to_override_channel', text='New Vertex Color', icon_value=lib.get_icon('vertex_color'))
-        ccol.operator('wm.y_open_available_data_to_override_channel', text='Use Available Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        ccol.operator('wm.y_new_vcol_to_override_channel', text='New '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color'))
+        ccol.operator('wm.y_open_existing_data_to_override_channel', text='Use Existing '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
 
         col.separator()
 
@@ -7137,7 +7142,7 @@ class YReplaceChannelOverride1Menu(bpy.types.Menu):
 
         ccol = row.column(align=True)
         ccol.operator('wm.y_open_image_to_override_1_layer_channel', text='Open Image...', icon_value=lib.get_icon('open_image'))
-        ccol.operator('wm.y_open_available_data_to_override_1_channel', text='Open Available Image', icon_value=lib.get_icon('open_image'))
+        ccol.operator('wm.y_open_existing_data_to_override_1_channel', text='Open Existing Image', icon_value=lib.get_icon('open_image'))
 
 class YChannelSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_channel_special_menu"
@@ -7187,8 +7192,8 @@ class YChannelSpecialMenu(bpy.types.Menu):
 
             col = row.column()
             col.label(text='Experimental')
-            col.operator('wm.y_bake_channel_to_vcol', text='Bake Channel to Vertex Color', icon_value=lib.get_icon('vertex_color')).all_materials = False
-            col.operator('wm.y_bake_channel_to_vcol', text='Bake Channel to Vertex Color (Batch All Materials)', icon_value=lib.get_icon('vertex_color')).all_materials = True
+            col.operator('wm.y_bake_channel_to_vcol', text='Bake Channel to '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color')).all_materials = False
+            col.operator('wm.y_bake_channel_to_vcol', text='Bake Channel to '+get_vertex_color_label()+' (Batch All Materials)', icon_value=lib.get_icon('vertex_color')).all_materials = True
         
 class YLayerChannelSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_special_menu"
@@ -7296,8 +7301,8 @@ class YLayerTypeMenu(bpy.types.Menu):
         label = 'Open Image' if layer.type != 'IMAGE' else 'Replace Image'
         op = col.operator('wm.y_open_image_to_replace_layer', text=folder_emoji+label)
 
-        label = 'Open Available Image' if layer.type != 'IMAGE' else 'Replace with Available Image'
-        #label = 'Open Available Image'
+        label = 'Open Existing Image' if layer.type != 'IMAGE' else 'Replace with Existing Image'
+        #label = 'Open Existing Image'
         op = col.operator('wm.y_replace_layer_type', text=folder_emoji+label)
         op.type = 'IMAGE'
         op.load_item = True
@@ -7306,7 +7311,7 @@ class YLayerTypeMenu(bpy.types.Menu):
 
         cache_vcol = tree.nodes.get(layer.cache_vcol)
         if layer.type != 'VCOL' and cache_vcol and cache_vcol.attribute_name != '':
-            op = col.operator('wm.y_replace_layer_type', text='Vertex Color: ' + cache_vcol.attribute_name, icon='RADIOBUT_OFF')
+            op = col.operator('wm.y_replace_layer_type', text=get_vertex_color_label()+': ' + cache_vcol.attribute_name, icon='RADIOBUT_OFF')
             op.type = 'VCOL'
             op.load_item = False
             op.item_name = ''
@@ -7316,9 +7321,9 @@ class YLayerTypeMenu(bpy.types.Menu):
             if layer.type == 'VCOL' and source and source.attribute_name != '':
                 suffix += ': ' + source.attribute_name
             icon = 'RADIOBUT_ON' if layer.type == 'VCOL' else 'RADIOBUT_OFF'
-            col.label(text='Vertex Color' + suffix, icon=icon)
+            col.label(text=get_vertex_color_label() + suffix, icon=icon)
 
-        label = 'Open Available Vertex Color' if layer.type != 'VCOL' else 'Replace Vertex Color'
+        label = 'Open Existing '+get_vertex_color_label() if layer.type != 'VCOL' else 'Replace '+get_vertex_color_label()
         op = col.operator('wm.y_replace_layer_type', text=folder_emoji+label) #, icon_value=lib.get_icon('vertex_color'))
         op.type = 'VCOL'
         op.load_item = True
@@ -7414,7 +7419,7 @@ class YMaskTypeMenu(bpy.types.Menu):
         label = 'Open Image' if mask.type != 'IMAGE' else 'Replace Image'
         op = col.operator('wm.y_open_image_to_replace_mask', text=folder_emoji+label)
 
-        label = 'Open Available Image' if mask.type != 'IMAGE' else 'Replace with Available Image'
+        label = 'Open Existing Image' if mask.type != 'IMAGE' else 'Replace with Existing Image'
         op = col.operator('wm.y_replace_mask_type', text=folder_emoji+label)
         op.type = 'IMAGE'
         op.load_item = True
@@ -7423,7 +7428,7 @@ class YMaskTypeMenu(bpy.types.Menu):
 
         cache_vcol = tree.nodes.get(mask.cache_vcol)
         if mask.type != 'VCOL' and cache_vcol and cache_vcol.attribute_name != '':
-            op = col.operator('wm.y_replace_mask_type', text='Vertex Color: ' + cache_vcol.attribute_name, icon='RADIOBUT_OFF')
+            op = col.operator('wm.y_replace_mask_type', text=get_vertex_color_label()+': ' + cache_vcol.attribute_name, icon='RADIOBUT_OFF')
             op.type = 'VCOL'
             op.load_item = False
             op.item_name = ''
@@ -7433,9 +7438,9 @@ class YMaskTypeMenu(bpy.types.Menu):
             if mask.type == 'VCOL' and source and source.attribute_name != '':
                 suffix += ': ' + source.attribute_name
             icon = 'RADIOBUT_ON' if mask.type == 'VCOL' else 'RADIOBUT_OFF'
-            col.label(text='Vertex Color' + suffix, icon=icon)
+            col.label(text=get_vertex_color_label() + suffix, icon=icon)
 
-        label = 'Open Available Vertex Color' if mask.type != 'VCOL' else 'Replace Vertex Color'
+        label = 'Open Existing '+get_vertex_color_label() if mask.type != 'VCOL' else 'Replace '+get_vertex_color_label()
         op = col.operator('wm.y_replace_mask_type', text=folder_emoji+label) #, icon_value=lib.get_icon('vertex_color'))
         op.type = 'VCOL'
         op.load_item = True
@@ -7848,8 +7853,8 @@ class YChannelUI(bpy.types.PropertyGroup):
     )
 
     expand_bake_to_vcol_settings : BoolProperty(
-        name = 'Bake to Vertex Color',
-        description = 'Expand bake to vertex color settings',
+        name = 'Bake to '+get_vertex_color_label(),
+        description = 'Expand bake to '+get_vertex_color_label(00)+' settings',
         default = False,
         update = update_channel_ui
     )

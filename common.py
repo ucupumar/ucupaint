@@ -183,6 +183,23 @@ TANGENT_SIGN_PREFIX = '__tsign_'
 
 neighbor_directions = ['n', 's', 'e', 'w']
 
+def get_vertex_color_label(capital=11):
+    if not is_bl_newer_than(3, 2):
+
+        if capital == 10:
+            return 'Vertex color'
+        elif capital == 00:
+            return 'vertex color'
+
+        return 'Vertex Color'
+
+    if capital == 10:
+        return 'Color attribute'
+    elif capital == 00:
+        return 'color attribute'
+
+    return 'Color Attribute'
+
 normal_blend_items = (
     ('MIX', 'Mix', ''),
     ('OVERLAY', 'Add', ''),
@@ -226,7 +243,7 @@ layer_type_items = (
     ('NOISE', 'Noise', ''),
     ('VORONOI', 'Voronoi', ''),
     ('WAVE', 'Wave', ''),
-    ('VCOL', 'Vertex Color', ''),
+    ('VCOL', 'Color Attribute', ''),
     ('BACKGROUND', 'Background', ''),
     ('COLOR', 'Solid Color', ''),
     ('GROUP', 'Group', ''),
@@ -246,7 +263,7 @@ mask_type_items = (
     ('NOISE', 'Noise', ''),
     ('VORONOI', 'Voronoi', ''),
     ('WAVE', 'Wave', ''),
-    ('VCOL', 'Vertex Color', ''),
+    ('VCOL', 'Color Attribute', ''),
     ('HEMI', 'Fake Lighting', ''),
     ('OBJECT_INDEX', 'Object Index', ''),
     ('COLOR_ID', 'Color ID', ''),
@@ -268,7 +285,7 @@ channel_override_type_items = (
     ('NOISE', 'Noise', ''),
     ('VORONOI', 'Voronoi', ''),
     ('WAVE', 'Wave', ''),
-    ('VCOL', 'Vertex Color', ''),
+    ('VCOL', 'Color Attribute', ''),
     ('GABOR', 'Gabor', ''),
 )
 
@@ -294,7 +311,7 @@ layer_type_labels = {
     'NOISE' : 'Noise',
     'VORONOI' : 'Voronoi',
     'WAVE' : 'Wave',
-    'VCOL' : 'Vertex Color',
+    'VCOL' : 'Color Attribute',
     'BACKGROUND' : 'Background',
     'COLOR' : 'Solid Color',
     'GROUP' : 'Group',
@@ -314,7 +331,7 @@ mask_type_labels = {
     'NOISE' : 'Noise',
     'VORONOI' : 'Voronoi',
     'WAVE' : 'Wave',
-    'VCOL' : 'Vertex Color',
+    'VCOL' : 'Color Attribute',
     'HEMI' : 'Fake Lighting',
     'OBJECT_INDEX' : 'Object Index',
     'COLOR_ID' : 'Color ID',
@@ -367,7 +384,7 @@ channel_override_labels = {
     'NOISE' : 'Noise',
     'VORONOI' : 'Voronoi',
     'WAVE' : 'Wave',
-    'VCOL' : 'Vertex Color',
+    'VCOL' : 'Color Attribute',
     'HEMI' : 'Fake Lighting',
     'GABOR' : 'Gabor',
 }
@@ -6608,6 +6625,81 @@ def get_mix_color_indices(mix):
 
     return idx0, idx1, outidx
 
+def any_yp_dot_fcurves():
+    fcurve_found = False
+
+    for action in bpy.data.actions:
+
+        if not is_bl_newer_than(5):
+            # Check fcurves
+            if action.id_root != 'NODETREE': continue
+
+            for fc in action.fcurves:
+                if fc.data_path.startswith('yp.'):
+                    fcurve_found = True
+                    break
+
+        else:
+            
+            # Get channelbags
+            for slot in action.slots:
+                if slot.target_id_type != 'NODETREE': continue
+
+                from bpy_extras import anim_utils
+
+                channelbag = anim_utils.action_get_channelbag_for_slot(action, slot)
+                for fc in channelbag.fcurves:
+                    if fc.data_path.startswith('yp.'):
+                        fcurve_found = True
+                        break
+
+                if fcurve_found:
+                    break
+
+        if fcurve_found:
+            break
+
+    return fcurve_found
+
+def new_fcurve(obj, data_path):
+    if not obj.animation_data:
+        return None
+
+    action = obj.animation_data.action
+
+    if not is_bl_newer_than(5):
+        return action.fcurves.new(data_path=data_path) #, index=2)
+
+    from bpy_extras import anim_utils
+
+    # Create new action slot
+    slot = action.slots.new(id_type=obj.id_type, name=obj.name)
+
+    # Ensure channelbag
+    channelbag = anim_utils.action_ensure_channelbag_for_slot(action, slot)
+    return channelbag.fcurves.new(data_path) #,index=2)
+
+def get_datablock_fcurves(obj):
+    if not obj or not obj.animation_data: return []
+
+    action = obj.animation_data.action
+
+    if not is_bl_newer_than(5):
+        return action.fcurves
+
+    from bpy_extras import anim_utils
+
+    # Get action slot first
+    #slots = [s for s in action.slots if s.target_id_type == obj.id_type and obj in s.users()]
+    slots = [s for s in action.slots if obj in s.users()]
+    if not slots: return []
+    slot = slots[0]
+
+    # Get channelbag
+    channelbag = anim_utils.action_get_channelbag_for_slot(action, slot)
+
+    return channelbag.fcurves
+
 def copy_fcurves(src_fc, dest, subdest, attr):
     bpytypes = get_bpytypes()
     dest_path = subdest.path_from_id() + '.' + attr
@@ -6658,9 +6750,10 @@ def copy_fcurves(src_fc, dest, subdest, attr):
 
             # Get new fcurve
             if not nfc:
+                dest_fcurves = get_datablock_fcurves(dest)
                 if array_index >= 0:
-                    nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path and f.array_index == array_index][0]
-                else: nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path][0]
+                    nfc = [f for f in dest_fcurves if f.data_path == dest_path and f.array_index == array_index][0]
+                else: nfc = [f for f in dest_fcurves if f.data_path == dest_path][0]
 
             # Get new keyframe point
             nkp = nfc.keyframe_points[i]
@@ -6678,15 +6771,11 @@ def get_action_and_driver_fcurves(obj):
 
         # Fcurves from action
         if obj.animation_data.action:
-            fcs.append(obj.animation_data.action.fcurves)
-            #for fc in obj.animation_data.action.fcurves:
-            #    fcs.append(fc)
+            fcs.append(get_datablock_fcurves(obj))
 
         # Fcurves from drivers
         for fc in obj.animation_data.drivers:
             fcs.append(obj.animation_data.drivers)
-            #for fc in obj.animation_data.drivers:
-            #    fcs.append(fc)
 
     return fcs
 
@@ -6696,7 +6785,7 @@ def get_material_fcurves(mat):
     fcurves = []
 
     if tree.animation_data and tree.animation_data.action:
-        for fc in tree.animation_data.action.fcurves:
+        for fc in get_datablock_fcurves(mat):
             match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if match:
                 fcurves.append(fc)
@@ -6726,11 +6815,10 @@ def get_yp_fcurves(yp):
 
     fcurves = []
 
-    if tree.animation_data and tree.animation_data.action:
-        for fc in tree.animation_data.action.fcurves:
-            match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
-            if fc.data_path.startswith('yp.') or match:
-                fcurves.append(fc)
+    for fc in get_datablock_fcurves(tree):
+        match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+        if fc.data_path.startswith('yp.') or match:
+            fcurves.append(fc)
 
     return fcurves
 
@@ -6953,9 +7041,10 @@ def remove_entity_fcurves(entity):
     fcurves = get_yp_fcurves(yp)
     drivers = get_yp_drivers(yp)
 
+    tree_fcurves = get_datablock_fcurves(tree)
     for fc in reversed(fcurves):
         if entity.path_from_id() in fc.data_path:
-            tree.animation_data.action.fcurves.remove(fc)
+            if tree_fcurves: tree_fcurves.remove(fc)
 
     for dr in reversed(drivers):
         if entity.path_from_id() in dr.data_path:
@@ -7013,15 +7102,16 @@ def remove_channel_fcurves(root_ch):
     fcurves = get_yp_fcurves(yp)
     drivers = get_yp_drivers(yp)
 
+    tree_fcurves = get_datablock_fcurves(tree)
     for fc in reversed(fcurves):
 
         layer, prop_name = get_layer_and_channel_prop_name_from_data_path(yp, index, fc.data_path)
         if layer and prop_name != '':
-            tree.animation_data.action.fcurves.remove(fc)
+            if tree_fcurves: tree_fcurves.remove(fc)
 
         else:
             m = re.match(r'.*\.channels\[' + str(index) + '\].*', fc.data_path)
-            if m: tree.animation_data.action.fcurves.remove(fc)
+            if m and tree_fcurves: tree_fcurves.remove(fc)
 
     for dr in reversed(drivers):
         layer, prop_name = get_layer_and_channel_prop_name_from_data_path(yp, index, dr.data_path)
@@ -7052,8 +7142,9 @@ def remove_channel_fcurves(root_ch):
             if m and fc not in fcs:
                 fcs.append(fc)
 
+    mat_fcurves = get_datablock_fcurves(mat)
     for fc in reversed(fcs):
-        mat.node_tree.animation_data.action.fcurves.remove(fc)
+        if mat_fcurves: mat_fcurves.remove(fc)
 
     # Delete drivers
     drs = []
