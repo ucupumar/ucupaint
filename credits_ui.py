@@ -500,7 +500,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
                     scale_icon = tier.get('scale', 3)
                     horizontal_mode = tier.get('horizontal', True)
-                    per_column_width = tier.get('per_item_width', 200)
+                    per_column_width = int(tier.get('per_item_width', 200) * context.preferences.system.ui_scale)
 
                     column_count = panel_width // per_column_width
                     if column_count <= 0:

@@ -4700,8 +4700,8 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
         layout = self.layout
         row = layout.row(align=True)
 
-        region = context.region
-        if region.width > 500:
+        threshold = 250 * context.preferences.system.ui_scale
+        if context.region.width > threshold:
             row.popover('VIEW3D_PT_ypaint_support_ui', text="Support Us", icon='FUND')
         else:
             row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
