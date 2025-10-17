@@ -450,6 +450,11 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         panel_width = region.width
 
         layout = self.layout
+
+        row = layout.row()
+        row.alignment = 'CENTER'
+        row.label(text='Support '+get_addon_title()+'!', icon='ARMATURE_DATA')
+
         goal = collaborators.sponsorships
         goal_ui = context.window_manager.ypui_credits
 
@@ -459,6 +464,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             url_donation = goal.get('url', url_donation)
 
             row_title = layout.row(align=True)
+            row_title.alignment = 'CENTER'
             row_title.label(text= get_addon_title() + "'s goal : $" + str(goal['targetValue']) + "/month")
 
             # paging_layout = row_title.row(align=True)

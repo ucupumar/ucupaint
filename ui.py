@@ -4222,7 +4222,9 @@ def main_draw(self, context):
     rrow.alignment = 'RIGHT'
     if not is_bl_newer_than(2, 80):
         rrow.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
-    else: rrow.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
+    else: 
+        row.popover("NODE_PT_ypaint_about_popover", text='', icon='HELP')
+        row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
 
     if ypui.show_object:
         box = layout.box()
@@ -4696,15 +4698,15 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     def poll(cls, context):
         return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
-    def draw_header_preset(self, context):
-        layout = self.layout
-        row = layout.row(align=True)
+    #def draw_header_preset(self, context):
+    #    layout = self.layout
+    #    row = layout.row(align=True)
 
-        threshold = 250 * context.preferences.system.ui_scale
-        if context.region.width > threshold:
-            row.popover('VIEW3D_PT_ypaint_support_ui', text="Support Us", icon='FUND')
-        else:
-            row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
+    #    threshold = 250 * context.preferences.system.ui_scale
+    #    if context.region.width > threshold:
+    #        row.popover('VIEW3D_PT_ypaint_support_ui', text="Support Us", icon='FUND')
+    #    else:
+    #        row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
 
     #def draw_header_preset(self, context):
     #    layout = self.layout
@@ -5612,15 +5614,18 @@ def draw_yp_file_browser_menu(self, context):
 from .credits_ui import get_collaborators, check_contributors
 
 def draw_ypaint_about(self, context):
+    col = self.layout.column(align=True)
+
     goal_ui = context.window_manager.ypui_credits
 
     check_contributors(goal_ui)
     
-    col = self.layout.column(align=True)
     collaborators = get_collaborators()
     contributors = collaborators.contributors
 
     if is_online() and len(contributors) > 0:
+        #col.separator()
+
         row_title = col.row(align=True)
         row_title_label = row_title.row(align=True)
 
@@ -5674,6 +5679,9 @@ def draw_ypaint_about(self, context):
             next = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_RIGHT')
             next.is_next_button = True
             next.max_page = prev.max_page
+
+        #col.separator()
+        #col.operator('wm.url_open', text='View Contributor Graph', icon='SEQ_HISTOGRAM').url = collaborators.default_contributors_url
     else:
         col.label(text=get_addon_title() + ' is created by: ')
         col.operator('wm.url_open', text='View All Contributors', icon='ARMATURE_DATA').url = collaborators.default_contributors_url
@@ -5687,11 +5695,13 @@ def draw_ypaint_about(self, context):
 
     col.separator()
 
+    col.label(text='Links:')
+    col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
+    col.operator('wm.url_open', text=get_addon_title()+' GitHub', icon='SCRIPT').url = 'https://github.com/ucupumar/ucupaint'
+    col.operator('wm.url_open', text=get_addon_title()+' Discord Server', icon='COMMUNITY').url = 'https://discord.gg/BdNfGGzQHh'
+
     # for cl, key in enumerate(previews_users.contributors.keys()):
     #     col.operator('wm.url_open', text=key, icon=icon_name).url = previews_users.contributors[key]["url"]
-
-    col.label(text='Documentation:')
-    col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
 
     from . import addon_updater_ops
     updater = addon_updater_ops.updater
