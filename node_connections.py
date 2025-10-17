@@ -2385,12 +2385,24 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             continue
 
         # Rgb and alpha start
-        if ch_socket_pairs[root_ch.name] != None:
-            rgb = rgb_connections[ch_socket_pairs[root_ch.name]]
-            alpha = alpha_connections[ch_socket_pairs[root_ch.name]]
-        else:
-            rgb = get_essential_node(tree, ONE_VALUE)[0]
-            alpha = get_essential_node(tree, ONE_VALUE)[0]
+        rgb = None
+        alpha = None
+
+        # Use alpha of color channel if color channel is enabled
+        if ch == alpha_ch and get_channel_enabled(color_ch, layer) and not color_ch.unpair_alpha and layer.type != 'GROUP':
+            color_ch_idx = get_layer_channel_index(layer, color_ch)
+            root_color_ch = yp.channels[color_ch_idx]
+            if ch_socket_pairs[root_color_ch.name] != None:
+                rgb = alpha_connections[ch_socket_pairs[root_color_ch.name]]
+                alpha = get_essential_node(tree, ONE_VALUE)[0]
+
+        if rgb == None:
+            if ch_socket_pairs[root_ch.name] != None:
+                rgb = rgb_connections[ch_socket_pairs[root_ch.name]]
+                alpha = alpha_connections[ch_socket_pairs[root_ch.name]]
+            else:
+                rgb = get_essential_node(tree, ONE_VALUE)[0]
+                alpha = get_essential_node(tree, ONE_VALUE)[0]
 
         bg_alpha = None
 
@@ -2466,10 +2478,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 bg_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND'])
 
         rgb_before_override = rgb
-
-        # Use layer alpha as rgb of alpha channel if color channel is enabled
-        if ch == alpha_ch and get_channel_enabled(color_ch, layer) and not color_ch.unpair_alpha and layer.type != 'GROUP':
-            rgb = alpha
 
         # Channel Override 
         if ch.override and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
