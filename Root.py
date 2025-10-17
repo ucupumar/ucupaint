@@ -167,9 +167,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
     else:
-        # NOTE: Smooth bump is no longer enabled by default at all
-        #if is_bl_newer_than(2, 80): 
-        channel.enable_smooth_bump = False
+        # NOTE: Smooth bump is no longer enabled by default for realtime bump capable blender
+        if is_bl_newer_than(2, 78): 
+            channel.enable_smooth_bump = False
 
     yp.halt_reconnect = False
 

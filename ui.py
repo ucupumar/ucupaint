@@ -1316,7 +1316,7 @@ def draw_root_channels_ui(context, layout, node):
             #    brow.label(text='', icon='BLANK1')
 
             if channel.type == 'NORMAL':
-                if ypup.show_experimental or channel.enable_smooth_bump: # or not is_bl_newer_than(2, 80):
+                if ypup.show_experimental or channel.enable_smooth_bump or not is_bl_newer_than(2, 78):
                     brow = bcol.row(align=True)
 
                     if is_bl_newer_than(2, 80):
@@ -4388,7 +4388,7 @@ def main_draw(self, context):
             col.label(text='Legacy alpha accidentally enabled!', icon='ERROR')
             col.operator("wm.y_disable_legacy_channel_alpha", text='Disable Legacy Alpha')
 
-    if ypup.developer_mode:
+    if ypup.developer_mode and is_bl_newer_than(2, 78):
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and height_root_ch.enable_smooth_bump:
             col = layout.column()
