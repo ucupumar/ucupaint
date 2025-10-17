@@ -5880,7 +5880,9 @@ class YNewLayerMenu(bpy.types.Menu):
             c.add_mask = True
             c.mask_type = 'EDGE_DETECT'
 
-        if ypup.developer_mode:
+        # NOTE: Backgound layers are no longer accessible even with developer mode enabled
+        # Just remove the 'False' if anyone wants to test background layer again
+        if False and ypup.developer_mode:
             col.separator()
 
             #col.label(text='Background:')
