@@ -1328,10 +1328,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
 
         return {'FINISHED'}
 
-class YOpenAvailableDataAsMask(bpy.types.Operator):
-    bl_idname = "wm.y_open_available_data_as_mask"
-    bl_label = "Open available data as Layer Mask"
-    bl_description = "Open available data as Layer Mask"
+class YOpenExistingDataAsMask(bpy.types.Operator):
+    bl_idname = "wm.y_open_existing_data_as_mask"
+    bl_label = "Open existing data as Layer Mask"
+    bl_description = "Open existing data as Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
     
     type : EnumProperty(
@@ -1489,14 +1489,14 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         yp = node.node_tree.yp
         layer = get_active_layer(yp)
 
-        if self.type == 'IMAGE':
-            self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
-        elif self.type == 'VCOL':
-            self.layout.prop_search(self, "vcol_name", self, "vcol_coll", icon='GROUP_VCOL')
-
         row = self.layout.row()
 
         col = row.column()
+        if self.type == 'IMAGE':
+            col.label(text='Image:')
+        elif self.type == 'VCOL':
+            col.label(text=get_vertex_color_label()+':')
+
         if self.type == 'IMAGE':
             col.label(text='Interpolation:')
             col.label(text='Vector:')
@@ -1510,6 +1510,11 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             col.label(text=get_vertex_color_label()+' Data:')
 
         col = row.column()
+
+        if self.type == 'IMAGE':
+            col.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
+        elif self.type == 'VCOL':
+            col.prop_search(self, "vcol_name", self, "vcol_coll", text='', icon='GROUP_VCOL')
 
         if self.type == 'IMAGE':
             col.prop(self, 'interpolation', text='')
@@ -2706,7 +2711,7 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
 def register():
     bpy.utils.register_class(YNewLayerMask)
     bpy.utils.register_class(YOpenImageAsMask)
-    bpy.utils.register_class(YOpenAvailableDataAsMask)
+    bpy.utils.register_class(YOpenExistingDataAsMask)
     bpy.utils.register_class(YOpenImageToReplaceMask)
     bpy.utils.register_class(YMoveLayerMask)
     bpy.utils.register_class(YRemoveLayerMask)
@@ -2719,7 +2724,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(YNewLayerMask)
     bpy.utils.unregister_class(YOpenImageAsMask)
-    bpy.utils.unregister_class(YOpenAvailableDataAsMask)
+    bpy.utils.unregister_class(YOpenExistingDataAsMask)
     bpy.utils.unregister_class(YOpenImageToReplaceMask)
     bpy.utils.unregister_class(YMoveLayerMask)
     bpy.utils.unregister_class(YRemoveLayerMask)

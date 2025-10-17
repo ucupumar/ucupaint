@@ -3066,10 +3066,10 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
 
         return {'FINISHED'}
 
-class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
-    """Open Available Data to Override 1 Channel Layer"""
-    bl_idname = "wm.y_open_available_data_to_override_1_channel"
-    bl_label = "Open Available Data to Override 1 Channel Layer"
+class YOpenExistingDataToOverride1Channel(bpy.types.Operator):
+    """Open Existing Data to Override 1 Channel Layer"""
+    bl_idname = "wm.y_open_existing_data_to_override_1_channel"
+    bl_label = "Open Existing Data to Override 1 Channel Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     image_name : StringProperty(name="Image")
@@ -3101,7 +3101,9 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
         yp = node.node_tree.yp
         obj = context.object
 
-        self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
+        row = split_layout(self.layout, 0.3, align=True)
+        row.label(text='Image:')
+        row.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
 
     def execute(self, context):
         T = time.time()
@@ -3183,10 +3185,10 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
-    """Open Available Data to Override Channel Layer"""
-    bl_idname = "wm.y_open_available_data_to_override_channel"
-    bl_label = "Open Available Data to Override Channel Layer"
+class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
+    """Open Existing Data to Override Channel Layer"""
+    bl_idname = "wm.y_open_existing_data_to_override_channel"
+    bl_label = "Open Existing Data to Override Channel Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
@@ -3236,10 +3238,14 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         yp = node.node_tree.yp
         obj = context.object
 
+        row = split_layout(self.layout, 0.3, align=True)
+
         if self.type == 'IMAGE':
-            self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
+            row.label(text='Image:')
+            row.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
         elif self.type == 'VCOL':
-            self.layout.prop_search(self, "vcol_name", self, "vcol_coll", icon='GROUP_VCOL')
+            row.label(text=get_vertex_color_label()+':')
+            row.prop_search(self, "vcol_name", self, "vcol_coll", text='', icon='GROUP_VCOL')
 
     def execute(self, context):
         T = time.time()
@@ -3366,10 +3372,10 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YOpenAvailableDataToLayer(bpy.types.Operator):
-    """Open Available Data to Layer"""
-    bl_idname = "wm.y_open_available_data_to_layer"
-    bl_label = "Open Available Data to Layer"
+class YOpenExistingDataToLayer(bpy.types.Operator):
+    """Open Existing Data to Layer"""
+    bl_idname = "wm.y_open_existing_data_to_layer"
+    bl_label = "Open Existing Data to Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
@@ -3484,14 +3490,15 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
 
-        if self.type == 'IMAGE':
-            self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
-        elif self.type == 'VCOL':
-            self.layout.prop_search(self, "vcol_name", self, "vcol_coll", icon='GROUP_VCOL')
-        
         row = self.layout.row()
 
         col = row.column()
+
+        if self.type == 'IMAGE':
+            col.label(text='Image:')
+        elif self.type == 'VCOL':
+            col.label(text=get_vertex_color_label()+':')
+
         if self.type == 'IMAGE':
             col.label(text='Interpolation:')
             col.label(text='Vector:')
@@ -3502,6 +3509,11 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                 col.label(text='Space:')
 
         col = row.column()
+
+        if self.type == 'IMAGE':
+            col.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
+        elif self.type == 'VCOL':
+            col.prop_search(self, "vcol_name", self, "vcol_coll", text='', icon='GROUP_VCOL')
 
         if self.type == 'IMAGE':
             col.prop(self, 'interpolation', text='')
@@ -7342,9 +7354,9 @@ def register():
     bpy.utils.register_class(YOpenImageToReplaceLayer)
     bpy.utils.register_class(YOpenImageToOverrideChannel)
     bpy.utils.register_class(YOpenImageToOverride1Channel)
-    bpy.utils.register_class(YOpenAvailableDataToLayer)
-    bpy.utils.register_class(YOpenAvailableDataToOverrideChannel)
-    bpy.utils.register_class(YOpenAvailableDataToOverride1Channel)
+    bpy.utils.register_class(YOpenExistingDataToLayer)
+    bpy.utils.register_class(YOpenExistingDataToOverrideChannel)
+    bpy.utils.register_class(YOpenExistingDataToOverride1Channel)
     bpy.utils.register_class(YMoveLayer)
     bpy.utils.register_class(YMoveInOutLayerGroup)
     bpy.utils.register_class(YMoveInOutLayerGroupMenu)
@@ -7377,9 +7389,9 @@ def unregister():
     bpy.utils.unregister_class(YOpenImageToReplaceLayer)
     bpy.utils.unregister_class(YOpenImageToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToOverride1Channel)
-    bpy.utils.unregister_class(YOpenAvailableDataToLayer)
-    bpy.utils.unregister_class(YOpenAvailableDataToOverrideChannel)
-    bpy.utils.unregister_class(YOpenAvailableDataToOverride1Channel)
+    bpy.utils.unregister_class(YOpenExistingDataToLayer)
+    bpy.utils.unregister_class(YOpenExistingDataToOverrideChannel)
+    bpy.utils.unregister_class(YOpenExistingDataToOverride1Channel)
     bpy.utils.unregister_class(YMoveLayer)
     bpy.utils.unregister_class(YMoveInOutLayerGroup)
     bpy.utils.unregister_class(YMoveInOutLayerGroupMenu)

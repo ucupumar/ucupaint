@@ -5835,7 +5835,7 @@ class YNewLayerMenu(bpy.types.Menu):
         op = col.operator("wm.y_open_image_to_layer", text='Open Image...')
         op.texcoord_type = 'UV'
         op.file_browser_filepath = ''
-        col.operator("wm.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
+        col.operator("wm.y_open_existing_data_to_layer", text='Open Existing Image').type = 'IMAGE'
 
         col.operator("wm.y_open_images_to_single_layer", text='Open Images to Single Layer...')
         col.operator("wm.y_open_images_from_material_to_single_layer", text='Open Images from Material').asset_library_path = ''
@@ -5849,7 +5849,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.separator()
 
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New '+get_vertex_color_label()).type = 'VCOL'
-        col.operator("wm.y_open_available_data_to_layer", text='Open Available '+get_vertex_color_label()).type = 'VCOL'
+        col.operator("wm.y_open_existing_data_to_layer", text='Open Existing '+get_vertex_color_label()).type = 'VCOL'
         col.separator()
 
         #col.menu("NODE_MT_y_new_solid_color_layer_menu", text='Solid Color', icon_value=lib.get_icon('color'))
@@ -6241,6 +6241,10 @@ class YLayerChannelInputMenu(bpy.types.Menu):
                     icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch) == outp.name and not ch.override else 'RADIOBUT_OFF'
                     label = 'Layer ' + outp.name
 
+                    if layer.type == 'IMAGE' and source and source.image:
+                        label += ' ('+source.image.name+')'
+                    elif layer.type == 'VCOL' and source:
+                        label += ' ('+source.attribute_name+')'
                     if layer.type not in {'IMAGE', 'VCOL'}:
                         label += ' ('+layer_type_labels[layer.type]+')'
 
@@ -6756,12 +6760,12 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         op = new_mask_button(col, 'wm.y_open_image_as_mask', 'Open Image as Mask...', lib_icon='open_image')
         op.texcoord_type = 'UV'
         op.file_browser_filepath = ''
-        new_mask_button(col, 'wm.y_open_available_data_as_mask', 'Open Available Image as Mask', lib_icon='open_image', otype='IMAGE')
+        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing Image as Mask', lib_icon='open_image', otype='IMAGE')
         col.separator()
 
         col.label(text=get_vertex_color_label()+' Mask:')
         new_mask_button(col, 'wm.y_new_layer_mask', 'New '+get_vertex_color_label()+' Mask', lib_icon='vertex_color', otype='VCOL')
-        new_mask_button(col, 'wm.y_open_available_data_as_mask', 'Open Available '+get_vertex_color_label()+' as Mask', lib_icon='vertex_color', otype='VCOL')
+        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing '+get_vertex_color_label()+' as Mask', lib_icon='vertex_color', otype='VCOL')
 
         new_mask_button(col, 'wm.y_new_layer_mask', 'Color ID', lib_icon='color', otype='COLOR_ID')
 
@@ -6950,7 +6954,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         ccol = row.column(align=True)
         ccol.operator('wm.y_open_image_to_override_layer_channel', text='Open Image...', icon_value=lib.get_icon('open_image'))
-        ccol.operator('wm.y_open_available_data_to_override_channel', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        ccol.operator('wm.y_open_existing_data_to_override_channel', text='Open Existing Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         
         col.separator()
 
@@ -6972,7 +6976,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         ccol = row.column(align=True)
         ccol.operator('wm.y_new_vcol_to_override_channel', text='New '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color'))
-        ccol.operator('wm.y_open_available_data_to_override_channel', text='Use Available '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        ccol.operator('wm.y_open_existing_data_to_override_channel', text='Use Existing '+get_vertex_color_label(), icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
 
         col.separator()
 
@@ -7048,7 +7052,7 @@ class YReplaceChannelOverride1Menu(bpy.types.Menu):
 
         ccol = row.column(align=True)
         ccol.operator('wm.y_open_image_to_override_1_layer_channel', text='Open Image...', icon_value=lib.get_icon('open_image'))
-        ccol.operator('wm.y_open_available_data_to_override_1_channel', text='Open Available Image', icon_value=lib.get_icon('open_image'))
+        ccol.operator('wm.y_open_existing_data_to_override_1_channel', text='Open Existing Image', icon_value=lib.get_icon('open_image'))
 
 class YChannelSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_channel_special_menu"
@@ -7207,8 +7211,8 @@ class YLayerTypeMenu(bpy.types.Menu):
         label = 'Open Image' if layer.type != 'IMAGE' else 'Replace Image'
         op = col.operator('wm.y_open_image_to_replace_layer', text=folder_emoji+label)
 
-        label = 'Open Available Image' if layer.type != 'IMAGE' else 'Replace with Available Image'
-        #label = 'Open Available Image'
+        label = 'Open Existing Image' if layer.type != 'IMAGE' else 'Replace with Existing Image'
+        #label = 'Open Existing Image'
         op = col.operator('wm.y_replace_layer_type', text=folder_emoji+label)
         op.type = 'IMAGE'
         op.load_item = True
@@ -7229,7 +7233,7 @@ class YLayerTypeMenu(bpy.types.Menu):
             icon = 'RADIOBUT_ON' if layer.type == 'VCOL' else 'RADIOBUT_OFF'
             col.label(text=get_vertex_color_label() + suffix, icon=icon)
 
-        label = 'Open Available '+get_vertex_color_label() if layer.type != 'VCOL' else 'Replace '+get_vertex_color_label()
+        label = 'Open Existing '+get_vertex_color_label() if layer.type != 'VCOL' else 'Replace '+get_vertex_color_label()
         op = col.operator('wm.y_replace_layer_type', text=folder_emoji+label) #, icon_value=lib.get_icon('vertex_color'))
         op.type = 'VCOL'
         op.load_item = True
@@ -7325,7 +7329,7 @@ class YMaskTypeMenu(bpy.types.Menu):
         label = 'Open Image' if mask.type != 'IMAGE' else 'Replace Image'
         op = col.operator('wm.y_open_image_to_replace_mask', text=folder_emoji+label)
 
-        label = 'Open Available Image' if mask.type != 'IMAGE' else 'Replace with Available Image'
+        label = 'Open Existing Image' if mask.type != 'IMAGE' else 'Replace with Existing Image'
         op = col.operator('wm.y_replace_mask_type', text=folder_emoji+label)
         op.type = 'IMAGE'
         op.load_item = True
@@ -7346,7 +7350,7 @@ class YMaskTypeMenu(bpy.types.Menu):
             icon = 'RADIOBUT_ON' if mask.type == 'VCOL' else 'RADIOBUT_OFF'
             col.label(text=get_vertex_color_label() + suffix, icon=icon)
 
-        label = 'Open Available '+get_vertex_color_label() if mask.type != 'VCOL' else 'Replace '+get_vertex_color_label()
+        label = 'Open Existing '+get_vertex_color_label() if mask.type != 'VCOL' else 'Replace '+get_vertex_color_label()
         op = col.operator('wm.y_replace_mask_type', text=folder_emoji+label) #, icon_value=lib.get_icon('vertex_color'))
         op.type = 'VCOL'
         op.load_item = True
