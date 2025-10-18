@@ -6683,6 +6683,7 @@ def get_datablock_fcurves(obj):
     if not obj or not obj.animation_data: return []
 
     action = obj.animation_data.action
+    if not action: return []
 
     if not is_bl_newer_than(5):
         return action.fcurves
