@@ -5,6 +5,7 @@ from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal
 from .common import *
+from .credits_ui import get_collaborators, check_contributors
 
 USE_CACHE_DELTA = 1000
 
@@ -4150,6 +4151,10 @@ def main_draw(self, context):
     #slot = context.material_slot
     #space = context.space_data
 
+    # Check contributors
+    ypc = context.window_manager.ypui_credits
+    check_contributors(ypc)
+
     # Timer
     if wm.yptimer.time != '':
         print('INFO: Scene is updated in', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
@@ -5611,14 +5616,11 @@ def draw_yp_file_browser_menu(self, context):
             self.layout.context_pointer_set('params', params)
             self.layout.menu("NODE_MT_ypaint_file_browser_menu", text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
 
-from .credits_ui import get_collaborators, check_contributors
-
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
 
-    goal_ui = context.window_manager.ypui_credits
-
-    check_contributors(goal_ui)
+    ypc = context.window_manager.ypui_credits
+    #check_contributors(ypc)
     
     collaborators = get_collaborators()
     contributors = collaborators.contributors
@@ -5639,7 +5641,7 @@ def draw_ypaint_about(self, context):
 
         per_column = cont_setting.get('per_column', 3)
         per_page_item = cont_setting.get('per_page_item', 9)
-        current_page = goal_ui.page_collaborators
+        current_page = ypc.page_collaborators
 
         grid = col.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
         member_count = len(contributors)
@@ -5687,7 +5689,7 @@ def draw_ypaint_about(self, context):
         col.operator('wm.url_open', text='View All Contributors', icon='ARMATURE_DATA').url = collaborators.default_contributors_url
         if is_online():
             col.separator()
-            if goal_ui.connection_status == "FAILED":
+            if ypc.connection_status == "FAILED":
                 col.label(text="Failed to load contributors.", icon='ERROR')
                 col.operator('wm.y_force_refresh_sponsors', text='Reload sponsors', icon='FILE_REFRESH')
             else:

@@ -493,7 +493,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         don_col.scale_y = 1.5
         don_col.operator('wm.url_open', text="Become a Sponsor", icon='FUND').url = url_donation
 
-        check_contributors(goal_ui)
+        #check_contributors(goal_ui)
 
         if is_online() and 'tiers' in goal and goal_ui.connection_status != "REQUESTING":
             layout.separator()
@@ -1036,7 +1036,7 @@ def register():
     ui_sp = bpy.context.window_manager.ypui_credits
     ui_sp.initialized = False
 
-    check_contributors(ui_sp)
+    #check_contributors(ui_sp)
 
 def unregister():
     for cls in classes:
