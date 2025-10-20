@@ -1,4 +1,5 @@
 import bpy
+from bpy.app.handlers import persistent
 import os, requests, time, threading, json
 from bpy.props import PointerProperty, IntProperty, FloatProperty
 import bpy.utils.previews
@@ -33,7 +34,6 @@ class YForceUpdateSponsors(bpy.types.Operator):
             layout.prop(self, 'use_dummy_users', text="Use Dummy Users for Testing")
 
     def execute(self, context):
-        print("Force update sponsors...")
         path = credits_path
         path_last_check = os.path.join(path, "last_check.txt") # to store last check time
 
@@ -55,7 +55,7 @@ class YRefreshSponsors(bpy.types.Operator):
 
 
     def execute(self, context):
-        print("Force refresh sponsors...")
+        print_info("Force refresh sponsors...")
         path = credits_path
         path_last_check = os.path.join(path, "last_check.txt") # to store last check time
 
@@ -78,7 +78,6 @@ class YTierPagingButton(bpy.types.Operator):
     max_page : bpy.props.IntProperty(default=0)
 
     def execute(self, context):
-        # print("Paging", "Next" if self.is_next_button else "Previous")
         goal_ui = context.window_manager.ypui_credits
         current_page = goal_ui.page_tiers[self.tier_index]
         if self.is_next_button:
@@ -91,7 +90,6 @@ class YTierPagingButton(bpy.types.Operator):
                 current_page = 0
         goal_ui.page_tiers[self.tier_index] = current_page
 
-        # print("New page for tier", self.tier_index, "=", current_page)
         return {'FINISHED'}
     
 class YCollaboratorPagingButton(bpy.types.Operator):
@@ -103,7 +101,6 @@ class YCollaboratorPagingButton(bpy.types.Operator):
     max_page : bpy.props.IntProperty(default=0)
 
     def execute(self, context):
-        # print("Paging", "Next" if self.is_next_button else "Previous")
         goal_ui = context.window_manager.ypui_credits
         current_page = goal_ui.page_collaborators
         if self.is_next_button:
@@ -135,7 +132,7 @@ class YSponsorPopover(bpy.types.Panel):
         goal = collaborators.sponsorships
         one_time_total = 0
         recurring_total = 0
-        print("Checking one-time sponsors...", len(collaborators.sponsors))
+        print_info("Checking one-time sponsors..." + len(collaborators.sponsors))
         for sp in collaborators.sponsors.values():
             if sp["one_time"]:
                 one_time_total += sp["amount"]
@@ -145,12 +142,12 @@ class YSponsorPopover(bpy.types.Panel):
         if one_time_total > 0:
             # layout.label(text=f"One-time sponsors this month: ${one_time_total:.2f}")
             # layout.separator()
-            print("One-time sponsors total this month: $", one_time_total)
+            print_info("One-time sponsors total this month: $" + str(one_time_total))
         
         if recurring_total > 0:
             # layout.label(text=f"Recurring sponsors total: ${recurring_total:.2f}")
             # layout.separator()
-            print("Recurring sponsors total: $", recurring_total)
+            print_info("Recurring sponsors total: $" + str(recurring_total))
 
         desc = goal.get('description', '')
 
@@ -178,8 +175,6 @@ class YSponsorPopover(bpy.types.Panel):
             current_text += d + ' '
         col.label(text=current_text+"\"")
         col.label(text=f"~ {maintaner}")
-
-       
 
 class YSponsorProp(bpy.types.PropertyGroup):
     progress : FloatProperty(
@@ -417,7 +412,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                     # else:
                     self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
                 # if tier_index == 3:
-                #     print("Tier", tier_index, "has", member_count, "members", "page", current_page, "per page =", per_page_item, "per column =", per_column, "missing column =", missing_column)
+                #     print_info("Tier", tier_index, "has", member_count, "members", "page", current_page, "per page =", per_page_item, "per column =", per_column, "missing column =", missing_column)
                 # if lowest_tier and lowest_members != '':
                 #     lowest_members = lowest_members[:-2] # remove last comma
                 #     box.alignment = 'EXPAND'
@@ -541,6 +536,14 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         if get_user_preferences().developer_mode:
             layout.operator('wm.y_force_update_sponsors', text="Force Update Sponsors", icon='FILE_REFRESH')
 
+def print_info(*args):
+    if get_user_preferences().developer_mode:
+        print(*args)
+
+def print_error(*args):
+    if get_user_preferences().developer_mode:
+        print("ERROR:", *args)
+
 def refresh_image_caches(force_reload:bool = False):
 
     path = credits_path
@@ -586,7 +589,7 @@ def refresh_image_caches(force_reload:bool = False):
                 if os.path.isfile(file_path):
                     os.remove(file_path)
             except Exception as e:
-                print("Error removing file", file_path, ":", e)
+                print_info("Error removing file " + file_path + ": " + str(e))
 
 def load_preview(key:str, file_name:str):
     if key in previews_users:
@@ -599,7 +602,7 @@ def check_contributors(goal_ui: YSponsorProp):
     if is_online():
         if not goal_ui.initialized: # first time init
             goal_ui.initialized = True
-            print("first time init, loading contributors...")
+            print_info("first time init, loading contributors...")
 
             load_thread = threading.Thread(target=load_contributors, args=(goal_ui,))
             load_thread.start()
@@ -671,7 +674,7 @@ def load_contributors(goal_ui: YSponsorProp):
                 # format span in hours
                 span_hours = span_time / 3600
                 format_last_check = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_check))
-                print(f"Last check was {span_hours:.2f} hours ago. Checked at {format_last_check}. Not reloading contributors.")
+                print_info(f"Last check was {span_hours:.2f} hours ago. Checked at {format_last_check}. Not reloading contributors.")
     else:
         reload_contributors = True       
 
@@ -721,28 +724,28 @@ def load_contributors(goal_ui: YSponsorProp):
             #     time.sleep(5)
             #     # Manual trigger exception for testing
             #     raise requests.exceptions.ConnectionError("Manual exception triggered for testing purposes")
-            print("Reloading contributors...")
+            print_info("Reloading contributors...")
             response = requests.get(data_url + "contributors.csv", verify=False, timeout=timeout_seconds)
             if response.status_code == 200:
                 content = response.text
-                print("Response:", content)
+                print_info("Response:" + content)
 
                 with open(path_contributors, "w", encoding="utf-8") as f:
                     f.write(content)
 
-            print("Reloading sponsors...")
+            print_info("Reloading sponsors...")
             response = requests.get(data_url + "sponsors.csv", verify=False, timeout=timeout_seconds)
             if response.status_code == 200:
                 content_sponsors = response.text
-                print("Response:", content_sponsors)
+                print_info("Response:", content_sponsors)
                 with open(path_sponsors, "w", encoding="utf-8") as f:
                     f.write(content_sponsors)
 
-            print("Reloading sponsorship goal...", data_url + "credits.json")
+            print_info("Reloading sponsorship goal..." + data_url + "credits.json")
             response = requests.get(data_url + "credits.json", verify=False, timeout=timeout_seconds)
             if response.status_code == 200:
                 content_sponsorship_goal = response.text
-                print("Response credits:", content_sponsorship_goal)
+                print_info("Response credits:" + content_sponsorship_goal)
                 with open(path_sponsorship_goal, "w", encoding="utf-8") as f:
                     f.write(content_sponsorship_goal)
                 settings = json.loads(content_sponsorship_goal)
@@ -755,18 +758,18 @@ def load_contributors(goal_ui: YSponsorProp):
 
             goal_ui.connection_status = "SUCCESS"
         except requests.exceptions.ReadTimeout:
-            print("timeout request")
+            print_info("timeout request")
             reload_contributors = False
             goal_ui.connection_status = "FAILED"
         except requests.exceptions.ConnectionError:
-            print("connection error")
+            print_info("connection error")
             reload_contributors = False
             goal_ui.connection_status = "FAILED"
     else:
         goal_ui.connection_status = "FAILED"
         reload_contributors = False
 
-    print("cont status", goal_ui.connection_status)
+    print_info("cont status: " + goal_ui.connection_status)
 
     collaborators.contributors.clear()
     skip_header = True
@@ -806,7 +809,7 @@ def load_contributors(goal_ui: YSponsorProp):
                 'thumb': None
             }
             collaborators.sponsors[sponsor['id']] = sponsor
-            print("Loaded sponsor", sponsor['id'], "=", sponsor)
+            print_info("Loaded sponsor " + sponsor['id'] + " = " + str(sponsor))
     
     # expand top 2 tiers that have members
     expanding_top_tier = 2 # todo : from settings
@@ -860,11 +863,11 @@ def load_contributors(goal_ui: YSponsorProp):
                     new_contributor['name'] = new_contributor['id']
                     collaborators.sponsors[new_contributor['id']] = new_contributor
 
-                    print("Added dummy sponsor", new_contributor['id'], "=", new_contributor)
+                    print_info("Added dummy sponsor " + new_contributor['id'] + " = " + str(new_contributor))
         elif empty_all_sponsors:
             collaborators.sponsors.clear()
 
-
+    print_info("loaded contributors and sponsors.")
     load_expanded_images(goal_ui)
 
 def load_expanded_images(goal_ui: YSponsorProp):
@@ -913,6 +916,7 @@ def load_expanded_images(goal_ui: YSponsorProp):
                 id = sp['id']
                 to_load_users.append( (link, file_name, id) )
 
+    print_info("to load images:", len(to_load_users))
     if len(to_load_users) > 0:
         links = [t[0] for t in to_load_users]
         file_names = [t[1] for t in to_load_users]
@@ -922,20 +926,20 @@ def load_expanded_images(goal_ui: YSponsorProp):
         collaborators.load_thread.start()
 
 def download_stream(links, file_names, ids, timeout:int = 10):
-    print("Downloading", len(links), "images...")
+    print_info("Downloading " + str(len(links)) + " images...")
     for idx, file_name in enumerate(file_names):
         # check if file exists
         if os.path.exists(file_name):
-            print("exists", file_name)
+            print_info("exists", file_name)
         elif is_online():
             link = links[idx]
             with open(file_name, "wb") as f:
                 try:
                     response = requests.get(link, stream=True, timeout = timeout)
                     total_length = response.headers.get('content-length')
-                    # print("total size = "+total_length)
+                    # print_info("total size = "+total_length)
                     if not total_length:
-                        print('Error #1 while downloading', link, ':', "Empty Response.")
+                        print_info('Error #1 while downloading ' + link + ': Empty Response.')
                         return
                     
                     dl = 0
@@ -946,7 +950,7 @@ def download_stream(links, file_names, ids, timeout:int = 10):
                         dl += len(data)
                         f.write(data)
                 except Exception as e:
-                    print('Error #2 while downloading', link, ':', e)
+                    print_info('Error #2 while downloading ' + link + ': ' + str(e))
         else:
             continue
 
@@ -994,6 +998,11 @@ class Collaborators:
 def get_collaborators():
     return collaborators
 
+@persistent
+def check_contributors_on_load():
+    goal_ui = bpy.context.window_manager.ypui_credits
+    check_contributors(goal_ui)
+
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
@@ -1038,6 +1047,8 @@ def register():
 
     check_contributors(ui_sp)
 
+    bpy.app.handlers.load_pre.append(check_contributors_on_load)
+
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
@@ -1049,3 +1060,4 @@ def unregister():
     bpy.utils.previews.remove(previews_users)
     previews_users = None
 
+    bpy.app.handlers.load_pre.remove(check_contributors_on_load)

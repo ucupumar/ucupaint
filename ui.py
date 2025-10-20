@@ -4166,10 +4166,6 @@ def main_draw(self, context):
     #slot = context.material_slot
     #space = context.space_data
 
-    # Check contributors
-    ypc = context.window_manager.ypui_credits
-    check_contributors(ypc)
-
     # Timer
     if wm.yptimer.time != '':
         print('INFO: Scene is updated in', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
@@ -5635,7 +5631,7 @@ def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
 
     ypc = context.window_manager.ypui_credits
-    #check_contributors(ypc)
+    check_contributors(ypc)
     
     collaborators = get_collaborators()
     contributors = collaborators.contributors
