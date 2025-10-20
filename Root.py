@@ -546,7 +546,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         return get_operator_description(self)
 
     def invoke(self, context, event):
-        space = context.space_data
         obj = context.object
         mat = get_active_material()
 
@@ -565,7 +564,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 self.type = bsdf_node.type
                 self.target_bsdf_name = bsdf_node.name
 
-        self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_bl_newer_than(2, 80) and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_bl_newer_than(2, 80) and space.shading.type not in {'MATERIAL', 'RENDERED'}))
+        self.not_on_material_view = is_not_in_material_view()
 
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
@@ -2022,6 +2021,26 @@ class YAddSimpleUVs(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
         bpy.ops.paint.add_simple_uvs()
         bpy.ops.object.mode_set(mode=old_mode)
+
+        return {'FINISHED'}
+
+class YSwitchToMaterialView(bpy.types.Operator):
+    bl_idname = "wm.y_switch_to_material_view"
+    bl_label = "Switch to Material View"
+    bl_description = "Switch to use material view to see all the layer effects"
+    #bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        space = bpy.context.space_data
+        return get_active_ypaint_node() and space.type == 'VIEW_3D'
+
+    def execute(self, context):
+        space = bpy.context.space_data
+
+        if not is_bl_newer_than(2, 80):
+            space.viewport_shade = 'MATERIAL'
+        else: space.shading.type = 'MATERIAL'
 
         return {'FINISHED'}
 
@@ -4706,6 +4725,7 @@ def register():
     bpy.utils.register_class(YMoveYPaintChannel)
     bpy.utils.register_class(YRemoveYPaintChannel)
     bpy.utils.register_class(YAddSimpleUVs)
+    bpy.utils.register_class(YSwitchToMaterialView)
     bpy.utils.register_class(YFixChannelMissmatch)
     bpy.utils.register_class(YFixMissingUV)
     bpy.utils.register_class(YRenameYPaintTree)
@@ -4765,6 +4785,7 @@ def unregister():
     bpy.utils.unregister_class(YMoveYPaintChannel)
     bpy.utils.unregister_class(YRemoveYPaintChannel)
     bpy.utils.unregister_class(YAddSimpleUVs)
+    bpy.utils.unregister_class(YSwitchToMaterialView)
     bpy.utils.unregister_class(YFixChannelMissmatch)
     bpy.utils.unregister_class(YFixMissingUV)
     bpy.utils.unregister_class(YRenameYPaintTree)

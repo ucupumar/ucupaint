@@ -4058,6 +4058,13 @@ def draw_layers_ui(context, layout, node):
                 row.operator('object.y_fix_vdm_missmatch_uv')
                 row.alert = False
 
+        if is_not_in_material_view():
+            bbox = col.box()
+            row = bbox.row(align=True)
+            row.alert = True
+            row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
+            row.alert = False
+
         # Check if list items are empty
         if len(yp.list_items) == 0 and len(yp.layers) > 0:
             bbox = col.box()
