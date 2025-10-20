@@ -132,7 +132,7 @@ class YSponsorPopover(bpy.types.Panel):
         goal = collaborators.sponsorships
         one_time_total = 0
         recurring_total = 0
-        print_info("Checking one-time sponsors..." + len(collaborators.sponsors))
+        print_info("Checking one-time sponsors...", len(collaborators.sponsors))
         for sp in collaborators.sponsors.values():
             if sp["one_time"]:
                 one_time_total += sp["amount"]
