@@ -848,6 +848,13 @@ def get_viewport_shade():
         return bpy.context.area.spaces[0].shading.type
     else: return bpy.context.area.spaces[0].viewport_shade
 
+def is_not_in_material_view():
+    space = bpy.context.space_data
+    return space.type == 'VIEW_3D' and (
+        (not is_bl_newer_than(2, 80) and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or 
+        (is_bl_newer_than(2, 80) and space.shading.type not in {'MATERIAL', 'RENDERED'})
+    )
+
 def get_user_preferences():
     if is_bl_newer_than(2, 80):
         return bpy.context.preferences.addons[__package__].preferences
