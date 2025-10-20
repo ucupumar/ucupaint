@@ -725,7 +725,7 @@ def load_contributors(goal_ui: YSponsorProp):
             #     # Manual trigger exception for testing
             #     raise requests.exceptions.ConnectionError("Manual exception triggered for testing purposes")
             print_info("Reloading contributors...")
-            response = requests.get(data_url + "contributors.csv", verify=False, timeout=timeout_seconds)
+            response = requests.get(data_url + "contributors.csv", timeout=timeout_seconds)
             if response.status_code == 200:
                 content = response.text
                 print_info("Response:" + content)
@@ -734,7 +734,7 @@ def load_contributors(goal_ui: YSponsorProp):
                     f.write(content)
 
             print_info("Reloading sponsors...")
-            response = requests.get(data_url + "sponsors.csv", verify=False, timeout=timeout_seconds)
+            response = requests.get(data_url + "sponsors.csv", timeout=timeout_seconds)
             if response.status_code == 200:
                 content_sponsors = response.text
                 print_info("Response:", content_sponsors)
@@ -742,7 +742,7 @@ def load_contributors(goal_ui: YSponsorProp):
                     f.write(content_sponsors)
 
             print_info("Reloading sponsorship goal..." + data_url + "credits.json")
-            response = requests.get(data_url + "credits.json", verify=False, timeout=timeout_seconds)
+            response = requests.get(data_url + "credits.json", timeout=timeout_seconds)
             if response.status_code == 200:
                 content_sponsorship_goal = response.text
                 print_info("Response credits:" + content_sponsorship_goal)
@@ -999,7 +999,7 @@ def get_collaborators():
     return collaborators
 
 @persistent
-def check_contributors_on_load():
+def check_contributors_on_load(scn):
     goal_ui = bpy.context.window_manager.ypui_credits
     check_contributors(goal_ui)
 
