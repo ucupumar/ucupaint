@@ -3861,21 +3861,27 @@ def draw_layers_ui(context, layout, node):
             ypui.cache_ao_problem = ao_problem
 
         if linear_problem:
-            col.alert = True
-            col.operator('wm.y_use_linear_color_space', text='Refresh Linear Color Space', icon='ERROR')
-            col.alert = False
+            bbox = col.box()
+            row = bbox.row(align=True)
+            row.alert = True
+            row.operator('wm.y_use_linear_color_space', text='Refresh Linear Color Space', icon='ERROR')
+            row.alert = False
 
         if ao_problem:
-            col.alert = True
-            col.operator('wm.y_fix_edge_detect_ao', text='Fix EEVEE Edge Detect AO', icon='ERROR')
-            col.alert = False
+            bbox = col.box()
+            row = bbox.row(align=True)
+            row.alert = True
+            row.operator('wm.y_fix_edge_detect_ao', text='Fix EEVEE Edge Detect AO', icon='ERROR')
+            row.alert = False
 
         if obj.type == 'MESH' and colorid_vcol:
 
             if colorid_vcol != get_active_vertex_color(obj):
-                col.alert = True
-                col.operator('mesh.y_set_active_vcol', text='Fix Active Vcol Mismatch!', icon='ERROR').vcol_name = colorid_vcol.name
-                col.alert = False
+                bbox = col.box()
+                row = bbox.row(align=True)
+                row.alert = True
+                row.operator('mesh.y_set_active_vcol', text='Fix Active '+get_vertex_color_label()+' Mismatch!', icon='ERROR').vcol_name = colorid_vcol.name
+                row.alert = False
 
             elif obj.mode == 'EDIT':
 
@@ -3900,9 +3906,11 @@ def draw_layers_ui(context, layout, node):
         if obj.type == 'MESH' and active_vcol: # and layer.enable:
 
             if active_vcol != get_active_vertex_color(obj):
-                col.alert = True
-                col.operator('mesh.y_set_active_vcol', text='Fix Active Vcol Mismatch!', icon='ERROR').vcol_name = active_vcol.name
-                col.alert = False
+                bbox = col.box()
+                row = bbox.row(align=True)
+                row.alert = True
+                row.operator('mesh.y_set_active_vcol', text='Fix Active '+get_vertex_color_label()+' Mismatch!', icon='ERROR').vcol_name = active_vcol.name
+                row.alert = False
 
             elif obj.mode == 'EDIT':
                 ve = scene.ve_edit
