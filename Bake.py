@@ -10,6 +10,8 @@ from .node_arrangements import *
 from .input_outputs import *
 from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem
 
+# todo : 
+# show all setting bake di bake target, setelah baked ambil dari bakeinfo
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     yp = entity.id_data.yp
@@ -1198,8 +1200,7 @@ def bake_vcol_channel_items(self, context):
 
     return items
 
-
-class YBakeSingleTarget(bpy.types.Operator, BaseBakeOperator):
+class YBakeSingleTarget(bpy.types.Operator):
     bl_idname = "wm.y_bake_single_target"
     bl_label = "Bake Single Custom Target"
     bl_description = "Bake a single custom target"
@@ -1318,21 +1319,156 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeOperator):
         return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0 
 
     def check(self, context):
-        self.check_operator(context)
+
+        if not self.bt.use_custom_resolution:
+            self.bt.height = self.bt.width = int(self.bt.image_resolution)
+       
         return True
-
-    def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-
-        T = time.time()
-
-        self.invoke_operator(context)
-
+    
+    def draw(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        height_root_ch = get_root_height_channel(yp)
+        
+        obj = context.object
+        mat = obj.active_material
+
+        row = split_layout(self.layout, 0.4)
+        col = row.column() #align=True)
+
+        ccol = col.column(align=True)
+        ccol.label(text='')
+        if self.bt.use_custom_resolution == False:
+            ccol.label(text='Resolution:')
+        if self.bt.use_custom_resolution == True:
+            ccol.label(text='Width:')
+            ccol.label(text='Height:')
+
+        ccol.separator()
+        ccol.label(text='Samples:')
+        ccol.label(text='AA Level:')
+
+        if is_bl_newer_than(3, 1):
+            ccol.separator()
+        ccol.label(text='Margin:')
+
+        if height_root_ch:
+            ccol.separator()
+            ccol.label(text='Use 32-bit Float:')
+
+        col.separator()
+
+        if is_bl_newer_than(2, 80):
+            col.label(text='Bake Device:')
+        col.label(text='Interpolation:')
+        col.label(text='UV Map:')
+
+        ccol = col.column(align=True)
+
+        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+        active_channel = None
+        if self.only_active_channel and not is_bl_equal(3, 2):
+            active_channel = self.channels[0]
+            if active_channel.enable_bake_to_vcol:
+                ccol.separator()
+                ccol.label(text='')
+        elif self.enable_bake_as_vcol and not is_bl_equal(3, 2):
+            ccol.separator()
+            ccol.label(text='Force First Vcol:')
+
+        col = row.column()
+
+        col.prop(self.bt, 'use_custom_resolution')
+        crow = col.row(align=True)
+        ccol = col.column(align=True)
+
+        if self.bt.use_custom_resolution == False:
+            crow.prop(self.bt, 'image_resolution', expand= True,)
+        elif self.bt.use_custom_resolution == True:
+            ccol.prop(self.bt, 'width', text='')
+            ccol.prop(self.bt, 'height', text='')
+
+        ccol.separator()
+        ccol.prop(self.bt, 'samples', text='')
+        ccol.prop(self, 'aa_level', text='')
+
+        if is_bl_newer_than(3, 1):
+            ccol.separator()
+            split = split_layout(ccol, 0.4, align=True)
+            split.prop(self.bt, 'margin', text='')
+            split.prop(self.bt, 'margin_type', text='')
+        else:
+            ccol.prop(self.bt, 'margin', text='')
+
+        if height_root_ch:
+            ccol.separator()
+            splits = split_layout(ccol, 0.4)
+            splits.prop(self, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
+            splits.prop(self, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
+
+        col.separator()
+
+        if is_bl_newer_than(2, 80):
+            if self.use_osl:
+                col.label(text='CPU (OSL)')
+            else: col.prop(self.bt, 'bake_device', text='')
+        col.prop(self, 'interpolation', text='')
+        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        ccol = col.column(align=True)
+
+        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+        if active_channel and active_channel.enable_bake_to_vcol:
+            ccol.separator()
+            ccol.prop(self, 'vcol_force_first_ch_idx_bool', text='Force First Vcol')
+        elif self.enable_bake_as_vcol and not is_bl_equal(3, 2):
+            ccol.separator()
+            ccol.prop(self, 'vcol_force_first_ch_idx', text='')
+
+        ccol.separator()
+
+        if UDIM.is_udim_supported():
+            ccol.prop(self, 'use_udim')
+        ccol.prop(self, 'fxaa', text='Use FXAA')
+        if is_bl_newer_than(2, 81):
+            ccol.prop(self, 'denoise', text='Use Denoise')
+
+        any_color_channel = any([c for c in self.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+        if any_color_channel:
+            if not self.use_dithering:
+                ccol.prop(self, 'use_dithering', text='Use Dithering')
+            if self.use_dithering:
+                row = split_layout(ccol, 0.55)
+                row.prop(self, 'use_dithering', text='Use Dithering')
+                row.prop(self, 'dither_intensity', text='')
+
+        ccol.prop(self, 'use_osl')
+
+        ccol.prop(self, 'force_bake_all_polygons')
+        ccol.prop(self, 'bake_disabled_layers')
+    
+    def invoke(self, context, event):
+        
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        self.bt = yp.bake_targets[yp.active_bake_target_index]
+
+        ypup = get_user_preferences()
+
+        # Set up default bake device
+        if ypup.default_bake_device != 'DEFAULT':
+            self.bt.bake_device = ypup.default_bake_device
+
+        # Use user preference default image size
+        if ypup.default_image_resolution == 'CUSTOM':
+            self.bt.use_custom_resolution = True
+            self.bt.width = self.bt.height = ypup.default_new_image_size
+        elif ypup.default_image_resolution != 'DEFAULT':
+            self.bt.image_resolution = ypup.default_image_resolution
+
+
         obj = self.obj = context.object
         scene = context.scene
-        ypup = get_user_preferences()
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
@@ -1356,25 +1492,17 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeOperator):
         # List of channels that will be baked
         self.channels = []
 
-        bt = yp.bake_targets[yp.active_bake_target_index]
-
-        self.width = bt.width 
-        self.height = bt.height
-        self.use_custom_resolution = bt.use_custom_resolution
-        self.image_resolution = bt.image_resolution
-
-        print("resolution: " + str(self.width) + "x" + str(self.height))
-        print("image resolution: " + str(self.image_resolution))
 
         for letter in rgba_letters:
-            btc = getattr(bt, letter)
+            btc = getattr(self.bt, letter)
             if btc.channel_name != '' and yp.channels.get(btc.channel_name):
                 ch = yp.channels.get(btc.channel_name)
                 self.channels.append(ch)
-                print("BAKE TARGET: " + bt.name + " - " + letter + " : " + ch.name)
 
-        self.no_layer_using = False
-        self.enable_bake_as_vcol = False
+                print("BAKE TARGET: " + self.bt.name + " - " + letter + " : " + ch.name)
+
+        self.bt.no_layer_using = False
+        self.bt.enable_bake_as_vcol = False
         if len(self.channels) > 0:
 
             # Check if any layer is using the channels
@@ -1384,9 +1512,9 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeOperator):
                     layer_found = True
                     break
             if not layer_found:
-                self.no_layer_using = True
+                self.bt.no_layer_using = True
 
-            bi = None
+            # bi = None
             # for ch in self.channels:
             #     baked = node.node_tree.nodes.get(ch.baked)
             #     if baked and baked.image:
@@ -1398,29 +1526,48 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeOperator):
             
             for ch in self.channels:
                 if ch.enable_bake_to_vcol:
-                    self.enable_bake_as_vcol = True
+                    self.bt.enable_bake_as_vcol = True
                     break
 
-            # Set some attributes from bake info
-            if bi:
-                for attr in dir(bi):
-                    if attr in {'other_objects', 'selected_objects'}: continue
-                    if attr.startswith('__'): continue
-                    if attr.startswith('bl_'): continue
-                    if attr in {'rna_type'}: continue
-                    #if attr in dir(self):
-                    try: setattr(self, attr, getattr(bi, attr))
-                    except: pass
+            # # Set some attributes from bake info
+            # if bi:
+            #     for attr in dir(bi):
+            #         if attr in {'other_objects', 'selected_objects'}: continue
+            #         if attr.startswith('__'): continue
+            #         if attr.startswith('bl_'): continue
+            #         if attr in {'rna_type'}: continue
+            #         #if attr in dir(self):
+            #         try: setattr(self, attr, getattr(bi, attr))
+            #         except: pass
 
         if self.vcol_force_first_ch_idx == '':
             self.vcol_force_first_ch_idx = 'Do Nothing'
 
-        self.check_operator(context)
+        print(f"Bake with size {self.bt.width}x{self.bt.height}")
+
+        if (get_user_preferences().skip_property_popups and not event.shift) or len(self.channels) == 0 or self.bt.no_layer_using:
+            return self.execute(context)
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        T = time.time()
+
+        self.invoke_operator(context)
+
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        obj = self.obj = context.object
+        scene = context.scene
+        ypup = get_user_preferences()
+        tree = node.node_tree
 
         print("again resolution: " + str(self.width) + "x" + str(self.height))
 
         # node = get_active_ypaint_node()
-        tree = node.node_tree
+        # tree = node.node_tree
         # yp = tree.yp
         # scene = context.scene
         # obj = context.object
@@ -1701,6 +1848,8 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeOperator):
         # Process custom bake target images
         # Can only happen when only active channel is off since require all baked images to have the same resolution
         if not self.only_active_channel:
+            bt = yp.bake_targets[yp.active_bake_target_index]
+
             print("INFO: Processing custom bake target '" + bt.name + "'...")
             bt_node = tree.nodes.get(bt.image_node)
             btimg = bt_node.image if bt_node and bt_node.image else None 
@@ -2000,7 +2149,6 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeOperator):
 
         return {'FINISHED'}
 
-
 class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_all_targets"
     bl_label = "Bake All Custom Targets"
@@ -2224,12 +2372,12 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         col = row.column() #align=True)
 
         ccol = col.column(align=True)
-        # ccol.label(text='')
-        # if self.use_custom_resolution == False:
-        #     ccol.label(text='Resolution:')
-        # if self.use_custom_resolution == True:
-        #     ccol.label(text='Width:')
-        #     ccol.label(text='Height:')
+        ccol.label(text='')
+        if self.use_custom_resolution == False:
+            ccol.label(text='Resolution:')
+        if self.use_custom_resolution == True:
+            ccol.label(text='Width:')
+            ccol.label(text='Height:')
 
         ccol.separator()
         ccol.label(text='Samples:')
@@ -2265,15 +2413,15 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
         col = row.column()
 
-        # col.prop(self, 'use_custom_resolution')
+        col.prop(self, 'use_custom_resolution')
         crow = col.row(align=True)
         ccol = col.column(align=True)
 
-        # if self.use_custom_resolution == False:
-        #     crow.prop(self, 'image_resolution', expand= True,)
-        # elif self.use_custom_resolution == True:
-        #     ccol.prop(self, 'width', text='')
-        #     ccol.prop(self, 'height', text='')
+        if self.use_custom_resolution == False:
+            crow.prop(self, 'image_resolution', expand= True,)
+        elif self.use_custom_resolution == True:
+            ccol.prop(self, 'width', text='')
+            ccol.prop(self, 'height', text='')
 
         ccol.separator()
         ccol.prop(self, 'samples', text='')

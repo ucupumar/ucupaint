@@ -1066,19 +1066,8 @@ def draw_bake_targets_ui(context, layout, node):
             row = col.row(align=True)
             row.label(text='', icon='BLANK1')
             row.label(text="Do 'Bake All Channels' to get the image!", icon='ERROR')
-        
-        rrow = info_col.row(align=True)
-        splits = split_layout(rrow, 0.5)
-        splits.label(text='Custom Resolution:')
-        rrow.prop(bt, 'use_custom_resolution', text='')
 
-        if bt.use_custom_resolution :
-            info_col.prop(bt, 'width', text='')
-            info_col.prop(bt, 'height', text='')
-        else:
-            info_col.prop(bt, 'image_resolution', expand= True,)
-
-        info_col.operator('wm.y_bake_single_target', text='Bake This Target', icon_value=lib.get_icon('bake'))
+        info_col.operator('wm.y_bake_single_target', text=f'Bake {bt.name}', icon_value=lib.get_icon('bake'))
 
 def draw_root_channels_ui(context, layout, node):
     scene = bpy.context.scene
