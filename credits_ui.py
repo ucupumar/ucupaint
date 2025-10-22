@@ -1047,7 +1047,7 @@ def register():
 
     check_contributors(ui_sp)
 
-    bpy.app.handlers.load_pre.append(check_contributors_on_load)
+    bpy.app.handlers.load_post.append(check_contributors_on_load)
 
 def unregister():
     for cls in classes:
@@ -1060,4 +1060,4 @@ def unregister():
     bpy.utils.previews.remove(previews_users)
     previews_users = None
 
-    bpy.app.handlers.load_pre.remove(check_contributors_on_load)
+    bpy.app.handlers.load_post.remove(check_contributors_on_load)
