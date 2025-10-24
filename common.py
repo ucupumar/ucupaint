@@ -48,6 +48,9 @@ COLOR_ID_VCOL_NAME = '__yp_color_id'
 
 BUMP_MULTIPLY_TWEAK = 5
 
+TEMP_ACTIVE_IMAGE_NAME = '.YP_TEMP_ACTIVE_IMAGE'
+TEMP_ACTIVE_IMAGE_NODE_NAME = '.YP_TEMP_ACTIVE_IMAGE_NODE'
+
 def blend_type_items(self, context):
     items = [
         ("MIX", "Mix", ""),
@@ -4939,6 +4942,53 @@ def set_editor_images(editor_images={}, editor_pins={}):
                         if screen_pin_dict != None and j in screen_pin_dict:
                             space.use_image_pin = screen_pin_dict[j]
 
+def get_temporary_active_image():
+    temp_image = bpy.data.images.get(TEMP_ACTIVE_IMAGE_NAME)
+    if not temp_image:
+        temp_image = bpy.data.images.new(TEMP_ACTIVE_IMAGE_NAME, width=1, height=1, alpha=False, float_buffer=False)
+
+    return temp_image
+
+def get_material_temp_active_image_node(mat, create_one=False):
+    temp = mat.node_tree.nodes.get(TEMP_ACTIVE_IMAGE_NODE_NAME)
+    if create_one and not temp:
+        try: temp = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        except Exception as e: 
+            print('EXCEPTIION: Cannot create temporary image for non active material! Error:', e)
+            return None
+        temp.name = TEMP_ACTIVE_IMAGE_NODE_NAME
+        temp.image = get_temporary_active_image()
+
+    return temp
+
+def check_other_mats_to_use_temp_image(obj):
+    if not is_bl_newer_than(2, 81) or obj.type != 'MESH' or not obj.active_material: return
+
+    active_mat = obj.active_material
+
+    # Remove temporary active image for the active material
+    if active_mat.node_tree:
+        temp = get_material_temp_active_image_node(active_mat)
+        if temp: simple_remove_node(active_mat.node_tree, temp)
+
+    # Do not create temporary image if the active material has no images
+    if len(active_mat.texture_paint_images) == 0:
+        return
+
+    # Create temporary image for non active material so the active image in this material won't accidentally be painted
+    for mat in obj.data.materials:
+        if not mat or not mat.node_tree or mat == active_mat or len(mat.texture_paint_images) == 0: continue
+
+        temp = get_material_temp_active_image_node(mat, create_one=True)
+        if temp:
+            mat.node_tree.nodes.active = temp
+
+            for idx, img in enumerate(mat.texture_paint_images):
+                if img == None: continue
+                if img.name == TEMP_ACTIVE_IMAGE_NAME:
+                    mat.paint_active_slot = idx
+                    break
+
 def set_active_paint_slot_entity(yp):
     image = None
     mat = get_active_material()
@@ -4947,10 +4997,6 @@ def set_active_paint_slot_entity(yp):
     scene = bpy.context.scene
     root_tree = yp.id_data
     wmyp = bpy.context.window_manager.ypprops
-
-    # Multiple materials will use single active image instead active material image
-    # since it's the only way texture paint mode won't mess with other material image
-    is_multiple_mats = obj.type == 'MESH' and len(obj.data.materials) > 1
 
     # Set material active node 
     if is_bl_newer_than(2, 81):
@@ -5078,7 +5124,7 @@ def set_active_paint_slot_entity(yp):
     # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
     ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
-    if not is_multiple_mats and image and is_bl_newer_than(2, 81):
+    if image and is_bl_newer_than(2, 81):
 
         scene.tool_settings.image_paint.mode = 'MATERIAL'
 
@@ -7984,7 +8030,7 @@ def enable_eevee_ao():
         scene.eevee.use_gtao = True
 
 def is_image_available_to_open(image):
-    return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node'}
+    return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node', TEMP_ACTIVE_IMAGE_NAME}
 
 def fix_missing_vcol(obj, name, src=None, entity=None, entities=[]):
 

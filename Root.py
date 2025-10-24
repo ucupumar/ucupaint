@@ -4501,6 +4501,10 @@ def ypaint_last_object_update(scene):
         ypwm.last_object = obj.name
         if mat: ypwm.last_material = mat.name
 
+        # Multiple materials will create temporary image in non-active materials
+        # since it's the only way texture paint mode won't mess with other material image
+        check_other_mats_to_use_temp_image(obj)
+
         # Refresh layer index to update editor image
         if yp:
             if yp.use_baked and len(yp.channels) > 0:
