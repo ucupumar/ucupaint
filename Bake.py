@@ -1720,6 +1720,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     use_float_for_displacement=self.use_float_for_displacement, 
                     use_float_for_normal=self.use_float_for_normal, bprops=bprops
                 )
+            elif baked:
+                # Remove old unused baked node to avoid baking it into custom bake targets
+                tree.nodes.remove(baked)
 
         # Process baked images
         baked_images = []
@@ -1860,7 +1863,19 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                             # Displacement default value
                             color.append(0.5)
                     else:
-                        color.append(btc.default_value)
+                        # Read defaults from main ucupaint node inputs
+                        if ch and ch.name in node.inputs:
+                            if ch.type == "RGB":
+                                linear_color = node.inputs[ch.name].default_value
+                                srgb_color = list(linear_to_srgb(Color(linear_color[:3])))
+                                srgb_color.append(linear_color[3])
+                                color.append(srgb_color[int(btc.subchannel_index)])
+                            elif ch.type == "VALUE":
+                                color.append(node.inputs[ch.name].default_value)
+                            else:
+                                color.append(btc.default_value)
+                        else:
+                            color.append(btc.default_value)
 
                 if not btimg:
                     # Set new bake target image
