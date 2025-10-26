@@ -1720,9 +1720,6 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     use_float_for_displacement=self.use_float_for_displacement, 
                     use_float_for_normal=self.use_float_for_normal, bprops=bprops
                 )
-            elif baked:
-                # Remove old unused baked node to avoid baking it into custom bake targets
-                tree.nodes.remove(baked)
 
         # Process baked images
         baked_images = []
@@ -1937,7 +1934,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                             baked = tree.nodes.get(ch.baked_vdisp)
                         else: baked = tree.nodes.get(ch.baked)
 
-                        if baked and baked.image:
+                        # Check if a layer is using the channel, in case an old unused baked image is present
+                        if baked and baked.image and not ch.no_layer_using:
                             for tilenum in tilenums:
                                 # Swap tile
                                 if tilenum != 1001:
