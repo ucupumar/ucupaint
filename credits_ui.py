@@ -30,7 +30,6 @@ class YForceUpdateSponsors(bpy.types.Operator):
         layout.prop(self, 'clear_image_cache', text="Clear Image Cache")
 
         if get_user_preferences().developer_mode:
-            # goal_ui: YSponsorProp = context.window_manager.ypui_credits
             layout.prop(self, 'use_dummy_users', text="Use Dummy Users for Testing")
 
     def execute(self, context):
@@ -62,7 +61,7 @@ class YRefreshSponsors(bpy.types.Operator):
         if os.path.exists(path_last_check):
             os.remove(path_last_check)
 
-        goal_ui: YSponsorProp = context.window_manager.ypui_credits
+        goal_ui = context.window_manager.ypui_credits
         goal_ui.initialized = False
         goal_ui.connection_status = 'INIT'
 
@@ -174,7 +173,7 @@ class YSponsorPopover(bpy.types.Panel):
                 current_text = ''
             current_text += d + ' '
         col.label(text=current_text+"\"")
-        col.label(text=f"~ {maintaner}")
+        col.label(text="~ "+maintaner)
 
 class YSponsorProp(bpy.types.PropertyGroup):
     progress : FloatProperty(
@@ -279,7 +278,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             rrow.alignment = 'LEFT'
             rrow.scale_x = 0.95
             rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
-            rrow.prop(object, prop_name, index=index_prop, text=title, icon_value=lib.get_icon(icon_val, 'FAKE_USER_ON'), emboss=False)
+            rrow.prop(object, prop_name, index=index_prop, text=title, icon_value=lib.get_icon(icon_val, 'DECORATE_KEYFRAME'), emboss=False)
         else:
             rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
             # rrow.label(text=title)
@@ -359,9 +358,9 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         stripped_title = ''.join(c for c in title if ord(c) < 128)
         stripped_title = stripped_title.strip()
 
-        text_object = f'{stripped_title}'
+        text_object = stripped_title
         if member_count > 0:
-            text_object += f' ({member_count})'
+            text_object += ' ('+str(member_count)+')'
 
         expand = goal_ui.expand_tiers[tier_index]
         title_row = self.draw_tier_title(layout, expand, goal_ui, 'expand_tiers', text_object, tier_index, icon_val)
@@ -374,19 +373,13 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         if expand:
             
             row = layout.row(align=True)
-            # col = layout.column(align=True)
             row.label(text='', icon='BLANK1')
             box = row.box()
             if member_count == 0:
                 url = collaborators.sponsorships.get('url', "")
                 col_box = box.column(align=True)
-                # for i in range(per_column):
                 self.draw_empty_member(col_box, url, scale_icon, horizontal_mode)
-                # box_row = box.row(align=True)
-                # box_row.alignment = 'CENTER'
-                # box_row.label(text="No sponsors yet. Be the first one!")
             else:
-                # if not lowest_tier:
                 grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
 
                 missing_column = per_column - (per_page_item % per_column)
@@ -407,16 +400,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                             id +=  "*"
                         else:
                             id =  "*" + id
-                    # if lowest_tier:
-                    #     lowest_members += id + ', '
-                    # else:
                     self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
-                # if tier_index == 3:
-                #     print_info("Tier", tier_index, "has", member_count, "members", "page", current_page, "per page =", per_page_item, "per column =", per_column, "missing column =", missing_column)
-                # if lowest_tier and lowest_members != '':
-                #     lowest_members = lowest_members[:-2] # remove last comma
-                #     box.alignment = 'EXPAND'
-                #     self.draw_multiline(box, lowest_members, panel_width)
 
                 if missing_column != per_column:
                     for i in range(missing_column):
@@ -429,7 +413,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                 prev.tier_index = tier_index
                 prev.max_page = (member_count + per_page_item - 1) // per_page_item
 
-                paging_layout.label(text=f"{current_page + 1}/{prev.max_page}")
+                paging_layout.label(text=str(current_page+1)+'/'+str(prev.max_page))
 
                 next = paging_layout.operator('wm.y_sponsor_paging', text='', icon='TRIA_RIGHT')
                 next.is_next_button = True
@@ -478,7 +462,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             goal_ui.progress = percentage
 
             progress_row = layout.row(align=True)
-            progress_row.prop(goal_ui, 'progress', text=f"${donation}", slider=True)
+            progress_row.prop(goal_ui, 'progress', text='$'+str(donation), slider=True)
             #progress_row.separator()
             progress_row.popover("NODE_PT_ysponsor_popover", text='', icon='QUESTION')
 
@@ -494,14 +478,18 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             layout.separator()
             layout.label(text="Our Sponsors :", icon='HEART')
 
-            tiers:list = goal.get('tiers', [])
+            tiers = goal.get('tiers', [])
             if tiers:
                 for tier in reversed(tiers):
                     idx = tiers.index(tier)
 
                     scale_icon = tier.get('scale', 3)
                     horizontal_mode = tier.get('horizontal', True)
-                    per_column_width = int(tier.get('per_item_width', 200) * context.preferences.system.ui_scale)
+                    per_column_width = tier.get('per_item_width', 200)
+                    # NOTE: HACK: Older blender need smaller width to make width look the same with newer blenders
+                    if not is_bl_newer_than(4, 2):
+                        per_column_width -= 30
+                    per_column_width = int(per_column_width * context.preferences.system.ui_scale)
 
                     column_count = panel_width // per_column_width
                     if column_count <= 0:
@@ -639,7 +627,7 @@ def load_local_contributors():
                     'image_url': parts[3],
                     'thumb': None
                 }
-                file_name = f"{folders}{os.sep}{contributor['id']}.png"
+                file_name = folders+os.sep+contributor['id']+'.png'
                 if os.path.exists(file_name):
                     contributor['thumb'] = load_preview(contributor['id'], file_name).icon_id
                 collaborators.contributors[contributor['id']] = contributor
@@ -674,7 +662,7 @@ def load_contributors(goal_ui: YSponsorProp):
                 # format span in hours
                 span_hours = span_time / 3600
                 format_last_check = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(last_check))
-                print_info(f"Last check was {span_hours:.2f} hours ago. Checked at {format_last_check}. Not reloading contributors.")
+                print_info('Last check was '+'{:0.2f}'.format(span_hours)+' hours ago. Checked at '+str(format_last_check)+'. Not reloading contributors.')
     else:
         reload_contributors = True       
 
@@ -891,8 +879,8 @@ def load_expanded_images(goal_ui: YSponsorProp):
 
     for c in paged_contributors:
         if c['thumb'] is None:
-            file_name = f"{folders}{os.sep}{c['id']}.png"
-            link = c['image_url'] + f"&s={size_icon_contributor}"
+            file_name = folders + os.sep + c['id'] + '.png'
+            link = c['image_url'] + "&s=" + str(size_icon_contributor)
             id = c['id']
             to_load_users.append( (link, file_name, id) )
 
@@ -911,8 +899,8 @@ def load_expanded_images(goal_ui: YSponsorProp):
         size_icon_sponsor = tier.get('icon_size', 0)
         for sp in paged_sponsors:
             if sp['thumb'] is None:
-                link = sp['image_url'] + f"&s={size_icon_sponsor}"
-                file_name = f"{folders}{os.sep}{sp['id']}.png"
+                link = sp['image_url'] + "&s=" + str(size_icon_sponsor)
+                file_name = folders + os.sep + sp['id'] + '.png'
                 id = sp['id']
                 to_load_users.append( (link, file_name, id) )
 
@@ -1045,9 +1033,10 @@ def register():
     ui_sp = bpy.context.window_manager.ypui_credits
     ui_sp.initialized = False
 
-    check_contributors(ui_sp)
+    if is_bl_newer_than(2, 80):
+        check_contributors(ui_sp)
 
-    bpy.app.handlers.load_post.append(check_contributors_on_load)
+        bpy.app.handlers.load_post.append(check_contributors_on_load)
 
 def unregister():
     for cls in classes:
@@ -1060,4 +1049,5 @@ def unregister():
     bpy.utils.previews.remove(previews_users)
     previews_users = None
 
-    bpy.app.handlers.load_post.remove(check_contributors_on_load)
+    if is_bl_newer_than(2, 80):
+        bpy.app.handlers.load_post.remove(check_contributors_on_load)

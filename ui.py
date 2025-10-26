@@ -5631,13 +5631,16 @@ def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
 
     ypc = context.window_manager.ypui_credits
-    check_contributors(ypc)
+
+    # Credits UI currently doesn't work with legacy blenders
+    if is_bl_newer_than(2, 80):
+        check_contributors(ypc)
     
     collaborators = get_collaborators()
     contributors = collaborators.contributors
+    member_count = len(contributors)
 
-    if is_online() and len(contributors) > 0:
-        #col.separator()
+    if is_bl_newer_than(2, 80) and is_online() and member_count > 0:
 
         row_title = col.row(align=True)
         row_title_label = row_title.row(align=True)
@@ -5646,8 +5649,10 @@ def draw_ypaint_about(self, context):
 
         paging_layout = row_title.row(align=True)
         paging_layout.alignment = 'RIGHT'
+        # NOTE: HACK: Older blender need paging scale_x to avoid the label from being cut
+        if not is_bl_newer_than(3):
+            paging_layout.scale_x = 0.95
 
-        
         cont_setting = collaborators.contributor_settings
 
         per_column = cont_setting.get('per_column', 3)
@@ -5655,7 +5660,6 @@ def draw_ypaint_about(self, context):
         current_page = ypc.page_collaborators
 
         grid = col.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
-        member_count = len(contributors)
 
         paged_contributors = list(contributors.values())[current_page*per_page_item:(current_page+1)*per_page_item]
         missing_column = per_column - (len(paged_contributors) % per_column)
@@ -5667,7 +5671,6 @@ def draw_ypaint_about(self, context):
             if not thumb:
                 thumb = collaborators.loading_pic
                 
-            # print("draw thumb", key, "=", thumb)
             rw.template_icon(icon_value = thumb, scale = 3.0)
 
             user_name = item["name"].strip()
@@ -5687,7 +5690,7 @@ def draw_ypaint_about(self, context):
             prev.is_next_button = False
             prev.max_page = (member_count + per_page_item - 1) // per_page_item
 
-            paging_layout.label(text=f"{current_page + 1}/{prev.max_page}")
+            paging_layout.label(text=str(current_page+1)+'/'+str(prev.max_page))
 
             next = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_RIGHT')
             next.is_next_button = True
@@ -5698,7 +5701,7 @@ def draw_ypaint_about(self, context):
     else:
         col.label(text=get_addon_title() + ' is created by: ')
         col.operator('wm.url_open', text='View All Contributors', icon='ARMATURE_DATA').url = collaborators.default_contributors_url
-        if is_online():
+        if is_online() and is_bl_newer_than(2, 80):
             col.separator()
             if ypc.connection_status == "FAILED":
                 col.label(text="Failed to load contributors.", icon='ERROR')
@@ -5711,7 +5714,8 @@ def draw_ypaint_about(self, context):
     col.label(text='Links:')
     col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
     col.operator('wm.url_open', text=get_addon_title()+' GitHub', icon='SCRIPT').url = 'https://github.com/ucupumar/ucupaint'
-    col.operator('wm.url_open', text=get_addon_title()+' Discord Server', icon='COMMUNITY').url = 'https://discord.gg/BdNfGGzQHh'
+    icon = 'COMMUNITY' if is_bl_newer_than(2, 80) else 'SEQ_SEQUENCER'
+    col.operator('wm.url_open', text=get_addon_title()+' Discord Server', icon=icon).url = 'https://discord.gg/BdNfGGzQHh'
 
     # for cl, key in enumerate(previews_users.contributors.keys()):
     #     col.operator('wm.url_open', text=key, icon=icon_name).url = previews_users.contributors[key]["url"]
