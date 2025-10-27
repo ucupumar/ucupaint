@@ -5655,14 +5655,14 @@ def draw_ypaint_about(self, context):
 
         cont_setting = collaborators.contributor_settings
 
-        per_column = cont_setting.get('per_column', 3)
+        column_num = cont_setting.get('column_num', 3)
         per_page_item = cont_setting.get('per_page_item', 9)
         current_page = ypc.page_collaborators
 
-        grid = col.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
+        grid = col.grid_flow(row_major=True, columns=column_num, even_columns=True, even_rows=True, align=True)
 
         paged_contributors = list(contributors.values())[current_page*per_page_item:(current_page+1)*per_page_item]
-        missing_column = per_column - (len(paged_contributors) % per_column)
+        missing_column = column_num - (len(paged_contributors) % column_num)
 
         for cl, item in enumerate(paged_contributors):
             rw = grid.column(align=True)
@@ -5678,7 +5678,7 @@ def draw_ypaint_about(self, context):
                 user_name = item["id"]
             rw.operator('wm.url_open', text=user_name, emboss=False).url = item["url"]
 
-        if missing_column != per_column:
+        if missing_column != column_num:
             for i in range(missing_column):
                 rw = grid.column(align=True)
 

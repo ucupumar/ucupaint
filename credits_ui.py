@@ -485,13 +485,13 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
                     scale_icon = tier.get('scale', 3)
                     horizontal_mode = tier.get('horizontal', True)
-                    per_column_width = tier.get('per_item_width', 200)
-                    # NOTE: HACK: Older blender need smaller width to make width look the same with newer blenders
-                    if not is_bl_newer_than(4, 2):
-                        per_column_width -= 30
-                    per_column_width = int(per_column_width * context.preferences.system.ui_scale)
+                    # per_column_width = tier.get('per_item_width', 200)
+                    # # NOTE: HACK: Older blender need smaller width to make width look the same with newer blenders
+                    # if not is_bl_newer_than(4, 2):
+                    #     per_column_width -= 30
+                    # per_column_width = int(per_column_width * context.preferences.system.ui_scale)
 
-                    column_count = panel_width // per_column_width
+                    column_count = tier.get('column_num', 1)
                     if column_count <= 0:
                         column_count = 1
 
