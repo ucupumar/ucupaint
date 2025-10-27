@@ -1860,7 +1860,19 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                             # Displacement default value
                             color.append(0.5)
                     else:
-                        color.append(btc.default_value)
+                        # Read defaults from main ucupaint node inputs
+                        if ch and ch.name in node.inputs:
+                            if ch.type == "RGB":
+                                linear_color = node.inputs[ch.name].default_value
+                                srgb_color = list(linear_to_srgb(Color(linear_color[:3])))
+                                srgb_color.append(linear_color[3])
+                                color.append(srgb_color[int(btc.subchannel_index)])
+                            elif ch.type == "VALUE":
+                                color.append(node.inputs[ch.name].default_value)
+                            else:
+                                color.append(btc.default_value)
+                        else:
+                            color.append(btc.default_value)
 
                 if not btimg:
                     # Set new bake target image
@@ -1922,7 +1934,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                             baked = tree.nodes.get(ch.baked_vdisp)
                         else: baked = tree.nodes.get(ch.baked)
 
-                        if baked and baked.image:
+                        # Check if a layer is using the channel, in case an old unused baked image is present
+                        if baked and baked.image and not ch.no_layer_using:
                             for tilenum in tilenums:
                                 # Swap tile
                                 if tilenum != 1001:
