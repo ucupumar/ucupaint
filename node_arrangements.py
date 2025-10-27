@@ -1955,7 +1955,7 @@ def rearrange_yp_nodes(group_tree):
     yp = group_tree.yp
     nodes = group_tree.nodes
 
-    temp_image_node = group_tree.nodes.get(group_tree, TEMP_ACTIVE_IMAGE_NODE_NAME)
+    temp_image_node = group_tree.nodes.get(TEMP_ACTIVE_IMAGE_NODE_NAME)
     if temp_image_node:
         check_set_node_loc(group_tree, TEMP_ACTIVE_IMAGE_NODE_NAME, Vector((-500, 0)), hide=True)
 
