@@ -278,7 +278,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             rrow.alignment = 'LEFT'
             rrow.scale_x = 0.95
             rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
-            rrow.prop(object, prop_name, index=index_prop, text=title, icon_value=lib.get_icon(icon_val, 'DECORATE_KEYFRAME'), emboss=False)
+            rrow.prop(object, prop_name, index=index_prop, text=title, icon_value=lib.get_icon(icon_val, 'REC'), emboss=False)
         else:
             rrow.prop(object, prop_name, index=index_prop, emboss=False, text='', icon=icon)
             # rrow.label(text=title)
