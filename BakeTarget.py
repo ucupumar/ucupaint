@@ -2,6 +2,7 @@ import bpy, time
 from .common import *
 from bpy.props import *
 from .bake_common import *
+from .Bake import *
 
 # todo : loop by bake target channels, 
 # setting resolution per bake target, setting resolution di bake all, di-hide.
@@ -92,6 +93,113 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
         description = 'Use 32-bit float image',
         default = False
     )
+
+    ########
+
+    uv_map : StringProperty(default='', update=update_bake_channel_uv_map)
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    channels : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    interpolation : EnumProperty(
+        name = 'Image Interpolation Type',
+        description = 'Image interpolation type',
+        items = interpolation_type_items,
+        default = 'Linear'
+    )
+
+    #hdr : BoolProperty(name='32 bit Float', default=False)
+
+    only_active_channel : BoolProperty(
+        name = 'Only Bake Active Channel',
+        description = 'Only bake active channel',
+        default = False
+    )
+
+    fxaa : BoolProperty(
+        name = 'Use FXAA', 
+        description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
+        default = True
+    )
+
+    aa_level : IntProperty(
+        name = 'Anti Aliasing Level',
+        description = 'Super Sample Anti Aliasing Level (1=off)',
+        default=1, min=1, max=2
+    )
+
+    denoise : BoolProperty(
+        name = 'Use Denoise', 
+        description = "Use Denoise on baked images",
+        default = False
+    )
+
+    force_bake_all_polygons : BoolProperty(
+        name = 'Force Bake all Polygons',
+        description = 'Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
+        default = False
+    )
+
+    enable_bake_as_vcol : BoolProperty(
+        name = 'Enable Bake As VCol',
+        description = 'Has any channel enabled Bake As Vertex Color',
+        default = False
+    )
+
+    vcol_force_first_ch_idx : EnumProperty(
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
+        items = bake_vcol_channel_items
+    )
+
+    vcol_force_first_ch_idx_bool : BoolProperty(
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
+        default = False
+    )
+
+    use_udim : BoolProperty(
+        name = 'Use UDIM Tiles',
+        description = 'Use UDIM Tiles',
+        default = False
+    )
+
+    use_float_for_normal : BoolProperty(
+        name = 'Use Float for Normal',
+        description = 'Use float image for baked normal',
+        default = False
+    )
+
+    use_float_for_displacement : BoolProperty(
+        name = 'Use Float for Displacement',
+        description = 'Use float image for baked displacement',
+        default = False
+    )
+
+    use_osl : BoolProperty(
+        name = 'Use OSL',
+        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
+        default = False
+    )
+
+    use_dithering : BoolProperty(
+        name = 'Use Dithering',
+        description = 'Use dithering for less banding color',
+        default = False
+    )
+
+    dither_intensity : FloatProperty(
+        name = 'Dither Intensity',
+        description = 'Amount of dithering noise added to the rendered image to break up banding',
+        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
+    )
+    
+    bake_disabled_layers : BoolProperty(
+        name = 'Bake Disabled Layers',  
+        description = 'Take disabled layers into account when baking',
+        default = False
+    )
+    ########
 
     r : PointerProperty(type=YBakeTargetChannel)
     g : PointerProperty(type=YBakeTargetChannel)

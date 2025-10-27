@@ -1049,6 +1049,7 @@ def draw_bake_targets_ui(context, layout, node):
             for letter in rgba_letters:
                 draw_bake_target_channel(context, bcol, bt, letter)
 
+
         row = col.row(align=True)
         row.label(text='', icon='BLANK1')
         image_name = image.name if image else '-'
@@ -1067,7 +1068,172 @@ def draw_bake_targets_ui(context, layout, node):
             row.label(text='', icon='BLANK1')
             row.label(text="Do 'Bake All Channels' to get the image!", icon='ERROR')
 
+        row_setting = col.row(align=True)
+
+        icon = get_collapse_arrow_icon(btui.expand_setting)
+
+        if is_bl_newer_than(2, 80):
+            row_setting.alignment = 'LEFT'
+            row_setting.scale_x = 0.95
+
+        row_setting.prop(btui, 'expand_setting', text='', emboss=False, icon=icon)
+
+        label_setting = "Bake Settings"
+        if is_bl_newer_than(2, 80):
+            row_setting.prop(btui, 'expand_setting', text=label_setting, emboss=False, icon='PREFERENCES')
+        else: 
+            row_setting.label(text=label_setting, icon_value=icon_value)
+
+
+        row_bake = col.row(align=True)
+        row_bake.label(text='', icon='BLANK1')
+
+        info_col = row_bake.column()
+        if btui.expand_setting:
+            draw_bake_target_settings(context, info_col, bt)
         info_col.operator('wm.y_bake_single_target', text=f'Bake {bt.name}', icon_value=lib.get_icon('bake'))
+
+def draw_bake_target_settings(context, layout, bt):
+
+
+
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+    height_root_ch = get_root_height_channel(yp)
+    
+    obj = context.object
+    mat = obj.active_material
+    
+    # uv_layers = get_uv_layers(obj)
+    # # Use active uv layer name by default
+    # if obj.type == 'MESH' and len(uv_layers) > 0:
+    #     if uv_layers.get(yp.baked_uv_name):
+    #         bt.uv_map = yp.baked_uv_name
+    #     else:
+    #         active_name = uv_layers.active.name
+    #         if active_name == TEMP_UV:
+    #             bt.uv_map = yp.layers[yp.active_layer_index].uv_name
+    #         else: bt.uv_map = uv_layers.active.name
+
+    #     # UV Map collections update 
+    #     bt.uv_map_coll.clear()
+    #     for uv in uv_layers:
+    #         if not uv.name.startswith(TEMP_UV):
+    #             self.uv_map_coll.add().name = uv.name
+
+    row = split_layout(layout, 0.4)
+    col = row.column() #align=True)
+
+    ccol = col.column(align=True)
+    ccol.label(text='')
+    if bt.use_custom_resolution == False:
+        ccol.label(text='Resolution:')
+    if bt.use_custom_resolution == True:
+        ccol.label(text='Width:')
+        ccol.label(text='Height:')
+
+    ccol.separator()
+    ccol.label(text='Samples:')
+    ccol.label(text='AA Level:')
+
+    if is_bl_newer_than(3, 1):
+        ccol.separator()
+    ccol.label(text='Margin:')
+
+    if height_root_ch:
+        ccol.separator()
+        ccol.label(text='Use 32-bit Float:')
+
+    col.separator()
+
+    if is_bl_newer_than(2, 80):
+        col.label(text='Bake Device:')
+    col.label(text='Interpolation:')
+    col.label(text='UV Map:')
+
+    ccol = col.column(align=True)
+
+    # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+    active_channel = None
+    if bt.only_active_channel and not is_bl_equal(3, 2):
+        active_channel = bt.channels[0]
+        if active_channel.enable_bake_to_vcol:
+            ccol.separator()
+            ccol.label(text='')
+    elif bt.enable_bake_as_vcol and not is_bl_equal(3, 2):
+        ccol.separator()
+        ccol.label(text='Force First Vcol:')
+
+    col = row.column()
+
+    col.prop(bt, 'use_custom_resolution')
+    crow = col.row(align=True)
+    ccol = col.column(align=True)
+
+    if bt.use_custom_resolution == False:
+        crow.prop(bt, 'image_resolution', expand= True,)
+    elif bt.use_custom_resolution == True:
+        ccol.prop(bt, 'width', text='')
+        ccol.prop(bt, 'height', text='')
+
+    ccol.separator()
+    ccol.prop(bt, 'samples', text='')
+    ccol.prop(bt, 'aa_level', text='')
+
+    if is_bl_newer_than(3, 1):
+        ccol.separator()
+        split = split_layout(ccol, 0.4, align=True)
+        split.prop(bt, 'margin', text='')
+        split.prop(bt, 'margin_type', text='')
+    else:
+        ccol.prop(bt, 'margin', text='')
+
+    if height_root_ch:
+        ccol.separator()
+        splits = split_layout(ccol, 0.4)
+        splits.prop(bt, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
+        splits.prop(bt, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
+
+    col.separator()
+
+    if is_bl_newer_than(2, 80):
+        if bt.use_osl:
+            col.label(text='CPU (OSL)')
+        else: col.prop(bt, 'bake_device', text='')
+    col.prop(bt, 'interpolation', text='')
+    col.prop_search(bt, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+
+    ccol = col.column(align=True)
+
+    # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+    if active_channel and active_channel.enable_bake_to_vcol:
+        ccol.separator()
+        ccol.prop(bt, 'vcol_force_first_ch_idx_bool', text='Force First Vcol')
+    elif bt.enable_bake_as_vcol and not is_bl_equal(3, 2):
+        ccol.separator()
+        ccol.prop(bt, 'vcol_force_first_ch_idx', text='')
+
+    ccol.separator()
+
+    if UDIM.is_udim_supported():
+        ccol.prop(bt, 'use_udim')
+    ccol.prop(bt, 'fxaa', text='Use FXAA')
+    if is_bl_newer_than(2, 81):
+        ccol.prop(bt, 'denoise', text='Use Denoise')
+
+    any_color_channel = any([c for c in bt.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+    if any_color_channel:
+        if not bt.use_dithering:
+            ccol.prop(bt, 'use_dithering', text='Use Dithering')
+        if bt.use_dithering:
+            row = split_layout(ccol, 0.55)
+            row.prop(bt, 'use_dithering', text='Use Dithering')
+            row.prop(bt, 'dither_intensity', text='')
+
+    ccol.prop(bt, 'use_osl')
+
+    ccol.prop(bt, 'force_bake_all_polygons')
+    ccol.prop(bt, 'bake_disabled_layers')
 
 def draw_root_channels_ui(context, layout, node):
     scene = bpy.context.scene
@@ -7708,6 +7874,9 @@ class YBakeTargetUI(bpy.types.PropertyGroup):
         default = True,
         # update = update_bake_target_ui
     )
+
+    expand_setting : BoolProperty(default=False)
+
 
 class YModifierUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
