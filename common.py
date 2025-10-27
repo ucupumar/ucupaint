@@ -1319,21 +1319,23 @@ def get_unique_name(name, items, surname = ''):
 
     return unique_name
 
-def get_active_node():
-    mat = get_active_material()
+def get_active_node(mat=None):
+    if not mat: mat = get_active_material()
     if not mat or not mat.node_tree: return None
     node = mat.node_tree.nodes.active
     return node
 
 # Specific methods for this addon
 
-def get_active_ypaint_node(obj=None):
+def get_active_ypaint_node(obj=None, mat=None):
     ypui = bpy.context.window_manager.ypui
 
+    active_material = get_active_material(obj)
+
     # Get material UI prop
-    mat = get_active_material(obj)
+    if not mat: mat = active_material
     if not mat or not mat.node_tree: 
-        ypui.active_mat = ''
+        if mat == active_material: ypui.active_mat = ''
         return None
 
     # Search for its name first
@@ -1345,7 +1347,7 @@ def get_active_ypaint_node(obj=None):
     # If still not found, create one
     if not mui:
 
-        if ypui.active_mat != '':
+        if mat == active_material and ypui.active_mat != '':
             prev_mat = bpy.data.materials.get(ypui.active_mat)
             if not prev_mat:
                 #print(ypui.active_mat)
@@ -1360,11 +1362,11 @@ def get_active_ypaint_node(obj=None):
         mui.name = mat.name
         #print('New MUI!', mui.name)
 
-    if ypui.active_mat != mat.name:
+    if mat == active_material and ypui.active_mat != mat.name:
         ypui.active_mat = mat.name
 
     # Try to get yp node
-    node = get_active_node()
+    node = get_active_node(mat)
     if node and node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node:
         # Update node name
         if mui.active_ypaint_node != node.name:
@@ -4950,14 +4952,18 @@ def get_temporary_active_image():
     return temp_image
 
 def get_material_temp_active_image_node(mat, create_one=False):
-    temp = mat.node_tree.nodes.get(TEMP_ACTIVE_IMAGE_NODE_NAME)
+    node = get_active_ypaint_node(mat=mat)
+    tree = node.node_tree if node else mat.node_tree
+    temp = tree.nodes.get(TEMP_ACTIVE_IMAGE_NODE_NAME)
     if create_one and not temp:
-        try: temp = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        try: temp = tree.nodes.new('ShaderNodeTexImage')
         except Exception as e: 
             print('EXCEPTIION: Cannot create temporary image for non active material! Error:', e)
             return None
         temp.name = TEMP_ACTIVE_IMAGE_NODE_NAME
         temp.image = get_temporary_active_image()
+        temp.hide = True
+        temp.location = Vector((-500, 0))
 
     return temp
 
@@ -4966,9 +4972,9 @@ def check_other_mats_to_use_temp_image(obj):
 
     active_mat = obj.active_material
 
-    # Remove temporary active image for the active material
+    # Remove temporary active image node in active material
     if active_mat.node_tree:
-        temp = get_material_temp_active_image_node(active_mat)
+        temp = active_mat.node_tree.nodes.get(TEMP_ACTIVE_IMAGE_NODE_NAME)
         if temp: simple_remove_node(active_mat.node_tree, temp)
 
     # Do not create temporary image if the active material has no images
@@ -4981,7 +4987,9 @@ def check_other_mats_to_use_temp_image(obj):
 
         temp = get_material_temp_active_image_node(mat, create_one=True)
         if temp:
-            mat.node_tree.nodes.active = temp
+            node = get_active_ypaint_node(mat=mat)
+            tree = node.node_tree if node else mat.node_tree
+            tree.nodes.active = temp
 
             for idx, img in enumerate(mat.texture_paint_images):
                 if img == None: continue
@@ -4997,6 +5005,10 @@ def set_active_paint_slot_entity(yp):
     scene = bpy.context.scene
     root_tree = yp.id_data
     wmyp = bpy.context.window_manager.ypprops
+
+    # Multiple materials will use single active image instead active material image
+    # since it's the only way texture paint mode won't mess with other material image
+    is_multiple_mats = obj.type == 'MESH' and len(obj.data.materials) > 1
 
     # Set material active node 
     if is_bl_newer_than(2, 81):
@@ -5120,11 +5132,10 @@ def set_active_paint_slot_entity(yp):
 
                 image = source.image
 
-
     # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
     ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
-    if image and is_bl_newer_than(2, 81):
+    if not is_multiple_mats and image and is_bl_newer_than(2, 81):
 
         scene.tool_settings.image_paint.mode = 'MATERIAL'
 
