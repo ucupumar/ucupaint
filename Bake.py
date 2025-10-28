@@ -854,9 +854,9 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
         return {'FINISHED'}
 
 class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
-    """Bake Channel to Vertex Color"""
     bl_idname = "wm.y_bake_channel_to_vcol"
-    bl_label = "Bake channel to vertex color"
+    bl_label = "Bake channel to "+get_vertex_color_label(00)
+    bl_description = "Bake Channel to "+get_vertex_color_label()
     bl_options = {'REGISTER', 'UNDO'}
 
     all_materials : BoolProperty(
@@ -866,8 +866,8 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
     )
 
     vcol_name : StringProperty(
-        name = 'Target Vertex Color Name', 
-        description = "Target vertex color name, it will create one if it doesn't exist",
+        name = 'Target '+get_vertex_color_label()+' Name', 
+        description = "Target "+get_vertex_color_label(00)+" name, it will create one if it doesn't exist",
         default = ''
     )
     
@@ -885,7 +885,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
 
     force_first_index : BoolProperty(
         name = 'Force First Index', 
-        description = "Force target vertex color to be first on the vertex colors list (useful for exporting)",
+        description = "Force target "+get_vertex_color_label(00)+" to be first on the "+get_vertex_color_label(00)+"s list (useful for exporting)",
         default = True
     )
 
@@ -947,7 +947,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         row = split_layout(self.layout, 0.4)
         col = row.column(align=True)
 
-        col.label(text='Target Vertex Color:')
+        col.label(text='Target '+get_vertex_color_label()+':')
         if self.show_emission_option:
             col.label(text='Add Emission:')
             col.label(text='Emission Multiplier:')
@@ -1097,7 +1097,7 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
     bl_options = {'UNDO'}
 
     also_del_vcol : BoolProperty(
-        name = "Also delete the vertex color",
+        name = "Also delete the "+get_vertex_color_label(00),
         default = False
     )
 
@@ -1129,7 +1129,7 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 
     def draw(self, context):
         if self.any_channel_use_baked_vcol:
-            title="Also remove baked vertex colors"
+            title="Also remove baked "+get_vertex_color_label(00)+"s"
             self.layout.prop(self, 'also_del_vcol', text=title)
 
     def execute(self, context):
@@ -2034,19 +2034,19 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
     enable_bake_as_vcol : BoolProperty(
         name = 'Enable Bake As VCol',
-        description = 'Has any channel enabled Bake As Vertex Color',
+        description = 'Has any channel enabled Bake As '+get_vertex_color_label(),
         default = False
     )
 
     vcol_force_first_ch_idx : EnumProperty(
-        name = 'Force First Vertex Color Channel',
-        description = 'Force the first channel after baking the Vertex Color',
+        name = 'Force First '+get_vertex_color_label()+' Channel',
+        description = 'Force the first channel after baking the '+get_vertex_color_label(),
         items = bake_vcol_channel_items
     )
 
     vcol_force_first_ch_idx_bool : BoolProperty(
-        name = 'Force First Vertex Color Channel',
-        description = 'Force the first channel after baking the Vertex Color',
+        name = 'Force First '+get_vertex_color_label()+' Channel',
+        description = 'Force the first channel after baking the '+get_vertex_color_label(),
         default = False
     )
 
@@ -2133,16 +2133,19 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
         # List of channels that will be baked
         self.channels = []
+        if self.only_active_channel:
+            if yp.active_channel_index < len(yp.channels):
+                active_ch = yp.channels[yp.active_channel_index]
+                self.channels = [active_ch]
 
-        # bt = yp.bake_targets[yp.active_bake_target_index]
-        for bt in yp.bake_targets:
-            for letter in rgba_letters:
-                btc = getattr(bt, letter)
-                if btc.channel_name != '' and yp.channels.get(btc.channel_name):
-                    ch = yp.channels.get(btc.channel_name)
-                    self.channels.append(ch)
+                # Add alpha/color channel pair
+                color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+                if active_ch == color_ch:
+                    self.channels.append(alpha_ch)
+                elif active_ch == alpha_ch:
+                    self.channels.append(color_ch)
 
-                    print("BAKE TARGET: " + bt.name + " - " + letter + " : " + ch.name)
+        else: self.channels = yp.channels
 
         self.no_layer_using = False
         self.enable_bake_as_vcol = False
@@ -2388,7 +2391,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         if BL28_HACK and height_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
 
             if len(yp.uvs) > MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
-                self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(yp.uvs)) + " vertex color(s) to bake proper normal!")
+                self.report({'WARNING'}, "Maximum "+get_vertex_color_label(00)+"s reached! Need at least " + str(len(yp.uvs)) + " "+get_vertex_color_label(00)+"(s) to bake proper normal!")
             else:
                 print('INFO: Calculating tangent sign before bake...')
                 tangent_sign_calculation = True
@@ -2483,9 +2486,19 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
             for layer in disabled_layers:
                 layer.enable = True 
 
+        # Get color and alpha channel
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
         # Bake channels
         baked_exists = []
         for ch in self.channels:
+
+            # Remove baked node if alpha channel will be combined to color channel
+            if alpha_ch == ch and alpha_ch.alpha_combine_to_baked_color:
+                remove_node(tree, alpha_ch, 'baked')
+                ch.no_layer_using = False
+                baked_exists.append(False)
+                continue
 
             # Check if baked node exists
             baked = tree.nodes.get(ch.baked)
@@ -2514,9 +2527,11 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
                 if not baked_exists[i]:
                     ch.expand_baked_data = True
 
+                alpha_enabled = ch.enable_alpha or (ch == color_ch and alpha_ch.alpha_combine_to_baked_color)
+
                 # Dithering
                 if ch.type == 'RGB' and ch.colorspace == 'SRGB' and self.use_dithering and ch.use_clamp:
-                    dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=ch.enable_alpha)
+                    dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=alpha_enabled)
 
                 # Denoise
                 if self.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':
@@ -2527,12 +2542,12 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
                     resize_image(
                         baked.image, self.width, self.height, 
                         baked.image.colorspace_settings.name,
-                        alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                        alpha_aware=alpha_enabled, bake_device=self.bake_device
                     )
 
                 # FXAA doesn't work with hdr image
                 if self.fxaa and ch.use_clamp:
-                    fxaa_image(baked.image, ch.enable_alpha, bake_device=self.bake_device)
+                    fxaa_image(baked.image, alpha_enabled, bake_device=self.bake_device)
 
                 baked_images.append(baked.image)
 
@@ -2550,12 +2565,12 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
                         resize_image(
                             baked_disp.image, self.width, self.height, 
                             baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                            alpha_aware=alpha_enabled, bake_device=self.bake_device
                         )
 
                     # FXAA
                     if self.fxaa and not baked_disp.image.is_float:
-                        fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=self.bake_device)
+                        fxaa_image(baked_disp.image, alpha_enabled, bake_device=self.bake_device)
 
                     baked_images.append(baked_disp.image)
 
@@ -2567,11 +2582,11 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
                         resize_image(
                             baked_normal_overlay.image, self.width, self.height, 
                             baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                            alpha_aware=alpha_enabled, bake_device=self.bake_device
                         )
                     # FXAA
                     if self.fxaa:
-                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
+                        fxaa_image(baked_normal_overlay.image, alpha_enabled, bake_device=self.bake_device)
 
                     baked_images.append(baked_normal_overlay.image)
 
@@ -2583,7 +2598,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
                         resize_image(
                             baked_vdisp.image, self.width, self.height, 
                             baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=self.bake_device
+                            alpha_aware=alpha_enabled, bake_device=self.bake_device
                         )
 
                     baked_images.append(baked_vdisp.image)
@@ -3579,7 +3594,19 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                             # Displacement default value
                             color.append(0.5)
                     else:
-                        color.append(btc.default_value)
+                        # Read defaults from main ucupaint node inputs
+                        if ch and ch.name in node.inputs:
+                            if ch.type == "RGB":
+                                linear_color = node.inputs[ch.name].default_value
+                                srgb_color = list(linear_to_srgb(Color(linear_color[:3])))
+                                srgb_color.append(linear_color[3])
+                                color.append(srgb_color[int(btc.subchannel_index)])
+                            elif ch.type == "VALUE":
+                                color.append(node.inputs[ch.name].default_value)
+                            else:
+                                color.append(btc.default_value)
+                        else:
+                            color.append(btc.default_value)
 
                 if not btimg:
                     # Set new bake target image
@@ -3641,7 +3668,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                             baked = tree.nodes.get(ch.baked_vdisp)
                         else: baked = tree.nodes.get(ch.baked)
 
-                        if baked and baked.image:
+                        # Check if a layer is using the channel, in case an old unused baked image is present
+                        if baked and baked.image and not ch.no_layer_using:
                             for tilenum in tilenums:
                                 # Swap tile
                                 if tilenum != 1001:
@@ -4287,11 +4315,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
                 modifier_found = True
 
             if modifier_found:
-                self.report({'ERROR'}, "Vertex color merge does not works with modifers and masks yet!")
+                self.report({'ERROR'}, get_vertex_color_label(10)+" merge does not works with modifers and masks yet!")
                 return {'CANCELLED'}
 
             if ch.blend_type != 'MIX' or neighbor_ch.blend_type != 'MIX':
-                self.report({'ERROR'}, "Vertex color merge only works with Mix blend type for now!")
+                self.report({'ERROR'}, get_vertex_color_label(10)+" merge only works with Mix blend type for now!")
                 return {'CANCELLED'}
 
             if neighbor_idx > layer_idx:

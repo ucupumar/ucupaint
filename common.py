@@ -48,6 +48,9 @@ COLOR_ID_VCOL_NAME = '__yp_color_id'
 
 BUMP_MULTIPLY_TWEAK = 5
 
+TEMP_ACTIVE_IMAGE_NAME = '.YP_TEMP_ACTIVE_IMAGE'
+TEMP_ACTIVE_IMAGE_NODE_NAME = '.YP_TEMP_ACTIVE_IMAGE_NODE'
+
 def blend_type_items(self, context):
     items = [
         ("MIX", "Mix", ""),
@@ -183,6 +186,23 @@ TANGENT_SIGN_PREFIX = '__tsign_'
 
 neighbor_directions = ['n', 's', 'e', 'w']
 
+def get_vertex_color_label(capital=11):
+    if not is_bl_newer_than(3, 2):
+
+        if capital == 10:
+            return 'Vertex color'
+        elif capital == 00:
+            return 'vertex color'
+
+        return 'Vertex Color'
+
+    if capital == 10:
+        return 'Color attribute'
+    elif capital == 00:
+        return 'color attribute'
+
+    return 'Color Attribute'
+
 normal_blend_items = (
     ('MIX', 'Mix', ''),
     ('OVERLAY', 'Add', ''),
@@ -226,7 +246,7 @@ layer_type_items = (
     ('NOISE', 'Noise', ''),
     ('VORONOI', 'Voronoi', ''),
     ('WAVE', 'Wave', ''),
-    ('VCOL', 'Vertex Color', ''),
+    ('VCOL', 'Color Attribute', ''),
     ('BACKGROUND', 'Background', ''),
     ('COLOR', 'Solid Color', ''),
     ('GROUP', 'Group', ''),
@@ -246,7 +266,7 @@ mask_type_items = (
     ('NOISE', 'Noise', ''),
     ('VORONOI', 'Voronoi', ''),
     ('WAVE', 'Wave', ''),
-    ('VCOL', 'Vertex Color', ''),
+    ('VCOL', 'Color Attribute', ''),
     ('HEMI', 'Fake Lighting', ''),
     ('OBJECT_INDEX', 'Object Index', ''),
     ('COLOR_ID', 'Color ID', ''),
@@ -268,7 +288,7 @@ channel_override_type_items = (
     ('NOISE', 'Noise', ''),
     ('VORONOI', 'Voronoi', ''),
     ('WAVE', 'Wave', ''),
-    ('VCOL', 'Vertex Color', ''),
+    ('VCOL', 'Color Attribute', ''),
     ('GABOR', 'Gabor', ''),
 )
 
@@ -294,7 +314,7 @@ layer_type_labels = {
     'NOISE' : 'Noise',
     'VORONOI' : 'Voronoi',
     'WAVE' : 'Wave',
-    'VCOL' : 'Vertex Color',
+    'VCOL' : 'Color Attribute',
     'BACKGROUND' : 'Background',
     'COLOR' : 'Solid Color',
     'GROUP' : 'Group',
@@ -314,7 +334,7 @@ mask_type_labels = {
     'NOISE' : 'Noise',
     'VORONOI' : 'Voronoi',
     'WAVE' : 'Wave',
-    'VCOL' : 'Vertex Color',
+    'VCOL' : 'Color Attribute',
     'HEMI' : 'Fake Lighting',
     'OBJECT_INDEX' : 'Object Index',
     'COLOR_ID' : 'Color ID',
@@ -367,7 +387,7 @@ channel_override_labels = {
     'NOISE' : 'Noise',
     'VORONOI' : 'Voronoi',
     'WAVE' : 'Wave',
-    'VCOL' : 'Vertex Color',
+    'VCOL' : 'Color Attribute',
     'HEMI' : 'Fake Lighting',
     'GABOR' : 'Gabor',
 }
@@ -831,6 +851,13 @@ def get_viewport_shade():
         return bpy.context.area.spaces[0].shading.type
     else: return bpy.context.area.spaces[0].viewport_shade
 
+def is_not_in_material_view():
+    space = bpy.context.space_data
+    return space.type == 'VIEW_3D' and (
+        (not is_bl_newer_than(2, 80) and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or 
+        (is_bl_newer_than(2, 80) and space.shading.type not in {'MATERIAL', 'RENDERED'})
+    )
+
 def get_user_preferences():
     if is_bl_newer_than(2, 80):
         return bpy.context.preferences.addons[__package__].preferences
@@ -1292,21 +1319,23 @@ def get_unique_name(name, items, surname = ''):
 
     return unique_name
 
-def get_active_node():
-    mat = get_active_material()
+def get_active_node(mat=None):
+    if not mat: mat = get_active_material()
     if not mat or not mat.node_tree: return None
     node = mat.node_tree.nodes.active
     return node
 
 # Specific methods for this addon
 
-def get_active_ypaint_node(obj=None):
+def get_active_ypaint_node(obj=None, mat=None):
     ypui = bpy.context.window_manager.ypui
 
+    active_material = get_active_material(obj)
+
     # Get material UI prop
-    mat = get_active_material(obj)
+    if not mat: mat = active_material
     if not mat or not mat.node_tree: 
-        ypui.active_mat = ''
+        if mat == active_material: ypui.active_mat = ''
         return None
 
     # Search for its name first
@@ -1318,7 +1347,7 @@ def get_active_ypaint_node(obj=None):
     # If still not found, create one
     if not mui:
 
-        if ypui.active_mat != '':
+        if mat == active_material and ypui.active_mat != '':
             prev_mat = bpy.data.materials.get(ypui.active_mat)
             if not prev_mat:
                 #print(ypui.active_mat)
@@ -1333,11 +1362,11 @@ def get_active_ypaint_node(obj=None):
         mui.name = mat.name
         #print('New MUI!', mui.name)
 
-    if ypui.active_mat != mat.name:
+    if mat == active_material and ypui.active_mat != mat.name:
         ypui.active_mat = mat.name
 
     # Try to get yp node
-    node = get_active_node()
+    node = get_active_node(mat)
     if node and node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node:
         # Update node name
         if mui.active_ypaint_node != node.name:
@@ -4915,6 +4944,59 @@ def set_editor_images(editor_images={}, editor_pins={}):
                         if screen_pin_dict != None and j in screen_pin_dict:
                             space.use_image_pin = screen_pin_dict[j]
 
+def get_temporary_active_image():
+    temp_image = bpy.data.images.get(TEMP_ACTIVE_IMAGE_NAME)
+    if not temp_image:
+        temp_image = bpy.data.images.new(TEMP_ACTIVE_IMAGE_NAME, width=1, height=1, alpha=False, float_buffer=False)
+
+    return temp_image
+
+def get_material_temp_active_image_node(mat, create_one=False):
+    node = get_active_ypaint_node(mat=mat)
+    tree = node.node_tree if node else mat.node_tree
+    temp = tree.nodes.get(TEMP_ACTIVE_IMAGE_NODE_NAME)
+    if create_one and not temp:
+        try: temp = tree.nodes.new('ShaderNodeTexImage')
+        except Exception as e: 
+            print('EXCEPTIION: Cannot create temporary image for non active material! Error:', e)
+            return None
+        temp.name = TEMP_ACTIVE_IMAGE_NODE_NAME
+        temp.image = get_temporary_active_image()
+        temp.hide = True
+        temp.location = Vector((-500, 0))
+
+    return temp
+
+def check_other_mats_to_use_temp_image(obj):
+    if not is_bl_newer_than(2, 81) or obj.type != 'MESH' or not obj.active_material: return
+
+    active_mat = obj.active_material
+
+    # Remove temporary active image node in active material
+    if active_mat.node_tree:
+        temp = active_mat.node_tree.nodes.get(TEMP_ACTIVE_IMAGE_NODE_NAME)
+        if temp: simple_remove_node(active_mat.node_tree, temp)
+
+    # Do not create temporary image if the active material has no images
+    if len(active_mat.texture_paint_images) == 0:
+        return
+
+    # Create temporary image for non active material so the active image in this material won't accidentally be painted
+    for mat in obj.data.materials:
+        if not mat or not mat.node_tree or mat == active_mat or len(mat.texture_paint_images) == 0: continue
+
+        temp = get_material_temp_active_image_node(mat, create_one=True)
+        if temp:
+            node = get_active_ypaint_node(mat=mat)
+            tree = node.node_tree if node else mat.node_tree
+            tree.nodes.active = temp
+
+            for idx, img in enumerate(mat.texture_paint_images):
+                if img == None: continue
+                if img.name == TEMP_ACTIVE_IMAGE_NAME:
+                    mat.paint_active_slot = idx
+                    break
+
 def set_active_paint_slot_entity(yp):
     image = None
     mat = get_active_material()
@@ -5049,7 +5131,6 @@ def set_active_paint_slot_entity(yp):
                     layer_tree.nodes.active = source
 
                 image = source.image
-
 
     # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
     ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
@@ -6608,6 +6689,82 @@ def get_mix_color_indices(mix):
 
     return idx0, idx1, outidx
 
+def any_yp_dot_fcurves():
+    fcurve_found = False
+
+    for action in bpy.data.actions:
+
+        if not is_bl_newer_than(5):
+            # Check fcurves
+            if action.id_root != 'NODETREE': continue
+
+            for fc in action.fcurves:
+                if fc.data_path.startswith('yp.'):
+                    fcurve_found = True
+                    break
+
+        else:
+            
+            # Get channelbags
+            for slot in action.slots:
+                if slot.target_id_type != 'NODETREE': continue
+
+                from bpy_extras import anim_utils
+
+                channelbag = anim_utils.action_get_channelbag_for_slot(action, slot)
+                for fc in channelbag.fcurves:
+                    if fc.data_path.startswith('yp.'):
+                        fcurve_found = True
+                        break
+
+                if fcurve_found:
+                    break
+
+        if fcurve_found:
+            break
+
+    return fcurve_found
+
+def new_fcurve(obj, data_path):
+    if not obj.animation_data:
+        return None
+
+    action = obj.animation_data.action
+
+    if not is_bl_newer_than(5):
+        return action.fcurves.new(data_path=data_path) #, index=2)
+
+    from bpy_extras import anim_utils
+
+    # Create new action slot
+    slot = action.slots.new(id_type=obj.id_type, name=obj.name)
+
+    # Ensure channelbag
+    channelbag = anim_utils.action_ensure_channelbag_for_slot(action, slot)
+    return channelbag.fcurves.new(data_path) #,index=2)
+
+def get_datablock_fcurves(obj):
+    if not obj or not obj.animation_data: return []
+
+    action = obj.animation_data.action
+    if not action: return []
+
+    if not is_bl_newer_than(5):
+        return action.fcurves
+
+    from bpy_extras import anim_utils
+
+    # Get action slot first
+    #slots = [s for s in action.slots if s.target_id_type == obj.id_type and obj in s.users()]
+    slots = [s for s in action.slots if obj in s.users()]
+    if not slots: return []
+    slot = slots[0]
+
+    # Get channelbag
+    channelbag = anim_utils.action_get_channelbag_for_slot(action, slot)
+
+    return channelbag.fcurves
+
 def copy_fcurves(src_fc, dest, subdest, attr):
     bpytypes = get_bpytypes()
     dest_path = subdest.path_from_id() + '.' + attr
@@ -6658,9 +6815,10 @@ def copy_fcurves(src_fc, dest, subdest, attr):
 
             # Get new fcurve
             if not nfc:
+                dest_fcurves = get_datablock_fcurves(dest)
                 if array_index >= 0:
-                    nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path and f.array_index == array_index][0]
-                else: nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path][0]
+                    nfc = [f for f in dest_fcurves if f.data_path == dest_path and f.array_index == array_index][0]
+                else: nfc = [f for f in dest_fcurves if f.data_path == dest_path][0]
 
             # Get new keyframe point
             nkp = nfc.keyframe_points[i]
@@ -6678,15 +6836,11 @@ def get_action_and_driver_fcurves(obj):
 
         # Fcurves from action
         if obj.animation_data.action:
-            fcs.append(obj.animation_data.action.fcurves)
-            #for fc in obj.animation_data.action.fcurves:
-            #    fcs.append(fc)
+            fcs.append(get_datablock_fcurves(obj))
 
         # Fcurves from drivers
         for fc in obj.animation_data.drivers:
             fcs.append(obj.animation_data.drivers)
-            #for fc in obj.animation_data.drivers:
-            #    fcs.append(fc)
 
     return fcs
 
@@ -6696,7 +6850,7 @@ def get_material_fcurves(mat):
     fcurves = []
 
     if tree.animation_data and tree.animation_data.action:
-        for fc in tree.animation_data.action.fcurves:
+        for fc in get_datablock_fcurves(mat):
             match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if match:
                 fcurves.append(fc)
@@ -6726,11 +6880,10 @@ def get_yp_fcurves(yp):
 
     fcurves = []
 
-    if tree.animation_data and tree.animation_data.action:
-        for fc in tree.animation_data.action.fcurves:
-            match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
-            if fc.data_path.startswith('yp.') or match:
-                fcurves.append(fc)
+    for fc in get_datablock_fcurves(tree):
+        match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+        if fc.data_path.startswith('yp.') or match:
+            fcurves.append(fc)
 
     return fcurves
 
@@ -6953,9 +7106,10 @@ def remove_entity_fcurves(entity):
     fcurves = get_yp_fcurves(yp)
     drivers = get_yp_drivers(yp)
 
+    tree_fcurves = get_datablock_fcurves(tree)
     for fc in reversed(fcurves):
         if entity.path_from_id() in fc.data_path:
-            tree.animation_data.action.fcurves.remove(fc)
+            if tree_fcurves: tree_fcurves.remove(fc)
 
     for dr in reversed(drivers):
         if entity.path_from_id() in dr.data_path:
@@ -7013,15 +7167,16 @@ def remove_channel_fcurves(root_ch):
     fcurves = get_yp_fcurves(yp)
     drivers = get_yp_drivers(yp)
 
+    tree_fcurves = get_datablock_fcurves(tree)
     for fc in reversed(fcurves):
 
         layer, prop_name = get_layer_and_channel_prop_name_from_data_path(yp, index, fc.data_path)
         if layer and prop_name != '':
-            tree.animation_data.action.fcurves.remove(fc)
+            if tree_fcurves: tree_fcurves.remove(fc)
 
         else:
             m = re.match(r'.*\.channels\[' + str(index) + '\].*', fc.data_path)
-            if m: tree.animation_data.action.fcurves.remove(fc)
+            if m and tree_fcurves: tree_fcurves.remove(fc)
 
     for dr in reversed(drivers):
         layer, prop_name = get_layer_and_channel_prop_name_from_data_path(yp, index, dr.data_path)
@@ -7052,8 +7207,9 @@ def remove_channel_fcurves(root_ch):
             if m and fc not in fcs:
                 fcs.append(fc)
 
+    mat_fcurves = get_datablock_fcurves(mat)
     for fc in reversed(fcs):
-        mat.node_tree.animation_data.action.fcurves.remove(fc)
+        if mat_fcurves: mat_fcurves.remove(fc)
 
     # Delete drivers
     drs = []
@@ -7885,7 +8041,7 @@ def enable_eevee_ao():
         scene.eevee.use_gtao = True
 
 def is_image_available_to_open(image):
-    return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node'}
+    return not image.yia.is_image_atlas and not image.yua.is_udim_atlas and image.name not in {'Render Result', 'Viewer Node', TEMP_ACTIVE_IMAGE_NAME}
 
 def fix_missing_vcol(obj, name, src=None, entity=None, entities=[]):
 

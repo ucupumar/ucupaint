@@ -20,8 +20,8 @@ tex_default_brush_eraser_pairs = {
 
 class YSetActiveVcol(bpy.types.Operator):
     bl_idname = "mesh.y_set_active_vcol"
-    bl_label = "Set Active Vertex Color"
-    bl_description = "Set active vertex color"
+    bl_label = "Set Active "+get_vertex_color_label()
+    bl_description = "Set active "+get_vertex_color_label(00)
     bl_options = {'REGISTER', 'UNDO'}
 
     vcol_name : StringProperty(default='')
@@ -39,7 +39,7 @@ class YSetActiveVcol(bpy.types.Operator):
             set_active_vertex_color(obj, vcol)
             return {'FINISHED'}
 
-        self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
+        self.report({'ERROR'}, "There's no "+get_vertex_color_label(00)+" named " + self.vcol_name + '!')
         return {'CANCELLED'}
 
 def activate_essential_brush(brush_name, essential_asset_identifier):
@@ -374,8 +374,8 @@ class YToggleEraser(bpy.types.Operator):
 
 class YSelectFacesByVcol(bpy.types.Operator):
     bl_idname = "mesh.y_select_faces_by_vcol"
-    bl_label = "Select Faces based on Vertex Color"
-    bl_description = "Select faces based on vertex color"
+    bl_label = "Select Faces based on "+get_vertex_color_label()
+    bl_description = "Select faces based on "+get_vertex_color_label(00)
     bl_options = {'REGISTER', 'UNDO'}
 
     color : FloatVectorProperty(
@@ -388,7 +388,7 @@ class YSelectFacesByVcol(bpy.types.Operator):
 
     #deselect : BoolProperty(
     #        name='Deselect Faces',
-    #        description='Deselect faces with vertex color', 
+    #        description='Deselect faces with '+get_vertex_color_label(00), 
     #        default=False)
 
     @classmethod
@@ -462,8 +462,8 @@ class YSelectFacesByVcol(bpy.types.Operator):
 
 class YVcolFillFaceCustom(bpy.types.Operator):
     bl_idname = "mesh.y_vcol_fill_face_custom"
-    bl_label = "Vertex Color Fill Face with Custom Color"
-    bl_description = "Fill selected polygon with vertex color with custom color"
+    bl_label = get_vertex_color_label()+" Fill Face with Custom Color"
+    bl_description = "Fill selected polygon with "+get_vertex_color_label(00)+" with custom color"
     bl_options = {'REGISTER', 'UNDO'}
 
     color : FloatVectorProperty(
@@ -567,8 +567,8 @@ class YVcolFillFaceCustom(bpy.types.Operator):
 
 class YVcolFill(bpy.types.Operator):
     bl_idname = "mesh.y_vcol_fill"
-    bl_label = "Vertex Color Fill"
-    bl_description = "Fill selected polygon with vertex color"
+    bl_label = get_vertex_color_label()+" Fill"
+    bl_description = "Fill selected polygon with "+get_vertex_color_label(00)
     bl_options = {'REGISTER', 'UNDO'}
 
     color_option : EnumProperty(
@@ -694,7 +694,7 @@ class YVcolFill(bpy.types.Operator):
 
             bpy.ops.object.mode_set(mode='EDIT')
 
-        print('VCOL: Fill vertex color is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        print('VCOL: Fill '+get_vertex_color_label(00)+' is done in', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
@@ -708,7 +708,7 @@ def vcol_editor_draw(self, context):
     vcol = get_active_vertex_color(obj)
 
     #if len(vcols) == 0:
-    #    col.label(text='No vertex color found!', icon='GROUP_VCOL')
+    #    col.label(text='No '+get_vertex_color_label(00)+' found!', icon='GROUP_VCOL')
     #    return
 
     row = col.row(align=True)
@@ -719,7 +719,7 @@ def vcol_editor_draw(self, context):
         else: row.label(text='Active: -')
     else:
         row.prop(ve, 'show_vcol_list', text='', emboss=False, icon='TRIA_DOWN')
-        row.label(text='Vertex Colors')
+        row.label(text=get_vertex_color_label()+'s')
 
         row = col.row()
         rcol = row.column()
@@ -769,7 +769,7 @@ def vcol_editor_draw(self, context):
 
 class VIEW3D_PT_y_vcol_editor_ui(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
-    bl_label = "Vertex Color Editor"
+    bl_label = get_vertex_color_label()+" Editor"
     bl_context = "mesh_edit"
     bl_region_type = 'UI'
     bl_category = 'VCol Edit'
@@ -785,7 +785,7 @@ class VIEW3D_PT_y_vcol_editor_ui(bpy.types.Panel):
 
 class VIEW3D_PT_y_vcol_editor_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
-    bl_label = "Vertex Color Editor"
+    bl_label = get_vertex_color_label()+" Editor"
     bl_context = "mesh_edit"
     bl_region_type = 'TOOLS'
 
@@ -802,8 +802,8 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
     #palette : PointerProperty(type=bpy.types.Palette)
 
     show_vcol_list : BoolProperty(
-        name = 'Show Vertex Color List',
-        description = 'Show vertex color list',
+        name = 'Show '+get_vertex_color_label()+' List',
+        description = 'Show '+get_vertex_color_label(00)+' list',
         default = True
     )
 

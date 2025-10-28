@@ -167,9 +167,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
     else:
-        # NOTE: Smooth bump is no longer enabled by default at all
-        #if is_bl_newer_than(2, 80): 
-        channel.enable_smooth_bump = False
+        # NOTE: Smooth bump is no longer enabled by default for realtime bump capable blender
+        if is_bl_newer_than(2, 78): 
+            channel.enable_smooth_bump = False
 
     yp.halt_reconnect = False
 
@@ -546,7 +546,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         return get_operator_description(self)
 
     def invoke(self, context, event):
-        space = context.space_data
         obj = context.object
         mat = get_active_material()
 
@@ -565,7 +564,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 self.type = bsdf_node.type
                 self.target_bsdf_name = bsdf_node.name
 
-        self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_bl_newer_than(2, 80) and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_bl_newer_than(2, 80) and space.shading.type not in {'MATERIAL', 'RENDERED'}))
+        self.not_on_material_view = is_not_in_material_view()
 
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
@@ -1757,8 +1756,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     also_del_vcol : BoolProperty(
-        name = 'Also remove baked vertex color',
-        description = 'Also remove baked vertex color',
+        name = 'Also remove baked '+get_vertex_color_label(00),
+        description = 'Also remove baked '+get_vertex_color_label(00),
         default = False
     )
 
@@ -1784,7 +1783,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
     def draw(self, context):
         if self.baked_vcol_name != '':
-            title="Also remove baked vertex color (" + self.baked_vcol_name + ')'
+            title="Also remove baked "+get_vertex_color_label(00)+" (" + self.baked_vcol_name + ')'
             self.layout.prop(self, 'also_del_vcol', text=title)
 
     def execute(self, context):
@@ -2022,6 +2021,26 @@ class YAddSimpleUVs(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
         bpy.ops.paint.add_simple_uvs()
         bpy.ops.object.mode_set(mode=old_mode)
+
+        return {'FINISHED'}
+
+class YSwitchToMaterialView(bpy.types.Operator):
+    bl_idname = "wm.y_switch_to_material_view"
+    bl_label = "Switch to Material View"
+    bl_description = "Switch to use material view to see all the layer effects"
+    #bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        space = bpy.context.space_data
+        return get_active_ypaint_node() and space.type == 'VIEW_3D'
+
+    def execute(self, context):
+        space = bpy.context.space_data
+
+        if not is_bl_newer_than(2, 80):
+            space.viewport_shade = 'MATERIAL'
+        else: space.shading.type = 'MATERIAL'
 
         return {'FINISHED'}
 
@@ -2488,7 +2507,7 @@ class YOptimizeNormalProcess(bpy.types.Operator):
 class YFixMissingData(bpy.types.Operator):
     bl_idname = "wm.y_fix_missing_data"
     bl_label = "Fix Missing Data"
-    bl_description = "Fix missing image/vertex color data"
+    bl_description = "Fix missing image/"+get_vertex_color_label(00)+" data"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -2586,8 +2605,8 @@ class YFixMissingData(bpy.types.Operator):
 
 class YRefreshTangentSignVcol(bpy.types.Operator):
     bl_idname = "wm.y_refresh_tangent_sign_vcol"
-    bl_label = "Refresh Tangent Sign Vertex Colors"
-    bl_description = "Refresh Tangent Sign Vertex Colors to make it work in Blender 2.8"
+    bl_label = "Refresh Tangent Sign "+get_vertex_color_label()+"s"
+    bl_description = "Refresh tangent sign "+get_vertex_color_label(00)+"s to make it work in Blender 2.8"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -3831,28 +3850,28 @@ class YPaintChannel(bpy.types.PropertyGroup):
     )
 
     enable_bake_to_vcol : BoolProperty(
-        name = 'Enable Bake to Vertex Color',
-        description = 'Enable vertex color as bake target',
+        name = 'Enable Bake to '+get_vertex_color_label(),
+        description = 'Enable '+get_vertex_color_label(00)+' as bake target',
         default = False,
         update = Bake.update_enable_bake_to_vcol
     )
 
     use_baked_vcol : BoolProperty(
-        name = 'Use Baked Vertex Color',
-        description = 'Use baked vertex color',
+        name = 'Use Baked '+get_vertex_color_label(),
+        description = 'Use baked '+get_vertex_color_label(00),
         default = False,
         update = Bake.update_enable_bake_to_vcol
     )
 
     bake_to_vcol_alpha : BoolProperty(
-        name = 'Bake To Vertex Color Alpha', 
-        description = 'When enabled, the channel are baked only to Alpha with vertex color', 
+        name = 'Bake To '+get_vertex_color_label()+' Alpha', 
+        description = 'When enabled, the channel are baked only to Alpha with '+get_vertex_color_label(00), 
         default = False
     )
 
     bake_to_vcol_name : StringProperty(
-        name = 'Target Vertex Color Name',
-        description = 'Target Vertex Color Name',
+        name = 'Target '+get_vertex_color_label()+' Name',
+        description = 'Target '+get_vertex_color_label(00)+' name',
         default = '',
     )
 
@@ -4314,7 +4333,7 @@ class YPaint(bpy.types.PropertyGroup):
 
     enable_tangent_sign_hacks : BoolProperty(
         name = 'Enable Tangent Sign VCol Hacks for Blender 2.80+ Cycles',
-        description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
+        description = "Tangent sign "+get_vertex_color_label(00)+" needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
         default = False,
         update = update_enable_tangent_sign_hacks
     )
@@ -4361,6 +4380,9 @@ class YPaintMaterialProps(bpy.types.PropertyGroup):
 class YPaintTimer(bpy.types.PropertyGroup):
     time : StringProperty(default='')
 
+class YPaintCacheAnimatedTree(bpy.types.PropertyGroup):
+    name : StringProperty(default='')
+
 class YPaintWMProps(bpy.types.PropertyGroup):
     clipboard_tree : StringProperty(default='')
     clipboard_layer : StringProperty(default='')
@@ -4391,6 +4413,8 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     image_editor_pins : StringProperty(default='')
 
     halt_hacks : BoolProperty(default=False)
+
+    cache_animated_trees : CollectionProperty(type=YPaintCacheAnimatedTree)
 
 class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
@@ -4476,6 +4500,11 @@ def ypaint_last_object_update(scene):
     if ypwm.last_object != obj.name or (mat and mat.name != ypwm.last_material):
         ypwm.last_object = obj.name
         if mat: ypwm.last_material = mat.name
+
+        # NOTE: This code can causes context error with some file
+        # Multiple materials will create temporary image in non-active materials
+        # since it's the only way texture paint mode won't mess with other material image
+        #check_other_mats_to_use_temp_image(obj)
 
         # Refresh layer index to update editor image
         if yp:
@@ -4597,62 +4626,95 @@ def ypaint_missmatch_paint_slot_hack(scene):
 
         wmyp.correct_paint_image_name = ''
 
-@persistent
-def ypaint_force_update_on_anim(scene):
-    #print(scene.frame_current)
+def get_yp_animated_tree_names():
+    wmyp = bpy.context.window_manager.ypprops
 
-    yp_keyframe_found = False
-    for act in bpy.data.actions:
-        if act.id_root == 'NODETREE' and len(act.fcurves) > 0 and act.fcurves[0].data_path.startswith('yp.'):
-            yp_keyframe_found = True
-            break
+    animated_tree_names = []
 
-    if yp_keyframe_found:
-        ngs = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node and ng.animation_data and ng.animation_data.action]
-        for ng in ngs:
-            fcs = ng.animation_data.action.fcurves
+    if any_yp_dot_fcurves():
+
+        trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node and ng.animation_data and ng.animation_data.action]
+        for tree in trees:
+            fcs = get_datablock_fcurves(tree)
+            fc_found = False
             for fc in fcs:
                 if not fc.mute and fc.data_path.startswith('yp.'):
+                    fc_found = True
+                    break
 
-                    # Get the datapath of the keyframed prop
-                    ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
-                    path = ng_string + fc.data_path
+            if fc_found:
+                animated_tree_names.append(tree.name)
 
-                    # Get evaluated value
-                    val = fc.evaluate(scene.frame_current)
+    return animated_tree_names
 
-                    # Check if path is a string
-                    if type(eval(path)) == str:
-                        # Get prop name
-                        m = re.match(r'(.+)\.(.+)$', fc.data_path)
-                        if m:
-                            parent_path = ng_string + m.group(1)
-                            prop_name = m.group(2)
-                            enum_path = parent_path + '.bl_rna.properties["' + prop_name + '"].enum_items[' + str(int(val)) + '].identifier'
-                            val = eval(enum_path)
+@persistent
+def ypaint_playback_preparations(scene):
+    wmyp = bpy.context.window_manager.ypprops
 
-                    # Check if path is an array
-                    elif hasattr(eval(path), '__len__'):
-                        path += '[' + str(fc.array_index) + ']'
+    # When animation is started playing, clear and repopulate all yp tress that has animation data
+    wmyp.cache_animated_trees.clear()
 
-                    # Check if path is a boolean
-                    elif type(eval(path)) == bool:
-                        val = val == 1.0
+    for tree_name in get_yp_animated_tree_names():
+        at = wmyp.cache_animated_trees.add()
+        at.name = tree_name
 
-                    #print(path, val)
+@persistent
+def ypaint_force_update_on_anim(scene):
+    wmyp = bpy.context.window_manager.ypprops
+    ypup = get_user_preferences()
 
-                    # Only run script if needed
-                    if eval(path) != val:
+    # When the preference is enabled, always get the updated animated tree names rather than using caches on window manager
+    if ypup.always_evaluate_frame:
+        animated_tree_names = get_yp_animated_tree_names()
+    else: animated_tree_names = [at.name for at in wmyp.cache_animated_trees]
 
-                        # Convert evaluated value to string
-                        string_val = str(val) if type(val) != str else '"' + val + '"'
+    # Loop animated tree datas 
+    for name in animated_tree_names:
+        ng = bpy.data.node_groups.get(name)
+        if not ng: continue
+        fcs = get_datablock_fcurves(ng)
+        for fc in fcs:
+            if not fc.mute and fc.data_path.startswith('yp.'):
 
-                        # Construct the script
-                        script = path + ' = ' + string_val
+                # Get the datapath of the keyframed prop
+                ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
+                path = ng_string + fc.data_path
 
-                        # Run the script to trigger update
-                        #print(script)
-                        exec(script)
+                # Get evaluated value
+                val = fc.evaluate(scene.frame_current)
+
+                # Check if path is a string
+                if type(eval(path)) == str:
+                    # Get prop name
+                    m = re.match(r'(.+)\.(.+)$', fc.data_path)
+                    if m:
+                        parent_path = ng_string + m.group(1)
+                        prop_name = m.group(2)
+                        enum_path = parent_path + '.bl_rna.properties["' + prop_name + '"].enum_items[' + str(int(val)) + '].identifier'
+                        val = eval(enum_path)
+
+                # Check if path is an array
+                elif hasattr(eval(path), '__len__'):
+                    path += '[' + str(fc.array_index) + ']'
+
+                # Check if path is a boolean
+                elif type(eval(path)) == bool:
+                    val = val == 1.0
+
+                #print(path, val)
+
+                # Only run script if needed
+                if eval(path) != val:
+
+                    # Convert evaluated value to string
+                    string_val = str(val) if type(val) != str else '"' + val + '"'
+
+                    # Construct the script
+                    script = path + ' = ' + string_val
+
+                    # Run the script to trigger update
+                    #print(script)
+                    exec(script)
 
 def register():
     bpy.utils.register_class(YSelectMaterialPolygons)
@@ -4668,6 +4730,7 @@ def register():
     bpy.utils.register_class(YMoveYPaintChannel)
     bpy.utils.register_class(YRemoveYPaintChannel)
     bpy.utils.register_class(YAddSimpleUVs)
+    bpy.utils.register_class(YSwitchToMaterialView)
     bpy.utils.register_class(YFixChannelMissmatch)
     bpy.utils.register_class(YFixMissingUV)
     bpy.utils.register_class(YRenameYPaintTree)
@@ -4684,6 +4747,7 @@ def register():
     bpy.utils.register_class(YPaint)
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
+    bpy.utils.register_class(YPaintCacheAnimatedTree)
     bpy.utils.register_class(YPaintWMProps)
     bpy.utils.register_class(YPaintSceneProps)
     bpy.utils.register_class(YPaintObjectUVHash)
@@ -4707,6 +4771,9 @@ def register():
         bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
 
+    if is_bl_newer_than(3, 6):
+        bpy.app.handlers.animation_playback_pre.append(ypaint_playback_preparations)
+
     bpy.app.handlers.frame_change_pre.append(ypaint_force_update_on_anim)
 
 def unregister():
@@ -4723,6 +4790,7 @@ def unregister():
     bpy.utils.unregister_class(YMoveYPaintChannel)
     bpy.utils.unregister_class(YRemoveYPaintChannel)
     bpy.utils.unregister_class(YAddSimpleUVs)
+    bpy.utils.unregister_class(YSwitchToMaterialView)
     bpy.utils.unregister_class(YFixChannelMissmatch)
     bpy.utils.unregister_class(YFixMissingUV)
     bpy.utils.unregister_class(YRenameYPaintTree)
@@ -4739,6 +4807,7 @@ def unregister():
     bpy.utils.unregister_class(YPaint)
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)
+    bpy.utils.unregister_class(YPaintCacheAnimatedTree)
     bpy.utils.unregister_class(YPaintWMProps)
     bpy.utils.unregister_class(YPaintSceneProps)
     bpy.utils.unregister_class(YPaintObjectUVHash)
@@ -4752,6 +4821,9 @@ def unregister():
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_last_object_update)
+
+    if is_bl_newer_than(3, 6):
+        bpy.app.handlers.animation_playback_pre.remove(ypaint_playback_preparations)
 
     bpy.app.handlers.frame_change_pre.remove(ypaint_force_update_on_anim)
 

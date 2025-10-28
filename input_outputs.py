@@ -649,10 +649,9 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty):
     if root_tree.animation_data:
         # Example: yp.layers[0].channels[0].intensity_value'
 
-        if root_tree.animation_data.action:
-            for fc in root_tree.animation_data.action.fcurves:
-                if fc.data_path == 'yp.layers[' + str(layer_index) + ']' + input_name:
-                    fc.data_path = 'nodes["' + layer_node.name + '"].inputs[' + str(input_index) + '].default_value'
+        for fc in get_datablock_fcurves(root_tree):
+            if fc.data_path == 'yp.layers[' + str(layer_index) + ']' + input_name:
+                fc.data_path = 'nodes["' + layer_node.name + '"].inputs[' + str(input_index) + '].default_value'
 
         for driver in root_tree.animation_data.drivers:
             if driver.data_path == 'yp.layers[' + str(layer_index) + ']' + input_name:
@@ -693,12 +692,11 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     if root_tree.animation_data:
         # Example: nodes["Group.003"].inputs[9].default_value'
 
-        if root_tree.animation_data.action:
-            for fc in root_tree.animation_data.action.fcurves:
-                m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
-                if m:
-                    inp = layer_node.inputs[int(m.group(1))]
-                    fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
+        for fc in get_datablock_fcurves(root_tree):
+            m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+            if m:
+                inp = layer_node.inputs[int(m.group(1))]
+                fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
 
         for driver in root_tree.animation_data.drivers:
             m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', driver.data_path)
