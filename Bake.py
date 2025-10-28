@@ -1216,143 +1216,6 @@ class YBakeSingleTarget(bpy.types.Operator):
         
         return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0 
 
-    def check(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-
-        bt = yp.bake_targets[yp.active_bake_target_index]
-    
-        if not bt.use_custom_resolution:
-            bt.height = bt.width = int(bt.image_resolution)
-       
-        return True
-    
-    def invoke(self, context, event):
-        obj = context.object
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-
-        bt = yp.bake_targets[yp.active_bake_target_index]
-        
-        uv_layers = get_uv_layers(obj)
-        # Use active uv layer name by default
-        if obj.type == 'MESH' and len(uv_layers) > 0:
-            if uv_layers.get(yp.baked_uv_name):
-                bt.uv_map = yp.baked_uv_name
-            else:
-                active_name = uv_layers.active.name
-                if active_name == TEMP_UV:
-                    bt.uv_map = yp.layers[yp.active_layer_index].uv_name
-                else: bt.uv_map = uv_layers.active.name
-
-            # UV Map collections update 
-            bt.uv_map_coll.clear()
-            for uv in uv_layers:
-                if not uv.name.startswith(TEMP_UV):
-                    bt.uv_map_coll.add().name = uv.name
-        return context.window_manager.invoke_props_dialog(self)
-    
-    # def invoke(self, context, event):
-        
-    #     node = get_active_ypaint_node()
-    #     yp = node.node_tree.yp
-    #     self.bt = yp.bake_targets[yp.active_bake_target_index]
-
-    #     ypup = get_user_preferences()
-
-    #     # Set up default bake device
-    #     if ypup.default_bake_device != 'DEFAULT':
-    #         self.bt.bake_device = ypup.default_bake_device
-
-    #     # Use user preference default image size
-    #     if ypup.default_image_resolution == 'CUSTOM':
-    #         self.bt.use_custom_resolution = True
-    #         self.bt.width = self.bt.height = ypup.default_new_image_size
-    #     elif ypup.default_image_resolution != 'DEFAULT':
-    #         self.bt.image_resolution = ypup.default_image_resolution
-
-
-    #     obj = self.obj = context.object
-    #     scene = context.scene
-
-    #     # Use active uv layer name by default
-    #     uv_layers = get_uv_layers(obj)
-
-    #     # Use active uv layer name by default
-    #     if obj.type == 'MESH' and len(uv_layers) > 0:
-    #         if uv_layers.get(yp.baked_uv_name):
-    #             self.bt.uv_map = yp.baked_uv_name
-    #         else:
-    #             active_name = uv_layers.active.name
-    #             if active_name == TEMP_UV:
-    #                 self.bt.uv_map = yp.layers[yp.active_layer_index].uv_name
-    #             else: self.bt.uv_map = uv_layers.active.name
-
-    #         # UV Map collections update
-    #         self.bt.uv_map_coll.clear()
-    #         for uv in uv_layers:
-    #             if not uv.name.startswith(TEMP_UV):
-    #                 self.bt.uv_map_coll.add().name = uv.name
-
-    #     self.channels = self.bt.channels
-
-    #     for letter in rgba_letters:
-    #         btc = getattr(self.bt, letter)
-    #         if btc.channel_name != '' and yp.channels.get(btc.channel_name):
-    #             ch = yp.channels.get(btc.channel_name)
-    #             self.channels.append(ch)
-
-    #             print("BAKE TARGET: " + self.bt.name + " - " + letter + " : " + ch.name)
-
-    #     self.bt.no_layer_using = False
-    #     self.bt.enable_bake_as_vcol = False
-    #     if len(self.channels) > 0:
-
-    #         # Check if any layer is using the channels
-    #         layer_found = False
-    #         for ch in self.channels:
-    #             if is_any_layer_using_channel(ch, node):
-    #                 layer_found = True
-    #                 break
-    #         if not layer_found:
-    #             self.bt.no_layer_using = True
-
-    #         # bi = None
-    #         # for ch in self.channels:
-    #         #     baked = node.node_tree.nodes.get(ch.baked)
-    #         #     if baked and baked.image:
-    #         #         if baked.image.y_bake_info.is_baked:
-    #         #             bi = baked.image.y_bake_info
-    #         #         self.width = baked.image.size[0] if baked.image.size[0] != 0 else ypup.default_new_image_size
-    #         #         self.height = baked.image.size[1] if baked.image.size[1] != 0 else ypup.default_new_image_size
-    #         #         break
-            
-    #         for ch in self.channels:
-    #             if ch.enable_bake_to_vcol:
-    #                 self.bt.enable_bake_as_vcol = True
-    #                 break
-
-    #         # # Set some attributes from bake info
-    #         # if bi:
-    #         #     for attr in dir(bi):
-    #         #         if attr in {'other_objects', 'selected_objects'}: continue
-    #         #         if attr.startswith('__'): continue
-    #         #         if attr.startswith('bl_'): continue
-    #         #         if attr in {'rna_type'}: continue
-    #         #         #if attr in dir(self):
-    #         #         try: setattr(self, attr, getattr(bi, attr))
-    #         #         except: pass
-
-    #     if self.vcol_force_first_ch_idx == '':
-    #         self.vcol_force_first_ch_idx = 'Do Nothing'
-
-    #     print(f"Bake with size {self.bt.width}x{self.bt.height}")
-
-    #     if (get_user_preferences().skip_property_popups and not event.shift) or len(self.channels) == 0 or self.bt.no_layer_using:
-    #         return self.execute(context)
-
-    #     return context.window_manager.invoke_props_dialog(self, width=320)
-
     def execute(self, context):
         T = time.time()
 
@@ -1368,8 +1231,11 @@ class YBakeSingleTarget(bpy.types.Operator):
         ypup = get_user_preferences()
         tree = node.node_tree
 
-        print("again resolution: " + str(self.bt.width) + "x" + str(self.bt.height))
 
+        if not self.bt.use_custom_resolution:
+            self.bt.height = self.bt.width = int(self.bt.image_resolution)
+
+        print("again resolution: " + str(self.bt.width) + "x" + str(self.bt.height))
         self.channels = []
 
         for letter in rgba_letters:

@@ -343,6 +343,8 @@ class YNewBakeTarget(bpy.types.Operator):
         bt.use_float = self.use_float
         bt.a.default_value = 1.0
 
+        bt.uv_map = get_active_render_uv(context.object)
+
         if self.preset == 'ORM':
             for ch in yp.channels:
                 if ch.name in {'Ambient Occlusion', 'AO'}:
