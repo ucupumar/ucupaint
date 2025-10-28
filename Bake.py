@@ -1305,6 +1305,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
 
+    selected_only : BoolProperty(
+        name = 'Selected Objects Only',
+        description = 'Bake using the selected objects only',
+        default = False
+    )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1526,6 +1532,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ccol.prop(self, 'force_bake_all_polygons')
         ccol.prop(self, 'bake_disabled_layers')
 
+        ccol.prop(self, 'selected_only')
+
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
 
@@ -1559,25 +1567,23 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             return {'CANCELLED'}
 
         # Get all objects using material
-        objs = [obj]
-        meshes = [obj.data]
-        if mat.users > 1:
-            # Emptying the lists again in case active object is problematic
-            objs = []
-            meshes = []
-            for ob in get_scene_objects():
-                if ob.type != 'MESH': continue
-                if is_bl_newer_than(2, 80) and ob.hide_viewport: continue
-                if ob.hide_render: continue
-                #if not in_renderable_layer_collection(ob): continue
-                if len(get_uv_layers(ob)) == 0: continue
-                if len(ob.data.polygons) == 0: continue
-                for i, m in enumerate(ob.data.materials):
-                    if m == mat:
-                        ob.active_material_index = i
-                        if ob not in objs and ob.data not in meshes:
-                            objs.append(ob)
-                            meshes.append(ob.data)
+        objs = []
+        meshes = []
+        selected_objects = bpy.context.selected_objects
+        for ob in get_scene_objects():
+            if ob.type != 'MESH': continue
+            if is_bl_newer_than(2, 80) and ob.hide_viewport: continue
+            if ob.hide_render: continue
+            if self.selected_only and ob not in selected_objects: continue
+            #if not in_renderable_layer_collection(ob): continue
+            if len(get_uv_layers(ob)) == 0: continue
+            if len(ob.data.polygons) == 0: continue
+            for i, m in enumerate(ob.data.materials):
+                if m == mat:
+                    ob.active_material_index = i
+                    if ob not in objs and ob.data not in meshes:
+                        objs.append(ob)
+                        meshes.append(ob.data)
 
         if not objs:
             self.report({'ERROR'}, "No valid objects to bake!")
