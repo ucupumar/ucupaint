@@ -20,6 +20,9 @@ from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem
 
 
 # dropdown override tiap variable
+# override all, enable > tampilan mirip option standarnya
+# label rata kanan, lebarin width
+
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     yp = entity.id_data.yp
@@ -1859,8 +1862,14 @@ class YBakeSingleTarget(bpy.types.Operator):
         return {'FINISHED'}
 
 bake_override_type = (
-    ('Default', 'Use value from custom target', 'Use value from the custom target'),
-    ('Override', 'Override this value', 'Override this value'),
+    ('Default', 'Use bake target value', 'Use value from the bake target'),
+    ('Override', 'Override', 'Override this value'),
+)
+
+bake_boolean_override_type = (
+    ('Default', 'Use bake target value', 'Use value from the bake target'),
+    ('Enable', 'Enable', 'Enable this option'),
+    ('Disable', 'Disable', 'Disable this option'),
 )
 
 class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
@@ -1984,70 +1993,74 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         default = 'Default'
     )
 
-    # override_samples : BoolProperty(
-    #     name = 'Override Samples',  
-    #     description = 'Override samples settings to custom targets',
-    #     default = False
-    # )
-
-    override_aa_level : BoolProperty(
-        name = 'Override AA Level',  
+    override_aa_level : EnumProperty(
+        name = 'Override AA Level',
         description = 'Override AA level settings to custom targets',
-        default = False
+        items = bake_override_type,
+        default = 'Default'
     )
 
-    override_margin : BoolProperty(
+    override_margin : EnumProperty(
         name = 'Override Margin',  
         description = 'Override margin settings to custom targets',
-        default = False
+        items = bake_override_type,
+        default = 'Default'
     )
 
-    override_interpolation : BoolProperty(
-        name = 'Override Interpolation',  
+    override_interpolation : EnumProperty(
+        name = 'Override Interpolation',
         description = 'Override interpolation settings to custom targets',
-        default = False
+        items = bake_override_type,
+        default = 'Default'
     )
 
-    override_uv_map : BoolProperty(
+    override_uv_map : EnumProperty(
         name = 'Override UV Map',
         description = 'Override UV map settings to custom targets',
-        default = False
+        items = bake_override_type,
+        default = 'Default'
     )
 
-    override_udim : BoolProperty(
+    override_udim : EnumProperty(
         name = 'Override UDIM Tiles',
         description = 'Override UDIM tiles settings to custom targets',
-        default = False
+        items = bake_boolean_override_type,
+        default = 'Default'
     )
 
-    override_fxaa : BoolProperty(
+    override_fxaa : EnumProperty(
         name = 'Override FXAA',
         description = 'Override FXAA settings to custom targets',
-        default = False
+        items = bake_boolean_override_type,
+        default = 'Default'
     )
 
-    override_denoise : BoolProperty(
+    override_denoise : EnumProperty(
         name = 'Override Denoise',
         description = 'Override Denoise settings to custom targets',
-        default = False
+        items = bake_boolean_override_type,
+        default = 'Default'
     )
 
-    override_dithering : BoolProperty(
+    override_dithering : EnumProperty(
         name = 'Override Dithering',
         description = 'Override Dithering settings to custom targets',
-        default = False
+        items = bake_boolean_override_type,
+        default = 'Default'
     )
 
-    override_force_bake_all_polygons : BoolProperty(
+    override_force_bake_all_polygons : EnumProperty(
         name = 'Override Force Bake all Polygons',
         description = 'Override Force Bake all polygons settings to custom targets',
-        default = False
+        items = bake_boolean_override_type,
+        default = 'Default'
     )
 
-    override_bake_disabled_layers : BoolProperty(
-        name = 'Override Bake Disabled Layers',  
+    override_bake_disabled_layers : EnumProperty(
+        name = 'Override Bake Disabled Layers',
         description = 'Override Bake Disabled Layers settings to custom targets',
-        default = False
+        items = bake_boolean_override_type,
+        default = 'Default'
     )
 
     @classmethod
@@ -2150,11 +2163,47 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         if (get_user_preferences().skip_property_popups and not event.shift) or len(self.channels) == 0 or self.no_layer_using:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=420)
+        return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
         self.check_operator(context)
         return True
+
+    def draw_field(self, layout, field_override, field_name, label):
+
+        is_overriden = getattr(self, field_override) == 'Override'
+
+        # row_label = split_layout(self.layout, 0.4, True)
+        row_var = split_layout(layout, 0.3, True)
+        row_var.label(text=label + ':')
+
+        if is_overriden:
+            row_ovr = split_layout(row_var, 0.3, align=True)
+            row_ovr.prop(self, field_override, text='')
+            if field_name == 'uv_map':
+                row_ovr.prop_search(self, field_name, self, "uv_map_coll", text='', icon='GROUP_UVS')
+            elif field_name == 'margin':
+                if is_bl_newer_than(3, 1):
+                    split = split_layout(row_ovr, 0.4, align=True)
+                    split.prop(self, field_name, text='')
+                    split.prop(self, 'margin_type', text='')
+                else:
+                    row_ovr.prop(self, field_name, text='')
+            else:
+                row_ovr.prop(self, field_name, text='')
+        else:
+            row_var.prop(self, field_override, text='')
+
+    def draw_bool_field(self, layout, field_override, field_name, label):
+
+        is_overriden = getattr(self, field_override) == 'Override'
+
+        # row_label = split_layout(self.layout, 0.4, True)
+
+        row_var = split_layout(layout, 0.3, True)
+        row_var.label(text=label + ':')
+
+        row_var.prop(self, field_override, text='')
 
     def draw(self, context):
         node = get_active_ypaint_node()
@@ -2168,21 +2217,17 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
         root_col = self.layout.column()
 
-        
-        if self.override_samples == 'Override':
-            row_var = root_col.row(align=True)
-            row_var.prop(self, 'override_samples', text='Samples')
-            row_var.prop(self, 'samples', text='')
-        else:
-            root_col.prop(self, 'override_samples', text='Samples')
-        
-        if self.override_samples == 'Override':
-            row_var = root_col.row(align=True)
-            row_var.prop(self, 'override_samples', text='Samples')
-            row_var.prop(self, 'samples', text='')
-        else:
-            root_col.prop(self, 'override_samples', text='Samples')
-
+        self.draw_field(root_col, 'override_samples', 'samples', 'Samples')
+        self.draw_field(root_col, 'override_aa_level', 'aa_level', 'AA Level')
+        self.draw_field(root_col, 'override_margin', 'margin', 'Margin')
+        self.draw_field(root_col, 'override_interpolation', 'interpolation', 'Interpolation')
+        self.draw_field(root_col, 'override_uv_map', 'uv_map', 'UV Map')
+        self.draw_bool_field(root_col, 'override_udim', 'use_udim', 'UDIM Tiles')
+        self.draw_bool_field(root_col, 'override_fxaa', 'fxaa', 'FXAA')
+        self.draw_bool_field(root_col, 'override_denoise', 'denoise', 'Denoise')
+        self.draw_bool_field(root_col, 'override_dithering', 'use_dithering', 'Dithering')
+        self.draw_bool_field(root_col, 'override_force_bake_all_polygons', 'force_bake_all_polygons', 'Force Bake all Polygons')
+        self.draw_bool_field(root_col, 'override_bake_disabled_layers', 'bake_disabled_layers', 'Bake Disabled Layers')
 
 
     def draw_backup(self, context):
