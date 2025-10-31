@@ -1140,14 +1140,14 @@ def draw_bake_target_settings(context, layout, bt):
         ccol.separator()
     ccol.label(text='Margin:')
 
-    if height_root_ch:
-        ccol.separator()
-        ccol.label(text='Use 32-bit Float:')
+    # if height_root_ch:
+    #     ccol.separator()
+    #     ccol.label(text='Use 32-bit Float:')
 
     col.separator()
 
-    if is_bl_newer_than(2, 80):
-        col.label(text='Bake Device:')
+    # if is_bl_newer_than(2, 80):
+    #     col.label(text='Bake Device:')
     col.label(text='Interpolation:')
     col.label(text='UV Map:')
 
@@ -1188,18 +1188,18 @@ def draw_bake_target_settings(context, layout, bt):
     else:
         ccol.prop(bt, 'margin', text='')
 
-    if height_root_ch:
-        ccol.separator()
-        splits = split_layout(ccol, 0.4)
-        splits.prop(bt, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
-        splits.prop(bt, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
+    # if height_root_ch:
+    #     ccol.separator()
+    #     splits = split_layout(ccol, 0.4)
+    #     splits.prop(bt, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
+    #     splits.prop(bt, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
 
     col.separator()
 
-    if is_bl_newer_than(2, 80):
-        if bt.use_osl:
-            col.label(text='CPU (OSL)')
-        else: col.prop(bt, 'bake_device', text='')
+    # if is_bl_newer_than(2, 80):
+    #     if bt.use_osl:
+    #         col.label(text='CPU (OSL)')
+    #     else: col.prop(bt, 'bake_device', text='')
     col.prop(bt, 'interpolation', text='')
     col.prop_search(bt, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
@@ -1230,7 +1230,7 @@ def draw_bake_target_settings(context, layout, bt):
             row.prop(bt, 'use_dithering', text='Use Dithering')
             row.prop(bt, 'dither_intensity', text='')
 
-    ccol.prop(bt, 'use_osl')
+    # ccol.prop(bt, 'use_osl')
 
     ccol.prop(bt, 'force_bake_all_polygons')
     ccol.prop(bt, 'bake_disabled_layers')

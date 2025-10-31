@@ -12,6 +12,14 @@ from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem
 
 # todo : 
 # show all setting bake di bake target, setelah baked ambil dari bakeinfo
+# override vars, variable yang ga perlu : use 32 bit float, bake device
+# bake device & OSL selalu global, hilangkan dari bake target
+# resolution jadi 1 override
+# tambah use_float per bake target, hilangkan use for normal & displacement
+# tambah color_attribute
+
+
+# dropdown override tiap variable
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     yp = entity.id_data.yp
@@ -1850,6 +1858,11 @@ class YBakeSingleTarget(bpy.types.Operator):
 
         return {'FINISHED'}
 
+bake_override_type = (
+    ('Default', 'Use value from custom target', 'Use value from the custom target'),
+    ('Override', 'Override this value', 'Override this value'),
+)
+
 class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_all_targets"
     bl_label = "Bake All Custom Targets"
@@ -1958,6 +1971,85 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
 
+    override_resolution : BoolProperty(
+        name = 'Override Resolution',  
+        description = 'Override resolution settings to custom targets',
+        default = False
+    )
+
+    override_samples : EnumProperty(
+        name = 'Override Sample',
+        description = 'Override sample settings to custom targets',
+        items = bake_override_type,
+        default = 'Default'
+    )
+
+    # override_samples : BoolProperty(
+    #     name = 'Override Samples',  
+    #     description = 'Override samples settings to custom targets',
+    #     default = False
+    # )
+
+    override_aa_level : BoolProperty(
+        name = 'Override AA Level',  
+        description = 'Override AA level settings to custom targets',
+        default = False
+    )
+
+    override_margin : BoolProperty(
+        name = 'Override Margin',  
+        description = 'Override margin settings to custom targets',
+        default = False
+    )
+
+    override_interpolation : BoolProperty(
+        name = 'Override Interpolation',  
+        description = 'Override interpolation settings to custom targets',
+        default = False
+    )
+
+    override_uv_map : BoolProperty(
+        name = 'Override UV Map',
+        description = 'Override UV map settings to custom targets',
+        default = False
+    )
+
+    override_udim : BoolProperty(
+        name = 'Override UDIM Tiles',
+        description = 'Override UDIM tiles settings to custom targets',
+        default = False
+    )
+
+    override_fxaa : BoolProperty(
+        name = 'Override FXAA',
+        description = 'Override FXAA settings to custom targets',
+        default = False
+    )
+
+    override_denoise : BoolProperty(
+        name = 'Override Denoise',
+        description = 'Override Denoise settings to custom targets',
+        default = False
+    )
+
+    override_dithering : BoolProperty(
+        name = 'Override Dithering',
+        description = 'Override Dithering settings to custom targets',
+        default = False
+    )
+
+    override_force_bake_all_polygons : BoolProperty(
+        name = 'Override Force Bake all Polygons',
+        description = 'Override Force Bake all polygons settings to custom targets',
+        default = False
+    )
+
+    override_bake_disabled_layers : BoolProperty(
+        name = 'Override Bake Disabled Layers',  
+        description = 'Override Bake Disabled Layers settings to custom targets',
+        default = False
+    )
+
     @classmethod
     def poll(cls, context):
         node = get_active_ypaint_node()
@@ -2058,7 +2150,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         if (get_user_preferences().skip_property_popups and not event.shift) or len(self.channels) == 0 or self.no_layer_using:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=320)
+        return context.window_manager.invoke_props_dialog(self, width=420)
 
     def check(self, context):
         self.check_operator(context)
@@ -2072,35 +2164,69 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         obj = context.object
         mat = obj.active_material
 
+        # row = split_layout(self.layout, 0.4)
+
+        root_col = self.layout.column()
+
+        
+        if self.override_samples == 'Override':
+            row_var = root_col.row(align=True)
+            row_var.prop(self, 'override_samples', text='Samples')
+            row_var.prop(self, 'samples', text='')
+        else:
+            root_col.prop(self, 'override_samples', text='Samples')
+        
+        if self.override_samples == 'Override':
+            row_var = root_col.row(align=True)
+            row_var.prop(self, 'override_samples', text='Samples')
+            row_var.prop(self, 'samples', text='')
+        else:
+            root_col.prop(self, 'override_samples', text='Samples')
+
+
+
+    def draw_backup(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        height_root_ch = get_root_height_channel(yp)
+        
+        obj = context.object
+        mat = obj.active_material
+
         row = split_layout(self.layout, 0.4)
+
+        ## ----------------------- LABEL ------------------------
+
         col = row.column() #align=True)
 
         ccol = col.column(align=True)
-        ccol.label(text='')
-        if self.use_custom_resolution == False:
-            ccol.label(text='Resolution:')
-        if self.use_custom_resolution == True:
-            ccol.label(text='Width:')
-            ccol.label(text='Height:')
+        if self.override_resolution:
+            ccol.label(text='')
+        if self.use_custom_resolution == False or not self.override_resolution:
+            ccol.prop(self, 'override_resolution', text='Resolution:')
+        if self.use_custom_resolution == True and self.override_resolution:
+            ccol.prop(self, 'override_resolution', text='Width:')
+            ccol.label(text= '      Height:')
 
         ccol.separator()
-        ccol.label(text='Samples:')
-        ccol.label(text='AA Level:')
+        ccol.prop(self, 'override_samples', text='Samples:')
+        
+        ccol.prop(self, 'override_aa_level', text='AA Level:')
 
         if is_bl_newer_than(3, 1):
             ccol.separator()
-        ccol.label(text='Margin:')
+        ccol.prop(self, 'override_margin', text='Margin:')
 
-        if height_root_ch:
-            ccol.separator()
-            ccol.label(text='Use 32-bit Float:')
+        # if height_root_ch:
+        #     ccol.separator()
+        #     ccol.prop(self, 'override_resolution', text='Use 32-bit Float:')
 
         col.separator()
 
-        if is_bl_newer_than(2, 80):
-            col.label(text='Bake Device:')
-        col.label(text='Interpolation:')
-        col.label(text='UV Map:')
+        # if is_bl_newer_than(2, 80):
+        #     col.prop(self, 'override_resolution', text='Bake Device:')
+        col.prop(self, 'override_interpolation', text='Interpolation:')
+        col.prop(self, 'override_uv_map', text='UV Map:')
 
         ccol = col.column(align=True)
 
@@ -2115,44 +2241,79 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
             ccol.separator()
             ccol.label(text='Force First Vcol:')
 
+        ccol.separator()
+        if UDIM.is_udim_supported():
+            ccol.prop(self, 'override_udim', text='Override UDIM Tiles:')
+        
+        ccol.prop(self, 'override_fxaa', text='Override FXAA:')
+        
+        if is_bl_newer_than(2, 81):
+            ccol.prop(self, 'override_denoise', text='Override Denoise:')
+        ccol.prop(self, 'override_dithering', text='Override Dithering:')  
+        ccol.prop(self, 'override_force_bake_all_polygons', text='Override Force Bake all Polygons:')
+        ccol.prop(self, 'override_bake_disabled_layers', text='Override Bake Disabled Layers:')
+        
+        ## ----------------------- PROPS ------------------------
         col = row.column()
 
-        col.prop(self, 'use_custom_resolution')
+        if self.override_resolution:
+            col.prop(self, 'use_custom_resolution')
         crow = col.row(align=True)
         ccol = col.column(align=True)
 
-        if self.use_custom_resolution == False:
-            crow.prop(self, 'image_resolution', expand= True,)
-        elif self.use_custom_resolution == True:
-            ccol.prop(self, 'width', text='')
-            ccol.prop(self, 'height', text='')
+        if self.override_resolution:
+            if self.use_custom_resolution == False:
+                crow.prop(self, 'image_resolution', expand= True,)
+            elif self.use_custom_resolution == True:
+                ccol.prop(self, 'width', text='')
+                ccol.prop(self, 'height', text='')
+        else:
+            ccol.label(text="Use resolution from custom targets")
 
         ccol.separator()
-        ccol.prop(self, 'samples', text='')
-        ccol.prop(self, 'aa_level', text='')
-
-        if is_bl_newer_than(3, 1):
-            ccol.separator()
-            split = split_layout(ccol, 0.4, align=True)
-            split.prop(self, 'margin', text='')
-            split.prop(self, 'margin_type', text='')
+        
+        if self.override_samples:
+            ccol.prop(self, 'samples', text='')
         else:
-            ccol.prop(self, 'margin', text='')
+            ccol.label(text='Use samples from custom targets')
 
-        if height_root_ch:
-            ccol.separator()
-            splits = split_layout(ccol, 0.4)
-            splits.prop(self, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
-            splits.prop(self, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
+        if self.override_aa_level:
+            ccol.prop(self, 'aa_level', text='')
+        else:
+            ccol.label(text='Use AA level from custom targets')
+
+        ccol.separator()
+        if self.override_margin:
+            if is_bl_newer_than(3, 1):
+                split = split_layout(ccol, 0.4, align=True)
+                split.prop(self, 'margin', text='')
+                split.prop(self, 'margin_type', text='')
+            else:
+                ccol.prop(self, 'margin', text='')
+        else:
+            ccol.label(text='Use margin from custom targets')
+
+        # if height_root_ch:
+        #     ccol.separator()
+        #     splits = split_layout(ccol, 0.4)
+        #     splits.prop(self, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
+        #     splits.prop(self, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
 
         col.separator()
 
-        if is_bl_newer_than(2, 80):
-            if self.use_osl:
-                col.label(text='CPU (OSL)')
-            else: col.prop(self, 'bake_device', text='')
-        col.prop(self, 'interpolation', text='')
-        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        # if is_bl_newer_than(2, 80):
+        #     if self.use_osl:
+        #         col.label(text='CPU (OSL)')
+        #     else: col.prop(self, 'bake_device', text='')
+        if self.override_interpolation:
+            col.prop(self, 'interpolation', text='')
+        else:
+            col.label(text='Use interpolation from custom targets')
+
+        if self.override_uv_map:
+            col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        else:
+            col.label(text='Use UV map from custom targets')
 
         ccol = col.column(align=True)
 
@@ -2167,24 +2328,44 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         ccol.separator()
 
         if UDIM.is_udim_supported():
-            ccol.prop(self, 'use_udim')
-        ccol.prop(self, 'fxaa', text='Use FXAA')
+            if self.override_udim:
+                ccol.prop(self, 'use_udim')
+            else:
+                ccol.label(text='Use UDIM tiles from custom targets')
+
+        if self.override_fxaa:
+            ccol.prop(self, 'fxaa', text='Override FXAA:')
+        else:
+            ccol.label(text='Use FXAA from custom targets')
+
         if is_bl_newer_than(2, 81):
-            ccol.prop(self, 'denoise', text='Use Denoise')
+            if self.override_denoise:
+                ccol.prop(self, 'denoise', text='Use Denoise')
+            else:
+                ccol.label(text='Use Denoise from custom targets')
 
-        any_color_channel = any([c for c in self.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
-        if any_color_channel:
-            if not self.use_dithering:
-                ccol.prop(self, 'use_dithering', text='Use Dithering')
-            if self.use_dithering:
-                row = split_layout(ccol, 0.55)
-                row.prop(self, 'use_dithering', text='Use Dithering')
-                row.prop(self, 'dither_intensity', text='')
+        if self.override_dithering:
+            any_color_channel = any([c for c in self.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+            if any_color_channel:
+                if not self.use_dithering:
+                    ccol.prop(self, 'use_dithering', text='Use Dithering')
+                if self.use_dithering:
+                    row = split_layout(ccol, 0.55)
+                    row.prop(self, 'use_dithering', text='Use Dithering')
+                    row.prop(self, 'dither_intensity', text='')
+        else:
+            ccol.label(text='Use Dithering from custom targets')
 
-        ccol.prop(self, 'use_osl')
+        # ccol.prop(self, 'use_osl')
+        if self.override_force_bake_all_polygons:
+            ccol.prop(self, 'force_bake_all_polygons')
+        else:
+            ccol.label(text='Use Force Bake all Polygons from custom targets')
 
-        ccol.prop(self, 'force_bake_all_polygons')
-        ccol.prop(self, 'bake_disabled_layers')
+        if self.override_bake_disabled_layers:
+            ccol.prop(self, 'bake_disabled_layers')
+        else:
+            ccol.label(text='Use Bake Disabled Layers from custom targets')
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
@@ -2490,13 +2671,33 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
                 for attr in dir(bt):
                     if attr.startswith('__'): continue
                     if attr.startswith('bl_'): continue
-                    if attr in {'rna_type'}: continue
+                    if attr in {'rna_type', 'name'}: continue
                     try: 
+                        if not hasattr(self, attr):
+                            continue
+                        
+                        override_var = 'override_' + attr
+                        if hasattr(self, override_var):
+                            if not getattr(self, override_var):
+                                print("Skip overriding attribute '" + attr + "' to bake target '" + bt.name + "'")
+                                continue
+                        else:
+                            print("Skip overriding attribute '" + attr + "' to bake target '" + bt.name + "' because override property not found")
+                            continue
+                        
                         setattr(bt, attr, getattr(self, attr))
-                        print("Set attribute '" + attr + "' from bake target '" + bt.name + "'")
+                        print("Set attribute '" + attr + "' to bake target '" + bt.name + "'")
                     except: 
-                        print("Could not set attribute '" + attr + "' from bake target '" + bt.name + "'")
+                        print("Could not set attribute '" + attr + "' to bake target '" + bt.name + "'")
                         pass
+
+                # check override_resolution
+                if self.override_resolution:
+                    bt.use_custom_resolution = self.use_custom_resolution
+                    bt.width = self.width
+                    bt.height = self.height
+                    bt.image_resolution = self.image_resolution
+                   
 
                 print("INFO: Processing custom bake target '" + bt.name + "'...")
                 bt_node = tree.nodes.get(bt.image_node)
