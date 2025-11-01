@@ -39,7 +39,7 @@ class YForceUpdateSponsors(bpy.types.Operator):
         if os.path.exists(path_last_check):
             os.remove(path_last_check)
 
-        goal_ui: YSponsorProp = context.window_manager.ypui_credits
+        goal_ui = context.window_manager.ypui_credits
         goal_ui.initialized = False
         goal_ui.use_dummy_users = self.use_dummy_users if get_user_preferences().developer_mode else False
 

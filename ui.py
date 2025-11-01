@@ -5699,8 +5699,12 @@ def draw_ypaint_about(self, context):
         #col.separator()
         #col.operator('wm.url_open', text='View Contributor Graph', icon='SEQ_HISTOGRAM').url = collaborators.default_contributors_url
     else:
+        if not is_bl_newer_than(2, 80):
+            col.label(text='Support '+get_addon_title() + '!')
+            col.operator('wm.url_open', text="Become a Sponsor", icon='POSE_DATA').url = collaborators.default_url
+
         col.label(text=get_addon_title() + ' is created by: ')
-        col.operator('wm.url_open', text='View All Contributors', icon='ARMATURE_DATA').url = collaborators.default_contributors_url
+        col.operator('wm.url_open', text='View All Contributors', icon='BOIDS').url = collaborators.default_contributors_url
         if is_online() and is_bl_newer_than(2, 80):
             col.separator()
             if ypc.connection_status == "FAILED":
