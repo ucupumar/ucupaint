@@ -5519,7 +5519,7 @@ class YPAssetBrowserMenu(bpy.types.Menu):
         op = self.layout.operator("wm.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Material Images to Layer')
         op.mat_name = mat_name
         op.asset_library_path = asset_library_path
-        op.fail_self_load = active_mat and active_mat.asset_data and mat_name == active_mat.name and asset_library_path == ''
+        op.fail_self_load = active_mat != None and active_mat.asset_data != None and mat_name == active_mat.name and asset_library_path == ''
 
         if obj.type == 'MESH':
             op.texcoord_type = 'UV'
@@ -8229,7 +8229,7 @@ def register():
     # Add yPaint node ui
     bpy.types.NODE_MT_add.append(add_new_ypaint_node_menu)
 
-    if is_bl_newer_than(3):
+    if is_bl_newer_than(4):
         bpy.types.ASSETBROWSER_MT_context_menu.append(draw_yp_asset_browser_menu)
 
     if is_bl_newer_than(2, 81):
@@ -8313,7 +8313,7 @@ def unregister():
     # Remove add yPaint node ui
     bpy.types.NODE_MT_add.remove(add_new_ypaint_node_menu)
 
-    if is_bl_newer_than(3):
+    if is_bl_newer_than(4):
         bpy.types.ASSETBROWSER_MT_context_menu.remove(draw_yp_asset_browser_menu)
 
     if is_bl_newer_than(2, 81):
