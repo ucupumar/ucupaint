@@ -5510,6 +5510,8 @@ class YPAssetBrowserMenu(bpy.types.Menu):
     def draw(self, context):
         obj = context.object
 
+        active_mat = get_active_material()
+
         mat_asset = getattr(context, 'mat_asset', None)
         mat_name = mat_asset.name if mat_asset else ''
         asset_library_path = mat_asset.full_library_path if mat_asset else ''
@@ -5517,6 +5519,7 @@ class YPAssetBrowserMenu(bpy.types.Menu):
         op = self.layout.operator("wm.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Material Images to Layer')
         op.mat_name = mat_name
         op.asset_library_path = asset_library_path
+        op.fail_self_load = active_mat and active_mat.asset_data and mat_name == active_mat.name and asset_library_path == ''
 
         if obj.type == 'MESH':
             op.texcoord_type = 'UV'

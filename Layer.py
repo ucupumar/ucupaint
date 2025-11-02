@@ -2520,6 +2520,8 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
     mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
     asset_library_path : StringProperty(default='')
 
+    fail_self_load : BoolProperty(default=False)
+
     read_method : EnumProperty(
         name = 'Read Method',
         description = '',
@@ -2541,6 +2543,10 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
 
     def invoke(self, context, event):
         self.invoke_operator(context)
+
+        # Skip dialog box if fail happen
+        if self.fail_self_load:
+            return self.execute(context)
 
         self.mat_coll.clear()
 
@@ -2586,6 +2592,10 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
         self.draw_operator(context, display_relative_toggle=False)
 
     def execute(self, context):
+
+        if self.fail_self_load:
+            self.report({'ERROR'}, "Material asset can't be the same as the active material!")
+            return {'CANCELLED'}
 
         if self.mat_name == '':
             self.report({'ERROR'}, "Source material cannot be empty!")
