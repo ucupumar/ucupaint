@@ -1066,7 +1066,7 @@ def draw_bake_targets_ui(context, layout, node):
         if not image:
             row = col.row(align=True)
             row.label(text='', icon='BLANK1')
-            row.label(text="Do 'Bake All Channels' to get the image!", icon='ERROR')
+            row.label(text=f"Do 'Bake {bt.name}' to get the image!", icon='ERROR')
 
         row_setting = col.row(align=True)
 

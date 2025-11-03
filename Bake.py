@@ -1872,6 +1872,20 @@ bake_boolean_override_type = (
     ('Disable', 'Disable', 'Disable this option'),
 )
 
+bake_resolution_override_type = (
+    ('Default', 'Use bake target value', 'Use value from the bake target'),
+    ('Template', 'Use Template Resolution', 'Use Template Resolution'),
+    ('Custom', 'Use Custom Resolution', 'Use Custom Resolution'),
+)
+
+def update_bake_override_resolution(self, context):
+    if self.override_resolution == 'Template':
+        self.use_custom_resolution = False
+    elif self.override_resolution == 'Custom':
+        self.use_custom_resolution = True
+
+    print("Updating override resolution to " + self.override_resolution +" > custom: " + str(self.use_custom_resolution))
+
 class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_all_targets"
     bl_label = "Bake All Custom Targets"
@@ -1980,10 +1994,18 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
 
-    override_resolution : BoolProperty(
+    override_all : BoolProperty(
+        name = 'Override All Settings',  
+        description = 'Override all settings to custom targets',
+        default = False
+    )
+
+    override_resolution : EnumProperty(
         name = 'Override Resolution',  
         description = 'Override resolution settings to custom targets',
-        default = False
+        items = bake_resolution_override_type,
+        update = update_bake_override_resolution,
+        default = 'Default'
     )
 
     override_samples : EnumProperty(
@@ -2163,19 +2185,47 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         if (get_user_preferences().skip_property_popups and not event.shift) or len(self.channels) == 0 or self.no_layer_using:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=320)
+        return context.window_manager.invoke_props_dialog(self, width=400)
 
     def check(self, context):
         self.check_operator(context)
         return True
+    
+    def draw_label(self, layout, label):
+        row_var = split_layout(layout, 0.4, True)
+        row_var.alignment = 'RIGHT'
+        row_var.label(text=label + ':')
+
+        return row_var
+    # def draw_resolution_field(self, layout, field_override, field_name, label):
+    #     is_overriden = getattr(self, field_override) == 'Override'
+
+    #     row_var = split_layout(layout, 0.4, True)
+    #     row_var.alignment = 'RIGHT'
+    #     row_var.label(text=label + ':')
+
+    #     if is_overriden:
+    #         row_ovr = split_layout(row_var, 0.3, align=True)
+    #         row_ovr.prop(self, field_override, text='')
+    #         if field_name == 'uv_map':
+    #             row_ovr.prop_search(self, field_name, self, "uv_map_coll", text='', icon='GROUP_UVS')
+    #         elif field_name == 'margin':
+    #             if is_bl_newer_than(3, 1):
+    #                 split = split_layout(row_ovr, 0.4, align=True)
+    #                 split.prop(self, field_name, text='')
+    #                 split.prop(self, 'margin_type', text='')
+    #             else:
+    #                 row_ovr.prop(self, field_name, text='')
+    #         else:
+    #             row_ovr.prop(self, field_name, text='')
+    #     else:
+    #         row_var.prop(self, field_override, text='')
 
     def draw_field(self, layout, field_override, field_name, label):
 
         is_overriden = getattr(self, field_override) == 'Override'
 
-        # row_label = split_layout(self.layout, 0.4, True)
-        row_var = split_layout(layout, 0.3, True)
-        row_var.label(text=label + ':')
+        row_var = self.draw_label(layout, label)
 
         if is_overriden:
             row_ovr = split_layout(row_var, 0.3, align=True)
@@ -2196,12 +2246,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
     def draw_bool_field(self, layout, field_override, field_name, label):
 
-        is_overriden = getattr(self, field_override) == 'Override'
-
-        # row_label = split_layout(self.layout, 0.4, True)
-
-        row_var = split_layout(layout, 0.3, True)
-        row_var.label(text=label + ':')
+        row_var = self.draw_label(layout, label)
 
         row_var.prop(self, field_override, text='')
 
@@ -2216,6 +2261,36 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         # row = split_layout(self.layout, 0.4)
 
         root_col = self.layout.column()
+
+        label_all_vars = self.draw_label(root_col, "Override all variables")
+        label_all_vars.prop(self, 'override_all', text='')
+
+        if self.override_all:
+            self.draw_backup(context)
+            return
+
+        # resolution
+        res_label = 'Resolution'
+        override_res = 'override_resolution'
+
+        res_override_type = getattr(self, override_res)
+
+        row_var = self.draw_label(root_col, res_label)
+        row_var.prop(self, override_res, text='')
+
+        if res_override_type != 'Default':
+            if res_override_type == 'Template':
+                lbl = split_layout(root_col, 0.4, align=True)
+                lbl.label(text='')
+                row_res = lbl.row(align=True)
+                row_res.prop(self, 'image_resolution', expand= True,)
+            elif res_override_type == 'Custom':
+
+                row_width = self.draw_label(root_col, "Width")
+                row_width.prop(self, 'width', text='')
+
+                row_height = self.draw_label(root_col, "Height")
+                row_height.prop(self, 'height', text='')
 
         self.draw_field(root_col, 'override_samples', 'samples', 'Samples')
         self.draw_field(root_col, 'override_aa_level', 'aa_level', 'AA Level')
@@ -2247,20 +2322,20 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         ccol = col.column(align=True)
         if self.override_resolution:
             ccol.label(text='')
-        if self.use_custom_resolution == False or not self.override_resolution:
-            ccol.prop(self, 'override_resolution', text='Resolution:')
-        if self.use_custom_resolution == True and self.override_resolution:
-            ccol.prop(self, 'override_resolution', text='Width:')
-            ccol.label(text= '      Height:')
+        if self.use_custom_resolution:
+            ccol.label(text='Width:')
+            ccol.label(text='Height:')
+        else:
+            ccol.label(text='Resolution:')
 
         ccol.separator()
-        ccol.prop(self, 'override_samples', text='Samples:')
-        
-        ccol.prop(self, 'override_aa_level', text='AA Level:')
+        ccol.label(text='Samples:')
+
+        ccol.label(text='AA Level:')
 
         if is_bl_newer_than(3, 1):
             ccol.separator()
-        ccol.prop(self, 'override_margin', text='Margin:')
+        ccol.label(text='Margin:')
 
         # if height_root_ch:
         #     ccol.separator()
@@ -2270,8 +2345,8 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
         # if is_bl_newer_than(2, 80):
         #     col.prop(self, 'override_resolution', text='Bake Device:')
-        col.prop(self, 'override_interpolation', text='Interpolation:')
-        col.prop(self, 'override_uv_map', text='UV Map:')
+        col.label(text='Interpolation:')
+        col.label(text='UV Map:')
 
         ccol = col.column(align=True)
 
@@ -2287,16 +2362,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
             ccol.label(text='Force First Vcol:')
 
         ccol.separator()
-        if UDIM.is_udim_supported():
-            ccol.prop(self, 'override_udim', text='Override UDIM Tiles:')
         
-        ccol.prop(self, 'override_fxaa', text='Override FXAA:')
-        
-        if is_bl_newer_than(2, 81):
-            ccol.prop(self, 'override_denoise', text='Override Denoise:')
-        ccol.prop(self, 'override_dithering', text='Override Dithering:')  
-        ccol.prop(self, 'override_force_bake_all_polygons', text='Override Force Bake all Polygons:')
-        ccol.prop(self, 'override_bake_disabled_layers', text='Override Bake Disabled Layers:')
         
         ## ----------------------- PROPS ------------------------
         col = row.column()
