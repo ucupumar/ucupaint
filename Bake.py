@@ -2197,29 +2197,6 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         row_var.label(text=label + ':')
 
         return row_var
-    # def draw_resolution_field(self, layout, field_override, field_name, label):
-    #     is_overriden = getattr(self, field_override) == 'Override'
-
-    #     row_var = split_layout(layout, 0.4, True)
-    #     row_var.alignment = 'RIGHT'
-    #     row_var.label(text=label + ':')
-
-    #     if is_overriden:
-    #         row_ovr = split_layout(row_var, 0.3, align=True)
-    #         row_ovr.prop(self, field_override, text='')
-    #         if field_name == 'uv_map':
-    #             row_ovr.prop_search(self, field_name, self, "uv_map_coll", text='', icon='GROUP_UVS')
-    #         elif field_name == 'margin':
-    #             if is_bl_newer_than(3, 1):
-    #                 split = split_layout(row_ovr, 0.4, align=True)
-    #                 split.prop(self, field_name, text='')
-    #                 split.prop(self, 'margin_type', text='')
-    #             else:
-    #                 row_ovr.prop(self, field_name, text='')
-    #         else:
-    #             row_ovr.prop(self, field_name, text='')
-    #     else:
-    #         row_var.prop(self, field_override, text='')
 
     def draw_field(self, layout, field_override, field_name, label):
 
@@ -2227,9 +2204,14 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
         row_var = self.draw_label(layout, label)
 
-        if is_overriden:
-            row_ovr = split_layout(row_var, 0.3, align=True)
-            row_ovr.prop(self, field_override, text='')
+        if is_overriden or self.override_all:
+
+            if self.override_all:
+                row_ovr = row_var
+            else:
+                row_ovr = split_layout(row_var, 0.3, align=True)
+                row_ovr.prop(self, field_override, text='')
+
             if field_name == 'uv_map':
                 row_ovr.prop_search(self, field_name, self, "uv_map_coll", text='', icon='GROUP_UVS')
             elif field_name == 'margin':
@@ -2248,7 +2230,27 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
         row_var = self.draw_label(layout, label)
 
-        row_var.prop(self, field_override, text='')
+        if self.override_all:
+            row_var.prop(self, field_name, text='')
+        else:
+            row_var.prop(self, field_override, text='')
+
+    def draw_field_override_all(self, layout, field_name, label):
+
+        row_var = self.draw_label(layout, label)
+
+        if field_name == 'uv_map':
+            row_var.prop_search(self, field_name, self, "uv_map_coll", text='', icon='GROUP_UVS')
+        elif field_name == 'margin':
+            if is_bl_newer_than(3, 1):
+                split = split_layout(row_var, 0.4, align=True)
+                split.prop(self, field_name, text='')
+                split.prop(self, 'margin_type', text='')
+            else:
+                row_var.prop(self, field_name, text='')
+        else:
+            row_var.prop(self, field_name, text='')
+    
 
     def draw(self, context):
         node = get_active_ypaint_node()
@@ -2264,10 +2266,6 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
         label_all_vars = self.draw_label(root_col, "Override all variables")
         label_all_vars.prop(self, 'override_all', text='')
-
-        if self.override_all:
-            self.draw_backup(context)
-            return
 
         # resolution
         res_label = 'Resolution'
@@ -2303,7 +2301,6 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         self.draw_bool_field(root_col, 'override_dithering', 'use_dithering', 'Dithering')
         self.draw_bool_field(root_col, 'override_force_bake_all_polygons', 'force_bake_all_polygons', 'Force Bake all Polygons')
         self.draw_bool_field(root_col, 'override_bake_disabled_layers', 'bake_disabled_layers', 'Bake Disabled Layers')
-
 
     def draw_backup(self, context):
         node = get_active_ypaint_node()
