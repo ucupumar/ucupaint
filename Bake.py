@@ -1886,6 +1886,26 @@ def update_bake_override_resolution(self, context):
 
     print("Updating override resolution to " + self.override_resolution +" > custom: " + str(self.use_custom_resolution))
 
+def update_override_vars(self, context):
+    
+    if self.override_use_udim != 'Default':
+        self.use_udim = self.override_use_udim == 'Enable'
+    
+    if self.override_fxaa != 'Default':
+        self.fxaa = self.override_fxaa == 'Enable'
+
+    if self.override_denoise != 'Default':
+        self.denoise = self.override_denoise == 'Enable'
+
+    if self.override_force_bake_all_polygons != 'Default':
+        self.force_bake_all_polygons = self.override_force_bake_all_polygons == 'Enable'
+
+    if self.override_bake_disabled_layers != 'Default':
+        self.bake_disabled_layers = self.override_bake_disabled_layers == 'Enable'
+
+    if self.override_use_dithering != 'Default':
+        self.use_dithering = self.override_use_dithering == 'Enable'
+
 class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_all_targets"
     bl_label = "Bake All Custom Targets"
@@ -2043,46 +2063,52 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         default = 'Default'
     )
 
-    override_udim : EnumProperty(
+    override_use_udim : EnumProperty(
         name = 'Override UDIM Tiles',
         description = 'Override UDIM tiles settings to custom targets',
         items = bake_boolean_override_type,
-        default = 'Default'
+        default = 'Default',
+        update = update_override_vars
     )
 
     override_fxaa : EnumProperty(
         name = 'Override FXAA',
         description = 'Override FXAA settings to custom targets',
         items = bake_boolean_override_type,
-        default = 'Default'
+        default = 'Default',
+        update = update_override_vars
     )
 
     override_denoise : EnumProperty(
         name = 'Override Denoise',
         description = 'Override Denoise settings to custom targets',
         items = bake_boolean_override_type,
-        default = 'Default'
+        default = 'Default',
+        update = update_override_vars
     )
 
-    override_dithering : EnumProperty(
+    override_use_dithering : EnumProperty(
         name = 'Override Dithering',
         description = 'Override Dithering settings to custom targets',
         items = bake_boolean_override_type,
-        default = 'Default'
+        default = 'Default',
+        update = update_override_vars
     )
 
     override_force_bake_all_polygons : EnumProperty(
         name = 'Override Force Bake all Polygons',
         description = 'Override Force Bake all polygons settings to custom targets',
         items = bake_boolean_override_type,
-        default = 'Default'
+        default = 'Default',
+        update = update_override_vars
     )
 
     override_bake_disabled_layers : EnumProperty(
         name = 'Override Bake Disabled Layers',
         description = 'Override Bake Disabled Layers settings to custom targets',
         items = bake_boolean_override_type,
-        default = 'Default'
+        default = 'Default',
+        update = update_override_vars
     )
 
     @classmethod
@@ -2273,32 +2299,42 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
         res_override_type = getattr(self, override_res)
 
-        row_var = self.draw_label(root_col, res_label)
-        row_var.prop(self, override_res, text='')
+        if not self.override_all:
+            row_var = self.draw_label(root_col, res_label)
+        else:
+            row_var = self.draw_label(root_col, "Custom Resolution")
 
-        if res_override_type != 'Default':
-            if res_override_type == 'Template':
-                lbl = split_layout(root_col, 0.4, align=True)
+        if self.override_all:
+            row_var.prop(self, 'use_custom_resolution', text='')
+        else:
+            row_var.prop(self, override_res, text='')
+
+        if res_override_type == 'Template' or (self.override_all and not self.use_custom_resolution):
+            lbl = split_layout(root_col, 0.4, align=True)
+            if self.override_all and self.use_custom_resolution == False:
+                lbl.alignment = 'RIGHT'
+                lbl.label(text='Resolution:')
+            else:
                 lbl.label(text='')
-                row_res = lbl.row(align=True)
-                row_res.prop(self, 'image_resolution', expand= True,)
-            elif res_override_type == 'Custom':
+            row_res = lbl.row(align=True)
+            row_res.prop(self, 'image_resolution', expand= True,)
+        elif res_override_type == 'Custom' or (self.override_all and self.use_custom_resolution):
 
-                row_width = self.draw_label(root_col, "Width")
-                row_width.prop(self, 'width', text='')
+            row_width = self.draw_label(root_col, "Width")
+            row_width.prop(self, 'width', text='')
 
-                row_height = self.draw_label(root_col, "Height")
-                row_height.prop(self, 'height', text='')
+            row_height = self.draw_label(root_col, "Height")
+            row_height.prop(self, 'height', text='')
 
         self.draw_field(root_col, 'override_samples', 'samples', 'Samples')
         self.draw_field(root_col, 'override_aa_level', 'aa_level', 'AA Level')
         self.draw_field(root_col, 'override_margin', 'margin', 'Margin')
         self.draw_field(root_col, 'override_interpolation', 'interpolation', 'Interpolation')
         self.draw_field(root_col, 'override_uv_map', 'uv_map', 'UV Map')
-        self.draw_bool_field(root_col, 'override_udim', 'use_udim', 'UDIM Tiles')
+        self.draw_bool_field(root_col, 'override_use_udim', 'use_udim', 'UDIM Tiles')
         self.draw_bool_field(root_col, 'override_fxaa', 'fxaa', 'FXAA')
         self.draw_bool_field(root_col, 'override_denoise', 'denoise', 'Denoise')
-        self.draw_bool_field(root_col, 'override_dithering', 'use_dithering', 'Dithering')
+        self.draw_bool_field(root_col, 'override_use_dithering', 'use_dithering', 'Dithering')
         self.draw_bool_field(root_col, 'override_force_bake_all_polygons', 'force_bake_all_polygons', 'Force Bake all Polygons')
         self.draw_bool_field(root_col, 'override_bake_disabled_layers', 'bake_disabled_layers', 'Bake Disabled Layers')
 
@@ -2436,7 +2472,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         ccol.separator()
 
         if UDIM.is_udim_supported():
-            if self.override_udim:
+            if self.override_use_udim:
                 ccol.prop(self, 'use_udim')
             else:
                 ccol.label(text='Use UDIM tiles from custom targets')
@@ -2452,7 +2488,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
             else:
                 ccol.label(text='Use Denoise from custom targets')
 
-        if self.override_dithering:
+        if self.override_use_dithering:
             any_color_channel = any([c for c in self.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
             if any_color_channel:
                 if not self.use_dithering:
@@ -2775,7 +2811,6 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
         # Can only happen when only active channel is off since require all baked images to have the same resolution
         if not self.only_active_channel:
             for bt in yp.bake_targets:
-                
                 for attr in dir(bt):
                     if attr.startswith('__'): continue
                     if attr.startswith('bl_'): continue
@@ -2783,29 +2818,32 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
                     try: 
                         if not hasattr(self, attr):
                             continue
-                        
-                        override_var = 'override_' + attr
-                        if hasattr(self, override_var):
-                            if not getattr(self, override_var):
-                                print("Skip overriding attribute '" + attr + "' to bake target '" + bt.name + "'")
-                                continue
+
+                        if self.override_all:
+                            pass
                         else:
-                            print("Skip overriding attribute '" + attr + "' to bake target '" + bt.name + "' because override property not found")
-                            continue
+                            override_var = 'override_' + attr
+                            if hasattr(self, override_var):
+                                override_val = getattr(self, override_var)
+                                if override_val == 'Default':
+                                    print("Skip overriding attribute '" + attr + "' to bake target '" + bt.name + "'")
+                                    continue
+                            else:
+                                print("Skip overriding attribute '" + attr + "' to bake target '" + bt.name + "' because override property not found")
+                                continue
                         
-                        setattr(bt, attr, getattr(self, attr))
-                        print("Set attribute '" + attr + "' to bake target '" + bt.name + "'")
+                        att_val = getattr(self, attr)
+                        setattr(bt, attr, att_val)
+                        print("Set attribute '" + attr + "' to bake target '" + bt.name + "' = " + str(att_val))
                     except: 
                         print("Could not set attribute '" + attr + "' to bake target '" + bt.name + "'")
-                        pass
 
                 # check override_resolution
-                if self.override_resolution:
+                if self.override_resolution != 'Default' or self.override_all:
                     bt.use_custom_resolution = self.use_custom_resolution
                     bt.width = self.width
                     bt.height = self.height
                     bt.image_resolution = self.image_resolution
-                   
 
                 print("INFO: Processing custom bake target '" + bt.name + "'...")
                 bt_node = tree.nodes.get(bt.image_node)
