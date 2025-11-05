@@ -632,6 +632,12 @@ def load_local_contributors():
                     contributor['thumb'] = load_preview(contributor['id'], file_name).icon_id
                 collaborators.contributors[contributor['id']] = contributor
 
+def is_valid_file(path:str)->bool:
+    try:
+        return os.path.exists(path) and os.path.isfile(path) and os.stat(path).st_size > 0
+    except:
+        return False
+    
 def load_contributors(goal_ui: YSponsorProp):    
 
     path = credits_path
@@ -643,7 +649,7 @@ def load_contributors(goal_ui: YSponsorProp):
     current_time = time.time()
 
     reload_contributors = False
-    if os.path.exists(path_last_check):
+    if is_valid_file(path_last_check):
         with open(path_last_check, "r", encoding="utf-8") as f:
             content_last_check = f.read().strip()
             
@@ -671,7 +677,7 @@ def load_contributors(goal_ui: YSponsorProp):
     content = ""
 
     # read file if exists
-    if os.path.exists(path_contributors):
+    if is_valid_file(path_contributors):
         with open(path_contributors, "r", encoding="utf-8") as f:
             content = f.read()
     else:
@@ -680,7 +686,7 @@ def load_contributors(goal_ui: YSponsorProp):
     path_sponsors = os.path.join(path, "sponsors.csv")
     content_sponsors = ""
 
-    if os.path.exists(path_sponsors):
+    if is_valid_file(path_sponsors):
         with open(path_sponsors, "r", encoding="utf-8") as f:
             content_sponsors = f.read()
     else:
@@ -689,7 +695,7 @@ def load_contributors(goal_ui: YSponsorProp):
     path_sponsorship_goal = os.path.join(path, "credits.json")
     content_sponsorship_goal = ""
 
-    if os.path.exists(path_sponsorship_goal):
+    if is_valid_file(path_sponsorship_goal):
         with open(path_sponsorship_goal, "r", encoding="utf-8") as f:
             content_sponsorship_goal = f.read()
             settings = json.loads(content_sponsorship_goal)
