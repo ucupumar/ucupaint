@@ -800,7 +800,11 @@ class YNewLayerMask(bpy.types.Operator):
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=320)
+        width = 320
+        if self.type == 'EDGE_DETECT':
+            width = 370
+
+        return context.window_manager.invoke_props_dialog(self, width=width)
 
     def check(self, context):
         ypup = get_user_preferences()
@@ -950,6 +954,14 @@ class YNewLayerMask(bpy.types.Operator):
             col.prop(self, 'object_index', text='')
 
         col.prop(self, 'blend_type', text='')
+
+        if self.type == 'AO':
+            col = self.layout.column(align=True)
+            col.label(text='Realtime AO can look different in baked/rendered view!', icon='ERROR')
+
+        elif self.type == 'EDGE_DETECT':
+            col = self.layout.column(align=True)
+            col.label(text='Realtime Edge Detect can look different in baked/rendered view!', icon='ERROR')
 
     def execute(self, context):
         if hasattr(self, 'auto_cancel') and self.auto_cancel: return {'CANCELLED'}

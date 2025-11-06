@@ -5913,9 +5913,9 @@ class YNewLayerMenu(bpy.types.Menu):
 
             c = col.operator("wm.y_new_layer", text='Background w/ '+get_vertex_color_label()+' Mask')
 
-        c.type = 'BACKGROUND'
-        c.add_mask = True
-        c.mask_type = 'VCOL'
+            c.type = 'BACKGROUND'
+            c.add_mask = True
+            c.mask_type = 'VCOL'
 
         if is_bl_newer_than(3, 2):
             col.separator()
