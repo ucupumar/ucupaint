@@ -1488,11 +1488,15 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'AO':
             col = self.layout.column(align=True)
+            col.alert = True
             col.label(text='Realtime AO can look different in baked/rendered view!', icon='ERROR')
+            col.alert = False
 
         if self.type == 'EDGE_DETECT' or (self.add_mask and self.mask_type == 'EDGE_DETECT'):
             col = self.layout.column(align=True)
+            col.alert = True
             col.label(text='Realtime Edge Detect can look different in baked/rendered view!', icon='ERROR')
+            col.alert = False
 
     def execute(self, context):
 
