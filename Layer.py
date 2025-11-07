@@ -1197,7 +1197,11 @@ class YNewLayer(bpy.types.Operator):
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=320)
+        width = 320
+        if self.type == 'EDGE_DETECT' or (self.add_mask and self.mask_type == 'EDGE_DETECT'):
+            width = 370
+
+        return context.window_manager.invoke_props_dialog(self, width=width)
 
     #def is_mask_using_udim(self):
     #    return self.use_udim_for_mask and UDIM.is_udim_supported()
@@ -1481,6 +1485,18 @@ class YNewLayer(bpy.types.Operator):
             col = self.layout.column(align=True)
             col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
             col.label(text='It will take a couple seconds to clear.')
+
+        if self.type == 'AO':
+            col = self.layout.column(align=True)
+            col.alert = True
+            col.label(text='Realtime AO can look different in baked/rendered view!', icon='ERROR')
+            col.alert = False
+
+        if self.type == 'EDGE_DETECT' or (self.add_mask and self.mask_type == 'EDGE_DETECT'):
+            col = self.layout.column(align=True)
+            col.alert = True
+            col.label(text='Realtime Edge Detect can look different in baked/rendered view!', icon='ERROR')
+            col.alert = False
 
     def execute(self, context):
 
@@ -2520,6 +2536,8 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
     mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
     asset_library_path : StringProperty(default='')
 
+    fail_self_load : BoolProperty(default=False)
+
     read_method : EnumProperty(
         name = 'Read Method',
         description = '',
@@ -2541,6 +2559,10 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
 
     def invoke(self, context, event):
         self.invoke_operator(context)
+
+        # Skip dialog box if fail happen
+        if self.fail_self_load:
+            return self.execute(context)
 
         self.mat_coll.clear()
 
@@ -2586,6 +2608,10 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
         self.draw_operator(context, display_relative_toggle=False)
 
     def execute(self, context):
+
+        if self.fail_self_load:
+            self.report({'ERROR'}, "Material asset can't be the same as the active material!")
+            return {'CANCELLED'}
 
         if self.mat_name == '':
             self.report({'ERROR'}, "Source material cannot be empty!")
