@@ -46,7 +46,6 @@ if "bpy" in locals():
     importlib.reload(BakeToLayer)
     importlib.reload(Root)
     importlib.reload(versioning)
-    importlib.reload(addon_updater_ops)
     importlib.reload(Test)
     importlib.reload(credits_ui)
 else:
@@ -54,7 +53,6 @@ else:
     from . import BaseOperator, image_ops, common, bake_common, modifier_common, lib, Decal, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
     from . import vector_displacement_lib, vector_displacement
     from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
-    from . import addon_updater_ops
     from . import Test
     from . import credits_ui
 
@@ -85,7 +83,6 @@ def register():
     BakeToLayer.register()
     Root.register()
     versioning.register()
-    addon_updater_ops.register()
     Test.register()
     credits_ui.register()
 
@@ -117,7 +114,6 @@ def unregister():
     BakeToLayer.unregister()
     Root.unregister()
     versioning.unregister()
-    addon_updater_ops.unregister()
     Test.unregister()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is unregistered!')
