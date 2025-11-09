@@ -340,6 +340,12 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
 
+    hide_source_objects : BoolProperty(
+        name = 'Hide Source Objects after Baking',
+        description = 'Hide source objects after baking',
+        default = True
+    )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -726,6 +732,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.separator()
             col.label(text='')
 
+        if is_bl_newer_than(2, 79) and self.type.startswith('OTHER_OBJECT_'):
+            col.separator()
+            col.label(text='')
+
         col = row.column(align=False)
 
         if not self.overwrite_current:
@@ -838,6 +848,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             ccol = col.column(align=True)
             #ccol.active = not self.use_udim
             ccol.prop(self, 'use_image_atlas')
+
+        if is_bl_newer_than(2, 79) and self.type.startswith('OTHER_OBJECT_'):
+            ccol = col.column(align=True)
+            ccol.prop(self, 'hide_source_objects')
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}

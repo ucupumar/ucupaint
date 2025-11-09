@@ -1970,7 +1970,8 @@ def get_bake_properties_from_self(self):
         'blur',
         'blur_type',
         'blur_factor',
-        'blur_size'
+        'blur_size',
+        'hide_source_objects'
     ]
 
     for prop in props:
@@ -4040,7 +4041,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     recover_bake_settings(book, yp, mat=mat)
 
     # Hide other objects after baking
-    if is_bl_newer_than(2, 79) and bprops.type.startswith('OTHER_OBJECT_') and other_objs:
+    if is_bl_newer_than(2, 79) and bprops.type.startswith('OTHER_OBJECT_') and other_objs and bprops.hide_source_objects:
         for oo in other_objs:
             oo.hide_viewport = True
 
