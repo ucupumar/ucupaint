@@ -3460,7 +3460,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             color = [0.5, 0.5, 0.5, 1.0]
 
         # Make image transparent if its baked from other objects
-        if bprops.type.startswith('OTHER_OBJECT_'):
+        if bprops.type.startswith('OTHER_OBJECT_NORMAL'):
+            color = [0.5, 0.5, 1.0, 0.0]
+        elif bprops.type.startswith('OTHER_OBJECT_'):
             color = [0.0, 0.0, 0.0, 0.0]
 
         # New target image

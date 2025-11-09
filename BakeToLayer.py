@@ -657,8 +657,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             if self.use_cage:
                 col.label(text='Cage Object:')
                 col.label(text='Cage Extrusion:')
-                if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
-                    col.label(text='Max Ray Distance:')
+            else:
+                col.label(text='Extrusion:')
+            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
+                col.label(text='Max Ray Distance:')
         elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
             col.label(text='')
         elif self.type == 'AO':
@@ -740,9 +742,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'use_cage')
             if self.use_cage:
                 col.prop_search(self, "cage_object_name", self, "cage_object_coll", text='', icon='OBJECT_DATA')
-                col.prop(self, 'cage_extrusion', text='')
-                if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
-                    col.prop(self, 'max_ray_distance', text='')
+            col.prop(self, 'cage_extrusion', text='')
+            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
+                col.prop(self, 'max_ray_distance', text='')
         elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
             col.prop(self, 'normalize', text='Normalize Pointiness')
         elif self.type == 'AO':
