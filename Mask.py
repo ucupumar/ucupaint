@@ -957,15 +957,11 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'AO':
             col = self.layout.column(align=True)
-            col.alert = True
             col.label(text='Realtime AO can look different in baked/rendered view!', icon='ERROR')
-            col.alert = False
 
         elif self.type == 'EDGE_DETECT':
             col = self.layout.column(align=True)
-            col.alert = True
             col.label(text='Realtime Edge Detect can look different in baked/rendered view!', icon='ERROR')
-            col.alert = False
 
     def execute(self, context):
         if hasattr(self, 'auto_cancel') and self.auto_cancel: return {'CANCELLED'}
