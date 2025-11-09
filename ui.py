@@ -4297,38 +4297,6 @@ def main_draw(self, context):
     #layout.operator("wm.y_debug_mesh", icon='MESH_DATA')
     #layout.operator("wm.y_test_ray", icon='MESH_DATA')
 
-    from . import addon_updater_ops
-
-    updater = addon_updater_ops.updater
-
-    if not updater.auto_reload_post_update:
-        saved_state = updater.json
-        if "just_updated" in saved_state and saved_state["just_updated"]:
-            row_update = layout.row()
-            row_update.alert = True
-            row_update.operator(
-                "wm.quit_blender",
-                text="Restart blender to complete update",
-                icon="ERROR"
-            )
-            return
-        
-    # Auto-update notification
-    if updater.update_ready and not ypui.hide_update and not ypup.hide_update_notification:
-        row_update = layout.row(align=True)
-        row_update.alert = True
-        if updater.using_development_build:
-            update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
-            row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
-        else:
-            row_update.operator(
-                addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                text="Update to "+get_addon_title()+" "+get_version_str(updater.update_version)
-            )
-        row_update.alert = False
-
-        row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
-
     # Extension platform update notification
     if is_online() and not ypup.hide_update_notification and ypui.extension_update_state == 'AVAILABLE':
         col = layout.column()
@@ -5845,42 +5813,6 @@ def draw_ypaint_about(self, context):
 
     # for cl, key in enumerate(previews_users.contributors.keys()):
     #     col.operator('wm.url_open', text=key, icon=icon_name).url = previews_users.contributors[key]["url"]
-
-    from . import addon_updater_ops
-    updater = addon_updater_ops.updater
-
-    col.separator()
-    row = col.row()            
-    if updater.using_development_build:
-        if addon_updater_ops.updater.legacy_blender:
-            row.label(text="Branch: Master (Blender 2.7x)")
-        else:
-            row.label(text="Branch: "+updater.current_branch)
-    else:
-        row.label(text="Branch: Stable ("+get_version_str(updater.current_version)+")")
-    if addon_updater_ops.updater.legacy_blender:
-        col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
-    else:
-        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-        row.menu(addon_updater_ops.UpdaterSettingMenu.bl_idname, text='', icon=icon)
-
-    if updater.async_checking:
-        col.enabled = False
-        col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text="Checking...")
-    elif updater.update_ready:
-        col.alert = True
-        if updater.using_development_build:
-            update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
-            col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
-        else:
-            col.operator(
-                addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                text="Update to "+get_addon_title()+" "+get_version_str(updater.update_version)
-            )
-        col.label(text="Update is available!")
-    elif is_online() or updater.current_branch != None:
-        col.operator(addon_updater_ops.RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
-        col.label(text=get_addon_title()+" is up to date")
 
 class YPaintAboutPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_about_popover"
@@ -8489,7 +8421,7 @@ def register():
         bpy.app.handlers.depsgraph_update_post.append(ypui_cache_timer_check)
     
     # NOTE: Extension platform update notification is only for no-auto-update branch
-    if False and is_bl_newer_than(4, 2):
+    if True and is_bl_newer_than(4, 2):
         check_latest_extension_version()
 
 def unregister():
