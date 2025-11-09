@@ -175,6 +175,12 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         default=0.2, min=0.0, max=1.0
     )
 
+    use_transparent_for_missing_rays : BoolProperty(
+        name = 'Use Transparent for Missing Rays',
+        description = 'Use transparent for missing rays',
+        default = True
+    )
+
     use_udim : BoolProperty(
         name = 'Use UDIM Tiles',
         description = 'Use UDIM Tiles',

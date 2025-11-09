@@ -1943,6 +1943,7 @@ def get_bake_properties_from_self(self):
         'cage_object_name',
         'cage_extrusion',
         'max_ray_distance',
+        'use_transparent_for_missing_rays',
         'normalize',
         'ao_distance',
         'bevel_samples',
@@ -3461,7 +3462,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
         # Make image transparent if its baked from other objects
         if bprops.type.startswith('OTHER_OBJECT_NORMAL'):
-            color = [0.5, 0.5, 1.0, 0.0]
+            if bprops.use_transparent_for_missing_rays:
+                color = [0.5, 0.5, 1.0, 0.0]
+            else: color = [0.5, 0.5, 1.0, 1.0]
         elif bprops.type.startswith('OTHER_OBJECT_'):
             color = [0.0, 0.0, 0.0, 0.0]
 
@@ -3605,7 +3608,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
 
             else:
-                alpha_found = True
+                alpha_found = bprops.use_transparent_for_missing_rays
 
             if alpha_found:
 

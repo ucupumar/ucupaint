@@ -208,6 +208,12 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default=0.2, min=0.0, max=1.0
     )
 
+    use_transparent_for_missing_rays : BoolProperty(
+        name = 'Use Transparent for Missing Rays',
+        description = 'Use transparent for missing rays',
+        default = True
+    )
+
     normalize : BoolProperty(
         name = 'Normalize Bake Result',
         description = 'Normalize the bake result',
@@ -602,7 +608,11 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         if not requires_popup and get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
-        return context.window_manager.invoke_props_dialog(self, width=320)
+        width = 320
+        if self.type in {'OTHER_OBJECT_NORMAL'}:
+            width = 350
+
+        return context.window_manager.invoke_props_dialog(self, width=width)
 
     def check(self, context):
         self.check_operator(context)
@@ -661,6 +671,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 col.label(text='Extrusion:')
             if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
                 col.label(text='Max Ray Distance:')
+            if self.type in {'OTHER_OBJECT_NORMAL'}:
+                col.label(text='')
         elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
             col.label(text='')
         elif self.type == 'AO':
@@ -745,6 +757,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'cage_extrusion', text='')
             if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
                 col.prop(self, 'max_ray_distance', text='')
+            if self.type in {'OTHER_OBJECT_NORMAL'}:
+                col.prop(self, 'use_transparent_for_missing_rays')
         elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
             col.prop(self, 'normalize', text='Normalize Pointiness')
         elif self.type == 'AO':
