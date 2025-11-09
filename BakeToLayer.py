@@ -615,7 +615,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             return self.execute(context)
 
         width = 320
-        if self.type in {'OTHER_OBJECT_NORMAL'}:
+        if self.type.startswith('OTHER_OBJECT_'):
             width = 350
 
         return context.window_manager.invoke_props_dialog(self, width=width)
