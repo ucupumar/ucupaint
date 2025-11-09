@@ -4440,13 +4440,18 @@ def main_draw(self, context):
     row = layout.row(align=True)
     rrow = row.row(align=True)
 
+    label = pgettext_iface('Channels')
+
+    if yp.layer_preview_mode and not ypui.show_channels and yp.active_channel_index < len(yp.channels):
+        label += ' (Active: '+yp.channels[yp.active_channel_index].name+')'
+
     if is_bl_newer_than(2, 80):
         rrow.alignment = 'LEFT'
         rrow.scale_x = 0.95
-        rrow.prop(ypui, 'show_channels', emboss=False, text='Channels', icon=icon)
+        rrow.prop(ypui, 'show_channels', emboss=False, text=label, icon=icon)
     else:
         rrow.prop(ypui, 'show_channels', emboss=False, text='', icon=icon)
-        rrow.label(text='Channels')
+        rrow.label(text=label)
 
     #if (baked_found or yp.use_baked) and not group_tree.users > 1:
     #    rrow = row.row(align=True)
