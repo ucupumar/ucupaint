@@ -1943,6 +1943,7 @@ def get_bake_properties_from_self(self):
         'cage_object_name',
         'cage_extrusion',
         'max_ray_distance',
+        'use_transparent_for_missing_rays',
         'normalize',
         'ao_distance',
         'bevel_samples',
@@ -1969,7 +1970,8 @@ def get_bake_properties_from_self(self):
         'blur',
         'blur_type',
         'blur_factor',
-        'blur_size'
+        'blur_size',
+        'hide_source_objects'
     ]
 
     for prop in props:
@@ -3460,7 +3462,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             color = [0.5, 0.5, 0.5, 1.0]
 
         # Make image transparent if its baked from other objects
-        if bprops.type.startswith('OTHER_OBJECT_'):
+        if bprops.type.startswith('OTHER_OBJECT_NORMAL'):
+            if bprops.use_transparent_for_missing_rays:
+                color = [0.5, 0.5, 1.0, 0.0]
+            else: color = [0.5, 0.5, 1.0, 1.0]
+        elif bprops.type.startswith('OTHER_OBJECT_'):
             color = [0.0, 0.0, 0.0, 0.0]
 
         # New target image
@@ -3603,7 +3609,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
 
             else:
-                alpha_found = True
+                alpha_found = bprops.use_transparent_for_missing_rays
 
             if alpha_found:
 
@@ -4035,7 +4041,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     recover_bake_settings(book, yp, mat=mat)
 
     # Hide other objects after baking
-    if is_bl_newer_than(2, 79) and bprops.type.startswith('OTHER_OBJECT_') and other_objs:
+    if is_bl_newer_than(2, 79) and bprops.type.startswith('OTHER_OBJECT_') and other_objs and bprops.hide_source_objects:
         for oo in other_objs:
             oo.hide_viewport = True
 

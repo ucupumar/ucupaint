@@ -1,9 +1,11 @@
-import bpy, re, time, os, sys
+import bpy, re, time, os, sys, json
+import requests, threading
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal
 from .common import *
+from .credits_ui import get_collaborators, check_contributors
 
 USE_CACHE_DELTA = 1000
 
@@ -4236,7 +4238,9 @@ def main_draw(self, context):
     rrow.alignment = 'RIGHT'
     if not is_bl_newer_than(2, 80):
         rrow.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
-    else: rrow.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
+    else: 
+        row.popover("NODE_PT_ypaint_about_popover", text='', icon='HELP')
+        row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
 
     if ypui.show_object:
         box = layout.box()
@@ -4436,13 +4440,18 @@ def main_draw(self, context):
     row = layout.row(align=True)
     rrow = row.row(align=True)
 
+    label = pgettext_iface('Channels')
+
+    if yp.layer_preview_mode and not ypui.show_channels and yp.active_channel_index < len(yp.channels):
+        label += ' (Active: '+yp.channels[yp.active_channel_index].name+')'
+
     if is_bl_newer_than(2, 80):
         rrow.alignment = 'LEFT'
         rrow.scale_x = 0.95
-        rrow.prop(ypui, 'show_channels', emboss=False, text='Channels', icon=icon)
+        rrow.prop(ypui, 'show_channels', emboss=False, text=label, icon=icon)
     else:
         rrow.prop(ypui, 'show_channels', emboss=False, text='', icon=icon)
-        rrow.label(text='Channels')
+        rrow.label(text=label)
 
     #if (baked_found or yp.use_baked) and not group_tree.users > 1:
     #    rrow = row.row(align=True)
@@ -4714,8 +4723,17 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     #    layout = self.layout
     #    row = layout.row(align=True)
 
-    #    row.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
+    #    threshold = 250 * context.preferences.system.ui_scale
+    #    if context.region.width > threshold:
+    #        row.popover('VIEW3D_PT_ypaint_support_ui', text="Support Us", icon='FUND')
+    #    else:
+    #        row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
 
+    #def draw_header_preset(self, context):
+    #    layout = self.layout
+    #    row = layout.row(align=True)
+
+    #    row.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
     def draw(self, context):
         main_draw(self, context)
 
@@ -5510,6 +5528,8 @@ class YPAssetBrowserMenu(bpy.types.Menu):
     def draw(self, context):
         obj = context.object
 
+        active_mat = get_active_material()
+
         mat_asset = getattr(context, 'mat_asset', None)
         mat_name = mat_asset.name if mat_asset else ''
         asset_library_path = mat_asset.full_library_path if mat_asset else ''
@@ -5517,6 +5537,7 @@ class YPAssetBrowserMenu(bpy.types.Menu):
         op = self.layout.operator("wm.y_open_images_from_material_to_single_layer", icon_value=lib.get_icon('image'), text='Open Material Images to Layer')
         op.mat_name = mat_name
         op.asset_library_path = asset_library_path
+        op.fail_self_load = active_mat != None and active_mat.asset_data != None and mat_name == active_mat.name and asset_library_path == ''
 
         if obj.type == 'MESH':
             op.texcoord_type = 'UV'
@@ -5616,21 +5637,100 @@ def draw_yp_file_browser_menu(self, context):
 
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
-    col.label(text=get_addon_title() + ' is created by:')
-    icon_name = 'USER' if is_bl_newer_than(2, 80) else 'ARMATURE_DATA'
-    col.operator('wm.url_open', text='ucupumar', icon=icon_name).url = 'https://github.com/sponsors/ucupumar'
-    col.operator('wm.url_open', text='arsa', icon=icon_name).url = 'https://sites.google.com/view/arsanagara'
-    col.operator('wm.url_open', text='swifterik', icon=icon_name).url = 'https://jblaha.art/'
-    col.operator('wm.url_open', text='rifai', icon=icon_name).url = 'https://github.com/rifai'
-    col.operator('wm.url_open', text='morirain', icon=icon_name).url = 'https://github.com/morirain'
-    col.operator('wm.url_open', text='kareemov03', icon=icon_name).url = 'https://www.artstation.com/kareem'
-    col.operator('wm.url_open', text='passivestar', icon=icon_name).url = 'https://github.com/passivestar'
-    col.operator('wm.url_open', text='bappity', icon=icon_name).url = 'https://github.com/bappitybup'
-    col.operator('wm.url_open', text='bittie', icon=icon_name).url = 'https://github.com/BittieByte'
+
+    ypc = context.window_manager.ypui_credits
+
+    # Credits UI currently doesn't work with legacy blenders
+    if is_bl_newer_than(2, 80):
+        check_contributors(ypc)
+    
+    collaborators = get_collaborators()
+    contributors = collaborators.contributors
+    member_count = len(contributors)
+
+    if is_bl_newer_than(2, 80) and is_online() and member_count > 0:
+
+        row_title = col.row(align=True)
+        row_title_label = row_title.row(align=True)
+
+        row_title_label.label(text=get_addon_title() + ' is created by:')
+
+        paging_layout = row_title.row(align=True)
+        paging_layout.alignment = 'RIGHT'
+        # NOTE: HACK: Older blender need paging scale_x to avoid the label from being cut
+        if not is_bl_newer_than(3):
+            paging_layout.scale_x = 0.95
+
+        cont_setting = collaborators.contributor_settings
+
+        column_num = cont_setting.get('column_num', 3)
+        per_page_item = cont_setting.get('per_page_item', 9)
+        current_page = ypc.page_collaborators
+
+        grid = col.grid_flow(row_major=True, columns=column_num, even_columns=True, even_rows=True, align=True)
+
+        paged_contributors = list(contributors.values())[current_page*per_page_item:(current_page+1)*per_page_item]
+        missing_column = column_num - (len(paged_contributors) % column_num)
+
+        for cl, item in enumerate(paged_contributors):
+            rw = grid.column(align=True)
+
+            thumb = item['thumb']
+            if not thumb:
+                thumb = collaborators.loading_pic
+                
+            rw.template_icon(icon_value = thumb, scale = 3.0)
+
+            user_name = item["name"].strip()
+            if user_name == '':
+                user_name = item["id"]
+            rw.operator('wm.url_open', text=user_name, emboss=False).url = item["url"]
+
+        if missing_column != column_num:
+            for i in range(missing_column):
+                rw = grid.column(align=True)
+
+                rw.template_icon(icon_value = collaborators.default_pic, scale = 3.0)
+                rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
+
+        if member_count > per_page_item:
+            prev = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_LEFT')
+            prev.is_next_button = False
+            prev.max_page = (member_count + per_page_item - 1) // per_page_item
+
+            paging_layout.label(text=str(current_page+1)+'/'+str(prev.max_page))
+
+            next = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_RIGHT')
+            next.is_next_button = True
+            next.max_page = prev.max_page
+
+        #col.separator()
+        #col.operator('wm.url_open', text='View Contributor Graph', icon='SEQ_HISTOGRAM').url = collaborators.default_contributors_url
+    else:
+        if not is_bl_newer_than(2, 80):
+            col.label(text='Support '+get_addon_title() + '!')
+            col.operator('wm.url_open', text="Become a Sponsor", icon='POSE_DATA').url = collaborators.default_url
+
+        col.label(text=get_addon_title() + ' is created by: ')
+        col.operator('wm.url_open', text='View All Contributors', icon='BOIDS').url = collaborators.default_contributors_url
+        if is_online() and is_bl_newer_than(2, 80):
+            col.separator()
+            if ypc.connection_status == "FAILED":
+                col.label(text="Failed to load contributors.", icon='ERROR')
+                col.operator('wm.y_force_refresh_sponsors', text='Reload sponsors', icon='FILE_REFRESH')
+            else:
+                col.label(text="Loading contributors...", icon='TIME')
+
     col.separator()
 
-    col.label(text='Documentation:')
+    col.label(text='Links:')
     col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
+    col.operator('wm.url_open', text=get_addon_title()+' GitHub', icon='SCRIPT').url = 'https://github.com/ucupumar/ucupaint'
+    icon = 'COMMUNITY' if is_bl_newer_than(2, 80) else 'SEQ_SEQUENCER'
+    col.operator('wm.url_open', text=get_addon_title()+' Discord Server', icon=icon).url = 'https://discord.gg/BdNfGGzQHh'
+
+    # for cl, key in enumerate(previews_users.contributors.keys()):
+    #     col.operator('wm.url_open', text=key, icon=icon_name).url = previews_users.contributors[key]["url"]
 
     from . import addon_updater_ops
     updater = addon_updater_ops.updater
@@ -5910,9 +6010,9 @@ class YNewLayerMenu(bpy.types.Menu):
 
             c = col.operator("wm.y_new_layer", text='Background w/ '+get_vertex_color_label()+' Mask')
 
-        c.type = 'BACKGROUND'
-        c.add_mask = True
-        c.mask_type = 'VCOL'
+            c.type = 'BACKGROUND'
+            c.add_mask = True
+            c.mask_type = 'VCOL'
 
         if is_bl_newer_than(3, 2):
             col.separator()
@@ -8226,7 +8326,7 @@ def register():
     # Add yPaint node ui
     bpy.types.NODE_MT_add.append(add_new_ypaint_node_menu)
 
-    if is_bl_newer_than(3):
+    if is_bl_newer_than(4):
         bpy.types.ASSETBROWSER_MT_context_menu.append(draw_yp_asset_browser_menu)
 
     if is_bl_newer_than(2, 81):
@@ -8310,7 +8410,7 @@ def unregister():
     # Remove add yPaint node ui
     bpy.types.NODE_MT_add.remove(add_new_ypaint_node_menu)
 
-    if is_bl_newer_than(3):
+    if is_bl_newer_than(4):
         bpy.types.ASSETBROWSER_MT_context_menu.remove(draw_yp_asset_browser_menu)
 
     if is_bl_newer_than(2, 81):
