@@ -769,9 +769,9 @@ def draw_input_prop(layout, entity, prop_name, emboss=None, text=''):
         if inp: layout.prop(inp, 'default_value', text=text)
         else: layout.prop(entity, prop_name, text=text) 
 
-def draw_mask_modifier_stack(layer, mask, layout, ui):
+def draw_mask_modifier_stack(layer, mask, layout, ui, layer_tree):
     ypui = bpy.context.window_manager.ypui
-    tree = get_mask_tree(mask)
+    tree = get_mask_tree(mask, layer_tree)
 
     for i, m in enumerate(mask.modifiers):
 
@@ -2853,9 +2853,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
         if specific_mask and specific_mask != mask: continue
 
-
         mask_image = None
-        mask_tree = get_mask_tree(mask)
+        mask_tree = get_mask_tree(mask, layer_tree)
         mask_source = mask_tree.nodes.get(mask.source)
         mask_vcol_name = ''
         socket_input_name = get_mask_input_socket_name(mask, mask_source) if mask_source else ''
@@ -3007,7 +3006,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
             rrcol.separator()
 
-        draw_mask_modifier_stack(layer, mask, rrcol, maskui)
+        draw_mask_modifier_stack(layer, mask, rrcol, maskui, layer_tree)
 
         # Source row
         srow = split_layout(rrcol, 0.35, align=False)
@@ -3117,7 +3116,6 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 rrow.label(text='', icon='BLANK1')
                 rrow.label(text=label_text)
 
-            mask_src = get_mask_source(mask)
             texcoord = layer_tree.nodes.get(mask.texcoord)
 
             rrow = srow.row(align=True)
@@ -3134,6 +3132,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 #rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
             elif mask.type == 'IMAGE' and mask.texcoord_type in {'Generated', 'Object'} and not maskui.expand_vector:
+                mask_src = get_mask_source(mask)
+
                 rrrow = split_layout(rrow, 0.5, align=True)
 
                 rrrow.prop(mask, 'texcoord_type', text='')
@@ -3157,6 +3157,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 is_using_image_atlas = mask_image and (mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas)
 
                 if mask.type == 'IMAGE' and mask.texcoord_type in {'Generated', 'Object'}:
+                    mask_src = get_mask_source(mask)
+
                     splits = split_layout(boxcol, 0.5, align=True)
                     splits.label(text='Projection Blend:')
                     splits.prop(mask_src, 'projection_blend', text='')
@@ -3255,6 +3257,168 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
         if not specific_mask and i < len(layer.masks)-1:
             col.separator()
+
+def is_gamma_incorrect(gamma, linear_node):
+    return (
+        (gamma == 1.0 and linear_node) or
+        (gamma != 1.0 and (not linear_node or not isclose(linear_node.inputs[1].default_value, gamma, rel_tol=1e-5)))
+    )
+
+def any_yp_problems(yp, vcols=[]):
+    #T = time.time()
+
+    scene = bpy.context.scene
+    obj = bpy.context.object
+
+    linear_problem = False
+    ao_problem = False
+    missing_data = False
+
+    gtao_not_used = is_bl_newer_than(2, 93) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao
+
+    for layer in yp.layers:
+        if not get_layer_enabled(layer): continue
+
+        layer_tree = None
+        layer_source = None
+
+        # Check for AO problem
+        if gtao_not_used and not ao_problem and layer.type in {'EDGE_DETECT', 'AO'}:
+            ao_problem = True
+
+        # Check for linear problem on legacy blender source node
+        if not linear_problem:
+
+            # Blender 2.7x has color space option on the node 
+            if not is_bl_newer_than(2, 80) and layer.type == 'IMAGE':
+                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
+
+                if layer_source:
+                    if layer_source.color_space == 'NONE' and yp.use_linear_blending:
+                        linear_problem = True
+                    if layer_source.color_space == 'COLOR' and not yp.use_linear_blending:
+                        linear_problem = True
+
+        # Check for linear problem on layer source
+        if not linear_problem:
+            if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+            if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
+
+            gamma = get_layer_gamma_value(layer, layer_source, layer_enabled=True)
+            source_tree = get_source_tree(layer, layer_tree)
+            linear = source_tree.nodes.get(layer.linear)
+
+            if is_gamma_incorrect(gamma, linear):
+                linear_problem = True
+
+        # Check for missing data
+        if not missing_data:
+            if layer.type in {'IMAGE' , 'VCOL'}:
+                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
+
+                if (
+                        not layer_source or
+                        (layer.type == 'IMAGE' and not layer_source.image) or 
+                        (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, layer_source))
+                    ):
+                    missing_data = True
+
+        # Channels loop
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
+            if not get_channel_enabled(ch, layer, root_ch): continue
+
+            channel_source_tree = None
+            channel_source = None
+
+            # Check for linear problem on channel source
+            if not linear_problem:
+                if channel_source_tree == None: channel_source_tree = get_channel_source_tree(ch, layer) # Optimization
+                if channel_source == None: channel_source = get_channel_source(ch, layer, channel_source_tree) # Optimization
+                if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
+
+                gamma = get_layer_channel_gamma_value(ch, layer, root_ch, channel_source=channel_source, layer_source=layer_source, channel_enabled=True)
+                linear = channel_source_tree.nodes.get(ch.linear)
+
+                if is_gamma_incorrect(gamma, linear):
+                    linear_problem = True
+
+            # Check for missing channel source data
+            if not missing_data:
+                if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                    if channel_source == None: 
+                        if channel_source_tree == None: channel_source_tree = get_channel_source_tree(ch, layer) # Optimization
+                        channel_source = get_channel_source(ch, layer, channel_source_tree)
+                    if (
+                            not channel_source or
+                            (ch.override_type == 'IMAGE' and not channel_source.image) or 
+                            (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, channel_source))
+                        ):
+                        missing_data = True
+
+            if root_ch.type == 'NORMAL':
+
+                # Check for linear problem on normal channel source
+                if not linear_problem:
+                    if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                    gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch, layer_tree=layer_tree, channel_enabled=True)
+                    linear_1 = layer_tree.nodes.get(ch.linear_1)
+                    if is_gamma_incorrect(gamma_1, linear_1):
+                        linear_problem = True
+
+                # Check for missing normal channel source data
+                if not missing_data:
+                    if ch.override_1 and ch.override_1_type == 'IMAGE':
+                        if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                        normal_channel_source = get_channel_source_1(ch, layer, layer_tree)
+                        if not normal_channel_source or not normal_channel_source.image:
+                            missing_data = True
+
+        # Masks loop
+        for mask in layer.masks:
+            if not get_mask_enabled(mask, layer): continue
+
+            mask_tree = None
+            mask_source = None
+
+            # Check for AO problem
+            if gtao_not_used and not ao_problem and mask.type in {'EDGE_DETECT', 'AO'}:
+                ao_problem = True
+
+            # Check for linear problem on mask
+            if not linear_problem:
+                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                if mask_tree == None: mask_tree = get_mask_tree(mask, layer_tree) # Optimization
+                if mask_source == None: mask_source = mask_tree.nodes.get(mask.source) # Optimization
+
+                gamma = get_layer_mask_gamma_value(mask, mask_tree=mask_tree, mask_source=mask_source, mask_enabled=True)
+                linear = mask_tree.nodes.get(mask.linear)
+                if is_gamma_incorrect(gamma, linear):
+                    linear_problem = True
+
+            # Check for missing mask source data
+            if not missing_data:
+                if mask.type in {'IMAGE' , 'VCOL'}:
+                    if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                    if mask_tree == None: mask_tree = get_mask_tree(mask, layer_tree) # Optimization
+                    if mask_source == None: mask_source = mask_tree.nodes.get(mask.source)
+
+                    if (
+                            not mask_source or
+                            (mask.type == 'IMAGE' and mask_source and not mask_source.image) or 
+                            (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_source))
+                        ):
+                        missing_data = True
+
+                elif mask.type == 'COLOR_ID':
+                    if obj.type == 'MESH' and COLOR_ID_VCOL_NAME not in vcols:
+                        missing_data = True
+
+    #print(get_addon_title()+': YP problems are calculated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
+    return linear_problem, ao_problem, missing_data
 
 def draw_layers_ui(context, layout, node):
 
@@ -3375,7 +3539,6 @@ def draw_layers_ui(context, layout, node):
             # If enabled or a baked vertex color is found
             if root_ch.use_baked_vcol or baked_vcol_node:
                 obj = context.object
-                vcols = get_vertex_colors(obj)
                 vcol_name = root_ch.bake_to_vcol_name
                 vcol = vcols.get(vcol_name)
 
@@ -3533,62 +3696,15 @@ def draw_layers_ui(context, layout, node):
     #        #box.prop(ypui, 'make_image_single_user')
     #        return
 
-    # NOTE: Avoid checking missing data when in modal operation to avoid performance loss
+    # NOTE: Avoid checking missing data, linear colors, and AO problems when in modal operation to avoid performance loss
     if use_cache:
         missing_data = ypui.cache_missing_data
+        linear_problem = ypui.cache_linear_problem
+        ao_problem = ypui.cache_ao_problem
     else:
-        # Check for missing data
-        missing_data = False
-        for layer in yp.layers:
-            if layer.type in {'IMAGE' , 'VCOL'}:
-                src = get_layer_source(layer)
-
-                if (
-                        not src or
-                        (layer.type == 'IMAGE' and not src.image) or 
-                        (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
-                    ):
-                    missing_data = True
-                    break
-
-            # Also check mask source
-            for mask in layer.masks:
-                if mask.type in {'IMAGE' , 'VCOL'}:
-                    mask_src = get_mask_source(mask)
-
-                    if (
-                            not mask_src or
-                            (mask.type == 'IMAGE' and mask_src and not mask_src.image) or 
-                            (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_src))
-                        ):
-                        missing_data = True
-                        break
-
-                if mask.type == 'COLOR_ID':
-                    if obj.type == 'MESH' and COLOR_ID_VCOL_NAME not in vcols:
-                        missing_data = True
-                        break
-
-            for ch in layer.channels:
-                if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
-                    src = get_channel_source(ch, layer)
-                    if (
-                            not src or
-                            (ch.override_type == 'IMAGE' and not src.image) or 
-                            (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
-                        ):
-                        missing_data = True
-                        break
-
-                if ch.override_1 and ch.override_1_type == 'IMAGE':
-                    src = get_channel_source_1(ch, layer)
-                    if not src or not src.image:
-                        missing_data = True
-                        break
-
-            if missing_data:
-                break
-
+        linear_problem, ao_problem, missing_data = any_yp_problems(yp, vcols)
+        ypui.cache_linear_problem = linear_problem
+        ypui.cache_ao_problem = ao_problem
         ypui.cache_missing_data = missing_data
     
     # Show missing data button
@@ -3698,18 +3814,16 @@ def draw_layers_ui(context, layout, node):
                     #mask = m
                     mask = entity = m
                     mask_idx = i
-                    source = get_mask_source(m)
                     if m.use_baked:
-                        mask_tree = get_mask_tree(m)
+                        mask_tree = get_mask_tree(m, layer_tree)
                         baked_source = mask_tree.nodes.get(m.baked_source)
                         if baked_source:
                             mask_image = baked_source.image
                     elif m.type == 'IMAGE':
-                        #mask_tree = get_mask_tree(m)
-                        #source = mask_tree.nodes.get(m.source)
-                        #image = source.image
+                        source = get_mask_source(m)
                         mask_image = source.image
                     elif m.type == 'VCOL' and is_a_mesh:
+                        source = get_mask_source(m)
                         mask_vcol = get_vcol_from_source(obj, source)
                     elif m.type == 'COLOR_ID' and is_a_mesh:
                         colorid_vcol = vcols.get(COLOR_ID_VCOL_NAME)
@@ -3840,27 +3954,6 @@ def draw_layers_ui(context, layout, node):
         mask_socket_input_name = ''
         if mask and source:
             mask_socket_input_name = get_mask_input_socket_name(mask, source)
-
-        # NOTE: Avoid checking linear and AO problem when in modal operation to avoid performance loss
-        if use_cache:
-            linear_problem = ypui.cache_linear_problem
-            ao_problem = ypui.cache_ao_problem
-        else: 
-            # Check if any images aren't using proper linear pipelines
-            linear_problem = ypui.cache_linear_problem = any_linear_images_problem(yp)
-
-            # Check if there's AO problem
-            ao_problem = False
-            if is_bl_newer_than(2, 93) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao:
-                for l in yp.layers:
-                    if l.type in {'EDGE_DETECT', 'AO'} and l.enable:
-                        ao_problem = True
-                        break
-                    for m in l.masks:
-                        if m.type in {'EDGE_DETECT', 'AO'} and get_mask_enabled(m, l):
-                            ao_problem = True
-                            break
-            ypui.cache_ao_problem = ao_problem
 
         if linear_problem:
             bbox = col.box()
@@ -4561,12 +4654,13 @@ def main_draw(self, context):
 
         for layer in yp.layers:
             if not layer.enable: continue
+            layer_tree = get_tree(layer)
             if layer.type == 'IMAGE':
-                src = get_layer_source(layer)
+                src = get_layer_source(layer, layer_tree)
                 if src.image and src.image not in images:
                     images.append(src.image)
             elif layer.type == 'VCOL':
-                src = get_layer_source(layer)
+                src = get_layer_source(layer, layer_tree)
                 vcol_name = get_source_vcol_name(src)
                 if vcol_name != '' and vcol_name not in vcols:
                     vcols.append(vcol_name)
@@ -4577,7 +4671,6 @@ def main_draw(self, context):
                 if ch.enable:
                     if ch.override:
                         if ch.override_type == 'IMAGE':
-                            #src = get_layer_source(layer)
                             src = get_channel_source(ch, layer)
                             if src.image and src.image not in images:
                                 images.append(src.image)
@@ -4590,8 +4683,7 @@ def main_draw(self, context):
                             num_gen_texs += 1
                     if ch.override_1:
                         if ch.override_1_type == 'IMAGE':
-                            ltree = get_tree(layer)
-                            src = ltree.nodes.get(ch.source_1)
+                            src = layer_tree.nodes.get(ch.source_1)
                             if src.image and src.image not in images:
                                 images.append(src.image)
 
@@ -4619,17 +4711,17 @@ def main_draw(self, context):
 
             for mask in layer.masks:
                 if not mask.enable: continue
+                mask_tree = get_mask_tree(mask, layer_tree)
                 if mask.use_baked:
-                    mask_tree = get_mask_tree(mask)
                     src = mask_tree.nodes.get(mask.baked_source)
                     if src.image and src.image not in images:
                         images.append(src.image)
                 elif mask.type == 'IMAGE':
-                    src = get_mask_source(mask)
+                    src = mask_tree.nodes.get(mask.source)
                     if src.image and src.image not in images:
                         images.append(src.image)
                 elif mask.type == 'VCOL':
-                    src = get_mask_source(mask)
+                    src = mask_tree.nodes.get(mask.source)
                     vcol_name = get_source_vcol_name(src)
                     if vcol_name != '' and vcol_name not in vcols:
                         vcols.append(vcol_name)
@@ -5125,7 +5217,7 @@ def layer_listing(layout, layer, show_expand=False):
     active_vcol_mask = None
     mask = None
     for m in selectable_masks:
-        mask_tree = get_mask_tree(m)
+        mask_tree = get_mask_tree(m, layer_tree)
         row = master.row(align=True)
         row.active = m.active_edit
         if m.active_edit:
@@ -5165,19 +5257,21 @@ def layer_listing(layout, layer, show_expand=False):
             else:
                 row.label(text='', icon_value=lib.get_icon('texture'))
         else:
-            socket_input_name = get_mask_input_socket_name(m)
             if m.type == 'IMAGE':
                 src = mask_tree.nodes.get(m.source)
                 if ypup.use_image_preview and src.image.preview: 
                     #if not src.image.preview: src.image.preview_ensure()
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                 else: 
+                    socket_input_name = get_mask_input_socket_name(m, src)
                     if socket_input_name == 'Alpha':
                         row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'image'))
                     elif m.swizzle_input_mode in {'R', 'G', 'B'}:
                         row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[m.swizzle_input_mode]+'image'))
                     else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
             elif m.type == 'VCOL':
+                src = mask_tree.nodes.get(m.source)
+                socket_input_name = get_mask_input_socket_name(m, src)
                 if socket_input_name == 'Alpha':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'vertex_color'))
                 elif m.swizzle_input_mode in {'R', 'G', 'B'}:
@@ -5451,7 +5545,9 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                                 else: row.prop(mask_image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
                     else: row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon('mask'))
                 elif mask.type == 'VCOL':
-                    socket_input_name = get_mask_input_socket_name(mask)
+                    mask_tree = get_mask_tree(mask)
+                    source = mask_tree.nodes.get(mask.source)
+                    socket_input_name = get_mask_input_socket_name(mask, source)
                     if socket_input_name == 'Alpha':
                         row.prop(mask, 'name', text='', emboss=False, icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'vertex_color'))
                     elif mask.swizzle_input_mode in {'R', 'G', 'B'}:
@@ -6966,7 +7062,7 @@ class YLayerMaskMenu(bpy.types.Menu):
             return
 
         if mask.type == 'IMAGE':
-            mask_tree = get_mask_tree(mask)
+            mask_tree = get_mask_tree(mask, layer_tree)
             source = mask_tree.nodes.get(mask.source)
             col.context_pointer_set('image', source.image)
             col.operator('wm.y_invert_image', text='Invert Image', icon='IMAGE_ALPHA')
