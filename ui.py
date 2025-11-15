@@ -4261,7 +4261,7 @@ def draw_test_ui(context, layout):
                 col.label(text=pgettext_iface('Test Failed Count: ') + str(wmyp.test_result_failed))
 
 def main_draw(self, context):
-    T = time.time()
+    #T = time.time()
 
     wm = context.window_manager
     ypui = wm.ypui
@@ -4770,7 +4770,7 @@ def main_draw(self, context):
     # Test
     draw_test_ui(context=context, layout=layout)
 
-    print(get_addon_title()+': UI is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    #print(get_addon_title()+': UI is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
