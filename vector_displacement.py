@@ -1739,9 +1739,9 @@ class YFixVDMMismatchUV(bpy.types.Operator):
         return {'FINISHED'}
 
 class YPaintVDMObjectProps(bpy.types.PropertyGroup):
-    num_verts : IntProperty(default=0)
-    mirror_modifier_name : StringProperty(default='')
-    armature_index : IntProperty(default=0)
+    num_verts = IntProperty(default=0)
+    mirror_modifier_name = StringProperty(default='')
+    armature_index = IntProperty(default=0)
 
 def register():
     bpy.utils.register_class(YSculptImage)

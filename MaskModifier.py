@@ -131,7 +131,7 @@ class YNewMaskModifier(bpy.types.Operator):
     bl_description = "New Mask Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Modifier Type',
         items = mask_modifier_type_items,
         default = 'INVERT'
@@ -164,7 +164,7 @@ class YMoveMaskModifier(bpy.types.Operator):
     bl_description = "Move Mask Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction : EnumProperty(
+    direction = EnumProperty(
         name = 'Direction',
         items = (
             ('UP', 'Up', ''),
@@ -250,28 +250,28 @@ class YRemoveMaskModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMaskModifier(bpy.types.PropertyGroup):
-    enable : BoolProperty(
+    enable = BoolProperty(
         name = 'Enable Modifier',
         description = 'Enable modifier',
         default = True,
         update = update_mask_modifier_enable
     )
 
-    name : StringProperty(default='')
+    name = StringProperty(default='')
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Modifier Type',
         items = mask_modifier_type_items,
         default = 'INVERT'
     )
 
-    ramp : StringProperty(default='')
-    ramp_mix : StringProperty(default='')
-    invert : StringProperty(default='')
-    curve : StringProperty(default='')
+    ramp = StringProperty(default='')
+    ramp_mix = StringProperty(default='')
+    invert = StringProperty(default='')
+    curve = StringProperty(default='')
 
     # UI
-    expand_content : BoolProperty(default=True)
+    expand_content = BoolProperty(default=True)
 
 def register():
     bpy.utils.register_class(YNewMaskModifier)

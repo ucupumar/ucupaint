@@ -24,7 +24,7 @@ class YSetActiveVcol(bpy.types.Operator):
     bl_description = "Set active "+get_vertex_color_label(00)
     bl_options = {'REGISTER', 'UNDO'}
 
-    vcol_name : StringProperty(default='')
+    vcol_name = StringProperty(default='')
 
     @classmethod
     def poll(cls, context):
@@ -378,7 +378,7 @@ class YSelectFacesByVcol(bpy.types.Operator):
     bl_description = "Select faces based on "+get_vertex_color_label(00)
     bl_options = {'REGISTER', 'UNDO'}
 
-    color : FloatVectorProperty(
+    color = FloatVectorProperty(
         name = 'Color',
         size = 4,
         subtype = 'COLOR',
@@ -386,7 +386,7 @@ class YSelectFacesByVcol(bpy.types.Operator):
         min=0.0, max=1.0,
     )
 
-    #deselect : BoolProperty(
+    #deselect = BoolProperty(
     #        name='Deselect Faces',
     #        description='Deselect faces with '+get_vertex_color_label(00), 
     #        default=False)
@@ -466,7 +466,7 @@ class YVcolFillFaceCustom(bpy.types.Operator):
     bl_description = "Fill selected polygon with "+get_vertex_color_label(00)+" with custom color"
     bl_options = {'REGISTER', 'UNDO'}
 
-    color : FloatVectorProperty(
+    color = FloatVectorProperty(
         name = 'Color ID',
         size = 4,
         subtype = 'COLOR',
@@ -571,7 +571,7 @@ class YVcolFill(bpy.types.Operator):
     bl_description = "Fill selected polygon with "+get_vertex_color_label(00)
     bl_options = {'REGISTER', 'UNDO'}
 
-    color_option : EnumProperty(
+    color_option = EnumProperty(
         name = 'Color Option',
         description = 'Color Option',
         items = (
@@ -798,25 +798,25 @@ class VIEW3D_PT_y_vcol_editor_tools(bpy.types.Panel):
         vcol_editor_draw(self, context)
 
 class YVcolEditorProps(bpy.types.PropertyGroup):
-    color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(1.0, 1.0, 1.0, 1.0), min=0.0, max=1.0)
-    #palette : PointerProperty(type=bpy.types.Palette)
+    color = FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(1.0, 1.0, 1.0, 1.0), min=0.0, max=1.0)
+    #palette = PointerProperty(type=bpy.types.Palette)
 
-    show_vcol_list : BoolProperty(
+    show_vcol_list = BoolProperty(
         name = 'Show '+get_vertex_color_label()+' List',
         description = 'Show '+get_vertex_color_label(00)+' list',
         default = True
     )
 
-    ori_blending_mode : StringProperty(default='')
-    ori_brush : StringProperty(default='')
+    ori_blending_mode = StringProperty(default='')
+    ori_brush = StringProperty(default='')
 
-    ori_texpaint_blending_mode : StringProperty(default='')
-    ori_texpaint_brush : StringProperty(default='')
-    ori_texpaint_builtin_brush : StringProperty(default='')
+    ori_texpaint_blending_mode = StringProperty(default='')
+    ori_texpaint_brush = StringProperty(default='')
+    ori_texpaint_builtin_brush = StringProperty(default='')
 
-    ori_sculpt_blending_mode : StringProperty(default='')
-    ori_sculpt_brush : StringProperty(default='')
-    ori_sculpt_tool : StringProperty(default='')
+    ori_sculpt_blending_mode = StringProperty(default='')
+    ori_sculpt_brush = StringProperty(default='')
+    ori_sculpt_tool = StringProperty(default='')
 
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
