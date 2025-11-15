@@ -4973,7 +4973,7 @@ def get_output_uv_names_from_geometry_nodes(obj):
     return uv_names
 
 class BaseBakeOperator():
-    bake_device : EnumProperty(
+    bake_device = EnumProperty(
         name = 'Bake Device',
         description = 'Device to use for baking',
         items = (
@@ -4983,20 +4983,20 @@ class BaseBakeOperator():
         default = 'CPU'
     )
     
-    samples : IntProperty(
+    samples = IntProperty(
         name = 'Bake Samples', 
         description = 'Bake Samples, more means less jagged on generated textures', 
         default=1, min=1
     )
 
-    margin : IntProperty(
+    margin = IntProperty(
         name = 'Bake Margin',
         description = 'Bake margin in pixels',
         default = 5,
         subtype = 'PIXEL'
     )
 
-    margin_type : EnumProperty(
+    margin_type = EnumProperty(
         name = 'Margin Type',
         description = '',
         items = (
@@ -5006,16 +5006,16 @@ class BaseBakeOperator():
         default = 'ADJACENT_FACES'
     )
 
-    width : IntProperty(name='Width', default=1024, min=1, max=16384)
-    height : IntProperty(name='Height', default=1024, min=1, max=16384)
+    width = IntProperty(name='Width', default=1024, min=1, max=16384)
+    height = IntProperty(name='Height', default=1024, min=1, max=16384)
 
-    image_resolution : EnumProperty(
+    image_resolution = EnumProperty(
         name = 'Image Resolution',
         items = image_resolution_items,
         default = '1024'
     )
     
-    use_custom_resolution : BoolProperty(
+    use_custom_resolution = BoolProperty(
         name = 'Custom Resolution',
         description = 'Use custom Resolution to adjust the width and height individually',
         default = False
