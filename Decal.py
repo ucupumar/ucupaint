@@ -275,33 +275,33 @@ class YSetDecalObjectPositionToCursor(bpy.types.Operator):
 
 class BaseDecal():
 
-    decal_distance_value : FloatProperty(
+    decal_distance_value = FloatProperty(
         name = 'Decal Distance',
         description = 'Distance between surface and the decal object',
         min=0.0, max=100.0, default=0.5, precision=3
     )
 
-    original_texcoord : EnumProperty(
+    original_texcoord = EnumProperty(
         name = 'Original Texture Coordinate Type',
         items = mask_texcoord_type_items,
         default = 'UV'
     )
 
-    original_image_extension : StringProperty(
+    original_image_extension = StringProperty(
         name = 'Original Image Extension Type',
         default = ''
     )
 
 class YPaintDecalObjectProps(bpy.types.PropertyGroup):
-    enable_shrinkwrap : BoolProperty(
+    enable_shrinkwrap = BoolProperty(
         name = 'Enable Decal Shrinkwrap Constraint',
         description = 'Enable shrinkwrap constraint, so decal object always follow the target object',
         default = False,
         update = update_enable_decal_object_constraint
     )
 
-    last_operator : StringProperty(default='')
-    last_operator_pointer : StringProperty(default='')
+    last_operator = StringProperty(default='')
+    last_operator_pointer = StringProperty(default='')
 
 @persistent
 def ypaint_decal_constraint_update(scene):
