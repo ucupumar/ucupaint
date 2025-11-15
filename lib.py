@@ -270,6 +270,11 @@ icon_synonyms_27x = {
 }
 
 def get_icon(icon_name='', default_icon='QUESTION'):
+
+    # Use global icon dictionary when available for optimization
+    if icon_name in icon_id_dict:
+        return icon_id_dict[icon_name]
+
     ypup = get_user_preferences()
 
     # Get default blender icons
@@ -304,6 +309,10 @@ def get_icon(icon_name='', default_icon='QUESTION'):
     if icon_value == default_value and icon_name in custom_icons:
         icon_value = custom_icons[icon_name].icon_id
 
+    # Set icon value to global dictionary for optimization
+    if icon_name not in icon_id_dict:
+        icon_id_dict[icon_name] = icon_value
+
     return icon_value
 
 def get_icon_folder():
@@ -322,6 +331,10 @@ def get_icon_folder():
     return get_addon_filepath() + 'icons' + os.sep + icon_set.lower() + os.sep
 
 def load_custom_icons():
+    # For icon id getter optimization
+    global icon_id_dict
+    icon_id_dict = {}
+
     import bpy.utils.previews
     # Custom Icon
     if not hasattr(bpy.utils, 'previews'): return

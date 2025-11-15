@@ -7813,38 +7813,42 @@ def get_entity_input_name(entity, prop_name):
 
     return path + '.' + prop_name
 
-def get_entity_prop_input(entity, prop_name):
+def get_entity_prop_input(entity, prop_name, layer=None, path=''):
     root_tree = entity.id_data
     yp = root_tree.yp
 
     # Regex
-    m1 = re.match(r'^yp\.layers\[(\d+)\].*', entity.path_from_id())
-    if m1:
-        layer_index = int(m1.group(1))
-        layer = yp.layers[layer_index]
+    if layer == None:
+        m1 = re.match(r'^yp\.layers\[(\d+)\].*', entity.path_from_id())
+        if m1:
+            layer_index = int(m1.group(1))
+            layer = yp.layers[layer_index]
+        else:
+            return None
     else:
-        return None
+        layer_index = get_layer_index(layer)
 
     # Get layer node
     layer_node = root_tree.nodes.get(layer.group_node)
 
-    # Get path
-    path = entity.path_from_id()
-    path = path.replace('yp.layers[' + str(layer_index) + ']', '')
-    path += '.' + prop_name
+    if path == '':
+        # Get path
+        path = entity.path_from_id()
+        path = path.replace('yp.layers[' + str(layer_index) + ']', '')
+        path += '.' + prop_name
 
     return layer_node.inputs.get(path)
 
-def set_entity_prop_value(entity, prop_name, value):
-    inp = get_entity_prop_input(entity, prop_name)
+def set_entity_prop_value(entity, prop_name, value, layer=None):
+    inp = get_entity_prop_input(entity, prop_name, layer=layer)
     if inp: 
         if type(value) == Color:
             inp.default_value = (value.r, value.g, value.b, 1.0)
         else: inp.default_value = value
     setattr(entity, prop_name, value)
 
-def get_entity_prop_value(entity, prop_name):
-    inp = get_entity_prop_input(entity, prop_name)
+def get_entity_prop_value(entity, prop_name, layer=None, path=''):
+    inp = get_entity_prop_input(entity, prop_name, layer=layer, path=path)
     if inp: return inp.default_value
     return getattr(entity, prop_name)
 
