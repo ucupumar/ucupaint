@@ -3285,10 +3285,122 @@ def any_yp_problems(yp, vcols=[]):
     gtao_not_used = is_bl_newer_than(2, 93) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao
 
     for layer in yp.layers:
-        if not get_layer_enabled(layer): continue
-
         layer_tree = None
         layer_source = None
+        layer_enabled = get_layer_enabled(layer)
+
+        # Check for missing data
+        if not missing_data:
+            if layer.type in {'IMAGE' , 'VCOL'}:
+                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
+
+                if (
+                        not layer_source or
+                        (layer.type == 'IMAGE' and not layer_source.image) or 
+                        (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, layer_source))
+                    ):
+                    missing_data = True
+
+        # Channels loop
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
+            
+            channel_source_tree = None
+            channel_source = None
+
+            # Check for missing channel source data
+            if not missing_data:
+                if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                    if channel_source == None: 
+                        if channel_source_tree == None: channel_source_tree = get_channel_source_tree(ch, layer) # Optimization
+                        channel_source = get_channel_source(ch, layer, channel_source_tree)
+                    if (
+                            not channel_source or
+                            (ch.override_type == 'IMAGE' and not channel_source.image) or 
+                            (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, channel_source))
+                        ):
+                        missing_data = True
+
+            if root_ch.type == 'NORMAL':
+
+                # Check for missing normal channel source data
+                if not missing_data:
+                    if ch.override_1 and ch.override_1_type == 'IMAGE':
+                        if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                        normal_channel_source = get_channel_source_1(ch, layer, layer_tree)
+                        if not normal_channel_source or not normal_channel_source.image:
+                            missing_data = True
+
+            # No need to check linear problem if channel is disabled or there's missing data
+            if missing_data or not layer_enabled or not get_channel_enabled(ch, layer, root_ch): continue
+
+            # Check for linear problem on channel source
+            if not linear_problem:
+                if channel_source_tree == None: channel_source_tree = get_channel_source_tree(ch, layer) # Optimization
+                if channel_source == None: channel_source = get_channel_source(ch, layer, channel_source_tree) # Optimization
+                if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
+
+                gamma = get_layer_channel_gamma_value(ch, layer, root_ch, channel_source=channel_source, layer_source=layer_source, channel_enabled=True)
+                linear = channel_source_tree.nodes.get(ch.linear)
+
+                if is_gamma_incorrect(gamma, linear):
+                    linear_problem = True
+
+            if root_ch.type == 'NORMAL':
+
+                # Check for linear problem on normal channel source
+                if not linear_problem:
+                    if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                    gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch, layer_tree=layer_tree, channel_enabled=True)
+                    linear_1 = layer_tree.nodes.get(ch.linear_1)
+                    if is_gamma_incorrect(gamma_1, linear_1):
+                        linear_problem = True
+
+        # Masks loop
+        for mask in layer.masks:
+
+            mask_tree = None
+            mask_source = None
+
+            # Check for missing mask source data
+            if not missing_data:
+                if mask.type in {'IMAGE' , 'VCOL'}:
+                    if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                    if mask_tree == None: mask_tree = get_mask_tree(mask, layer_tree) # Optimization
+                    if mask_source == None: mask_source = mask_tree.nodes.get(mask.source)
+
+                    if (
+                            not mask_source or
+                            (mask.type == 'IMAGE' and mask_source and not mask_source.image) or 
+                            (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_source))
+                        ):
+                        missing_data = True
+
+                elif mask.type == 'COLOR_ID':
+                    if obj.type == 'MESH' and COLOR_ID_VCOL_NAME not in vcols:
+                        missing_data = True
+
+            # No need to check linear problem if mask is disabled or there's missing data
+            if missing_data or layer_enabled or not get_mask_enabled(mask, layer): continue
+
+            # Check for AO problem
+            if gtao_not_used and not ao_problem and mask.type in {'EDGE_DETECT', 'AO'}:
+                ao_problem = True
+
+            # Check for linear problem on mask
+            if not linear_problem:
+                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
+                if mask_tree == None: mask_tree = get_mask_tree(mask, layer_tree) # Optimization
+                if mask_source == None: mask_source = mask_tree.nodes.get(mask.source) # Optimization
+
+                gamma = get_layer_mask_gamma_value(mask, mask_tree=mask_tree, mask_source=mask_source, mask_enabled=True)
+                linear = mask_tree.nodes.get(mask.linear)
+                if is_gamma_incorrect(gamma, linear):
+                    linear_problem = True
+
+        # No need to check linear problem if layer is disabled or there's missing data
+        if missing_data or layer_enabled: continue
 
         # Check for AO problem
         if gtao_not_used and not ao_problem and layer.type in {'EDGE_DETECT', 'AO'}:
@@ -3319,110 +3431,6 @@ def any_yp_problems(yp, vcols=[]):
 
             if is_gamma_incorrect(gamma, linear):
                 linear_problem = True
-
-        # Check for missing data
-        if not missing_data:
-            if layer.type in {'IMAGE' , 'VCOL'}:
-                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
-                if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
-
-                if (
-                        not layer_source or
-                        (layer.type == 'IMAGE' and not layer_source.image) or 
-                        (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, layer_source))
-                    ):
-                    missing_data = True
-
-        # Channels loop
-        for i, ch in enumerate(layer.channels):
-            root_ch = yp.channels[i]
-            if not get_channel_enabled(ch, layer, root_ch): continue
-
-            channel_source_tree = None
-            channel_source = None
-
-            # Check for linear problem on channel source
-            if not linear_problem:
-                if channel_source_tree == None: channel_source_tree = get_channel_source_tree(ch, layer) # Optimization
-                if channel_source == None: channel_source = get_channel_source(ch, layer, channel_source_tree) # Optimization
-                if layer_source == None: layer_source = get_layer_source(layer, layer_tree) # Optimization
-
-                gamma = get_layer_channel_gamma_value(ch, layer, root_ch, channel_source=channel_source, layer_source=layer_source, channel_enabled=True)
-                linear = channel_source_tree.nodes.get(ch.linear)
-
-                if is_gamma_incorrect(gamma, linear):
-                    linear_problem = True
-
-            # Check for missing channel source data
-            if not missing_data:
-                if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
-                    if channel_source == None: 
-                        if channel_source_tree == None: channel_source_tree = get_channel_source_tree(ch, layer) # Optimization
-                        channel_source = get_channel_source(ch, layer, channel_source_tree)
-                    if (
-                            not channel_source or
-                            (ch.override_type == 'IMAGE' and not channel_source.image) or 
-                            (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, channel_source))
-                        ):
-                        missing_data = True
-
-            if root_ch.type == 'NORMAL':
-
-                # Check for linear problem on normal channel source
-                if not linear_problem:
-                    if layer_tree == None: layer_tree = get_tree(layer) # Optimization
-                    gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch, layer_tree=layer_tree, channel_enabled=True)
-                    linear_1 = layer_tree.nodes.get(ch.linear_1)
-                    if is_gamma_incorrect(gamma_1, linear_1):
-                        linear_problem = True
-
-                # Check for missing normal channel source data
-                if not missing_data:
-                    if ch.override_1 and ch.override_1_type == 'IMAGE':
-                        if layer_tree == None: layer_tree = get_tree(layer) # Optimization
-                        normal_channel_source = get_channel_source_1(ch, layer, layer_tree)
-                        if not normal_channel_source or not normal_channel_source.image:
-                            missing_data = True
-
-        # Masks loop
-        for mask in layer.masks:
-            if not get_mask_enabled(mask, layer): continue
-
-            mask_tree = None
-            mask_source = None
-
-            # Check for AO problem
-            if gtao_not_used and not ao_problem and mask.type in {'EDGE_DETECT', 'AO'}:
-                ao_problem = True
-
-            # Check for linear problem on mask
-            if not linear_problem:
-                if layer_tree == None: layer_tree = get_tree(layer) # Optimization
-                if mask_tree == None: mask_tree = get_mask_tree(mask, layer_tree) # Optimization
-                if mask_source == None: mask_source = mask_tree.nodes.get(mask.source) # Optimization
-
-                gamma = get_layer_mask_gamma_value(mask, mask_tree=mask_tree, mask_source=mask_source, mask_enabled=True)
-                linear = mask_tree.nodes.get(mask.linear)
-                if is_gamma_incorrect(gamma, linear):
-                    linear_problem = True
-
-            # Check for missing mask source data
-            if not missing_data:
-                if mask.type in {'IMAGE' , 'VCOL'}:
-                    if layer_tree == None: layer_tree = get_tree(layer) # Optimization
-                    if mask_tree == None: mask_tree = get_mask_tree(mask, layer_tree) # Optimization
-                    if mask_source == None: mask_source = mask_tree.nodes.get(mask.source)
-
-                    if (
-                            not mask_source or
-                            (mask.type == 'IMAGE' and mask_source and not mask_source.image) or 
-                            (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_source))
-                        ):
-                        missing_data = True
-
-                elif mask.type == 'COLOR_ID':
-                    if obj.type == 'MESH' and COLOR_ID_VCOL_NAME not in vcols:
-                        missing_data = True
 
     #print(get_addon_title()+': YP problems are calculated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -5235,13 +5243,13 @@ def layer_listing(layout, layer, show_expand=False):
         if m.active_edit:
             mask = m
             src = mask_tree.nodes.get(m.source)
-            socket_input_name = get_mask_input_socket_name(m, src) if src else ''
             if m.type == 'IMAGE':
                 active_mask_image = src.image
                 if ypup.use_image_preview and src.image.preview: 
                     #if not src.image.preview: src.image.preview_ensure()
                     row.label(text='', icon_value=src.image.preview.icon_id)
                 else: 
+                    socket_input_name = get_mask_input_socket_name(m, src) if src else ''
                     if socket_input_name == 'Alpha':
                         row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'image'))
                     elif m.swizzle_input_mode in {'R', 'G', 'B'}:
@@ -5249,6 +5257,7 @@ def layer_listing(layout, layer, show_expand=False):
                     else: row.label(text='', icon_value=lib.get_icon('image'))
             elif m.type == 'VCOL':
                 active_vcol_mask = m
+                socket_input_name = get_mask_input_socket_name(m, src) if src else ''
                 if socket_input_name == 'Alpha':
                     row.label(text='', icon_value=lib.get_icon(RGBA_CHANNEL_PREFIX[socket_input_name]+'vertex_color'))
                 elif m.swizzle_input_mode in {'R', 'G', 'B'}:
