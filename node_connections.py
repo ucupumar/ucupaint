@@ -1735,7 +1735,7 @@ def reconnect_mask_source_nodes(mask, layer_tree):
     if start:
         if mask.type == 'MODIFIER' and mask.modifier_type in {'INVERT', 'CURVE'}:
             create_link(tree, start.outputs[0], source.inputs[1])
-        elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
+        elif mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'MODIFIER'}:
             create_link(tree, start.outputs[0], source.inputs[0])
 
     # Swizzle
@@ -2147,7 +2147,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Mask start
         mask_vector = None
         mask_uv_name = mask.uv_name if not mask.use_baked or mask.baked_uv_name == '' else mask.baked_uv_name
-        if mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
+        if mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO', 'MODIFIER'}:
             if mask.use_baked or mask.texcoord_type == 'UV':
                 mask_vector = get_essential_node(tree, TREE_START).get(mask_uv_name + io_suffix['UV'])
             elif mask.texcoord_type == 'Decal':
@@ -2195,7 +2195,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mask_uv_neighbor = nodes.get(mask.uv_neighbor) if mask.texcoord_type != 'Layer' else uv_neighbor
         if mask_uv_neighbor:
 
-            if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
+            if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO', 'MODIFIER'}:
                 create_link(tree, mask_val, mask_uv_neighbor.inputs[0])
             else:
                 if mask_vector and mask.texcoord_type != 'Layer':
@@ -2307,7 +2307,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 create_link(tree, mask_val, mask_mix.inputs[mmixcol1])
                 if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-                    if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
+                    if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'AO', 'MODIFIER'}:
                         if mask_uv_neighbor:
                             if 'Color2 n' in mask_mix.inputs:
                                 create_link(tree, mask_uv_neighbor.outputs['n'], mask_mix.inputs['Color2 n'])
