@@ -1249,6 +1249,10 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             self.report({'ERROR'}, "UV Map cannot be empty!")
             return {'CANCELLED'}
 
+        if self.mask and self.mask.type == 'BACKFACE':
+            self.report({'ERROR'}, "Backface mask can't be baked!")
+            return {'CANCELLED'}
+
         T = time.time()
         node = get_active_ypaint_node()
         self.yp = yp = node.node_tree.yp
