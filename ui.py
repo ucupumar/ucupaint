@@ -3968,6 +3968,7 @@ def draw_layers_ui(context, layout, node):
         # Get active vcol
         if mask_vcol: active_vcol = mask_vcol
         elif override_vcol: active_vcol = override_vcol
+        elif colorid_vcol: active_vcol = colorid_vcol
         elif vcol: active_vcol = vcol
         else: active_vcol = None
 
@@ -3989,34 +3990,25 @@ def draw_layers_ui(context, layout, node):
             row.operator('wm.y_fix_edge_detect_ao', text='Fix EEVEE Edge Detect AO', icon='ERROR')
             row.alert = False
 
-        if obj.type == 'MESH' and colorid_vcol:
+        if colorid_vcol and colorid_vcol == get_active_vertex_color(obj) and obj.type == 'MESH' and obj.mode == 'EDIT':
 
-            if colorid_vcol != get_active_vertex_color(obj):
-                bbox = col.box()
-                row = bbox.row(align=True)
-                row.alert = True
-                row.operator('mesh.y_set_active_vcol', text='Fix Active '+get_vertex_color_label()+' Mismatch!', icon='ERROR').vcol_name = colorid_vcol.name
-                row.alert = False
-
-            elif obj.mode == 'EDIT':
-
-                bbox = col.box()
-                ccol = bbox.column()
-                row = ccol.row(align=True)
-                row.label(text='', icon_value=lib.get_icon('color'))
-                row.label(text='Fill Color ID:')
-                row = ccol.row(align=True)
-                color = (colorid_col[0], colorid_col[1], colorid_col[2], 1.0)
-                row.context_pointer_set('mask', mask)
-                row.operator('mesh.y_vcol_fill_face_custom', text='Fill').color = color
-                row.operator('mesh.y_vcol_fill_face_custom', text='Erase').color = (0.0, 0.0, 0.0, 1.0)
-                #row = ccol.row(align=True)
-                op = row.operator('mesh.y_select_faces_by_vcol', text='Select')
-                op.color = color
-                #op.deselect = False
-                #op = row.operator('mesh.y_select_faces_by_vcol', text='Deselect')
-                #op.color = color
-                #op.deselect = True
+            bbox = col.box()
+            ccol = bbox.column()
+            row = ccol.row(align=True)
+            row.label(text='', icon_value=lib.get_icon('color'))
+            row.label(text='Fill Color ID:')
+            row = ccol.row(align=True)
+            color = (colorid_col[0], colorid_col[1], colorid_col[2], 1.0)
+            row.context_pointer_set('mask', mask)
+            row.operator('mesh.y_vcol_fill_face_custom', text='Fill').color = color
+            row.operator('mesh.y_vcol_fill_face_custom', text='Erase').color = (0.0, 0.0, 0.0, 1.0)
+            #row = ccol.row(align=True)
+            op = row.operator('mesh.y_select_faces_by_vcol', text='Select')
+            op.color = color
+            #op.deselect = False
+            #op = row.operator('mesh.y_select_faces_by_vcol', text='Deselect')
+            #op.color = color
+            #op.deselect = True
 
         if obj.type == 'MESH' and active_vcol: # and layer.enable:
 
@@ -4024,10 +4016,10 @@ def draw_layers_ui(context, layout, node):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
-                row.operator('mesh.y_set_active_vcol', text='Fix Active '+get_vertex_color_label()+' Mismatch!', icon='ERROR').vcol_name = active_vcol.name
+                row.operator('mesh.y_set_active_vcol', text='Fix Active '+get_vertex_color_label()+' Missmatch!', icon='ERROR').vcol_name = active_vcol.name
                 row.alert = False
 
-            elif obj.mode == 'EDIT':
+            elif obj.mode == 'EDIT' and active_vcol != colorid_vcol:
                 ve = scene.ve_edit
 
                 bbox = col.box()
