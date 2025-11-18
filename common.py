@@ -681,6 +681,9 @@ def get_alpha_suffix():
 
     return ''
 
+def get_version_str(version):
+    return str(version).replace(', ', '.').replace('(', '').replace(')', '')
+
 def get_current_version_str():
     if not is_bl_newer_than(4, 2):
         bl_info = sys.modules[get_addon_name()].bl_info

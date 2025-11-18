@@ -4312,7 +4312,7 @@ def main_draw(self, context):
             return
         
     if updater.update_ready and not ypui.hide_update:
-        row_update = layout.row()
+        row_update = layout.row(align=True)
         row_update.alert = True
         if updater.using_development_build:
             update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
@@ -4320,7 +4320,7 @@ def main_draw(self, context):
         else:
             row_update.operator(
                 addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                text="Update now to " + str(updater.update_version)
+                text="Update to "+get_addon_title()+" "+get_version_str(updater.update_version)
             )
         row_update.alert = False
 
@@ -5843,7 +5843,7 @@ def draw_ypaint_about(self, context):
         else:
             row.label(text="Branch: "+updater.current_branch)
     else:
-        row.label(text="Branch: Stable "+str(updater.current_version))
+        row.label(text="Branch: Stable ("+get_version_str(updater.current_version)+")")
     if addon_updater_ops.updater.legacy_blender:
         col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
     else:
@@ -5862,7 +5862,7 @@ def draw_ypaint_about(self, context):
         else:
             col.operator(
                 addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                text="Update now to " + str(updater.update_version)
+                text="Update to "+get_addon_title()+" "+get_version_str(updater.update_version)
             )
     elif is_online() or updater.current_branch != None:
         col.operator(addon_updater_ops.RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
