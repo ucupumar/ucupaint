@@ -5858,15 +5858,15 @@ def draw_ypaint_about(self, context):
         if updater.using_development_build:
             update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
             col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
-            
         else:
             col.operator(
                 addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
                 text="Update to "+get_addon_title()+" "+get_version_str(updater.update_version)
             )
+        col.label(text="Update is available!")
     elif is_online() or updater.current_branch != None:
         col.operator(addon_updater_ops.RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
-        col.label(text="Ucupaint is up to date")
+        col.label(text=get_addon_title()+" is up to date")
 
 class YPaintAboutPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_about_popover"
