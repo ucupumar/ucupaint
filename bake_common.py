@@ -4929,7 +4929,8 @@ class BaseBakeOperator():
         description = 'Device to use for baking',
         items = (
             ('GPU', 'GPU Compute', ''),
-            ('CPU', 'CPU', '')
+            ('CPU', 'CPU', ''),
+            ('OSL', 'CPU (OSL)', ''),
         ),
         default = 'CPU'
     )

@@ -12,8 +12,8 @@ from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem
 
 # todo : 
 # show all setting bake di bake target, setelah baked ambil dari bakeinfo
-# override vars, variable yang ga perlu : use 32 bit float, bake device
-# bake device & OSL selalu global, hilangkan dari bake target
+# override vars, variable yang ga perlu : use 32 bit float, bake device (check channel use_clamp, new image layer dibawah resolution)
+# bake device & OSL selalu global, hilangkan dari bake target (tidak bisa override) (CPU, GPU, OSL) (termasuk di bake all)
 # resolution jadi 1 override
 # tambah use_float per bake target, hilangkan use for normal & displacement
 # tambah color_attribute
@@ -1217,6 +1217,23 @@ class YBakeSingleTarget(bpy.types.Operator):
     bl_description = "Bake a single custom target"
     bl_options = {'REGISTER', 'UNDO'}
 
+    bake_device : EnumProperty(
+        name = 'Bake Device',
+        description = 'Device to use for baking',
+        items = (
+            ('GPU', 'GPU Compute', ''),
+            ('CPU', 'CPU', ''),
+            ('OSL', 'CPU (OSL)', ''),
+        ),
+        default = 'CPU'
+    )
+
+    override_bake_device : BoolProperty(
+        name = 'Override Bake Device',
+        description = 'Override bake device preference',
+        default = False
+    )
+
     @classmethod
     def poll(cls, context):
         node = get_active_ypaint_node()
@@ -1225,7 +1242,34 @@ class YBakeSingleTarget(bpy.types.Operator):
         group_tree = node.node_tree
         yp = group_tree.yp
         
-        return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0 
+        return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0
+
+    def invoke(self, context, event):
+        ypup = get_user_preferences()
+        if ypup.default_bake_device != 'DEFAULT':
+            self.bake_device = ypup.default_bake_device
+
+        return context.window_manager.invoke_props_dialog(self, width=400)
+
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        ypup = get_user_preferences()
+
+        root_col = self.layout.column()
+
+        row_var = split_layout(root_col, 0.4, True)
+        row_var.alignment = 'RIGHT'
+        row_var.label(text="Bake Device" + ':')
+
+        row_var.prop(self, "bake_device", text="")
+
+        if ypup.default_bake_device != self.bake_device:
+            row_ovr = split_layout(root_col, 0.4, align=True)
+            row_ovr.alignment = 'RIGHT'
+            row_ovr.label(text="Set as default" + ':')
+            row_ovr.prop(self, "override_bake_device", text="")
 
     def execute(self, context):
         T = time.time()
@@ -1242,6 +1286,15 @@ class YBakeSingleTarget(bpy.types.Operator):
         ypup = get_user_preferences()
         tree = node.node_tree
 
+        selected_bake_device = self.bake_device
+
+        self.use_osl = False
+        if selected_bake_device == 'OSL':
+            selected_bake_device = 'CPU'
+            self.use_osl = True
+        
+        if self.override_bake_device:
+            ypup.default_bake_device = selected_bake_device
 
         if not self.bt.use_custom_resolution:
             self.bt.height = self.bt.width = int(self.bt.image_resolution)
@@ -1423,7 +1476,7 @@ class YBakeSingleTarget(bpy.types.Operator):
         # Prepare bake settings
         prepare_bake_settings(
             book, objs, yp, self.bt.samples, margin, self.bt.uv_map, disable_problematic_modifiers=True, 
-            bake_device=self.bt.bake_device, margin_type=self.bt.margin_type, use_osl=self.bt.use_osl
+            bake_device=selected_bake_device, margin_type=self.bt.margin_type, use_osl=self.use_osl
         )
 
         # Get bake properties
@@ -1483,12 +1536,12 @@ class YBakeSingleTarget(bpy.types.Operator):
                     resize_image(
                         baked.image, self.bt.width, self.bt.height, 
                         baked.image.colorspace_settings.name,
-                        alpha_aware=ch.enable_alpha, bake_device=self.bt.bake_device
+                        alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                     )
 
                 # FXAA doesn't work with hdr image
                 if self.bt.fxaa and ch.use_clamp:
-                    fxaa_image(baked.image, ch.enable_alpha, bake_device=self.bt.bake_device)
+                    fxaa_image(baked.image, ch.enable_alpha, bake_device=selected_bake_device)
 
                 baked_images.append(baked.image)
 
@@ -1506,12 +1559,12 @@ class YBakeSingleTarget(bpy.types.Operator):
                         resize_image(
                             baked_disp.image, self.bt.width, self.bt.height, 
                             baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=self.bt.bake_device
+                            alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                         )
 
                     # FXAA
                     if self.bt.fxaa and not baked_disp.image.is_float:
-                        fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=self.bt.bake_device)
+                        fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=selected_bake_device)
 
                     baked_images.append(baked_disp.image)
 
@@ -1523,11 +1576,11 @@ class YBakeSingleTarget(bpy.types.Operator):
                         resize_image(
                             baked_normal_overlay.image, self.bt.width, self.bt.height, 
                             baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=self.bt.bake_device
+                            alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                         )
                     # FXAA
                     if self.bt.fxaa:
-                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bt.bake_device)
+                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=selected_bake_device)
 
                     baked_images.append(baked_normal_overlay.image)
 
@@ -1539,7 +1592,7 @@ class YBakeSingleTarget(bpy.types.Operator):
                         resize_image(
                             baked_vdisp.image, self.bt.width, self.bt.height, 
                             baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=self.bt.bake_device
+                            alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                         )
 
                     baked_images.append(baked_vdisp.image)
@@ -1742,7 +1795,7 @@ class YBakeSingleTarget(bpy.types.Operator):
             current_vcol_order = 0
             prepare_bake_settings(
                 book, objs, yp, disable_problematic_modifiers=True,
-                bake_device=self.bt.bake_device, bake_target='VERTEX_COLORS'
+                bake_device=selected_bake_device, bake_target='VERTEX_COLORS'
             )
             for ch in self.channels:
                 if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
@@ -2226,7 +2279,9 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
 
     def draw_field(self, layout, field_override, field_name, label):
 
-        is_overriden = getattr(self, field_override) == 'Override'
+        is_overriden = False
+        if field_override != '':
+            is_overriden = getattr(self, field_override) == 'Override'
 
         row_var = self.draw_label(layout, label)
 

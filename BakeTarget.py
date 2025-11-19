@@ -4,12 +4,6 @@ from bpy.props import *
 from .bake_common import *
 from .Bake import *
 
-# todo : loop by bake target channels, 
-# setting resolution per bake target, setting resolution di bake all, di-hide.
-# setting bake info, dropdown bake target di bawah image 
-# global setting buat all target
-# bake per target
-
 rgba_items = (
     ('0', 'R', ''),
     ('1', 'G', ''),

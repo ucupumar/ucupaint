@@ -1102,24 +1102,6 @@ def draw_bake_target_settings(context, layout, bt):
     height_root_ch = get_root_height_channel(yp)
     
     obj = context.object
-    mat = obj.active_material
-    
-    # uv_layers = get_uv_layers(obj)
-    # # Use active uv layer name by default
-    # if obj.type == 'MESH' and len(uv_layers) > 0:
-    #     if uv_layers.get(yp.baked_uv_name):
-    #         bt.uv_map = yp.baked_uv_name
-    #     else:
-    #         active_name = uv_layers.active.name
-    #         if active_name == TEMP_UV:
-    #             bt.uv_map = yp.layers[yp.active_layer_index].uv_name
-    #         else: bt.uv_map = uv_layers.active.name
-
-    #     # UV Map collections update 
-    #     bt.uv_map_coll.clear()
-    #     for uv in uv_layers:
-    #         if not uv.name.startswith(TEMP_UV):
-    #             self.uv_map_coll.add().name = uv.name
 
     row = split_layout(layout, 0.4)
     col = row.column() #align=True)
@@ -1132,6 +1114,11 @@ def draw_bake_target_settings(context, layout, bt):
         ccol.label(text='Width:')
         ccol.label(text='Height:')
 
+    if height_root_ch:
+        ccol.separator()
+        # ccol.label(text='Use 32-bit Float:')
+        ccol.label(text='')
+        
     ccol.separator()
     ccol.label(text='Samples:')
     ccol.label(text='AA Level:')
@@ -1140,9 +1127,6 @@ def draw_bake_target_settings(context, layout, bt):
         ccol.separator()
     ccol.label(text='Margin:')
 
-    # if height_root_ch:
-    #     ccol.separator()
-    #     ccol.label(text='Use 32-bit Float:')
 
     col.separator()
 
@@ -1176,6 +1160,10 @@ def draw_bake_target_settings(context, layout, bt):
         ccol.prop(bt, 'width', text='')
         ccol.prop(bt, 'height', text='')
 
+    if height_root_ch:
+        ccol.separator()
+        ccol.prop(bt, 'use_float')
+
     ccol.separator()
     ccol.prop(bt, 'samples', text='')
     ccol.prop(bt, 'aa_level', text='')
@@ -1188,18 +1176,18 @@ def draw_bake_target_settings(context, layout, bt):
     else:
         ccol.prop(bt, 'margin', text='')
 
-    # if height_root_ch:
-    #     ccol.separator()
-    #     splits = split_layout(ccol, 0.4)
-    #     splits.prop(bt, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
-    #     splits.prop(bt, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
+        # splits = split_layout(ccol, 0.4)
+        # splits.prop(bt, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
+        # splits.prop(bt, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
 
     col.separator()
 
     # if is_bl_newer_than(2, 80):
-    #     if bt.use_osl:
-    #         col.label(text='CPU (OSL)')
-    #     else: col.prop(bt, 'bake_device', text='')
+        # if bt.use_osl:
+        #     col.label(text='CPU (OSL)')
+        # else: col.prop(bt, 'bake_device', text='')
+        # col.prop(bt, 'bake_device', text='')
+
     col.prop(bt, 'interpolation', text='')
     col.prop_search(bt, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
