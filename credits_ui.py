@@ -382,7 +382,6 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             else:
                 grid = box.grid_flow(row_major=True, columns=per_column, even_columns=True, even_rows=True, align=True)
 
-                missing_column = per_column - (per_page_item % per_column)
                 counter_member = 0
                 paged_items = filtered_items[current_page * per_page_item : (current_page + 1) * per_page_item]
 
@@ -402,6 +401,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
                             id =  "*" + id
                     self.draw_item(grid, thumb, id, item["url"], scale_icon, horizontal_mode)
 
+                missing_column = per_column - (counter_member % per_column)
                 if missing_column != per_column:
                     for i in range(missing_column):
                         self.draw_item(grid, collaborators.default_pic, '', '', scale_icon, horizontal_mode)
@@ -806,7 +806,7 @@ def load_contributors(goal_ui: YSponsorProp):
             print_info("Loaded sponsor " + sponsor['id'] + " = " + str(sponsor))
     
     # expand top 2 tiers that have members
-    expanding_top_tier = 2 # todo : from settings
+    expanding_top_tier = 4 # todo : from settings
     # tier setup
     tiers = collaborators.sponsorships.get('tiers', [])
 

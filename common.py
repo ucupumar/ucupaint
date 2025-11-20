@@ -681,6 +681,9 @@ def get_alpha_suffix():
 
     return ''
 
+def get_version_str(version):
+    return str(version).replace(', ', '.').replace('(', '').replace(')', '')
+
 def get_current_version_str():
     if not is_bl_newer_than(4, 2):
         bl_info = sys.modules[get_addon_name()].bl_info
@@ -2192,28 +2195,19 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
 def get_tree(entity):
 
-    #m = re.match(r'yp\.layers\[(\d+)\]', entity.path_from_id())
-    #if not m: return None
-    #if not hasattr(entity.id_data, 'yp') or not hasattr(entity, 'group_node'): return None
-
-    #try:
-
     # Search inside yp tree
     tree = entity.id_data
     yp = tree.yp
-    group_node = None
+    node = None
 
     if entity.trash_group_node != '':
         trash = tree.nodes.get(yp.trash)
-        if trash: group_node = trash.node_tree.nodes.get(entity.trash_group_node)
+        if trash: node = trash.node_tree.nodes.get(entity.trash_group_node)
     else:
-        group_node = tree.nodes.get(entity.group_node)
+        node = tree.nodes.get(entity.group_node)
 
-    if not group_node or group_node.type != 'GROUP': return None
-    return group_node.node_tree
-
-    #except: 
-    #    return None
+    if not node or node.type != 'GROUP': return None
+    return node.node_tree
 
 def get_mod_tree(entity):
 
@@ -2253,14 +2247,16 @@ def get_mod_tree(entity):
 
         return tree
 
-def get_mask_tree(mask, ignore_group=False):
+def get_mask_tree(mask, layer_tree=None, ignore_group=False):
 
-    m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
-    if not m : return None
+    if not layer_tree:
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        if not m : return None
 
-    yp = mask.id_data.yp
-    layer = yp.layers[int(m.group(1))]
-    layer_tree = get_tree(layer)
+        yp = mask.id_data.yp
+        layer = yp.layers[int(m.group(1))]
+
+        layer_tree = get_tree(layer)
 
     if ignore_group:
         return layer_tree
@@ -2272,16 +2268,16 @@ def get_mask_tree(mask, ignore_group=False):
     if not group_node or group_node.type != 'GROUP': return layer_tree
     return group_node.node_tree
 
-def get_mask_source(mask, get_baked=False):
-    tree = get_mask_tree(mask)
+def get_mask_source(mask, get_baked=False, layer_tree=None):
+    tree = get_mask_tree(mask, layer_tree=layer_tree)
     if tree:
         if get_baked:
             return tree.nodes.get(mask.baked_source)
         return tree.nodes.get(mask.source)
     return None
 
-def get_mask_mapping(mask, get_baked=False):
-    tree = get_mask_tree(mask, True)
+def get_mask_mapping(mask, get_baked=False, layer_tree=None):
+    tree = get_mask_tree(mask, layer_tree=layer_tree, ignore_group=True)
     return tree.nodes.get(mask.mapping) if not get_baked else tree.nodes.get(mask.baked_mapping)
 
 def get_image_mask_base_color(mask, image, mask_index):
@@ -3662,9 +3658,9 @@ def refresh_temp_uv(obj, entity):
         #print('Layer!')
     elif m2: 
         if entity.use_baked:
-            mask_tree = get_mask_tree(entity)
+            layer_tree = get_mask_tree(entity, ignore_group=True)
+            mask_tree = get_mask_tree(entity, layer_tree)
             source = mask_tree.nodes.get(entity.baked_source)
-            layer_tree = get_mask_tree(entity, True)
         else:
             source = get_mask_source(entity)
         mapping = get_mask_mapping(entity, get_baked=entity.use_baked)
@@ -6329,22 +6325,24 @@ def get_layer_and_root_ch_from_layer_ch(ch):
 
     return layer, root_ch
 
-def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
+def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=None, layer_source=None, channel_enabled=None):
     yp = ch.id_data.yp
     if not layer or not root_ch: layer, root_ch = get_layer_and_root_ch_from_layer_ch(ch)
 
-    channel_enabled = get_channel_enabled(ch, layer, root_ch)
+    if channel_enabled == None: channel_enabled = get_channel_enabled(ch, layer, root_ch)
     if not channel_enabled: return 1.0
-
-    source_tree = get_channel_source_tree(ch, layer)
 
     image = None
     source = None
     if ch.override and ch.override_type == 'IMAGE':
-        source = source_tree.nodes.get(ch.source)
+        if channel_source == None: 
+            source_tree = get_channel_source_tree(ch, layer)
+            channel_source = source_tree.nodes.get(ch.source)
+        source = channel_source
         if source: image = source.image
     elif layer.type == 'IMAGE':
-        source = get_layer_source(layer)
+        if layer_source == None: layer_source = get_layer_source(layer)
+        source = layer_source
         if source: image = source.image
 
     socket_input_name = get_channel_input_socket_name(layer, ch, source)
@@ -6397,16 +6395,16 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None):
 
     return 1.0
 
-def get_layer_channel_normal_gamma_value(ch, layer=None, root_ch=None):
+def get_layer_channel_normal_gamma_value(ch, layer=None, root_ch=None, layer_tree=None, channel_enabled=None):
     yp = ch.id_data.yp
     if not layer or not root_ch: layer, root_ch = get_layer_and_root_ch_from_layer_ch(ch)
 
-    channel_enabled = get_channel_enabled(ch, layer, root_ch)
+    if channel_enabled == None: channel_enabled = get_channel_enabled(ch, layer, root_ch)
     if not channel_enabled: return 1.0
 
     image = None
     source = None
-    layer_tree = get_tree(layer)
+    if layer_tree == None: layer_tree = get_tree(layer)
     if ch.override_1 and ch.override_1_type == 'IMAGE':
         source = layer_tree.nodes.get(ch.source_1)
         if source: image = source.image
@@ -6417,28 +6415,33 @@ def get_layer_channel_normal_gamma_value(ch, layer=None, root_ch=None):
 
     return 1.0
 
-def get_layer_mask_gamma_value(mask, mask_tree=None):
-    if not mask_tree: mask_tree = get_mask_tree(mask)
+def get_layer_mask_gamma_value(mask, mask_tree=None, mask_source=None, mask_enabled=None):
+    if mask_tree == None: mask_tree = get_mask_tree(mask)
+    if mask_enabled == None: mask_enabled = get_mask_enabled(mask)
 
-    if get_mask_enabled(mask) and mask.type == 'IMAGE':
+    if mask_enabled and mask.type == 'IMAGE':
 
-        source = mask_tree.nodes.get(mask.source)
-        image = source.image
+        if mask_source == None: mask_source = mask_tree.nodes.get(mask.source)
+        image = mask_source.image
 
         if not image: return 1.0
 
         # Convert srgb mask image to linear
-        if is_image_source_srgb(image, source):
+        if is_image_source_srgb(image, mask_source):
             return 1.0 / GAMMA
 
     return 1.0
 
-def get_layer_gamma_value(layer):
+def get_layer_gamma_value(layer, source=None, layer_enabled=None):
     yp = layer.id_data.yp
 
-    if get_layer_enabled(layer) and layer.type == 'IMAGE':
-        source_tree = get_source_tree(layer)
-        source = source_tree.nodes.get(layer.source)
+    if layer_enabled == None:
+        layer_enabled = get_layer_enabled(layer)
+
+    if layer_enabled and layer.type == 'IMAGE':
+        if not source:
+            source_tree = get_source_tree(layer)
+            source = source_tree.nodes.get(layer.source)
         image = source.image
         if image:
 
@@ -6455,65 +6458,6 @@ def get_layer_gamma_value(layer):
                     return 1.0 / GAMMA
 
     return 1.0
-
-def any_linear_images_problem(yp):
-    for layer in yp.layers:
-        if not get_layer_enabled(layer): continue
-        layer_tree = get_tree(layer)
-
-        for i, ch in enumerate(layer.channels):
-            root_ch = yp.channels[i]
-            #if not get_channel_enabled(ch, layer, root_ch): continue
-
-            gamma = get_layer_channel_gamma_value(ch, layer, root_ch)
-            source_tree = get_channel_source_tree(ch, layer)
-            linear = source_tree.nodes.get(ch.linear)
-
-            if (
-                (gamma == 1.0 and linear) or
-                (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
-                ):
-                return True
-
-            if root_ch.type == 'NORMAL':
-                gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch)
-                linear_1 = layer_tree.nodes.get(ch.linear_1)
-                if (
-                    (gamma_1 == 1.0 and linear_1) or
-                    (gamma_1 != 1.0 and (not linear_1 or not isclose(linear_1.inputs[1].default_value, gamma_1, rel_tol=1e-5)))
-                    ):
-                    return True
-
-        for mask in layer.masks:
-            source_tree = get_mask_tree(mask)
-            gamma = get_layer_mask_gamma_value(mask, mask_tree=source_tree)
-            linear = source_tree.nodes.get(mask.linear)
-            if (
-                (gamma == 1.0 and linear) or
-                (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
-                ):
-                return True
-
-        # Blender 2.7x has color space option on the node 
-        if not is_bl_newer_than(2, 80) and layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if source:
-                if source.color_space == 'NONE' and yp.use_linear_blending:
-                    return True
-                if source.color_space == 'COLOR' and not yp.use_linear_blending:
-                    return True
-
-        gamma = get_layer_gamma_value(layer)
-        source_tree = get_source_tree(layer)
-        linear = source_tree.nodes.get(layer.linear)
-
-        if (
-            (gamma == 1.0 and linear) or
-            (gamma != 1.0 and (not linear or not isclose(linear.inputs[1].default_value, gamma, rel_tol=1e-5)))
-            ):
-            return True
-
-    return False
 
 def get_write_height(ch):
     #if ch.normal_map_type == 'NORMAL_MAP':
@@ -7872,38 +7816,42 @@ def get_entity_input_name(entity, prop_name):
 
     return path + '.' + prop_name
 
-def get_entity_prop_input(entity, prop_name):
+def get_entity_prop_input(entity, prop_name, layer=None, path=''):
     root_tree = entity.id_data
     yp = root_tree.yp
 
     # Regex
-    m1 = re.match(r'^yp\.layers\[(\d+)\].*', entity.path_from_id())
-    if m1:
-        layer_index = int(m1.group(1))
-        layer = yp.layers[layer_index]
+    if layer == None:
+        m1 = re.match(r'^yp\.layers\[(\d+)\].*', entity.path_from_id())
+        if m1:
+            layer_index = int(m1.group(1))
+            layer = yp.layers[layer_index]
+        else:
+            return None
     else:
-        return None
+        layer_index = get_layer_index(layer)
 
     # Get layer node
     layer_node = root_tree.nodes.get(layer.group_node)
 
-    # Get path
-    path = entity.path_from_id()
-    path = path.replace('yp.layers[' + str(layer_index) + ']', '')
-    path += '.' + prop_name
+    if path == '':
+        # Get path
+        path = entity.path_from_id()
+        path = path.replace('yp.layers[' + str(layer_index) + ']', '')
+        path += '.' + prop_name
 
     return layer_node.inputs.get(path)
 
-def set_entity_prop_value(entity, prop_name, value):
-    inp = get_entity_prop_input(entity, prop_name)
+def set_entity_prop_value(entity, prop_name, value, layer=None):
+    inp = get_entity_prop_input(entity, prop_name, layer=layer)
     if inp: 
         if type(value) == Color:
             inp.default_value = (value.r, value.g, value.b, 1.0)
         else: inp.default_value = value
     setattr(entity, prop_name, value)
 
-def get_entity_prop_value(entity, prop_name):
-    inp = get_entity_prop_input(entity, prop_name)
+def get_entity_prop_value(entity, prop_name, layer=None, path=''):
+    inp = get_entity_prop_input(entity, prop_name, layer=layer, path=path)
     if inp: return inp.default_value
     return getattr(entity, prop_name)
 

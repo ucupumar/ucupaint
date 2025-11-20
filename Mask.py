@@ -963,6 +963,10 @@ class YNewLayerMask(bpy.types.Operator):
             col = self.layout.column(align=True)
             col.label(text='Realtime Edge Detect can look different in baked/rendered view!', icon='ERROR')
 
+        elif self.type == 'BACKFACE':
+            col = self.layout.column(align=True)
+            col.label(text='Backface mask can\'t be baked!', icon='ERROR')
+
     def execute(self, context):
         if hasattr(self, 'auto_cancel') and self.auto_cancel: return {'CANCELLED'}
 
