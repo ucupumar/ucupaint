@@ -185,6 +185,11 @@ def refresh_list_items(yp, repoint_active=False):
                 elif active_item_name == mask.name and active_item_type == 'MASK':
                     new_active_index = layer_item_index
 
+    # The last item is always the base
+    item = yp.list_items.add()
+    item.type = 'BASE'
+    item.name = 'Base Layer'
+
     # If there's no new active index, set it active layer
     if new_active_index == -1 and yp.active_layer_index < len(yp.layers):
         new_active_index = get_layer_item_index(yp.layers[yp.active_layer_index])
@@ -209,7 +214,8 @@ class YListItem(bpy.types.PropertyGroup):
         items = (
             ('LAYER', 'Layer', ''),
             ('CHANNEL_OVERRIDE', 'Channel Override', ''),
-            ('MASK', 'Mask', '')
+            ('MASK', 'Mask', ''),
+            ('BASE', 'Base Layer', '')
         ),
         default = 'LAYER'
     )

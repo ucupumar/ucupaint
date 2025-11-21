@@ -1525,6 +1525,65 @@ def draw_root_channels_ui(context, layout, node):
                         brow.label(text='Target '+get_vertex_color_label()+':')
                         brow.prop(channel, 'bake_to_vcol_name', text='')
 
+def draw_base_layer_ui(context, layout, yp, node):
+    ypui = context.window_manager.ypui
+
+    row = layout.row(align=True)
+    rrow = row.row(align=True)
+    rrow.alignment = 'LEFT'
+    rrow.scale_x = 0.95
+    label = 'Channel Base Values'
+    icon_value = lib.get_icon('channels')
+
+    icon = get_collapse_arrow_icon(ypui.expand_channel_base_values)
+    rrow.prop(ypui, 'expand_channel_base_values', text='', emboss=False, icon=icon)
+    if is_bl_newer_than(2, 80):
+        rrow.prop(ypui, 'expand_channel_base_values', text=label, emboss=False, icon_value=icon_value)
+    else: rrow.label(text=label, icon_value=icon_value)
+
+    if ypui.expand_channel_base_values:
+        rrow = layout.row(align=True)
+        rrow.label(text='', icon='BLANK1')
+        rcol = rrow.column(align=True)
+
+        inputs = node.inputs
+        outputs = node.outputs
+        ypup = get_user_preferences()
+        tree = node.node_tree
+
+        for root_ch in yp.channels:
+
+            input_index = root_ch.io_index
+
+            rcrow = rcol.row()
+
+            icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
+            rcrow.label(text=root_ch.name, icon_value=icon_value)
+
+            if root_ch.type == 'RGB':
+                rcrow = rcrow.row(align=True)
+
+            if len(inputs[input_index].links) > 0:
+                rcrow.label(text='', icon='LINKED')
+
+            # NOTE: Show base value when there's no input connection or there's baked node
+            # Baked node will show the input because sometimes user want to change base color of the baked image
+            baked = tree.nodes.get(root_ch.baked)
+            if len(inputs[input_index].links) == 0 or baked:
+                if root_ch.type == 'VALUE':
+                    rcrow.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
+                elif root_ch.type == 'RGB':
+                    rcrow.prop(inputs[input_index], 'default_value', text='', icon='COLOR')
+
+            #output_index = get_output_index(root_ch)
+            #if is_output_unconnected(node, output_index, root_ch):
+            #    rcrow.label(text='', icon='ERROR')
+
+            if ypup.developer_mode and root_ch.type=='RGB' and root_ch.enable_alpha:
+                if len(inputs[input_index + 1].links) == 0:
+                    rcrow.prop(inputs[input_index + 1], 'default_value', text='')
+                else: row.label(text='', icon='LINKED')
+
 def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
     obj = context.object
     yp = layer.id_data.yp
@@ -3806,7 +3865,9 @@ def draw_layers_ui(context, layout, node):
     colorid_col = None
     entity = None
 
-    if len(yp.layers) > 0:
+    is_base_layer_selected = ypup.layer_list_mode in {'DYNAMIC', 'BOTH'} and yp.active_item_index == len(yp.list_items)-1
+
+    if len(yp.layers) > 0 and not is_base_layer_selected:
         layer = yp.layers[yp.active_layer_index]
         layer = entity = yp.layers[yp.active_layer_index]
 
@@ -4222,6 +4283,10 @@ def draw_layers_ui(context, layout, node):
         if not specific_ch:
             # Masks
             draw_layer_masks(context, col, layer, specific_mask)
+
+    elif is_base_layer_selected:
+        col = box.column()
+        draw_base_layer_ui(context, col, yp, node)
 
     #print(get_addon_title()+': Layers UI is drawn in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -5442,6 +5507,25 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
         group_tree = item.id_data
         yp = group_tree.yp
         ypui = context.window_manager.ypui
+
+        # Base Layer
+        if item.type == 'BASE':
+            row = layout.row(align=True)
+            #row.label(text=item.name, icon_value=lib.get_icon('NODE_MATERIAL'))
+            row.label(text=item.name, icon_value=lib.get_icon('channels'))
+
+            # Get first channel
+            node = get_active_ypaint_node()
+            if node and len(yp.channels) > 0 and yp.channels[0].type == 'RGB':
+                root_ch = yp.channels[0]
+                if root_ch.io_index < len(node.inputs):
+                    inp = node.inputs[root_ch.io_index]
+                    baked = group_tree.nodes.get(root_ch.baked)
+                    if len(inp.links) > 0:
+                        row.label(text='', icon='LINKED')
+
+                    if len(inp.links) == 0: # or baked:
+                        row.prop(inp, 'default_value', text='', icon='COLOR')
 
         # Layer
         if item.type == 'LAYER' and item.index < len(yp.layers):
@@ -8208,6 +8292,12 @@ class YPaintUI(bpy.types.PropertyGroup):
         name = 'Expand all mask channels',
         description = 'Expand all mask channels',
         default = False
+    )
+
+    expand_channel_base_values : BoolProperty(
+        name = 'Expand channel base values',
+        description = 'Expand channel base values',
+        default = True
     )
 
     # To store active node and tree
