@@ -3382,7 +3382,7 @@ def any_yp_problems(yp, vcols=[]):
                         missing_data = True
 
             # No need to check linear problem if mask is disabled or there's missing data
-            if missing_data or layer_enabled or not get_mask_enabled(mask, layer): continue
+            if missing_data or not layer_enabled or not get_mask_enabled(mask, layer): continue
 
             # Check for AO problem
             if gtao_not_used and not ao_problem and mask.type in {'EDGE_DETECT', 'AO'}:
@@ -3400,7 +3400,7 @@ def any_yp_problems(yp, vcols=[]):
                     linear_problem = True
 
         # No need to check linear problem if layer is disabled or there's missing data
-        if missing_data or layer_enabled: continue
+        if missing_data or not layer_enabled: continue
 
         # Check for AO problem
         if gtao_not_used and not ao_problem and layer.type in {'EDGE_DETECT', 'AO'}:
