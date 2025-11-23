@@ -11,6 +11,32 @@ def update_icons(self, context):
     unload_custom_icons()
     load_custom_icons()
 
+class YImageSizeOption(bpy.types.PropertyGroup):
+    name : StringProperty(
+        name = 'Image Size Option Name',
+        description = 'Image size option name',
+        default = '1024'
+    )
+
+    width : IntProperty(name='Width', description='Pixel Width', default=1024)
+    height : IntProperty(name='Height', description='Pixel Height', default=1024)
+
+    interpolation : EnumProperty(
+        name = 'Image Interpolation Type',
+        description = 'Image interpolation type',
+        items = (
+            ('Linear', 'Linear', 'Linear interpolation.'),
+            ('Closest', 'Closest', 'No interpolation (sample closest texel).'),
+        ),
+        default = 'Linear'
+    )
+
+    active_default : BoolProperty(
+        name = 'Set as Default Image Size',
+        description = 'Set as default image size',
+        default=False
+    )
+
 class YPaintPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
@@ -170,6 +196,8 @@ class YPaintPreferences(AddonPreferences):
         default = 'DEFAULT'
     )
 
+    image_size_options : CollectionProperty(type=YImageSizeOption)
+
     always_evaluate_frame : BoolProperty(
         name = 'Always Evaluate on Frame Change',
         description = 'Always fo frame change evaluation on '+get_addon_title()+' keyfame data (slow)',
@@ -182,9 +210,47 @@ class YPaintPreferences(AddonPreferences):
             self.layout.prop(self, 'icons')
         self.layout.prop(self, 'layer_list_mode')
 
-        self.layout.prop(self, 'default_image_resolution')
+
+        box = self.layout.box()
+        boxcol = box.column(align=True)
+        boxcol.label(text='Image Size Options')
+        for i, option in enumerate(self.image_size_options):
+            row = boxcol.row(align=True)
+
+            rrow = row.row()
+            rrow.scale_y = 2.0
+            rrow.label(text='Option '+str(i))
+
+            rrow = row.row()
+            rrow.scale_y = 2.0
+            rrow.prop(option, 'name', text='')
+
+            row.separator()
+
+            col = row.column(align=True)
+            col.prop(option, 'width', text='Width')
+            col.prop(option, 'height', text='Height')
+
+            row.separator()
+
+            rrow = row.row()
+            rrow.scale_y = 2.0
+            rrow.scale_x = 0.5
+            rrow.prop(option, 'interpolation', expand=True)
+
+            row.separator()
+
+            rrow = row.row()
+            rrow.scale_y = 2.0
+            rrow.prop(option, 'active_default', text='Set as Default', toggle=True)
+
+            boxcol.separator()
+
+        boxcol.separator()
+        boxcol.prop(self, 'default_image_resolution')
         if self.default_image_resolution == 'CUSTOM':
-            self.layout.prop(self, 'default_new_image_size')
+            boxcol.prop(self, 'default_new_image_size')
+
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')
@@ -198,6 +264,7 @@ class YPaintPreferences(AddonPreferences):
         if is_udim_supported():
             self.layout.prop(self, 'enable_auto_udim_detection')
         self.layout.prop(self, 'show_experimental')
+
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')
 
@@ -259,12 +326,38 @@ def refresh_float_image_hack(scene):
         ypui.refresh_image_hack = False
 
 def register():
+    bpy.utils.register_class(YImageSizeOption)
     bpy.utils.register_class(YPaintPreferences)
+
+    ypup = get_user_preferences()
+
+    if len(ypup.image_size_options) == 0:
+        option = ypup.image_size_options.add()
+        option.name = '512'
+        option.width = 512
+        option.height = 512
+
+        option = ypup.image_size_options.add()
+        option.name = '1024'
+        option.width = 1024
+        option.height = 1024
+
+        option = ypup.image_size_options.add()
+        option.name = '2048'
+        option.width = 2048
+        option.height = 2048
+
+        option = ypup.image_size_options.add()
+        option.name = '4096'
+        option.width = 4096
+        option.height = 4096
+
 
     bpy.app.handlers.save_pre.append(auto_save_images)
     bpy.app.handlers.save_post.append(refresh_float_image_hack)
 
 def unregister():
+    bpy.utils.unregister_class(YImageSizeOption)
     bpy.utils.unregister_class(YPaintPreferences)
 
     bpy.app.handlers.save_pre.remove(auto_save_images)
