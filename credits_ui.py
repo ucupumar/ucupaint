@@ -804,9 +804,8 @@ def load_contributors(goal_ui: YSponsorProp):
             }
             collaborators.sponsors[sponsor['id']] = sponsor
             print_info("Loaded sponsor " + sponsor['id'] + " = " + str(sponsor))
-    
-    # expand top 2 tiers that have members
-    expanding_top_tier = 4 # todo : from settings
+        
+    expanding_top_tier = collaborators.sponsorships.get('expanding_tier_member', 3)
     # tier setup
     tiers = collaborators.sponsorships.get('tiers', [])
 
