@@ -807,9 +807,12 @@ def get_active_object():
 
 def set_active_object(obj):
     if is_bl_newer_than(2, 80):
-        try: bpy.context.view_layer.objects.active = obj
-        except: print('EXCEPTIION: Cannot set active object!')
-    else: bpy.context.scene.objects.active = obj
+        if bpy.context.view_layer.objects.active != obj:
+            try: bpy.context.view_layer.objects.active = obj
+            except: print('EXCEPTIION: Cannot set active object!')
+    else: 
+        if bpy.context.scene.objects.active != obj:
+            bpy.context.scene.objects.active = obj
 
 def link_object(scene, obj, custom_collection=None):
     if is_bl_newer_than(2, 80):

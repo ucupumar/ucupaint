@@ -941,11 +941,12 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
             uvl = uv_layers.get(book['ori_active_render_uv'])
             if uvl: uvl.active_render = True
 
-    # Recover active object and mode
-    if is_bl_newer_than(2, 80):
-        bpy.context.view_layer.objects.active = obj
-    else: scene.objects.active = obj
-    bpy.ops.object.mode_set(mode = book['mode'])
+    # Recover active object
+    set_active_object(obj)
+
+    # Recover active object mode
+    if obj.mode != book['mode']:
+        bpy.ops.object.mode_set(mode = book['mode'])
 
     # Disable other object selections
     if is_bl_newer_than(2, 80):
