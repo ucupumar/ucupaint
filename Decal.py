@@ -283,7 +283,7 @@ class BaseDecal():
 
     original_texcoord : EnumProperty(
         name = 'Original Texture Coordinate Type',
-        items = texcoord_type_items,
+        items = mask_texcoord_type_items,
         default = 'UV'
     )
 

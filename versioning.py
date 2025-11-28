@@ -1212,6 +1212,18 @@ def update_yp_tree(tree):
                     print('INFO: Unused image named \''+n.image.name+'\' is removed!')
                     simple_remove_node(ltree, n)
 
+    # Version 2.4.1 has fix for inbetween invert modifier mask
+    if version_tuple(yp.version) < (2, 4, 1):
+
+        # Vector sockect can be mistakenly connected to invert mask source input
+        for layer in yp.layers:
+            for mask in layer.masks:
+                if mask.type == 'MODIFIER' and mask.modifier_type == 'INVERT':
+                    mask_tree = get_mask_tree(mask)
+                    mask_source = mask_tree.nodes.get(mask.source)
+                    if mask_source and len(mask_source.inputs[0].links) > 0:
+                        mask_tree.links.remove(mask_source.inputs[0].links[0])
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

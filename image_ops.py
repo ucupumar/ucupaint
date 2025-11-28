@@ -259,12 +259,20 @@ def save_pack_all(yp):
     for image in images:
         if not image: continue
 
-        # There's a need to check if there's empty tile to make sure the image will be packed correctly
-        # NOTE: There's actually no need to do this for Blender 4.1 onward,
-        # but empty tile will still be removed just in case it will cause unexpected problem
         force_pack = False
-        if UDIM.is_udim_supported() and image.source == 'TILED' and UDIM.remove_empty_tiles(image) and UDIM.is_using_temp_dir(image):
-            force_pack = True
+
+        if UDIM.is_udim_supported() and image.source == 'TILED' and UDIM.is_using_temp_dir(image):
+
+            # There's a need to check if there's empty tile to make sure the image will be packed correctly
+            # NOTE: There's actually no need to do this for Blender 4.1 onward,
+            # but empty tile will still be removed just in case it will cause unexpected problem
+            if UDIM.remove_empty_tiles(image):
+                force_pack = True
+
+            # Check if UDIM image mistakenly lost the packed flag
+            path = bpy.path.abspath(image.filepath)
+            if not image.packed_file and not os.path.exists(path):
+                force_pack = True
 
         if not image.is_dirty and not force_pack: continue
         T = time.time()

@@ -1749,7 +1749,7 @@ class SingletonUpdater:
             os.makedirs(self._updater_path)
 
         jpath = self.get_json_path()
-        if os.path.isfile(jpath):
+        if os.path.isfile(jpath) and os.stat(jpath).st_size != 0:
             with open(jpath) as data_file:
                 self._json = json.load(data_file)
                 self.print_verbose("Read in JSON settings from file")

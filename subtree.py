@@ -148,7 +148,7 @@ def check_layer_source_tree(layer, smooth_bump_enabled):
     source_group = layer_tree.nodes.get(layer.source_group)
 
     if (smooth_bump_enabled and
-        (layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'})
+        (layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'})
     ):
         # Enable source group
         if not source_group:
@@ -279,7 +279,7 @@ def check_layer_source_tree(layer, smooth_bump_enabled):
                     layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
                     lib.NEIGHBOR_FAKE, hard_replace=True
                 )
-        elif layer.type not in {'GROUP', 'OBJECT_INDEX', 'BACKFACE'}: 
+        elif layer.type not in {'GROUP', 'OBJECT_INDEX', 'BACKFACE', 'MODIFIER'}: 
             uv_neighbor = replace_new_node(
                 layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True
@@ -389,7 +389,7 @@ def check_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
     if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and get_mask_enabled(mask) and (
         (write_height_ch or mask_idx < chain) and 
-        (mask.use_baked or (mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'MODIFIER', 'EDGE_DETECT', 'HEMI', 'VCOL'} and mask.texcoord_type != 'Layer'))
+        (mask.use_baked or (mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'MODIFIER', 'EDGE_DETECT', 'HEMI', 'VCOL', 'MODIFIER'} and mask.texcoord_type != 'Layer'))
         ):
 
         #if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
@@ -416,7 +416,7 @@ def enable_mask_source_tree(layer, mask):
 
     layer_tree = get_tree(layer)
 
-    if mask.group_node == '' and (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}):
+    if mask.group_node == '' and (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}):
 
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
@@ -742,7 +742,7 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
 
         if smooth_bump_ch and get_channel_enabled(smooth_bump_ch, layer, yp.channels[ch_idx]) and get_mask_enabled(mask) and (
                 mask.channels[ch_idx].enable and height_process_needed and (write_height_ch or i < chain) and
-                (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'})
+                (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'})
                 ): 
             enable_mask_source_tree(layer, mask)
         else:
