@@ -2355,6 +2355,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     else:
         layer_channels = layer.channels
 
+    # Get relevant, non skippable layer channels
+    if ch_idx != -1 and ch_idx < len(layer.channels):
+        ch = layer.channels[ch_idx]
+        relevant_chs = [ch]
+        if ch == color_ch:
+            relevant_chs.append(alpha_ch)
+    else:
+        relevant_chs = layer_channels
+
     # Layer Channels
     for ch in layer_channels:
 
@@ -2583,7 +2592,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if alpha_preview:
                     create_link(tree, normal, alpha_preview)
 
-        if ch_idx != -1 and i != ch_idx: continue
+        if ch not in relevant_chs: continue
 
         intensity = nodes.get(ch.intensity)
         layer_intensity = nodes.get(ch.layer_intensity)
