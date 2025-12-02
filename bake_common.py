@@ -1704,6 +1704,8 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
 
 def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=1.0, bake_alpha=False, vcol_name=''):
 
+    yp = node.node_tree.yp
+
     # Create setup nodes
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
@@ -1786,11 +1788,19 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
         bake_object_op()
     
     # If bake_alpha is True and the channel type is 'RGB', Bake twice to merge Alpha channel
-    if bake_alpha and root_ch.type == 'RGB' and root_ch.enable_alpha:
-        # Connect channel alpha channel
-        alpha_outp = node.outputs.get(root_ch.name + io_suffix['ALPHA'])
-        mat.node_tree.links.new(alpha_outp, emit.inputs[0])
-        bake_alpha_to_vcol()
+    if bake_alpha and root_ch.type == 'RGB': 
+
+        # Get alpha output
+        alpha_outp = None
+        if root_ch.enable_alpha:
+            alpha_outp = node.outputs.get(root_ch.name + io_suffix['ALPHA'])
+        else:
+            color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+            if alpha_ch: alpha_outp = node.outputs.get(alpha_ch.name)
+
+        if alpha_outp: 
+            mat.node_tree.links.new(alpha_outp, emit.inputs[0])
+            bake_alpha_to_vcol()
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, emit)

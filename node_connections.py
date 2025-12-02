@@ -1504,17 +1504,22 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             #create_link(tree, geometry.outputs['Backfacing'], end_backface.inputs[1])
             create_link(tree, get_essential_node(tree, GEOMETRY)['Backfacing'], end_backface.inputs[1])
 
-        if yp.use_baked and ch.use_baked_vcol and not ch.disable_global_baked:
-            baked_vcol = nodes.get(ch.baked_vcol)
+        if yp.use_baked and (
+            (ch.use_baked_vcol and not ch.disable_global_baked) or
+            (alpha_ch == ch and color_ch.use_baked_vcol and not color_ch.disable_global_baked)
+            ):
+
+            if ch == alpha_ch: baked_vcol = nodes.get(color_ch.baked_vcol)
+            else: baked_vcol = nodes.get(ch.baked_vcol)
+
             if baked_vcol:
-                if ch.bake_to_vcol_alpha:
+                if ch.bake_to_vcol_alpha or ch == alpha_ch:
                     rgb = baked_vcol.outputs['Alpha']
                 else:
                     rgb = baked_vcol.outputs['Color']
                 if is_channel_alpha_enabled(ch):
                     alpha = baked_vcol.outputs['Alpha']
 
-        #print(rgb)
         # Blender 2.79 cycles does not need bump normal
         if not is_bl_newer_than(2, 80) and normal_no_bump and ch.type == 'NORMAL' and ch.enable_subdiv_setup:
             create_link(tree, normal_no_bump, get_essential_node(tree, TREE_END)[io_name])
