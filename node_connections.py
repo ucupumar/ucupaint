@@ -2367,7 +2367,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if ch == color_ch:
             relevant_chs.append(alpha_ch)
     else:
-        relevant_chs = layer_channels
+        relevant_chs = [ch for ch in layer_channels]
 
     # Layer Channels
     for ch in layer_channels:
