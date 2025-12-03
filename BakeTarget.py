@@ -299,6 +299,16 @@ class YNewBakeTarget(bpy.types.Operator):
         default = False
     )
 
+    data_type : EnumProperty(
+        name = 'Bake Target Data Type',
+        description = 'Bake target data type',
+        items = (
+            ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
+            ('VCOL', get_vertex_color_label(), '', 'GROUP_VCOL', 1),
+        ),
+        default = 'IMAGE'
+    )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -320,10 +330,12 @@ class YNewBakeTarget(bpy.types.Operator):
         col = row.column(align=False)
         col.label(text='Name:')
         col.label(text='Preset:')
+        col.label(text='Type:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
         col.prop(self, 'preset', text='')
+        col.prop(self, 'data_type', text='')
         col.prop(self, 'use_float')
 
     def execute(self, context):
@@ -336,6 +348,7 @@ class YNewBakeTarget(bpy.types.Operator):
         bt.name = self.name
         bt.use_float = self.use_float
         bt.a.default_value = 1.0
+        bt.data_type = self.data_type
 
         bt.uv_map = get_active_render_uv(context.object)
 

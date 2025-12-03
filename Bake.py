@@ -23,6 +23,14 @@ from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem
 # override all, enable > tampilan mirip option standarnya
 # label rata kanan, lebarin width
 
+
+# new bake target menu : 
+# 1. Type bake target
+# 2. Color attr : Domain & Data Type
+# 3. Menu hapus yg ada hubungannya sama pixel dan image (sisakan Force Bake all, Bake Disabled Layers)
+# override all menu settingan, sesuai bake target tipe (color or image)
+# Color attribute tergenerate setelah bake
+
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     yp = entity.id_data.yp
@@ -1309,7 +1317,7 @@ class YBakeSingleTarget(bpy.types.Operator):
                 self.channels.append(ch)
 
         self.no_layer_using = False
-        self.enable_bake_as_vcol = False
+        self.enable_bake_as_vcol = self.bt.data_type == 'VCOL'
         if len(self.channels) > 0:
 
             # Check if any layer is using the channels
@@ -1473,304 +1481,307 @@ class YBakeSingleTarget(bpy.types.Operator):
         width = self.bt.width * self.bt.aa_level
         height = self.bt.height * self.bt.aa_level
 
-        # Prepare bake settings
-        prepare_bake_settings(
-            book, objs, yp, self.bt.samples, margin, self.bt.uv_map, disable_problematic_modifiers=True, 
-            bake_device=selected_bake_device, margin_type=self.bt.margin_type, use_osl=self.use_osl
-        )
+        enable_bake_vcol = self.bt.data_type == 'VCOL'
 
-        # Get bake properties
-        bprops = get_bake_properties_from_self(self)
+        if not enable_bake_vcol:
+            # Prepare bake settings
+            prepare_bake_settings(
+                book, objs, yp, self.bt.samples, margin, self.bt.uv_map, disable_problematic_modifiers=True, 
+                bake_device=selected_bake_device, margin_type=self.bt.margin_type, use_osl=self.use_osl
+            )
 
-        # Get tilenums
-        tilenums = UDIM.get_tile_numbers(objs, self.bt.uv_map) if self.bt.use_udim else [1001]
+            # Get bake properties
+            bprops = get_bake_properties_from_self(self)
 
-        # Enable disabled layers if needed
-        disabled_layers = []
-        if self.bt.bake_disabled_layers:
-            disabled_layers = [layer for layer in yp.layers if not layer.enable]
-            for layer in disabled_layers:
-                layer.enable = True 
+            # Get tilenums
+            tilenums = UDIM.get_tile_numbers(objs, self.bt.uv_map) if self.bt.use_udim else [1001]
 
-        # Bake channels
-        baked_exists = []
-        for ch in self.channels:
+            # Enable disabled layers if needed
+            disabled_layers = []
+            if self.bt.bake_disabled_layers:
+                disabled_layers = [layer for layer in yp.layers if not layer.enable]
+                for layer in disabled_layers:
+                    layer.enable = True 
 
-            # Check if baked node exists
-            baked = tree.nodes.get(ch.baked)
-            if baked: baked_exists.append(True)
-            else: baked_exists.append(False)
+            # Bake channels
+            baked_exists = []
+            for ch in self.channels:
 
-            ch.no_layer_using = not is_any_layer_using_channel(ch, node)
-            if not ch.no_layer_using:
-                use_hdr = not ch.use_clamp or (self.bt.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
-                bake_channel(
-                    self.bt.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.bt.use_udim, 
-                    tilenums=tilenums, interpolation=self.bt.interpolation, 
-                    use_float_for_displacement=self.bt.use_float_for_displacement, 
-                    use_float_for_normal=self.bt.use_float_for_normal, bprops=bprops
-                )
+                # Check if baked node exists
+                baked = tree.nodes.get(ch.baked)
+                if baked: baked_exists.append(True)
+                else: baked_exists.append(False)
 
-        # Process baked images
-        baked_images = []
-        for i, ch in enumerate(self.channels):
-            if ch.no_layer_using: continue
-
-            baked = tree.nodes.get(ch.baked)
-            if baked and baked.image:
-
-                # Only expand baked data when baked is just created
-                if not baked_exists[i]:
-                    ch.expand_baked_data = True
-
-                # Dithering
-                if ch.type == 'RGB' and ch.colorspace == 'SRGB' and self.bt.use_dithering and ch.use_clamp:
-                    dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=ch.enable_alpha)
-
-                # Denoise
-                if self.bt.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':
-                    denoise_image(baked.image)
-
-                # AA process
-                if self.bt.aa_level > 1:
-                    resize_image(
-                        baked.image, self.bt.width, self.bt.height, 
-                        baked.image.colorspace_settings.name,
-                        alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
+                ch.no_layer_using = not is_any_layer_using_channel(ch, node)
+                if not ch.no_layer_using:
+                    use_hdr = not ch.use_clamp or (self.bt.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
+                    bake_channel(
+                        self.bt.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.bt.use_udim, 
+                        tilenums=tilenums, interpolation=self.bt.interpolation, 
+                        use_float_for_displacement=self.bt.use_float_for_displacement, 
+                        use_float_for_normal=self.bt.use_float_for_normal, bprops=bprops
                     )
 
-                # FXAA doesn't work with hdr image
-                if self.bt.fxaa and ch.use_clamp:
-                    fxaa_image(baked.image, ch.enable_alpha, bake_device=selected_bake_device)
+            # Process baked images
+            baked_images = []
+            for i, ch in enumerate(self.channels):
+                if ch.no_layer_using: continue
 
-                baked_images.append(baked.image)
+                baked = tree.nodes.get(ch.baked)
+                if baked and baked.image:
 
-            if ch.type == 'NORMAL':
+                    # Only expand baked data when baked is just created
+                    if not baked_exists[i]:
+                        ch.expand_baked_data = True
 
-                baked_disp = tree.nodes.get(ch.baked_disp)
-                if baked_disp and baked_disp.image:
+                    # Dithering
+                    if ch.type == 'RGB' and ch.colorspace == 'SRGB' and self.bt.use_dithering and ch.use_clamp:
+                        dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=ch.enable_alpha)
 
                     # Denoise
-                    if self.bt.denoise and is_bl_newer_than(2, 81):
-                        denoise_image(baked_disp.image)
+                    if self.bt.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':
+                        denoise_image(baked.image)
 
                     # AA process
                     if self.bt.aa_level > 1:
                         resize_image(
-                            baked_disp.image, self.bt.width, self.bt.height, 
+                            baked.image, self.bt.width, self.bt.height, 
                             baked.image.colorspace_settings.name,
                             alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                         )
 
-                    # FXAA
-                    if self.bt.fxaa and not baked_disp.image.is_float:
-                        fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=selected_bake_device)
+                    # FXAA doesn't work with hdr image
+                    if self.bt.fxaa and ch.use_clamp:
+                        fxaa_image(baked.image, ch.enable_alpha, bake_device=selected_bake_device)
 
-                    baked_images.append(baked_disp.image)
+                    baked_images.append(baked.image)
 
-                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                if baked_normal_overlay and baked_normal_overlay.image:
+                if ch.type == 'NORMAL':
 
-                    # AA process
-                    if self.bt.aa_level > 1:
-                        resize_image(
-                            baked_normal_overlay.image, self.bt.width, self.bt.height, 
-                            baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
-                        )
-                    # FXAA
-                    if self.bt.fxaa:
-                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=selected_bake_device)
+                    baked_disp = tree.nodes.get(ch.baked_disp)
+                    if baked_disp and baked_disp.image:
 
-                    baked_images.append(baked_normal_overlay.image)
+                        # Denoise
+                        if self.bt.denoise and is_bl_newer_than(2, 81):
+                            denoise_image(baked_disp.image)
 
-                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
-                if baked_vdisp and baked_vdisp.image:
-
-                    # AA process
-                    if self.bt.aa_level > 1:
-                        resize_image(
-                            baked_vdisp.image, self.bt.width, self.bt.height, 
-                            baked.image.colorspace_settings.name,
-                            alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
-                        )
-
-                    baked_images.append(baked_vdisp.image)
-
-        # Set bake info to baked images
-        for img in baked_images:
-            bi = img.y_bake_info
-            for attr in dir(bi):
-                #if attr in dir(self):
-                if attr.startswith('__'): continue
-                if attr.startswith('bl_'): continue
-                if attr in {'rna_type'}: continue
-                try: setattr(bi, attr, getattr(self, attr))
-                except: pass
-            bi.is_baked = True
-            bi.is_baked_channel = True
-
-        # Process custom bake target images
-        # Can only happen when only active channel is off since require all baked images to have the same resolution
-        if not self.bt.only_active_channel:
-            bt = yp.bake_targets[yp.active_bake_target_index]
-
-            print("INFO: Processing custom bake target '" + bt.name + "'...")
-            bt_node = tree.nodes.get(bt.image_node)
-            btimg = bt_node.image if bt_node and bt_node.image else None 
-            
-            old_img = None
-            filepath = ''
-            if btimg and (
-                    btimg.size[0] != self.bt.width or btimg.size[1] != self.bt.height or
-                    (btimg.source == 'TILED' and not self.bt.use_udim) or
-                    (btimg.source != 'TILED' and self.bt.use_udim) 
-                    ):
-                old_img = btimg
-                btimg = None
-                if (old_img.source == 'TILED' and self.bt.use_udim) or (old_img.source != 'TILED' and not self.bt.use_udim):
-                    filepath = old_img.filepath
-
-            # Get default colors
-            color = []
-            for letter in rgba_letters:
-                btc = getattr(bt, letter)
-                ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
-                if ch: ch = ch[0]
-                if ch and ch.type == 'NORMAL':
-                    if btc.normal_type in {'COMBINED', 'OVERLAY_ONLY'}:
-                        # Normal RG default value
-                        if btc.subchannel_index in {'0', '1'}:
-                            color.append(0.5)
-                        else: 
-                            # Normal BA default value
-                            color.append(1.0)
-                    else: 
-                        # Displacement default value
-                        color.append(0.5)
-                else:
-                    color.append(btc.default_value)
-
-            if not btimg:
-                # Set new bake target image
-                if len(tilenums) > 1:
-                    btimg = bpy.data.images.new(
-                        name=bt.name, width=bt.width, height=bt.height, 
-                        alpha=True, tiled=True, float_buffer=bt.use_float
-                    )
-                    btimg.colorspace_settings.name = get_noncolor_name()
-                    btimg.filepath = filepath
-
-                    # Fill tiles
-                    for tilenum in tilenums:
-                        UDIM.fill_tile(btimg, tilenum, color, bt.width, bt.height)
-
-                    UDIM.initial_pack_udim(btimg, color)
-                else:
-                    btimg = bpy.data.images.new(
-                        name=bt.name, width=bt.width, height=bt.height,
-                        alpha=True, float_buffer=bt.use_float
-                    )
-                    btimg.colorspace_settings.name = get_noncolor_name()
-                    btimg.filepath = filepath
-                    btimg.generated_color = color
-            else:
-                for tilenum in tilenums:
-
-                    # Swap tile
-                    if tilenum != 1001:
-                        UDIM.swap_tile(btimg, 1001, tilenum)
-
-                    # Only set image color if image is already found
-                    set_image_pixels(btimg, color)
-
-                    # Swap tile again to recover
-                    if tilenum != 1001:
-                        UDIM.swap_tile(btimg, 1001, tilenum)
-
-            # Copy image channels
-            for i, letter in enumerate(rgba_letters):
-                btc = getattr(bt, letter)
-                ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
-                if ch:
-                    ch = ch[0]
-
-                    # Get image channel
-                    subidx = 0
-                    if ch.type in {'RGB', 'NORMAL'}:
-                        subidx = int(getattr(btc, 'subchannel_index'))
-
-                    # Get baked node
-                    baked = None
-                    if ch.type == 'NORMAL' and btc.normal_type == 'OVERLAY_ONLY':
-                        baked = tree.nodes.get(ch.baked_normal_overlay)
-                    elif ch.type == 'NORMAL' and btc.normal_type == 'DISPLACEMENT':
-                        baked = tree.nodes.get(ch.baked_disp)
-                        subidx = 0
-                    elif ch.type == 'NORMAL' and btc.normal_type == 'VECTOR_DISPLACEMENT':
-                        baked = tree.nodes.get(ch.baked_vdisp)
-                    else: baked = tree.nodes.get(ch.baked)
-
-                    if baked and baked.image:
-                        for tilenum in tilenums:
-                            # Swap tile
-                            if tilenum != 1001:
-                                UDIM.swap_tile(btimg, 1001, tilenum)
-                                UDIM.swap_tile(baked.image, 1001, tilenum)
-
-                            # Copy pixels
-                            copy_image_channel_pixels(
-                                baked.image, btimg, src_idx=subidx,
-                                dest_idx=i, invert_value=btc.invert_value
+                        # AA process
+                        if self.bt.aa_level > 1:
+                            resize_image(
+                                baked_disp.image, self.bt.width, self.bt.height, 
+                                baked.image.colorspace_settings.name,
+                                alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                             )
 
-                            # Swap tile again to recover
-                            if tilenum != 1001:
-                                UDIM.swap_tile(btimg, 1001, tilenum)
-                                UDIM.swap_tile(baked.image, 1001, tilenum)
+                        # FXAA
+                        if self.bt.fxaa and not baked_disp.image.is_float:
+                            fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=selected_bake_device)
 
-            # Set bake target image
-            if old_img: 
-                replace_image(old_img, btimg)
-            else: 
-                bt_node = check_new_node(tree, bt, 'image_node', 'ShaderNodeTexImage')
-                bt_node.image = btimg
+                        baked_images.append(baked_disp.image)
 
-        # Set baked uv
-        yp.baked_uv_name = self.bt.uv_map
+                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image:
 
-        # Recover bake settings
-        recover_bake_settings(book, yp)
+                        # AA process
+                        if self.bt.aa_level > 1:
+                            resize_image(
+                                baked_normal_overlay.image, self.bt.width, self.bt.height, 
+                                baked.image.colorspace_settings.name,
+                                alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
+                            )
+                        # FXAA
+                        if self.bt.fxaa:
+                            fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=selected_bake_device)
 
-        # Recover disabled layers
-        if self.bt.bake_disabled_layers:
-            for layer in disabled_layers:
-                layer.enable = False
+                        baked_images.append(baked_normal_overlay.image)
 
-        # Return to original objects
-        if ori_objs: objs = ori_objs
+                    baked_vdisp = tree.nodes.get(ch.baked_vdisp)
+                    if baked_vdisp and baked_vdisp.image:
 
-        for ob in objs:
-            # Recover material index
-            if ori_mat_ids[ob.name]:
-                for i, p in enumerate(ob.data.polygons):
-                    if ori_mat_ids[ob.name][i] != p.material_index:
-                        p.material_index = ori_mat_ids[ob.name][i]
+                        # AA process
+                        if self.bt.aa_level > 1:
+                            resize_image(
+                                baked_vdisp.image, self.bt.width, self.bt.height, 
+                                baked.image.colorspace_settings.name,
+                                alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
+                            )
 
-            if ori_loop_locs[ob.name]:
+                        baked_images.append(baked_vdisp.image)
 
-                # Get uv map
-                uv_layers = get_uv_layers(ob)
-                uvl = uv_layers.get(self.bt.uv_map)
+            # Set bake info to baked images
+            for img in baked_images:
+                bi = img.y_bake_info
+                for attr in dir(bi):
+                    #if attr in dir(self):
+                    if attr.startswith('__'): continue
+                    if attr.startswith('bl_'): continue
+                    if attr in {'rna_type'}: continue
+                    try: setattr(bi, attr, getattr(self, attr))
+                    except: pass
+                bi.is_baked = True
+                bi.is_baked_channel = True
 
-                # Recover uv locations
-                if uvl:
+            # Process custom bake target images
+            # Can only happen when only active channel is off since require all baked images to have the same resolution
+            if not self.bt.only_active_channel:
+                bt = yp.bake_targets[yp.active_bake_target_index]
+
+                print("INFO: Processing custom bake target '" + bt.name + "'...")
+                bt_node = tree.nodes.get(bt.image_node)
+                btimg = bt_node.image if bt_node and bt_node.image else None 
+                
+                old_img = None
+                filepath = ''
+                if btimg and (
+                        btimg.size[0] != self.bt.width or btimg.size[1] != self.bt.height or
+                        (btimg.source == 'TILED' and not self.bt.use_udim) or
+                        (btimg.source != 'TILED' and self.bt.use_udim) 
+                        ):
+                    old_img = btimg
+                    btimg = None
+                    if (old_img.source == 'TILED' and self.bt.use_udim) or (old_img.source != 'TILED' and not self.bt.use_udim):
+                        filepath = old_img.filepath
+
+                # Get default colors
+                color = []
+                for letter in rgba_letters:
+                    btc = getattr(bt, letter)
+                    ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
+                    if ch: ch = ch[0]
+                    if ch and ch.type == 'NORMAL':
+                        if btc.normal_type in {'COMBINED', 'OVERLAY_ONLY'}:
+                            # Normal RG default value
+                            if btc.subchannel_index in {'0', '1'}:
+                                color.append(0.5)
+                            else: 
+                                # Normal BA default value
+                                color.append(1.0)
+                        else: 
+                            # Displacement default value
+                            color.append(0.5)
+                    else:
+                        color.append(btc.default_value)
+
+                if not btimg:
+                    # Set new bake target image
+                    if len(tilenums) > 1:
+                        btimg = bpy.data.images.new(
+                            name=bt.name, width=bt.width, height=bt.height, 
+                            alpha=True, tiled=True, float_buffer=bt.use_float
+                        )
+                        btimg.colorspace_settings.name = get_noncolor_name()
+                        btimg.filepath = filepath
+
+                        # Fill tiles
+                        for tilenum in tilenums:
+                            UDIM.fill_tile(btimg, tilenum, color, bt.width, bt.height)
+
+                        UDIM.initial_pack_udim(btimg, color)
+                    else:
+                        btimg = bpy.data.images.new(
+                            name=bt.name, width=bt.width, height=bt.height,
+                            alpha=True, float_buffer=bt.use_float
+                        )
+                        btimg.colorspace_settings.name = get_noncolor_name()
+                        btimg.filepath = filepath
+                        btimg.generated_color = color
+                else:
+                    for tilenum in tilenums:
+
+                        # Swap tile
+                        if tilenum != 1001:
+                            UDIM.swap_tile(btimg, 1001, tilenum)
+
+                        # Only set image color if image is already found
+                        set_image_pixels(btimg, color)
+
+                        # Swap tile again to recover
+                        if tilenum != 1001:
+                            UDIM.swap_tile(btimg, 1001, tilenum)
+
+                # Copy image channels
+                for i, letter in enumerate(rgba_letters):
+                    btc = getattr(bt, letter)
+                    ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
+                    if ch:
+                        ch = ch[0]
+
+                        # Get image channel
+                        subidx = 0
+                        if ch.type in {'RGB', 'NORMAL'}:
+                            subidx = int(getattr(btc, 'subchannel_index'))
+
+                        # Get baked node
+                        baked = None
+                        if ch.type == 'NORMAL' and btc.normal_type == 'OVERLAY_ONLY':
+                            baked = tree.nodes.get(ch.baked_normal_overlay)
+                        elif ch.type == 'NORMAL' and btc.normal_type == 'DISPLACEMENT':
+                            baked = tree.nodes.get(ch.baked_disp)
+                            subidx = 0
+                        elif ch.type == 'NORMAL' and btc.normal_type == 'VECTOR_DISPLACEMENT':
+                            baked = tree.nodes.get(ch.baked_vdisp)
+                        else: baked = tree.nodes.get(ch.baked)
+
+                        if baked and baked.image:
+                            for tilenum in tilenums:
+                                # Swap tile
+                                if tilenum != 1001:
+                                    UDIM.swap_tile(btimg, 1001, tilenum)
+                                    UDIM.swap_tile(baked.image, 1001, tilenum)
+
+                                # Copy pixels
+                                copy_image_channel_pixels(
+                                    baked.image, btimg, src_idx=subidx,
+                                    dest_idx=i, invert_value=btc.invert_value
+                                )
+
+                                # Swap tile again to recover
+                                if tilenum != 1001:
+                                    UDIM.swap_tile(btimg, 1001, tilenum)
+                                    UDIM.swap_tile(baked.image, 1001, tilenum)
+
+                # Set bake target image
+                if old_img: 
+                    replace_image(old_img, btimg)
+                else: 
+                    bt_node = check_new_node(tree, bt, 'image_node', 'ShaderNodeTexImage')
+                    bt_node.image = btimg
+
+            # Set baked uv
+            yp.baked_uv_name = self.bt.uv_map
+
+            # Recover bake settings
+            recover_bake_settings(book, yp)
+
+            # Recover disabled layers
+            if self.bt.bake_disabled_layers:
+                for layer in disabled_layers:
+                    layer.enable = False
+
+            # Return to original objects
+            if ori_objs: objs = ori_objs
+
+            for ob in objs:
+                # Recover material index
+                if ori_mat_ids[ob.name]:
                     for i, p in enumerate(ob.data.polygons):
-                        for j, li in enumerate(p.loop_indices):
-                            uvl.data[li].uv = ori_loop_locs[ob.name][i][j]
+                        if ori_mat_ids[ob.name][i] != p.material_index:
+                            p.material_index = ori_mat_ids[ob.name][i]
+
+                if ori_loop_locs[ob.name]:
+
+                    # Get uv map
+                    uv_layers = get_uv_layers(ob)
+                    uvl = uv_layers.get(self.bt.uv_map)
+
+                    # Recover uv locations
+                    if uvl:
+                        for i, p in enumerate(ob.data.polygons):
+                            for j, li in enumerate(p.loop_indices):
+                                uvl.data[li].uv = ori_loop_locs[ob.name][i][j]
 
         # Bake vcol
-        if is_bl_newer_than(2, 92):
+        else:
             is_do_nothing = True
             is_sort_by_channel = False
             if self.bt.only_active_channel:
@@ -1798,11 +1809,10 @@ class YBakeSingleTarget(bpy.types.Operator):
                 bake_device=selected_bake_device, bake_target='VERTEX_COLORS'
             )
             for ch in self.channels:
-                if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
+                if enable_bake_vcol and ch.type != 'NORMAL':
 
                     # Get vcol name
                     vcol_name = 'Baked ' + ch.name if ch.bake_to_vcol_name == '' else ch.bake_to_vcol_name
-
                     # Check vertex color
                     for ob in objs:
                         vcols = get_vertex_colors(ob)

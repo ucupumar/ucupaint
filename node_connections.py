@@ -2479,10 +2479,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         rgb_before_override = rgb
 
-        # Use layer alpha as rgb of alpha channel if color channel is enabled
-        if ch == alpha_ch and get_channel_enabled(color_ch, layer) and not color_ch.unpair_alpha and layer.type != 'GROUP':
-            rgb = alpha
-
         # Channel Override 
         if ch.override and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
 
