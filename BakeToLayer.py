@@ -855,6 +855,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -903,6 +904,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             ypui.layer_ui.expand_source = True
         ypui.need_update = True
 
+        self.execute_operator_recover(context)
         if image: 
             self.report({'INFO'}, 'Baking '+bake_type_labels[self.type]+' is done in '+'{:0.2f}'.format(rdict['time_elapsed'])+' seconds!')
 
@@ -1236,6 +1238,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
 
         if not self.layer:
             self.report({'ERROR'}, "Invalid context!")
@@ -1342,6 +1345,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             self.mask.expand_source = True
         ypui.need_update = True
 
+        self.execute_operator_recover(context)
         if image: 
             self.report({'INFO'}, 'Baking '+entity_label+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
@@ -1435,6 +1439,9 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
         self.layout.label(text='Rebaking all baked images can take a while to process', icon='ERROR')
     
     def execute(self, context): 
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
+
         T = time.time()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -1445,7 +1452,9 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
             self.report({'ERROR'}, 'No baked layer/mask used!')
             return {'CANCELLED'}
 
+        self.execute_operator_recover(context)
         self.report({'INFO'}, 'Rebaking all baked layers & masks is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
+
         return {'FINISHED'}
 
 class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
@@ -1465,6 +1474,9 @@ class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def execute(self, context): 
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
+
         T = time.time()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -1476,6 +1488,8 @@ class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
             layers = [l for i, l in enumerate(yp.layers) if i in ids]
 
         rebake_baked_images(yp, specific_layers=layers)
+
+        self.execute_operator_recover(context)
 
         return {'FINISHED'}
 

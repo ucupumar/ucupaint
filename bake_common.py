@@ -629,9 +629,6 @@ def prepare_bake_settings(
     ypui = bpy.context.window_manager.ypui
     wmyp = bpy.context.window_manager.ypprops
 
-    # Hack function on depsgraph update can cause crash, so halt it before baking
-    wmyp.halt_hacks = True
-
     scene.render.engine = 'CYCLES'
     scene.cycles.samples = samples
     scene.cycles.shading_system = use_osl
@@ -1054,9 +1051,6 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
                 if temp: m.node_tree.nodes.remove(temp)
                 #act_uv = m.node_tree.nodes.get(ACTIVE_UV_NODE)
                 #if act_uv: m.node_tree.nodes.remove(act_uv)
-
-    # Bring back the hack functions
-    wmyp.halt_hacks = False
 
 def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     book = {}
@@ -3571,53 +3565,71 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             alpha_found = False
             if bprops.type == 'OTHER_OBJECT_CHANNELS':
 
-                # Set emission connection
-                for j, m in enumerate(ch_other_mats[idx]):
-                    alpha_default = ch_other_alpha_defaults[idx][j]
-                    alpha_socket = ch_other_alpha_sockets[idx][j]
+                # Check the need for alpha baking
+                # NOTE: Only check for alpha with the main channel (commonly a color channel)
+                if idx == min(ch_ids):
+                    for j, m in enumerate(ch_other_mats[idx]):
+                        alpha_default = ch_other_alpha_defaults[idx][j]
+                        alpha_socket = ch_other_alpha_sockets[idx][j]
 
-                    temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
-                    if not temp_emi: continue
-
-                    if alpha_socket:
-                        alpha_found = True
-                        m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
-
-                    else:
-                        if alpha_default != 1.0:
+                        if alpha_socket or alpha_default != 1.0:
                             alpha_found = True
+                            break
 
-                        # Set alpha_default
-                        if type(alpha_default) == float:
-                            temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
-                        else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+                # Set emission connection
+                if alpha_found:
+                    for j, m in enumerate(ch_other_mats[idx]):
+                        alpha_default = ch_other_alpha_defaults[idx][j]
+                        alpha_socket = ch_other_alpha_sockets[idx][j]
 
-                        # Break link
-                        for l in temp_emi.inputs[0].links:
-                            m.node_tree.links.remove(l)
+                        temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                        if not temp_emi: continue
+
+                        if alpha_socket:
+                            m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+
+                        else:
+                            # Set alpha_default
+                            if type(alpha_default) == float:
+                                temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
+                            else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+
+                            # Break link
+                            for l in temp_emi.inputs[0].links:
+                                m.node_tree.links.remove(l)
 
             elif bprops.type == 'OTHER_OBJECT_EMISSION':
 
-                # Set emission connection
+                # Check the need for alpha baking
                 for i, m in enumerate(other_mats):
                     alpha_default = other_alpha_defaults[i]
                     alpha_socket = other_alpha_sockets[i]
 
-                    temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
-                    if not temp_emi: continue
-
-                    if alpha_socket:
+                    if alpha_socket or alpha_default != 1.0:
                         alpha_found = True
-                        m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+                        break
 
-                    else: 
-                        if alpha_default != 1.0:
-                            alpha_found = True
+                # Set emission connection
+                if alpha_found:
+                    for i, m in enumerate(other_mats):
+                        alpha_default = other_alpha_defaults[i]
+                        alpha_socket = other_alpha_sockets[i]
 
-                        # Set alpha_default
-                        if type(alpha_default) == float:
-                            temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
-                        else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+                        temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                        if not temp_emi: continue
+
+                        if alpha_socket:
+                            m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+
+                        else: 
+                            # Set alpha_default
+                            if type(alpha_default) == float:
+                                temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
+                            else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+
+                            # Break link
+                            for l in temp_emi.inputs[0].links:
+                                m.node_tree.links.remove(l)
 
             else:
                 alpha_found = bprops.use_transparent_for_missing_rays
@@ -5006,6 +5018,18 @@ class BaseBakeOperator():
     def check_operator(self, context):
         if not self.use_custom_resolution:
             self.height = self.width = int(self.image_resolution)
+
+    def execute_operator_prep(self, context):
+        # Depsgraph update functions can cause crash or bake inconsistencies, so halt them before any baking operation
+        wmyp = bpy.context.window_manager.ypprops
+        wmyp.halt_paint_slot_hacks = True
+        wmyp.halt_last_object_update = True
+
+    def execute_operator_recover(self, context):
+        # Recover depsgraph update functions
+        wmyp = bpy.context.window_manager.ypprops
+        wmyp.halt_paint_slot_hacks = False
+        wmyp.halt_last_object_update = False
 
     def is_cycles_exist(self, context):
         if not hasattr(context.scene, 'cycles'):

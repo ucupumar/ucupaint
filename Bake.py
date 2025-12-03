@@ -471,6 +471,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
 
         T = time.time()
 
@@ -547,6 +548,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
+        self.execute_operator_recover(context)
         self.report({'INFO'}, 'All layers and masks using '+self.from_uv_map+' are transferred to '+self.uv_map+' in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
@@ -614,6 +616,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
 
         T = time.time()
 
@@ -661,6 +664,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
+        self.execute_operator_recover(context)
         self.report({'INFO'}, self.entity.name+' UV is transferred from '+ori_uv_name+' to '+self.uv_map+' in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
@@ -775,6 +779,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
 
         yp = get_active_ypaint_node().node_tree.yp
         entity, image = get_resize_image_entity_and_image(self, context)
@@ -847,6 +852,8 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
+
+        self.execute_operator_recover(context)
 
         return {'FINISHED'}
 
@@ -972,6 +979,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
 
         if not is_bl_newer_than(2, 92):
             self.report({'ERROR'}, "You need at least Blender 2.92 to use this feature!")
@@ -1084,6 +1092,8 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
 
         # Recover bake settings
         recover_bake_settings(book, yp)
+
+        self.execute_operator_recover(context)
 
         return {'FINISHED'}
 
@@ -1528,6 +1538,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
 
         T = time.time()
 
@@ -2132,6 +2143,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             for o in temp_objs:
                 remove_mesh_obj(o)
 
+        self.execute_operator_recover(context)
         if self.only_active_channel:
             self.report({'INFO'}, yp.channels[yp.active_channel_index].name+' channel is baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
         else: self.report({'INFO'}, tree.name+' channels are baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
@@ -2427,6 +2439,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
 
         if hasattr(self, 'error_message') and self.error_message != '':
             self.report({'ERROR'}, self.error_message)
@@ -2670,6 +2683,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             self.report({'ERROR'}, "Merge failed for some reason!")
             return {'CANCELLED'}
 
+        self.execute_operator_recover(context)
         self.report({'INFO'}, 'Merging layers is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
@@ -2741,6 +2755,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+        self.execute_operator_prep(context)
 
         T = time.time()
 
@@ -2923,6 +2938,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         # Refresh list items
         ListItem.refresh_list_items(yp, repoint_active=True)
 
+        self.execute_operator_recover(context)
         self.report({'INFO'}, 'Merging masks is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
