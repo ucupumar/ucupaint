@@ -3391,6 +3391,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             root_ch = yp.channels[idx]
             image_name += ' ' + yp.channels[idx].name
 
+            # Skip alpha channel since it will be included into color channel
+            root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+            if idx > 0  and root_ch == root_alpha_ch:
+                continue
+
             # Hide irrelevant objects
             for oo in other_objs:
                 if oo not in ch_other_objects[idx]:
