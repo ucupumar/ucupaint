@@ -1511,6 +1511,7 @@ class YSelectAllOtherObjects(bpy.types.Operator):
             if so.object:
                 so_object = so.object
                 so_object.hide_viewport = False
+                so_object.hide_render = False
                 set_object_select(so_object, True)
         if so_object:
             set_active_object(so_object)
@@ -1544,6 +1545,7 @@ class YToggleOtherObjectsVisibility(bpy.types.Operator):
         for oo in bi.other_objects:
             if oo.object:
                 oo.object.hide_viewport = not current_hidden_state
+                oo.object.hide_render = not current_hidden_state
 
         return {'FINISHED'}
 

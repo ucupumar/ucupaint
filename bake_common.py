@@ -4096,6 +4096,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     if is_bl_newer_than(2, 79) and bprops.type.startswith('OTHER_OBJECT_') and other_objs and bprops.hide_source_objects:
         for oo in other_objs:
             oo.hide_viewport = True
+            oo.hide_render = True
 
     # Remove temporary objects
     if temp_objs:
