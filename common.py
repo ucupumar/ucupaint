@@ -7775,10 +7775,10 @@ def get_closest_yp_node_backward(node):
 
     return None
 
-def get_closest_bsdf_backward(node, valid_types=[]):
+def get_closest_bsdf_backward(node, valid_types=[], include_any=False):
     for inp in node.inputs:
         for link in inp.links:
-            if is_valid_bsdf_node(link.from_node, valid_types):
+            if is_valid_bsdf_node(link.from_node, valid_types) or include_any:
                 return link.from_node
             else:
                 n = get_closest_bsdf_backward(link.from_node, valid_types)

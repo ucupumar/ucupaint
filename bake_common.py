@@ -421,30 +421,40 @@ def prepare_other_objs_colors(yp, other_objs):
             # Check for possible sockets available on the bsdf node
             if not socket:
                 # Search for main bsdf
-                bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types)
+                bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types, include_any=True)
 
-                if bsdf_node.type == 'BSDF_PRINCIPLED':
-                    socket = bsdf_node.inputs['Base Color']
-
-                elif 'Color' in bsdf_node.inputs:
-                    socket = bsdf_node.inputs['Color']
-
-                if socket:
-                    if len(socket.links) == 0:
-                        if default == None:
-                            default = socket.default_value
+                if bsdf_node:
+                    if bsdf_node.type not in valid_bsdf_types:
+                        # Get non bsdf input
+                        for outp in bsdf_node.outputs:
+                            if not outp.enabled: continue
+                            for link in outp.links:
+                                if link.to_socket == output.inputs[0]:
+                                    socket = link.from_socket
                     else:
-                        socket = socket.links[0].from_socket
 
-                # Get alpha socket
-                alpha_socket = bsdf_node.inputs.get('Alpha')
-                if alpha_socket:
+                        if bsdf_node.type == 'BSDF_PRINCIPLED':
+                            socket = bsdf_node.inputs['Base Color']
 
-                    if len(alpha_socket.links) == 0:
-                        alpha_default = alpha_socket.default_value
-                        alpha_socket = None
-                    else:
-                        alpha_socket = alpha_socket.links[0].from_socket
+                        elif 'Color' in bsdf_node.inputs:
+                            socket = bsdf_node.inputs['Color']
+
+                        if socket:
+                            if len(socket.links) == 0:
+                                if default == None:
+                                    default = socket.default_value
+                            else:
+                                socket = socket.links[0].from_socket
+
+                        # Get alpha socket
+                        alpha_socket = bsdf_node.inputs.get('Alpha')
+                        if alpha_socket:
+
+                            if len(alpha_socket.links) == 0:
+                                alpha_default = alpha_socket.default_value
+                                alpha_socket = None
+                            else:
+                                alpha_socket = alpha_socket.links[0].from_socket
 
             # Append objects and materials if socket is found
             if socket or default:
@@ -537,47 +547,61 @@ def prepare_other_objs_channels(yp, other_objs):
 
                 # Check for possible sockets available on the bsdf node
                 if not socket:
+                    # Color channel can take any node, not only bsdf
+                    include_any_node = ch.name == 'Color'
+
                     # Search for main bsdf
-                    bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types)
+                    bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types, include_any=include_any_node)
 
-                    if ch.name == 'Color' and bsdf_node.type == 'BSDF_PRINCIPLED':
-                        socket = bsdf_node.inputs['Base Color']
+                    if bsdf_node:
 
-                    elif ch.name in bsdf_node.inputs:
-                        socket = bsdf_node.inputs[ch.name]
-
-                    if socket:
-                        if len(socket.links) == 0:
-                            if default == None:
-                                default = socket.default_value
-
-                                # Blender 4.0 has weight/strength value for some inputs
-                                if is_bl_newer_than(4):
-                                    input_prefixes = ['Subsurface', 'Coat', 'Sheen', 'Emission']
-                                    for prefix in input_prefixes:
-                                        if socket.name.startswith(prefix):
-
-                                            if socket.name.startswith('Emission'):
-                                                weight_socket_name = 'Emission Strength'
-                                            else: weight_socket_name = prefix + ' Weight'
-
-                                            # NOTE: Only set the default weight if there's no dedicated channel for weight in destination yp
-                                            if weight_socket_name not in yp.channels and weight_socket_name != socket.name:
-                                                weight_socket = bsdf_node.inputs.get(weight_socket_name)
-                                                if weight_socket:
-                                                    default_weight = weight_socket.default_value
+                        if bsdf_node.type not in valid_bsdf_types:
+                            # Get non bsdf input
+                            for outp in bsdf_node.outputs:
+                                if not outp.enabled: continue
+                                for link in outp.links:
+                                    if link.to_socket == output.inputs[0]:
+                                        socket = link.from_socket
                         else:
-                            socket = socket.links[0].from_socket
 
-                    # Get alpha socket
-                    alpha_socket = bsdf_node.inputs.get('Alpha')
-                    if alpha_socket:
+                            if ch.name == 'Color' and bsdf_node.type == 'BSDF_PRINCIPLED':
+                                socket = bsdf_node.inputs['Base Color']
 
-                        if len(alpha_socket.links) == 0:
-                            alpha_default = alpha_socket.default_value
-                            alpha_socket = None
-                        else:
-                            alpha_socket = alpha_socket.links[0].from_socket
+                            elif ch.name in bsdf_node.inputs:
+                                socket = bsdf_node.inputs[ch.name]
+
+                            if socket:
+                                if len(socket.links) == 0:
+                                    if default == None:
+                                        default = socket.default_value
+
+                                        # Blender 4.0 has weight/strength value for some inputs
+                                        if is_bl_newer_than(4):
+                                            input_prefixes = ['Subsurface', 'Coat', 'Sheen', 'Emission']
+                                            for prefix in input_prefixes:
+                                                if socket.name.startswith(prefix):
+
+                                                    if socket.name.startswith('Emission'):
+                                                        weight_socket_name = 'Emission Strength'
+                                                    else: weight_socket_name = prefix + ' Weight'
+
+                                                    # NOTE: Only set the default weight if there's no dedicated channel for weight in destination yp
+                                                    if weight_socket_name not in yp.channels and weight_socket_name != socket.name:
+                                                        weight_socket = bsdf_node.inputs.get(weight_socket_name)
+                                                        if weight_socket:
+                                                            default_weight = weight_socket.default_value
+                                else:
+                                    socket = socket.links[0].from_socket
+
+                            # Get alpha socket
+                            alpha_socket = bsdf_node.inputs.get('Alpha')
+                            if alpha_socket:
+
+                                if len(alpha_socket.links) == 0:
+                                    alpha_default = alpha_socket.default_value
+                                    alpha_socket = None
+                                else:
+                                    alpha_socket = alpha_socket.links[0].from_socket
 
                 # Append objects and materials if socket is found
                 if socket or default:
