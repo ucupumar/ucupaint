@@ -1134,7 +1134,7 @@ def draw_root_channels_ui(context, layout, node):
                     row.alert = True
                     row.operator('wm.y_optimize_normal_process', icon='ERROR', text='Fix Height Input')
 
-            if is_output_unconnected(node, output_index, channel):
+            if is_output_unconnected(node, output_index, channel) and channel.enable_unconnected_warning:
                 row = mcol.row(align=True)
                 row.alert = True
                 row.operator('wm.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
@@ -1495,6 +1495,12 @@ def draw_root_channels_ui(context, layout, node):
 
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
+
+                brow = bcol.row(align=True)
+                brow.active = not yp.use_baked
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Unconnected Warning:')
+                brow.prop(channel, 'enable_unconnected_warning', text='')
 
                 # Bake to vertex color settings
                 if is_bl_newer_than(2, 92):
@@ -4173,7 +4179,7 @@ def draw_layers_ui(context, layout, node):
                 row.operator('object.y_fix_vdm_missmatch_uv')
                 row.alert = False
 
-        if is_not_in_material_view():
+        if is_not_in_material_view() and ypup.enable_material_view_warning:
             bbox = col.box()
             row = bbox.row(align=True)
             row.alert = True
@@ -4920,7 +4926,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             else:
                 row.label(text='', icon='LINKED')
 
-            if is_output_unconnected(group_node, output_index, item):
+            if is_output_unconnected(group_node, output_index, item) and item.enable_unconnected_warning:
                 row.label(text='', icon='ERROR')
 
             if ypup.developer_mode and item.type=='RGB' and item.enable_alpha:

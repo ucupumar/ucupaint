@@ -3875,6 +3875,13 @@ class YPaintChannel(bpy.types.PropertyGroup):
         default = '',
     )
 
+    # Unconnected warning
+    enable_unconnected_warning : BoolProperty(
+        name = 'Unconnected Warning',
+        description = 'Enable warning popup on this channel if it is not connected to main shader node',
+        default = True
+    )
+
     # Displacement for normal channel
     enable_parallax : BoolProperty(
         name = 'Enable Parallax Mapping',
