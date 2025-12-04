@@ -5061,6 +5061,14 @@ class BaseBakeOperator():
         wmyp.halt_paint_slot_hacks = False
         wmyp.halt_last_object_update = False
 
+    def execute_operator_finished(self, context):
+        self.execute_operator_recover(context)
+        return {'FINISHED'}
+
+    def execute_operator_cancelled(self, context):
+        self.execute_operator_recover(context)
+        return {'CANCELLED'}
+
     def is_cycles_exist(self, context):
         if not hasattr(context.scene, 'cycles'):
             self.report({'ERROR'}, "Cycles Render Engine need to be enabled in user preferences!")

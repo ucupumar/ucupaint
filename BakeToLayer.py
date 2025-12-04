@@ -862,7 +862,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         if (self.overwrite_choice or self.overwrite_current) and self.overwrite_name == '':
             self.report({'ERROR'}, "Overwrite layer/mask cannot be empty!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Get overwrite image
         overwrite_img = None
@@ -883,7 +883,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         if rdict['message'] != '':
             self.report({'ERROR'}, rdict['message'])
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         active_id = rdict['active_id']
         image = rdict['image']
@@ -904,11 +904,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             ypui.layer_ui.expand_source = True
         ypui.need_update = True
 
-        self.execute_operator_recover(context)
         if image: 
             self.report({'INFO'}, 'Baking '+bake_type_labels[self.type]+' is done in '+'{:0.2f}'.format(rdict['time_elapsed'])+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_entity_to_image"
@@ -1242,19 +1241,19 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         if not self.layer:
             self.report({'ERROR'}, "Invalid context!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         #if self.layer and not self.mask:
         #    self.report({'ERROR'}, "This feature is not implemented yet!")
-        #    return {'CANCELLED'}
+        #    return self.execute_operator_cancelled(context)
 
         if self.uv_map == '':
             self.report({'ERROR'}, "UV Map cannot be empty!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.mask and self.mask.type == 'BACKFACE':
             self.report({'ERROR'}, "Backface mask can't be baked!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         T = time.time()
         node = get_active_ypaint_node()
@@ -1274,7 +1273,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         if rdict['message'] != '':
             self.report({'ERROR'}, rdict['message'])
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         image = rdict['image']
         segment = rdict['segment']
@@ -1345,11 +1344,10 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
             self.mask.expand_source = True
         ypui.need_update = True
 
-        self.execute_operator_recover(context)
         if image: 
             self.report({'INFO'}, 'Baking '+entity_label+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {"FINISHED"}
+        return self.execute_operator_finished(context)
 
 class YRemoveBakedEntity(bpy.types.Operator):
     bl_idname = "wm.y_remove_baked_entity"
@@ -1450,12 +1448,11 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
 
         if baked_counts == 0:
             self.report({'ERROR'}, 'No baked layer/mask used!')
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
-        self.execute_operator_recover(context)
         self.report({'INFO'}, 'Rebaking all baked layers & masks is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_rebake_specific_layers"
@@ -1489,9 +1486,7 @@ class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
 
         rebake_baked_images(yp, specific_layers=layers)
 
-        self.execute_operator_recover(context)
-
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YSelectAllOtherObjects(bpy.types.Operator):
     bl_idname = "wm.y_select_all_other_objects"
