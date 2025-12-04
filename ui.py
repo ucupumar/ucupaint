@@ -1497,7 +1497,6 @@ def draw_root_channels_ui(context, layout, node):
                 split.prop(channel, 'colorspace', text='')
 
                 brow = bcol.row(align=True)
-                brow.active = not yp.use_baked
                 brow.label(text='', icon='BLANK1')
                 brow.label(text='Unconnected Warning:')
                 brow.prop(channel, 'enable_unconnected_warning', text='')
