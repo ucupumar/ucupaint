@@ -31,6 +31,11 @@ from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem
 # override all menu settingan, sesuai bake target tipe (color or image)
 # Color attribute tergenerate setelah bake
 
+# tidak support bake normal to vcol
+# check AO waktu create new bake target
+# replace bake to image seperti bake vcol
+# bake normal : lihat def bake_channel()
+
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     yp = entity.id_data.yp
@@ -1280,6 +1285,42 @@ class YBakeSingleTarget(bpy.types.Operator):
             row_ovr.prop(self, "override_bake_device", text="")
 
     def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        self.bt = yp.bake_targets[yp.active_bake_target_index]
+
+        if self.bt.data_type == 'VCOL':
+            return self.bake_to_vcol(context)
+        else:
+            return self.bake_to_texture(context)
+    
+    def bake_to_vcol(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        bake_target = yp.bake_targets[yp.active_bake_target_index]
+
+        active_obj = context.object
+        # Get vcol name
+
+        # Check vertex color
+        vcols = get_vertex_colors(active_obj)
+        vcol = vcols.get(bake_target.name)
+
+        # Set index to first so new vcol will copy their value
+        if len(vcols) > 0:
+            first_vcol = vcols[0]
+            set_active_vertex_color(active_obj, first_vcol)
+
+        if not vcol:
+            try: 
+                vcol = new_vertex_color(active_obj, bake_target.name)
+            except Exception as e: print(e)
+
+        bake_target_vcol(active_obj, node, bake_target)
+
+        return {'FINISHED'}
+
+    def bake_to_texture(self, context):
         T = time.time()
 
         node = get_active_ypaint_node()

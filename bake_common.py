@@ -1702,6 +1702,66 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
 
     return image
 
+def bake_target_vcol(obj, node, bake_target):
+    print("bek bek")
+    yp = node.node_tree.yp
+    mat = obj.active_material
+    ntree = mat.node_tree
+
+    emit = ntree.nodes.new('ShaderNodeEmission')
+    combine_xyz = ntree.nodes.new('ShaderNodeCombineXYZ')
+
+    output = get_material_output(mat, create_one=True)
+    ori_bsdf = output.inputs[0].links[0].from_socket
+
+    ntree.links.new(emit.outputs[0], output.inputs[0])
+
+    for i, letter in enumerate(rgba_letters):
+        btc = getattr(bake_target, letter)
+        ch_name = btc.channel_name
+        ch = yp.channels.get(ch_name) if ch_name != '' else None
+
+        print("channel name "+ch_name+" : "+str(btc.default_value))
+
+        if ch:
+            ch_node = node.outputs[btc.channel_name]
+            print("channel type "+ch_name+" : "+ch.type)
+
+            if ch.type == 'VALUE':
+                ntree.links.new(ch_node, combine_xyz.inputs[i])
+            elif ch.type == 'RGB':
+                sep_ch = ntree.nodes.get('sep_'+btc.channel_name)
+                if not sep_ch:
+                    sep_ch = ntree.nodes.new('ShaderNodeSeparateXYZ')
+                    sep_ch.name = 'sep_'+btc.channel_name
+                    ntree.links.new(ch_node, sep_ch.inputs[0])
+
+                sub_idx = int(btc.subchannel_index)
+                ntree.links.new(sep_ch.outputs[sub_idx], combine_xyz.inputs[i])
+
+        elif i < 3:
+            combine_xyz.inputs[i].default_value = btc.default_value
+
+    ntree.links.new(combine_xyz.outputs[0], emit.inputs[0])
+    bake_object_op()
+    # Recover original 
+    for i, letter in enumerate(rgba_letters):
+        btc = getattr(bake_target, letter)
+        ch_name = btc.channel_name
+        ch = yp.channels.get(ch_name) if ch_name != '' else None
+        print("channel name "+ch_name+" : "+str(btc.default_value))
+
+        if ch and ch.type == 'RGB':
+            sep_ch = ntree.nodes.get('sep_'+btc.channel_name)
+            if sep_ch:
+                simple_remove_node(mat.node_tree, sep_ch)
+
+    simple_remove_node(mat.node_tree, emit)
+    simple_remove_node(mat.node_tree, combine_xyz)
+    
+    mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
+
 def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=1.0, bake_alpha=False, vcol_name=''):
 
     yp = node.node_tree.yp
