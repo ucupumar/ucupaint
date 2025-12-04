@@ -5050,10 +5050,14 @@ class BaseBakeOperator():
             self.height = self.width = int(self.image_resolution)
 
     def execute_operator_prep(self, context):
+        if not self.is_cycles_exist(context): return False
+
         # Depsgraph update functions can cause crash or bake inconsistencies, so halt them before any baking operation
         wmyp = bpy.context.window_manager.ypprops
         wmyp.halt_paint_slot_hacks = True
         wmyp.halt_last_object_update = True
+
+        return True
 
     def execute_operator_recover(self, context):
         # Recover depsgraph update functions
@@ -5071,6 +5075,6 @@ class BaseBakeOperator():
 
     def is_cycles_exist(self, context):
         if not hasattr(context.scene, 'cycles'):
-            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in user preferences!")
+            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in the user preferences!")
             return False
         return True

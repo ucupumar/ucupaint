@@ -470,8 +470,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'reorder_uv_list')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
@@ -614,8 +613,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'margin', text='')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
@@ -776,8 +774,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
                     col.prop(self, 'tile_number', text='')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         yp = get_active_ypaint_node().node_tree.yp
         entity, image = get_resize_image_entity_and_image(self, context)
@@ -974,8 +971,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'force_first_index', text='')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         if not is_bl_newer_than(2, 92):
             self.report({'ERROR'}, "You need at least Blender 2.92 to use this feature!")
@@ -1531,8 +1527,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ccol.prop(self, 'bake_disabled_layers')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
@@ -2431,8 +2426,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text="Are you sure you want to continue?", icon='BLANK1')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         if hasattr(self, 'error_message') and self.error_message != '':
             self.report({'ERROR'}, self.error_message)
@@ -2746,8 +2740,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         return True
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 

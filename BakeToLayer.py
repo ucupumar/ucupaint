@@ -854,8 +854,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             ccol.prop(self, 'hide_source_objects')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -1236,8 +1235,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'use_image_atlas')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         if not self.layer:
             self.report({'ERROR'}, "Invalid context!")
@@ -1437,8 +1435,7 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
         self.layout.label(text='Rebaking all baked images can take a while to process', icon='ERROR')
     
     def execute(self, context): 
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
         node = get_active_ypaint_node()
@@ -1471,8 +1468,7 @@ class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def execute(self, context): 
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-        self.execute_operator_prep(context)
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
         node = get_active_ypaint_node()
