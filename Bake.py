@@ -1300,23 +1300,21 @@ class YBakeSingleTarget(bpy.types.Operator):
         bake_target = yp.bake_targets[yp.active_bake_target_index]
 
         active_obj = context.object
-        # Get vcol name
 
-        # Check vertex color
-        vcols = get_vertex_colors(active_obj)
-        vcol = vcols.get(bake_target.name)
+        # NORMAL check
+        for i, letter in enumerate(rgba_letters):
+            btc = getattr(bake_target, letter)
+            ch_name = btc.channel_name
+            ch = yp.channels.get(ch_name) if ch_name != '' else None
 
-        # Set index to first so new vcol will copy their value
-        if len(vcols) > 0:
-            first_vcol = vcols[0]
-            set_active_vertex_color(active_obj, first_vcol)
+            print("channel name "+ch_name+" : "+str(btc.default_value))
 
-        if not vcol:
-            try: 
-                vcol = new_vertex_color(active_obj, bake_target.name)
-            except Exception as e: print(e)
+            if ch != None and ch.type == 'NORMAL':
+                self.report({'ERROR'}, "Normal channel cannot be baked to Vertex Color")
+                return {'CANCELLED'}
 
-        bake_target_vcol(active_obj, node, bake_target)
+        vcol_name = bake_target.name
+        bake_target_vcol(active_obj, node, bake_target, vcol_name)
 
         return {'FINISHED'}
 

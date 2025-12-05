@@ -1051,24 +1051,24 @@ def draw_bake_targets_ui(context, layout, node):
             for letter in rgba_letters:
                 draw_bake_target_channel(context, bcol, bt, letter)
 
-
-        row = col.row(align=True)
-        row.label(text='', icon='BLANK1')
-        image_name = image.name if image else '-'
-
-        info_col = row.column()
-        row_image = info_col.row(align=True)
-
-        row_image.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
-
-        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-        row_image.context_pointer_set('image', image)
-        row_image.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
-
-        if not image:
+        if bt.data_type == 'IMAGE':
             row = col.row(align=True)
             row.label(text='', icon='BLANK1')
-            row.label(text=f"Do 'Bake {bt.name}' to get the image!", icon='ERROR')
+            image_name = image.name if image else '-'
+
+            info_col = row.column()
+            row_image = info_col.row(align=True)
+
+            row_image.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
+
+            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+            row_image.context_pointer_set('image', image)
+            row_image.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
+
+            if not image:
+                row = col.row(align=True)
+                row.label(text='', icon='BLANK1')
+                row.label(text=f"Do 'Bake {bt.name}' to get the image!", icon='ERROR')
 
         row_setting = col.row(align=True)
 

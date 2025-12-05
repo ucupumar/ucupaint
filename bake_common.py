@@ -1702,33 +1702,82 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
 
     return image
 
-def bake_target_vcol(obj, node, bake_target):
-    print("bek bek")
+# To avoid duplicate code, define the function here
+def bake_alpha_to_vcol(obj, vcol_name):
+    temp_vcol_alpha_name = '__temp__ucupaint_vertex_color_for_alpha_bake'
+    # Creates temp vertex color for baking alpha
+    temp_vcol = new_vertex_color(obj, temp_vcol_alpha_name)
+    set_active_vertex_color(obj, temp_vcol)
+
+    bake_object_op()
+    
+    vcols = get_vertex_colors(obj)
+    temp_vcol = vcols.get(temp_vcol_alpha_name)
+    target_vcol = vcols.get(vcol_name)
+    
+    # Speed up the process with numpy
+    dim_rgba = 4
+    temp_nvcol = numpy.zeros(len(temp_vcol.data) * dim_rgba, dtype=numpy.float32)
+    target_nvcol = numpy.zeros(len(target_vcol.data) * dim_rgba, dtype=numpy.float32)
+    
+    temp_vcol.data.foreach_get('color', temp_nvcol)
+    target_vcol.data.foreach_get('color', target_nvcol)
+    temp_nvcol2D = temp_nvcol.reshape(-1, dim_rgba)
+    target_nvcol2D = target_nvcol.reshape(-1, dim_rgba)
+
+    # Moves the alpha of the temp vertex color to the target vertex color
+    target_nvcol2D[:, 3] = temp_nvcol2D[:, 0]
+    target_vcol.data.foreach_set('color', target_nvcol)   
+
+    # Deletes the temp vertex color and resets the active vertex color
+    vcols.remove(temp_vcol)
+    set_active_vertex_color(obj, target_vcol)
+
+def bake_target_vcol(obj, node, bake_target, vcol_name):
     yp = node.node_tree.yp
     mat = obj.active_material
     ntree = mat.node_tree
 
     emit = ntree.nodes.new('ShaderNodeEmission')
     combine_xyz = ntree.nodes.new('ShaderNodeCombineXYZ')
+    ntree.links.new(combine_xyz.outputs[0], emit.inputs[0])
+
+    vcols = get_vertex_colors(obj)
+    vcol = vcols.get(vcol_name)
+
+    # Set index to first so new vcol will copy their value
+    if len(vcols) > 0:
+        first_vcol = vcols[0]
+        set_active_vertex_color(obj, first_vcol)
+
+    if not vcol:
+        try: 
+            vcol = new_vertex_color(obj, vcol_name)
+        except Exception as e: print(e)
+
 
     output = get_material_output(mat, create_one=True)
     ori_bsdf = output.inputs[0].links[0].from_socket
 
     ntree.links.new(emit.outputs[0], output.inputs[0])
 
+    alpha_channel = None
+
     for i, letter in enumerate(rgba_letters):
+
         btc = getattr(bake_target, letter)
         ch_name = btc.channel_name
         ch = yp.channels.get(ch_name) if ch_name != '' else None
 
-        print("channel name "+ch_name+" : "+str(btc.default_value))
+        # print("channel name "+ch_name+" : "+str(btc.default_value))
 
         if ch:
             ch_node = node.outputs[btc.channel_name]
             print("channel type "+ch_name+" : "+ch.type)
 
             if ch.type == 'VALUE':
-                ntree.links.new(ch_node, combine_xyz.inputs[i])
+                output_ch = ch_node
+                # ntree.links.new(ch_node, combine_xyz.inputs[i])
             elif ch.type == 'RGB':
                 sep_ch = ntree.nodes.get('sep_'+btc.channel_name)
                 if not sep_ch:
@@ -1737,13 +1786,63 @@ def bake_target_vcol(obj, node, bake_target):
                     ntree.links.new(ch_node, sep_ch.inputs[0])
 
                 sub_idx = int(btc.subchannel_index)
-                ntree.links.new(sep_ch.outputs[sub_idx], combine_xyz.inputs[i])
+                output_ch = sep_ch.outputs[sub_idx]
+                # ntree.links.new(sep_ch.outputs[sub_idx], combine_xyz.inputs[i])
+
+            if i == 3: # alpha
+                # ntree.links.new(output_ch, combine_alp_xyz.inputs[0])
+                alpha_channel = output_ch
+            else:
+                ntree.links.new(output_ch, combine_xyz.inputs[i])
 
         elif i < 3:
             combine_xyz.inputs[i].default_value = btc.default_value
+        else:
+            # combine_alp_xyz.inputs[0].default_value = btc.default_value
+            pass
 
-    ntree.links.new(combine_xyz.outputs[0], emit.inputs[0])
     bake_object_op()
+
+    # alpha node
+    if alpha_channel:
+
+        temp_vcol_alpha_name = '__temp__ucupaint_vertex_color_for_alpha_bake'
+
+        combine_alp_xyz = ntree.nodes.new('ShaderNodeCombineXYZ')
+        ntree.links.new(combine_alp_xyz.outputs[0], emit.inputs[0])
+
+        ntree.links.new(alpha_channel, combine_alp_xyz.inputs[0])
+
+        temp_vcol = new_vertex_color(obj, temp_vcol_alpha_name)
+        set_active_vertex_color(obj, temp_vcol)
+
+        bake_object_op()
+
+        vcols = get_vertex_colors(obj)
+        temp_vcol = vcols.get(temp_vcol_alpha_name)
+        target_vcol = vcols.get(vcol_name)
+        
+        # Speed up the process with numpy
+        dim_rgba = 4
+        temp_nvcol = numpy.zeros(len(temp_vcol.data) * dim_rgba, dtype=numpy.float32)
+        target_nvcol = numpy.zeros(len(target_vcol.data) * dim_rgba, dtype=numpy.float32)
+        
+        temp_vcol.data.foreach_get('color', temp_nvcol)
+        target_vcol.data.foreach_get('color', target_nvcol)
+        temp_nvcol2D = temp_nvcol.reshape(-1, dim_rgba)
+        target_nvcol2D = target_nvcol.reshape(-1, dim_rgba)
+
+        # Moves the alpha of the temp vertex color to the target vertex color
+        target_nvcol2D[:, 3] = temp_nvcol2D[:, 0]
+        target_vcol.data.foreach_set('color', target_nvcol)   
+
+        # Deletes the temp vertex color and resets the active vertex color
+        vcols.remove(temp_vcol)
+        set_active_vertex_color(obj, target_vcol)
+
+        simple_remove_node(mat.node_tree, combine_alp_xyz)
+
+
     # Recover original 
     for i, letter in enumerate(rgba_letters):
         btc = getattr(bake_target, letter)
