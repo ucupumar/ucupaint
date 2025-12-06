@@ -116,6 +116,12 @@ class YPaintPreferences(AddonPreferences):
         default = True
     )
 
+    enable_material_view_warning : BoolProperty(
+        name = 'Enable "Switch to Material View" warning',
+        description = "Enable warning popup when ucupaint parent window is not in a Material render/preview mode",
+        default = True
+    )
+
     layer_list_mode : EnumProperty(
         name = 'Layer Lists Mode',
         items = (
@@ -197,6 +203,7 @@ class YPaintPreferences(AddonPreferences):
             self.layout.prop(self, 'enable_uniform_uv_scale_by_default')
         if is_udim_supported():
             self.layout.prop(self, 'enable_auto_udim_detection')
+        self.layout.prop(self, 'enable_material_view_warning')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')
