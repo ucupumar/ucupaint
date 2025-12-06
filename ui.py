@@ -1134,7 +1134,7 @@ def draw_root_channels_ui(context, layout, node):
                     row.alert = True
                     row.operator('wm.y_optimize_normal_process', icon='ERROR', text='Fix Height Input')
 
-            if is_output_unconnected(node, output_index, channel) and channel.enable_unconnected_warning:
+            if is_output_unconnected(node, output_index, channel) and not channel.disable_unconnected_warning:
                 row = mcol.row(align=True)
                 row.alert = True
                 row.operator('wm.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
@@ -1498,8 +1498,8 @@ def draw_root_channels_ui(context, layout, node):
 
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='BLANK1')
-                brow.label(text='Unconnected Warning:')
-                brow.prop(channel, 'enable_unconnected_warning', text='')
+                brow.label(text='Disable Unconnected Warning:')
+                brow.prop(channel, 'disable_unconnected_warning', text='')
 
                 # Bake to vertex color settings
                 if is_bl_newer_than(2, 92):
@@ -4925,7 +4925,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             else:
                 row.label(text='', icon='LINKED')
 
-            if is_output_unconnected(group_node, output_index, item) and item.enable_unconnected_warning:
+            if is_output_unconnected(group_node, output_index, item) and not item.disable_unconnected_warning:
                 row.label(text='', icon='ERROR')
 
             if ypup.developer_mode and item.type=='RGB' and item.enable_alpha:

@@ -3876,10 +3876,10 @@ class YPaintChannel(bpy.types.PropertyGroup):
     )
 
     # Unconnected warning
-    enable_unconnected_warning : BoolProperty(
-        name = 'Unconnected Warning',
-        description = 'Enable warning popup on this channel if it is not connected to main shader node',
-        default = True
+    disable_unconnected_warning : BoolProperty(
+        name = 'Disable Unconnected Warning',
+        description = 'Disable warning popup on this channel if it is not connected to main shader node',
+        default = False
     )
 
     # Displacement for normal channel
