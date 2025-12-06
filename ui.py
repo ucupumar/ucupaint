@@ -4327,7 +4327,7 @@ def main_draw(self, context):
         row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
 
     # Extension platform update notification
-    if ypui.extension_update_state == 'AVAILABLE':
+    if is_online() and ypui.extension_update_state == 'AVAILABLE':
         col = layout.column()
         row_alert = col.row(align=True)
         row_alert.alert = True
@@ -8428,6 +8428,7 @@ def get_new_extension_version_available():
     return None
 
 def check_latest_extension_version():
+    if not is_online(): return
     ypui = bpy.context.window_manager.ypui
 
     try: new_ver = get_new_extension_version_available()
