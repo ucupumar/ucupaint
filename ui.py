@@ -4326,15 +4326,15 @@ def main_draw(self, context):
 
         row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
 
-    if ypui.update_state == 'AVAILABLE':
+    # Extension platform update notification
+    if ypui.extension_update_state == 'AVAILABLE':
         col = layout.column()
         row_alert = col.row(align=True)
         row_alert.alert = True
         row_alert.operator("extensions.userpref_show_for_update", icon='ERROR', text='New version is available!') # + ypui.latest_version)
         row_alert.alert = False
         row_alert.operator("ext.pending_update", icon='PANEL_CLOSE', text='')
-    else:
-        pass
+
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
     rrow = row.row(align=True)
@@ -8278,7 +8278,7 @@ class YPaintUI(bpy.types.PropertyGroup):
 
     any_expandable_layers : BoolProperty(default=False)
 
-    update_state : EnumProperty(
+    extension_update_state : EnumProperty(
         name = 'Update State',
         description = 'Extension update state',
         items = (
@@ -8292,13 +8292,6 @@ class YPaintUI(bpy.types.PropertyGroup):
     latest_version : StringProperty(
         default= ''
     )
-
-
-    # todo : 
-    # - test in 4.2, 4.1
-    # - 3 state update enum
-    # - check in register ui (try catch)
-    # - master
 
 def add_new_ypaint_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}: return
@@ -8384,8 +8377,8 @@ def yp_load_ui_settings(scene):
     # Update UI
     wmui.need_update = True
 
-def get_new_version_available():
-    ucp_id = 'ucupaint'
+def get_new_extension_version_available():
+    addon_id = 'ucupaint'
     from bl_pkg import bl_extension_ops as ext_op
     from bl_pkg import bl_extension_utils
 
@@ -8428,25 +8421,25 @@ def get_new_version_available():
                 # Blocked, don't touch.
                 continue
 
-            if pkg_id == ucp_id and item_remote.version != item_local.version:
+            if pkg_id == addon_id and item_remote.version != item_local.version:
                 # print("available=", item_remote.version)
                 return item_remote.version
             
     return None
 
-def check_latest_version():
+def check_latest_extension_version():
     ypui = bpy.context.window_manager.ypui
 
-    try: new_ver = get_new_version_available()
+    try: new_ver = get_new_extension_version_available()
     except Exception as e:
         new_ver = None
         print(get_addon_title()+" (Error extension version getter):",e)
 
     if new_ver:
-        ypui.update_state = 'AVAILABLE'
+        ypui.extension_update_state = 'AVAILABLE'
         ypui.latest_version = new_ver
     else:
-        ypui.update_state = 'UNAVAILABLE'
+        ypui.extension_update_state = 'UNAVAILABLE'
 
 class YPendingUpdate(bpy.types.Operator):
     bl_idname = "ext.pending_update"
@@ -8456,7 +8449,7 @@ class YPendingUpdate(bpy.types.Operator):
 
     def execute(self, context):
         ypui = bpy.context.window_manager.ypui
-        ypui.update_state = 'PENDING'
+        ypui.extension_update_state = 'PENDING'
 
         return {'FINISHED'}
 
@@ -8549,8 +8542,9 @@ def register():
     if is_bl_newer_than(2, 81):
         bpy.app.handlers.depsgraph_update_post.append(ypui_cache_timer_check)
     
-    if is_bl_newer_than(4, 2):
-        check_latest_version()
+    # NOTE: Extension platform update notification is only for no-auto-update branch
+    if False and is_bl_newer_than(4, 2):
+        check_latest_extension_version()
 
 def unregister():
 
