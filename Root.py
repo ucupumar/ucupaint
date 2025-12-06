@@ -3877,7 +3877,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     # Unconnected warning
     disable_unconnected_warning : BoolProperty(
-        name = 'Disable Unconnected Warning',
+        name = 'Ignore Unconnected Warning',
         description = 'Disable warning popup on this channel if it is not connected to main shader node',
         default = False
     )

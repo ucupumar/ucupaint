@@ -1496,10 +1496,12 @@ def draw_root_channels_ui(context, layout, node):
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
 
-                brow = bcol.row(align=True)
-                brow.label(text='', icon='BLANK1')
-                brow.label(text='Disable Unconnected Warning:')
-                brow.prop(channel, 'disable_unconnected_warning', text='')
+                # Show option to disable warning only if node is unconnected
+                if is_output_unconnected(node, output_index, channel):
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='BLANK1')
+                    brow.label(text='Ignore Unconnected Warning:')
+                    brow.prop(channel, 'disable_unconnected_warning', text='')
 
                 # Bake to vertex color settings
                 if is_bl_newer_than(2, 92):
