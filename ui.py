@@ -4328,9 +4328,10 @@ def main_draw(self, context):
 
     if ypui.update_state == 'AVAILABLE':
         col = layout.column()
-        col.alert = True
         row_alert = col.row(align=True)
-        row_alert.operator("extensions.userpref_show_for_update", icon='ERROR', text='Upgrade to version ' + ypui.latest_version)
+        row_alert.alert = True
+        row_alert.operator("extensions.userpref_show_for_update", icon='ERROR', text='New version is available!') # + ypui.latest_version)
+        row_alert.alert = False
         row_alert.operator("ext.pending_update", icon='PANEL_CLOSE', text='')
     else:
         pass
@@ -8384,7 +8385,6 @@ def yp_load_ui_settings(scene):
     wmui.need_update = True
 
 def get_new_version_available():
-
     ucp_id = 'ucupaint'
     from bl_pkg import bl_extension_ops as ext_op
     from bl_pkg import bl_extension_utils
@@ -8436,22 +8436,16 @@ def get_new_version_available():
 
 def check_latest_version():
     ypui = bpy.context.window_manager.ypui
-    # new_ver = get_new_version_available()
 
-    try:
-        new_ver = get_new_version_available()
+    try: new_ver = get_new_version_available()
     except Exception as e:
-        print("Error version")
-        print(e)
+        new_ver = None
+        print(get_addon_title()+" (Error extension version getter):",e)
 
     if new_ver:
-        print("check version? " + new_ver)
-
         ypui.update_state = 'AVAILABLE'
         ypui.latest_version = new_ver
     else:
-        print("no new version")
-
         ypui.update_state = 'UNAVAILABLE'
 
 class YPendingUpdate(bpy.types.Operator):
