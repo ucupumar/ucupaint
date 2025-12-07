@@ -4412,7 +4412,8 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     image_editor_dict : StringProperty(default='')
     image_editor_pins : StringProperty(default='')
 
-    halt_hacks : BoolProperty(default=False)
+    halt_paint_slot_hacks : BoolProperty(default=False)
+    halt_last_object_update : BoolProperty(default=False)
 
     cache_animated_trees : CollectionProperty(type=YPaintCacheAnimatedTree)
 
@@ -4488,12 +4489,14 @@ def ypaint_hacks_and_scene_updates(scene):
 
 @persistent
 def ypaint_last_object_update(scene):
+    ypwm = bpy.context.window_manager.ypprops
+    if ypwm.halt_last_object_update: return
+
     try: obj = bpy.context.object
     except: return
     if not obj: return
 
     mat = obj.active_material
-    ypwm = bpy.context.window_manager.ypprops
     node = get_active_ypaint_node()
     yp = node.node_tree.yp if node else None
 
@@ -4593,7 +4596,7 @@ def ypaint_last_object_update(scene):
 def ypaint_missmatch_paint_slot_hack(scene):
     # HACK: Force material active slot to update if necessary
     wmyp = bpy.context.window_manager.ypprops
-    if not wmyp.halt_hacks and wmyp.correct_paint_image_name != '':
+    if not wmyp.halt_paint_slot_hacks and wmyp.correct_paint_image_name != '':
 
         if scene.tool_settings.image_paint.mode == 'MATERIAL':
 

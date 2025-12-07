@@ -421,30 +421,40 @@ def prepare_other_objs_colors(yp, other_objs):
             # Check for possible sockets available on the bsdf node
             if not socket:
                 # Search for main bsdf
-                bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types)
+                bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types, include_any=True)
 
-                if bsdf_node.type == 'BSDF_PRINCIPLED':
-                    socket = bsdf_node.inputs['Base Color']
-
-                elif 'Color' in bsdf_node.inputs:
-                    socket = bsdf_node.inputs['Color']
-
-                if socket:
-                    if len(socket.links) == 0:
-                        if default == None:
-                            default = socket.default_value
+                if bsdf_node:
+                    if bsdf_node.type not in valid_bsdf_types:
+                        # Get non bsdf input
+                        for outp in bsdf_node.outputs:
+                            if not outp.enabled: continue
+                            for link in outp.links:
+                                if link.to_socket == output.inputs[0]:
+                                    socket = link.from_socket
                     else:
-                        socket = socket.links[0].from_socket
 
-                # Get alpha socket
-                alpha_socket = bsdf_node.inputs.get('Alpha')
-                if alpha_socket:
+                        if bsdf_node.type == 'BSDF_PRINCIPLED':
+                            socket = bsdf_node.inputs['Base Color']
 
-                    if len(alpha_socket.links) == 0:
-                        alpha_default = alpha_socket.default_value
-                        alpha_socket = None
-                    else:
-                        alpha_socket = alpha_socket.links[0].from_socket
+                        elif 'Color' in bsdf_node.inputs:
+                            socket = bsdf_node.inputs['Color']
+
+                        if socket:
+                            if len(socket.links) == 0:
+                                if default == None:
+                                    default = socket.default_value
+                            else:
+                                socket = socket.links[0].from_socket
+
+                        # Get alpha socket
+                        alpha_socket = bsdf_node.inputs.get('Alpha')
+                        if alpha_socket:
+
+                            if len(alpha_socket.links) == 0:
+                                alpha_default = alpha_socket.default_value
+                                alpha_socket = None
+                            else:
+                                alpha_socket = alpha_socket.links[0].from_socket
 
             # Append objects and materials if socket is found
             if socket or default:
@@ -537,47 +547,61 @@ def prepare_other_objs_channels(yp, other_objs):
 
                 # Check for possible sockets available on the bsdf node
                 if not socket:
+                    # Color channel can take any node, not only bsdf
+                    include_any_node = ch.name == 'Color'
+
                     # Search for main bsdf
-                    bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types)
+                    bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types, include_any=include_any_node)
 
-                    if ch.name == 'Color' and bsdf_node.type == 'BSDF_PRINCIPLED':
-                        socket = bsdf_node.inputs['Base Color']
+                    if bsdf_node:
 
-                    elif ch.name in bsdf_node.inputs:
-                        socket = bsdf_node.inputs[ch.name]
-
-                    if socket:
-                        if len(socket.links) == 0:
-                            if default == None:
-                                default = socket.default_value
-
-                                # Blender 4.0 has weight/strength value for some inputs
-                                if is_bl_newer_than(4):
-                                    input_prefixes = ['Subsurface', 'Coat', 'Sheen', 'Emission']
-                                    for prefix in input_prefixes:
-                                        if socket.name.startswith(prefix):
-
-                                            if socket.name.startswith('Emission'):
-                                                weight_socket_name = 'Emission Strength'
-                                            else: weight_socket_name = prefix + ' Weight'
-
-                                            # NOTE: Only set the default weight if there's no dedicated channel for weight in destination yp
-                                            if weight_socket_name not in yp.channels and weight_socket_name != socket.name:
-                                                weight_socket = bsdf_node.inputs.get(weight_socket_name)
-                                                if weight_socket:
-                                                    default_weight = weight_socket.default_value
+                        if bsdf_node.type not in valid_bsdf_types:
+                            # Get non bsdf input
+                            for outp in bsdf_node.outputs:
+                                if not outp.enabled: continue
+                                for link in outp.links:
+                                    if link.to_socket == output.inputs[0]:
+                                        socket = link.from_socket
                         else:
-                            socket = socket.links[0].from_socket
 
-                    # Get alpha socket
-                    alpha_socket = bsdf_node.inputs.get('Alpha')
-                    if alpha_socket:
+                            if ch.name == 'Color' and bsdf_node.type == 'BSDF_PRINCIPLED':
+                                socket = bsdf_node.inputs['Base Color']
 
-                        if len(alpha_socket.links) == 0:
-                            alpha_default = alpha_socket.default_value
-                            alpha_socket = None
-                        else:
-                            alpha_socket = alpha_socket.links[0].from_socket
+                            elif ch.name in bsdf_node.inputs:
+                                socket = bsdf_node.inputs[ch.name]
+
+                            if socket:
+                                if len(socket.links) == 0:
+                                    if default == None:
+                                        default = socket.default_value
+
+                                        # Blender 4.0 has weight/strength value for some inputs
+                                        if is_bl_newer_than(4):
+                                            input_prefixes = ['Subsurface', 'Coat', 'Sheen', 'Emission']
+                                            for prefix in input_prefixes:
+                                                if socket.name.startswith(prefix):
+
+                                                    if socket.name.startswith('Emission'):
+                                                        weight_socket_name = 'Emission Strength'
+                                                    else: weight_socket_name = prefix + ' Weight'
+
+                                                    # NOTE: Only set the default weight if there's no dedicated channel for weight in destination yp
+                                                    if weight_socket_name not in yp.channels and weight_socket_name != socket.name:
+                                                        weight_socket = bsdf_node.inputs.get(weight_socket_name)
+                                                        if weight_socket:
+                                                            default_weight = weight_socket.default_value
+                                else:
+                                    socket = socket.links[0].from_socket
+
+                            # Get alpha socket
+                            alpha_socket = bsdf_node.inputs.get('Alpha')
+                            if alpha_socket:
+
+                                if len(alpha_socket.links) == 0:
+                                    alpha_default = alpha_socket.default_value
+                                    alpha_socket = None
+                                else:
+                                    alpha_socket = alpha_socket.links[0].from_socket
 
                 # Append objects and materials if socket is found
                 if socket or default:
@@ -628,9 +652,6 @@ def prepare_bake_settings(
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
     wmyp = bpy.context.window_manager.ypprops
-
-    # Hack function on depsgraph update can cause crash, so halt it before baking
-    wmyp.halt_hacks = True
 
     scene.render.engine = 'CYCLES'
     scene.cycles.samples = samples
@@ -941,11 +962,12 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
             uvl = uv_layers.get(book['ori_active_render_uv'])
             if uvl: uvl.active_render = True
 
-    # Recover active object and mode
-    if is_bl_newer_than(2, 80):
-        bpy.context.view_layer.objects.active = obj
-    else: scene.objects.active = obj
-    bpy.ops.object.mode_set(mode = book['mode'])
+    # Recover active object
+    set_active_object(obj)
+
+    # Recover active object mode
+    if obj.mode != book['mode']:
+        bpy.ops.object.mode_set(mode = book['mode'])
 
     # Disable other object selections
     if is_bl_newer_than(2, 80):
@@ -1053,9 +1075,6 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
                 if temp: m.node_tree.nodes.remove(temp)
                 #act_uv = m.node_tree.nodes.get(ACTIVE_UV_NODE)
                 #if act_uv: m.node_tree.nodes.remove(act_uv)
-
-    # Bring back the hack functions
-    wmyp.halt_hacks = False
 
 def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     book = {}
@@ -1703,6 +1722,8 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
 
 def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=1.0, bake_alpha=False, vcol_name=''):
 
+    yp = node.node_tree.yp
+
     # Create setup nodes
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
@@ -1785,11 +1806,19 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
         bake_object_op()
     
     # If bake_alpha is True and the channel type is 'RGB', Bake twice to merge Alpha channel
-    if bake_alpha and root_ch.type == 'RGB' and root_ch.enable_alpha:
-        # Connect channel alpha channel
-        alpha_outp = node.outputs.get(root_ch.name + io_suffix['ALPHA'])
-        mat.node_tree.links.new(alpha_outp, emit.inputs[0])
-        bake_alpha_to_vcol()
+    if bake_alpha and root_ch.type == 'RGB': 
+
+        # Get alpha output
+        alpha_outp = None
+        if root_ch.enable_alpha:
+            alpha_outp = node.outputs.get(root_ch.name + io_suffix['ALPHA'])
+        else:
+            color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+            if alpha_ch: alpha_outp = node.outputs.get(alpha_ch.name)
+
+        if alpha_outp: 
+            mat.node_tree.links.new(alpha_outp, emit.inputs[0])
+            bake_alpha_to_vcol()
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, emit)
@@ -3386,6 +3415,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             root_ch = yp.channels[idx]
             image_name += ' ' + yp.channels[idx].name
 
+            # Skip alpha channel since it will be included into color channel
+            root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+            if idx > 0  and root_ch == root_alpha_ch:
+                continue
+
             # Hide irrelevant objects
             for oo in other_objs:
                 if oo not in ch_other_objects[idx]:
@@ -3560,53 +3594,71 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             alpha_found = False
             if bprops.type == 'OTHER_OBJECT_CHANNELS':
 
-                # Set emission connection
-                for j, m in enumerate(ch_other_mats[idx]):
-                    alpha_default = ch_other_alpha_defaults[idx][j]
-                    alpha_socket = ch_other_alpha_sockets[idx][j]
+                # Check the need for alpha baking
+                # NOTE: Only check for alpha with the main channel (commonly a color channel)
+                if idx == min(ch_ids):
+                    for j, m in enumerate(ch_other_mats[idx]):
+                        alpha_default = ch_other_alpha_defaults[idx][j]
+                        alpha_socket = ch_other_alpha_sockets[idx][j]
 
-                    temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
-                    if not temp_emi: continue
-
-                    if alpha_socket:
-                        alpha_found = True
-                        m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
-
-                    else:
-                        if alpha_default != 1.0:
+                        if alpha_socket or alpha_default != 1.0:
                             alpha_found = True
+                            break
 
-                        # Set alpha_default
-                        if type(alpha_default) == float:
-                            temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
-                        else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+                # Set emission connection
+                if alpha_found:
+                    for j, m in enumerate(ch_other_mats[idx]):
+                        alpha_default = ch_other_alpha_defaults[idx][j]
+                        alpha_socket = ch_other_alpha_sockets[idx][j]
 
-                        # Break link
-                        for l in temp_emi.inputs[0].links:
-                            m.node_tree.links.remove(l)
+                        temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                        if not temp_emi: continue
+
+                        if alpha_socket:
+                            m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+
+                        else:
+                            # Set alpha_default
+                            if type(alpha_default) == float:
+                                temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
+                            else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+
+                            # Break link
+                            for l in temp_emi.inputs[0].links:
+                                m.node_tree.links.remove(l)
 
             elif bprops.type == 'OTHER_OBJECT_EMISSION':
 
-                # Set emission connection
+                # Check the need for alpha baking
                 for i, m in enumerate(other_mats):
                     alpha_default = other_alpha_defaults[i]
                     alpha_socket = other_alpha_sockets[i]
 
-                    temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
-                    if not temp_emi: continue
-
-                    if alpha_socket:
+                    if alpha_socket or alpha_default != 1.0:
                         alpha_found = True
-                        m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+                        break
 
-                    else: 
-                        if alpha_default != 1.0:
-                            alpha_found = True
+                # Set emission connection
+                if alpha_found:
+                    for i, m in enumerate(other_mats):
+                        alpha_default = other_alpha_defaults[i]
+                        alpha_socket = other_alpha_sockets[i]
 
-                        # Set alpha_default
-                        if type(alpha_default) == float:
-                            temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
-                        else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+                        temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                        if not temp_emi: continue
+
+                        if alpha_socket:
+                            m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+
+                        else: 
+                            # Set alpha_default
+                            if type(alpha_default) == float:
+                                temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
+                            else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+
+                            # Break link
+                            for l in temp_emi.inputs[0].links:
+                                m.node_tree.links.remove(l)
 
             else:
                 alpha_found = bprops.use_transparent_for_missing_rays
@@ -4044,6 +4096,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     if is_bl_newer_than(2, 79) and bprops.type.startswith('OTHER_OBJECT_') and other_objs and bprops.hide_source_objects:
         for oo in other_objs:
             oo.hide_viewport = True
+            oo.hide_render = True
 
     # Remove temporary objects
     if temp_objs:
@@ -4996,8 +5049,32 @@ class BaseBakeOperator():
         if not self.use_custom_resolution:
             self.height = self.width = int(self.image_resolution)
 
+    def execute_operator_prep(self, context):
+        if not self.is_cycles_exist(context): return False
+
+        # Depsgraph update functions can cause crash or bake inconsistencies, so halt them before any baking operation
+        wmyp = bpy.context.window_manager.ypprops
+        wmyp.halt_paint_slot_hacks = True
+        wmyp.halt_last_object_update = True
+
+        return True
+
+    def execute_operator_recover(self, context):
+        # Recover depsgraph update functions
+        wmyp = bpy.context.window_manager.ypprops
+        wmyp.halt_paint_slot_hacks = False
+        wmyp.halt_last_object_update = False
+
+    def execute_operator_finished(self, context):
+        self.execute_operator_recover(context)
+        return {'FINISHED'}
+
+    def execute_operator_cancelled(self, context):
+        self.execute_operator_recover(context)
+        return {'CANCELLED'}
+
     def is_cycles_exist(self, context):
         if not hasattr(context.scene, 'cycles'):
-            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in user preferences!")
+            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in the user preferences!")
             return False
         return True

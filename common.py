@@ -807,9 +807,12 @@ def get_active_object():
 
 def set_active_object(obj):
     if is_bl_newer_than(2, 80):
-        try: bpy.context.view_layer.objects.active = obj
-        except: print('EXCEPTIION: Cannot set active object!')
-    else: bpy.context.scene.objects.active = obj
+        if bpy.context.view_layer.objects.active != obj:
+            try: bpy.context.view_layer.objects.active = obj
+            except: print('EXCEPTIION: Cannot set active object!')
+    else: 
+        if bpy.context.scene.objects.active != obj:
+            bpy.context.scene.objects.active = obj
 
 def link_object(scene, obj, custom_collection=None):
     if is_bl_newer_than(2, 80):
@@ -7772,10 +7775,10 @@ def get_closest_yp_node_backward(node):
 
     return None
 
-def get_closest_bsdf_backward(node, valid_types=[]):
+def get_closest_bsdf_backward(node, valid_types=[], include_any=False):
     for inp in node.inputs:
         for link in inp.links:
-            if is_valid_bsdf_node(link.from_node, valid_types):
+            if is_valid_bsdf_node(link.from_node, valid_types) or include_any:
                 return link.from_node
             else:
                 n = get_closest_bsdf_backward(link.from_node, valid_types)
