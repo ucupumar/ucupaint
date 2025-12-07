@@ -318,7 +318,7 @@ def get_active_layer(yp):
     # Classic layer list
     if ypup.layer_list_mode == 'CLASSIC':
         if yp.active_layer_index < len(yp.layers):
-            return yp.layers[yp.active_item_index]
+            return yp.layers[yp.active_layer_index]
         return None
         
     if yp.active_item_index >= len(yp.list_items) or len(yp.list_items) == 0:

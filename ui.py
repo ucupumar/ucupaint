@@ -1186,7 +1186,7 @@ def draw_root_channels_ui(context, layout, node):
             inp = node.inputs[channel.io_index]
 
             # NOTE: Replaced by base layer
-            if False and channel.type in {'RGB', 'VALUE'}:
+            if ypup.layer_list_mode == 'CLASSIC' and channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
 
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -4983,8 +4983,8 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict[item.type])
         row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
 
-        # NOTE: Option for background is replaced by base layer
-        return
+        # NOTE: Option for background only available for classic layer list mode
+        if ypup.layer_list_mode != 'CLASSIC': return
 
         if not yp.use_baked or (item.no_layer_using and not (yp.use_baked and yp.enable_baked_outside)):
             if item.type == 'RGB':
