@@ -470,17 +470,17 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'reorder_uv_list')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
         if self.from_uv_map == '' or self.uv_map == '':
             self.report({'ERROR'}, "From or To UV Map cannot be empty!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.from_uv_map == self.uv_map:
             self.report({'ERROR'}, "From and To UV cannot have same value!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         mat = get_active_material()
         node = get_active_ypaint_node()
@@ -494,7 +494,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
             to_uv = uv_layers.get(self.uv_map)
             if not from_uv or not to_uv:
                 self.report({'ERROR'}, "Some uvs are not found in some objects!")
-                return {'CANCELLED'}
+                return self.execute_operator_cancelled(context)
 
         # Prepare bake settings
         book = remember_before_bake(yp)
@@ -549,7 +549,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
 
         self.report({'INFO'}, 'All layers and masks using '+self.from_uv_map+' are transferred to '+self.uv_map+' in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_transfer_layer_uv"
@@ -613,24 +613,24 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'margin', text='')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
         if not hasattr(self, 'entity'):
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.entity.type != 'IMAGE' or self.entity.texcoord_type != 'UV':
             self.report({'ERROR'}, "Only works with image layer/mask with UV Mapping")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.uv_map == '':
             self.report({'ERROR'}, "Target UV Map cannot be empty!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.uv_map == self.entity.uv_name:
             self.report({'ERROR'}, "This layer/mask already use " + self.uv_map + "!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         mat = get_active_material()
         yp = self.entity.id_data.yp
@@ -663,7 +663,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
 
         self.report({'INFO'}, self.entity.name+' UV is transferred from '+ori_uv_name+' to '+self.uv_map+' in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 def get_resize_image_entity_and_image(self, context):
     yp = get_active_ypaint_node().node_tree.yp
@@ -774,14 +774,14 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
                     col.prop(self, 'tile_number', text='')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         yp = get_active_ypaint_node().node_tree.yp
         entity, image = get_resize_image_entity_and_image(self, context)
 
         if not entity or not image:
             self.report({'ERROR'}, "There is no active image!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Get original size
         segment = None
@@ -799,7 +799,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
 
         if ori_width == self.width and ori_height == self.height:
             self.report({'ERROR'}, "This image already had the same size!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         override_context = None
         space = None
@@ -848,7 +848,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_channel_to_vcol"
@@ -971,11 +971,11 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'force_first_index', text='')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         if not is_bl_newer_than(2, 92):
             self.report({'ERROR'}, "You need at least Blender 2.92 to use this feature!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         mat = get_active_material()
         node = get_active_ypaint_node()
@@ -1085,7 +1085,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         # Recover bake settings
         recover_bake_settings(book, yp)
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YDeleteBakedChannelImages(bpy.types.Operator):
     bl_idname = "wm.y_delete_baked_channel_images"
@@ -1527,7 +1527,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ccol.prop(self, 'bake_disabled_layers')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
@@ -1540,23 +1540,23 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         if len(self.channels) == 0:
             self.report({'ERROR'}, "This node has no channel!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.only_active_channel and self.no_layer_using:
             self.report({'ERROR'}, "No layer is using '"+self.channels[0].name+"' channel!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.no_layer_using:
             self.report({'ERROR'}, "No layer is using any channel!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
             self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if not is_bl_newer_than(2, 80) and obj.hide_render:
             self.report({'ERROR'}, "Please unhide render of the active object!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Get all objects using material
         objs = [obj]
@@ -1581,7 +1581,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         if not objs:
             self.report({'ERROR'}, "No valid objects to bake!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # UV data should be accessible when there's multiple materials in single object, so object mode is necessary
         ori_edit_mode = False
@@ -2053,7 +2053,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                         # Get the newly created vcol to avoid pointer error
                         vcol = vcols.get(vcol_name)
                         set_active_vertex_color(ob, vcol)
-                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, vcol_name)
+                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha or ch == color_ch, vcol_name)
                     baked = tree.nodes.get(ch.baked_vcol)
                     if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
                         baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
@@ -2136,7 +2136,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             self.report({'INFO'}, yp.channels[yp.active_channel_index].name+' channel is baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
         else: self.report({'INFO'}, tree.name+' channels are baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 def merge_channel_items(self, context):
     node = get_active_ypaint_node()
@@ -2426,11 +2426,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text="Are you sure you want to continue?", icon='BLANK1')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         if hasattr(self, 'error_message') and self.error_message != '':
             self.report({'ERROR'}, self.error_message)
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         T = time.time()
 
@@ -2467,7 +2467,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         if (layer.type == 'IMAGE' and main_ch.type == 'NORMAL' and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
             self.report({'ERROR'}, "Merging VDM layers is not supported yet!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Merge image layers
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
@@ -2582,11 +2582,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             if modifier_found:
                 self.report({'ERROR'}, get_vertex_color_label(10)+" merge does not works with modifers and masks yet!")
-                return {'CANCELLED'}
+                return self.execute_operator_cancelled(context)
 
             if ch.blend_type != 'MIX' or neighbor_ch.blend_type != 'MIX':
                 self.report({'ERROR'}, get_vertex_color_label(10)+" merge only works with Mix blend type for now!")
-                return {'CANCELLED'}
+                return self.execute_operator_cancelled(context)
 
             if neighbor_idx > layer_idx:
                 upper_layer = layer
@@ -2639,7 +2639,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         else:
             self.report({'ERROR'}, "This kind of merge is not supported yet!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if merge_success:
             # Remove neighbor layer
@@ -2668,11 +2668,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             ListItem.refresh_list_items(yp, repoint_active=True)
         else:
             self.report({'ERROR'}, "Merge failed for some reason!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         self.report({'INFO'}, 'Merging layers is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YMergeMask(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_merge_mask"
@@ -2740,7 +2740,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         return True
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
@@ -2754,7 +2754,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
         # Get number of masks
         num_masks = len(layer.masks)
-        if num_masks < 2: return {'CANCELLED'}
+        if num_masks < 2: self.execute_operator_cancelled(context)
 
         # Get mask index
         m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
@@ -2767,17 +2767,17 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             neighbor_idx = index + 1
         else:
             self.report({'ERROR'}, "No valid neighbor mask!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if mask.type != 'IMAGE':
             self.report({'ERROR'}, "Need image mask!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Get source
         source = get_mask_source(mask)
         if not source.image:
             self.report({'ERROR'}, "Mask image is missing!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Target image
         segment = None
@@ -2925,7 +2925,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
         self.report({'INFO'}, 'Merging masks is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 def copy_default_value(inp_source, inp_target):
     if inp_target.bl_idname == inp_source.bl_idname:

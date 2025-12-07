@@ -4326,6 +4326,15 @@ def main_draw(self, context):
 
         row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
 
+    # Extension platform update notification
+    if is_online() and ypui.extension_update_state == 'AVAILABLE':
+        col = layout.column()
+        row_alert = col.row(align=True)
+        row_alert.alert = True
+        row_alert.operator("extensions.userpref_show_for_update", icon='ERROR', text='New version is available!') # + ypui.latest_version)
+        row_alert.alert = False
+        row_alert.operator("ext.pending_update", icon='PANEL_CLOSE', text='')
+
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
     rrow = row.row(align=True)
@@ -8269,6 +8278,21 @@ class YPaintUI(bpy.types.PropertyGroup):
 
     any_expandable_layers : BoolProperty(default=False)
 
+    extension_update_state : EnumProperty(
+        name = 'Update State',
+        description = 'Extension update state',
+        items = (
+            ('UNAVAILABLE', 'Unavailable', ''),
+            ('AVAILABLE', 'Available', ''),
+            ('PENDING', 'Pending', '')
+        ),
+        default = 'UNAVAILABLE'
+    )
+
+    latest_version : StringProperty(
+        default= ''
+    )
+
 def add_new_ypaint_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}: return
     l = self.layout
@@ -8353,6 +8377,83 @@ def yp_load_ui_settings(scene):
     # Update UI
     wmui.need_update = True
 
+def get_new_extension_version_available():
+    addon_id = 'ucupaint'
+    from bl_pkg import bl_extension_ops as ext_op
+    from bl_pkg import bl_extension_utils
+
+    repos_all = ext_op.extension_repos_read(use_active_only=True)
+    repo_cache_store = ext_op.repo_cache_store_ensure()
+
+    repo_directory_supset = [repo_entry.directory for repo_entry in repos_all]
+
+    if not repos_all:
+        return None
+
+    for repo_item in repos_all:
+        if repo_item.use_cache:
+            continue
+        bl_extension_utils.pkg_repo_cache_clear(repo_item.directory)
+
+    pkg_manifest_local_all = list(repo_cache_store.pkg_manifest_from_local_ensure(
+        error_fn=None,
+        directory_subset=repo_directory_supset,
+    ))
+
+    for repo_index, pkg_manifest_remote in enumerate(repo_cache_store.pkg_manifest_from_remote_ensure(
+        error_fn=None,
+        directory_subset=repo_directory_supset,
+    )):
+        if pkg_manifest_remote is None:
+            continue
+
+        pkg_manifest_local = pkg_manifest_local_all[repo_index]
+        if pkg_manifest_local is None:
+            continue
+
+        repo_item = repos_all[repo_index]
+        for pkg_id, item_remote in pkg_manifest_remote.items():
+            item_local = pkg_manifest_local.get(pkg_id)
+            if item_local is None:
+                # Not installed.
+                continue
+            if item_remote.block:
+                # Blocked, don't touch.
+                continue
+
+            if pkg_id == addon_id and item_remote.version != item_local.version:
+                # print("available=", item_remote.version)
+                return item_remote.version
+            
+    return None
+
+def check_latest_extension_version():
+    if not is_online(): return
+    ypui = bpy.context.window_manager.ypui
+
+    try: new_ver = get_new_extension_version_available()
+    except Exception as e:
+        new_ver = None
+        print(get_addon_title()+" (Error extension version getter):",e)
+
+    if new_ver:
+        ypui.extension_update_state = 'AVAILABLE'
+        ypui.latest_version = new_ver
+    else:
+        ypui.extension_update_state = 'UNAVAILABLE'
+
+class YPendingUpdate(bpy.types.Operator):
+    bl_idname = "ext.pending_update"
+    bl_label = "Pending Update"
+    bl_description = "Pending update"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        ypui = bpy.context.window_manager.ypui
+        ypui.extension_update_state = 'PENDING'
+
+        return {'FINISHED'}
+
 def register():
 
     if not is_bl_newer_than(2, 80):
@@ -8412,6 +8513,7 @@ def register():
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
     bpy.utils.register_class(NODE_MT_copy_image_path_menu)
+    bpy.utils.register_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
@@ -8440,6 +8542,10 @@ def register():
 
     if is_bl_newer_than(2, 81):
         bpy.app.handlers.depsgraph_update_post.append(ypui_cache_timer_check)
+    
+    # NOTE: Extension platform update notification is only for no-auto-update branch
+    if False and is_bl_newer_than(4, 2):
+        check_latest_extension_version()
 
 def unregister():
 
@@ -8499,6 +8605,7 @@ def unregister():
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
     bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
+    bpy.utils.unregister_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
