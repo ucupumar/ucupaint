@@ -878,6 +878,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         if len([ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]) == 1:
             context.window_manager.ypui.expand_channels = True
 
+        # Update list items
+        ListItem.refresh_list_items(group_tree.yp, repoint_active=True)
+
         # Update UI
         context.window_manager.ypui.need_update = True
 
@@ -951,6 +954,9 @@ class YNewYPaintNode(bpy.types.Operator):
         # Expand channels now is enabled by default if it's the only yp node
         if len([ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]) == 1:
             context.window_manager.ypui.expand_channels = True
+
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
 
         # Update UI
         context.window_manager.ypui.need_update = True

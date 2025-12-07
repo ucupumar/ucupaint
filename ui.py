@@ -1185,7 +1185,8 @@ def draw_root_channels_ui(context, layout, node):
 
             inp = node.inputs[channel.io_index]
 
-            if channel.type in {'RGB', 'VALUE'}:
+            # NOTE: Replaced by base layer
+            if False and channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
 
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -4982,6 +4983,9 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict[item.type])
         row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
 
+        # NOTE: Option for background is replaced by base layer
+        return
+
         if not yp.use_baked or (item.no_layer_using and not (yp.use_baked and yp.enable_baked_outside)):
             if item.type == 'RGB':
                 row = row.row(align=True)
@@ -5520,6 +5524,8 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
         # Base Layer
         if item.type == 'BASE':
             row = layout.row(align=True)
+            if ypui.any_expandable_layers:
+                row.label(text='', icon='BLANK1')
             #row.label(text=item.name, icon_value=lib.get_icon('NODE_MATERIAL'))
             row.label(text=item.name, icon_value=lib.get_icon('channels'))
 
@@ -8258,7 +8264,7 @@ class YPaintUI(bpy.types.PropertyGroup):
     show_channels : BoolProperty(
         name = 'Channels',
         description = 'Show channel lists',
-        default = True
+        default = False
     )
 
     show_layers : BoolProperty(

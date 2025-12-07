@@ -15,6 +15,14 @@ if not is_bl_newer_than(3, 2):
 else: DEFAULT_NEW_VCOL_SUFFIX = ' Attribute'
 DEFAULT_NEW_VDM_SUFFIX = ' VDM'
 
+def active_layer_op_poll(context):
+    if not context.object: return False
+    group_node = get_active_ypaint_node()
+    if not group_node: return False
+    layer = ListItem.get_active_layer(group_node.node_tree.yp)
+    if not layer: return False
+    return True
+
 def channel_items(self, context):
     items = []
 
@@ -3781,8 +3789,7 @@ class YMoveLayer(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return group_node and len(group_node.node_tree.yp.layers) > 0
+        return active_layer_op_poll(context)
 
     def execute(self, context):
         T = time.time()
@@ -4119,8 +4126,7 @@ class YRemoveLayer(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+        return active_layer_op_poll(context)
 
     @classmethod
     def description(self, context, properties):
@@ -4130,7 +4136,7 @@ class YRemoveLayer(bpy.types.Operator):
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        layer = yp.layers[yp.active_layer_index]
+        layer = ListItem.get_active_layer(yp)
 
         # Remove on disk is dangerous so it's always disabled by default
         self.remove_on_disk = False
@@ -4188,7 +4194,7 @@ class YRemoveLayer(bpy.types.Operator):
         node = get_active_ypaint_node()
         group_tree = node.node_tree
         yp = group_tree.yp
-        layer = yp.layers[yp.active_layer_index]
+        layer = ListItem.get_active_layer(yp)
         layer_name = layer.name
         layer_idx = get_layer_index(layer)
 

@@ -312,6 +312,36 @@ def get_active_item_entity(yp):
 
     return None
 
+def get_active_layer(yp):
+    ypup = get_user_preferences()
+    
+    # Classic layer list
+    if ypup.layer_list_mode == 'CLASSIC':
+        if yp.active_layer_index < len(yp.layers):
+            return yp.layers[yp.active_item_index]
+        return None
+        
+    if yp.active_item_index >= len(yp.list_items) or len(yp.list_items) == 0:
+        return None
+
+    item = yp.list_items[yp.active_item_index]
+
+    layer_index = -1
+
+    if item.type == 'LAYER':
+        layer_index = item.index
+
+    elif item.type == 'MASK':
+        layer_index = item.parent_index
+
+    elif item.type == 'CHANNEL_OVERRIDE':
+        layer_index = item.parent_index
+
+    if layer_index != -1 and layer_index < len(yp.layers):
+        return yp.layers[layer_index]
+
+    return None
+
 def set_active_entity_item(entity):
     yp = entity.id_data.yp
 
