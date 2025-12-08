@@ -5533,14 +5533,36 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
             node = get_active_ypaint_node()
             if node and len(yp.channels) > 0 and yp.channels[0].type == 'RGB':
                 root_ch = yp.channels[0]
+                root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+
+                rrow = row.row(align=False)
+
+                # Alpha input
+                if root_alpha_ch and root_ch == root_color_ch:
+                    inp = node.inputs[root_alpha_ch.io_index]
+
+                    if len(inp.links) > 0:
+                        rrow.label(text='', icon='LINKED')
+
+                    if len(inp.links) == 0: # or baked:
+                        arow = rrow.row(align=True)
+                        arow.scale_x = 0.4
+                        if is_bl_newer_than(3):
+                            arow.emboss = 'NONE_OR_STATUS'
+                        elif is_bl_newer_than(2, 92):
+                            arow.emboss = 'UI_EMBOSS_NONE_OR_STATUS'
+                        elif is_bl_newer_than(2, 80): arow.emboss = 'NONE'
+                        arow.prop(inp, 'default_value', text='', emboss=False)
+
+                # Color input
                 if root_ch.io_index < len(node.inputs):
                     inp = node.inputs[root_ch.io_index]
                     baked = group_tree.nodes.get(root_ch.baked)
                     if len(inp.links) > 0:
-                        row.label(text='', icon='LINKED')
+                        rrow.label(text='', icon='LINKED')
 
                     if len(inp.links) == 0: # or baked:
-                        row.prop(inp, 'default_value', text='', icon='COLOR')
+                        rrow.prop(inp, 'default_value', text='', icon='COLOR')
 
         # Layer
         if item.type == 'LAYER' and item.index < len(yp.layers):
