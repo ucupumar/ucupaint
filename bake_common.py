@@ -2011,6 +2011,23 @@ def get_bake_properties_from_self(self):
 
     return bprops
 
+def any_object_space_normal(yp):
+    # NOTE: Height and normal channel are currently the same thing
+    norm_root_ch = get_root_height_channel(yp)
+    if not norm_root_ch: return False
+
+    for layer in yp.layers:
+        if not layer.enable or layer.type == 'GROUP': continue
+
+        norm_ch = get_height_channel(layer)
+        if not norm_ch: continue
+        if not get_channel_enabled(norm_ch, layer, norm_root_ch): continue
+
+        if norm_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and norm_ch.normal_space == 'OBJECT':
+            return True
+
+    return False
+
 def bake_channel(
         uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
         aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
@@ -2105,7 +2122,9 @@ def bake_channel(
     bsdf = None
     norm = None
     if root_ch.type == 'NORMAL':
-        if is_bl_newer_than(2, 80):
+
+        # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF
+        if is_bl_newer_than(2, 80) and not any_object_space_normal(yp):
             # Use principled bsdf for Blender 2.80+
             bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
         else:
