@@ -116,6 +116,12 @@ class YPaintPreferences(AddonPreferences):
         default = True
     )
 
+    enable_material_view_warning : BoolProperty(
+        name = 'Enable "Switch to Material View" warning',
+        description = "Enable warning popup when ucupaint parent window is not in a Material render/preview mode",
+        default = True
+    )
+
     layer_list_mode : EnumProperty(
         name = 'Layer Lists Mode',
         items = (
@@ -196,6 +202,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'unique_image_atlas_per_yp')
         if is_udim_supported():
             self.layout.prop(self, 'enable_auto_udim_detection')
+        self.layout.prop(self, 'enable_material_view_warning')
         self.layout.prop(self, 'make_preview_mode_srgb')
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'skip_property_popups')
