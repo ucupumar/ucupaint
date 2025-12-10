@@ -4311,7 +4311,8 @@ def main_draw(self, context):
             )
             return
         
-    if updater.update_ready and not ypui.hide_update:
+    # Auto-update notification
+    if updater.update_ready and not ypui.hide_update and not ypup.hide_update_notification:
         row_update = layout.row(align=True)
         row_update.alert = True
         if updater.using_development_build:
@@ -4327,7 +4328,7 @@ def main_draw(self, context):
         row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
 
     # Extension platform update notification
-    if is_online() and ypui.extension_update_state == 'AVAILABLE':
+    if is_online() and not ypup.hide_update_notification and ypui.extension_update_state == 'AVAILABLE':
         col = layout.column()
         row_alert = col.row(align=True)
         row_alert.alert = True
