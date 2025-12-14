@@ -1,4 +1,5 @@
 from .common import *
+from . import ListItem
 
 def create_link(tree, out, inp):
     node = inp.node
@@ -1097,6 +1098,21 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             alpha = get_essential_node(tree, TREE_START)[io_alpha_name]
         else: alpha = get_essential_node(tree, ONE_VALUE)[0]
 
+        # Base layer preview mode
+        active_layer = ListItem.get_active_layer(yp)
+        if yp.layer_preview_mode and ch == yp.channels[yp.active_channel_index]:
+            if not active_layer:
+                col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
+                alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
+                if col_preview:
+                    create_link(tree, rgb, col_preview)
+                if alpha_preview:
+                    if alpha_ch and color_ch == ch:
+                        alpha_ch_io = get_essential_node(tree, TREE_START).get(alpha_ch.name)
+                        if alpha_ch_io: create_link(tree, alpha_ch_io, alpha_preview)
+                    else:
+                        create_link(tree, alpha, alpha_preview)
+
         height = None
         height_n = None
         height_s = None
@@ -1179,7 +1195,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             #is_hidden = not layer.enable or is_parent_hidden(layer)
 
-            if yp.layer_preview_mode: # and yp.layer_preview_mode_type == 'LAYER':
+            if yp.layer_preview_mode and active_layer: # and yp.layer_preview_mode_type == 'LAYER':
 
                 if ch == yp.channels[yp.active_channel_index] and layer == yp.layers[yp.active_layer_index]:
 

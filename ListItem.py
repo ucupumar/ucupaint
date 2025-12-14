@@ -285,6 +285,10 @@ def update_list_item_index(self, context):
     if layer_index != -1 and layer_index < len(yp.layers): # and yp.active_layer_index != layer_index:
         yp.active_layer_index = layer_index
 
+    # Trigger layer preview mode update
+    elif layer_index == -1 and yp.layer_preview_mode:
+        yp.layer_preview_mode = True
+
 def get_active_item_entity(yp):
     if yp.active_item_index >= len(yp.list_items) or len(yp.list_items) == 0:
         return None
