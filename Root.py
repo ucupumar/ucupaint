@@ -1161,6 +1161,12 @@ class YConnectYPaintChannel(bpy.types.Operator):
     bl_description = "Connect " + get_addon_title() + " channel to other nodes"
     bl_options = {'REGISTER', 'UNDO'}
 
+    disable_unconnected_warning : BoolProperty(
+        name = 'Ignore Unconnected Warning',
+        description = 'Disable warning popup if this channel is not connected to the main node', 
+        default = False
+    )
+
     connect_to : StringProperty(name='Connect To', default='') #, update=update_connect_to)
     input_coll : CollectionProperty(type=YPaintNodeInputCollItem)
 
@@ -1179,15 +1185,25 @@ class YConnectYPaintChannel(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        row = split_layout(self.layout, 0.4)
+        row = split_layout(self.layout, 0.3)
 
         col = row.column(align=False)
-        col.label(text='Connect To:')
+        col.label(text='')
+        if not self.disable_unconnected_warning:
+            col.label(text='Connect To:')
 
         col = row.column(align=False)
-        col.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE', text='')
+        col.prop(self, 'disable_unconnected_warning')
+        if not self.disable_unconnected_warning:
+            col.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE', text='')
 
     def execute(self, context):
+
+        channel = self.channel
+
+        if self.disable_unconnected_warning:
+            channel.disable_unconnected_warning = True
+            return {'FINISHED'}
 
         if self.connect_to == '':
             self.report({'ERROR'}, "'Connect To' is cannot be empty!")
@@ -1195,8 +1211,6 @@ class YConnectYPaintChannel(bpy.types.Operator):
 
         mat = get_active_material()
         node = get_active_ypaint_node()
-
-        channel = self.channel
         output_index = get_output_index(channel)
 
         # Connect to socket
@@ -1456,6 +1470,12 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
         default='',
     )
 
+    disable_unconnected_warning : BoolProperty(
+        name = 'Ignore Unconnected Warning',
+        description = 'Disable warning popup if this channel is not connected to the main node', 
+        default = False
+    )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -1513,17 +1533,22 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
                 if item.input_name in {'Emission Color', 'Subsurface Scale'}:
                     show_strength_option = True
 
-        row = split_layout(self.layout, 0.4)
+        row = split_layout(self.layout, 0.35)
 
         col = row.column(align=False)
         col.label(text='Name:')
-        col.label(text='Connect To:')
+
+        srow = col.row(align=True)
+        srow.label(text='Connect To:')
+
         if self.type != 'NORMAL':
             col.label(text='Color Space:')
         if show_blend_method_option:
             col.label(text='Blend Method:')
             col.label(text='Shadow Method:')
         if self.type != 'NORMAL': col.label(text='')
+        if self.connect_to == '':
+            col.label(text='')
 
         if show_alpha_option:
             col.label(text='')
@@ -1532,14 +1557,18 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
-        col.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE', text='')
-                #lib.custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
+
+        srow = col.row(align=True)
+        srow.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE', text='')
+
         if self.type != 'NORMAL':
             col.prop(self, "colorspace", text='')
         if show_blend_method_option:
             col.prop(self, 'blend_method', text='')
             col.prop(self, 'shadow_method', text='')
         if self.type != 'NORMAL': col.prop(self, 'use_clamp')
+        if self.connect_to == '':
+            col.prop(self, 'disable_unconnected_warning')
 
         if show_strength_option:
             col.prop(self, "set_strength_to_one")
@@ -1635,6 +1664,10 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
         # Set blend method
         if set_blend_method:
             mat.blend_method = self.blend_method
+
+        # Set warning ignore state
+        if self.connect_to == '' and self.disable_unconnected_warning:
+            channel.disable_unconnected_warning = True
 
         # Change active channel
         last_index = len(yp.channels)-1
@@ -3873,6 +3906,13 @@ class YPaintChannel(bpy.types.PropertyGroup):
         name = 'Target '+get_vertex_color_label()+' Name',
         description = 'Target '+get_vertex_color_label(00)+' name',
         default = '',
+    )
+
+    # Unconnected warning
+    disable_unconnected_warning : BoolProperty(
+        name = 'Ignore Unconnected Warning',
+        description = 'Disable warning popup on this channel if it is not connected to main shader node',
+        default = False
     )
 
     # Displacement for normal channel
