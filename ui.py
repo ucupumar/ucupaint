@@ -7332,17 +7332,21 @@ class YChannelSpecialMenu(bpy.types.Menu):
                 if mt[0] == 'MULTIPLIER': continue
                 col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
-        # NOTE: This menu is only visible if name of the channel has 'Alpha' on it
-        if context.parent.type == 'VALUE' and 'Alpha' in context.parent.name:
+        is_alpha_in_name = context.parent.type == 'VALUE' and 'Alpha' in context.parent.name
+        is_unconnected = is_output_unconnected(node, context.parent)
+
+        # Add extra section
+        if is_alpha_in_name or is_unconnected:
             col.separator()
             col.label(text='Extra')
+
+        # NOTE: This menu is only visible if name of the channel has 'Alpha' on it
+        if is_alpha_in_name:
             icon = 'CHECKBOX_HLT' if context.parent.is_alpha else 'CHECKBOX_DEHLT'
             col.operator('wm.y_toggle_channel_as_alpha', text='Use as Alpha Channel', icon=icon)
 
         # NOTE: This menu is only visible when the channel output doesn't connect to anything
-        if is_output_unconnected(node, context.parent):
-            col.separator()
-            col.label(text='Extra')
+        if is_unconnected:
             col.prop(context.parent, 'disable_unconnected_warning')
 
         ypup = get_user_preferences()
