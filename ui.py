@@ -1134,7 +1134,7 @@ def draw_root_channels_ui(context, layout, node):
                     row.alert = True
                     row.operator('wm.y_optimize_normal_process', icon='ERROR', text='Fix Height Input')
 
-            if is_output_unconnected(node, output_index, channel):
+            if is_output_unconnected(node, channel) and not channel.disable_unconnected_warning:
                 row = mcol.row(align=True)
                 row.alert = True
                 row.operator('wm.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
@@ -4235,7 +4235,7 @@ def draw_layers_ui(context, layout, node):
                 row.operator('object.y_fix_vdm_missmatch_uv')
                 row.alert = False
 
-        if is_not_in_material_view():
+        if is_not_in_material_view() and ypup.enable_material_view_warning:
             bbox = col.box()
             row = bbox.row(align=True)
             row.alert = True
@@ -4377,7 +4377,8 @@ def main_draw(self, context):
             )
             return
         
-    if updater.update_ready and not ypui.hide_update:
+    # Auto-update notification
+    if updater.update_ready and not ypui.hide_update and not ypup.hide_update_notification:
         row_update = layout.row(align=True)
         row_update.alert = True
         if updater.using_development_build:
@@ -4393,7 +4394,7 @@ def main_draw(self, context):
         row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
 
     # Extension platform update notification
-    if is_online() and ypui.extension_update_state == 'AVAILABLE':
+    if is_online() and not ypup.hide_update_notification and ypui.extension_update_state == 'AVAILABLE':
         col = layout.column()
         row_alert = col.row(align=True)
         row_alert.alert = True
@@ -4918,11 +4919,13 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     def draw(self, context):
         main_draw(self, context)
 
-def is_output_unconnected(node, index, root_ch=None):
+def is_output_unconnected(node, root_ch):
     yp = node.node_tree.yp
-    unconnected = len(node.outputs[index].links) == 0 and not (yp.use_baked and yp.enable_baked_outside)
-    if root_ch and root_ch.type == 'NORMAL':
-        unconnected &= not (not is_bl_newer_than(2, 80) and yp.use_baked and root_ch.subdiv_adaptive)
+    outp = node.outputs.get(root_ch.name)
+    if not outp: return False
+    unconnected = len(outp.links) == 0 and not (yp.use_baked and yp.enable_baked_outside)
+    #if root_ch.type == 'NORMAL':
+    #    unconnected &= not (not is_bl_newer_than(2, 80) and yp.use_baked and root_ch.subdiv_adaptive)
     return unconnected
 
 def is_height_input_connected_but_has_no_start_process(node, root_ch):
@@ -4998,7 +5001,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             else:
                 row.label(text='', icon='LINKED')
 
-            if is_output_unconnected(group_node, output_index, item):
+            if is_output_unconnected(group_node, item) and not item.disable_unconnected_warning:
                 row.label(text='', icon='ERROR')
 
             if ypup.developer_mode and item.type=='RGB' and item.enable_alpha:
@@ -7418,6 +7421,7 @@ class YChannelSpecialMenu(bpy.types.Menu):
         row = self.layout.row()
 
         col = row.column()
+        node = get_active_ypaint_node()
 
         if not hasattr(context, 'parent'):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
@@ -7440,12 +7444,22 @@ class YChannelSpecialMenu(bpy.types.Menu):
                 if mt[0] == 'MULTIPLIER': continue
                 col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
-        # NOTE: This menu is only visible if name of the channel has 'Alpha' on it
-        if context.parent.type == 'VALUE' and 'Alpha' in context.parent.name:
+        is_alpha_in_name = context.parent.type == 'VALUE' and 'Alpha' in context.parent.name
+        is_unconnected = is_output_unconnected(node, context.parent)
+
+        # Add extra section
+        if is_alpha_in_name or is_unconnected:
             col.separator()
             col.label(text='Extra')
+
+        # NOTE: This menu is only visible if name of the channel has 'Alpha' on it
+        if is_alpha_in_name:
             icon = 'CHECKBOX_HLT' if context.parent.is_alpha else 'CHECKBOX_DEHLT'
             col.operator('wm.y_toggle_channel_as_alpha', text='Use as Alpha Channel', icon=icon)
+
+        # NOTE: This menu is only visible when the channel output doesn't connect to anything
+        if is_unconnected:
+            col.prop(context.parent, 'disable_unconnected_warning')
 
         ypup = get_user_preferences()
         if ypup.show_experimental:
