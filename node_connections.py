@@ -1974,7 +1974,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
             outp = normal_outp
 
-        # If not use whatever in the first index
+        # If not, use whatever in the first index
         if not outp and len(available_outputs) > 0:
             outp = available_outputs[0]
 
@@ -2468,6 +2468,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else:
                 group_channel = source.outputs.get(root_ch.name + io_suffix['GROUP'])
                 if group_channel: rgb = group_channel
+                elif root_ch.type == 'NORMAL':
+                    # Get Geometry normal if normal from group doesn't exist
+                    rgb = get_essential_node(tree, GEOMETRY).get('Normal')
 
             if root_ch.type == 'NORMAL':
                 group_height_alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
@@ -3147,7 +3150,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if layer.type == 'GROUP':
 
-                if normal_proc: create_link(tree, normal, normal_proc.inputs['Normal'])
+                if normal_proc: 
+                    create_link(tree, normal, normal_proc.inputs['Normal'])
+                    if height_proc and 'Normal Alpha' in normal_proc.inputs and 'Normal Alpha' in height_proc.outputs:
+                        create_link(tree, height_proc.outputs['Normal Alpha'], normal_proc.inputs['Normal Alpha'])
 
                 height_group = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
                 if height_proc and height_group and 'Height' in height_proc.inputs: create_link(tree, height_group, height_proc.inputs['Height'])
@@ -3793,6 +3799,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if prev_rgb:
                     if 'Color1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Color1'])
                     elif 'Value1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Value1'])
+                    elif 'Vector1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Vector1'])
                 if prev_alpha and 'Alpha1' in blend.inputs: create_link(tree, prev_alpha, blend.inputs['Alpha1'])
 
                 if prev_alpha_alpha and 'Alpha1 Alpha' in blend.inputs: 
