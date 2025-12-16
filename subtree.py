@@ -2156,12 +2156,12 @@ def remove_layer_channel_nodes(layer, ch, tree=None):
     remove_node(tree, ch, 'blend')
     remove_node(tree, ch, 'extra_alpha')
 
-def update_preview_mix(ch, preview):
+def update_preview_mix(blend_type, preview):
     if preview.type != 'GROUP': return
     # Set channel layer blending
     mix = preview.node_tree.nodes.get('Mix')
-    if mix and mix.blend_type != ch.blend_type:
-        mix.blend_type = ch.blend_type
+    if mix and mix.blend_type != blend_type:
+        mix.blend_type = blend_type
 
 def check_override_1_layer_channel_nodes(root_ch, layer, ch):
 
@@ -2461,7 +2461,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if yp.layer_preview_mode:
         mat = bpy.context.object.active_material
         preview = mat.node_tree.nodes.get(EMISSION_VIEWER)
-        if preview: update_preview_mix(ch, preview)
+        if preview: update_preview_mix(ch.blend_type, preview)
 
     return need_reconnect
 

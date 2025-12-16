@@ -3004,7 +3004,8 @@ def update_layer_preview_mode(self, context):
     tree = mat.node_tree
     index = yp.active_channel_index
     channel = yp.channels[index]
-    layer = yp.layers[yp.active_layer_index]
+    #layer = yp.layers[yp.active_layer_index]
+    layer = ListItem.get_active_layer(yp)
 
     if yp.preview_mode and yp.layer_preview_mode:
         yp.preview_mode = False
@@ -3012,7 +3013,7 @@ def update_layer_preview_mode(self, context):
     # Get preview node
     if yp.layer_preview_mode:
 
-        check_all_channel_ios(yp, specific_layer=layer)
+        check_all_channel_ios(yp, specific_layer=layer) #, do_process_layers=layer!=None)
 
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
@@ -3026,9 +3027,9 @@ def update_layer_preview_mode(self, context):
             tree.links.new(preview.outputs[0], output.inputs[0])
 
         else:
-            ch = layer.channels[yp.active_channel_index]
+            ch = layer.channels[yp.active_channel_index] if layer else None
 
-            if channel.type == 'NORMAL' and ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
+            if channel.type == 'NORMAL' and (not ch or ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP'):
                 preview = get_preview(mat, output, True, True)
             else:
                 preview = get_preview(mat, output, True)
@@ -3050,10 +3051,11 @@ def update_layer_preview_mode(self, context):
             # Set channel layer blending
             #mix = preview.node_tree.nodes.get('Mix')
             #mix.blend_type = ch.blend_type
-            update_preview_mix(ch, preview)
+            blend_type = ch.blend_type if ch else 'Mix'
+            update_preview_mix(blend_type, preview)
 
             # Use different grid if channel is not enabled
-            preview.inputs['Missing Data'].default_value = 1.0 if (not ch.enable or not layer.enable) else 0.0
+            preview.inputs['Missing Data'].default_value = 1.0 if ((ch and not ch.enable) or (layer and not layer.enable)) else 0.0
 
     else:
         check_all_channel_ios(yp)

@@ -3930,7 +3930,7 @@ def draw_layers_ui(context, layout, node):
 
     row = col.row()
     rcol = row.column()
-    if len(yp.layers) > 0:
+    if True: #len(yp.layers) > 0:
         #prow = rcol.row(align=True)
 
         prow = split_layout(rcol, 0.667, align=True)

@@ -324,7 +324,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                     # Set normal tweak value to 1.0 if it's disabled
                     end_linear.inputs['Normal Tweak'].default_value = 1.0
 
-def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_io=False, hard_reset=False, yp_node=None):
+def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_io=False, hard_reset=False, yp_node=None, do_process_layers=True):
 
     #print("Checking YP IO. Specific Layer: " + str(specific_layer))
 
@@ -471,20 +471,22 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     # Check uv maps
     check_uv_nodes(yp)
 
-    # Update layer IO
-    for layer in yp.layers:
-        if specific_layer and layer != specific_layer: continue
-        specific_ch = None
-        if yp.layer_preview_mode and yp.active_channel_index < len(layer.channels):
-            specific_ch = layer.channels[yp.active_channel_index]
-        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=remove_props, hard_reset=hard_reset)
-
-    if reconnect:
-        # Rearrange layers
+    if do_process_layers:
+        # Update layer IO
         for layer in yp.layers:
             if specific_layer and layer != specific_layer: continue
-            reconnect_layer_nodes(layer)
-            rearrange_layer_nodes(layer)
+            specific_ch = None
+            if yp.layer_preview_mode and yp.active_channel_index < len(layer.channels):
+                specific_ch = layer.channels[yp.active_channel_index]
+            check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=remove_props, hard_reset=hard_reset)
+
+    if reconnect:
+        if do_process_layers:
+            # Rearrange layers
+            for layer in yp.layers:
+                if specific_layer and layer != specific_layer: continue
+                reconnect_layer_nodes(layer)
+                rearrange_layer_nodes(layer)
 
         # Rearrange nodes
         reconnect_yp_nodes(group_tree)
