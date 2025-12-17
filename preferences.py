@@ -226,7 +226,7 @@ class YPaintPreferences(AddonPreferences):
 
             rrow = row.row()
             rrow.scale_y = 2.0
-            rrow.label(text='Option '+str(i))
+            rrow.label(text='Option '+str(i+1))
 
             rrow = row.row()
             rrow.scale_y = 2.0
@@ -253,7 +253,15 @@ class YPaintPreferences(AddonPreferences):
                 rrow.label(text='Set as Default', icon='CHECKBOX_HLT')
             else: rrow.operator('wm.y_set_default_image_option', text='Set as Default', icon='CHECKBOX_DEHLT').index = i
 
+            row.separator()
+
+            rrow = row.row()
+            rrow.scale_y = 2.0
+            rrow.operator('wm.y_remove_image_size_option', text='', icon='PANEL_CLOSE')
+
             boxcol.separator()
+
+        boxcol.operator('wm.y_add_new_image_size_option', text='Add New Image Size Option', icon='ADD')
 
         boxcol.separator()
         boxcol.prop(self, 'default_image_resolution')
@@ -296,6 +304,40 @@ class YPaintPreferences(AddonPreferences):
             check_col = sub_row.column(align=True)
             check_col.prop(self, "updater_interval_minutes")
             check_col = sub_row.column(align=True)
+
+class YAddNewImageSizeOption(bpy.types.Operator):
+    bl_idname = "wm.y_add_new_image_size_option"
+    bl_label = "Add New Image Size Option"
+    bl_description = "Add new image size option"
+    #bl_options = {'REGISTER', 'UNDO'}
+
+    index : IntProperty(default=0)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        pass
+
+        return {'FINISHED'}
+
+class YRemoveImageSizeOption(bpy.types.Operator):
+    bl_idname = "wm.y_remove_image_size_option"
+    bl_label = "Remove Image Size Option"
+    bl_description = "Remove image size option"
+    #bl_options = {'REGISTER', 'UNDO'}
+
+    index : IntProperty(default=0)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        pass
+
+        return {'FINISHED'}
 
 class YSetDefaultImageOption(bpy.types.Operator):
     bl_idname = "wm.y_set_default_image_option"
@@ -364,6 +406,8 @@ def register():
     bpy.utils.register_class(YImageSizeOption)
     bpy.utils.register_class(YPaintPreferences)
     bpy.utils.register_class(YSetDefaultImageOption)
+    bpy.utils.register_class(YAddNewImageSizeOption)
+    bpy.utils.register_class(YRemoveImageSizeOption)
 
     ypup = get_user_preferences()
 
@@ -412,6 +456,8 @@ def unregister():
     bpy.utils.unregister_class(YImageSizeOption)
     bpy.utils.unregister_class(YPaintPreferences)
     bpy.utils.unregister_class(YSetDefaultImageOption)
+    bpy.utils.unregister_class(YAddNewImageSizeOption)
+    bpy.utils.unregister_class(YRemoveImageSizeOption)
 
     bpy.app.handlers.save_pre.remove(auto_save_images)
     bpy.app.handlers.save_post.remove(refresh_float_image_hack)
