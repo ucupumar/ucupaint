@@ -51,6 +51,8 @@ BUMP_MULTIPLY_TWEAK = 5
 TEMP_ACTIVE_IMAGE_NAME = '.YP_TEMP_ACTIVE_IMAGE'
 TEMP_ACTIVE_IMAGE_NODE_NAME = '.YP_TEMP_ACTIVE_IMAGE_NODE'
 
+DEFAULT_IMAGE_SIZE_SETTINGS_FILE = 'default_image_size_option.txt'
+
 def blend_type_items(self, context):
     items = [
         ("MIX", "Mix", ""),
@@ -962,6 +964,23 @@ def is_layer_collection_hidden(obj):
 
 def get_addon_filepath():
     return os.path.dirname(bpy.path.abspath(__file__)) + os.sep
+
+def get_image_option_settings_filepath():
+    return get_addon_filepath() + os.sep + DEFAULT_IMAGE_SIZE_SETTINGS_FILE
+
+def get_image_option_index_from_file():
+    file = get_image_option_settings_filepath()
+    if os.path.isfile(file):
+        f = open(file)
+        try: return int(f.read())
+        except Exception as e: print(e)
+
+    return None
+
+def write_image_option_index_to_file(index):
+    with open(get_image_option_settings_filepath(), "w+") as f:
+        try: f.write(str(index))
+        except Exception as e: print(e)
 
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)

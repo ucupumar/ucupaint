@@ -31,12 +31,6 @@ class YImageSizeOption(bpy.types.PropertyGroup):
         default = 'Linear'
     )
 
-    active_default : BoolProperty(
-        name = 'Set as Default Image Size',
-        description = 'Set as default image size',
-        default=False
-    )
-
 class YPaintPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
@@ -203,6 +197,8 @@ class YPaintPreferences(AddonPreferences):
     )
 
     image_size_options : CollectionProperty(type=YImageSizeOption)
+    default_image_size_option : IntProperty(default=0)
+    ori_default_image_size_option : IntProperty(default=0) # Only set on register
 
     always_evaluate_frame : BoolProperty(
         name = 'Always Evaluate on Frame Change',
@@ -221,7 +217,6 @@ class YPaintPreferences(AddonPreferences):
             self.layout.prop(self, 'default_bake_device')
             self.layout.prop(self, 'icons')
         self.layout.prop(self, 'layer_list_mode')
-
 
         box = self.layout.box()
         boxcol = box.column(align=True)
@@ -254,7 +249,9 @@ class YPaintPreferences(AddonPreferences):
 
             rrow = row.row()
             rrow.scale_y = 2.0
-            rrow.prop(option, 'active_default', text='Set as Default', toggle=True)
+            if i == self.default_image_size_option:
+                rrow.label(text='Set as Default', icon='CHECKBOX_HLT')
+            else: rrow.operator('wm.y_set_default_image_option', text='Set as Default', icon='CHECKBOX_DEHLT').index = i
 
             boxcol.separator()
 
@@ -299,6 +296,30 @@ class YPaintPreferences(AddonPreferences):
             check_col = sub_row.column(align=True)
             check_col.prop(self, "updater_interval_minutes")
             check_col = sub_row.column(align=True)
+
+class YSetDefaultImageOption(bpy.types.Operator):
+    bl_idname = "wm.y_set_default_image_option"
+    bl_label = "Set Default Image Option"
+    bl_description = "Set default image option"
+    #bl_options = {'REGISTER', 'UNDO'}
+
+    index : IntProperty(default=0)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        ypup = get_user_preferences()
+
+        # Set the preference to file
+        write_image_option_index_to_file(self.index)
+
+        # Set the preference
+        ypup.default_image_size_option = self.index
+
+        return {'FINISHED'}
+
 @persistent
 def auto_save_images(scene):
 
@@ -342,8 +363,11 @@ def refresh_float_image_hack(scene):
 def register():
     bpy.utils.register_class(YImageSizeOption)
     bpy.utils.register_class(YPaintPreferences)
+    bpy.utils.register_class(YSetDefaultImageOption)
 
     ypup = get_user_preferences()
+
+    default_index = 1
 
     if len(ypup.image_size_options) == 0:
         option = ypup.image_size_options.add()
@@ -366,6 +390,20 @@ def register():
         option.width = 4096
         option.height = 4096
 
+        ypup.default_image_size_option = default_index
+        ypup.ori_default_image_size_option = default_index
+        write_image_option_index_to_file(default_index)
+
+    else:
+        # Read from file to make sure the settings are in sync
+        index = get_image_option_index_from_file()
+        if index != None and index < len(ypup.image_size_options):
+            ypup.default_image_size_option = index
+            ypup.ori_default_image_size_option = index
+        elif len(ypup.image_size_options) > default_index:
+            ypup.default_image_size_option = default_index
+            ypup.ori_default_image_size_option = default_index
+            write_image_option_index_to_file(default_index)
 
     bpy.app.handlers.save_pre.append(auto_save_images)
     bpy.app.handlers.save_post.append(refresh_float_image_hack)
@@ -373,6 +411,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(YImageSizeOption)
     bpy.utils.unregister_class(YPaintPreferences)
+    bpy.utils.unregister_class(YSetDefaultImageOption)
 
     bpy.app.handlers.save_pre.remove(auto_save_images)
     bpy.app.handlers.save_post.remove(refresh_float_image_hack)

@@ -73,3 +73,40 @@ class OpenImage(FileSelectOptions):
         loaded_images = tuple(load_image(path, directory) for path in import_list)
 
         return loaded_images
+
+def image_size_items(self, context):
+    ypup = get_user_preferences()
+
+    items = []
+
+    for option in ypup.image_size_options:
+        items.append((option.name, option.name, ''))
+
+    return items
+
+def default_image_size():
+    #ypup = get_user_preferences()
+
+    # HACK: Load default image size setting from file 
+    # since user preference is not accesible in this scope
+    index = get_image_option_index_from_file()
+
+    # NOTE: Index 1 is the default since `1024` option has index of 1
+    return index if index != None else 1
+
+class NewImage():
+    image_size : EnumProperty(
+        name = 'Image Size',
+        description = 'Image size',
+        items = image_size_items,
+        default = default_image_size(),
+        #update = update_image_size_options
+    )
+
+    def invoke_operator(self, context, event):
+        ypup = get_user_preferences()
+
+        # Force to set the image size if image size option is changed during blender session
+        if ypup.ori_default_image_size_option != ypup.default_image_size_option and ypup.default_image_size_option < len(ypup.image_size_options):
+            self.image_size = [opt.name for i, opt in enumerate(ypup.image_size_options) if i == ypup.default_image_size_option][0]
+

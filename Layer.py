@@ -813,7 +813,7 @@ class YNewVDMLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YNewLayer(bpy.types.Operator):
+class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
     bl_idname = "wm.y_new_layer"
     bl_label = "New Layer"
     bl_description = "New Layer"
@@ -1105,6 +1105,7 @@ class YNewLayer(bpy.types.Operator):
         return get_operator_description(self)
 
     def invoke(self, context, event):
+        self.invoke_operator(context, event)
 
         ypup = get_user_preferences()
         node = get_active_ypaint_node()
@@ -1402,7 +1403,8 @@ class YNewLayer(bpy.types.Operator):
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
             crow = col.row(align=True)
-            crow.prop(self, 'image_resolution', expand= True,)
+            #crow.prop(self, 'image_resolution', expand= True,)
+            crow.prop(self, 'image_size', expand= True,)
         elif self.type == 'IMAGE' and self.use_custom_resolution == True:
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
