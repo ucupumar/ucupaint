@@ -5238,7 +5238,11 @@ class YDuplicateLayer(bpy.types.Operator):
     def invoke(self, context, event):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        layer = yp.layers[yp.active_layer_index]
+        #layer = yp.layers[yp.active_layer_index]
+        layer = ListItem.get_active_layer(yp)
+
+        if not layer:
+            return self.execute(context)
 
         self.any_packed_image = False
         self.any_ondisk_image = False
@@ -5281,7 +5285,11 @@ class YDuplicateLayer(bpy.types.Operator):
 
         # Get active layer
         layer_idx = yp.active_layer_index
-        layer = yp.layers[layer_idx]
+        #layer = yp.layers[layer_idx]
+        layer = ListItem.get_active_layer(yp)
+        if not layer:
+            self.report({'ERROR'}, "Cannot duplicate a base layer!")
+            return {'CANCELLED'}
         source_layer_name = layer.name
 
         # Get all children
@@ -5405,7 +5413,12 @@ class YCopyLayer(bpy.types.Operator):
         yp = node.node_tree.yp
         wmp = context.window_manager.ypprops
 
-        layer = yp.layers[yp.active_layer_index]
+        #layer = yp.layers[yp.active_layer_index]
+        layer = ListItem.get_active_layer(yp)
+
+        if not layer:
+            self.report({'ERROR'}, "Cannot copy a base layer!")
+            return {'CANCELLED'}
 
         wmp.clipboard_tree = node.node_tree.name
         wmp.clipboard_layer = layer.name if not self.all_layers else ''

@@ -2325,9 +2325,14 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         # Get active layer
         layer_idx = self.layer_idx = yp.active_layer_index
-        layer = self.layer = yp.layers[layer_idx]
+        #layer = self.layer = yp.layers[layer_idx]
+        layer = self.layer = ListItem.get_active_layer(yp)
 
         self.error_message = ''
+
+        if not layer:
+            self.error_message = "Cannot merge a base layer!"
+            return self.execute(context)
 
         enabled_chs =  [ch for ch in layer.channels if ch.enable]
         if not any(enabled_chs):
