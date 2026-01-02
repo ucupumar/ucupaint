@@ -410,6 +410,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
             source.image = image
+            check_mask_image_projections(mask, source)
 
             if mask.texcoord_type == 'Decal':
                 source.extension = 'CLIP'
@@ -2117,6 +2118,10 @@ def update_enable_layer_masks(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
+def check_mask_image_projections(mask, source=None):
+    if source == None: source = get_mask_source(mask)
+    source.projection = 'BOX' if mask.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+
 def update_mask_texcoord_type(self, context, reconnect=True):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -2135,8 +2140,7 @@ def update_mask_texcoord_type(self, context, reconnect=True):
 
     # Set image source projection
     if mask.type == 'IMAGE':
-        source = get_mask_source(mask)
-        source.projection = 'BOX' if mask.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+        check_mask_image_projections(mask)
 
     if reconnect:
         reconnect_layer_nodes(layer)

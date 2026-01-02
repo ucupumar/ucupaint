@@ -4359,6 +4359,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             image = bpy.data.images.get(item_name)
             source.image = image
 
+            check_layer_projections(layer)
+
             if layer.texcoord_type == 'Decal':
                 source.extension = 'CLIP'
 
