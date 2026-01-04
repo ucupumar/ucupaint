@@ -257,7 +257,7 @@ class YPaintPreferences(AddonPreferences):
 
             rrow = row.row()
             rrow.scale_y = 2.0
-            rrow.operator('wm.y_remove_image_size_option', text='', icon='PANEL_CLOSE')
+            rrow.operator('wm.y_remove_image_size_option', text='', icon='PANEL_CLOSE').index = i
 
             boxcol.separator()
 
@@ -305,20 +305,38 @@ class YPaintPreferences(AddonPreferences):
             check_col.prop(self, "updater_interval_minutes")
             check_col = sub_row.column(align=True)
 
+def set_image_option_index_as_default(index):
+    ypup = get_user_preferences()
+
+    # Set the preference to file
+    write_image_option_index_to_file(index)
+
+    # Set the preference
+    ypup.default_image_size_option = index
+
 class YAddNewImageSizeOption(bpy.types.Operator):
     bl_idname = "wm.y_add_new_image_size_option"
     bl_label = "Add New Image Size Option"
     bl_description = "Add new image size option"
     #bl_options = {'REGISTER', 'UNDO'}
 
-    index : IntProperty(default=0)
-
     @classmethod
     def poll(cls, context):
         return True
 
     def execute(self, context):
-        pass
+        ypup = get_user_preferences()
+        last_x = 256
+        last_y = 256
+        if len(ypup.image_size_options) > 0:
+            last_opt = ypup.image_size_options[-1]
+            last_x = last_opt.width
+            last_y = last_opt.height
+
+        option = ypup.image_size_options.add()
+        option.width = last_x * 2
+        option.height = last_y * 2
+        option.name = str(option.width)
 
         return {'FINISHED'}
 
@@ -335,7 +353,10 @@ class YRemoveImageSizeOption(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        pass
+        ypup = get_user_preferences()
+        option = ypup.image_size_options[self.index]
+
+        ypup.image_size_options.remove(self.index)
 
         return {'FINISHED'}
 
@@ -352,14 +373,7 @@ class YSetDefaultImageOption(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        ypup = get_user_preferences()
-
-        # Set the preference to file
-        write_image_option_index_to_file(self.index)
-
-        # Set the preference
-        ypup.default_image_size_option = self.index
-
+        set_image_option_index_as_default(self.index)
         return {'FINISHED'}
 
 @persistent

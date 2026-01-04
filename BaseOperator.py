@@ -110,3 +110,8 @@ class NewImage():
         if ypup.ori_default_image_size_option != ypup.default_image_size_option and ypup.default_image_size_option < len(ypup.image_size_options):
             self.image_size = [opt.name for i, opt in enumerate(ypup.image_size_options) if i == ypup.default_image_size_option][0]
 
+    def draw_operator(self, context):
+        ypup = get_user_preferences()
+
+        self.use_vertical_expand_for_image_options = len(ypup.image_size_options) > 4
+

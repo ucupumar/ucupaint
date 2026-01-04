@@ -1253,10 +1253,13 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
         return None
 
     def draw(self, context):
+        self.draw_operator(context)
+
         #yp = self.group_node.node_tree.yp
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         obj = context.object
+        ypup = get_user_preferences()
 
         if len(yp.channels) == 0:
             self.layout.label(text='No channel found! Still want to create a layer?', icon='ERROR')
@@ -1305,7 +1308,13 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
 
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
             col.label(text='')
-            col.label(text='Resolution:')
+            if self.use_vertical_expand_for_image_options:
+                ccol = col.column(align=True)
+                ccol.label(text='Resolution:')
+                for i in range(len(ypup.image_size_options)-1):
+                    ccol.label(text='')
+            else:
+                col.label(text='Resolution:')
         elif self.type == 'IMAGE' and self.use_custom_resolution == True:
             col.label(text='')
             col.label(text='Width:')
@@ -1404,7 +1413,10 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
             crow.prop(self, 'use_custom_resolution')
             crow = col.row(align=True)
             #crow.prop(self, 'image_resolution', expand= True,)
-            crow.prop(self, 'image_size', expand= True,)
+            if not self.use_vertical_expand_for_image_options: crow.prop(self, 'image_size', expand=True)
+            else: 
+                ccol = crow.column(align=True)
+                ccol.prop(self, 'image_size', expand=True)
         elif self.type == 'IMAGE' and self.use_custom_resolution == True:
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
