@@ -2421,7 +2421,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         alpha = None
 
         # Use alpha of color channel if color channel is enabled
-        if ch == alpha_ch and get_channel_enabled(color_ch, layer) and not color_ch.unpair_alpha and layer.type not in {'GROUP', 'PASSTHROUGH'}:
+        if ch == alpha_ch and get_channel_enabled(color_ch, layer) and not color_ch.unpair_alpha and layer.type not in {'GROUP', 'PREV_LAYERS'}:
             color_ch_idx = get_layer_channel_index(layer, color_ch)
             root_color_ch = yp.channels[color_ch_idx]
             if ch_socket_pairs[root_color_ch.name] != None:
@@ -2476,7 +2476,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         ch_source_e = None
         ch_source_w = None
 
-        if layer.type == 'PASSTHROUGH':
+        if layer.type == 'PREV_LAYERS':
 
             rgb = source.outputs.get(root_ch.name)
 

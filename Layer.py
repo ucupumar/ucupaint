@@ -4340,7 +4340,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     source = source_tree.nodes.get(layer.source)
 
     # Save source to cache
-    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PASSTHROUGH'} and layer.type != new_type:
+    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'} and layer.type != new_type:
         setattr(layer, 'cache_' + layer.type.lower(), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
@@ -4351,7 +4351,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Try to get available cache
     cache = None
-    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PASSTHROUGH'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
+    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
         cache = tree.nodes.get(getattr(layer, 'cache_' + new_type.lower()))
 
     if cache:

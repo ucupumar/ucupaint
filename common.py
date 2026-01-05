@@ -254,7 +254,7 @@ layer_type_items = (
     ('GABOR', 'Gabor', ''),
     ('EDGE_DETECT', 'Edge Detect', ''),
     ('AO', 'Ambient Occlusion', ''),
-    ('PASSTHROUGH', 'Passthrough', ''),
+    ('PREV_LAYERS', 'Previous Layers', ''),
 )
 
 mask_type_items = (
@@ -323,7 +323,7 @@ layer_type_labels = {
     'GABOR' : 'Gabor',
     'EDGE_DETECT' : 'Edge Detect',
     'AO' : 'Ambient Occlusion',
-    'PASSTHROUGH' : 'Passthrough',
+    'PREV_LAYERS' : 'Previous Layers',
 }
 
 mask_type_labels = {
@@ -542,7 +542,7 @@ layer_node_bl_idnames = {
     'GABOR' : 'ShaderNodeTexGabor',
     'MODIFIER' : 'ShaderNodeGroup',
     'AO' : 'ShaderNodeAmbientOcclusion',
-    'PASSTHROUGH' : 'NodeGroupInput',
+    'PREV_LAYERS' : 'NodeGroupInput',
 }
 
 io_suffix = {
@@ -3288,7 +3288,7 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PASSTHROUGH'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PREV_LAYERS'} 
 
 def clear_mapping(entity, use_baked=False):
 
@@ -5265,7 +5265,7 @@ def is_uv_input_needed(layer, uv_name):
             return True
 
         if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PASSTHROUGH'}:
+            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
                 return True
 
             for i, ch in enumerate(layer.channels):
@@ -6091,7 +6091,7 @@ def get_all_baked_channel_images(tree):
 def is_layer_using_vector(layer, exclude_baked=False):
     yp = layer.id_data.yp
 
-    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PASSTHROUGH'}:
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
         return True
 
     for i, ch in enumerate(layer.channels):

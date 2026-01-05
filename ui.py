@@ -1622,8 +1622,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     elif layer.type in {'EDGE_DETECT', 'AO'}:
         icon_value = lib.get_icon('edge_detect')
         label += layer.name
-    elif layer.type == 'PASSTHROUGH':
-        icon_value = lib.get_icon('EMPTY_SINGLE_ARROW')
+    elif layer.type == 'PREV_LAYERS':
+        icon_value = lib.get_icon('COLLAPSEMENU')
         label += layer.name
     else:
         icon_value = lib.get_icon('texture')
@@ -1657,7 +1657,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     rcol = rbox.column(align=False)
 
     modcol = rcol.column()
-    modcol.active = layer.type not in {'BACKGROUND', 'GROUP', 'PASSTHROUGH'}
+    modcol.active = layer.type not in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}
     draw_modifier_stack(context, layer, 'RGB', modcol, lui, layer)
 
     #if layer.type not in {'VCOL', 'BACKGROUND'}:
@@ -1680,7 +1680,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     label_text = pgettext_iface('Layer') + ' Source:'
 
     rrow = split.row(align=True)
-    if layer.type in {'BACKGROUND', 'GROUP', 'PASSTHROUGH'}:
+    if layer.type in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}:
         rrow.label(text='', icon='BLANK1')
         rrow.label(text=label_text)
     else:
@@ -1708,8 +1708,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             icon_value = lib.get_icon('hemi')
         elif layer.type in {'EDGE_DETECT', 'AO'}:
             icon_value = lib.get_icon('edge_detect')
-        elif layer.type == 'PASSTHROUGH':
-            icon_value = lib.get_icon('EMPTY_SINGLE_ARROW')
+        elif layer.type == 'PREV_LAYERS':
+            icon_value = lib.get_icon('COLLAPSEMENU')
         else: icon_value = lib.get_icon('texture')
 
     #if layer.type == 'COLOR' and not lui.expand_source:
@@ -1719,7 +1719,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     #else:
     split.menu("NODE_MT_y_layer_type_menu", text=menu_label, icon_value=icon_value)
 
-    if lui.expand_source and layer.type not in {'BACKGROUND', 'GROUP', 'PASSTHROUGH'}:
+    if lui.expand_source and layer.type not in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}:
         row = rcol.row(align=True)
         row.label(text='', icon='BLANK1')
         #bbox = row.box()
@@ -1983,7 +1983,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
     elif layer.type == 'GROUP':
         root_ch = yp.channels[get_layer_channel_index(layer, ch)]
         label = 'Group ' + root_ch.name
-    elif layer.type == 'PASSTHROUGH':
+    elif layer.type == 'PREV_LAYERS':
         root_ch = yp.channels[get_layer_channel_index(layer, ch)]
         label = 'Previous ' + root_ch.name
     else:
@@ -2193,7 +2193,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             else:
                 ssplit = rrow.row(align=True)
 
-            if layer.type in {'GROUP', 'PASSTHROUGH'}:
+            if layer.type in {'GROUP', 'PREV_LAYERS'}:
                 rrrow = ssplit.row(align=True)
                 draw_input_prop(rrrow, ch, 'intensity_value', layer=layer)
 
@@ -3274,7 +3274,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
                     boxcol.context_pointer_set('entity', mask)
                     if is_bl_newer_than(2, 80):
-                        boxcol.operator('wm.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                        boxcol.operator('wm.y_select_decal_object', icon='COLLAPSEMENU')
                     else: boxcol.operator('wm.y_select_decal_object', icon='EMPTY_DATA')
                     boxcol.operator('wm.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
 
@@ -3819,7 +3819,7 @@ def draw_layers_ui(context, layout, node):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PASSTHROUGH'} and layer.uv_name != '':
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PREV_LAYERS'} and layer.uv_name != '':
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
@@ -5197,8 +5197,8 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
         elif layer.type == 'COLOR': 
             row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
-        elif layer.type == 'PASSTHROUGH': 
-            row.prop(layer, 'name', text='', emboss=False, icon='EMPTY_SINGLE_ARROW')
+        elif layer.type == 'PREV_LAYERS': 
+            row.prop(layer, 'name', text='', emboss=False, icon='COLLAPSEMENU')
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
         elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
         else: 
@@ -5219,8 +5219,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
             elif layer.type == 'COLOR': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon='COLOR')
-            elif layer.type == 'PASSTHROUGH': 
-                row.prop(active_override, ae_prop, text='', emboss=False, icon='EMPTY_SINGLE_ARROW')
+            elif layer.type == 'PREV_LAYERS': 
+                row.prop(active_override, ae_prop, text='', emboss=False, icon='COLLAPSEMENU')
             elif layer.type == 'HEMI': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('hemi'))
             elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -5241,8 +5241,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon_value=lib.get_icon('vertex_color'))
             elif layer.type == 'COLOR': 
                 row.label(text='', icon='COLOR')
-            elif layer.type == 'PASSTHROUGH': 
-                row.label(text='', icon='EMPTY_SINGLE_ARROW')
+            elif layer.type == 'PREV_LAYERS': 
+                row.label(text='', icon='COLLAPSEMENU')
             elif layer.type == 'HEMI': 
                 row.label(text='', icon_value=lib.get_icon('hemi'))
             elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -6201,7 +6201,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.separator()
 
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
-        col.operator("wm.y_new_layer", icon_value=lib.get_icon('EMPTY_SINGLE_ARROW'), text='Passthrough').type = 'PASSTHROUGH'
+        col.operator("wm.y_new_layer", icon_value=lib.get_icon('COLLAPSEMENU'), text='Previous Layers').type = 'PREV_LAYERS'
         col.separator()
 
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New '+get_vertex_color_label()).type = 'VCOL'
@@ -6596,7 +6596,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             op.socket_name = get_channel_input_socket_name(layer, ch)
             op.set_normal_input = False
         else:
-            if layer.type in {'GROUP', 'PASSTHROUGH'}:
+            if layer.type in {'GROUP', 'PREV_LAYERS'}:
                 label = 'Group ' if layer.type == 'GROUP' else 'Previous '
                 label += root_ch.name
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
@@ -7630,8 +7630,8 @@ class YLayerTypeMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if layer.type == 'GROUP' else 'RADIOBUT_OFF'
         col.operator('wm.y_replace_layer_type', text='Group', icon=icon).type = 'GROUP'
 
-        icon = 'RADIOBUT_ON' if layer.type == 'PASSTHROUGH' else 'RADIOBUT_OFF'
-        col.operator("wm.y_replace_layer_type", icon=icon, text='Passthrough').type = 'PASSTHROUGH'
+        icon = 'RADIOBUT_ON' if layer.type == 'PREV_LAYERS' else 'RADIOBUT_OFF'
+        col.operator("wm.y_replace_layer_type", icon=icon, text='Previous Layers').type = 'PREV_LAYERS'
 
         col.separator()
 
@@ -7840,7 +7840,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
             return
 
-        if context.parent.type not in {'GROUP', 'PASSTHROUGH'}:
+        if context.parent.type not in {'GROUP', 'PREV_LAYERS'}:
             col = row.column()
             col.label(text='Add Modifier')
             ## List the modifiers
