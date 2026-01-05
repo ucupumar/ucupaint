@@ -1300,6 +1300,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
             images = tuple(load_image(path, directory) for path in import_list)
         else:
             ori_ui_type = bpy.context.area.type
+            ori_tree_type = bpy.context.area.spaces[0].tree_type if ori_ui_type == 'NODE_EDITOR' else None
             bpy.context.area.type = 'IMAGE_EDITOR'
             images = []
             for path in import_list:
@@ -1311,6 +1312,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
                 if image not in images:
                     images.append(image)
             bpy.context.area.type = ori_ui_type
+            if ori_tree_type != None:
+                bpy.context.area.spaces[0].tree_type = ori_tree_type
 
         for image in images:
             if self.relative and bpy.data.filepath != '':
