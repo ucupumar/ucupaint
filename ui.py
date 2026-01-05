@@ -1622,6 +1622,9 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     elif layer.type in {'EDGE_DETECT', 'AO'}:
         icon_value = lib.get_icon('edge_detect')
         label += layer.name
+    elif layer.type == 'PASSTHROUGH':
+        icon_value = lib.get_icon('EMPTY_SINGLE_ARROW')
+        label += layer.name
     else:
         icon_value = lib.get_icon('texture')
         label += layer.name
@@ -1654,7 +1657,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     rcol = rbox.column(align=False)
 
     modcol = rcol.column()
-    modcol.active = layer.type not in {'BACKGROUND', 'GROUP'}
+    modcol.active = layer.type not in {'BACKGROUND', 'GROUP', 'PASSTHROUGH'}
     draw_modifier_stack(context, layer, 'RGB', modcol, lui, layer)
 
     #if layer.type not in {'VCOL', 'BACKGROUND'}:
@@ -1677,7 +1680,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     label_text = pgettext_iface('Layer') + ' Source:'
 
     rrow = split.row(align=True)
-    if layer.type in {'BACKGROUND', 'GROUP'}:
+    if layer.type in {'BACKGROUND', 'GROUP', 'PASSTHROUGH'}:
         rrow.label(text='', icon='BLANK1')
         rrow.label(text=label_text)
     else:
@@ -1705,6 +1708,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             icon_value = lib.get_icon('hemi')
         elif layer.type in {'EDGE_DETECT', 'AO'}:
             icon_value = lib.get_icon('edge_detect')
+        elif layer.type == 'PASSTHROUGH':
+            icon_value = lib.get_icon('EMPTY_SINGLE_ARROW')
         else: icon_value = lib.get_icon('texture')
 
     #if layer.type == 'COLOR' and not lui.expand_source:
@@ -1714,7 +1719,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     #else:
     split.menu("NODE_MT_y_layer_type_menu", text=menu_label, icon_value=icon_value)
 
-    if lui.expand_source and layer.type not in {'BACKGROUND', 'GROUP'}:
+    if lui.expand_source and layer.type not in {'BACKGROUND', 'GROUP', 'PASSTHROUGH'}:
         row = rcol.row(align=True)
         row.label(text='', icon='BLANK1')
         #bbox = row.box()
@@ -1978,6 +1983,9 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
     elif layer.type == 'GROUP':
         root_ch = yp.channels[get_layer_channel_index(layer, ch)]
         label = 'Group ' + root_ch.name
+    elif layer.type == 'PASSTHROUGH':
+        root_ch = yp.channels[get_layer_channel_index(layer, ch)]
+        label = 'Previous ' + root_ch.name
     else:
         label = 'Layer'
 
@@ -2185,7 +2193,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             else:
                 ssplit = rrow.row(align=True)
 
-            if layer.type == 'GROUP':
+            if layer.type in {'GROUP', 'PASSTHROUGH'}:
                 rrrow = ssplit.row(align=True)
                 draw_input_prop(rrrow, ch, 'intensity_value', layer=layer)
 
@@ -3811,7 +3819,7 @@ def draw_layers_ui(context, layout, node):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER', 'AO'} and layer.uv_name != '':
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PASSTHROUGH'} and layer.uv_name != '':
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
@@ -5189,6 +5197,8 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
         elif layer.type == 'COLOR': 
             row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
+        elif layer.type == 'PASSTHROUGH': 
+            row.prop(layer, 'name', text='', emboss=False, icon='EMPTY_SINGLE_ARROW')
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
         elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
         else: 
@@ -5209,6 +5219,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
             elif layer.type == 'COLOR': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon='COLOR')
+            elif layer.type == 'PASSTHROUGH': 
+                row.prop(active_override, ae_prop, text='', emboss=False, icon='EMPTY_SINGLE_ARROW')
             elif layer.type == 'HEMI': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('hemi'))
             elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -5229,6 +5241,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon_value=lib.get_icon('vertex_color'))
             elif layer.type == 'COLOR': 
                 row.label(text='', icon='COLOR')
+            elif layer.type == 'PASSTHROUGH': 
+                row.label(text='', icon='EMPTY_SINGLE_ARROW')
             elif layer.type == 'HEMI': 
                 row.label(text='', icon_value=lib.get_icon('hemi'))
             elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -6187,6 +6201,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.separator()
 
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
+        col.operator("wm.y_new_layer", icon_value=lib.get_icon('EMPTY_SINGLE_ARROW'), text='Passthrough').type = 'PASSTHROUGH'
         col.separator()
 
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New '+get_vertex_color_label()).type = 'VCOL'
@@ -6581,8 +6596,9 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             op.socket_name = get_channel_input_socket_name(layer, ch)
             op.set_normal_input = False
         else:
-            if layer.type == 'GROUP':
-                label = 'Group ' + root_ch.name
+            if layer.type in {'GROUP', 'PASSTHROUGH'}:
+                label = 'Group ' if layer.type == 'GROUP' else 'Previous '
+                label += root_ch.name
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
                 op.socket_name = ch.socket_input_name
@@ -7614,6 +7630,9 @@ class YLayerTypeMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if layer.type == 'GROUP' else 'RADIOBUT_OFF'
         col.operator('wm.y_replace_layer_type', text='Group', icon=icon).type = 'GROUP'
 
+        icon = 'RADIOBUT_ON' if layer.type == 'PASSTHROUGH' else 'RADIOBUT_OFF'
+        col.operator("wm.y_replace_layer_type", icon=icon, text='Passthrough').type = 'PASSTHROUGH'
+
         col.separator()
 
         icon = 'RADIOBUT_ON' if layer.type == 'BRICK' else 'RADIOBUT_OFF'
@@ -7821,7 +7840,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
             return
 
-        if context.parent.type != 'GROUP':
+        if context.parent.type not in {'GROUP', 'PASSTHROUGH'}:
             col = row.column()
             col.label(text='Add Modifier')
             ## List the modifiers
