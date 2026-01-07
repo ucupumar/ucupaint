@@ -1123,6 +1123,8 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     #for i, inp in reversed(list(enumerate(get_tree_inputs(tree)))):
     for i, inp in enumerate(get_tree_inputs(tree)):
         if inp not in valid_inputs:
+            do_remove = True
+
             # Set input prop before deleting input socket
             if inp.name.startswith('.'):
 
@@ -1130,14 +1132,23 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 val = layer_node.inputs.get(inp.name).default_value
                 socket_type = inp.socket_type if is_bl_newer_than(4) else inp.type
                 if socket_type in {'NodeSocketColor', 'RGBA'}:
+                    # Do not remove input if it has color brighter than 1.0
+                    if val[0] > 1.0 or val[1] > 1.0 or val[2] > 1.0:
+                        do_remove = False
+
                     try: exec('layer' + inp.name + ' = (val[0], val[1], val[2])')
                     except Exception as e: print(e)
                 else:
+                    # Do not remove input if it has value outside of min max
+                    if val < inp.min_value or val > inp.max_value:
+                        do_remove = False
+
                     try: exec('layer' + inp.name + ' = val')
                     except Exception as e: print(e)
 
             # Remove input socket
-            remove_tree_input(tree, inp)
+            if do_remove:
+                remove_tree_input(tree, inp)
 
     # Deleting invalid outputs
     for outp in get_tree_outputs(tree):

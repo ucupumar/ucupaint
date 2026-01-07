@@ -7883,33 +7883,6 @@ def get_armature_modifier(obj, return_index=False):
 
     return None
 
-def remember_armature_index(obj):
-    ys_tree = get_ysculpt_tree(obj)
-    if not ys_tree: return
-    ys = ys_tree.ys
-    
-    mod, idx = get_armature_modifier(obj, return_index=True)
-    if mod:
-        ys.ori_armature_index = idx
-
-def restore_armature_order(obj):
-    ys_tree = get_ysculpt_tree(obj)
-    if not ys_tree: return
-    ys = ys_tree.ys
-
-    mod, idx = get_armature_modifier(obj, return_index=True)
-
-    if not mod: return
-
-    ori_obj = bpy.context.object
-    bpy.context.view_layer.objects.active = obj
-
-    bpy.ops.object.modifier_move_to_index(
-        modifier=mod.name, index=min(ys.ori_armature_index, len(obj.modifiers)-1)
-    )
-
-    bpy.context.view_layer.objects.active = ori_obj    
-
 def is_layer_vdm(layer):
 
     hch = get_height_channel(layer)
@@ -8193,3 +8166,35 @@ def get_available_source_outputs(source, entity_type):
     outps = [outp for outp in source.outputs if outp.enabled and (not valid_socket_names or outp.name in valid_socket_names)]
 
     return outps
+
+def get_scene_bake_multires(scene):
+    return scene.render.bake.use_multires if is_bl_newer_than(5) else scene.render.use_bake_multires
+
+def get_scene_bake_clear(scene):
+    return scene.render.bake.use_clear if is_bl_newer_than(5) else scene.render.use_bake_clear
+
+def get_scene_render_bake_type(scene):
+    return scene.render.bake.type if is_bl_newer_than(5) else scene.render.bake_type
+
+def get_scene_bake_margin(scene):
+    return scene.render.bake.margin if is_bl_newer_than(5) else scene.render.bake_margin
+
+def set_scene_bake_multires(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_multires = value
+    else: scene.render.bake.use_multires = value
+
+def set_scene_bake_clear(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_clear = value
+    else: scene.render.bake.use_clear = value
+
+def set_scene_render_bake_type(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_type = value
+    else: scene.render.bake.type = value
+
+def set_scene_bake_margin(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_margin = value
+    else: scene.render.bake.margin = value

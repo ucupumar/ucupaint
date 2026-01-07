@@ -2695,7 +2695,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     if ch == color_ch and ch.enable:
                         label = root_ch.name + ':'
 
-                    if ch.override or input_settings_available or swizzleable:
+                    dropdown_available = (ch.override and ch.override_type != 'VCOL') or input_settings_available or swizzleable
+
+                    if dropdown_available:
                         inbox_dropdown_button(row, chui, 'expand_source', label)
                     else:
                         row.label(text='', icon='BLANK1')
@@ -2736,7 +2738,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     if ch.override:
                         ch_source = get_channel_source(ch, layer)
 
-                    if ch.expand_source and (ch.override or input_settings_available or swizzleable): # and ch.override_type != 'DEFAULT':
+                    if ch.expand_source and dropdown_available: # and ch.override_type != 'DEFAULT':
 
                         rrow = mcol.row(align=True)
                         rrow.label(text='', icon='BLANK1')
@@ -5411,7 +5413,7 @@ def layer_listing(layout, layer, show_expand=False):
             if active_override_image:
                 if active_override_image.yia.is_image_atlas or active_override_image.yua.is_udim_atlas:
                     #row.label(text='Image Atlas Override')
-                    row.label(text=override_image.name)
+                    row.label(text=active_override_image.name)
                 else: row.prop(active_override_image, 'name', text='', emboss=False)
             elif override_ch.override_type == 'VCOL':
                 row.prop(override_ch, 'override_vcol_name', text='', emboss=False)
@@ -6431,40 +6433,6 @@ class YLayerChannelBlendMenu(bpy.types.Menu):
         for key, val in blend_type_labels.items():
             col.operator('wm.y_set_layer_channel_blend_type', text=val).blend_type = key
 
-class YLayerChannelBlendPopover(bpy.types.Panel):
-    bl_idname = "NODE_PT_y_layer_channel_blend_popover"
-    bl_label = "Layer Channel Blend"
-    bl_description = "Layer channel blend"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "WINDOW"
-    bl_ui_units_x = 8
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        ch = context.channel
-        yp = ch.id_data.yp
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
-        if m: 
-            #layer = yp.layers[int(m.group(1))]
-            root_ch = yp.channels[int(m.group(2))]
-            #tree = get_tree(layer)
-        else: return
-
-        #self.layout.label(text=root_ch.name)
-        split = split_layout(self.layout, 0.35)
-
-        col = split.column()
-        col.label(text='Blend:')
-        col.label(text='Opacity:')
-
-        col = split.column()
-        col.prop(ch, 'blend_type', text='')
-        draw_input_prop(col, ch, 'intensity_value', text='', layer=layer)
-
-
 def draw_expandable_list_options(layout):
     col = layout.column()
     yp = get_active_ypaint_node().node_tree.yp
@@ -6504,49 +6472,14 @@ class YListItemOptionMenu(bpy.types.Menu):
     def draw(self, context):
         draw_expandable_list_options(self.layout)
 
-class YLayerChannelNormalBlendPopover(bpy.types.Panel):
-    bl_idname = "NODE_PT_y_layer_channel_normal_blend_popover"
-    bl_label = "Layer Channel Normal Blend"
-    bl_description = "Layer channel normal blend"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "WINDOW"
-    bl_ui_units_x = 8
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        ch = context.channel
-        yp = ch.id_data.yp
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
-        if m: 
-            #layer = yp.layers[int(m.group(1))]
-            root_ch = yp.channels[int(m.group(2))]
-            #tree = get_tree(layer)
-        else: return
-
-        #self.layout.label(text=root_ch.name)
-        split = split_layout(self.layout, 0.35)
-
-        col = split.column()
-        col.label(text='Blend:')
-        col.label(text='Type:')
-        col.label(text='Opacity:')
-
-        col = split.column()
-        col.prop(ch, 'normal_blend_type', text='')
-        col.prop(ch, 'normal_map_type', text='')
-        draw_input_prop(col, ch, 'intensity_value', text='', layer=layer)
-
 def has_layer_input_options(layer):
     return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE', 'EDGE_DETECT', 'AO'} and not 
         (is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}))
 
 class YLayerChannelInputMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_input_menu"
-    bl_label = "Layer Channel Input"
-    bl_description = "Layer Channel Input"
+    bl_label = "Layer Channel Source"
+    bl_description = "Replace layer channel source"
 
     @classmethod
     def poll(cls, context):
@@ -6652,8 +6585,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
 class YLayerChannelInput1Menu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_input_1_menu"
-    bl_label = "Normal Channel Input"
-    bl_description = "Normal Channel Input"
+    bl_label = "Layer Normal Channel Source"
+    bl_description = "Replace layer normal channel source"
 
     @classmethod
     def poll(cls, context):
@@ -7556,7 +7489,7 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
 class YLayerTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_type_menu"
     bl_label = "Layer Type Menu"
-    bl_description = 'Layer Type Menu'
+    bl_description = 'Replace layer source'
 
     @classmethod
     def poll(cls, context):
@@ -7677,7 +7610,7 @@ class YLayerTypeMenu(bpy.types.Menu):
 class YMaskTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_mask_type_menu"
     bl_label = "Mask Type Menu"
-    bl_description = 'Mask Type Menu'
+    bl_description = 'Replace mask source'
 
     @classmethod
     def poll(cls, context):
@@ -8624,8 +8557,6 @@ def register():
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YLayerChannelBlendMenu)
     bpy.utils.register_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.register_class(YLayerChannelBlendPopover)
-    bpy.utils.register_class(YLayerChannelNormalBlendPopover)
     bpy.utils.register_class(YLayerChannelInputMenu)
     bpy.utils.register_class(YLayerChannelInput1Menu)
     bpy.utils.register_class(YLayerMaskInputMenu)
@@ -8716,8 +8647,6 @@ def unregister():
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YLayerChannelBlendMenu)
     bpy.utils.unregister_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.unregister_class(YLayerChannelBlendPopover)
-    bpy.utils.unregister_class(YLayerChannelNormalBlendPopover)
     bpy.utils.unregister_class(YLayerChannelInputMenu)
     bpy.utils.unregister_class(YLayerChannelInput1Menu)
     bpy.utils.unregister_class(YLayerMaskInputMenu)

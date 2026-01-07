@@ -506,6 +506,12 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
         ch = self.ch
         yp = ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        if not m: 
+            self.report({'ERROR'}, 'Not a valid channel!')
+            return {'CANCELLED'}
+        root_ch = yp.channels[int(m.group(2))]
+
         tree = self.tree
         obj = context.object
         mat = obj.active_material
@@ -601,7 +607,7 @@ class YNewVDMLayer(bpy.types.Operator):
     bl_description = "New Vector Displacement Layer"
     bl_options = {'UNDO'}
 
-    name : StringProperty(default='')
+    name : StringProperty(name='Layer Name', default='')
 
     width : IntProperty(name='Width', default=1024, min=1, max=16384)
     height : IntProperty(name='Height', default=1024, min=1, max=16384)
@@ -637,7 +643,10 @@ class YNewVDMLayer(bpy.types.Operator):
     )
 
     # NOTE: UDIM is not supported yet, so no UDIM checking
-    uv_map : StringProperty(default='') #, update=update_new_layer_uv_map)
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for layer coordinate',
+        default = '') #, update=update_new_layer_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -827,7 +836,7 @@ class YNewLayer(bpy.types.Operator):
     bl_description = "New Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name : StringProperty(default='')
+    name : StringProperty(name='Layer Name', default='')
 
     type : EnumProperty(
         name = 'Layer Type',
@@ -840,7 +849,11 @@ class YNewLayer(bpy.types.Operator):
     height : IntProperty(name='Height', default=1024, min=1, max=16384)
     #color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
     #alpha : BoolProperty(name='Alpha', default=True)
-    hdr : BoolProperty(name='32 bit Float', default=False)
+    hdr : BoolProperty(
+        name = '32-bit Float',
+        description = 'Use 32-bit float image',
+        default = False
+    )
 
     interpolation : EnumProperty(
         name = 'Image Interpolation Type',
@@ -871,6 +884,7 @@ class YNewLayer(bpy.types.Operator):
 
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
+        description = 'Normal blend type',
         items = normal_blend_items,
         default = 'MIX'
     )
@@ -939,8 +953,17 @@ class YNewLayer(bpy.types.Operator):
         default = 'UV'
     )
 
-    mask_uv_name : StringProperty(default='', update=update_new_layer_mask_uv_map)
-    mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
+    mask_uv_name : StringProperty(
+        name='UV Map for Mask', 
+        description = 'UV Map to use for mask coordinate',
+        default='', update=update_new_layer_mask_uv_map
+    )
+
+    mask_use_hdr : BoolProperty(
+        name = '32-bit Float',
+        description = 'Use 32-bit float image for mask',
+        default = False
+    )
 
     mask_color_id : FloatVectorProperty(
         name = 'Color ID',
@@ -965,7 +988,12 @@ class YNewLayer(bpy.types.Operator):
 
     mask_relative : BoolProperty(name="Relative Mask Path", default=True, description="Apply relative paths")
 
-    uv_map : StringProperty(default='', update=update_new_layer_uv_map)
+    uv_map : StringProperty(
+        name = 'UV Map',
+        description = 'UV Map to use for layer coordinate',
+        default = '',
+        update = update_new_layer_uv_map
+    )
 
     normal_map_type : EnumProperty(
         name = 'Normal Map Type',
@@ -1046,7 +1074,7 @@ class YNewLayer(bpy.types.Operator):
 
     # For edge detection
     edge_detect_radius : FloatProperty(
-        name = 'Detect Mask Radius',
+        name = 'Edge Detect Radius',
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0
     )
@@ -1998,7 +2026,10 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
         default = 'UV'
     )
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map',
+        description = 'UV Map to use for layer coordinate',
+        default = '')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     add_mask : BoolProperty(
@@ -2042,8 +2073,17 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
         default = False
     )
 
-    mask_uv_name : StringProperty(default='', update=update_new_layer_mask_uv_map)
-    mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
+    mask_uv_name : StringProperty(
+        name='UV Map for Mask', 
+        description = 'UV Map to use for mask coordinate',
+        default='', update=update_new_layer_mask_uv_map
+    )
+
+    mask_use_hdr : BoolProperty(
+        name = '32-bit Float',
+        description = 'Use 32-bit float image for mask',
+        default = False
+    )
 
     use_udim_for_mask : BoolProperty(
         name = 'Use UDIM Tiles for Mask',
@@ -2536,7 +2576,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
     bl_description = "Open images inside material node tree to single " + get_addon_title() + " layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    mat_name : StringProperty(default='')
+    mat_name : StringProperty(name='Material', default='')
     mat_coll : CollectionProperty(type=bpy.types.PropertyGroup)
     asset_library_path : StringProperty(default='')
 
@@ -2764,7 +2804,7 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
     bl_description = "Open layers from material to current " + get_addon_title() + " material"
     bl_options = {'REGISTER', 'UNDO'}
 
-    mat_name : StringProperty(default='')
+    mat_name : StringProperty(name='Material', default='')
     asset_library_path : StringProperty(default='')
 
     @classmethod
@@ -2906,7 +2946,11 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         default = 'UV'
     )
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map',
+        description = 'UV Map to use for layer coordinate',
+        default = ''
+    )
 
     channel_idx : EnumProperty(
         name = 'Channel',
@@ -2922,6 +2966,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
 
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
+        description = 'Normal blend type',
         items = normal_blend_items,
         default = 'MIX'
     )
@@ -3051,6 +3096,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
             images = tuple(load_image(path, directory) for path in import_list)
         else:
             ori_ui_type = bpy.context.area.type
+            ori_tree_type = bpy.context.area.spaces[0].tree_type if ori_ui_type == 'NODE_EDITOR' else None
             bpy.context.area.type = 'IMAGE_EDITOR'
             images = []
             for path in import_list:
@@ -3062,6 +3108,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
                 if image not in images:
                     images.append(image)
             bpy.context.area.type = ori_ui_type
+            if ori_tree_type != None:
+                bpy.context.area.spaces[0].tree_type = ori_tree_type
 
         node.node_tree.yp.halt_update = True
 
@@ -3431,7 +3479,11 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
         default = 'UV'
     )
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map',
+        description = 'UV Map to use for layer coordinate',
+        default = ''
+    )
 
     channel_idx : EnumProperty(
         name = 'Channel',
@@ -3447,6 +3499,7 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
 
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
+        description = 'Normal blend type',
         items = normal_blend_items,
         default = 'MIX'
     )
@@ -4365,6 +4418,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             image = bpy.data.images.get(item_name)
             source.image = image
 
+            check_layer_projections(layer)
+
             if layer.texcoord_type == 'Decal':
                 source.extension = 'CLIP'
 
@@ -4597,9 +4652,11 @@ class YSetLayerChannelNormalBlendType(bpy.types.Operator):
     bl_options = {'UNDO'}
 
     normal_blend_type : EnumProperty(
-            name = 'Normal Blend Type',
-            items = normal_blend_items,
-            default = 'MIX')
+        name = 'Normal Blend Type',
+        description = 'Normal blend type',
+        items = normal_blend_items,
+        default = 'MIX'
+    )
 
     @classmethod
     def poll(cls, context):
@@ -4640,8 +4697,8 @@ class YSetLayerChannelBlendType(bpy.types.Operator):
 
 class YSetLayerChannelInput(bpy.types.Operator):
     bl_idname = "wm.y_set_layer_channel_input"
-    bl_label = "Set Layer Channel Input"
-    bl_description = "Set layer channel input"
+    bl_label = "Set Layer Channel Source"
+    bl_description = "Set layer channel source"
     bl_options = {'UNDO'}
 
     socket_name : StringProperty(default='')
@@ -4814,7 +4871,7 @@ def duplicate_decal_empty_reference(texcoord_name, ttree, set_new_decal_position
     original_empty = texcoord.object
 
     if set_new_decal_position:
-        texcoord.object = create_decal_empty()
+        texcoord.object = Decal.create_decal_empty()
     else:
         if original_empty in duplicated_empties:
             new_empty = duplicated_empties[original_empty]
@@ -7227,15 +7284,15 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
     baked_segment_name : StringProperty(default='')
 
     uv_name : StringProperty(
-        name = 'UV Name',
-        description = 'UV Name to use for layer coordinate',
+        name = 'UV Map',
+        description = 'UV Map to use for layer coordinate',
         default = '',
         update = update_uv_name
     )
 
     baked_uv_name : StringProperty(
-        name = 'Baked UV Name',
-        description = 'UV Name to use for layer coordinate',
+        name = 'Baked UV Map',
+        description = 'UV Map to use for layer coordinate',
         default = ''
     )
 
@@ -7327,7 +7384,11 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
     # UV
     uv_neighbor : StringProperty(default='')
     uv_neighbor_1 : StringProperty(default='')
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map',
+        description = 'UV Map to use for layer coordinate',
+        default = ''
+    )
     mapping : StringProperty(default='')
     baked_mapping : StringProperty(default='')
     texcoord : StringProperty(default='')

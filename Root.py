@@ -84,7 +84,7 @@ def check_yp_channel_nodes(yp, reconnect=False):
             for i in range(abs(num_difference)):
                 last_idx = len(layer.channels)-1
                 # Remove layer channel
-                layer.channels.remove(channel_idx)
+                layer.channels.remove(last_idx)
     
         for mask in layer.masks:
             num_difference = len(yp.channels) - len(mask.channels)
@@ -96,7 +96,7 @@ def check_yp_channel_nodes(yp, reconnect=False):
                 for i in range(abs(num_difference)):
                     last_idx = len(mask.channels)-1
                     # Remove mask channel
-                    mask.channels.remove(channel_idx)
+                    mask.channels.remove(last_idx)
 
         # Check and set mask intensity nodes
         transition.check_transition_bump_influences_to_other_channels(layer, layer_tree) #, target_ch=c)

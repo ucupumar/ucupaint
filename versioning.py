@@ -1297,6 +1297,8 @@ def update_yp_tree(tree):
     # Update version
     if version_tuple(yp.version) < version_tuple(cur_version):
         yp.version = cur_version
+        # Update info nodes
+        create_info_nodes(tree) 
         print('INFO:', tree.name, 'is updated to version', cur_version)
 
     return updated_to_tangent_process_300, updated_to_yp_200_displacement

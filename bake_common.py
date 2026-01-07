@@ -3,7 +3,7 @@ from bpy.props import *
 from .common import *
 from .input_outputs import *
 from .node_connections import *
-from . import lib, Layer, ImageAtlas, UDIM, image_ops, Mask
+from . import lib, Layer, ImageAtlas, UDIM, image_ops, Mask, vector_displacement, vector_displacement_lib
 
 BL28_HACK = True
 
@@ -92,38 +92,6 @@ def get_compositor_output_node(tree):
     else: n = tree.nodes.new('CompositorNodeComposite')
 
     return n
-
-def get_scene_bake_multires(scene):
-    return scene.render.bake.use_multires if is_bl_newer_than(5) else scene.render.use_bake_multires
-
-def get_scene_bake_clear(scene):
-    return scene.render.bake.use_clear if is_bl_newer_than(5) else scene.render.use_bake_clear
-
-def get_scene_render_bake_type(scene):
-    return scene.render.bake.type if is_bl_newer_than(5) else scene.render.bake_type
-
-def get_scene_bake_margin(scene):
-    return scene.render.bake.margin if is_bl_newer_than(5) else scene.render.bake_margin
-
-def set_scene_bake_multires(scene, value):
-    if not is_bl_newer_than(5):
-        scene.render.use_bake_multires = value
-    else: scene.render.bake.use_multires = value
-
-def set_scene_bake_clear(scene, value):
-    if not is_bl_newer_than(5):
-        scene.render.use_bake_clear = value
-    else: scene.render.bake.use_clear = value
-
-def set_scene_render_bake_type(scene, value):
-    if not is_bl_newer_than(5):
-        scene.render.bake_type = value
-    else: scene.render.bake.type = value
-
-def set_scene_bake_margin(scene, value):
-    if not is_bl_newer_than(5):
-        scene.render.bake_margin = value
-    else: scene.render.bake.margin = value
 
 def is_there_any_missmatched_attribute_types(objs):
     # Get number of attributes founds
@@ -1532,7 +1500,7 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
             pass
 
             # TODO: Bake straight over on blurred rgb
-            pass
+            straight_over = None
 
             # TODO: Copy result to main image
             #copy_image_channel_pixels(image_copy, image, 3, 3)
@@ -1547,7 +1515,7 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
     # Remove temp datas
     print('BLUR: Removing temporary data of blur pass')
     if alpha_aware:
-        if straight_over.node_tree.users == 1:
+        if straight_over and straight_over.node_tree.users == 1:
             remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
 
     if blur.node_tree.users == 1:

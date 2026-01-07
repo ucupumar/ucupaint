@@ -410,6 +410,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
         if new_type == 'IMAGE':
             image = bpy.data.images.get(item_name)
             source.image = image
+            check_mask_image_projections(mask, source)
 
             if mask.texcoord_type == 'Decal':
                 source.extension = 'CLIP'
@@ -579,7 +580,7 @@ class YNewLayerMask(bpy.types.Operator):
     bl_description = "New Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name : StringProperty(default='')
+    name : StringProperty(name='Mask Name', default='')
 
     type : EnumProperty(
         name = 'Mask Type',
@@ -633,7 +634,11 @@ class YNewLayerMask(bpy.types.Operator):
         default = True
     )
 
-    hdr : BoolProperty(name='32 bit Float', default=False)
+    hdr : BoolProperty(
+        name = '32-bit Float',
+        description = 'Use 32-bit float image',
+        default = False
+    )
 
     texcoord_type : EnumProperty(
         name = 'Mask Coordinate Type',
@@ -642,7 +647,12 @@ class YNewLayerMask(bpy.types.Operator):
         default = 'UV'
     )
 
-    uv_name : StringProperty(default='', update=update_new_mask_uv_map)
+    uv_name : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for mask coordinate',
+        default = '',
+        update = update_new_mask_uv_map
+    )
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     use_udim : BoolProperty(
@@ -679,7 +689,7 @@ class YNewLayerMask(bpy.types.Operator):
     )
 
     edge_detect_radius : FloatProperty(
-        name = 'Detect Mask Radius',
+        name = 'Edge Detect Radius',
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0
     )
@@ -1152,7 +1162,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
         default = 'UV'
     )
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for mask coordinate',
+        default = '')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     blend_type : EnumProperty(
@@ -1299,6 +1312,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
             images = tuple(load_image(path, directory) for path in import_list)
         else:
             ori_ui_type = bpy.context.area.type
+            ori_tree_type = bpy.context.area.spaces[0].tree_type if ori_ui_type == 'NODE_EDITOR' else None
             bpy.context.area.type = 'IMAGE_EDITOR'
             images = []
             for path in import_list:
@@ -1310,6 +1324,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
                 if image not in images:
                     images.append(image)
             bpy.context.area.type = ori_ui_type
+            if ori_tree_type != None:
+                bpy.context.area.spaces[0].tree_type = ori_tree_type
 
         for image in images:
             if self.relative and bpy.data.filepath != '':
@@ -1383,7 +1399,10 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
         default = 'Color'
     )
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for mask coordinate',
+        default = '')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     image_name : StringProperty(name="Image")
@@ -2117,6 +2136,10 @@ def update_enable_layer_masks(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
+def check_mask_image_projections(mask, source=None):
+    if source == None: source = get_mask_source(mask)
+    source.projection = 'BOX' if mask.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+
 def update_mask_texcoord_type(self, context, reconnect=True):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -2135,8 +2158,7 @@ def update_mask_texcoord_type(self, context, reconnect=True):
 
     # Set image source projection
     if mask.type == 'IMAGE':
-        source = get_mask_source(mask)
-        source.projection = 'BOX' if mask.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+        check_mask_image_projections(mask)
 
     if reconnect:
         reconnect_layer_nodes(layer)
@@ -2422,7 +2444,12 @@ def update_mask_uniform_scale_enabled(self, context):
 
 class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
 
-    name : StringProperty(default='', update=update_mask_name)
+    name : StringProperty(
+        name = 'Mask Name',
+        description = 'Layer mask name',
+        default = '',
+        update = update_mask_name
+    )
 
     halt_update : BoolProperty(default=False)
     
@@ -2509,15 +2536,15 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     )
 
     uv_name : StringProperty(
-        name = 'UV Name',
-        description = 'UV Name to use for mask coordinate',
+        name = 'UV Map',
+        description = 'UV Map to use for mask coordinate',
         default = '',
         update = update_mask_uv_name
     )
 
     baked_uv_name : StringProperty(
-        name = 'Baked UV Name',
-        description = 'UV Name to use for baked mask coordinate',
+        name = 'Baked UV Map',
+        description = 'UV Map to use for baked mask coordinate',
         default = ''
     )
 
@@ -2682,7 +2709,10 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     cache_modifier_ramp : StringProperty(default='')
     cache_modifier_curve : StringProperty(default='')
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for mask coordinate',
+        default = '')
     uv_neighbor : StringProperty(default='')
     mapping : StringProperty(default='')
     baked_mapping : StringProperty(default='')
