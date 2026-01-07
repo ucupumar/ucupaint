@@ -498,6 +498,12 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
         ch = self.ch
         yp = ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        if not m: 
+            self.report({'ERROR'}, 'Not a valid channel!')
+            return {'CANCELLED'}
+        root_ch = yp.channels[int(m.group(2))]
+
         tree = self.tree
         obj = context.object
         mat = obj.active_material
@@ -4859,7 +4865,7 @@ def duplicate_decal_empty_reference(texcoord_name, ttree, set_new_decal_position
     original_empty = texcoord.object
 
     if set_new_decal_position:
-        texcoord.object = create_decal_empty()
+        texcoord.object = Decal.create_decal_empty()
     else:
         if original_empty in duplicated_empties:
             new_empty = duplicated_empties[original_empty]

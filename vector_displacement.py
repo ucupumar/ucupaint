@@ -1,7 +1,7 @@
-import bpy, numpy, time, math
+import bpy, numpy, time, math, bmesh
+from bpy.props import *
 from . import Layer, lib, ListItem
 from .common import *
-from .bake_common import *
 from .vector_displacement_lib import *
 from .input_outputs import *
 

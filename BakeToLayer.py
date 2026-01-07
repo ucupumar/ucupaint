@@ -910,7 +910,6 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             elif overwrite_img.yua.is_udim_atlas:
                 segment = overwrite_img.yua.segments.get(self.overwrite_segment_name)
 
-
         # Get bake properties
         bprops = get_bake_properties_from_self(self)
 
