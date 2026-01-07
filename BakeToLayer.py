@@ -237,7 +237,11 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default='DOT'
     )
 
-    multires_base : IntProperty(default=1, min=0, max=16)
+    multires_base : IntProperty(
+        name = 'Multires Base',
+        description = 'Baking will use the difference between the base level and max level,\nand after baking, base level will be used in the multires modifier',
+        default=1, min=0, max=16
+    )
 
     target_type : EnumProperty(
         name = 'Target Bake Type',
