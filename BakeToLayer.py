@@ -143,9 +143,19 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     bl_description = "Bake something as layer/mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name : StringProperty(default='')
+    name : StringProperty(
+        name = 'Image Name',
+        description = 'Baked image name',
+        default = ''
+    )
 
-    uv_map : StringProperty(default='', update=update_bake_to_layer_uv_map)
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for baked image coordinate', 
+        default = '',
+        update = update_bake_to_layer_uv_map
+    )
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     uv_map_1 : StringProperty(default='')
@@ -159,15 +169,19 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
     # For choosing overwrite entity from list
     overwrite_choice : BoolProperty(
-        name = 'Overwrite available layer',
-        description = 'Overwrite available layer',
+        name = 'Overwrite existing layer',
+        description = 'Overwrite existing layer',
         default = False
     )
 
     # For rebake button
     overwrite_current : BoolProperty(default=False)
 
-    overwrite_name : StringProperty(default='')
+    overwrite_name : StringProperty(
+        name = 'Overwritten Image Name',
+        description = 'Image name that will be overwritten',
+        default = ''
+    )
     overwrite_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     overwrite_image_name : StringProperty(default='')
@@ -221,11 +235,24 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     )
     
     # AO Props
-    ao_distance : FloatProperty(default=1.0)
+    ao_distance : FloatProperty(
+        name = 'AO Distance',
+        description = 'Ambient occlusion distance',
+        default = 1.0
+    )
 
     # Bevel Props
-    bevel_samples : IntProperty(default=4, min=2, max=16)
-    bevel_radius : FloatProperty(default=0.05, min=0.0, max=1000.0)
+    bevel_samples : IntProperty(
+        name = 'Bevel Samples',
+        description = 'Bevel samples',
+        default=4, min=2, max=16
+    )
+
+    bevel_radius : FloatProperty(
+        name = 'Bevel Radius',
+        description = 'Bevel distance radius',
+        default=0.05, min=0.0, max=1000.0
+    )
 
     edge_detect_method : EnumProperty(
         name = 'Edge Detection Method',
@@ -284,6 +311,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
+        description = 'Normal blend type',
         items = normal_blend_items,
         default = 'MIX'
     )
@@ -294,7 +322,11 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         items = Layer.get_normal_map_type_items
     )
 
-    hdr : BoolProperty(name='32 bit Float', default=True)
+    hdr : BoolProperty(
+        name = '32-bit Float',
+        description = 'Use 32-bit float image',
+        default = True
+    )
 
     use_baked_disp : BoolProperty(
         name = 'Use Displacement Setup',
@@ -918,12 +950,26 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     bl_description = "Bake Layer/Mask to an image"
     bl_options = {'UNDO'}
 
-    name : StringProperty(default='')
+    name : StringProperty(
+        name = 'Image Name',
+        description = 'Baked Image Name',
+        default = ''
+    )
 
-    uv_map : StringProperty(default='', update=update_bake_to_layer_uv_map)
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for baked image coordinate', 
+        default = '',
+        update = update_bake_to_layer_uv_map
+    )
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    hdr : BoolProperty(name='32 bit Float', default=False)
+    hdr : BoolProperty(
+        name = '32-bit Float',
+        description = 'Use 32-bit float image',
+        default = False
+    )
 
     fxaa : BoolProperty(
         name = 'Use FXAA', 

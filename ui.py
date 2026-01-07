@@ -6418,8 +6418,8 @@ def has_layer_input_options(layer):
 
 class YLayerChannelInputMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_input_menu"
-    bl_label = "Layer Channel Input"
-    bl_description = "Layer Channel Input"
+    bl_label = "Layer Channel Source"
+    bl_description = "Replace layer channel source"
 
     @classmethod
     def poll(cls, context):
@@ -6524,8 +6524,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
 class YLayerChannelInput1Menu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_input_1_menu"
-    bl_label = "Normal Channel Input"
-    bl_description = "Normal Channel Input"
+    bl_label = "Layer Normal Channel Source"
+    bl_description = "Replace layer normal channel source"
 
     @classmethod
     def poll(cls, context):
@@ -7428,7 +7428,7 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
 class YLayerTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_type_menu"
     bl_label = "Layer Type Menu"
-    bl_description = 'Layer Type Menu'
+    bl_description = 'Replace layer source'
 
     @classmethod
     def poll(cls, context):
@@ -7546,7 +7546,7 @@ class YLayerTypeMenu(bpy.types.Menu):
 class YMaskTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_mask_type_menu"
     bl_label = "Mask Type Menu"
-    bl_description = 'Mask Type Menu'
+    bl_description = 'Replace mask source'
 
     @classmethod
     def poll(cls, context):

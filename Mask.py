@@ -580,7 +580,7 @@ class YNewLayerMask(bpy.types.Operator):
     bl_description = "New Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name : StringProperty(default='')
+    name : StringProperty(name='Mask Name', default='')
 
     type : EnumProperty(
         name = 'Mask Type',
@@ -634,7 +634,11 @@ class YNewLayerMask(bpy.types.Operator):
         default = True
     )
 
-    hdr : BoolProperty(name='32 bit Float', default=False)
+    hdr : BoolProperty(
+        name = '32-bit Float',
+        description = 'Use 32-bit float image',
+        default = False
+    )
 
     texcoord_type : EnumProperty(
         name = 'Mask Coordinate Type',
@@ -643,7 +647,12 @@ class YNewLayerMask(bpy.types.Operator):
         default = 'UV'
     )
 
-    uv_name : StringProperty(default='', update=update_new_mask_uv_map)
+    uv_name : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for mask coordinate',
+        default = '',
+        update = update_new_mask_uv_map
+    )
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     use_udim : BoolProperty(
@@ -680,7 +689,7 @@ class YNewLayerMask(bpy.types.Operator):
     )
 
     edge_detect_radius : FloatProperty(
-        name = 'Detect Mask Radius',
+        name = 'Edge Detect Radius',
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0
     )
@@ -1153,7 +1162,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
         default = 'UV'
     )
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for mask coordinate',
+        default = '')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     blend_type : EnumProperty(
@@ -1387,7 +1399,10 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
         default = 'Color'
     )
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for mask coordinate',
+        default = '')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     image_name : StringProperty(name="Image")
@@ -2429,7 +2444,12 @@ def update_mask_uniform_scale_enabled(self, context):
 
 class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
 
-    name : StringProperty(default='', update=update_mask_name)
+    name : StringProperty(
+        name = 'Mask Name',
+        description = 'Layer mask name',
+        default = '',
+        update = update_mask_name
+    )
 
     halt_update : BoolProperty(default=False)
     
@@ -2516,15 +2536,15 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     )
 
     uv_name : StringProperty(
-        name = 'UV Name',
-        description = 'UV Name to use for mask coordinate',
+        name = 'UV Map',
+        description = 'UV Map to use for mask coordinate',
         default = '',
         update = update_mask_uv_name
     )
 
     baked_uv_name : StringProperty(
-        name = 'Baked UV Name',
-        description = 'UV Name to use for baked mask coordinate',
+        name = 'Baked UV Map',
+        description = 'UV Map to use for baked mask coordinate',
         default = ''
     )
 
@@ -2689,7 +2709,10 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     cache_modifier_ramp : StringProperty(default='')
     cache_modifier_curve : StringProperty(default='')
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for mask coordinate',
+        default = '')
     uv_neighbor : StringProperty(default='')
     mapping : StringProperty(default='')
     baked_mapping : StringProperty(default='')
