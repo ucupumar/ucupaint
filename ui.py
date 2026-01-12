@@ -1980,12 +1980,12 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
             label = source.attribute_name
         elif override_type != 'DEFAULT':
             label = channel_override_labels[override_type]
-    elif layer.type == 'GROUP':
+    elif layer.type in {'GROUP', 'PREV_LAYERS'}:
         root_ch = yp.channels[get_layer_channel_index(layer, ch)]
-        label = 'Group ' + root_ch.name
-    elif layer.type == 'PREV_LAYERS':
-        root_ch = yp.channels[get_layer_channel_index(layer, ch)]
-        label = 'Previous ' + root_ch.name
+        label = 'Group ' if layer.type == 'GROUP' else 'Previous '
+        if root_ch.type == 'NORMAL' and not secondary_input:
+            label += 'Bump'
+        else: label += root_ch.name
     else:
         label = 'Layer'
 
@@ -2037,7 +2037,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 ch_idx = get_layer_channel_index(layer, ch)
                 root_ch = yp.channels[ch_idx]
                 #label = root_ch.name
-                if root_ch.type == 'NORMAL' and ch.normal_map_type != 'NORMAL_MAP' and layer.type != 'GROUP':
+                if root_ch.type == 'NORMAL' and ch.normal_map_type != 'NORMAL_MAP' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
                     if ch.normal_map_type == 'BUMP_MAP':
                         if is_bl_newer_than(2, 80):
                             label += ' (Bump)'
@@ -2133,7 +2133,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         row = ccol.row(align=True)
 
-        if layer.type == 'GROUP':
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
             row.active = get_channel_enabled(ch, layer, root_ch)
 
         if not chui.expand_content: # and ch.enable:
@@ -2146,7 +2146,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             rrow.scale_x = 0.95
 
         label = ''
-        if root_ch.type == 'NORMAL' and layer.type != 'GROUP':
+        if root_ch.type == 'NORMAL' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
             if chui.expand_content:
                 label += yp.channels[i].name + ' ('
             label += normal_type_labels[ch.normal_map_type]
@@ -2282,11 +2282,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         #mcol = mrow.column(align=True)
         #mcol.use_property_split = True
 
-        if layer.type == 'GROUP':
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
             channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
             if ch.enable and not channel_enabled:
-                mbox.label(text='No children is using \''+root_ch.name+'\' channel!', icon='ERROR')
+                if layer.type == 'GROUP':
+                    label ='No children is using \''+root_ch.name+'\' channel!'
+                else: label ='No previous layer is using \''+root_ch.name+'\' channel!'
+                mbox.label(text=label, icon='ERROR')
 
             mcol.active = channel_enabled
 
@@ -2337,7 +2340,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         if root_ch.type == 'NORMAL':
 
-            if layer.type != 'GROUP':
+            if layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
                 #mcol.separator()
 
@@ -2533,7 +2536,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     #row.label(text='', icon='BLANK1')
 
             # Write height
-            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump or layer.type == 'GROUP':
+            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump or layer.type in {'GROUP', 'PREV_LAYERS'}:
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 row.label(text='Write Height:')
@@ -2662,9 +2665,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         source_1 = layer_tree.nodes.get(ch.source_1)
         cache_1 = layer_tree.nodes.get(ch.cache_1_image)
 
-        split_factor = 0.375 if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 0.475
+        show_bump_normal_overrides = root_ch.type == 'NORMAL' and (ch.normal_map_type == 'BUMP_NORMAL_MAP' or layer.type in {'GROUP', 'PREV_LAYERS'})
 
-        if layer.type != 'GROUP' or root_ch.type != 'NORMAL':
+        split_factor = 0.475 if show_bump_normal_overrides else 0.375
+
+        if True: #layer.type != 'GROUP' or root_ch.type != 'NORMAL':
             # Override settings
             if root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP': # or (not source_1 and not cache_1):
 
@@ -2690,7 +2695,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     srow = split_layout(mcol, split_factor, align=False)
                     row = srow.row(align=True)
 
-                    label = 'Source:' if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Bump Source:'
+                    label = ''
+                    if show_bump_normal_overrides:
+                        label += 'Bump '
+                    label += 'Source:'
 
                     if ch == color_ch and ch.enable:
                         label = root_ch.name + ':'
@@ -2774,7 +2782,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                             row.prop(ch, 'gamma_space', text='')
 
             # Override 1
-            if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}: # and (source_1 or cache_1))):
+            if root_ch.type == 'NORMAL' and (ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or layer.type in {'GROUP', 'PREV_LAYERS'}): # and (source_1 or cache_1))):
 
                 modcol = mcol.column()
                 modcol.active = layer.type != 'BACKGROUND'
@@ -2783,7 +2791,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 srow = split_layout(mcol, split_factor, align=False)
                 row = srow.row(align=True)
-                label = 'Source:' if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Normal Source:'
+
+                label = ''
+                if show_bump_normal_overrides:
+                    label += root_ch.name + ' '
+                label += 'Source:'
+
                 if not ch.override_1:
                     row.label(text='', icon='BLANK1')
                     row.label(text=label)
@@ -6531,7 +6544,9 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         else:
             if layer.type in {'GROUP', 'PREV_LAYERS'}:
                 label = 'Group ' if layer.type == 'GROUP' else 'Previous '
-                label += root_ch.name
+                if root_ch.type == 'NORMAL':
+                    label += 'Bump'
+                else: label += root_ch.name
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
                 op.socket_name = ch.socket_input_name
@@ -6608,18 +6623,26 @@ class YLayerChannelInput1Menu(bpy.types.Menu):
 
         # Layer input based on source output sockets
 
-        source = get_layer_source(layer)
-        for outp in get_available_source_outputs(source, layer.type):
-            if not outp.enabled: continue
-            icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch, secondary_input=True) == outp.name and not ch.override_1 else 'RADIOBUT_OFF'
-            label = 'Layer ' + outp.name
-
-            if layer.type not in {'IMAGE', 'VCOL'}:
-                label += ' ('+layer_type_labels[layer.type]+')'
-
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
+            label = 'Group ' if layer.type == 'GROUP' else 'Previous '
+            label += root_ch.name
+            icon = 'RADIOBUT_ON' if not ch.override_1 else 'RADIOBUT_OFF'
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-            op.socket_name = outp.name
+            op.socket_name = ch.socket_input_1_name
             op.set_normal_input = True
+        else:
+            source = get_layer_source(layer)
+            for outp in get_available_source_outputs(source, layer.type):
+                if not outp.enabled: continue
+                icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch, secondary_input=True) == outp.name and not ch.override_1 else 'RADIOBUT_OFF'
+                label = 'Layer ' + outp.name
+
+                if layer.type not in {'IMAGE', 'VCOL'}:
+                    label += ' ('+layer_type_labels[layer.type]+')'
+
+                op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
+                op.socket_name = outp.name
+                op.set_normal_input = True
 
         col.separator()
 
@@ -7443,7 +7466,10 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
 
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         yp = context.parent.id_data.yp
+        layer = yp.layers[int(m.group(1))]
         root_ch = yp.channels[int(m.group(2))]
+
+        is_group_layer = layer.type in {'GROUP', 'PREV_LAYERS'}
 
         if root_ch.type == 'NORMAL':
             if context.parent.normal_map_type == 'BUMP_MAP':
@@ -7455,7 +7481,7 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        if is_bump_normal_layer_channel or is_bump_layer_channel:
+        if is_bump_normal_layer_channel or is_bump_layer_channel or is_group_layer:
             col.label(text='Add Modifier (Bump)')
         elif is_normal_layer_channel:
             col.label(text='Add Modifier (Normal)')
@@ -7470,11 +7496,11 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
                 if mt[0] == 'MULTIPLIER': continue
                 col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
-        if is_bump_normal_layer_channel:
+        if is_bump_normal_layer_channel or is_group_layer:
             col.separator()
             col.label(text='Add Modifier (Normal)')
 
-        if is_normal_layer_channel or is_bump_normal_layer_channel:
+        if is_normal_layer_channel or is_bump_normal_layer_channel or is_group_layer:
             col.operator('wm.y_new_normalmap_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
             col.operator('wm.y_new_normalmap_modifier', text='Math', icon_value=lib.get_icon('modifier')).type = 'MATH'
 

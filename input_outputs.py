@@ -577,8 +577,13 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
         for child in children: 
             other_layers.append(child)
 
-        # Check background layers
         layer_idx = get_layer_index(layer)
+
+        # Check "Previous Layers" layers
+        pls = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'PREV_LAYERS']
+        other_layers.extend(pls)
+
+        # Check background layers
         bgs = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'BACKGROUND']
         other_layers.extend(bgs)
 
@@ -767,7 +772,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
             if root_ch.type == 'NORMAL':
 
-                if layer.type != 'GROUP':
+                if layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
                     # Height/bump distance input
                     if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:

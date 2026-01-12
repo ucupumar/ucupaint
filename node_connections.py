@@ -1923,7 +1923,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if 'Vector' in source.inputs:
             create_link(tree, vector, source.inputs['Vector'])
 
-        if layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
+        if layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
 
             if uv_neighbor: 
                 create_link(tree, vector, uv_neighbor.inputs[0])
@@ -2055,7 +2055,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     height_ch = get_height_channel(layer)
 
     # UV neighbor vertex color
-    if not layer.use_baked and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor and height_ch:
+    if not layer.use_baked and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'} and uv_neighbor and height_ch:
         socket_name = height_ch.socket_input_name
         soc = rgb_connections[socket_name] if socket_name in rgb_connections else source.outputs[0]
 
@@ -2476,35 +2476,48 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         ch_source_e = None
         ch_source_w = None
 
-        if layer.type == 'PREV_LAYERS':
-
-            rgb = source.outputs.get(root_ch.name)
-
-        elif layer.type == 'GROUP':
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
 
             if root_ch.type == 'NORMAL' and ch.enable_transition_bump:
 
-                group_height = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
+                soc_name = root_ch.name + io_suffix['HEIGHT']
+                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+
+                group_height = source.outputs.get(soc_name)
                 if group_height: rgb = group_height
 
             else:
-                group_channel = source.outputs.get(root_ch.name + io_suffix['GROUP'])
+                soc_name = root_ch.name
+                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+
+                group_channel = source.outputs.get(soc_name)
                 if group_channel: rgb = group_channel
                 elif root_ch.type == 'NORMAL':
                     # Get Geometry normal if normal from group doesn't exist
                     rgb = get_essential_node(tree, GEOMETRY).get('Normal')
 
             if root_ch.type == 'NORMAL':
-                group_height_alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
+                soc_name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
+                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+
+                group_height_alpha = source.outputs.get(soc_name)
                 if group_height_alpha: alpha = group_height_alpha
 
             else:
-                group_channel_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
+                soc_name = root_ch.name + io_suffix['ALPHA']
+                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+
+                group_channel_alpha = source.outputs.get(soc_name)
                 if group_channel_alpha: alpha = group_channel_alpha
 
             # Vector displacement from group
-            group_vdisp = source.outputs.get(root_ch.name + io_suffix['VDISP'] + io_suffix['GROUP'])
-            vdisp_alpha = source.outputs.get(root_ch.name + io_suffix['VDISP'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
+            soc_name = root_ch.name + io_suffix['VDISP']
+            if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+            group_vdisp = source.outputs.get(soc_name)
+
+            soc_name = root_ch.name + io_suffix['VDISP'] + io_suffix['ALPHA']
+            if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+            vdisp_alpha = source.outputs.get(soc_name)
 
             group_alpha = alpha
 
@@ -2673,11 +2686,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Background layer won't use modifier outputs
         if layer.type == 'BACKGROUND':
             pass
-        elif layer.type == 'GROUP' and root_ch.type == 'NORMAL':
-            if root_ch.name + io_suffix['GROUP'] in source.outputs:
-                normal = source.outputs.get(root_ch.name + io_suffix['GROUP'])
-            if root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'] in source.outputs:
-                normal_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
+        elif layer.type in {'GROUP', 'PREV_LAYERS'} and root_ch.type == 'NORMAL':
+
+            soc_name = root_ch.name
+            if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+            if soc_name in source.outputs:
+                normal = source.outputs.get(soc_name)
+
+            soc_name = root_ch.name + io_suffix['ALPHA']
+            if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+            if soc_name in source.outputs:
+                normal_alpha = source.outputs.get(soc_name)
+
         elif root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
             rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, use_modifier_1=True)
         else:
@@ -2864,18 +2884,40 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     alpha_e = socket_alpha
                     alpha_w = socket_alpha
 
-            elif layer.type == 'GROUP':
+            elif layer.type in {'GROUP', 'PREV_LAYERS'}:
 
                 if root_ch.enable_smooth_bump:
-                    rgb_n = source.outputs.get(root_ch.name + io_suffix['HEIGHT_N'] + io_suffix['GROUP'])
-                    rgb_s = source.outputs.get(root_ch.name + io_suffix['HEIGHT_S'] + io_suffix['GROUP'])
-                    rgb_e = source.outputs.get(root_ch.name + io_suffix['HEIGHT_E'] + io_suffix['GROUP'])
-                    rgb_w = source.outputs.get(root_ch.name + io_suffix['HEIGHT_W'] + io_suffix['GROUP'])
+                    soc_name = root_ch.name + io_suffix['HEIGHT_N']
+                    if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                    rgb_n = source.outputs.get(soc_name)
 
-                    alpha_n = source.outputs.get(root_ch.name + io_suffix['HEIGHT_N'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
-                    alpha_s = source.outputs.get(root_ch.name + io_suffix['HEIGHT_S'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
-                    alpha_e = source.outputs.get(root_ch.name + io_suffix['HEIGHT_E'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
-                    alpha_w = source.outputs.get(root_ch.name + io_suffix['HEIGHT_W'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
+                    soc_name = root_ch.name + io_suffix['HEIGHT_S']
+                    if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                    rgb_s = source.outputs.get(soc_name)
+
+                    soc_name = root_ch.name + io_suffix['HEIGHT_E']
+                    if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                    rgb_e = source.outputs.get(soc_name)
+
+                    soc_name = root_ch.name + io_suffix['HEIGHT_W']
+                    if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                    rgb_w = source.outputs.get(soc_name)
+
+                    soc_name = root_ch.name + io_suffix['HEIGHT_N'] + io_suffix['ALPHA']
+                    if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                    alpha_n = source.outputs.get(soc_name)
+
+                    soc_name = root_ch.name + io_suffix['HEIGHT_S'] + io_suffix['ALPHA']
+                    if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                    alpha_s = source.outputs.get(soc_name)
+
+                    soc_name = root_ch.name + io_suffix['HEIGHT_E'] + io_suffix['ALPHA']
+                    if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                    alpha_e = source.outputs.get(soc_name)
+
+                    soc_name = root_ch.name + io_suffix['HEIGHT_W'] + io_suffix['ALPHA']
+                    if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                    alpha_w = source.outputs.get(soc_name)
 
                     group_alpha_n = alpha_n
                     group_alpha_s = alpha_s
@@ -2915,7 +2957,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     rgb_e = ch_source_e.outputs[0]
                     rgb_w = ch_source_w.outputs[0]
 
-            if layer.type != 'BACKGROUND' and not (layer.type == 'GROUP' and root_ch.type == 'NORMAL'):
+            if layer.type != 'BACKGROUND' and not (layer.type in {'GROUP', 'PREV_LAYERS'} and root_ch.type == 'NORMAL'):
                 mod_n = nodes.get(ch.mod_n)
                 mod_s = nodes.get(ch.mod_s)
                 mod_e = nodes.get(ch.mod_e)
@@ -3122,8 +3164,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, ch_bump_midlevel, height_proc.inputs['Midlevel'])
 
             bdistance = None
-            if layer.type == 'GROUP':
-                bdistance = get_essential_node(tree, TREE_START).get(root_ch.name + io_suffix['MAX_HEIGHT'] + io_suffix['GROUP'])
+            if layer.type in {'GROUP', 'PREV_LAYERS'}:
+                soc_name = root_ch.name + io_suffix['MAX_HEIGHT']
+                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                bdistance = get_essential_node(tree, TREE_START).get(soc_name)
             elif ch_bump_distance:
                 bdistance = ch_bump_distance
 
@@ -3170,14 +3214,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         create_link(tree, rgb_e, height_proc.inputs['Value e'])
                         create_link(tree, rgb_w, height_proc.inputs['Value w'])
 
-            if layer.type == 'GROUP':
+            if layer.type in {'GROUP', 'PREV_LAYERS'}:
 
                 if normal_proc: 
                     create_link(tree, normal, normal_proc.inputs['Normal'])
                     if height_proc and 'Normal Alpha' in normal_proc.inputs and 'Normal Alpha' in height_proc.outputs:
                         create_link(tree, height_proc.outputs['Normal Alpha'], normal_proc.inputs['Normal Alpha'])
 
-                height_group = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
+                soc_name = root_ch.name + io_suffix['HEIGHT'] 
+                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+                height_group = source.outputs.get(soc_name)
+
                 if height_proc and height_group and 'Height' in height_proc.inputs: create_link(tree, height_group, height_proc.inputs['Height'])
 
                 if height_proc and root_ch.enable_smooth_bump:
@@ -3511,7 +3558,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb = normal_map_proc.outputs[0]
 
             # Bump turned normal map when 'Write Height' is disabled
-            if normal_proc and (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or layer.type == 'GROUP') and not ch.write_height:
+            if normal_proc and (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or layer.type in {'GROUP', 'PREV_LAYERS'}) and not ch.write_height:
                 rgb = normal_proc.outputs[0]
 
             # Default normal
@@ -3592,7 +3639,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Pass alpha to intensity
         if intensity:
 
-            if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc and normal_alpha:
+            if layer.type in {'GROUP', 'PREV_LAYERS'} and root_ch.type == 'NORMAL' and not normal_proc and normal_alpha:
                 normal_alpha = create_link(tree, normal_alpha, intensity.inputs[0])[0]
             else: alpha = create_link(tree, alpha, intensity.inputs[0])[0]
 
@@ -3807,7 +3854,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             bcol0, bcol1, bout = get_mix_color_indices(blend)
 
             # Pass rgb to blend
-            if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc:
+            if layer.type in {'GROUP', 'PREV_LAYERS'} and root_ch.type == 'NORMAL' and not normal_proc:
                 create_link(tree, normal, blend.inputs[bcol1])
             else:
                 create_link(tree, rgb, blend.inputs[bcol1])
@@ -3836,7 +3883,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, bg_alpha, blend.inputs[4])
 
             else:
-                if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc and normal_alpha:
+                if layer.type in {'GROUP', 'PREV_LAYERS'} and root_ch.type == 'NORMAL' and not normal_proc and normal_alpha:
                     create_link(tree, normal_alpha, blend.inputs[0])
                 else: create_link(tree, alpha, blend.inputs[0])
 
@@ -3863,7 +3910,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if vdisp_alpha == None:
                 vdisp_alpha = alpha
 
-            if layer.type == 'GROUP':
+            if layer.type in {'GROUP', 'PREV_LAYERS'}:
                 if group_vdisp: vdisp = group_vdisp
 
                 vdisp_intensity = tree.nodes.get(ch.vdisp_intensity)
