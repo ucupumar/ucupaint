@@ -4708,12 +4708,16 @@ class YSetLayerChannelInput(bpy.types.Operator):
 
     def execute(self, context):
         ch = context.channel
+        layer = context.layer
 
         if self.socket_name == '':
             if self.set_normal_input:
                 ch.override_1 = True
                 ch.override_1_type = 'DEFAULT'
             else:
+                # Set back to use color socket if the layer is image since using alpha socket can cause the alpha to have solid 1.0 value
+                if layer.type == 'IMAGE':
+                    ch.socket_input_name = 'Color'
                 ch.override = True
                 ch.override_type = 'DEFAULT'
             if not ch.enable: ch.enable = True
