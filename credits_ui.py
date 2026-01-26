@@ -349,7 +349,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         filtered_items = list()
 
         for item in collaborators.sponsors.values():
-            if item['tier'] != tier_index:# or not item['public']:
+            if item['tier'] != tier_index or not item['public']:
                 continue
             filtered_items.append(item)
 
