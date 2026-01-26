@@ -181,7 +181,7 @@ def is_uvmap_udim(objs, uv_name):
     if ori_mode != 'OBJECT':
         bpy.ops.object.mode_set(mode=ori_mode)
 
-    is_udim = numpy.any(arr > 1.0 + UV_TOLERANCE / 2)
+    is_udim = bool(numpy.any(arr > 1.0 + UV_TOLERANCE / 2))
 
     print('INFO: UDIM checking is done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

@@ -4307,10 +4307,14 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         for m in get_problematic_modifiers(obj):
             m.show_render = False
 
+    # Check AO's "Only Local" from source
+    source = get_entity_source(entity)
+    hide_other_objs = entity.type != 'AO' or source.only_local
+
     prepare_bake_settings(
         book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
         uv_map=bprops.uv_map, bake_type='EMIT', bake_device=bprops.bake_device, 
-        margin_type = bprops.margin_type, use_osl=bprops.use_osl
+        margin_type=bprops.margin_type, use_osl=bprops.use_osl, hide_other_objs=hide_other_objs,
     )
 
     # Create bake nodes
@@ -4467,7 +4471,6 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
             bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
             bi.edge_detect_method = entity.edge_detect_method
         elif entity.type == 'AO':
-            source = get_entity_source(entity)
             bi.bake_type = 'AO'
             bi.ao_distance = get_entity_prop_value(entity, 'ao_distance')
             bi.only_local = source.only_local

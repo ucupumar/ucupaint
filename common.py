@@ -2740,7 +2740,10 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not inp: 
         inp =  tree.interface.new_socket(name, description=description, in_out='INPUT', socket_type=socket_type)
 
-    if hasattr(inp, 'subtype'): inp.subtype = subtype
+    # NOTE: Setting subtype in Blender 5.1 Alpha here is causing the input socket to disappear
+    if hasattr(inp, 'subtype') and not is_bl_newer_than(5, 1):
+        inp.subtype = subtype
+
     return inp
 
 def new_tree_output(tree, name, socket_type, description='', use_both=False):
