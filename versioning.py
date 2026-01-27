@@ -1087,7 +1087,7 @@ def update_yp_tree(tree):
 
             # Create alpha channel
             alpha_ch = Root.create_new_yp_channel(tree, 'Alpha', 'VALUE', non_color=True)
-            alpha_ch.is_alpha = True
+            alpha_ch.special_channel_type = 'ALPHA'
             if backface_mode != '':
                 alpha_ch.backface_mode = backface_mode
             yp.halt_update = True

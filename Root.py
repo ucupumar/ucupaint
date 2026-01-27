@@ -515,12 +515,14 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         default = 'BSDF_PRINCIPLED'
     )
 
-    color : BoolProperty(name='Color', default=True)
-    alpha : BoolProperty(name='Alpha', default=False)
-    ao : BoolProperty(name='Ambient Occlusion', default=False)
-    metallic : BoolProperty(name='Metallic', default=True)
-    roughness : BoolProperty(name='Roughness', default=True)
-    normal : BoolProperty(name='Normal', default=True)
+    enable_color : BoolProperty(name='Color', default=True)
+    enable_alpha : BoolProperty(name='Alpha', default=False)
+    enable_ao : BoolProperty(name='Ambient Occlusion', default=False)
+    enable_metallic : BoolProperty(name='Metallic', default=True)
+    enable_roughness : BoolProperty(name='Roughness', default=True)
+    enable_normal : BoolProperty(name='Normal', default=True)
+    enable_height : BoolProperty(name='Height', default=True)
+    enable_vector_displacement : BoolProperty(name='Vector Displacement', default=True)
 
     use_linear_blending : BoolProperty(
         name = 'Use Linear Color Blending',
@@ -584,7 +586,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
             ccol.label(text='Channels:')
-            if self.color:
+            if self.enable_color:
                 ccol.label(text='')
             ccol.label(text='')
             if self.type == 'BSDF_PRINCIPLED':
@@ -592,7 +594,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             ccol.label(text='')
             ccol.label(text='')
 
-        if (self.color or self.type == 'EMISSION') and self.alpha:
+        if (self.enable_color or self.type == 'EMISSION') and self.enable_alpha:
             if self.type == 'EMISSION': 
                 col.label(text='')
 
@@ -608,19 +610,21 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         col.prop(self, 'type', text='')
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
-            ccol.prop(self, 'color', toggle=True)
-            if self.color:
-                ccol.prop(self, 'alpha', toggle=True)
-            ccol.prop(self, 'ao', toggle=True)
+            ccol.prop(self, 'enable_color', toggle=True)
+            if self.enable_color:
+                ccol.prop(self, 'enable_alpha', toggle=True)
+            ccol.prop(self, 'enable_ao', toggle=True)
             if self.type == 'BSDF_PRINCIPLED':
-                ccol.prop(self, 'metallic', toggle=True)
-            ccol.prop(self, 'roughness', toggle=True)
-            ccol.prop(self, 'normal', toggle=True)
+                ccol.prop(self, 'enable_metallic', toggle=True)
+            ccol.prop(self, 'enable_roughness', toggle=True)
+            ccol.prop(self, 'enable_normal', toggle=True)
+            ccol.prop(self, 'enable_height', toggle=True)
+            ccol.prop(self, 'enable_vector_displacement', toggle=True)
         else:
             ccol = col.column(align=True)
-            ccol.prop(self, 'alpha', text='Enable Alpha')
+            ccol.prop(self, 'enable_alpha', text='Enable Alpha')
 
-        if (self.color or self.type == 'EMISSION') and self.alpha:
+        if (self.enable_color or self.type == 'EMISSION') and self.enable_alpha:
             if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
                 col.prop(self, 'blend_method', text='')
                 col.prop(self, 'shadow_method', text='')
@@ -667,7 +671,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
-        ao_needed = self.ao and self.type != 'EMISSION'
+        ao_needed = self.enable_ao and self.type != 'EMISSION'
 
         main_bsdf = None
         outsoc = None
@@ -770,29 +774,39 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         ch_metallic = None
         ch_roughness = None
         ch_normal = None
+        ch_height = None
+        ch_vdisp = None
 
-        if self.color or self.type == 'EMISSION':
+        if self.enable_color or self.type == 'EMISSION':
             ch_color = create_new_yp_channel(group_tree, 'Color', 'RGB', non_color=False)
 
-        if ch_color and self.alpha:
+        if ch_color and self.enable_alpha:
             ch_alpha = create_new_yp_channel(group_tree, 'Alpha', 'VALUE', non_color=True)
-            ch_alpha.is_alpha = True
+            ch_alpha.special_channel_type = 'ALPHA'
             group_tree.yp.halt_update = True
             ch_alpha.alpha_pair_name = ch_color.name
             group_tree.yp.halt_update = False
 
         if self.type != 'EMISSION':
-            if self.ao:
+            if self.enable_ao:
                 ch_ao = create_new_yp_channel(group_tree, 'Ambient Occlusion', 'RGB', non_color=True)
 
-            if self.type == 'BSDF_PRINCIPLED' and self.metallic:
+            if self.type == 'BSDF_PRINCIPLED' and self.enable_metallic:
                 ch_metallic = create_new_yp_channel(group_tree, 'Metallic', 'VALUE', non_color=True)
 
-            if self.roughness:
+            if self.enable_roughness:
                 ch_roughness = create_new_yp_channel(group_tree, 'Roughness', 'VALUE', non_color=True)
 
-            if self.normal:
+            if self.enable_normal:
                 ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
+
+            if self.enable_height:
+                ch_height = create_new_yp_channel(group_tree, 'Height', 'VALUE', non_color=True)
+                ch_height.special_channel_type = 'HEIGHT'
+
+            if self.enable_vector_displacement:
+                ch_vdisp = create_new_yp_channel(group_tree, 'Vector Displacement', 'RGB', non_color=True)
+                ch_vdisp.special_channel_type = 'VDISP'
 
         # Update io
         check_all_channel_ios(group_tree.yp, yp_node=node)
@@ -865,6 +879,12 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             set_input_default_value(node, ch_normal)
             #links.new(node.outputs[ch_normal.io_index], inp)
             links.new(node.outputs[ch_normal.name], inp)
+
+        if ch_height:
+            do_displacement_setup(mat, node, ch_height)
+
+        if ch_vdisp:
+            do_vector_displacement_setup(mat, node, ch_vdisp)
 
         # Disable overlay in Blender 2.8
         for area in context.screen.areas:
@@ -1026,6 +1046,28 @@ def set_material_methods(mat, blend_method='HASHED', shadow_method='HASHED'):
         else:
             # There's no alpha dither on legacy blender
             mat.game_settings.alpha_blend = 'ALPHA'
+
+def do_displacement_setup(mat, node, channel):
+    matout = get_material_output(mat)
+
+    # Check for displacement socket
+    disp_soc = matout.inputs.get('Displacement')
+    if not disp_soc: return
+
+    # Create displacement node
+    disp = Bake.create_displacement_node(mat.node_tree, disp_soc)
+
+    disp.location.x = matout.location.x
+    disp.location.y = matout.location.y - 220
+
+    height_soc = node.outputs.get(channel.name)
+    max_height_soc = node.outputs.get(io_prefixes['MAX'] + channel.name)
+
+    if 'Height' in disp.inputs: mat.node_tree.links.new(height_soc, disp.inputs['Height'])
+    if 'Scale' in disp.inputs: mat.node_tree.links.new(max_height_soc, disp.inputs['Scale'])
+
+def do_vector_displacement_setup(mat, node, channel):
+    pass
 
 def do_alpha_setup(mat, node, channel):
     tree = mat.node_tree
@@ -1236,7 +1278,7 @@ def make_channel_as_alpha(mat, node, channel, do_setup=False, move_index=False, 
     if channel.type != 'VALUE': return
 
     # Mark channel as alpha
-    channel.is_alpha = True
+    channel.special_channel_type = 'ALPHA'
 
     color_ch = None
     color_idx = -1
@@ -1346,7 +1388,7 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
             return {'CANCELLED'}
 
         if self.mode == 'ALPHA':
-            existing_alpha_channels = [c for c in yp.channels if c.is_alpha]
+            existing_alpha_channels = [c for c in yp.channels if c.special_channel_type == 'ALPHA']
             if any(existing_alpha_channels):
                 self.report({'ERROR'}, "Alpha channel already exists ('"+existing_alpha_channels[0].name+"')!")
                 return {'CANCELLED'}
@@ -1376,6 +1418,63 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
 
         return {'FINISHED'}
 
+class YToggleChannelAsSpecialChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
+    bl_idname = "wm.y_toggle_channel_as_special_channel"
+    bl_label = "Toggle "+get_addon_title()+" Channel as a special Channel"
+    bl_description = "Toggle "+get_addon_title()+" channel as a special channel"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type : EnumProperty(
+        name = 'Type',
+        items = (
+            ('ALPHA', 'Alpha', 'Alpha channel (can be paired with color channel)'),
+            ('NORMAL', 'Normal', 'Normal channel'),
+            ('HEIGHT', 'Height', 'Height channel for bump or displacement (can be paired with normal channel)'),
+            ('VDISP', 'Vector Displacement', 'Vector Displacement channel (can be paired with normal channel')
+        ),
+        default = 'ALPHA'
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        self.channel = context.parent
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = split_layout(self.layout, 0.5)
+        row.label(text='Special Channel Type:')
+        row.prop(self, 'type', text='')
+
+    def execute(self, context):
+        yp = self.channel.id_data.yp
+
+        if self.type == 'ALPHA':
+            ch_label = 'Alpha'
+        elif self.type == 'HEIGHT':
+            ch_label = 'Height'
+        elif self.type == 'VDISP':
+            ch_label = 'Vector Displacement'
+
+        # Check if there's other alpha channel
+        existing_special_ch_name = ''
+        for ch in yp.channels:
+            if ch == self.channel: continue
+            if ch.special_channel_type == self.type:
+                existing_special_ch_name = ch.name
+
+        if existing_special_ch_name != '':
+            self.report({'ERROR'}, ch_label+" channel is already enabled in '"+existing_special_ch_name+"'!")
+            return {'CANCELLED'}
+
+        self.channel.special_channel_type = self.type
+
+        check_all_channel_ios(yp)
+
+        return {'FINISHED'}
+
 class YToggleChannelAsAlpha(bpy.types.Operator, BaseOperator.BlendMethodOptions):
     bl_idname = "wm.y_toggle_channel_as_alpha"
     bl_label = "Toggle " + get_addon_title() + " Channel as Alpha"
@@ -1396,10 +1495,10 @@ class YToggleChannelAsAlpha(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         self.existing_alpha_ch_name = ''
         for ch in yp.channels:
             if ch == channel: continue
-            if ch.is_alpha:
+            if ch.special_channel_type == 'ALPHA':
                 self.existing_alpha_ch_name = ch.name
 
-        if 'Alpha' in channel.name or self.channel.is_alpha or (not self.channel.is_alpha and self.existing_alpha_ch_name != ''):
+        if 'Alpha' in channel.name or self.channel.special_channel_type == 'ALPHA' or (self.channel.special_channel_type != 'ALPHA' and self.existing_alpha_ch_name != ''):
             return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self)
@@ -1409,11 +1508,11 @@ class YToggleChannelAsAlpha(bpy.types.Operator, BaseOperator.BlendMethodOptions)
 
     def execute(self, context):
         yp = self.channel.id_data.yp
-        if not self.channel.is_alpha and self.existing_alpha_ch_name != '':
+        if self.channel.special_channel_type != 'ALPHA' and self.existing_alpha_ch_name != '':
             self.report({'ERROR'}, "Alpha channel is already enabled in '"+self.existing_alpha_ch_name+"'!")
             return {'CANCELLED'}
 
-        self.channel.is_alpha = not self.channel.is_alpha
+        self.channel.special_channel_type = 'ALPHA' if self.channel.special_channel_type != 'ALPHA' else 'NONE'
 
         check_all_channel_ios(yp)
 
@@ -3825,10 +3924,24 @@ class YPaintChannel(bpy.types.PropertyGroup):
         update = update_channel_alpha
     )
 
+    # Depcrecated
     is_alpha : BoolProperty(
         name = 'Is Alpha Channel',
         description = 'Is channel an alpha channel',
         default=False
+    )
+
+    special_channel_type : EnumProperty(
+        name = 'Special Channel Type',
+        description = 'Special channel type',
+        items = (
+            ('NONE', 'None', 'Not a special channel'),
+            ('ALPHA', 'Alpha', 'Alpha channel for transparency (can be paired with color channel)'),
+            ('NORMAL', 'Normal', 'Normal channel (has special blending mode and outputs object space normal)'),
+            ('HEIGHT', 'Height', 'Height channel for bump or displacement (can be paired with normal channel)'),
+            ('VDISP', 'Vector Displacement', 'Vector displacement channel (can be paired with normal channel)'),
+        ),
+        default = 'NONE',
     )
 
     alpha_pair_name : StringProperty(
@@ -4768,6 +4881,7 @@ def register():
     bpy.utils.register_class(YConnectYPaintChannel)
     bpy.utils.register_class(YConnectYPaintChannelAlpha)
     bpy.utils.register_class(YNewYPaintChannel)
+    bpy.utils.register_class(YToggleChannelAsSpecialChannel)
     bpy.utils.register_class(YToggleChannelAsAlpha)
     bpy.utils.register_class(YAutoSetupNewYPaintChannel)
     bpy.utils.register_class(YMoveYPaintChannel)
@@ -4828,6 +4942,7 @@ def unregister():
     bpy.utils.unregister_class(YConnectYPaintChannel)
     bpy.utils.unregister_class(YConnectYPaintChannelAlpha)
     bpy.utils.unregister_class(YNewYPaintChannel)
+    bpy.utils.unregister_class(YToggleChannelAsSpecialChannel)
     bpy.utils.unregister_class(YToggleChannelAsAlpha)
     bpy.utils.unregister_class(YAutoSetupNewYPaintChannel)
     bpy.utils.unregister_class(YMoveYPaintChannel)

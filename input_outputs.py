@@ -408,7 +408,19 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
             remove_node(group_tree, ch, 'end_backface')
 
         # Displacement IO
-        if ch.type == 'NORMAL' and (ch.enable_subdiv_setup or force_height_io):
+        if ch.special_channel_type == 'HEIGHT':
+            name = io_prefixes['MAX'] + ch.name
+
+            if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=0.1):
+                # Set node default value
+                if group_node and group_node.node_tree == group_tree:
+                    group_node.inputs[name].default_value = ch.ori_max_height_value
+            input_index += 1
+
+            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
+            output_index += 1
+
+        elif ch.type == 'NORMAL' and (ch.enable_subdiv_setup or force_height_io):
 
             name = ch.name + io_suffix['HEIGHT']
 
@@ -933,7 +945,18 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 output_index += 1
 
         # Displacement IO
-        if root_ch.type == 'NORMAL':
+        if root_ch.special_channel_type == 'HEIGHT':
+
+            if channel_enabled:
+                name = io_prefixes['MAX'] + root_ch.name
+
+                dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                input_index += 1
+
+                dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
+                output_index += 1
+
+        elif root_ch.type == 'NORMAL':
 
 
             name = root_ch.name + io_suffix['HEIGHT']
@@ -1054,7 +1077,12 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                     input_index += 1
 
             # Displacement Input
-            if root_ch.type == 'NORMAL' and layer.type == 'GROUP':
+            if root_ch.special_channel_type == 'HEIGHT' and layer.type == 'GROUP':
+                name = io_prefixes['MAX'] + root_ch.name + io_suffix['GROUP']
+                dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
+                input_index += 1
+
+            elif root_ch.type == 'NORMAL' and layer.type == 'GROUP':
 
                 if is_height_process_needed(layer):
 

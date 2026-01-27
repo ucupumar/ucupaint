@@ -1175,7 +1175,7 @@ def draw_root_channels_ui(context, layout, node):
             box = row.box()
             bcol = box.column()
 
-            is_alpha_channel = channel.type == 'VALUE' and channel.is_alpha
+            is_alpha_channel = channel.type == 'VALUE' and channel.special_channel_type == 'ALPHA'
 
             # Modifier stack ui will only active when use_baked is off
             baked = nodes.get(channel.baked)
@@ -7275,8 +7275,12 @@ class YChannelSpecialMenu(bpy.types.Menu):
 
         # NOTE: This menu is only visible if name of the channel has 'Alpha' on it
         if is_alpha_in_name:
-            icon = 'CHECKBOX_HLT' if context.parent.is_alpha else 'CHECKBOX_DEHLT'
+            icon = 'CHECKBOX_HLT' if context.parent.special_channel_type == 'ALPHA' else 'CHECKBOX_DEHLT'
             col.operator('wm.y_toggle_channel_as_alpha', text='Use as Alpha Channel', icon=icon)
+        else:
+            col.separator()
+            col.label(text='Extra')
+            col.operator('wm.y_toggle_channel_as_special_channel', text='Use as Special Channel', icon_value=lib.get_icon('channels'))
 
         # NOTE: This menu is only visible when the channel output doesn't connect to anything
         if is_unconnected:

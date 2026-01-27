@@ -542,6 +542,10 @@ layer_node_bl_idnames = {
     'AO' : 'ShaderNodeAmbientOcclusion',
 }
 
+io_prefixes = {
+    'MAX' : 'Max ',
+}
+
 io_suffix = {
     'GROUP' : ' Group',
     'BACKGROUND' : ' Background',
@@ -8041,7 +8045,7 @@ def get_alpha_channel_pair(root_ch):
     # Look for alpha channel
     alpha_channel = None
     for ch in yp.channels:
-        if ch.is_alpha and ch.alpha_pair_name == root_ch.name:
+        if ch.special_channel_type == 'ALPHA' and ch.alpha_pair_name == root_ch.name:
             return ch
 
     return None
@@ -8051,7 +8055,7 @@ def is_channel_alpha_enabled(root_ch):
 
 def get_alpha_channel(yp):
     for ch in yp.channels:
-        if ch.is_alpha and yp.channels.get(ch.alpha_pair_name):
+        if ch.special_channel_type == 'ALPHA' and yp.channels.get(ch.alpha_pair_name):
             return ch
 
     return None
