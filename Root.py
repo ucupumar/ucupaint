@@ -804,6 +804,12 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 ch_height = create_new_yp_channel(group_tree, 'Height', 'VALUE', non_color=True)
                 ch_height.special_channel_type = 'HEIGHT'
 
+                # Disable smooth bump by default
+                if is_bl_newer_than(2, 77):
+                    group_tree.yp.halt_update = True
+                    ch_height.enable_smooth_bump = False
+                    group_tree.yp.halt_update = False
+
             if self.enable_vector_displacement:
                 ch_vdisp = create_new_yp_channel(group_tree, 'Vector Displacement', 'RGB', non_color=True)
                 ch_vdisp.special_channel_type = 'VDISP'
@@ -1064,7 +1070,11 @@ def do_displacement_setup(mat, node, channel):
     max_height_soc = node.outputs.get(io_prefixes['MAX'] + channel.name)
 
     if 'Height' in disp.inputs: mat.node_tree.links.new(height_soc, disp.inputs['Height'])
-    if 'Scale' in disp.inputs: mat.node_tree.links.new(max_height_soc, disp.inputs['Scale'])
+    if 'Scale' in disp.inputs: 
+        # Default scale of displacement is 1.0
+        disp.inputs['Scale'].default_value = 1.0
+
+        mat.node_tree.links.new(max_height_soc, disp.inputs['Scale'])
 
 def do_vector_displacement_setup(mat, node, channel):
     pass
@@ -1468,6 +1478,13 @@ class YToggleChannelAsSpecialChannel(bpy.types.Operator, BaseOperator.BlendMetho
         if existing_special_ch_name != '':
             self.report({'ERROR'}, ch_label+" channel is already enabled in '"+existing_special_ch_name+"'!")
             return {'CANCELLED'}
+
+        # Disable smooth bump by default
+        if is_bl_newer_than(2, 77):
+            if self.type == 'HEIGHT' and self.channel.special_channel_type != 'HEIGHT':
+                yp.halt_update = True
+                self.channel.enable_smooth_bump = False
+                yp.halt_update = False
 
         self.channel.special_channel_type = self.type
 

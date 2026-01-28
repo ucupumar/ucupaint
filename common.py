@@ -3894,7 +3894,8 @@ def get_root_parallax_channel(yp):
 
 def get_root_height_channel(yp):
     for ch in yp.channels:
-        if ch.type == 'NORMAL':
+        #if ch.type == 'NORMAL':
+        if ch.special_channel_type == 'HEIGHT':
             return ch
 
     return None
@@ -3905,7 +3906,8 @@ def get_height_channel(layer):
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        if root_ch.type == 'NORMAL':
+        #if root_ch.type == 'NORMAL':
+        if root_ch.special_channel_type == 'HEIGHT':
             return ch
 
     return None

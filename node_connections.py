@@ -199,6 +199,11 @@ def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
         root_ch = yp.channels[i]
         if has_previous_layer_channels(layer, root_ch): continue
 
+        if root_ch.special_channel_type == 'HEIGHT':
+            io_name = io_prefixes['MAX'] + root_ch.name
+            if io_name in node.inputs:
+                break_input_link(tree, node.inputs[io_name])
+
         if root_ch.type == 'NORMAL':
 
             io_name = root_ch.name + io_suffix['HEIGHT']
@@ -1113,7 +1118,11 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         vdisp = None
 
-        if ch.type == 'NORMAL':
+        if ch.special_channel_type == 'HEIGHT':
+            io_max_height_name = io_prefixes['MAX'] + ch.name
+            max_height = get_essential_node(tree, TREE_START)[io_max_height_name]
+
+        elif ch.type == 'NORMAL':
             height_input = get_essential_node(tree, TREE_START).get(io_height_name)
             height = height_input if height_input else get_essential_node(tree, ZERO_VALUE)[0]
 
@@ -1423,6 +1432,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 if bitangent and 'Bitangent' in end_linear.inputs:
                     create_link(tree, bitangent, end_linear.inputs['Bitangent'])
             else:
+                if ch.special_channel_type == 'HEIGHT':
+                    if max_height and 'Max Height' in end_linear.inputs:
+                        create_link(tree, max_height, end_linear.inputs['Max Height'])
                 rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
 
         if clamp:
@@ -1528,6 +1540,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         #if ch.type == 'RGB' and ch.enable_alpha:
         if ch.enable_alpha:
             create_link(tree, alpha, get_essential_node(tree, TREE_END)[io_alpha_name])
+        if ch.special_channel_type == 'HEIGHT':
+            if max_height and io_max_height_name in get_essential_node(tree, TREE_END): create_link(tree, max_height, get_essential_node(tree, TREE_END)[io_max_height_name])
         if ch.type == 'NORMAL' and not ch.use_baked_vcol:
             if height and io_height_name in get_essential_node(tree, TREE_END): create_link(tree, height, get_essential_node(tree, TREE_END)[io_height_name])
             if max_height and io_max_height_name in get_essential_node(tree, TREE_END): create_link(tree, max_height, get_essential_node(tree, TREE_END)[io_max_height_name])
@@ -2719,6 +2733,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         alpha_before_intensity = alpha
 
         height_proc = nodes.get(ch.height_proc)
+        max_height_calc = nodes.get(ch.max_height_calc)
         normal_proc = nodes.get(ch.normal_proc)
         normal_map_proc = nodes.get(ch.normal_map_proc)
         vdisp_proc = nodes.get(ch.vdisp_proc)
@@ -2731,7 +2746,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             ch_bump_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'bump_distance'))
             ch_bump_midlevel = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'bump_midlevel'))
             ch_normal_strength = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'normal_strength'))
-            max_height_calc = nodes.get(ch.max_height_calc)
 
             # Set intensity
             if ch_intensity:
@@ -3576,6 +3590,31 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if ch_intensity:
                 create_link(tree, ch_intensity, intensity.inputs[1])
+
+        # Special height channel
+        if root_ch.special_channel_type == 'HEIGHT':
+            ch_bump_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'bump_distance'))
+            ch_bump_midlevel = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'bump_midlevel'))
+
+            # Connect height process
+            if height_proc: 
+                if 'Value' in height_proc.inputs: rgb = create_link(tree, rgb, height_proc.inputs['Value'])[0]
+                if 'Alpha' in height_proc.inputs: alpha = create_link(tree, alpha, height_proc.inputs['Alpha'])[1]
+                if 'Value Max Height' in height_proc.inputs: create_link(tree, ch_bump_distance, height_proc.inputs['Value Max Height'])
+                if 'Midlevel' in height_proc.inputs: create_link(tree, ch_bump_midlevel, height_proc.inputs['Midlevel'])
+
+            # Connect max height calculation
+            if max_height_calc:
+                prev_max_height = get_essential_node(tree, TREE_START).get(io_prefixes['MAX'] + root_ch.name)
+                next_max_height = get_essential_node(tree, TREE_END).get(io_prefixes['MAX'] + root_ch.name)
+
+                if prev_max_height and 'Prev Bump Distance' in max_height_calc.inputs: 
+                    create_link(tree, prev_max_height, max_height_calc.inputs['Prev Bump Distance'])
+                if next_max_height: create_link(tree, max_height_calc.outputs[0], next_max_height)
+
+                if 'Bump Distance' in max_height_calc.inputs: create_link(tree, ch_bump_distance, max_height_calc.inputs['Bump Distance'])
+                if 'Midlevel' in max_height_calc.inputs: create_link(tree, ch_bump_midlevel, max_height_calc.inputs['Midlevel'])
+                if 'Intensity' in max_height_calc.inputs: create_link(tree, alpha, max_height_calc.inputs['Intensity'])
 
         # Transition AO
         tao = nodes.get(ch.tao)

@@ -590,7 +590,7 @@ def update_channel_idx_new_layer(self, context):
         channel = yp.channels[channel_idx]
     else: channel = None
 
-    if channel and channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP':
+    if channel and ((channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP') or channel.special_channel_type == 'HEIGHT'):
         self.interpolation = 'Cubic'
 
 class YNewVDMLayer(bpy.types.Operator):
@@ -1813,7 +1813,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper, BaseOperator
                 image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
-            if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
+            if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT': image_node.interpolation = 'Cubic'
             ch.override_type = 'IMAGE'
             ch.active_edit = True
 
@@ -2349,7 +2349,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                 else:
                     image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
                     image_node.image = image
-                    if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
+                    if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT': image_node.interpolation = 'Cubic'
 
                     # Add invert modifier for glosiness
                     if syname in {'glossiness', 'smoothness'}:
@@ -3375,7 +3375,7 @@ class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
                 else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
-            if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
+            if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT': image_node.interpolation = 'Cubic'
             #if image.colorspace_settings.name != get_noncolor_name():
             #    image.colorspace_settings.name = get_noncolor_name()
 
@@ -5871,7 +5871,7 @@ def update_channel_enable(self, context):
 
     tree = get_tree(layer)
 
-    if root_ch.type == 'NORMAL' and self.enable:
+    if (root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT') and self.enable:
         update_layer_images_interpolation(layer, 'Cubic') #, from_interpolation='Linear')
 
     # Check uv maps
@@ -6704,6 +6704,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
     write_height : BoolProperty(
         name = 'Write Height',
         description = 'Write height for this layer channel',
+        default = True,
+        update = update_write_height
+    )
+
+    use_height_as_normal : BoolProperty(
+        name = 'Use Height as Normal',
+        description = 'Use height as normal only',
         default = True,
         update = update_write_height
     )

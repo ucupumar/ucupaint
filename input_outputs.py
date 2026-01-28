@@ -132,7 +132,15 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
     for channel in yp.channels:
         if specific_channel and channel != specific_channel: continue
 
-        if channel.type in {'RGB', 'VALUE'}:
+        if channel.special_channel_type == 'HEIGHT':
+            process_lib_name = lib.HEIGHT_NORMALIZE
+
+            end_linear = replace_new_node(
+                group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Normalize Height',
+                process_lib_name, hard_replace=True
+            )
+
+        elif channel.type in {'RGB', 'VALUE'}:
 
             # Create start linear
             if not yp.use_linear_blending and channel.colorspace != 'LINEAR' and any_layers_using_channel(channel):
@@ -793,6 +801,17 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             if ch.override_1 and ch.override_1_type == 'DEFAULT':
                 dirty = create_prop_input(ch, 'override_1_color', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
+
+            if root_ch.special_channel_type == 'HEIGHT':
+                # Height/bump distance input
+                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
+
+                # Height/bump midlevel input
+                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
 
             if root_ch.type == 'NORMAL':
 

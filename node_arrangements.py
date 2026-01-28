@@ -1583,6 +1583,13 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, ch.group_alpha_multiply, loc):
             loc.x += 200
 
+        if root_ch.special_channel_type == 'HEIGHT':
+            if check_set_node_loc(tree, ch.height_proc, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.max_height_calc, loc):
+                loc.x += 200
+
         bookmark_x1 = loc.x
 
         if (

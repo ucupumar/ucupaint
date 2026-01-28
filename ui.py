@@ -2129,6 +2129,24 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 rrrow = ssplit.row(align=True)
                 draw_input_prop(rrrow, ch, 'intensity_value', layer=layer)
 
+            elif root_ch.special_channel_type == 'HEIGHT':
+                rrrow = ssplit.row(align=True)
+
+                draw_input_prop(rrrow, ch, 'bump_distance', layer=layer)
+
+                if ch.override and ch.override_type == 'DEFAULT':
+                    draw_input_prop(rrrow, ch, 'override_value', layer=layer)
+
+                rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
+
+                if ch.enable and ch.override:
+                    if ch.override_type == 'IMAGE':
+                        rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
+                    elif ch.override_type == 'VCOL':
+                        rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+                    elif ch.override_type != 'DEFAULT':
+                        rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
+
             elif root_ch.type == 'NORMAL':
                 rrrow = ssplit.row(align=True)
 
@@ -2266,6 +2284,36 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             row.label(text='', icon='BLANK1')
             row.label(text='Opacity:')
             draw_input_prop(row, ch, 'intensity_value', layer=layer)
+
+        if root_ch.special_channel_type == 'HEIGHT':
+
+            # Height
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
+            row.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
+            row.active == is_bump_distance_relevant(layer, ch)
+            draw_input_prop(row, ch, 'bump_distance', layer=layer)
+
+            # Midlevel
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
+            row.label(text='Midlevel:') 
+            draw_input_prop(row, ch, 'bump_midlevel', layer=layer)
+
+            if root_ch.enable_smooth_bump:
+                # Smooth multiplier
+                row = mcol.row(align=True)
+                row.label(text='', icon='BLANK1')
+                row.label(text='Smooth Multiplier:') 
+                draw_input_prop(row, ch, 'bump_smooth_multiplier', layer=layer)
+
+            # Write Height
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            row.label(text='Use as Normal Only:')
+            row.prop(ch, 'use_height_as_normal', text='')
 
         if root_ch.type == 'NORMAL':
 
