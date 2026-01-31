@@ -4591,8 +4591,9 @@ def ypaint_last_object_update(scene):
                                 obj.yp.ori_offset_v = mirror.offset_v
                         except: print('EXCEPTIION: Cannot remember original mirror offset!')
 
-                # HACK: Just in case active image is not correct
-                if image: ypwm.correct_paint_image_name = image.name
+                # HACK: Just in case active image is not correct (Necessary for Blender 5.0 and lower)
+                if image and not is_bl_newer_than(5, 1): 
+                    ypwm.correct_paint_image_name = image.name
 
                 # Set image editor image
                 update_image_editor_image(bpy.context, image)
@@ -4809,7 +4810,10 @@ def register():
     # Handlers
     if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.append(ypaint_last_object_update)
-        bpy.app.handlers.depsgraph_update_post.append(ypaint_missmatch_paint_slot_hack)
+
+        # Paint slot hack is no longer necessary with Blender 5.1
+        if not is_bl_newer_than(5, 1):
+            bpy.app.handlers.depsgraph_update_post.append(ypaint_missmatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
@@ -4860,7 +4864,8 @@ def unregister():
     # Remove handlers
     if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.remove(ypaint_last_object_update)
-        bpy.app.handlers.depsgraph_update_post.remove(ypaint_missmatch_paint_slot_hack)
+        if not is_bl_newer_than(5, 1):
+            bpy.app.handlers.depsgraph_update_post.remove(ypaint_missmatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_last_object_update)

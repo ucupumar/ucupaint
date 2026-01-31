@@ -5145,8 +5145,9 @@ def set_active_paint_slot_entity(yp):
             if img == None: continue
             if img.name == image.name:
                 mat.paint_active_slot = idx
-                # HACK: Just in case paint slot does not update
-                wmyp.correct_paint_image_name = img.name
+                # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
+                if not is_bl_newer_than(5, 1):
+                    wmyp.correct_paint_image_name = img.name                                         
                 break
         
     else:
