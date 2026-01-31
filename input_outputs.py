@@ -176,7 +176,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
         elif channel.type == 'NORMAL':
 
-            is_channel_used = any_layers_using_channel(channel)
+            any_bumps = any_layers_using_bump_map(channel)
 
             # Remember height tweak prop from node
             end_max_height_tweak = group_tree.nodes.get(channel.end_max_height_tweak)
@@ -200,8 +200,8 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 lib_name = lib.CHECK_INPUT_NORMAL_GEOMETRY
             else: lib_name = lib.CHECK_INPUT_NORMAL
 
-            # NOTE: Start normal filter is no longer necessary when there's any normal channel layer in Blender 5.0+
-            if not is_bl_newer_than(5) or not is_channel_used:
+            # NOTE: Start normal filter is no longer necessary when there are only bump layers in Blender 5.0+
+            if not is_bl_newer_than(5) or channel.enable_subdiv_setup or not any_bumps or any_layers_using_normal_map(channel):
                 start_normal_filter = replace_new_node(
                     group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter', lib_name
                 )
@@ -221,7 +221,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
             process_lib_name = ''
 
-            if (is_channel_used and any_layers_using_bump_map(channel)) or is_normal_height_input_connected(channel):
+            if (any_layers_using_channel(channel) and any_bumps) or is_normal_height_input_connected(channel):
 
                 # Add end linear for converting displacement map to grayscale
                 if channel.enable_smooth_bump:
