@@ -14,13 +14,15 @@ YP_GROUP_PREFIX = get_addon_title() + ' '
 channel_socket_types = {
     'RGB' : 'RGBA',
     'VALUE' : 'VALUE',
-    'NORMAL' : 'VECTOR',
+    'NORMAL' : 'VECTOR', # Deprecated
+    'VECTOR' : 'VECTOR',
 }
 
 channel_socket_custom_icon_names = {
     'RGB' : 'rgb_channel',
     'VALUE' : 'value_channel',
-    'NORMAL' : 'vector_channel',
+    'NORMAL' : 'vector_channel', # Deprecated
+    'VECTOR' : 'vector_channel',
 }
 
 colorspace_items = (
@@ -63,6 +65,13 @@ def set_input_default_value(group_node, channel, custom_value=None):
         io_name = channel.name + io_suffix['MAX_HEIGHT']
         inp = get_tree_input_by_name(group_node.node_tree, io_name)
         if inp: group_node.inputs[io_name].default_value = inp.default_value
+
+    if channel.type == 'VECTOR':
+        if channel.special_channel_type == 'NORMAL':
+            # Use 999 as normal z value so it will fallback to use geometry normal at checking process
+            #group_node.inputs[channel.io_index].default_value = (999,999,999)
+            group_node.inputs[channel.name].default_value = (999, 999, 999)
+        else: group_node.inputs[channel.name].default_value = (0.0, 0.0, 0.0)
 
     if channel.enable_alpha:
         #group_node.inputs[channel.io_index+1].default_value = 1.0
@@ -140,7 +149,7 @@ def create_new_group_tree(mat, name=None):
 
     return group_tree
 
-def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False):
+def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False, special_channel_type='NONE'):
     yp = group_tree.yp
 
     yp.halt_reconnect = True
@@ -151,6 +160,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     channel.original_name = name
     channel.bake_to_vcol_name = 'Baked ' + name
     channel.type = channel_type
+    channel.special_channel_type = special_channel_type
 
     # Get last index
     last_index = len(yp.channels) - 1
@@ -781,8 +791,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             ch_color = create_new_yp_channel(group_tree, 'Color', 'RGB', non_color=False)
 
         if ch_color and self.enable_alpha:
-            ch_alpha = create_new_yp_channel(group_tree, 'Alpha', 'VALUE', non_color=True)
-            ch_alpha.special_channel_type = 'ALPHA'
+            ch_alpha = create_new_yp_channel(group_tree, 'Alpha', 'VALUE', non_color=True, special_channel_type='ALPHA')
             group_tree.yp.halt_update = True
             ch_alpha.alpha_pair_name = ch_color.name
             group_tree.yp.halt_update = False
@@ -798,11 +807,11 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 ch_roughness = create_new_yp_channel(group_tree, 'Roughness', 'VALUE', non_color=True)
 
             if self.enable_normal:
-                ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
+                #ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
+                ch_normal = create_new_yp_channel(group_tree, 'Normal', 'VECTOR', special_channel_type='NORMAL')
 
             if self.enable_height:
-                ch_height = create_new_yp_channel(group_tree, 'Height', 'VALUE', non_color=True)
-                ch_height.special_channel_type = 'HEIGHT'
+                ch_height = create_new_yp_channel(group_tree, 'Height', 'VALUE', non_color=True, special_channel_type='HEIGHT')
 
                 # Disable smooth bump by default
                 if is_bl_newer_than(2, 77):
@@ -811,8 +820,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                     group_tree.yp.halt_update = False
 
             if self.enable_vector_displacement:
-                ch_vdisp = create_new_yp_channel(group_tree, 'Vector Displacement', 'RGB', non_color=True)
-                ch_vdisp.special_channel_type = 'VDISP'
+                ch_vdisp = create_new_yp_channel(group_tree, 'Vector Displacement', 'RGB', non_color=True, special_channel_type='VDISP')
 
         # Update io
         check_all_channel_ios(group_tree.yp, yp_node=node)
@@ -3909,7 +3917,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
         items = (
             ('VALUE', 'Value', ''),
             ('RGB', 'RGB', ''),
-            ('NORMAL', 'Normal', '')
+            ('NORMAL', 'Normal', ''), # Deprecated
+            ('VECTOR', 'Vector', '')
         ),
         default = 'RGB'
     )

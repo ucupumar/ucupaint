@@ -2291,7 +2291,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             row = mcol.row(align=True)
             row.label(text='', icon='BLANK1')
             row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
-            row.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
+            row.label(text='Scale:') #, icon_value=lib.get_icon('input'))
             row.active == is_bump_distance_relevant(layer, ch)
             draw_input_prop(row, ch, 'bump_distance', layer=layer)
 
@@ -2314,6 +2314,28 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             row.label(text='', icon='BLANK1')
             row.label(text='Use as Normal Only:')
             row.prop(ch, 'use_height_as_normal', text='')
+
+        if root_ch.special_channel_type == 'NORMAL':
+
+            # Normal Strength
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            label = 'Normal Strength:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Strength:'
+            row.label(text=label)
+            if ch.normal_map_type == 'NORMAL_MAP':
+                row = row.row(align=True)
+                row.scale_x = 1.4
+            draw_input_prop(row, ch, 'normal_strength', layer=layer)
+
+            # Normal Space
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            label = 'Normal Space:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Space:'
+            row.label(text=label)
+            if ch.normal_map_type == 'NORMAL_MAP':
+                row = row.row(align=True)
+                row.scale_x = 1.4
+            row.prop(ch, 'normal_space', text='')
 
         if root_ch.type == 'NORMAL':
 

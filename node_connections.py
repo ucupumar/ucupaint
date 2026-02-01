@@ -2739,6 +2739,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         vdisp_proc = nodes.get(ch.vdisp_proc)
         vdisp_blend = None
 
+        if root_ch.special_channel_type == 'NORMAL':
+
+            if normal_map_proc:
+                ch_normal_strength = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'normal_strength'))
+                if ch_normal_strength:
+                    create_link(tree, ch_normal_strength, normal_map_proc.inputs['Strength'])
+
+                rgb = create_link(tree, rgb, normal_map_proc.inputs['Color'])[0]
+
         if root_ch.type == 'NORMAL':
 
             write_height = get_write_height(ch)

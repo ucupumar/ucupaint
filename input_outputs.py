@@ -140,6 +140,13 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 process_lib_name, hard_replace=True
             )
 
+        elif channel.special_channel_type == 'NORMAL':
+            lib_name = lib.CHECK_INPUT_NORMAL
+
+            start_normal_filter = replace_new_node(
+                group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter', lib_name
+            )
+
         elif channel.type in {'RGB', 'VALUE'}:
 
             # Create start linear
@@ -374,6 +381,13 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
             create_input(
                 group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
                 valid_inputs, input_index, default_value=(999, 999, 999), hide_value=True, node=yp_node
+            )
+        elif ch.type == 'VECTOR':
+            default_value = (999, 999, 999) if ch.special_channel_type == 'NORMAL' else (0, 0, 0)
+            hide_value = ch.special_channel_type == 'NORMAL'
+            create_input(
+                group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
+                valid_inputs, input_index, default_value=default_value, hide_value=hide_value, node=yp_node
             )
 
         create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
@@ -812,6 +826,12 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
+
+            if root_ch.special_channel_type == 'NORMAL':
+
+                # Normal map strength input
+                dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty, float_factor_input_names)
+                input_index += 1
 
             if root_ch.type == 'NORMAL':
 

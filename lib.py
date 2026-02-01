@@ -228,6 +228,7 @@ channel_custom_icon_dict = {
     'RGB' : 'rgb_channel',
     'VALUE' : 'value_channel',
     'NORMAL' : 'vector_channel',
+    'VECTOR' : 'vector_channel',
 }
 
 icon_synonyms = {

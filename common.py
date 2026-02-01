@@ -483,12 +483,14 @@ channel_socket_input_bl_idnames = {
     'RGB': 'NodeSocketColor',
     'VALUE': 'NodeSocketFloatFactor',
     'NORMAL': 'NodeSocketVector',
+    'VECTOR': 'NodeSocketVector',
 }
 
 channel_socket_output_bl_idnames = {
     'RGB': 'NodeSocketColor',
     'VALUE': 'NodeSocketFloat',
     'NORMAL': 'NodeSocketVector',
+    'VECTOR': 'NodeSocketVector',
 }
 
 possible_object_types = {

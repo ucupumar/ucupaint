@@ -2491,8 +2491,19 @@ def check_blend_type_nodes(root_ch, layer, ch):
         if not layer_intensity:
             layer_intensity = new_node(tree, ch, 'layer_intensity', 'ShaderNodeMath', 'Layer Opacity')
             layer_intensity.operation = 'MULTIPLY'
+
+        # Intensity nodes
+        intensity = tree.nodes.get(ch.intensity)
+        if not intensity:
+            intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Channel Opacity')
+            intensity.operation = 'MULTIPLY'
+
+        # Channel intensity
+        #intensity.inputs[1].default_value = ch.intensity_value
+
     else:
         if remove_node(tree, ch, 'layer_intensity'): need_reconnect = True
+        if remove_node(tree, ch, 'intensity'): need_reconnect = True
 
     if root_ch.type in {'RGB', 'VALUE'}:
         if channel_enabled:
@@ -2555,19 +2566,30 @@ def check_blend_type_nodes(root_ch, layer, ch):
                 blend.inputs['Clamp'].default_value = 1.0 if ch.use_clamp else 0.0
             else: set_mix_clamp(blend, ch.use_clamp)
 
-            # Intensity nodes
-            intensity = tree.nodes.get(ch.intensity)
-            if not intensity:
-                intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Channel Opacity')
-                intensity.operation = 'MULTIPLY'
+        else:
+            if remove_node(tree, ch, 'blend'): need_reconnect = True
+            if remove_node(tree, ch, 'extra_alpha'): need_reconnect = True
 
-            # Channel intensity
-            #intensity.inputs[1].default_value = ch.intensity_value
+    elif root_ch.special_channel_type == 'NORMAL':
+        if channel_enabled:
+
+            lib_name = lib.VECTOR_MIX
+
+            blend, need_reconnect = replace_new_node(
+                tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib_name,
+                return_status=True, hard_replace=True, dirty=need_reconnect
+            )
+
+            # Normal map process
+            if layer.type != 'GROUP':
+                normal_map_proc, need_reconnect = check_new_node(tree, ch, 'normal_map_proc', 'ShaderNodeNormalMap', 'Normal Map Process', True)
+                normal_map_proc.uv_map = layer.uv_name
+                normal_map_proc.space = ch.normal_space
+            else:
+                if remove_node(tree, ch, 'normal_map_proc'): need_reconnect = True
 
         else:
             if remove_node(tree, ch, 'blend'): need_reconnect = True
-            if remove_node(tree, ch, 'intensity'): need_reconnect = True
-            if remove_node(tree, ch, 'extra_alpha'): need_reconnect = True
 
     elif root_ch.type == 'NORMAL':
 

@@ -6678,8 +6678,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     normal_flip : StringProperty(default='')
 
     bump_distance : FloatProperty(
-        name = 'Bump Height Range', 
-        description = 'Bump height range.\n(White equals this value, black equals negative of this value)', 
+        name = 'Bump Scale', 
+        description = 'Amount of displacement.\n(White equals this value, black equals negative of this value)', 
         default=0.05, min=-1.0, max=1.0, precision=3
     )
 
@@ -6711,7 +6711,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     use_height_as_normal : BoolProperty(
         name = 'Use Height as Normal',
         description = 'Use height as normal only',
-        default = True,
+        default = False,
         update = update_write_height
     )
 
