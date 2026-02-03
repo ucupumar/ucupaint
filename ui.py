@@ -1284,6 +1284,26 @@ def draw_root_channels_ui(context, layout, node):
 
                     #bbcol.separator()
 
+            if channel.special_channel_type in {'HEIGHT', 'VDISP'}:
+                brow = bcol.row(align=True)
+                brow.active = not yp.use_baked or channel.no_layer_using
+                #brow.label(text='', icon_value=lib.get_icon('input'))
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Channel Pair:')
+                brow.prop_search(channel, "normal_pair_name", yp, "channels", text='')
+
+                if channel.special_channel_type == 'HEIGHT':
+                    if channel.normal_pair_name != '':
+                        brow = bcol.row(align=True)
+                        brow.label(text='', icon='BLANK1')
+                        brow.label(text='Use as Bump Only:')
+                        brow.prop(channel, 'use_height_as_bump', text='')
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='BLANK1')
+                    brow.label(text='Normalize Height Output:')
+                    brow.prop(channel, 'use_height_normalize', text='')
+
             if is_alpha_channel:
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or channel.no_layer_using
@@ -1306,7 +1326,7 @@ def draw_root_channels_ui(context, layout, node):
                     brow.label(text='', icon_value=lib.get_icon('texture'))
                 else: brow.prop(channel, 'alpha_combine_to_baked_color', text='')
 
-            if channel.type in {'RGB', 'VALUE'} and not is_alpha_channel:
+            if channel.type in {'RGB', 'VALUE'} and channel.special_channel_type == 'NONE':
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or channel.no_layer_using
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -1316,6 +1336,12 @@ def draw_root_channels_ui(context, layout, node):
 
             #if len(channel.modifiers) > 0:
             #    brow.label(text='', icon='BLANK1')
+
+            if channel.special_channel_type == 'NORMAL':
+                brow = bcol.row(align=True)
+                brow.active = not (yp.use_baked and yp.enable_baked_outside)
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Normal channel has no settings!', icon='INFO')
 
             if channel.type == 'NORMAL':
                 if ypup.show_experimental or channel.enable_smooth_bump or not is_bl_newer_than(2, 78):
@@ -1487,14 +1513,16 @@ def draw_root_channels_ui(context, layout, node):
                         brow.prop(channel, 'subdiv_subsurf_only', text='')
 
             if channel.type in {'RGB', 'VALUE'} and not is_alpha_channel:
-                brow = bcol.row(align=True)
-                #brow.label(text='', icon_value=lib.get_icon('input'))
-                brow.label(text='', icon='BLANK1')
 
-                split = split_layout(brow, 0.375, align=True)
+                if channel.special_channel_type == 'NONE':
+                    brow = bcol.row(align=True)
+                    #brow.label(text='', icon_value=lib.get_icon('input'))
+                    brow.label(text='', icon='BLANK1')
 
-                split.label(text='Space:')
-                split.prop(channel, 'colorspace', text='')
+                    split = split_layout(brow, 0.375, align=True)
+
+                    split.label(text='Space:')
+                    split.prop(channel, 'colorspace', text='')
 
                 # Bake to vertex color settings
                 if is_bl_newer_than(2, 92):
@@ -1937,8 +1965,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
     ypup = get_user_preferences()
     lui = ypui.layer_ui
     
-    # Get alpha and color pair channel
+    # Get channel pairs
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
 
     enabled_channels = [c for c in layer.channels if c.enable or (c == alpha_ch and color_ch.enable)]
 
@@ -2051,6 +2080,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if specific_ch and ch != specific_ch:
             continue
 
+        # Hide normal channel if 'Use height as normal' is enabled
+        if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+            continue
+
         root_ch = yp.channels[i]
         ch_count += 1
 
@@ -2078,7 +2111,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             rrow.scale_x = 0.95
 
         label = ''
-        if root_ch.type == 'NORMAL' and layer.type != 'GROUP':
+        alt_ch_for_icon = None
+        if ch == height_ch and height_ch.use_height_as_normal:
+            root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
+            alt_ch_for_icon = root_normal_ch
+            label = root_height_ch.name+' as '+root_normal_ch.name
+        elif root_ch.type == 'NORMAL' and layer.type != 'GROUP':
             if chui.expand_content:
                 label += yp.channels[i].name + ' ('
             label += normal_type_labels[ch.normal_map_type]
@@ -2092,7 +2130,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if not chui.expand_content:
             label += ':'
 
-        icon_name = lib.channel_custom_icon_dict[root_ch.type]
+        if alt_ch_for_icon != None:
+            icon_name = lib.channel_custom_icon_dict[alt_ch_for_icon.type]
+        else: icon_name = lib.channel_custom_icon_dict[root_ch.type]
         channel_icon_value = lib.get_icon(icon_name)
 
         icon = get_collapse_arrow_icon(chui.expand_content)
@@ -2241,8 +2281,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             mcol.active = channel_enabled
 
         if show_blend_opacity:
+
             # Blend type
             row = mcol.row(align=True)
+            #if ch == height_ch: row.active = not ch.use_height_as_normal
             split = split_layout(row, 0.375)
 
             rrow = split.row(align=True)
@@ -2261,12 +2303,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 # Layer channel opacity
                 row = mcol.row(align=True)
+                #if ch == height_ch: row.active = not ch.use_height_as_normal
                 row.label(text='', icon='BLANK1')
                 row.label(text='Opacity:')
                 draw_input_prop(row, ch, 'intensity_value', layer=layer)
 
                 # Use Clamp
-                if root_ch.type != 'NORMAL':
+                if root_ch.type != 'NORMAL' and root_ch.special_channel_type != 'HEIGHT':
                     row = mcol.row(align=True)
                     row.label(text='', icon='BLANK1')
                     row.label(text='Use Clamp:')
@@ -2317,9 +2360,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         if root_ch.special_channel_type == 'NORMAL':
 
+            #height_as_normal_disabled = ch == normal_ch and (height_ch == None or not height_ch.enable or not height_ch.use_height_as_normal)
+
             # Normal Strength
             row = mcol.row(align=True)
             row.label(text='', icon='BLANK1')
+            #row.active = height_as_normal_disabled
             label = 'Normal Strength:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Strength:'
             row.label(text=label)
             if ch.normal_map_type == 'NORMAL_MAP':
@@ -2330,6 +2376,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             # Normal Space
             row = mcol.row(align=True)
             row.label(text='', icon='BLANK1')
+            #row.active = height_as_normal_disabled
             label = 'Normal Space:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Space:'
             row.label(text=label)
             if ch.normal_map_type == 'NORMAL_MAP':

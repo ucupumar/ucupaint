@@ -5877,8 +5877,12 @@ def update_channel_enable(self, context):
     # Check uv maps
     check_uv_nodes(yp)
 
+    # Update all layer channels if current channel is a height channel since it can affect normal channel
+    normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
+    specific_ch = None if ch == height_ch else ch
+
     # Refresh layer IO
-    check_all_layer_channel_io_and_nodes(layer, tree, ch)
+    check_all_layer_channel_io_and_nodes(layer, tree, specific_ch)
 
     # Check layer modifier trees
     Modifier.check_layer_modifier_tree(layer)
@@ -6009,6 +6013,27 @@ def update_write_height(self, context):
 
     check_all_layer_channel_io_and_nodes(layer, tree, self)
     update_displacement_height_ratio(root_ch)
+    check_start_end_root_ch_nodes(self.id_data)
+    check_uv_nodes(yp)
+
+    reconnect_layer_nodes(layer) #, ch_index)
+    rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
+def update_use_height_as_normal(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    ch_index = int(m.group(2))
+    root_ch = yp.channels[ch_index]
+    ch = self
+    tree = get_tree(layer)
+
+    check_all_layer_channel_io_and_nodes(layer, tree)
+    #update_displacement_height_ratio(root_ch)
     check_start_end_root_ch_nodes(self.id_data)
     check_uv_nodes(yp)
 
@@ -6710,9 +6735,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     use_height_as_normal : BoolProperty(
         name = 'Use Height as Normal',
-        description = 'Use height as normal only',
+        description = 'Use height as normal only. The height won\'t be used for displacement',
         default = False,
-        update = update_write_height
+        update = update_use_height_as_normal
     )
 
     normal_write_height : BoolProperty(

@@ -1179,10 +1179,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             node = nodes.get(layer.group_node)
             layer_ch = layer.channels[i]
 
-            # Get alpha channel
+            # Get layer channel pairs
             layer_color_ch, layer_alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+            layer_normal_ch, layer_height_ch = get_layer_normal_height_ch_pairs(layer)
 
-            if layer_ch != layer_alpha_ch:
+            if layer_ch == layer_normal_ch and layer_height_ch.enable and layer_height_ch.use_height_as_normal:
+                layer_ch_enable = True
+            elif layer_ch != layer_alpha_ch:
                 layer_ch_enable = layer_ch.enable
             else: layer_ch_enable = layer_color_ch.enable or layer_alpha_ch.enable
 
@@ -1951,8 +1954,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     available_outputs = get_available_source_outputs(source, layer.type)
     used_output_names = []
 
-    # Get color and alpha channel
+    # Get channel pairs
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
 
     # To store if the layer channel is enabled or not
     ch_enableds = {}
@@ -1963,7 +1967,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     for i, ch in enumerate(layer.channels):
 
         # Alpha channel will get ignored if color channel is also enabled
-        channel_enabled = get_channel_enabled(ch, layer) or (ch == alpha_ch and get_channel_enabled(color_ch, layer))
+        channel_enabled = get_channel_enabled(ch, layer) or (ch == alpha_ch and get_channel_enabled(color_ch, layer)) or (ch == normal_ch and height_ch.use_height_as_normal and get_channel_enabled(height_ch, layer))
         ch_enableds[yp.channels[i].name] = channel_enabled
 
         # Only create channel socket dictionary for enabled channels
@@ -2365,14 +2369,27 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     alpha_ch_rgb = None
     alpha_has_blend = False
 
+    # Height channel rgb connection stream
+    height_ch_rgb = None
+    height_ch_alpha = None
+
+    # For ordered layer channels
+    layer_channels = []
+
     # Make sure alpha channel in earlier list so the output can be used with color channel
     if color_ch and alpha_ch:
-        layer_channels = [alpha_ch, color_ch]
-        for ch in layer.channels:
-            if ch not in layer_channels:
-                layer_channels.append(ch)
-    else:
-        layer_channels = layer.channels
+        layer_channels.append(alpha_ch)
+        layer_channels.append(color_ch)
+
+    # Height channel should be earlier than normal channel
+    if normal_ch and height_ch:
+        layer_channels.append(height_ch)
+        layer_channels.append(normal_ch)
+
+    # Remaining layer channels
+    for ch in layer.channels:
+        if ch not in layer_channels:
+            layer_channels.append(ch)
 
     # Get relevant, non skippable layer channels
     if ch_idx != -1 and ch_idx < len(layer.channels):
@@ -2380,6 +2397,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         relevant_chs = [ch]
         if ch == color_ch:
             relevant_chs.append(alpha_ch)
+        if ch == height_ch:
+            relevant_chs.append(normal_ch)
     else:
         relevant_chs = [ch for ch in layer_channels]
 
@@ -2437,6 +2456,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Use alpha channel output as alpha of all other channels if color channel is also enabled
         if alpha_ch_rgb and get_channel_enabled(color_ch, layer):
             alpha = alpha_ch_rgb
+
+        if height_ch_alpha and ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+            alpha = height_ch_alpha
         
         prev_alpha_alpha = None
         next_alpha_alpha = None
@@ -2741,12 +2763,31 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         if root_ch.special_channel_type == 'NORMAL':
 
-            if normal_map_proc:
+            if normal_proc:
                 ch_normal_strength = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'normal_strength'))
-                if ch_normal_strength:
-                    create_link(tree, ch_normal_strength, normal_map_proc.inputs['Strength'])
+                if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                    # Height channel as bump
+                    if height_ch_rgb and 'Height' in normal_proc.inputs:
+                        create_link(tree, height_ch_rgb, normal_proc.inputs['Height'])
 
-                rgb = create_link(tree, rgb, normal_map_proc.inputs['Color'])[0]
+                    #if ch_normal_strength and 'Strength' in normal_proc.inputs:
+                    #    create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
+
+                    #height_ch_bump_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(height_ch, 'bump_distance'))
+                    #if height_ch_bump_distance and 'Max Height' in normal_proc.inputs:
+                    #    create_link(tree, height_ch_bump_distance, normal_proc.inputs['Max Height'])
+
+                    if prev_rgb and 'Normal' in normal_proc.inputs:
+                        create_link(tree, prev_rgb, normal_proc.inputs['Normal'])
+
+                    rgb = normal_proc.outputs[0]
+                else:
+                    # Normal map
+                    if 'Strength' in normal_proc.inputs and ch_normal_strength:
+                        create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
+
+                    if 'Color' in normal_proc.inputs:
+                        rgb = create_link(tree, rgb, normal_proc.inputs['Color'])[0]
 
         if root_ch.type == 'NORMAL':
 
@@ -3621,8 +3662,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, prev_max_height, max_height_calc.inputs['Prev Bump Distance'])
                 if next_max_height: create_link(tree, max_height_calc.outputs[0], next_max_height)
 
-                if 'Bump Distance' in max_height_calc.inputs: create_link(tree, ch_bump_distance, max_height_calc.inputs['Bump Distance'])
-                if 'Midlevel' in max_height_calc.inputs: create_link(tree, ch_bump_midlevel, max_height_calc.inputs['Midlevel'])
+                if ch_bump_distance and 'Bump Distance' in max_height_calc.inputs: create_link(tree, ch_bump_distance, max_height_calc.inputs['Bump Distance'])
+                if ch_bump_midlevel and 'Midlevel' in max_height_calc.inputs: create_link(tree, ch_bump_midlevel, max_height_calc.inputs['Midlevel'])
                 if 'Intensity' in max_height_calc.inputs: create_link(tree, alpha, max_height_calc.inputs['Intensity'])
 
         # Transition AO
@@ -3834,9 +3875,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             # Pass rgb to blend
             if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc:
-                create_link(tree, normal, blend.inputs[bcol1])
+                normal = create_link(tree, normal, blend.inputs[bcol1])[bout]
             else:
-                create_link(tree, rgb, blend.inputs[bcol1])
+                rgb = create_link(tree, rgb, blend.inputs[bcol1])[bout]
 
             if (
                     #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
@@ -3874,6 +3915,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             #else: create_link(tree, prev_rgb, next_rgb)
 
             if next_rgb: create_link(tree, blend.outputs[bout], next_rgb)
+
+            # Get height channel value after blend node
+            if ch == height_ch:
+                height_ch_rgb = rgb
+                height_ch_alpha = alpha
+                
+                if ch.use_height_as_normal:
+                    if prev_rgb and next_rgb:
+                        create_link(tree, prev_rgb, next_rgb)
+                    if prev_max_height and next_max_height:
+                        create_link(tree, prev_max_height, next_max_height)
+
         elif prev_rgb and next_rgb: 
             create_link(tree, prev_rgb, next_rgb)
 

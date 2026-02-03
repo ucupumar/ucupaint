@@ -5496,6 +5496,10 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
         color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
         alpha_ch_idx = get_channel_index(alpha_ch) if alpha_ch else -1
         color_ch_idx = get_channel_index(color_ch) if color_ch else -1
+
+        normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+        normal_ch_idx = get_channel_index(normal_ch) if normal_ch else -1
+        height_ch_idx = get_channel_index(height_ch) if height_ch else -1
         
         for l in lays:
             if not l.enable: continue
@@ -5551,8 +5555,9 @@ def is_blend_node_needed(ch, layer=None, root_ch=None):
         layer = yp.layers[int(m.group(1))]
         root_ch = yp.channels[int(m.group(2))]
 
-    # Get alpha and color pair channel
+    # Get channel pairs
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
 
     # Blend node is necessary for alpha channel that is forced to be unpaired from color channel
     if ch == alpha_ch:
@@ -5564,6 +5569,11 @@ def is_blend_node_needed(ch, layer=None, root_ch=None):
 
         elif get_channel_enabled(color_ch, layer):
             return color_ch.unpair_alpha
+
+    # Blend node is necessary if height channel has 'use_height_as_normal' enabled
+    if ch == normal_ch:
+        if height_ch.use_height_as_normal:
+            return True
 
     return get_channel_enabled(ch, layer, root_ch)
 
@@ -8098,6 +8108,28 @@ def is_modifier_used_by_paired_alpha_channel(mod):
         return True
 
     return False
+
+def get_normal_height_ch_pairs(yp):
+    height_ch = get_root_height_channel(yp)
+    normal_ch = yp.channels.get(height_ch.normal_pair_name) if height_ch else None
+
+    if not normal_ch:
+        return None, None
+    
+    return normal_ch, height_ch
+
+def get_layer_normal_height_ch_pairs(layer):
+    yp = layer.id_data.yp
+
+    normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
+    normal_ch_idx = get_channel_index(normal_ch) if height_ch else -1
+    height_ch_idx = get_channel_index(height_ch) if normal_ch else -1
+
+    layer_normal_ch = layer.channels[normal_ch_idx] if normal_ch_idx >= 0 and normal_ch_idx < len(layer.channels) else None
+    layer_height_ch = layer.channels[height_ch_idx] if height_ch_idx >= 0 and height_ch_idx < len(layer.channels) else None
+
+    return layer_normal_ch, layer_height_ch
 
 def is_modifier_used_by_alpha_channel(mod):
     yp = mod.id_data.yp

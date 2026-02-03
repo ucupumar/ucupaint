@@ -530,8 +530,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
     enable_ao : BoolProperty(name='Ambient Occlusion', default=False)
     enable_metallic : BoolProperty(name='Metallic', default=True)
     enable_roughness : BoolProperty(name='Roughness', default=True)
-    enable_normal : BoolProperty(name='Normal', default=True)
     enable_height : BoolProperty(name='Height', default=True)
+    enable_normal : BoolProperty(name='Normal', default=True)
     enable_vector_displacement : BoolProperty(name='Vector Displacement', default=True)
 
     use_linear_blending : BoolProperty(
@@ -627,8 +627,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             if self.type == 'BSDF_PRINCIPLED':
                 ccol.prop(self, 'enable_metallic', toggle=True)
             ccol.prop(self, 'enable_roughness', toggle=True)
-            ccol.prop(self, 'enable_normal', toggle=True)
             ccol.prop(self, 'enable_height', toggle=True)
+            ccol.prop(self, 'enable_normal', toggle=True)
             ccol.prop(self, 'enable_vector_displacement', toggle=True)
         else:
             ccol = col.column(align=True)
@@ -783,8 +783,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         ch_ao = None
         ch_metallic = None
         ch_roughness = None
-        ch_normal = None
         ch_height = None
+        ch_normal = None
         ch_vdisp = None
 
         if self.enable_color or self.type == 'EMISSION':
@@ -806,10 +806,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             if self.enable_roughness:
                 ch_roughness = create_new_yp_channel(group_tree, 'Roughness', 'VALUE', non_color=True)
 
-            if self.enable_normal:
-                #ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
-                ch_normal = create_new_yp_channel(group_tree, 'Normal', 'VECTOR', special_channel_type='NORMAL')
-
             if self.enable_height:
                 ch_height = create_new_yp_channel(group_tree, 'Height', 'VALUE', non_color=True, special_channel_type='HEIGHT')
 
@@ -818,6 +814,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                     group_tree.yp.halt_update = True
                     ch_height.enable_smooth_bump = False
                     group_tree.yp.halt_update = False
+
+            if self.enable_normal:
+                #ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
+                ch_normal = create_new_yp_channel(group_tree, 'Normal', 'VECTOR', special_channel_type='NORMAL')
 
             if self.enable_vector_displacement:
                 ch_vdisp = create_new_yp_channel(group_tree, 'Vector Displacement', 'RGB', non_color=True, special_channel_type='VDISP')
@@ -835,7 +835,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         ch_ao = group_tree.yp.channels.get('Ambient Occlusion')
         ch_metallic = group_tree.yp.channels.get('Metallic')
         ch_roughness = group_tree.yp.channels.get('Roughness')
+        ch_height = group_tree.yp.channels.get('Height')
         ch_normal = group_tree.yp.channels.get('Normal')
+        ch_vdisp = group_tree.yp.channels.get('Vector Displacement')
 
         if ch_color:
             inp = main_bsdf.inputs[0]
@@ -883,6 +885,13 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             #links.new(node.outputs[ch_roughness.io_index], inp)
             links.new(node.outputs[ch_roughness.name], inp)
 
+        if ch_height:
+            do_displacement_setup(mat, node, ch_height)
+
+            # Set normal pair
+            if ch_normal:
+                ch_height.normal_pair_name = ch_normal.name
+
         if ch_normal:
             inp = main_bsdf.inputs['Normal']
 
@@ -894,11 +903,12 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             #links.new(node.outputs[ch_normal.io_index], inp)
             links.new(node.outputs[ch_normal.name], inp)
 
-        if ch_height:
-            do_displacement_setup(mat, node, ch_height)
-
         if ch_vdisp:
             do_vector_displacement_setup(mat, node, ch_vdisp)
+
+            # Set normal pair
+            if ch_normal:
+                ch_vdisp.normal_pair_name = ch_normal.name
 
         # Disable overlay in Blender 2.8
         for area in context.screen.areas:
@@ -4006,6 +4016,24 @@ class YPaintChannel(bpy.types.PropertyGroup):
         ),
         default = 'HASHED',
         update = update_channel_alpha_blend_mode
+    )
+
+    normal_pair_name : StringProperty(
+        name = 'Normal Channel Pair',
+        description = 'Normal channel pair for height channel',
+        default='',
+    )
+
+    use_height_as_bump : BoolProperty(
+        name = 'Use Height as Bump',
+        description = 'Use height as bump rather than displacement',
+        default=False
+    )
+
+    use_height_normalize : BoolProperty(
+        name = 'Normalize height output',
+        description = 'Normalize height to 0..1 range. Max Height socket will available to access if this enabled',
+        default=True
     )
 
     # Backface mode for alpha

@@ -133,12 +133,16 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
         if specific_channel and channel != specific_channel: continue
 
         if channel.special_channel_type == 'HEIGHT':
-            process_lib_name = lib.HEIGHT_NORMALIZE
 
-            end_linear = replace_new_node(
-                group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Normalize Height',
-                process_lib_name, hard_replace=True
-            )
+            if any_layers_using_channel(channel):
+                process_lib_name = lib.HEIGHT_NORMALIZE
+
+                end_linear = replace_new_node(
+                    group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Normalize Height',
+                    process_lib_name, hard_replace=True
+                )
+            else:
+                remove_node(group_tree, channel, 'end_linear')
 
         elif channel.special_channel_type == 'NORMAL':
             lib_name = lib.CHECK_INPUT_NORMAL
@@ -358,7 +362,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     valid_outputs = []
     float_factor_input_names = []
 
-    # Get alpha and color pair channel
+    # Get channel pairs
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
 
     for ch in yp.channels:
@@ -738,8 +742,9 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     
     trans_bump_ch = get_transition_bump_channel(layer)
 
-    # Get alpha and color pair channel
+    # Get channel pairs
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+    normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
 
     # Rename fcurve and driver data path before rearranging the inputs
     if root_tree.animation_data:
@@ -956,7 +961,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch))
+        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch)) or (ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal)
 
         force_normal_input = root_ch.type == 'NORMAL' and need_prev_normal and layer_enabled
 
