@@ -1120,7 +1120,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         if ch.special_channel_type == 'HEIGHT':
             io_max_height_name = io_prefixes['MAX'] + ch.name
-            max_height = get_essential_node(tree, TREE_START)[io_max_height_name]
+            if io_max_height_name in get_essential_node(tree, TREE_START):
+                max_height = get_essential_node(tree, TREE_START)[io_max_height_name]
 
         elif ch.type == 'NORMAL':
             height_input = get_essential_node(tree, TREE_START).get(io_height_name)

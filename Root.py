@@ -532,7 +532,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
     enable_roughness : BoolProperty(name='Roughness', default=True)
     enable_height : BoolProperty(name='Height', default=True)
     enable_normal : BoolProperty(name='Normal', default=True)
-    enable_vector_displacement : BoolProperty(name='Vector Displacement', default=True)
+    enable_vector_displacement : BoolProperty(name='Vector Displacement', default=False)
 
     use_linear_blending : BoolProperty(
         name = 'Use Linear Color Blending',
@@ -886,7 +886,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             links.new(node.outputs[ch_roughness.name], inp)
 
         if ch_height:
-            do_displacement_setup(mat, node, ch_height)
+            do_displacement_setup(mat, node, ch_height, is_vector_disp=False)
 
             # Set normal pair
             if ch_normal:
@@ -904,7 +904,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             links.new(node.outputs[ch_normal.name], inp)
 
         if ch_vdisp:
-            do_vector_displacement_setup(mat, node, ch_vdisp)
+            do_displacement_setup(mat, node, ch_vdisp, is_vector_disp=True)
 
             # Set normal pair
             if ch_normal:
@@ -1071,31 +1071,89 @@ def set_material_methods(mat, blend_method='HASHED', shadow_method='HASHED'):
             # There's no alpha dither on legacy blender
             mat.game_settings.alpha_blend = 'ALPHA'
 
-def do_displacement_setup(mat, node, channel):
+def do_displacement_setup(mat, node, channel, is_vector_disp=False):
+
     matout = get_material_output(mat)
 
-    # Check for displacement socket
-    disp_soc = matout.inputs.get('Displacement')
-    if not disp_soc: return
+    disp_inp = matout.inputs.get('Displacement')
+    channel_outp = node.outputs.get(channel.name)
+    max_height_outp = node.outputs.get(io_prefixes['MAX'] + channel.name) if not is_vector_disp else None
 
-    # Create displacement node
-    disp = Bake.create_displacement_node(mat.node_tree, disp_soc)
+    loc = matout.location.copy()
+    loc.y -= 170
 
-    disp.location.x = matout.location.x
-    disp.location.y = matout.location.y - 220
+    # Check for existing displacement node
+    disp = None
+    combine_node_needed = False
+    if len(disp_inp.links) > 0:
+        # Get closest displacement node if there's a link
+        disp = Bake.get_closest_disp_node_backward(matout, 'Displacement', is_vector_disp=is_vector_disp)
 
-    height_soc = node.outputs.get(channel.name)
-    max_height_soc = node.outputs.get(io_prefixes['MAX'] + channel.name)
+        # Get relevant input sockets and check if they're connected or not
+        if disp:
+            if is_vector_disp: 
+                inp = disp.inputs.get('Vector')
+                if len(inp.links) > 0: disp = None
+            else: 
+                inp = disp.inputs.get('Height')
+                if len(inp.links) > 0: disp = None
+                inp = disp.inputs.get('Scale')
+                if len(inp.links) > 0: disp = None
 
-    if 'Height' in disp.inputs: mat.node_tree.links.new(height_soc, disp.inputs['Height'])
-    if 'Scale' in disp.inputs: 
+        # Need combine node if there's connection but no valid displacement node
+        if disp == None:
+            combine_node_needed = True
+
+    # Create new displacement node
+    disp_created = False
+    if disp == None:
+        if is_vector_disp: 
+            disp = Bake.create_vector_displacement_node(mat.node_tree)
+        else: disp = Bake.create_displacement_node(mat.node_tree)
+
         # Default scale of displacement is 1.0
-        disp.inputs['Scale'].default_value = 1.0
+        if 'Scale' in disp.inputs: disp.inputs['Scale'].default_value = 1.0
+        disp_created = True
 
-        mat.node_tree.links.new(max_height_soc, disp.inputs['Scale'])
+    connect_to = disp_inp
 
-def do_vector_displacement_setup(mat, node, channel):
-    pass
+    if combine_node_needed:
+        from_node = disp_inp.links[0].from_node
+        from_soc = disp_inp.links[0].from_socket
+        
+        # Create add node
+        combine_disp = mat.node_tree.nodes.new('ShaderNodeVectorMath')
+        combine_disp.operation = 'ADD'
+
+        # Set locations
+        combine_disp.location = loc.copy()
+        combine_disp.hide = True
+
+        loc.y -= 50
+
+        # Offset original socket node a bit
+        from_node.location.y -= 220
+
+        # Connect add vector node
+        connect_to = combine_disp.inputs[0]
+        mat.node_tree.links.new(from_soc, combine_disp.inputs[1])
+        mat.node_tree.links.new(combine_disp.outputs[0], disp_inp)
+
+    # Set node position and connection if displacement node is just created
+    if disp_created:
+        disp.location = loc.copy()
+
+        # Connect displacement node
+        mat.node_tree.links.new(disp.outputs[0], connect_to)
+
+    if channel_outp:
+        if is_vector_disp:
+            mat.node_tree.links.new(channel_outp, disp.inputs.get('Vector'))
+        else: mat.node_tree.links.new(channel_outp, disp.inputs.get('Height'))
+    if max_height_outp and 'Scale' in disp.inputs:
+        mat.node_tree.links.new(max_height_outp, disp.inputs.get('Scale'))
+
+    return disp
 
 def do_alpha_setup(mat, node, channel):
     tree = mat.node_tree
@@ -1346,15 +1404,18 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         description = 'Auto node setup for new channel',
         items = (
             ('ALPHA', 'Alpha', ''),
-            ('AO', 'Ambient Occlusion', '')
+            ('AO', 'Ambient Occlusion', ''),
+            ('HEIGHT', 'Height', ''),
+            ('NORMAL', 'Normal', ''),
+            ('VDISP', 'Vector Displacement', ''),
         ),
         default = 'ALPHA'
     )
 
-    alpha_pair_name : StringProperty(
-        name = 'Alpha Channel Pair',
-        description = 'Color channel pair for alpha channel',
-        default='',
+    channel_pair_name : StringProperty(
+        name = 'Channel Pair',
+        description = 'Channel pair for the newly created channel',
+        default = '',
     )
 
     @classmethod
@@ -1362,15 +1423,50 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         return get_active_ypaint_node()
 
     def invoke(self, context, event):
-        if self.mode == 'ALPHA':
+
+        self.ch_name = 'Channel'
+        if self.mode == 'AO':
+            self.ch_name = 'Ambient Occlusion'
+            self.ch_type = 'RGB'
+        elif self.mode == 'ALPHA':
+            self.ch_name = 'Alpha'
+            self.ch_type = 'VALUE'
+        elif self.mode == 'HEIGHT':
+            self.ch_name = 'Height'
+            self.ch_type = 'VALUE'
+        elif self.mode == 'NORMAL':
+            self.ch_name = 'Normal'
+            self.ch_type = 'VECTOR'
+        elif self.mode == 'VDISP':
+            self.ch_name = 'Vector Displacement'
+            self.ch_type = 'RGB'
+
+        # Check for existing pair
+        self.need_normal_pair = False
+        if self.mode in {'ALPHA', 'HEIGHT', 'VDISP'}:
             node = get_active_ypaint_node()
             yp = node.node_tree.yp
 
-            # Default alpha pair channel
+            # Default channel pair
+            self.channel_pair_name = ''
             for ch in yp.channels:
-                if ch.type == 'RGB':
-                    self.alpha_pair_name = ch.name
+                if self.mode == 'ALPHA' and ch.type == 'RGB':
+                    self.channel_pair_name = ch.name
                     break
+
+                if self.mode == 'HEIGHT' and ch.special_channel_type == 'NORMAL':
+                    self.channel_pair_name = ch.name
+                    break
+
+                if self.mode == 'VDISP' and ch.special_channel_type == 'NORMAL':
+                    self.channel_pair_name = ch.name
+                    break
+
+            # TODO: Color and alpha pair (currently only works for creating normal channel)
+            self.need_normal_pair = self.channel_pair_name == '' and self.mode in {'HEIGHT', 'VDISP'}
+
+            if self.need_normal_pair:
+                return context.window_manager.invoke_props_dialog(self, width=400)
 
             return context.window_manager.invoke_props_dialog(self)
 
@@ -1380,18 +1476,24 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        row = split_layout(self.layout, 0.4)
-        col = row.column(align=False)
-        if not is_bl_newer_than(4, 2):
-            col.label(text='Blend Method:')
-            col.label(text='Shadow Method:')
-        col.label(text='Channel Pair:')
+        if not self.need_normal_pair:
 
-        col = row.column(align=False)
-        if not is_bl_newer_than(4, 2):
-            col.prop(self, 'blend_method', text='')
-            col.prop(self, 'shadow_method', text='')
-        col.prop_search(self, "alpha_pair_name", yp, "channels", text='')
+            row = split_layout(self.layout, 0.4)
+            col = row.column(align=False)
+            if self.mode == 'ALPHA' and not is_bl_newer_than(4, 2):
+                col.label(text='Blend Method:')
+                col.label(text='Shadow Method:')
+            col.label(text='Channel Pair:')
+
+            col = row.column(align=False)
+            if self.mode == 'ALPHA' and not is_bl_newer_than(4, 2):
+                col.prop(self, 'blend_method', text='')
+                col.prop(self, 'shadow_method', text='')
+            col.prop_search(self, "channel_pair_name", yp, "channels", text='')
+
+        else:
+            pair_name = 'Color' if self.mode == 'ALPHA' else 'Normal'
+            self.layout.label(text=pair_name+' channel will added alongside '+self.ch_name+' channel', icon='ERROR')
 
     def execute(self, context):
 
@@ -1401,34 +1503,62 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         group_tree = node.node_tree
         yp = group_tree.yp
 
-        name = 'Channel'
-        if self.mode == 'AO':
-            name = 'Ambient Occlusion'
-            ch_type = 'RGB'
-        elif self.mode == 'ALPHA':
-            name = 'Alpha'
-            ch_type = 'VALUE'
-
         # Check if channel with same name is already available
-        same_channel = [c for c in yp.channels if c.name == name]
+        same_channel = [c for c in yp.channels if c.name == self.ch_name]
         if same_channel:
-            self.report({'ERROR'}, "Channel named '"+name+"' is already available!")
+            self.report({'ERROR'}, "Channel named '"+self.ch_name+"' is already available!")
             return {'CANCELLED'}
 
-        if self.mode == 'ALPHA':
-            existing_alpha_channels = [c for c in yp.channels if c.special_channel_type == 'ALPHA']
-            if any(existing_alpha_channels):
-                self.report({'ERROR'}, "Alpha channel already exists ('"+existing_alpha_channels[0].name+"')!")
+        if self.mode in {'ALPHA', 'HEIGHT', 'VDISP'}:
+            existing_special_channels = [c for c in yp.channels if c.special_channel_type == self.mode]
+            if any(existing_special_channels):
+                self.report({'ERROR'}, "Special channel already exists ('"+existing_special_channels[0].name+"')!")
                 return {'CANCELLED'}
 
-        color_chs = [c for c in yp.channels if c.type == 'RGB']
-        if not any(color_chs):
-            self.report({'ERROR'}, "Need at least one existing color channel!")
-            return {'CANCELLED'}
+        if self.mode in {'ALPHA', 'AO'}:
+            color_chs = [c for c in yp.channels if c.type == 'RGB']
+            if not any(color_chs):
+                self.report({'ERROR'}, "Need at least one existing color channel!")
+                return {'CANCELLED'}
+
+        # Check for normal input
+        normal_inp = None
+        if self.mode == 'NORMAL' or self.need_normal_pair:
+            # Get available channel connections
+            for ch in yp.channels:
+                outp = node.outputs.get(ch.name)
+                if outp and len(outp.links) > 0:
+                    for link in outp.links:
+                        for inp in link.to_node.inputs:
+                            if inp.name == 'Normal':
+                                normal_inp = inp
+                                break
+                        if normal_inp != None: break
+                if normal_inp != None: break
+
+            if normal_inp == None:
+                self.report({'ERROR'}, "There's no proper normal input found in the material nodes!")
+                return {'CANCELLED'}
+
+        special_channel_type = 'NONE'
+        if self.mode in {'HEIGHT', 'NORMAL', 'VDISP'}:
+            special_channel_type = self.mode
 
         # Create new channel
-        channel = create_new_yp_channel(group_tree, name, ch_type, non_color=True)
-        ch_name = channel.name
+        channel = create_new_yp_channel(group_tree, self.ch_name, self.ch_type, non_color=True, special_channel_type=special_channel_type)
+        actual_ch_name = channel.name
+
+        # Create necessary normal pair
+        ch_normal = None
+        if self.need_normal_pair:
+            ch_normal = create_new_yp_channel(group_tree, 'Normal', 'VECTOR', non_color=True, special_channel_type='NORMAL')
+            self.channel_pair_name = ch_normal.name
+
+            # Get the main channel again in case of missing pointer
+            channel = yp.channels.get(actual_ch_name)
+
+        elif self.mode == 'NORMAL':
+            ch_normal = channel
 
         # Update io
         check_all_channel_ios(yp, yp_node=node)
@@ -1437,11 +1567,23 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         if self.mode == 'AO':
             create_ao_node(mat, node, channel, shift_other_nodes=True)
         elif self.mode == 'ALPHA':
-            make_channel_as_alpha(mat, node, channel, do_setup=True, move_index=True, ch_pair_name=self.alpha_pair_name)
+            make_channel_as_alpha(mat, node, channel, do_setup=True, move_index=True, ch_pair_name=self.channel_pair_name)
             set_material_methods(mat, self.blend_method, self.shadow_method)
+        elif self.mode == 'HEIGHT':
+            do_displacement_setup(mat, node, channel, is_vector_disp=False)
+            channel.normal_pair_name = self.channel_pair_name
+        elif self.mode == 'VDISP':
+            do_displacement_setup(mat, node, channel, is_vector_disp=True)
+            channel.normal_pair_name = self.channel_pair_name
+
+        # Connect normal channel
+        if ch_normal:
+            outp = node.outputs.get(ch_normal.name)
+            mat.node_tree.links.new(outp, normal_inp)
+            set_input_default_value(node, ch_normal)
 
         # Set active channel to the newly created one
-        channel = yp.channels.get(ch_name)
+        channel = yp.channels.get(actual_ch_name)
         yp.active_channel_index = get_channel_index(channel)
 
         return {'FINISHED'}
@@ -2919,6 +3061,11 @@ def update_channel_name(self, context):
     if self.enable_alpha:
         get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['ALPHA']
         get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['ALPHA']
+        shift += 1
+
+    if self.special_channel_type == 'HEIGHT':
+        get_tree_input_by_index(group_tree, input_index+shift).name = io_prefixes['MAX'] + self.name
+        get_tree_output_by_index(group_tree, output_index+shift).name = io_prefixes['MAX'] + self.name
         shift += 1
 
     if self.type == 'NORMAL' and self.enable_subdiv_setup:

@@ -6156,6 +6156,15 @@ class YNewChannelMenu(bpy.types.Menu):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
         col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Ambient Occlusion').mode = 'AO'
 
+        icon_value = lib.get_icon(lib.channel_custom_icon_dict['VALUE'])
+        col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Height').mode = 'HEIGHT'
+
+        icon_value = lib.get_icon(lib.channel_custom_icon_dict['VECTOR'])
+        col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Normal').mode = 'NORMAL'
+
+        icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
+        col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Vector Displacement').mode = 'VDISP'
+
 class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"
     bl_description = 'Add New Layer'
