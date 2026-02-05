@@ -1284,25 +1284,20 @@ def draw_root_channels_ui(context, layout, node):
 
                     #bbcol.separator()
 
-            if channel.special_channel_type in {'HEIGHT', 'VDISP'}:
+            if channel.special_channel_type == 'HEIGHT':
+                # Check for normal channel
+                normal_ch = get_normal_channel(yp)
+
                 brow = bcol.row(align=True)
-                brow.active = not yp.use_baked or channel.no_layer_using
-                #brow.label(text='', icon_value=lib.get_icon('input'))
+                brow.active = normal_ch != None
                 brow.label(text='', icon='BLANK1')
-                brow.label(text='Channel Pair:')
-                brow.prop_search(channel, "normal_pair_name", yp, "channels", text='')
+                brow.label(text='Use as Bump Only:')
+                brow.prop(channel, 'use_height_as_bump', text='')
 
-                if channel.special_channel_type == 'HEIGHT':
-                    if channel.normal_pair_name != '':
-                        brow = bcol.row(align=True)
-                        brow.label(text='', icon='BLANK1')
-                        brow.label(text='Use as Bump Only:')
-                        brow.prop(channel, 'use_height_as_bump', text='')
-
-                    brow = bcol.row(align=True)
-                    brow.label(text='', icon='BLANK1')
-                    brow.label(text='Normalize Height Output:')
-                    brow.prop(channel, 'use_height_normalize', text='')
+                brow = bcol.row(align=True)
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Normalize Height Output:')
+                brow.prop(channel, 'use_height_normalize', text='')
 
             if is_alpha_channel:
                 brow = bcol.row(align=True)

@@ -888,10 +888,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         if ch_height:
             do_displacement_setup(mat, node, ch_height, is_vector_disp=False)
 
-            # Set normal pair
-            if ch_normal:
-                ch_height.normal_pair_name = ch_normal.name
-
         if ch_normal:
             inp = main_bsdf.inputs['Normal']
 
@@ -905,10 +901,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
 
         if ch_vdisp:
             do_displacement_setup(mat, node, ch_vdisp, is_vector_disp=True)
-
-            # Set normal pair
-            if ch_normal:
-                ch_vdisp.normal_pair_name = ch_normal.name
 
         # Disable overlay in Blender 2.8
         for area in context.screen.areas:
@@ -1442,8 +1434,7 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
             self.ch_type = 'RGB'
 
         # Check for existing pair
-        self.need_normal_pair = False
-        if self.mode in {'ALPHA', 'HEIGHT', 'VDISP'}:
+        if self.mode == 'ALPHA':
             node = get_active_ypaint_node()
             yp = node.node_tree.yp
 
@@ -1454,20 +1445,6 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
                     self.channel_pair_name = ch.name
                     break
 
-                if self.mode == 'HEIGHT' and ch.special_channel_type == 'NORMAL':
-                    self.channel_pair_name = ch.name
-                    break
-
-                if self.mode == 'VDISP' and ch.special_channel_type == 'NORMAL':
-                    self.channel_pair_name = ch.name
-                    break
-
-            # TODO: Color and alpha pair (currently only works for creating normal channel)
-            self.need_normal_pair = self.channel_pair_name == '' and self.mode in {'HEIGHT', 'VDISP'}
-
-            if self.need_normal_pair:
-                return context.window_manager.invoke_props_dialog(self, width=400)
-
             return context.window_manager.invoke_props_dialog(self)
 
         return self.execute(context)
@@ -1476,24 +1453,18 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        if not self.need_normal_pair:
+        row = split_layout(self.layout, 0.4)
+        col = row.column(align=False)
+        if self.mode == 'ALPHA' and not is_bl_newer_than(4, 2):
+            col.label(text='Blend Method:')
+            col.label(text='Shadow Method:')
+        col.label(text='Channel Pair:')
 
-            row = split_layout(self.layout, 0.4)
-            col = row.column(align=False)
-            if self.mode == 'ALPHA' and not is_bl_newer_than(4, 2):
-                col.label(text='Blend Method:')
-                col.label(text='Shadow Method:')
-            col.label(text='Channel Pair:')
-
-            col = row.column(align=False)
-            if self.mode == 'ALPHA' and not is_bl_newer_than(4, 2):
-                col.prop(self, 'blend_method', text='')
-                col.prop(self, 'shadow_method', text='')
-            col.prop_search(self, "channel_pair_name", yp, "channels", text='')
-
-        else:
-            pair_name = 'Color' if self.mode == 'ALPHA' else 'Normal'
-            self.layout.label(text=pair_name+' channel will added alongside '+self.ch_name+' channel', icon='ERROR')
+        col = row.column(align=False)
+        if self.mode == 'ALPHA' and not is_bl_newer_than(4, 2):
+            col.prop(self, 'blend_method', text='')
+            col.prop(self, 'shadow_method', text='')
+        col.prop_search(self, "channel_pair_name", yp, "channels", text='')
 
     def execute(self, context):
 
@@ -1523,7 +1494,7 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
 
         # Check for normal input
         normal_inp = None
-        if self.mode == 'NORMAL' or self.need_normal_pair:
+        if self.mode == 'NORMAL':
             # Get available channel connections
             for ch in yp.channels:
                 outp = node.outputs.get(ch.name)
@@ -1548,18 +1519,6 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         channel = create_new_yp_channel(group_tree, self.ch_name, self.ch_type, non_color=True, special_channel_type=special_channel_type)
         actual_ch_name = channel.name
 
-        # Create necessary normal pair
-        ch_normal = None
-        if self.need_normal_pair:
-            ch_normal = create_new_yp_channel(group_tree, 'Normal', 'VECTOR', non_color=True, special_channel_type='NORMAL')
-            self.channel_pair_name = ch_normal.name
-
-            # Get the main channel again in case of missing pointer
-            channel = yp.channels.get(actual_ch_name)
-
-        elif self.mode == 'NORMAL':
-            ch_normal = channel
-
         # Update io
         check_all_channel_ios(yp, yp_node=node)
 
@@ -1571,16 +1530,12 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
             set_material_methods(mat, self.blend_method, self.shadow_method)
         elif self.mode == 'HEIGHT':
             do_displacement_setup(mat, node, channel, is_vector_disp=False)
-            channel.normal_pair_name = self.channel_pair_name
+        elif self.mode == 'NORMAL':
+            outp = node.outputs.get(channel.name)
+            mat.node_tree.links.new(outp, normal_inp)
+            set_input_default_value(node, channel)
         elif self.mode == 'VDISP':
             do_displacement_setup(mat, node, channel, is_vector_disp=True)
-            channel.normal_pair_name = self.channel_pair_name
-
-        # Connect normal channel
-        if ch_normal:
-            outp = node.outputs.get(ch_normal.name)
-            mat.node_tree.links.new(outp, normal_inp)
-            set_input_default_value(node, ch_normal)
 
         # Set active channel to the newly created one
         channel = yp.channels.get(actual_ch_name)
@@ -4165,15 +4120,9 @@ class YPaintChannel(bpy.types.PropertyGroup):
         update = update_channel_alpha_blend_mode
     )
 
-    normal_pair_name : StringProperty(
-        name = 'Normal Channel Pair',
-        description = 'Normal channel pair for height channel',
-        default='',
-    )
-
     use_height_as_bump : BoolProperty(
         name = 'Use Height as Bump',
-        description = 'Use height as bump rather than displacement',
+        description = 'Use final height as bump normal rather than displacement.\nNote: Need normal channel to work.',
         default=False
     )
 

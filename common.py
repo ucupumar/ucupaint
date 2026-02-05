@@ -8109,9 +8109,19 @@ def is_modifier_used_by_paired_alpha_channel(mod):
 
     return False
 
+def get_normal_channel(yp):
+    chs = [ch for ch in yp.channels if ch.special_channel_type == 'NORMAL']
+    if len(chs) > 0:
+        return chs[0]
+
+    return None
+
 def get_normal_height_ch_pairs(yp):
     height_ch = get_root_height_channel(yp)
-    normal_ch = yp.channels.get(height_ch.normal_pair_name) if height_ch else None
+    # Look for normal channel
+    normal_ch = None
+    chs = [ch for ch in yp.channels if ch.special_channel_type == 'NORMAL']
+    if len(chs): normal_ch = chs[0]
 
     if not normal_ch:
         return None, None
@@ -8122,6 +8132,9 @@ def get_layer_normal_height_ch_pairs(layer):
     yp = layer.id_data.yp
 
     normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
+    if not normal_ch or not height_ch:
+        return None, None
 
     normal_ch_idx = get_channel_index(normal_ch) if height_ch else -1
     height_ch_idx = get_channel_index(height_ch) if normal_ch else -1
