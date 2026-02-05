@@ -133,9 +133,11 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
         if specific_channel and channel != specific_channel: continue
 
         if channel.special_channel_type == 'HEIGHT':
-
+            
             if any_layers_using_channel(channel):
-                if channel.use_height_as_bump:
+                normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
+                if normal_ch and channel.use_height_as_bump:
                     process_lib_name = lib.BUMP_PROCESS
                 else: process_lib_name = lib.HEIGHT_NORMALIZE
 
