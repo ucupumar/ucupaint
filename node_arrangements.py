@@ -2005,6 +2005,8 @@ def rearrange_yp_nodes(group_tree):
         if i == num_channels-1:
             if check_set_node_loc(group_tree, ONE_VALUE, loc):
                 loc.y -= 90
+            if check_set_node_loc(group_tree, HALF_VALUE, loc):
+                loc.y -= 90
             if check_set_node_loc(group_tree, ZERO_VALUE, loc):
                 loc.y -= 90
             check_set_node_loc(group_tree, GEOMETRY, loc)

@@ -135,10 +135,12 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
         if channel.special_channel_type == 'HEIGHT':
 
             if any_layers_using_channel(channel):
-                process_lib_name = lib.HEIGHT_NORMALIZE
+                if channel.use_height_as_bump:
+                    process_lib_name = lib.BUMP_PROCESS
+                else: process_lib_name = lib.HEIGHT_NORMALIZE
 
                 end_linear = replace_new_node(
-                    group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Normalize Height',
+                    group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Height Process',
                     process_lib_name, hard_replace=True
                 )
             else:
@@ -442,6 +444,11 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 if group_node and group_node.node_tree == group_tree:
                     group_node.inputs[name].default_value = ch.ori_max_height_value
             input_index += 1
+
+            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
+            output_index += 1
+
+            name = ch.name + io_suffix['MIDLEVEL']
 
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
             output_index += 1

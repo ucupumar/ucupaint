@@ -1333,6 +1333,23 @@ def set_material_methods(mat, blend_method='HASHED', shadow_method='HASHED'):
             # There's no alpha dither on legacy blender
             mat.game_settings.alpha_blend = 'ALPHA'
 
+def update_channel_use_height_as_bump(self, context):
+    yp = self.id_data.yp
+    if yp.halt_reconnect or yp.halt_update:
+        return
+
+    # Update input and outputs
+    check_all_channel_ios(yp, reconnect=True)
+
+def update_channel_use_height_normalize(self, context):
+    yp = self.id_data.yp
+    if yp.halt_reconnect or yp.halt_update:
+        return
+
+    # Update input and outputs
+    #check_all_channel_ios(yp, reconnect=True)
+    pass
+
 def do_displacement_setup(mat, node, channel, is_vector_disp=False):
 
     matout = get_material_output(mat)
@@ -1340,6 +1357,7 @@ def do_displacement_setup(mat, node, channel, is_vector_disp=False):
     disp_inp = matout.inputs.get('Displacement')
     channel_outp = node.outputs.get(channel.name)
     max_height_outp = node.outputs.get(channel.name + io_suffix['SCALE']) if not is_vector_disp else None
+    midlevel_outp = node.outputs.get(channel.name + io_suffix['MIDLEVEL']) if not is_vector_disp else None
 
     loc = matout.location.copy()
     loc.y -= 170
@@ -1383,6 +1401,10 @@ def do_displacement_setup(mat, node, channel, is_vector_disp=False):
             disp.inputs['Vector'].default_value[1] = 0.0
             disp.inputs['Vector'].default_value[2] = 0.0
 
+        # Default midlevel is 0.0
+        if 'Midlevel' in disp.inputs: 
+            disp.inputs['Midlevel'].default_value = 0.0
+
     connect_to = disp_inp
 
     if combine_node_needed:
@@ -1420,6 +1442,8 @@ def do_displacement_setup(mat, node, channel, is_vector_disp=False):
         else: mat.node_tree.links.new(channel_outp, disp.inputs.get('Height'))
     if max_height_outp and 'Scale' in disp.inputs:
         mat.node_tree.links.new(max_height_outp, disp.inputs.get('Scale'))
+    if midlevel_outp and 'Midlevel' in disp.inputs:
+        mat.node_tree.links.new(midlevel_outp, disp.inputs.get('Midlevel'))
 
     return disp
 
@@ -3293,30 +3317,42 @@ def update_channel_name(self, context):
     get_tree_input_by_index(group_tree, input_index).name = self.name
     get_tree_output_by_index(group_tree, output_index).name = self.name
 
-    shift = 1
+    input_shift = 1
+    output_shift = 1
     if self.enable_alpha:
-        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['ALPHA']
-        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['ALPHA']
-        shift += 1
+        get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['ALPHA']
+        input_shift += 1
+
+        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['ALPHA']
 
     if self.special_channel_type == 'HEIGHT':
-        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['SCALE']
-        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['SCALE']
-        shift += 1
+        get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['SCALE']
+        input_shift += 1
+
+        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['SCALE']
+        output_shift += 1
+
+        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['MIDLEVEL']
+        output_shift += 1
 
     if self.type == 'NORMAL' and self.enable_subdiv_setup:
-        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['HEIGHT']
-        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['HEIGHT']
+        get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['HEIGHT']
+        input_shift += 1
 
-        shift += 1
+        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['HEIGHT']
+        output_shift += 1
 
-        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['MAX_HEIGHT']
-        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['MAX_HEIGHT']
+        get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['MAX_HEIGHT']
+        input_shift += 1
 
-        shift += 1
+        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['MAX_HEIGHT']
+        output_shift += 1
 
-        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['VDISP']
-        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['VDISP']
+        get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['VDISP']
+        input_shift += 1
+
+        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['VDISP']
+        output_shift += 1
 
     for layer in yp.layers:
         tree = get_tree(layer)
@@ -4404,13 +4440,15 @@ class YPaintChannel(bpy.types.PropertyGroup):
     use_height_as_bump : BoolProperty(
         name = 'Use Height as Bump',
         description = 'Use final height as bump normal rather than displacement.\nNote: Need normal channel to work.',
-        default=False
+        default=False,
+        update=update_channel_use_height_as_bump
     )
 
     use_height_normalize : BoolProperty(
         name = 'Normalize height output',
         description = 'Normalize height to 0..1 range. Max Height socket will available to access if this enabled',
-        default=True
+        default=True,
+        update=update_channel_use_height_normalize
     )
 
     # Backface mode for alpha

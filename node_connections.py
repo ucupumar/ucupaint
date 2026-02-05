@@ -909,6 +909,12 @@ def get_essential_node(tree, name):
             node.label = 'One Value'
             node.outputs[0].default_value = 1.0
 
+        elif name == HALF_VALUE:
+            node = tree.nodes.new('ShaderNodeValue')
+            node.name = HALF_VALUE
+            node.label = 'Half Value'
+            node.outputs[0].default_value = 0.5
+
         elif name == ZERO_VALUE:
             node = tree.nodes.new('ShaderNodeValue')
             node.name = ZERO_VALUE
@@ -930,7 +936,7 @@ def get_essential_node(tree, name):
 
 ''' Check for all essential nodes and delete them if no links found '''
 def clean_essential_nodes(tree, exclude_texcoord=False, exclude_geometry=False):
-    for name in [ONE_VALUE, ZERO_VALUE, GEOMETRY, TEXCOORD, TREE_START, TREE_END]:
+    for name in [ONE_VALUE, HALF_VALUE, ZERO_VALUE, GEOMETRY, TEXCOORD, TREE_START, TREE_END]:
         if exclude_texcoord and name == TEXCOORD: continue
         if exclude_geometry and name == GEOMETRY: continue
         node = tree.nodes.get(name)
@@ -984,10 +990,10 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             bitangents[uv.name] = tangent_process.outputs['Bitangent']
 
     # Get main tangent and bitangent
-    height_ch = get_root_height_channel(yp)
+    root_height_ch = get_root_height_channel(yp)
     main_uv = None
-    if height_ch and height_ch.main_uv != '':
-        main_uv = yp.uvs.get(height_ch.main_uv)
+    if root_height_ch and root_height_ch.main_uv != '':
+        main_uv = yp.uvs.get(root_height_ch.main_uv)
 
     if not main_uv and len(yp.uvs) > 0:
         main_uv = yp.uvs[0]
@@ -1093,7 +1099,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         io_height_e_alpha_name = ch.name + io_suffix['HEIGHT_E'] + io_suffix['ALPHA']
         io_height_w_alpha_name = ch.name + io_suffix['HEIGHT_W'] + io_suffix['ALPHA']
 
-        io_max_height_name = ch.name + io_suffix['MAX_HEIGHT']
+        #io_max_height_name = ch.name + io_suffix['MAX_HEIGHT']
+        io_max_height_name = ch.name + io_suffix['SCALE']
+        io_midlevel_name = ch.name + io_suffix['MIDLEVEL']
         io_vdisp_name = ch.name + io_suffix['VDISP']
 
         rgb = get_essential_node(tree, TREE_START)[io_name]
@@ -1119,7 +1127,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         vdisp = None
 
         if ch.special_channel_type == 'HEIGHT':
-            io_max_height_name = ch.name + io_suffix['SCALE']
             if io_max_height_name in get_essential_node(tree, TREE_START):
                 max_height = get_essential_node(tree, TREE_START)[io_max_height_name]
 
@@ -1238,8 +1245,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             # UV inputs
             uv_names = []
 
-            if height_ch and height_ch.main_uv != '':
-                uv_names.append(height_ch.main_uv)
+            if root_height_ch and root_height_ch.main_uv != '':
+                uv_names.append(root_height_ch.main_uv)
 
             if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names:
                 uv_names.append(layer.uv_name)
@@ -1445,6 +1452,18 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             mixcol0, mixcol1, mixout = get_mix_color_indices(clamp)
             rgb = create_link(tree, rgb, clamp.inputs[mixcol0])[mixout]
 
+        # Check if height channel use bump only
+        if ch.special_channel_type in {'NORMAL', 'HEIGHT'}:
+            normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+            if height_ch and height_ch.use_height_as_bump:
+                height_end_linear = nodes.get(height_ch.end_linear)
+                if ch == normal_ch:
+                    if height_end_linear and 'Normal Overlay' in height_end_linear.inputs:
+                        rgb = create_link(tree, rgb, height_end_linear.inputs['Normal Overlay'])[0]
+
+                elif ch == height_ch:
+                    rgb = get_essential_node(tree, HALF_VALUE)[0]
+
         if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked and not ch.use_baked_vcol: # and baked_uv:
             baked = nodes.get(ch.baked)
             if baked:
@@ -1546,6 +1565,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             create_link(tree, alpha, get_essential_node(tree, TREE_END)[io_alpha_name])
         if ch.special_channel_type == 'HEIGHT':
             if max_height and io_max_height_name in get_essential_node(tree, TREE_END): create_link(tree, max_height, get_essential_node(tree, TREE_END)[io_max_height_name])
+            if io_midlevel_name in get_essential_node(tree, TREE_END): 
+                create_link(tree, get_essential_node(tree, HALF_VALUE)[0], get_essential_node(tree, TREE_END)[io_midlevel_name])
         if ch.type == 'NORMAL' and not ch.use_baked_vcol:
             if height and io_height_name in get_essential_node(tree, TREE_END): create_link(tree, height, get_essential_node(tree, TREE_END)[io_height_name])
             if max_height and io_max_height_name in get_essential_node(tree, TREE_END): create_link(tree, max_height, get_essential_node(tree, TREE_END)[io_max_height_name])
@@ -3665,7 +3686,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 if ch_bump_distance and 'Bump Distance' in max_height_calc.inputs: create_link(tree, ch_bump_distance, max_height_calc.inputs['Bump Distance'])
                 if ch_bump_midlevel and 'Midlevel' in max_height_calc.inputs: create_link(tree, ch_bump_midlevel, max_height_calc.inputs['Midlevel'])
-                if 'Intensity' in max_height_calc.inputs: create_link(tree, alpha, max_height_calc.inputs['Intensity'])
+                if ch_intensity and 'Intensity' in max_height_calc.inputs: create_link(tree, ch_intensity, max_height_calc.inputs['Intensity'])
 
         # Transition AO
         tao = nodes.get(ch.tao)

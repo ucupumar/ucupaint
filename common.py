@@ -15,6 +15,7 @@ INFO_PREFIX = '__yp_info_'
 TREE_START = 'Group Input'
 TREE_END = 'Group Output'
 ONE_VALUE = 'One Value'
+HALF_VALUE = 'Half Value'
 ZERO_VALUE = 'Zero Value'
 
 BAKED_PARALLAX = 'Baked Parallax'
@@ -562,6 +563,7 @@ io_suffix = {
     'HEIGHT_E' : ' Height E',
     'HEIGHT_W' : ' Height W',
     'SCALE' : ' Scale',
+    'MIDLEVEL' : ' Midlevel',
 }
 
 io_names = {
