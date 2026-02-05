@@ -544,10 +544,6 @@ layer_node_bl_idnames = {
     'AO' : 'ShaderNodeAmbientOcclusion',
 }
 
-io_prefixes = {
-    'MAX' : 'Max ',
-}
-
 io_suffix = {
     'GROUP' : ' Group',
     'BACKGROUND' : ' Background',
@@ -565,6 +561,7 @@ io_suffix = {
     'HEIGHT_S' : ' Height S',
     'HEIGHT_E' : ' Height E',
     'HEIGHT_W' : ' Height W',
+    'SCALE' : ' Scale',
 }
 
 io_names = {

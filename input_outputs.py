@@ -435,7 +435,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
         # Displacement IO
         if ch.special_channel_type == 'HEIGHT':
-            name = io_prefixes['MAX'] + ch.name
+            name = ch.name + io_suffix['SCALE']
 
             if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=0.1):
                 # Set node default value
@@ -992,7 +992,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if root_ch.special_channel_type == 'HEIGHT':
 
             if channel_enabled:
-                name = io_prefixes['MAX'] + root_ch.name
+                name = root_ch.name + io_suffix['SCALE']
 
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
                 input_index += 1
@@ -1122,7 +1122,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
             # Displacement Input
             if root_ch.special_channel_type == 'HEIGHT' and layer.type == 'GROUP':
-                name = io_prefixes['MAX'] + root_ch.name + io_suffix['GROUP']
+                name = root_ch.name + io_suffix['SCALE'] + io_suffix['GROUP']
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
                 input_index += 1
 

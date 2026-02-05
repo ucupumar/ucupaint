@@ -1339,7 +1339,7 @@ def do_displacement_setup(mat, node, channel, is_vector_disp=False):
 
     disp_inp = matout.inputs.get('Displacement')
     channel_outp = node.outputs.get(channel.name)
-    max_height_outp = node.outputs.get(io_prefixes['MAX'] + channel.name) if not is_vector_disp else None
+    max_height_outp = node.outputs.get(channel.name + io_suffix['SCALE']) if not is_vector_disp else None
 
     loc = matout.location.copy()
     loc.y -= 170
@@ -1376,6 +1376,12 @@ def do_displacement_setup(mat, node, channel, is_vector_disp=False):
         # Default scale of displacement is 1.0
         if 'Scale' in disp.inputs: disp.inputs['Scale'].default_value = 1.0
         disp_created = True
+
+        # Default vector is (0.0, 0.0, 0.0)
+        if 'Vector' in disp.inputs: 
+            disp.inputs['Vector'].default_value[0] = 0.0
+            disp.inputs['Vector'].default_value[1] = 0.0
+            disp.inputs['Vector'].default_value[2] = 0.0
 
     connect_to = disp_inp
 
@@ -3294,8 +3300,8 @@ def update_channel_name(self, context):
         shift += 1
 
     if self.special_channel_type == 'HEIGHT':
-        get_tree_input_by_index(group_tree, input_index+shift).name = io_prefixes['MAX'] + self.name
-        get_tree_output_by_index(group_tree, output_index+shift).name = io_prefixes['MAX'] + self.name
+        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['SCALE']
+        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['SCALE']
         shift += 1
 
     if self.type == 'NORMAL' and self.enable_subdiv_setup:

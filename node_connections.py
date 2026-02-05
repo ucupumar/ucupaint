@@ -200,7 +200,7 @@ def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
         if has_previous_layer_channels(layer, root_ch): continue
 
         if root_ch.special_channel_type == 'HEIGHT':
-            io_name = io_prefixes['MAX'] + root_ch.name
+            io_name = root_ch.name + io_suffix['SCALE']
             if io_name in node.inputs:
                 break_input_link(tree, node.inputs[io_name])
 
@@ -1119,7 +1119,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         vdisp = None
 
         if ch.special_channel_type == 'HEIGHT':
-            io_max_height_name = io_prefixes['MAX'] + ch.name
+            io_max_height_name = ch.name + io_suffix['SCALE']
             if io_max_height_name in get_essential_node(tree, TREE_START):
                 max_height = get_essential_node(tree, TREE_START)[io_max_height_name]
 
@@ -3656,8 +3656,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             # Connect max height calculation
             if max_height_calc:
-                prev_max_height = get_essential_node(tree, TREE_START).get(io_prefixes['MAX'] + root_ch.name)
-                next_max_height = get_essential_node(tree, TREE_END).get(io_prefixes['MAX'] + root_ch.name)
+                prev_max_height = get_essential_node(tree, TREE_START).get(root_ch.name + io_suffix['SCALE'])
+                next_max_height = get_essential_node(tree, TREE_END).get(root_ch.name + io_suffix['SCALE'])
 
                 if prev_max_height and 'Prev Bump Distance' in max_height_calc.inputs: 
                     create_link(tree, prev_max_height, max_height_calc.inputs['Prev Bump Distance'])
