@@ -1299,6 +1299,11 @@ def draw_root_channels_ui(context, layout, node):
                 brow.label(text='Normalize Height Output:')
                 brow.prop(channel, 'use_height_normalize', text='')
 
+                brow = bcol.row(align=True)
+                brow.label(text='', icon='BLANK1')
+                brow.operator("wm.y_quick_displacement_setup", text='Quick Displacement Setup', icon='MOD_SUBSURF')
+                brow.operator("wm.y_remove_displacement_setup", text='', icon='CANCEL')
+
             if is_alpha_channel:
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or channel.no_layer_using
@@ -2031,10 +2036,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if ch and root_ch:
             rrow = row.row(align=True)
             rrow.alignment = 'RIGHT'
-            if root_ch.type == 'NORMAL' and layer.type != 'GROUP':
+            if (root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT') and layer.type != 'GROUP':
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.prop(ch, 'normal_blend_type', text='')
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or root_ch.special_channel_type == 'HEIGHT':
                     draw_input_prop(splits, ch, 'bump_distance', layer=layer)
                 elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
                     draw_input_prop(splits, ch, 'vdisp_strength', layer=layer)
