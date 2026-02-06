@@ -6801,7 +6801,7 @@ def get_material_fcurves(mat):
     fcurves = []
 
     if tree.animation_data and tree.animation_data.action:
-        for fc in get_datablock_fcurves(mat):
+        for fc in get_datablock_fcurves(tree):
             match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if match:
                 fcurves.append(fc)
