@@ -1926,7 +1926,8 @@ def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=Fa
                 lib_name = lib.CH_MAX_HEIGHT_ADD_CALC
             else: lib_name = lib.CH_MAX_HEIGHT_CALC
 
-        if ch.write_height:
+        #if ch.write_height:
+        if root_ch.use_height_normalize or root_ch.use_height_as_bump:
             max_height_calc, need_reconnect = replace_new_node(
                 tree, ch, 'max_height_calc', 'ShaderNodeGroup', 'Max Height Calculation', 
                 lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
@@ -1965,6 +1966,11 @@ def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=Fa
             tree, ch, 'height_proc', 'ShaderNodeGroup', 'Height Process', 
             lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
         )
+
+        # Normalize height use value of 2.0
+        if 'Range' in height_proc.inputs:
+            inp = height_proc.inputs['Range']
+            inp.default_value = 2.0 if (root_ch.use_height_normalize or root_ch.use_height_as_bump) else 1.0
 
         if layer.type != 'GROUP':
             set_default_value(height_proc, 'Value Max Height', get_layer_channel_bump_distance(layer, ch))

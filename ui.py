@@ -1183,7 +1183,7 @@ def draw_root_channels_ui(context, layout, node):
 
             draw_modifier_stack(context, channel, channel.type, bcol, chui, layout_active=layout_active, is_root_ch=True)
 
-            inp = node.inputs[channel.io_index]
+            inp = node.inputs.get(channel.name)
 
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
@@ -1213,14 +1213,14 @@ def draw_root_channels_ui(context, layout, node):
 
                 rrow = brow.row(align=True)
                 if channel.enable_alpha and not chui.expand_alpha_settings:
-                    inp_alpha = node.inputs[channel.io_index+1]
+                    inp_alpha = node.inputs.get(channel.name + io_suffix['ALPHA'])
                     inbox_dropdown_button(rrow, chui, 'expand_alpha_settings', 'Base Alpha:')
 
                     if is_bl_newer_than(2, 80):
                         rrow = brow.row(align=True) # To make sure next row is aligned right
                         rrow.alignment = 'RIGHT'
 
-                    if len(node.inputs[channel.io_index+1].links)==0:
+                    if len(inp_alpha.links) == 0:
                         if not yp.use_baked:
                             brow.prop(inp_alpha, 'default_value', text='')
                     else: brow.label(text='', icon='LINKED')
@@ -1243,10 +1243,10 @@ def draw_root_channels_ui(context, layout, node):
                     bbcol.active = channel.enable_alpha
 
                     if channel.enable_alpha:
-                        inp_alpha = node.inputs[channel.io_index+1]
+                        inp_alpha = node.inputs.get(channel.name + io_suffix['ALPHA'])
                         brow = bbcol.row(align=True)
                         brow.label(text='Base Alpha:')
-                        if len(node.inputs[channel.io_index+1].links)==0:
+                        if len(inp_alpha.links)==0:
                             if not yp.use_baked:
                                 brow.prop(inp_alpha, 'default_value', text='')
                         else: brow.label(text='', icon='LINKED')
@@ -1296,7 +1296,7 @@ def draw_root_channels_ui(context, layout, node):
 
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='BLANK1')
-                brow.label(text='Normalize Height Output:')
+                brow.label(text='Normalize Input Output:')
                 brow.prop(channel, 'use_height_normalize', text='')
 
                 brow = bcol.row(align=True)
@@ -1481,7 +1481,8 @@ def draw_root_channels_ui(context, layout, node):
 
                         brow = bbcol.row(align=True)
                         brow.label(text='Input Max Height:')
-                        brow.prop(node.inputs[channel.io_index+2], 'default_value', text='')
+                        max_height_inp = node.inputs.get(channel.name + io_suffix['MAX_HEIGHT'])
+                        if max_height_inp: brow.prop(max_height_inp, 'default_value', text='')
 
                         brow = bbcol.row(align=True)
                         brow.label(text='Input Bump Midlevel:')
@@ -5031,8 +5032,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
         yp = group_node.node_tree.yp
         ypup = get_user_preferences()
 
-        input_index = item.io_index
-        output_index = get_output_index(item)
+        inp = inputs.get(item.name)
 
         row = layout.row()
 
@@ -5043,11 +5043,11 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             if item.type == 'RGB':
                 row = row.row(align=True)
 
-            if len(inputs[input_index].links) == 0:
+            if len(inp.links) == 0:
                 if item.type == 'VALUE':
-                    row.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
+                    row.prop(inp, 'default_value', text='') #, emboss=False)
                 elif item.type == 'RGB':
-                    row.prop(inputs[input_index], 'default_value', text='', icon='COLOR')
+                    row.prop(inp, 'default_value', text='', icon='COLOR')
             else:
                 row.label(text='', icon='LINKED')
 
@@ -5055,8 +5055,9 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
                 row.label(text='', icon='ERROR')
 
             if ypup.developer_mode and item.type=='RGB' and item.enable_alpha:
-                if len(inputs[input_index + 1].links) == 0:
-                    row.prop(inputs[input_index + 1], 'default_value', text='')
+                inp_alpha = inputs.get(item.name + io_suffix['ALPHA'])
+                if len(inp_alpha.links) == 0:
+                    row.prop(inp_alpha, 'default_value', text='')
                 else: row.label(text='', icon='LINKED')
 
 def any_subitem_in_layer(layer):

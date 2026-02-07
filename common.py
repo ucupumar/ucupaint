@@ -2692,6 +2692,28 @@ def get_tree_outputs(tree):
 
     return [ui for ui in tree.interface.items_tree if hasattr(ui, 'in_out') and ui.in_out in {'OUTPUT', 'BOTH'}]
 
+def get_tree_input_index_by_name(tree, name):
+    if not is_bl_newer_than(4):
+        ids = [i for i, inp in enumerate(tree.inputs) if inp.name == name]
+    else:
+        inputs = get_tree_inputs(tree)
+        ids = [i for i, inp in enumerate(inputs) if inp.name == name and hasattr(inp, 'in_out') and inp.in_out in {'INPUT', 'BOTH'}]
+
+    if len(ids) > 0: return ids[0]
+
+    return -1
+
+def get_tree_output_index_by_name(tree, name):
+    if not is_bl_newer_than(4):
+        ids = [i for i, outp in enumerate(tree.outputs) if outp.name == name]
+    else:
+        outputs = get_tree_outputs(tree)
+        ids = [i for i, outp in enumerate(outputs) if outp.name == name and hasattr(outp, 'in_out') and outp.in_out in {'OUTPUT', 'BOTH'}]
+
+    if len(ids) > 0: return ids[0]
+
+    return -1
+
 def get_tree_input_by_name(tree, name):
     if not is_bl_newer_than(4):
         return tree.inputs.get(name)
@@ -2820,11 +2842,10 @@ def get_tree_output_by_index(tree, index):
     return None
 
 def get_output_index(root_ch):
-    yp = root_ch.id_data.yp
-
     output_index = root_ch.io_index
 
     # Check if there's normal channel above current channel because it has extra output
+    #yp = root_ch.id_data.yp
     #for ch in yp.channels:
     #    if ch.type == 'NORMAL' and ch != root_ch:
     #        output_index += 1
@@ -6817,7 +6838,7 @@ def get_material_fcurves(mat):
     fcurves = []
 
     if tree.animation_data and tree.animation_data.action:
-        for fc in get_datablock_fcurves(mat):
+        for fc in get_datablock_fcurves(tree):
             match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if match:
                 fcurves.append(fc)
@@ -6912,17 +6933,13 @@ def swap_channel_fcurves(yp, idx0, idx1):
     ch0 = yp.channels[idx0]
     ch1 = yp.channels[idx1]
 
-    ch0_idx = ch0.io_index
-    ch1_idx = ch1.io_index
+    inp0_idx = get_tree_input_index_by_name(yp.id_data, ch0.name)
+    inp1_idx = get_tree_input_index_by_name(yp.id_data, ch1.name)
+
+    if inp0_idx == -1 or inp1_idx == -1: return
 
     # NOTE: This swap does not consider the alpha channel input
     # Since it will be replaced with dedicated channel, I think it's probably fine for now
-
-    if idx0 > idx1 and ch1.enable_alpha:
-        ch1_idx += 1
-
-    if idx0 < idx1 and ch0.enable_alpha:
-        ch0_idx += 1
 
     for mat in bpy.data.materials:
         if not mat.node_tree: continue
@@ -6942,11 +6959,11 @@ def swap_channel_fcurves(yp, idx0, idx1):
                     m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                     if m:
                         index = int(m.group(1))
-                        if index == ch0_idx:
-                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(ch1_idx) + '].default_value'
+                        if index == inp0_idx:
+                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(inp1_idx) + '].default_value'
 
-                        elif index == ch1_idx:
-                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(ch0_idx) + '].default_value'
+                        elif index == inp1_idx:
+                            fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(inp0_idx) + '].default_value'
 
 def swap_layer_channel_fcurves(layer, idx0, idx1):
     if idx0 >= len(layer.channels) or idx1 >= len(layer.channels): return
@@ -7162,9 +7179,21 @@ def remove_channel_fcurves(root_ch):
     drivers = get_material_drivers(mat)
 
     # Get list of channel input indices
-    indices = [root_ch.io_index]
+    indices = []
+
+    idx = get_tree_input_index_by_name(tree, root_ch.name)
+    if idx != -1: indices.append(idx)
+
     if root_ch.enable_alpha:
-        indices.append(root_ch.io_index+1)
+        idx = get_tree_input_index_by_name(tree, root_ch.name + io_suffix['ALPHA'])
+        if idx != -1: indices.append(idx)
+
+    if root_ch.special_channel_type == 'HEIGHT' and root_ch.use_height_normalize:
+        idx = get_tree_input_index_by_name(tree, root_ch.name + io_suffix['MIDLEVEL'])
+        if idx != -1: indices.append(idx)
+
+        idx = get_tree_input_index_by_name(tree, root_ch.name + io_suffix['SCALE'])
+        if idx != -1: indices.append(idx)
 
     # Delete fcurves
     fcs = []
@@ -7276,8 +7305,11 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
                     if m:
                         fc.data_path = fc.data_path.replace('.channels[' + str(i) + ']', '.channels[' + str(i+shifter) + ']')
 
-    if remove_ch_mode and start_index < len(yp.channels) and yp.channels[start_index].enable_alpha and shifter < 0:
-        shifter -= 1
+    if remove_ch_mode and start_index < len(yp.channels) and shifter < 0:
+        if yp.channels[start_index].enable_alpha:
+            shifter -= 1
+        #if yp.channels[start_index].special_channel_type == 'HEIGHT' and yp.channels[start_index].use_height_normalize:
+        #    shifter -= 1
 
     for mat in bpy.data.materials:
         if not mat.node_tree: continue
@@ -7299,18 +7331,19 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
 
                     for i, root_ch in reversed(list(enumerate(yp.channels))):
                         if i <= start_index: continue
-                        io_index = root_ch.io_index
+                        input_index = get_tree_input_index_by_name(tree, root_ch.name)
+
                         for fc in fcurves:
-                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
-                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
+                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(input_index) + '\]\.default_value$', fc.data_path)
+                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(input_index+shifter) + '].default_value'
                 else:
 
                     for i, root_ch in enumerate(yp.channels):
                         if i <= start_index: continue
-                        io_index = root_ch.io_index
+                        input_index = get_tree_input_index_by_name(tree, root_ch.name)
                         for fc in fcurves:
-                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
-                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
+                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(input_index) + '\]\.default_value$', fc.data_path)
+                            if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(input_index+shifter) + '].default_value'
 
 
 def shift_mask_fcurves_up(layer, start_index=1):

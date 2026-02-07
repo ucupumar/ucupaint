@@ -1083,6 +1083,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         end_max_height_tweak = nodes.get(ch.end_max_height_tweak)
         start_normal_filter = nodes.get(ch.start_normal_filter)
         start_bump_process = nodes.get(ch.start_bump_process)
+        start_height_process = nodes.get(ch.start_height_process)
 
         io_name = ch.name
         io_alpha_name = ch.name + io_suffix['ALPHA']
@@ -1122,6 +1123,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         height_e_alpha = None
         height_w_alpha = None
 
+        midlevel = None
         max_height = None
 
         vdisp = None
@@ -1129,6 +1131,19 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         if ch.special_channel_type == 'HEIGHT':
             if io_max_height_name in get_essential_node(tree, TREE_START):
                 max_height = get_essential_node(tree, TREE_START)[io_max_height_name]
+            else: max_height = get_essential_node(tree, ONE_VALUE)[0]
+
+            if io_midlevel_name in get_essential_node(tree, TREE_START):
+                midlevel = get_essential_node(tree, TREE_START)[io_midlevel_name]
+            else: midlevel = get_essential_node(tree, ZERO_VALUE)[0]
+
+            # Input height process
+            if start_height_process:
+                rgb = create_link(tree, rgb, start_height_process.inputs[0])[0]
+                if max_height and 'Value Max Height' in start_height_process.inputs:
+                    create_link(tree, max_height, start_height_process.inputs['Value Max Height'])
+                if midlevel and 'Midlevel' in start_height_process.inputs:
+                    create_link(tree, midlevel, start_height_process.inputs['Midlevel'])
 
         elif ch.type == 'NORMAL':
             height_input = get_essential_node(tree, TREE_START).get(io_height_name)
@@ -1385,8 +1400,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 normal_no_bump = rgb
 
-                if 'Normal Overlay' in end_linear.inputs:
-                    rgb = create_link(tree, rgb, end_linear.inputs['Normal Overlay'])[0]
+                if 'Normal' in end_linear.inputs:
+                    rgb = create_link(tree, rgb, end_linear.inputs['Normal'])[0]
                 else: rgb = end_linear.outputs[0]
 
                 if 'Main UV' in end_linear.inputs and ch.main_uv in uv_maps:
@@ -1458,11 +1473,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             if height_ch and height_ch.use_height_as_bump:
                 height_end_linear = nodes.get(height_ch.end_linear)
                 if ch == normal_ch:
-                    if height_end_linear and 'Normal Overlay' in height_end_linear.inputs:
-                        rgb = create_link(tree, rgb, height_end_linear.inputs['Normal Overlay'])[0]
+                    if height_end_linear and 'Normal' in height_end_linear.inputs:
+                        rgb = create_link(tree, rgb, height_end_linear.inputs['Normal'])[0]
 
                 elif ch == height_ch:
-                    rgb = get_essential_node(tree, HALF_VALUE)[0]
+                    if ch.use_height_normalize:
+                        rgb = get_essential_node(tree, HALF_VALUE)[0]
+                    else: rgb = get_essential_node(tree, ZERO_VALUE)[0]
 
         if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked and not ch.use_baked_vcol: # and baked_uv:
             baked = nodes.get(ch.baked)
@@ -1558,7 +1575,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         # Blender 2.79 cycles does not need bump normal
         if not is_bl_newer_than(2, 80) and normal_no_bump and ch.type == 'NORMAL' and ch.enable_subdiv_setup:
             create_link(tree, normal_no_bump, get_essential_node(tree, TREE_END)[io_name])
-        else: create_link(tree, rgb, get_essential_node(tree, TREE_END)[io_name])
+        elif io_name in get_essential_node(tree, TREE_END): 
+            create_link(tree, rgb, get_essential_node(tree, TREE_END)[io_name])
 
         #if ch.type == 'RGB' and ch.enable_alpha:
         if ch.enable_alpha:
@@ -1876,7 +1894,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if prev_height_e and 'Height E' in bump_process.inputs: create_link(tree, prev_height_e, bump_process.inputs['Height E'])
             if prev_height_w and 'Height W' in bump_process.inputs: create_link(tree, prev_height_w, bump_process.inputs['Height W'])
 
-        if prev_normal: create_link(tree, prev_normal, bump_process.inputs['Normal Overlay'])
+        if prev_normal and 'Normal' in bump_process.inputs: create_link(tree, prev_normal, bump_process.inputs['Normal'])
         if tangent and 'Tangent' in bump_process.inputs: create_link(tree, tangent, bump_process.inputs['Tangent'])
         if bitangent and 'Bitangent' in bump_process.inputs: create_link(tree, bitangent, bump_process.inputs['Bitangent'])
 

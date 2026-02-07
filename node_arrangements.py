@@ -213,6 +213,10 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, ch.vdisp_blend, frame)
         check_set_node_parent(tree, ch.blend, frame)
 
+        if root_ch.special_channel_type == 'HEIGHT':
+            check_set_node_parent(tree, ch.height_proc, frame)
+            check_set_node_parent(tree, ch.max_height_calc, frame)
+
         if root_ch.special_channel_type == 'NORMAL':
             check_set_node_parent(tree, ch.normal_proc, frame)
 
@@ -2001,6 +2005,9 @@ def rearrange_yp_nodes(group_tree):
 
         if check_set_node_loc(group_tree, channel.start_bump_process, loc):
             loc.y -= 250
+
+        if check_set_node_loc(group_tree, channel.start_height_process, loc):
+            loc.y -= 290
 
         if i == num_channels-1:
             if check_set_node_loc(group_tree, ONE_VALUE, loc):

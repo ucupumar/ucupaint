@@ -33,27 +33,22 @@ colorspace_items = (
 AO_MULTIPLY = 'yP AO Multiply'
 
 def set_input_default_value(group_node, channel, custom_value=None):
-    #channel = group_node.node_tree.yp.channels[index]
 
     if custom_value:
         if channel.type == 'RGB' and len(custom_value) == 3:
             custom_value = (custom_value[0], custom_value[1], custom_value[2], 1)
 
-        #group_node.inputs[channel.io_index].default_value = custom_value
         group_node.inputs[channel.name].default_value = custom_value
         return
     
     # Set default value
     if channel.type == 'RGB':
-        #group_node.inputs[channel.io_index].default_value = (1,1,1,1)
         group_node.inputs[channel.name].default_value = (1, 1, 1, 1)
 
     if channel.type == 'VALUE':
-        #group_node.inputs[channel.io_index].default_value = 0.0
         group_node.inputs[channel.name].default_value = 0.0
     if channel.type == 'NORMAL':
         # Use 999 as normal z value so it will fallback to use geometry normal at checking process
-        #group_node.inputs[channel.io_index].default_value = (999,999,999)
         group_node.inputs[channel.name].default_value = (999, 999, 999)
 
         # Update height default value
@@ -69,12 +64,10 @@ def set_input_default_value(group_node, channel, custom_value=None):
     if channel.type == 'VECTOR':
         if channel.special_channel_type == 'NORMAL':
             # Use 999 as normal z value so it will fallback to use geometry normal at checking process
-            #group_node.inputs[channel.io_index].default_value = (999,999,999)
             group_node.inputs[channel.name].default_value = (999, 999, 999)
         else: group_node.inputs[channel.name].default_value = (0.0, 0.0, 0.0)
 
     if channel.enable_alpha:
-        #group_node.inputs[channel.io_index+1].default_value = 1.0
         group_node.inputs[channel.name + io_suffix['ALPHA']].default_value = 1.0
 
 def check_yp_channel_nodes(yp, reconnect=False):
@@ -126,6 +119,21 @@ def check_yp_channel_nodes(yp, reconnect=False):
 
         reconnect_yp_nodes(yp.id_data)
         rearrange_yp_nodes(yp.id_data)
+
+def set_default_height_channel_prop(channel):
+    yp = channel.id_data.yp
+
+    yp.halt_update = True
+
+    # Disable smooth bump by default
+    if is_bl_newer_than(2, 77):
+        channel.enable_smooth_bump = False
+
+    # Enable height as bump by default for Blender less than 4.2
+    if not is_bl_newer_than(4, 2):
+        channel.use_height_as_bump = True
+
+    yp.halt_update = False
 
 def create_new_group_tree(mat, name=None):
 
@@ -1078,12 +1086,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
 
             if self.enable_height:
                 ch_height = create_new_yp_channel(group_tree, 'Height', 'VALUE', non_color=True, special_channel_type='HEIGHT')
-
-                # Disable smooth bump by default
-                if is_bl_newer_than(2, 77):
-                    group_tree.yp.halt_update = True
-                    ch_height.enable_smooth_bump = False
-                    group_tree.yp.halt_update = False
+                set_default_height_channel_prop(ch_height)
 
             if self.enable_normal:
                 #ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
@@ -1141,7 +1144,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 links.new(l.from_socket, node.inputs[ch_metallic.name])
 
             set_input_default_value(node, ch_metallic, inp.default_value)
-            #links.new(node.outputs[ch_metallic.io_index], inp)
             links.new(node.outputs[ch_metallic.name], inp)
 
         if ch_roughness:
@@ -1152,11 +1154,11 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 links.new(l.from_socket, node.inputs[ch_roughness.name])
 
             set_input_default_value(node, ch_roughness, inp.default_value)
-            #links.new(node.outputs[ch_roughness.io_index], inp)
             links.new(node.outputs[ch_roughness.name], inp)
 
         if ch_height:
-            do_displacement_setup(mat, node, ch_height, is_vector_disp=False)
+            if not ch_height.use_height_as_bump:
+                do_displacement_node_setup(mat, node, ch_height, is_vector_disp=False)
 
         if ch_normal:
             inp = main_bsdf.inputs['Normal']
@@ -1166,11 +1168,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 links.new(l.from_socket, node.inputs[ch_normal.name])
 
             set_input_default_value(node, ch_normal)
-            #links.new(node.outputs[ch_normal.io_index], inp)
             links.new(node.outputs[ch_normal.name], inp)
 
         if ch_vdisp:
-            do_displacement_setup(mat, node, ch_vdisp, is_vector_disp=True)
+            do_displacement_node_setup(mat, node, ch_vdisp, is_vector_disp=True)
 
         # Disable overlay in Blender 2.8
         for area in context.screen.areas:
@@ -1338,19 +1339,116 @@ def update_channel_use_height_as_bump(self, context):
     if yp.halt_reconnect or yp.halt_update:
         return
 
+    node = get_active_ypaint_node()
+    mat = get_active_material()
+
+    # Remember the connections
+    outp = node.outputs.get(self.name)
+    if outp:
+        for l in outp.links:
+            con = self.ori_to.add()
+            con.node = l.to_node.name
+            con.socket = l.to_socket.name
+            con.socket_index = get_node_input_index(l.to_node, l.to_socket)
+
+    midlevel_outp = node.outputs.get(self.name + io_suffix['MIDLEVEL'])
+    if midlevel_outp:
+        for l in midlevel_outp.links:
+            con = self.ori_midlevel_to.add()
+            con.node = l.to_node.name
+            con.socket = l.to_socket.name
+            con.socket_index = get_node_input_index(l.to_node, l.to_socket)
+
+    max_height_outp = node.outputs.get(self.name + io_suffix['SCALE'])
+    if max_height_outp:
+        for l in max_height_outp.links:
+            con = self.ori_scale_to.add()
+            con.node = l.to_node.name
+            con.socket = l.to_socket.name
+            con.socket_index = get_node_input_index(l.to_node, l.to_socket)
+
     # Update input and outputs
     check_all_channel_ios(yp, reconnect=True)
+
+    # Reconnect the original connections
+    outp = node.outputs.get(self.name)
+    if outp:
+        for con in self.ori_to:
+            to_node = mat.node_tree.nodes.get(con.node)
+            if to_node and con.socket in to_node.inputs:
+                inp = to_node.inputs[con.socket]
+                if len(inp.links) == 0:
+                    mat.node_tree.links.new(outp, inp)
+        self.ori_to.clear()
+
+    midlevel_outp = node.outputs.get(self.name + io_suffix['MIDLEVEL'])
+    if midlevel_outp:
+        for con in self.ori_midlevel_to:
+            to_node = mat.node_tree.nodes.get(con.node)
+            if to_node and con.socket in to_node.inputs:
+                inp = to_node.inputs[con.socket]
+                if len(inp.links) == 0:
+                    mat.node_tree.links.new(midlevel_outp, inp)
+        self.ori_midlevel_to.clear()
+
+    max_height_outp = node.outputs.get(self.name + io_suffix['SCALE'])
+    if max_height_outp:
+        for con in self.ori_scale_to:
+            to_node = mat.node_tree.nodes.get(con.node)
+            if to_node and con.socket in to_node.inputs:
+                inp = to_node.inputs[con.socket]
+                if len(inp.links) == 0:
+                    mat.node_tree.links.new(max_height_outp, inp)
+        self.ori_scale_to.clear()
+
+    # Do displacement setup when use_height_as_bump is disabled since it will create a height socket
+    if not self.use_height_as_bump:
+        do_displacement_node_setup(mat, node, self, is_vector_disp=False)
 
 def update_channel_use_height_normalize(self, context):
     yp = self.id_data.yp
     if yp.halt_reconnect or yp.halt_update:
         return
 
-    # Update input and outputs
-    #check_all_channel_ios(yp, reconnect=True)
-    pass
+    node = get_active_ypaint_node()
 
-def do_displacement_setup(mat, node, channel, is_vector_disp=False):
+    # Remember input default values
+    midlevel_inp = node.inputs.get(self.name + io_suffix['MIDLEVEL'])
+    if midlevel_inp: self.ori_midlevel_value = midlevel_inp.default_value
+
+    max_height_inp = node.inputs.get(self.name + io_suffix['SCALE'])
+    if max_height_inp: self.ori_max_height_value = max_height_inp.default_value
+
+    # Update input and outputs
+    check_all_channel_ios(yp, reconnect=True)
+
+    # Reconnect outside nodes
+    if self.use_height_normalize:
+        mat = get_active_material()
+
+        # Get connected node
+        outp = node.outputs.get(self.name)
+        if outp and len(outp.links) > 0:
+            for link in outp.links:
+                to_node = link.to_node
+
+                # Connect max height output
+                if 'Scale' in to_node.inputs:
+                    inp = to_node.inputs['Scale']
+                    if len(inp.links) == 0:
+                        max_height_outp = node.outputs.get(self.name + io_suffix['SCALE'])
+                        if max_height_outp:
+                            mat.node_tree.links.new(max_height_outp, inp)
+
+                # Connect midlevel output
+                if 'Midlevel' in to_node.inputs:
+                    inp = to_node.inputs['Midlevel']
+                    if len(inp.links) == 0:
+                        midlevel_outp = node.outputs.get(self.name + io_suffix['MIDLEVEL'])
+                        if midlevel_outp:
+                            mat.node_tree.links.new(midlevel_outp, inp)
+
+def do_displacement_node_setup(mat, node, channel, is_vector_disp=False):
 
     matout = get_material_output(mat)
 
@@ -1373,12 +1471,15 @@ def do_displacement_setup(mat, node, channel, is_vector_disp=False):
         if disp:
             if is_vector_disp: 
                 inp = disp.inputs.get('Vector')
-                if len(inp.links) > 0: disp = None
+                if len(inp.links) > 0 and inp.links[0].from_node != node: disp = None
             else: 
                 inp = disp.inputs.get('Height')
-                if len(inp.links) > 0: disp = None
-                inp = disp.inputs.get('Scale')
-                if len(inp.links) > 0: disp = None
+                if len(inp.links) > 0 and inp.links[0].from_node != node: disp = None
+                if channel.use_height_as_bump:
+                    inp = disp.inputs.get('Scale')
+                    if len(inp.links) > 0 and inp.links[0].from_node != node: disp = None
+                    inp = disp.inputs.get('Midlevel')
+                    if len(inp.links) > 0 and inp.links[0].from_node != node: disp = None
 
         # Need combine node if there's connection but no valid displacement node
         if disp == None:
@@ -1453,12 +1554,9 @@ def do_alpha_setup(mat, node, channel):
     default_value = 1.0
 
     if channel.enable_alpha:
-        input_index = channel.io_index
-        alpha_input = node.inputs[input_index+1]
-
-        output_index = get_output_index(channel)
-        output = node.outputs[output_index]
-        alpha_output = node.outputs[output_index+1]
+        alpha_input = node.inputs.get(channel.name + io_suffix['ALPHA'])
+        alpha_output = node.outputs.get(channel.name + io_suffix['ALPHA'])
+        output = node.outputs.get(channel.name)
     else:
         alpha_input = node.inputs[channel.name]
         alpha_output = node.outputs[channel.name]
@@ -1631,7 +1729,6 @@ class YConnectYPaintChannel(bpy.types.Operator):
 
         mat = get_active_material()
         node = get_active_ypaint_node()
-        output_index = get_output_index(channel)
 
         # Connect to socket
         item = self.input_coll.get(self.connect_to)
@@ -1829,18 +1926,15 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
             make_channel_as_alpha(mat, node, channel, do_setup=True, move_index=True, ch_pair_name=self.channel_pair_name)
             set_material_methods(mat, self.blend_method, self.shadow_method)
         elif self.mode == 'HEIGHT':
-            do_displacement_setup(mat, node, channel, is_vector_disp=False)
-            # Don't forget to disable smooth bump
-            if is_bl_newer_than(2, 77):
-                yp.halt_update = True
-                channel.enable_smooth_bump = False
-                yp.halt_update = False
+            set_default_height_channel_prop(channel)
+            if not channel.use_height_as_bump:
+                do_displacement_node_setup(mat, node, channel, is_vector_disp=False)
         elif self.mode == 'NORMAL':
             outp = node.outputs.get(channel.name)
             mat.node_tree.links.new(outp, normal_inp)
             set_input_default_value(node, channel)
         elif self.mode == 'VDISP':
-            do_displacement_setup(mat, node, channel, is_vector_disp=True)
+            do_displacement_node_setup(mat, node, channel, is_vector_disp=True)
 
         # Set active channel to the newly created one
         channel = yp.channels.get(actual_ch_name)
@@ -1900,11 +1994,8 @@ class YToggleChannelAsSpecialChannel(bpy.types.Operator, BaseOperator.BlendMetho
             return {'CANCELLED'}
 
         # Disable smooth bump by default
-        if is_bl_newer_than(2, 77):
-            if self.type == 'HEIGHT' and self.channel.special_channel_type != 'HEIGHT':
-                yp.halt_update = True
-                self.channel.enable_smooth_bump = False
-                yp.halt_update = False
+        if self.type == 'HEIGHT' and self.channel.special_channel_type != 'HEIGHT':
+            set_default_height_channel_prop(channel)
 
         self.channel.special_channel_type = self.type
 
@@ -2232,11 +2323,6 @@ def set_channel_index(channel, new_index):
     # Remove props first
     check_all_channel_ios(yp, reconnect=False, remove_props=True)
 
-    # Get IO index
-    swap_ch = yp.channels[new_index]
-    io_index = channel.io_index
-    io_index_swap = swap_ch.io_index
-
     # Move channel
     yp.channels.move(index, new_index)
     swap_channel_fcurves(yp, index, new_index)
@@ -2524,6 +2610,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'end_max_height_tweak')
         remove_node(group_tree, channel, 'start_normal_filter')
         remove_node(group_tree, channel, 'start_bump_process')
+        remove_node(group_tree, channel, 'start_height_process')
         remove_node(group_tree, channel, 'baked')
         remove_node(group_tree, channel, 'baked_vcol')
         remove_node(group_tree, channel, 'baked_normal')
@@ -3301,6 +3388,12 @@ def update_channel_name(self, context):
     if yp.halt_reconnect or yp.halt_update:
         return
 
+    # Make sure there's no duplicate name
+    if any([ch for ch in yp.channels if ch != self and self.name == ch.name]):
+        self.halt_update = True
+        self.name = get_unique_name(self.name, yp.channels)
+        self.halt_update = False
+
     # Update bake target channel name
     for bt in yp.bake_targets:
         for letter in rgba_letters:
@@ -3308,11 +3401,11 @@ def update_channel_name(self, context):
             if btc.channel_name != '' and btc.channel_name == self.original_name:
                 btc.channel_name  = self.name
 
+    input_index = get_tree_input_index_by_name(group_tree, self.original_name)
+    output_index = get_tree_output_index_by_name(group_tree, self.original_name)
+
     # Update channel's original name
     self.original_name = self.name
-
-    input_index = self.io_index
-    output_index = get_output_index(self)
 
     get_tree_input_by_index(group_tree, input_index).name = self.name
     get_tree_output_by_index(group_tree, output_index).name = self.name
@@ -3326,14 +3419,15 @@ def update_channel_name(self, context):
         get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['ALPHA']
 
     if self.special_channel_type == 'HEIGHT':
-        get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['SCALE']
-        input_shift += 1
+        if self.use_height_normalize:
+            get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['SCALE']
+            input_shift += 1
 
-        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['SCALE']
-        output_shift += 1
+            get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['MIDLEVEL']
+            output_shift += 1
 
-        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['MIDLEVEL']
-        output_shift += 1
+            get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['SCALE']
+            output_shift += 1
 
     if self.type == 'NORMAL' and self.enable_subdiv_setup:
         get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['HEIGHT']
@@ -4054,13 +4148,13 @@ def update_channel_alpha(self, context):
                     mat.game_settings.alpha_blend = 'OPAQUE'
 
         node = get_active_ypaint_node()
-        inp = node.inputs[self.io_index + 1] if node else None
+        inp = node.inputs.get(self.name + io_suffix['ALPHA']) if node else None
         outp = None
 
         if yp.use_baked and yp.enable_baked_outside and tex:
             outp = tex.outputs[1]
         elif node:
-            outp = node.outputs[self.io_index + 1]
+            outp = node.outputs.get(self.name + io_suffix['ALPHA'])
 
         # Remember the connections
         if inp and len(inp.links) > 0:
@@ -4111,7 +4205,6 @@ def update_channel_alpha(self, context):
                 mat.game_settings.alpha_blend = 'ALPHA'
 
         # Get alpha index
-        #alpha_index = self.io_index+1
         alpha_name = self.name + io_suffix['ALPHA']
 
         # Set node default_value
@@ -4271,57 +4364,6 @@ def update_use_linear_blending(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
-#def update_col_input(self, context):
-#    group_node = get_active_ypaint_node()
-#    group_tree = group_node.node_tree
-#    yp = group_tree.yp
-#
-#    #if yp.halt_update: return
-#    if self.type != 'RGB': return
-#
-#    group_node.inputs[self.io_index].default_value = self.col_input
-#
-#    # Get start
-#    start_linear = group_tree.nodes.get(self.start_linear)
-#    if start_linear: start_linear.inputs[0].default_value = self.col_input
-
-#def update_val_input(self, context):
-#    group_node = get_active_ypaint_node()
-#    group_tree = group_node.node_tree
-#    yp = group_tree.yp
-#
-#    #if yp.halt_update: return
-#    if self.type == 'VALUE':
-#        group_node.inputs[self.io_index].default_value = self.val_input
-#
-#        # Get start
-#        start_linear = group_tree.nodes.get(self.start_linear)
-#        if start_linear: start_linear.inputs[0].default_value = self.val_input
-#
-#    elif self.enable_alpha and self.type == 'RGB':
-#        group_node.inputs[self.io_index+1].default_value = self.val_input
-#
-#        # Get index
-#        m = re.match(r'yp\.channels\[(\d+)\]', self.path_from_id())
-#        ch_index = int(m.group(1))
-#
-#        blend_found = False
-#        for layer in yp.layers:
-#            for i, ch in enumerate(layer.channels):
-#                if i == ch_index:
-#                    tree = get_tree(layer)
-#                    blend = tree.nodes.get(ch.blend)
-#                    if blend and blend.type =='GROUP':
-#                        inp = blend.node_tree.nodes.get('Group Input')
-#                        inp.outputs['Alpha1'].links[0].to_socket.default_value = self.val_input
-#                        blend_found = True
-#                        break
-#            if blend_found: break
-#
-#        # In case blend_found isn't found
-#        for link in group_node.outputs[self.io_index+1].links:
-#            link.to_socket.default_value = self.val_input
-
 class YNodeConnections(bpy.types.PropertyGroup):
     node : StringProperty(default='')
     socket : StringProperty(default='')
@@ -4446,8 +4488,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     use_height_normalize : BoolProperty(
         name = 'Normalize height output',
-        description = 'Normalize height to 0..1 range. Max Height socket will available to access if this enabled',
-        default=True,
+        description = 'Normalize height to 0..1 range. Height Midlevel and Scale socket will available to access if this enabled',
+        default=False,
         update=update_channel_use_height_normalize
     )
 
@@ -4697,6 +4739,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     clamp : StringProperty(default='')
     start_normal_filter : StringProperty(default='')
     start_bump_process : StringProperty(default='')
+    start_height_process : StringProperty(default='')
     bump_process : StringProperty(default='')
     end_max_height : StringProperty(default='')
     end_max_height_tweak : StringProperty(default='')
@@ -4745,12 +4788,15 @@ class YPaintChannel(bpy.types.PropertyGroup):
     ori_alpha_from : PointerProperty(type=YNodeConnections)
 
     ori_to : CollectionProperty(type=YNodeConnections)
+    ori_midlevel_to : CollectionProperty(type=YNodeConnections)
+    ori_scale_to : CollectionProperty(type=YNodeConnections)
     ori_height_to : CollectionProperty(type=YNodeConnections)
     ori_max_height_to : CollectionProperty(type=YNodeConnections)
 
     # Default value related
     ori_alpha_value : FloatProperty(default=0.0)
-    ori_max_height_value : FloatProperty(default=0.1)
+    ori_midlevel_value : FloatProperty(default=0.0)
+    ori_max_height_value : FloatProperty(default=1.0)
 
 class YPaintUV(bpy.types.PropertyGroup):
     name : StringProperty(default='')

@@ -134,7 +134,20 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
         if channel.special_channel_type == 'HEIGHT':
             
-            if any_layers_using_channel(channel):
+            # NOTE: Height process is always necessary even when there's no layer using height channel
+            #if any_layers_using_channel(channel) and (channel.use_height_normalize or channel.use_height_as_bump):
+            if channel.use_height_normalize or channel.use_height_as_bump:
+
+                # Process height input
+                #if channel.use_height_normalize:
+                lib_name = lib.HEIGHT_PROCESS
+                start_height_process = replace_new_node(
+                    group_tree, channel, 'start_height_process', 'ShaderNodeGroup', 'Input Height Process',
+                    lib_name, hard_replace=True
+                )
+                #else:
+                #    remove_node(group_tree, channel, 'start_height_process')
+
                 normal_ch, height_ch = get_normal_height_ch_pairs(yp)
 
                 if normal_ch and channel.use_height_as_bump:
@@ -147,6 +160,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 )
             else:
                 remove_node(group_tree, channel, 'end_linear')
+                remove_node(group_tree, channel, 'start_height_process')
 
         elif channel.special_channel_type == 'NORMAL':
             lib_name = lib.CHECK_INPUT_NORMAL
@@ -368,10 +382,12 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
     # Get channel pairs
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+    normal_ch, height_ch = get_normal_height_ch_pairs(yp)
 
     for ch in yp.channels:
 
         is_alpha_ch = ch.enable_alpha or (alpha_ch and ch == alpha_ch)
+        is_bump_only = ch == height_ch and height_ch.use_height_as_bump
 
         if ch.type == 'VALUE':
             create_input(
@@ -398,8 +414,9 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 valid_inputs, input_index, default_value=default_value, hide_value=hide_value, node=yp_node
             )
 
-        create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
-                valid_outputs, output_index)
+        if not is_bump_only:
+            create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
+                    valid_outputs, output_index)
 
         if ch.io_index != input_index:
             ch.io_index = input_index
@@ -439,21 +456,30 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
         # Displacement IO
         if ch.special_channel_type == 'HEIGHT':
-            name = ch.name + io_suffix['SCALE']
+            if ch.use_height_normalize:
+                name = ch.name + io_suffix['MIDLEVEL']
 
-            if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=0.1):
-                # Set node default value
-                if group_node and group_node.node_tree == group_tree:
-                    group_node.inputs[name].default_value = ch.ori_max_height_value
-            input_index += 1
+                if create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, default_value=0.0, min_value=0.0, max_value=1.0):
+                    # Set node default value
+                    if group_node and group_node.node_tree == group_tree:
+                        group_node.inputs[name].default_value = ch.ori_midlevel_value
+                input_index += 1
 
-            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
-            output_index += 1
+                if not is_bump_only:
+                    create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
+                    output_index += 1
 
-            name = ch.name + io_suffix['MIDLEVEL']
+                name = ch.name + io_suffix['SCALE']
 
-            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
-            output_index += 1
+                if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=1.0):
+                    # Set node default value
+                    if group_node and group_node.node_tree == group_tree:
+                        group_node.inputs[name].default_value = ch.ori_max_height_value
+                input_index += 1
+
+                if not is_bump_only:
+                    create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
+                    output_index += 1
 
         elif ch.type == 'NORMAL' and (ch.enable_subdiv_setup or force_height_io):
 
@@ -1000,7 +1026,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         # Displacement IO
         if root_ch.special_channel_type == 'HEIGHT':
 
-            if channel_enabled:
+            if channel_enabled and (root_ch.use_height_normalize or root_ch.use_height_as_bump):
                 name = root_ch.name + io_suffix['SCALE']
 
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
