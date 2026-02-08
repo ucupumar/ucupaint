@@ -1951,7 +1951,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
         label = 'Layer'
 
         if ch == alpha_ch and color_ch.enable and not color_ch.unpair_alpha:
-            if color_ch.socket_input_name == 'Alpha':
+            if not color_ch.override and color_ch.socket_input_name == 'Alpha':
                 label = 'Solid Value (1.0)'
             else: label += ' Alpha'
         else: label += ' ' + get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
@@ -6513,7 +6513,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         if color_ch and color_ch.enable and not color_ch.unpair_alpha and alpha_ch == ch:
             icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
 
-            if color_ch.socket_input_name == 'Alpha' and layer.type != 'GROUP':
+            if color_ch.socket_input_name == 'Alpha' and not color_ch.override and layer.type != 'GROUP':
                 label = ' Solid Value (1.0)'
             else:
                 label = 'Layer' if layer.type != 'GROUP' else 'Group'
