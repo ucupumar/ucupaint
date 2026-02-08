@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "ucupaint"
-version = "2.4.3"
+version = "2.4.4"
 name = "Ucupaint"
 tagline = "Layer based painting for Eevee and Cycles"
 maintainer = "Yusuf Umar <yusufumaris@gmail.com>"
