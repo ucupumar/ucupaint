@@ -620,6 +620,16 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
             elif subsurf: subsurf.use_adaptive_subdivision = False
 
         set_active_object(ori_active_obj)
+
+        # Disable height as bump
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        try: ch = yp.channels[yp.active_channel_index] if yp else None
+        except: ch = None
+        if ch and ch.special_channel_type == 'HEIGHT' and ch.ori_use_height_as_bump:
+            ch.use_height_as_bump = True
+            ch.ori_use_height_as_bump = False
+
         return {'FINISHED'}
 
 class YQuickDisplacementSetup(bpy.types.Operator):
@@ -656,6 +666,12 @@ class YQuickDisplacementSetup(bpy.types.Operator):
         default=1.0, min=0.5, max=1000,
     )
 
+    disable_use_height_as_bump : BoolProperty(
+        name = 'Disable Height as Bump',
+        description = 'Disable height as bump',
+        default = True
+    )
+
     @classmethod
     def poll(cls, context):
         return context.object and get_active_material()
@@ -664,6 +680,11 @@ class YQuickDisplacementSetup(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=330)
 
     def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        try: ch = yp.channels[yp.active_channel_index] if yp else None
+        except: ch = None
+
         row = split_layout(self.layout, 0.35)
         col = row.column()
         col.label(text='Method:')
@@ -671,6 +692,8 @@ class YQuickDisplacementSetup(bpy.types.Operator):
         col.label(text='')
         if self.use_adaptive_subdivision:
             col.label(text='Dicing Rate')
+        if ch and ch.special_channel_type == 'HEIGHT' and ch.use_height_as_bump:
+            col.label(text='')
 
         col = row.column()
         col.prop(self, 'displacement_method', text='')
@@ -678,6 +701,8 @@ class YQuickDisplacementSetup(bpy.types.Operator):
         col.prop(self, 'use_adaptive_subdivision', text='Adaptive (Cycles Only)')
         if self.use_adaptive_subdivision:
             col.prop(self, 'dicing_rate', text='')
+        if ch and ch.special_channel_type == 'HEIGHT' and ch.use_height_as_bump:
+            col.prop(self, 'disable_use_height_as_bump', text='Disable Height as Bump Only')
 
     def execute(self, context):
         scene = context.scene
@@ -774,6 +799,15 @@ class YQuickDisplacementSetup(bpy.types.Operator):
                 elif subsurf: subsurf.use_adaptive_subdivision = False
 
         set_active_object(ori_active_obj)
+
+        # Disable height as bump
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        try: ch = yp.channels[yp.active_channel_index] if yp else None
+        except: ch = None
+        if ch and ch.special_channel_type == 'HEIGHT' and ch.use_height_as_bump and self.disable_use_height_as_bump:
+            ch.use_height_as_bump = False
+            ch.ori_use_height_as_bump = True
 
         return {'FINISHED'}
 
@@ -4797,6 +4831,9 @@ class YPaintChannel(bpy.types.PropertyGroup):
     ori_alpha_value : FloatProperty(default=0.0)
     ori_midlevel_value : FloatProperty(default=0.0)
     ori_max_height_value : FloatProperty(default=1.0)
+
+    # Settings related
+    ori_use_height_as_bump : BoolProperty(default=False)
 
 class YPaintUV(bpy.types.PropertyGroup):
     name : StringProperty(default='')
