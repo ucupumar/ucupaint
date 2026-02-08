@@ -2765,6 +2765,12 @@ def update_channel_name(self, context):
     if yp.halt_reconnect or yp.halt_update:
         return
 
+    # Make sure there's no duplicate name
+    if any([ch for ch in yp.channels if ch != self and self.name == ch.name]):
+        self.halt_update = True
+        self.name = get_unique_name(self.name, yp.channels)
+        self.halt_update = False
+
     # Update bake target channel name
     for bt in yp.bake_targets:
         for letter in rgba_letters:
