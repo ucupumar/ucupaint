@@ -143,9 +143,19 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     bl_description = "Bake something as layer/mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name : StringProperty(default='')
+    name : StringProperty(
+        name = 'Image Name',
+        description = 'Baked image name',
+        default = ''
+    )
 
-    uv_map : StringProperty(default='', update=update_bake_to_layer_uv_map)
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for baked image coordinate', 
+        default = '',
+        update = update_bake_to_layer_uv_map
+    )
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     uv_map_1 : StringProperty(default='')
@@ -159,15 +169,19 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
     # For choosing overwrite entity from list
     overwrite_choice : BoolProperty(
-        name = 'Overwrite available layer',
-        description = 'Overwrite available layer',
+        name = 'Overwrite existing layer',
+        description = 'Overwrite existing layer',
         default = False
     )
 
     # For rebake button
     overwrite_current : BoolProperty(default=False)
 
-    overwrite_name : StringProperty(default='')
+    overwrite_name : StringProperty(
+        name = 'Overwritten Image Name',
+        description = 'Image name that will be overwritten',
+        default = ''
+    )
     overwrite_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     overwrite_image_name : StringProperty(default='')
@@ -221,11 +235,24 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     )
     
     # AO Props
-    ao_distance : FloatProperty(default=1.0)
+    ao_distance : FloatProperty(
+        name = 'AO Distance',
+        description = 'Ambient occlusion distance',
+        default = 1.0
+    )
 
     # Bevel Props
-    bevel_samples : IntProperty(default=4, min=2, max=16)
-    bevel_radius : FloatProperty(default=0.05, min=0.0, max=1000.0)
+    bevel_samples : IntProperty(
+        name = 'Bevel Samples',
+        description = 'Bevel samples',
+        default=4, min=2, max=16
+    )
+
+    bevel_radius : FloatProperty(
+        name = 'Bevel Radius',
+        description = 'Bevel distance radius',
+        default=0.05, min=0.0, max=1000.0
+    )
 
     edge_detect_method : EnumProperty(
         name = 'Edge Detection Method',
@@ -237,7 +264,11 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default='DOT'
     )
 
-    multires_base : IntProperty(default=1, min=0, max=16)
+    multires_base : IntProperty(
+        name = 'Multires Base',
+        description = 'Baking will use the difference between the base level and max level,\nand after baking, base level will be used in the multires modifier',
+        default=1, min=0, max=16
+    )
 
     target_type : EnumProperty(
         name = 'Target Bake Type',
@@ -280,6 +311,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
+        description = 'Normal blend type',
         items = normal_blend_items,
         default = 'MIX'
     )
@@ -290,7 +322,11 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         items = Layer.get_normal_map_type_items
     )
 
-    hdr : BoolProperty(name='32 bit Float', default=True)
+    hdr : BoolProperty(
+        name = '32-bit Float',
+        description = 'Use 32-bit float image',
+        default = True
+    )
 
     use_baked_disp : BoolProperty(
         name = 'Use Displacement Setup',
@@ -854,14 +890,14 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             ccol.prop(self, 'hide_source_objects')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
         if (self.overwrite_choice or self.overwrite_current) and self.overwrite_name == '':
             self.report({'ERROR'}, "Overwrite layer/mask cannot be empty!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Get overwrite image
         overwrite_img = None
@@ -874,7 +910,6 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             elif overwrite_img.yua.is_udim_atlas:
                 segment = overwrite_img.yua.segments.get(self.overwrite_segment_name)
 
-
         # Get bake properties
         bprops = get_bake_properties_from_self(self)
 
@@ -882,7 +917,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         if rdict['message'] != '':
             self.report({'ERROR'}, rdict['message'])
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         active_id = rdict['active_id']
         image = rdict['image']
@@ -906,7 +941,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         if image: 
             self.report({'INFO'}, 'Baking '+bake_type_labels[self.type]+' is done in '+'{:0.2f}'.format(rdict['time_elapsed'])+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_entity_to_image"
@@ -914,12 +949,26 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
     bl_description = "Bake Layer/Mask to an image"
     bl_options = {'UNDO'}
 
-    name : StringProperty(default='')
+    name : StringProperty(
+        name = 'Image Name',
+        description = 'Baked Image Name',
+        default = ''
+    )
 
-    uv_map : StringProperty(default='', update=update_bake_to_layer_uv_map)
+    uv_map : StringProperty(
+        name = 'UV Map', 
+        description = 'UV Map to use for baked image coordinate', 
+        default = '',
+        update = update_bake_to_layer_uv_map
+    )
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    hdr : BoolProperty(name='32 bit Float', default=False)
+    hdr : BoolProperty(
+        name = '32-bit Float',
+        description = 'Use 32-bit float image',
+        default = False
+    )
 
     fxaa : BoolProperty(
         name = 'Use FXAA', 
@@ -1235,23 +1284,23 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         col.prop(self, 'use_image_atlas')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         if not self.layer:
             self.report({'ERROR'}, "Invalid context!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         #if self.layer and not self.mask:
         #    self.report({'ERROR'}, "This feature is not implemented yet!")
-        #    return {'CANCELLED'}
+        #    return self.execute_operator_cancelled(context)
 
         if self.uv_map == '':
             self.report({'ERROR'}, "UV Map cannot be empty!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.mask and self.mask.type == 'BACKFACE':
             self.report({'ERROR'}, "Backface mask can't be baked!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         T = time.time()
         node = get_active_ypaint_node()
@@ -1271,7 +1320,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         if rdict['message'] != '':
             self.report({'ERROR'}, rdict['message'])
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         image = rdict['image']
         segment = rdict['segment']
@@ -1345,7 +1394,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         if image: 
             self.report({'INFO'}, 'Baking '+entity_label+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {"FINISHED"}
+        return self.execute_operator_finished(context)
 
 class YRemoveBakedEntity(bpy.types.Operator):
     bl_idname = "wm.y_remove_baked_entity"
@@ -1435,6 +1484,8 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
         self.layout.label(text='Rebaking all baked images can take a while to process', icon='ERROR')
     
     def execute(self, context): 
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
+
         T = time.time()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -1443,10 +1494,11 @@ class YRebakeBakedImages(bpy.types.Operator, BaseBakeOperator):
 
         if baked_counts == 0:
             self.report({'ERROR'}, 'No baked layer/mask used!')
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         self.report({'INFO'}, 'Rebaking all baked layers & masks is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
-        return {'FINISHED'}
+
+        return self.execute_operator_finished(context)
 
 class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_rebake_specific_layers"
@@ -1465,6 +1517,8 @@ class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def execute(self, context): 
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
+
         T = time.time()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -1477,7 +1531,7 @@ class YRebakeSpecificLayers(bpy.types.Operator, BaseBakeOperator):
 
         rebake_baked_images(yp, specific_layers=layers)
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YSelectAllOtherObjects(bpy.types.Operator):
     bl_idname = "wm.y_select_all_other_objects"
@@ -1497,6 +1551,7 @@ class YSelectAllOtherObjects(bpy.types.Operator):
             if so.object:
                 so_object = so.object
                 so_object.hide_viewport = False
+                so_object.hide_render = False
                 set_object_select(so_object, True)
         if so_object:
             set_active_object(so_object)
@@ -1530,6 +1585,7 @@ class YToggleOtherObjectsVisibility(bpy.types.Operator):
         for oo in bi.other_objects:
             if oo.object:
                 oo.object.hide_viewport = not current_hidden_state
+                oo.object.hide_render = not current_hidden_state
 
         return {'FINISHED'}
 

@@ -349,7 +349,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         filtered_items = list()
 
         for item in collaborators.sponsors.values():
-            if item['tier'] != tier_index:# or not item['public']:
+            if item['tier'] != tier_index or not item['public']:
                 continue
             filtered_items.append(item)
 
@@ -804,9 +804,8 @@ def load_contributors(goal_ui: YSponsorProp):
             }
             collaborators.sponsors[sponsor['id']] = sponsor
             print_info("Loaded sponsor " + sponsor['id'] + " = " + str(sponsor))
-    
-    # expand top 2 tiers that have members
-    expanding_top_tier = 4 # todo : from settings
+        
+    expanding_top_tier = collaborators.sponsorships.get('expanding_tier_member', 3)
     # tier setup
     tiers = collaborators.sponsorships.get('tiers', [])
 

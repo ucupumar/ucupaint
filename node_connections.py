@@ -1504,17 +1504,22 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             #create_link(tree, geometry.outputs['Backfacing'], end_backface.inputs[1])
             create_link(tree, get_essential_node(tree, GEOMETRY)['Backfacing'], end_backface.inputs[1])
 
-        if yp.use_baked and ch.use_baked_vcol and not ch.disable_global_baked:
-            baked_vcol = nodes.get(ch.baked_vcol)
+        if yp.use_baked and (
+            (ch.use_baked_vcol and not ch.disable_global_baked) or
+            (alpha_ch == ch and color_ch.use_baked_vcol and not color_ch.disable_global_baked)
+            ):
+
+            if ch == alpha_ch: baked_vcol = nodes.get(color_ch.baked_vcol)
+            else: baked_vcol = nodes.get(ch.baked_vcol)
+
             if baked_vcol:
-                if ch.bake_to_vcol_alpha:
+                if ch.bake_to_vcol_alpha or ch == alpha_ch:
                     rgb = baked_vcol.outputs['Alpha']
                 else:
                     rgb = baked_vcol.outputs['Color']
                 if is_channel_alpha_enabled(ch):
                     alpha = baked_vcol.outputs['Alpha']
 
-        #print(rgb)
         # Blender 2.79 cycles does not need bump normal
         if not is_bl_newer_than(2, 80) and normal_no_bump and ch.type == 'NORMAL' and ch.enable_subdiv_setup:
             create_link(tree, normal_no_bump, get_essential_node(tree, TREE_END)[io_name])
@@ -1953,7 +1958,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         root_ch = yp.channels[i]
 
         # Get main socket
-        outp = source.outputs.get(ch.socket_input_name)
+        # NOTE: Always use color socket if override is enabled and the layer is an image or color attribute
+        # This is to avoid solid alpha value if 'Alpha' socket is used.
+        if layer.type in {'IMAGE', 'VCOL'} and ch.override:
+            outp = source.outputs.get('Color')
+        else: outp = source.outputs.get(ch.socket_input_name)
         if outp not in available_outputs:
             outp = None
 
@@ -1969,7 +1978,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
             outp = normal_outp
 
-        # If not use whatever in the first index
+        # If not, use whatever in the first index
         if not outp and len(available_outputs) > 0:
             outp = available_outputs[0]
 
@@ -2355,6 +2364,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     else:
         layer_channels = layer.channels
 
+    # Get relevant, non skippable layer channels
+    if ch_idx != -1 and ch_idx < len(layer.channels):
+        ch = layer.channels[ch_idx]
+        relevant_chs = [ch]
+        if ch == color_ch:
+            relevant_chs.append(alpha_ch)
+    else:
+        relevant_chs = [ch for ch in layer_channels]
+
     # Layer Channels
     for ch in layer_channels:
 
@@ -2454,6 +2472,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else:
                 group_channel = source.outputs.get(root_ch.name + io_suffix['GROUP'])
                 if group_channel: rgb = group_channel
+                elif root_ch.type == 'NORMAL':
+                    # Get Geometry normal if normal from group doesn't exist
+                    rgb = get_essential_node(tree, GEOMETRY).get('Normal')
 
             if root_ch.type == 'NORMAL':
                 group_height_alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
@@ -2583,7 +2604,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if alpha_preview:
                     create_link(tree, normal, alpha_preview)
 
-        if ch_idx != -1 and i != ch_idx: continue
+        if ch not in relevant_chs: continue
 
         intensity = nodes.get(ch.intensity)
         layer_intensity = nodes.get(ch.layer_intensity)
@@ -3133,7 +3154,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if layer.type == 'GROUP':
 
-                if normal_proc: create_link(tree, normal, normal_proc.inputs['Normal'])
+                if normal_proc: 
+                    create_link(tree, normal, normal_proc.inputs['Normal'])
+                    if height_proc and 'Normal Alpha' in normal_proc.inputs and 'Normal Alpha' in height_proc.outputs:
+                        create_link(tree, height_proc.outputs['Normal Alpha'], normal_proc.inputs['Normal Alpha'])
 
                 height_group = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
                 if height_proc and height_group and 'Height' in height_proc.inputs: create_link(tree, height_group, height_proc.inputs['Height'])
@@ -3779,6 +3803,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if prev_rgb:
                     if 'Color1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Color1'])
                     elif 'Value1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Value1'])
+                    elif 'Vector1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Vector1'])
                 if prev_alpha and 'Alpha1' in blend.inputs: create_link(tree, prev_alpha, blend.inputs['Alpha1'])
 
                 if prev_alpha_alpha and 'Alpha1 Alpha' in blend.inputs: 

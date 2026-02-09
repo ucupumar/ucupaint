@@ -176,6 +176,8 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
         elif channel.type == 'NORMAL':
 
+            any_bumps = any_layers_using_bump_map(channel)
+
             # Remember height tweak prop from node
             end_max_height_tweak = group_tree.nodes.get(channel.end_max_height_tweak)
             if end_max_height_tweak:
@@ -198,9 +200,12 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 lib_name = lib.CHECK_INPUT_NORMAL_GEOMETRY
             else: lib_name = lib.CHECK_INPUT_NORMAL
 
-            start_normal_filter = replace_new_node(
-                group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter', lib_name
-            )
+            # NOTE: Start normal filter is no longer necessary when there are only bump layers in Blender 5.0+
+            if not is_bl_newer_than(5) or channel.enable_subdiv_setup or not any_bumps or any_layers_using_normal_map(channel):
+                start_normal_filter = replace_new_node(
+                    group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter', lib_name
+                )
+            else: remove_node(group_tree, channel, 'start_normal_filter')
 
             if is_normal_height_input_connected(channel):
                 #if channel.enable_smooth_bump:
@@ -216,7 +221,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
             process_lib_name = ''
 
-            if (any_layers_using_channel(channel) and any_layers_using_bump_map(channel)) or is_normal_height_input_connected(channel):
+            if (any_layers_using_channel(channel) and any_bumps) or is_normal_height_input_connected(channel):
 
                 # Add end linear for converting displacement map to grayscale
                 if channel.enable_smooth_bump:
@@ -324,6 +329,12 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                     # Set normal tweak value to 1.0 if it's disabled
                     end_linear.inputs['Normal Tweak'].default_value = 1.0
 
+def set_float_factor_inputs_hack(tree, float_factor_input_names):
+    if not is_bl_newer_than(5, 1): return
+    for inp in tree.interface.items_tree:
+        if inp.name in float_factor_input_names and inp.subtype != 'FACTOR':
+            inp.subtype = 'FACTOR'
+
 def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_io=False, hard_reset=False, yp_node=None):
 
     #print("Checking YP IO. Specific Layer: " + str(specific_layer))
@@ -335,6 +346,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     output_index = 0
     valid_inputs = []
     valid_outputs = []
+    float_factor_input_names = []
 
     # Get alpha and color pair channel
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
@@ -348,6 +360,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
                 valid_inputs, input_index, min_value=0.0, max_value=1.0
             )
+            float_factor_input_names.append(ch.name)
         elif ch.type == 'RGB':
             create_input(
                 group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
@@ -378,6 +391,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, 
                 min_value=0.0, max_value=1.0, default_value=0.0
             )
+            float_factor_input_names.append(name)
 
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
@@ -408,6 +422,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, 
                 min_value=0.0, max_value=1.0, default_value=height_default_value, hide_value=True
             )
+            float_factor_input_names.append(name)
             if group_node and group_node.node_tree == group_tree:
                 group_node.inputs[name].default_value = height_default_value
             input_index += 1
@@ -470,6 +485,9 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
     # Check uv maps
     check_uv_nodes(yp)
+
+    # NOTE HACK: Blender 5.1 Alpha can only set the socket subtype here
+    set_float_factor_inputs_hack(group_tree, float_factor_input_names)
 
     # Update layer IO
     for layer in yp.layers:
@@ -594,7 +612,7 @@ def recheck_background_layers_ios(yp, index_dict):
             reconnect_layer_nodes(layer)
             rearrange_layer_nodes(layer)
 
-def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty):
+def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty, float_factor_input_names):
 
     root_tree = entity.id_data
     yp = root_tree.yp
@@ -615,10 +633,12 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty):
     prop_value = getattr(entity, prop_name)
 
     # Get socket type
+    is_float_factor = False
     if type(prop_value) == float:
         socket_type = 'NodeSocketFloat'
         if rna.subtype == 'FACTOR':
             socket_type = 'NodeSocketFloatFactor'
+            is_float_factor = True
         default_value = rna.default
     elif type(prop_value) == Color:
         socket_type = 'NodeSocketColor'
@@ -636,6 +656,9 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty):
         min_value=rna.soft_min, max_value=rna.soft_max, default_value=default_value, 
         description=rna.description
     )
+
+    if is_float_factor:
+        float_factor_input_names.append(input_name)
 
     # Set default value
     if inp_dirty:
@@ -677,6 +700,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     output_index = 0
     valid_inputs = []
     valid_outputs = []
+    float_factor_input_names = []
 
     has_parent = layer.parent_idx != -1
     need_prev_normal = check_need_prev_normal(layer)
@@ -707,30 +731,30 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     # Prop inputs
     if not remove_props and layer_enabled:
 
-        dirty = create_prop_input(layer, 'intensity_value', valid_inputs, input_index, dirty)
+        dirty = create_prop_input(layer, 'intensity_value', valid_inputs, input_index, dirty, float_factor_input_names)
         input_index += 1
 
         # Layer prop inputs
         if layer.enable_blur_vector:
-            dirty = create_prop_input(layer, 'blur_vector_factor', valid_inputs, input_index, dirty)
+            dirty = create_prop_input(layer, 'blur_vector_factor', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
 
         if layer.texcoord_type == 'Decal':
-            dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty)
+            dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
         
         if is_bl_newer_than(2, 81) and layer.enable_uniform_scale and is_layer_using_vector(layer) and layer.segment_name == '':
-            dirty = create_prop_input(layer, 'uniform_scale_value', valid_inputs, input_index, dirty)
+            dirty = create_prop_input(layer, 'uniform_scale_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
 
         # Edge Detect
         if layer.type == 'EDGE_DETECT':
-            dirty = create_prop_input(layer, 'edge_detect_radius', valid_inputs, input_index, dirty)
+            dirty = create_prop_input(layer, 'edge_detect_radius', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
         
         # AO
         elif layer.type == 'AO':
-            dirty = create_prop_input(layer, 'ao_distance', valid_inputs, input_index, dirty)
+            dirty = create_prop_input(layer, 'ao_distance', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
 
         # Channel prop inputs
@@ -746,21 +770,21 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             # Alpha channel won't use intensity_value prop input if color channel is enabled
             if alpha_ch != ch or (alpha_ch == ch and (not get_channel_enabled(color_ch) or color_ch.unpair_alpha or layer.type == 'GROUP')):
                 # Create intensity socket
-                dirty = create_prop_input(ch, 'intensity_value', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(ch, 'intensity_value', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
             # Override values
             if ch.override and ch.override_type == 'DEFAULT':
                 if root_ch.type == 'VALUE':
-                    dirty = create_prop_input(ch, 'override_value', valid_inputs, input_index, dirty)
+                    dirty = create_prop_input(ch, 'override_value', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
                 else:
-                    dirty = create_prop_input(ch, 'override_color', valid_inputs, input_index, dirty)
+                    dirty = create_prop_input(ch, 'override_color', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
             # Override 1 values
             if ch.override_1 and ch.override_1_type == 'DEFAULT':
-                dirty = create_prop_input(ch, 'override_1_color', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(ch, 'override_1_color', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
             if root_ch.type == 'NORMAL':
@@ -769,81 +793,81 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
                     # Height/bump distance input
                     if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                        dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty)
+                        dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
                         input_index += 1
 
                     # Height/bump midlevel input
                     if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                        dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty)
+                        dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty, float_factor_input_names)
                         input_index += 1
 
                     # Normal map strength input
                     if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                        dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty)
+                        dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty, float_factor_input_names)
                         input_index += 1
                     elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                        dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty)
+                        dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty, float_factor_input_names)
                         input_index += 1
 
                     # Smooth bump multiplier input:
                     if root_ch.enable_smooth_bump:
                         if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                            dirty = create_prop_input(ch, 'bump_smooth_multiplier', valid_inputs, input_index, dirty)
+                            dirty = create_prop_input(ch, 'bump_smooth_multiplier', valid_inputs, input_index, dirty, float_factor_input_names)
                             input_index += 1
 
                 # Normal height/bump distance input
                 #if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                #    dirty = create_prop_input( ch, 'normal_bump_distance', valid_inputs, input_index, dirty)
+                #    dirty = create_prop_input( ch, 'normal_bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
                 #    input_index += 1
 
                 # Transition bump inputs
                 if ch.enable_transition_bump:
-                    dirty = create_prop_input(ch, 'transition_bump_distance', valid_inputs, input_index, dirty)
+                    dirty = create_prop_input(ch, 'transition_bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
-                    dirty = create_prop_input(ch, 'transition_bump_value', valid_inputs, input_index, dirty)
+                    dirty = create_prop_input(ch, 'transition_bump_value', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
-                    dirty = create_prop_input(ch, 'transition_bump_second_edge_value', valid_inputs, input_index, dirty)
+                    dirty = create_prop_input(ch, 'transition_bump_second_edge_value', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
                     # Transition bump crease factor input
                     if ch.transition_bump_crease and not ch.transition_bump_flip:
-                        dirty = create_prop_input(ch, 'transition_bump_crease_factor', valid_inputs, input_index, dirty)
+                        dirty = create_prop_input(ch, 'transition_bump_crease_factor', valid_inputs, input_index, dirty, float_factor_input_names)
                         input_index += 1
 
-                        dirty = create_prop_input(ch, 'transition_bump_crease_power', valid_inputs, input_index, dirty)
+                        dirty = create_prop_input(ch, 'transition_bump_crease_power', valid_inputs, input_index, dirty, float_factor_input_names)
                         input_index += 1
 
                     if ch.transition_bump_falloff and ch.transition_bump_falloff_type == 'EMULATED_CURVE':
-                        dirty = create_prop_input(ch, 'transition_bump_falloff_emulated_curve_fac', valid_inputs, input_index, dirty)
+                        dirty = create_prop_input(ch, 'transition_bump_falloff_emulated_curve_fac', valid_inputs, input_index, dirty, float_factor_input_names)
                         input_index += 1
 
             elif trans_bump_ch:
 
-                dirty = create_prop_input(ch, 'transition_bump_fac', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(ch, 'transition_bump_fac', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
                 if ch.enable_transition_ramp:
 
-                    dirty = create_prop_input(ch, 'transition_bump_second_fac', valid_inputs, input_index, dirty)
+                    dirty = create_prop_input(ch, 'transition_bump_second_fac', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
             if ch.enable_transition_ramp:
-                dirty = create_prop_input(ch, 'transition_ramp_intensity_value', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(ch, 'transition_ramp_intensity_value', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
             if ch.enable_transition_ao:
-                dirty = create_prop_input(ch, 'transition_ao_intensity', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(ch, 'transition_ao_intensity', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
         
-                dirty = create_prop_input(ch, 'transition_ao_power', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(ch, 'transition_ao_power', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
-                dirty = create_prop_input(ch, 'transition_ao_color', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(ch, 'transition_ao_color', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
-                dirty = create_prop_input(ch, 'transition_ao_inside_intensity', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(ch, 'transition_ao_inside_intensity', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
         # Mask prop inputs
@@ -851,36 +875,36 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             if not mask.enable: continue
 
             # Create intensity socket
-            dirty = create_prop_input(mask, 'intensity_value', valid_inputs, input_index, dirty)
+            dirty = create_prop_input(mask, 'intensity_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
 
             if is_bl_newer_than(2, 81) and mask.enable_uniform_scale and is_mask_using_vector(mask) and mask.segment_name == '':
-                dirty = create_prop_input(mask, 'uniform_scale_value', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(mask, 'uniform_scale_value', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
             # Mask blur vector
             if mask.enable_blur_vector:
-                dirty = create_prop_input(mask, 'blur_vector_factor', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(mask, 'blur_vector_factor', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
             # Mask decal distance
             if mask.texcoord_type == 'Decal':
-                dirty = create_prop_input(mask, 'decal_distance_value', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(mask, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
             # Color ID
             if mask.type == 'COLOR_ID':
-                dirty = create_prop_input(mask, 'color_id', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(mask, 'color_id', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
             # Edge Detect
             elif mask.type == 'EDGE_DETECT':
-                dirty = create_prop_input(mask, 'edge_detect_radius', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(mask, 'edge_detect_radius', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
             # AO
             elif mask.type == 'AO':
-                dirty = create_prop_input(mask, 'ao_distance', valid_inputs, input_index, dirty)
+                dirty = create_prop_input(mask, 'ao_distance', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
     # Tree input and outputs
@@ -1121,6 +1145,8 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     #for i, inp in reversed(list(enumerate(get_tree_inputs(tree)))):
     for i, inp in enumerate(get_tree_inputs(tree)):
         if inp not in valid_inputs:
+            do_remove = True
+
             # Set input prop before deleting input socket
             if inp.name.startswith('.'):
 
@@ -1128,19 +1154,31 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 val = layer_node.inputs.get(inp.name).default_value
                 socket_type = inp.socket_type if is_bl_newer_than(4) else inp.type
                 if socket_type in {'NodeSocketColor', 'RGBA'}:
+                    # Do not remove input if it has color brighter than 1.0
+                    if val[0] > 1.0 or val[1] > 1.0 or val[2] > 1.0:
+                        do_remove = False
+
                     try: exec('layer' + inp.name + ' = (val[0], val[1], val[2])')
                     except Exception as e: print(e)
                 else:
+                    # Do not remove input if it has value outside of min max
+                    if val < inp.min_value or val > inp.max_value:
+                        do_remove = False
+
                     try: exec('layer' + inp.name + ' = val')
                     except Exception as e: print(e)
 
             # Remove input socket
-            remove_tree_input(tree, inp)
+            if do_remove:
+                remove_tree_input(tree, inp)
 
     # Deleting invalid outputs
     for outp in get_tree_outputs(tree):
         if outp not in valid_outputs:
             remove_tree_output(tree, outp)
+
+    # NOTE HACK: Blender 5.1 Alpha can only set the subtype here
+    set_float_factor_inputs_hack(tree, float_factor_input_names)
 
     return dirty
 

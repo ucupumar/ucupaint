@@ -807,9 +807,12 @@ def get_active_object():
 
 def set_active_object(obj):
     if is_bl_newer_than(2, 80):
-        try: bpy.context.view_layer.objects.active = obj
-        except: print('EXCEPTIION: Cannot set active object!')
-    else: bpy.context.scene.objects.active = obj
+        if bpy.context.view_layer.objects.active != obj:
+            try: bpy.context.view_layer.objects.active = obj
+            except: print('EXCEPTIION: Cannot set active object!')
+    else: 
+        if bpy.context.scene.objects.active != obj:
+            bpy.context.scene.objects.active = obj
 
 def link_object(scene, obj, custom_collection=None):
     if is_bl_newer_than(2, 80):
@@ -2734,7 +2737,10 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not inp: 
         inp =  tree.interface.new_socket(name, description=description, in_out='INPUT', socket_type=socket_type)
 
-    if hasattr(inp, 'subtype'): inp.subtype = subtype
+    # NOTE: Setting subtype in Blender 5.1 Alpha here is causing the input socket to disappear
+    if hasattr(inp, 'subtype') and not is_bl_newer_than(5, 1):
+        inp.subtype = subtype
+
     return inp
 
 def new_tree_output(tree, name, socket_type, description='', use_both=False):
@@ -5139,8 +5145,9 @@ def set_active_paint_slot_entity(yp):
             if img == None: continue
             if img.name == image.name:
                 mat.paint_active_slot = idx
-                # HACK: Just in case paint slot does not update
-                wmyp.correct_paint_image_name = img.name
+                # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
+                if not is_bl_newer_than(5, 1):
+                    wmyp.correct_paint_image_name = img.name                                         
                 break
         
     else:
@@ -6794,7 +6801,7 @@ def get_material_fcurves(mat):
     fcurves = []
 
     if tree.animation_data and tree.animation_data.action:
-        for fc in get_datablock_fcurves(mat):
+        for fc in get_datablock_fcurves(tree):
             match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if match:
                 fcurves.append(fc)
@@ -7772,10 +7779,10 @@ def get_closest_yp_node_backward(node):
 
     return None
 
-def get_closest_bsdf_backward(node, valid_types=[]):
+def get_closest_bsdf_backward(node, valid_types=[], include_any=False):
     for inp in node.inputs:
         for link in inp.links:
-            if is_valid_bsdf_node(link.from_node, valid_types):
+            if is_valid_bsdf_node(link.from_node, valid_types) or include_any:
                 return link.from_node
             else:
                 n = get_closest_bsdf_backward(link.from_node, valid_types)
@@ -7876,33 +7883,6 @@ def get_armature_modifier(obj, return_index=False):
         return None, None
 
     return None
-
-def remember_armature_index(obj):
-    ys_tree = get_ysculpt_tree(obj)
-    if not ys_tree: return
-    ys = ys_tree.ys
-    
-    mod, idx = get_armature_modifier(obj, return_index=True)
-    if mod:
-        ys.ori_armature_index = idx
-
-def restore_armature_order(obj):
-    ys_tree = get_ysculpt_tree(obj)
-    if not ys_tree: return
-    ys = ys_tree.ys
-
-    mod, idx = get_armature_modifier(obj, return_index=True)
-
-    if not mod: return
-
-    ori_obj = bpy.context.object
-    bpy.context.view_layer.objects.active = obj
-
-    bpy.ops.object.modifier_move_to_index(
-        modifier=mod.name, index=min(ys.ori_armature_index, len(obj.modifiers)-1)
-    )
-
-    bpy.context.view_layer.objects.active = ori_obj    
 
 def is_layer_vdm(layer):
 
@@ -8187,3 +8167,35 @@ def get_available_source_outputs(source, entity_type):
     outps = [outp for outp in source.outputs if outp.enabled and (not valid_socket_names or outp.name in valid_socket_names)]
 
     return outps
+
+def get_scene_bake_multires(scene):
+    return scene.render.bake.use_multires if is_bl_newer_than(5) else scene.render.use_bake_multires
+
+def get_scene_bake_clear(scene):
+    return scene.render.bake.use_clear if is_bl_newer_than(5) else scene.render.use_bake_clear
+
+def get_scene_render_bake_type(scene):
+    return scene.render.bake.type if is_bl_newer_than(5) else scene.render.bake_type
+
+def get_scene_bake_margin(scene):
+    return scene.render.bake.margin if is_bl_newer_than(5) else scene.render.bake_margin
+
+def set_scene_bake_multires(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_multires = value
+    else: scene.render.bake.use_multires = value
+
+def set_scene_bake_clear(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_clear = value
+    else: scene.render.bake.use_clear = value
+
+def set_scene_render_bake_type(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_type = value
+    else: scene.render.bake.type = value
+
+def set_scene_bake_margin(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_margin = value
+    else: scene.render.bake.margin = value
