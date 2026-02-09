@@ -2096,11 +2096,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
 
     # Get normal/height channel
-    height_ch = get_height_channel(layer)
+    layer_height_ch = get_height_channel(layer)
 
     # UV neighbor vertex color
-    if not layer.use_baked and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor and height_ch:
-        socket_name = height_ch.socket_input_name
+    if not layer.use_baked and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'} and uv_neighbor and layer_height_ch:
+        socket_name = layer_height_ch.socket_input_name
         soc = rgb_connections[socket_name] if socket_name in rgb_connections else source.outputs[0]
 
         if layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
@@ -2131,13 +2131,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     compare_alpha = None
     bump_smooth_multiplier_value = None
-    if height_ch:
-        if height_ch.normal_blend_type == 'COMPARE':
-            height_blend = nodes.get(height_ch.height_blend)
+    if layer_height_ch:
+        #if layer_height_ch.normal_blend_type == 'COMPARE':
+        if layer_height_ch.height_blend_type == 'COMPARE':
+            #height_blend = nodes.get(layer_height_ch.height_blend)
+            height_blend = nodes.get(layer_height_ch.blend)
             if height_blend: compare_alpha = height_blend.outputs.get('Normal Alpha')
 
         # UV Neighbor multiplier
-        bump_smooth_multiplier_value = get_essential_node(tree, TREE_START).get(get_entity_input_name(height_ch, 'bump_smooth_multiplier'))
+        bump_smooth_multiplier_value = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer_height_ch, 'bump_smooth_multiplier'))
         if bump_smooth_multiplier_value:
 
             if uv_neighbor and 'Multiplier' in uv_neighbor.inputs:
@@ -3778,7 +3780,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 # Extra alpha
                 if 'Extra Alpha' in tao.inputs:
-                    if height_ch and height_ch.normal_blend_type == 'COMPARE' and compare_alpha:
+                    #if layer_height_ch and layer_height_ch.normal_blend_type == 'COMPARE' and compare_alpha:
+                    if layer_height_ch and layer_height_ch.height_blend_type == 'COMPARE' and compare_alpha:
                         create_link(tree, compare_alpha, tao.inputs['Extra Alpha'])
                     else:
                         break_input_link(tree, tao.inputs['Extra Alpha'])
@@ -3879,7 +3882,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     alpha = tr_ramp.outputs[1]
 
         # Extra alpha
-        if extra_alpha and height_ch and height_ch.normal_blend_type == 'COMPARE' and compare_alpha:
+        #if extra_alpha and layer_height_ch and layer_height_ch.normal_blend_type == 'COMPARE' and compare_alpha:
+        #if extra_alpha and layer_height_ch and layer_height_ch.height_blend_type == 'COMPARE' and compare_alpha:
+        print(root_ch, extra_alpha, compare_alpha)
+        if extra_alpha and compare_alpha:
             alpha = create_link(tree, alpha, extra_alpha.inputs[0])[0]
             create_link(tree, compare_alpha, extra_alpha.inputs[1])
 
@@ -3898,8 +3904,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if layer.type == 'BACKGROUND':
             blend_type = 'MIX'
         else: 
-            if root_ch.type == 'NORMAL':
+            if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
                 blend_type = ch.normal_blend_type
+            if root_ch.special_channel_type == 'HEIGHT':
+                blend_type = ch.height_blend_type
             else: blend_type = ch.blend_type
 
         # Get output of alpha channel before blend node
@@ -3925,7 +3933,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if (
                     #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
-                    (blend_type in {'MIX', 'COMPARE'} and (has_parent or is_channel_alpha_enabled(root_ch)))
+                    (blend_type == 'MIX' and (has_parent or is_channel_alpha_enabled(root_ch)))
                     or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 ):
 

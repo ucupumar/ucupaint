@@ -52,27 +52,48 @@ BUMP_MULTIPLY_TWEAK = 5
 TEMP_ACTIVE_IMAGE_NAME = '.YP_TEMP_ACTIVE_IMAGE'
 TEMP_ACTIVE_IMAGE_NODE_NAME = '.YP_TEMP_ACTIVE_IMAGE_NODE'
 
+base_blend_type_items = (
+    ("MIX", "Mix", ""),
+    ("ADD", "Add", ""),
+    ("SUBTRACT", "Subtract", ""),
+    ("MULTIPLY", "Multiply", ""),
+    ("SCREEN", "Screen", ""),
+    ("OVERLAY", "Overlay", ""),
+    ("DIFFERENCE", "Difference", ""),
+    ("DIVIDE", "Divide", ""),
+    ("DARKEN", "Darken", ""),
+    ("LIGHTEN", "Lighten", ""),
+    ("HUE", "Hue", ""),
+    ("SATURATION", "Saturation", ""),
+    ("VALUE", "Value", ""),
+    ("COLOR", "Color", ""),
+    ("SOFT_LIGHT", "Soft Light", ""),
+    ("LINEAR_LIGHT", "Linear Light", ""),
+    ("DODGE", "Dodge", ""),
+    ("BURN", "Burn", ""),
+)
+
 def blend_type_items(self, context):
-    items = [
-        ("MIX", "Mix", ""),
-        ("ADD", "Add", ""),
-        ("SUBTRACT", "Subtract", ""),
-        ("MULTIPLY", "Multiply", ""),
-        ("SCREEN", "Screen", ""),
-        ("OVERLAY", "Overlay", ""),
-        ("DIFFERENCE", "Difference", ""),
-        ("DIVIDE", "Divide", ""),
-        ("DARKEN", "Darken", ""),
-        ("LIGHTEN", "Lighten", ""),
-        ("HUE", "Hue", ""),
-        ("SATURATION", "Saturation", ""),
-        ("VALUE", "Value", ""),
-        ("COLOR", "Color", ""),
-        ("SOFT_LIGHT", "Soft Light", ""),
-        ("LINEAR_LIGHT", "Linear Light", ""),
-        ("DODGE", "Dodge", ""),
-        ("BURN", "Burn", ""),
-    ]
+    items = [item for item in base_blend_type_items]
+
+    if is_bl_newer_than(3, 5):
+        items.append(("EXCLUSION", "Exclusion", ""))
+
+    return items
+
+def height_blend_type_items(self, context):
+
+    items = []
+
+    # Original height blend type items
+    items.append(("MIX", "Mix", ""))
+    items.append(("ADD", "Add", ""))
+    items.append(("COMPARE", "Compare Height", ""))
+
+    # Remaining default blend type items
+    for i in range(2, len(base_blend_type_items)):
+        item = base_blend_type_items[i]
+        items.append(item)
 
     if is_bl_newer_than(3, 5):
         items.append(("EXCLUSION", "Exclusion", ""))
@@ -99,6 +120,7 @@ blend_type_labels = {
     "DODGE" : "Dodge",
     "BURN" : "Burn",
     "EXCLUSION" : "Exclusion",
+    "COMPARE" : "Compare Height",
 }
 
 def mask_blend_type_items(self, context):
@@ -204,10 +226,16 @@ def get_vertex_color_label(capital=11):
 
     return 'Color Attribute'
 
+# Deprecated
 normal_blend_items = (
     ('MIX', 'Mix', ''),
     ('OVERLAY', 'Add', ''),
     ('COMPARE', 'Compare Height', '')
+)
+
+normal_blend_type_items = (
+    ("MIX", "Mix", ""),
+    ("OVERLAY", "Overlay", ""),
 )
 
 normal_blend_labels = {

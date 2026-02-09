@@ -5966,7 +5966,7 @@ def update_blend_type(self, context):
     check_uv_nodes(yp)
 
     # Reconnect all layer channels if normal channel is updated
-    if root_ch.type == 'NORMAL':
+    if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT':
         reconnect_layer_nodes(layer) 
     else: reconnect_layer_nodes(layer, ch_index)
 
@@ -6548,8 +6548,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     height_blend_type : EnumProperty(
         name = 'Height Blend Type',
-        items = normal_blend_items,
-        default = 'MIX',
+        description = 'Blend type of layer height channel',
+        items = height_blend_type_items,
         update = update_blend_type
     )
 

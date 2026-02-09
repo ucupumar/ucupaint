@@ -2039,7 +2039,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             rrow.alignment = 'RIGHT'
             if (root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT') and layer.type != 'GROUP':
                 splits = split_layout(rrow, 0.5, align=True)
-                splits.prop(ch, 'normal_blend_type', text='')
+                if root_ch.special_channel_type == 'HEIGHT':
+                    splits.prop(ch, 'height_blend_type', text='')
+                else: splits.prop(ch, 'normal_blend_type', text='')
                 if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or root_ch.special_channel_type == 'HEIGHT':
                     draw_input_prop(splits, ch, 'bump_distance', layer=layer)
                 elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
@@ -2158,6 +2160,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 if root_ch.type == 'NORMAL':
                     label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(ch, 'normal_blend_type', text='')
+                elif root_ch.special_channel_type == 'HEIGHT':
+                    label = blend_type_labels[ch.height_blend_type] + ' ' + '%.1f' % intensity_value
+                    ssplit.prop(ch, 'height_blend_type', text='')
                 elif layer.type != 'BACKGROUND': 
                     label = blend_type_labels[ch.blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(ch, 'blend_type', text='')
@@ -2293,9 +2298,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             rrow = split.row(align=True)
 
-            if root_ch.type != 'NORMAL':
-                rrow.prop(ch, 'blend_type', text='')
-            else: rrow.prop(ch, 'normal_blend_type', text='')
+            if root_ch.type == 'NORMAL':
+                rrow.prop(ch, 'normal_blend_type', text='')
+            elif root_ch.special_channel_type == 'HEIGHT':
+                rrow.prop(ch, 'height_blend_type', text='')
+            else: rrow.prop(ch, 'blend_type', text='')
 
             if not chui.expand_blend_settings:
                 draw_input_prop(rrow, ch, 'intensity_value', layer=layer)
