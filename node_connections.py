@@ -1069,8 +1069,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             height = get_essential_node(tree, TREE_START).get(parallax_ch.name + io_suffix['HEIGHT'])
             if height: create_link(tree, height, baked_parallax.inputs['base'])
 
-    #print()
-
     for i, ch in enumerate(yp.channels):
         #if ch_idx != -1 and i != ch_idx: continue
 
@@ -1196,8 +1194,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         # Layers loop
         for j, layer in reversed(list(enumerate(yp.layers))):
-
-            #print(ch.name, layer.name)
 
             node = nodes.get(layer.group_node)
             layer_ch = layer.channels[i]
@@ -2835,6 +2831,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     if 'Color' in normal_proc.inputs:
                         rgb = create_link(tree, rgb, normal_proc.inputs['Color'])[0]
 
+            # Connect tangent if overlay blend is used
+            if blend and ch.normal_blend_type == 'OVERLAY':
+                if tangent and 'Tangent' in blend.inputs: create_link(tree, tangent, blend.inputs['Tangent'])
+                if bitangent and 'Bitangent' in blend.inputs: create_link(tree, bitangent, blend.inputs['Bitangent'])
+
         if root_ch.type == 'NORMAL':
 
             write_height = get_write_height(ch)
@@ -3884,7 +3885,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Extra alpha
         #if extra_alpha and layer_height_ch and layer_height_ch.normal_blend_type == 'COMPARE' and compare_alpha:
         #if extra_alpha and layer_height_ch and layer_height_ch.height_blend_type == 'COMPARE' and compare_alpha:
-        print(root_ch, extra_alpha, compare_alpha)
         if extra_alpha and compare_alpha:
             alpha = create_link(tree, alpha, extra_alpha.inputs[0])[0]
             create_link(tree, compare_alpha, extra_alpha.inputs[1])
@@ -4027,13 +4027,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             create_link(tree, prev_vdisp, next_vdisp)
 
         if next_alpha:
-            if not blend or (
+            if not blend or (blend and len(blend.outputs) < 2) or (
                 (blend_type != 'MIX' and (has_parent or is_channel_alpha_enabled(root_ch)))
-                and not (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
+                #and not (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 ):
-                if prev_alpha and next_alpha: create_link(tree, prev_alpha, next_alpha)
+                if prev_alpha: create_link(tree, prev_alpha, next_alpha)
             else:
-                if blend and next_alpha: create_link(tree, blend.outputs[1], next_alpha)
+                if blend: create_link(tree, blend.outputs[1], next_alpha)
 
         # Layer preview
         if yp.layer_preview_mode:

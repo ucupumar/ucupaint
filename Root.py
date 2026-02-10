@@ -3703,7 +3703,8 @@ def update_layer_preview_mode(self, context):
         else:
             ch = layer.channels[yp.active_channel_index]
 
-            if channel.type == 'NORMAL' and ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
+            #if channel.type == 'NORMAL' and ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
+            if channel.special_channel_type == 'NORMAL':
                 preview = get_preview(mat, output, True, True)
             else:
                 preview = get_preview(mat, output, True)
@@ -3785,7 +3786,8 @@ def update_preview_mode(self, context):
         outs = [o for o in group_node.outputs if o.name.startswith(channel.name)]
 
         # Use special preview for normal
-        if channel.type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
+        #if channel.type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
+        if channel.special_channel_type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
             preview = get_preview(mat, output, False, True)
         else: preview = get_preview(mat, output, False)
 
@@ -4752,7 +4754,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
     )
 
     # Main uv is used for normal calculation of normal channel
-    main_uv : StringProperty(default='', update=update_channel_main_uv)
+    main_uv : StringProperty(
+        name = 'Main Normal UV',
+        description = "Main normal UV for tangent calculation",
+        default = '', 
+        update=update_channel_main_uv
+    )
 
     colorspace : EnumProperty(
         name = 'Color Space',

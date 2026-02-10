@@ -1286,7 +1286,7 @@ def draw_root_channels_ui(context, layout, node):
 
             if channel.special_channel_type == 'HEIGHT':
                 # Check for normal channel
-                normal_ch = get_normal_channel(yp)
+                normal_ch = get_root_normal_channel(yp)
 
                 brow = bcol.row(align=True)
                 brow.active = normal_ch != None
@@ -1339,9 +1339,12 @@ def draw_root_channels_ui(context, layout, node):
 
             if channel.special_channel_type == 'NORMAL':
                 brow = bcol.row(align=True)
-                brow.active = not (yp.use_baked and yp.enable_baked_outside)
+                #brow.active = not (yp.use_baked and yp.enable_baked_outside)
+
                 brow.label(text='', icon='BLANK1')
-                brow.label(text='Normal channel has no settings!', icon='INFO')
+                #brow.label(text='Normal channel has no settings!', icon='INFO')
+                brow.label(text='Main UV:')
+                brow.prop_search(channel, "main_uv", context.object.data, "uv_layers", text='', icon='GROUP_UVS')
 
             if channel.type == 'NORMAL':
                 if ypup.show_experimental or channel.enable_smooth_bump or not is_bl_newer_than(2, 78):
@@ -2037,12 +2040,20 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if ch and root_ch:
             rrow = row.row(align=True)
             rrow.alignment = 'RIGHT'
-            if (root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT') and layer.type != 'GROUP':
+            if root_ch.special_channel_type == 'HEIGHT' and layer.type != 'GROUP':
+                splits = split_layout(rrow, 0.5, align=True)
+                splits.prop(ch, 'height_blend_type', text='')
+                draw_input_prop(splits, ch, 'bump_distance', layer=layer)
+            elif root_ch.special_channel_type == 'NORMAL' and layer.type != 'GROUP':
+                splits = split_layout(rrow, 0.5, align=True)
+                splits.prop(ch, 'normal_blend_type', text='')
+                draw_input_prop(splits, ch, 'normal_strength', layer=layer)
+            elif root_ch.type == 'NORMAL' and layer.type != 'GROUP':
                 splits = split_layout(rrow, 0.5, align=True)
                 if root_ch.special_channel_type == 'HEIGHT':
                     splits.prop(ch, 'height_blend_type', text='')
                 else: splits.prop(ch, 'normal_blend_type', text='')
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or root_ch.special_channel_type == 'HEIGHT':
+                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     draw_input_prop(splits, ch, 'bump_distance', layer=layer)
                 elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
                     draw_input_prop(splits, ch, 'vdisp_strength', layer=layer)
@@ -2157,7 +2168,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 ssplit = split_layout(rrow, 0.4, align=True)
                 
-                if root_ch.type == 'NORMAL':
+                if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
                     label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(ch, 'normal_blend_type', text='')
                 elif root_ch.special_channel_type == 'HEIGHT':
@@ -2298,7 +2309,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             rrow = split.row(align=True)
 
-            if root_ch.type == 'NORMAL':
+            if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
                 rrow.prop(ch, 'normal_blend_type', text='')
             elif root_ch.special_channel_type == 'HEIGHT':
                 rrow.prop(ch, 'height_blend_type', text='')

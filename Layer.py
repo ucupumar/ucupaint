@@ -6533,7 +6533,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
         description = 'Blend type of layer normal channel',
-        items = normal_blend_items,
+        items = normal_blend_type_items,
         default = 'MIX',
         update = update_blend_type
     )

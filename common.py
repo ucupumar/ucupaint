@@ -3942,9 +3942,15 @@ def get_root_parallax_channel(yp):
 
     return None
 
+def get_root_normal_channel(yp):
+    for ch in yp.channels:
+        if ch.special_channel_type == 'NORMAL':
+            return ch
+
+    return None
+
 def get_root_height_channel(yp):
     for ch in yp.channels:
-        #if ch.type == 'NORMAL':
         if ch.special_channel_type == 'HEIGHT':
             return ch
 
@@ -3956,8 +3962,17 @@ def get_height_channel(layer):
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        #if root_ch.type == 'NORMAL':
         if root_ch.special_channel_type == 'HEIGHT':
+            return ch
+
+    return None
+
+def get_normal_channel(layer):
+    yp = layer.id_data.yp
+
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+        if root_ch.special_channel_type == 'NORMAL':
             return ch
 
     return None
@@ -5365,41 +5380,54 @@ def is_entity_need_tangent_input(entity, uv_name):
 
         height_root_ch = get_root_height_channel(yp)
         height_ch = get_height_channel(layer)
+        normal_root_ch = get_root_normal_channel(yp)
+        normal_ch = get_normal_channel(layer)
+
+        height_channel_enabled = get_channel_enabled(height_ch, layer, height_root_ch) if height_root_ch and height_ch else False
+        normal_channel_enabled = get_channel_enabled(normal_ch, layer, normal_root_ch) if normal_root_ch and normal_ch else False
 
         # Previous normal is calculated using normal process
         if height_root_ch and height_root_ch.enable_smooth_bump and check_need_prev_normal(layer):
             return True
 
-        if height_root_ch and height_ch and get_channel_enabled(height_ch, layer, height_root_ch):
+        #if normal_root_ch and normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch):
 
-            if entity.type == 'GROUP':
+        if entity.type == 'GROUP':
 
-                if is_layer_using_normal_map(entity, height_root_ch):
-                    return True
+            if normal_root_ch and is_layer_using_normal_map(entity, normal_root_ch):
+                return True
 
-            elif uv_name == height_root_ch.main_uv:
+        elif uv_name == normal_root_ch.main_uv:
 
-                # Main UV tangent is needed for normal process
-                if is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
-                    return True
+            # Main UV tangent is needed for normal process
+            if height_channel_enabled and is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
+                return True
 
-                # Overlay blend and transition bump need tangent
-                if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and (height_ch.normal_blend_type == 'OVERLAY' or (height_ch.enable_transition_bump and height_root_ch.enable_smooth_bump)):
+            # Overlay blend and transition bump need tangent
+            #if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and (height_ch.normal_blend_type == 'OVERLAY' or (height_ch.enable_transition_bump and height_root_ch.enable_smooth_bump)):
+            #    return True
+
+            if normal_channel_enabled and normal_ch.normal_blend_type == 'OVERLAY':
+                return True
+
+            if height_channel_enabled and height_root_ch.enable_smooth_bump:
+                if height_ch.enable_transition_bump:
                     return True
 
                 # Main UV Tangent is needed if smooth bump is on and entity is using non-uv texcoord or have different UV
-                if height_root_ch.enable_smooth_bump and (entity.texcoord_type != 'UV' or entity.uv_name != uv_name) and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                if (entity.texcoord_type != 'UV' or entity.uv_name != uv_name) and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     return True
 
                 # Fake neighbor need tangent
-                if height_root_ch.enable_smooth_bump and entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT', 'AO'} and not entity.use_baked:
+                if entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT', 'AO'} and not entity.use_baked:
                     return True
 
-            elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
+        elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
 
-                # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
-                if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                    return True
+            # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
+            #if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+            if height_channel_enabled and height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name:
+                return True
 
     return False
 
@@ -6435,6 +6463,9 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
 
         # NOTE: Linear blending currently will only use gamma correction on normal channel
         if not ch.override_1 and image and is_image_source_srgb(image, source) and root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
+            return 1.0 / GAMMA
+
+        if image and is_image_source_srgb(image, source) and root_ch.special_channel_type == 'NORMAL':
             return 1.0 / GAMMA
 
         # NOTE: These two gamma correction are unused yet for simplicity and older file compatibility
@@ -8169,13 +8200,6 @@ def is_modifier_used_by_paired_alpha_channel(mod):
         return True
 
     return False
-
-def get_normal_channel(yp):
-    chs = [ch for ch in yp.channels if ch.special_channel_type == 'NORMAL']
-    if len(chs) > 0:
-        return chs[0]
-
-    return None
 
 def get_normal_height_ch_pairs(yp):
     height_ch = get_root_height_channel(yp)

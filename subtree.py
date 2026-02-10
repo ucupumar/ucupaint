@@ -1618,26 +1618,25 @@ def check_uv_nodes(yp, generate_missings=False):
         if uv.name not in uv_names: 
             uv_names.append(uv.name)
 
-    # Get height channel
-    height_ch = get_root_height_channel(yp)
-
-    if height_ch:
+    # Get normal channel
+    normal_ch = get_root_normal_channel(yp)
+    if normal_ch:
 
         # Set height channel main uv if its still empty
-        if height_ch.main_uv == '':
+        if normal_ch.main_uv == '':
             uv_layers = get_uv_layers(obj)
             if uv_layers and len(uv_layers) > 0:
-                height_ch.main_uv = uv_layers[0].name
-                check_uvmap_on_other_objects_with_same_mat(mat, height_ch.main_uv)
+                normal_ch.main_uv = uv_layers[0].name
+                check_uvmap_on_other_objects_with_same_mat(mat, normal_ch.main_uv)
 
-        uv = yp.uvs.get(height_ch.main_uv)
+        uv = yp.uvs.get(normal_ch.main_uv)
         if not uv: 
             dirty = True
             uv = yp.uvs.add()
-            uv.name = height_ch.main_uv
+            uv.name = normal_ch.main_uv
 
         if uv.name not in uv_names: 
-            uv_names.append(height_ch.main_uv)
+            uv_names.append(normal_ch.main_uv)
 
     # Collect uv names from layers
     for layer in yp.layers:
@@ -1709,6 +1708,7 @@ def check_uv_nodes(yp, generate_missings=False):
     # Check parallax preparation nodes
     check_parallax_prep_nodes(yp, unused_uvs, unused_texcoords, baked=yp.use_baked)
 
+    height_ch = get_root_height_channel(yp)
     if height_ch: 
 
         # Check standard parallax
@@ -2000,34 +2000,37 @@ def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=Fa
                 lib_name = lib.HEIGHT_PROCESS
 
         # Group lib
-        if layer.type == 'GROUP':
-            lib_name += ' Group'
-
-        height_proc, need_reconnect = replace_new_node(
-            tree, ch, 'height_proc', 'ShaderNodeGroup', 'Height Process', 
-            lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-        )
-
-        # Normalize height use value of 2.0
-        if 'Range' in height_proc.inputs:
-            inp = height_proc.inputs['Range']
-            inp.default_value = 2.0 if (root_ch.use_height_normalize or root_ch.use_height_as_bump) else 1.0
+        #if layer.type == 'GROUP':
+        #    lib_name += ' Group'
 
         if layer.type != 'GROUP':
-            set_default_value(height_proc, 'Value Max Height', get_layer_channel_bump_distance(layer, ch))
-        if ch.enable_transition_bump:
-            set_default_value(height_proc, 'Delta', get_transition_disp_delta(layer, ch))
-            set_default_value(height_proc, 'Transition Max Height', get_transition_bump_max_distance(ch))
+            height_proc, need_reconnect = replace_new_node(
+                tree, ch, 'height_proc', 'ShaderNodeGroup', 'Height Process', 
+                lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+            )
 
-        set_default_value(height_proc, 'Intensity', ch.intensity_value)
+            # Normalize height use value of 2.0
+            if 'Range' in height_proc.inputs:
+                inp = height_proc.inputs['Range']
+                inp.default_value = 2.0 if (root_ch.use_height_normalize or root_ch.use_height_as_bump) else 1.0
 
-        if ch.enable_transition_bump and channel_enabled and ch.transition_bump_crease and not ch.transition_bump_flip:
-            set_default_value(height_proc, 'Crease Factor', ch.transition_bump_crease_factor)
-            set_default_value(height_proc, 'Crease Power', ch.transition_bump_crease_power)
+            if layer.type != 'GROUP':
+                set_default_value(height_proc, 'Value Max Height', get_layer_channel_bump_distance(layer, ch))
+            if ch.enable_transition_bump:
+                set_default_value(height_proc, 'Delta', get_transition_disp_delta(layer, ch))
+                set_default_value(height_proc, 'Transition Max Height', get_transition_bump_max_distance(ch))
 
-            if not ch.write_height and not root_ch.enable_smooth_bump:
-                set_default_value(height_proc, 'Remaining Filter', 1.0)
-            else: set_default_value(height_proc, 'Remaining Filter', 0.0)
+            set_default_value(height_proc, 'Intensity', ch.intensity_value)
+
+            if ch.enable_transition_bump and channel_enabled and ch.transition_bump_crease and not ch.transition_bump_flip:
+                set_default_value(height_proc, 'Crease Factor', ch.transition_bump_crease_factor)
+                set_default_value(height_proc, 'Crease Power', ch.transition_bump_crease_power)
+
+                if not ch.write_height and not root_ch.enable_smooth_bump:
+                    set_default_value(height_proc, 'Remaining Filter', 1.0)
+                else: set_default_value(height_proc, 'Remaining Filter', 0.0)
+        else:
+            if remove_node(tree, ch, 'height_proc'): need_reconnect = True
 
         # Height Blend
         #height_blend, need_reconnect = set_height_blend_node(tree, layer, root_ch, ch, prop_name='height_blend', need_reconnect=need_reconnect)
@@ -2630,11 +2633,16 @@ def check_blend_type_nodes(root_ch, layer, ch):
             #    tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib_name,
             #    return_status=True, hard_replace=True, dirty=need_reconnect
             #)
-
-            blend, need_reconnect = replace_new_mix_node(
-                tree, ch, 'blend', 'Blend',
-                return_status=True, hard_replace=True, dirty=need_reconnect
-            )
+            if blend_type == 'OVERLAY':
+                blend, need_reconnect = replace_new_node(
+                    tree, ch, 'blend', 'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
+                    return_status=True, hard_replace=True, dirty=need_reconnect
+                )
+            else:
+                blend, need_reconnect = replace_new_mix_node(
+                    tree, ch, 'blend', 'Blend',
+                    return_status=True, hard_replace=True, dirty=need_reconnect
+                )
 
             # Normal process
             if layer.type != 'GROUP':
