@@ -1457,7 +1457,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 if ch.special_channel_type == 'HEIGHT':
                     if max_height and 'Max Height' in end_linear.inputs:
                         create_link(tree, max_height, end_linear.inputs['Max Height'])
-                rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
+                if 'Height' in end_linear.inputs:
+                    rgb = create_link(tree, rgb, end_linear.inputs['Height'])[0]
 
         if clamp:
             mixcol0, mixcol1, mixout = get_mix_color_indices(clamp)

@@ -139,25 +139,32 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
             if channel.use_height_normalize or channel.use_height_as_bump:
 
                 # Process height input
-                #if channel.use_height_normalize:
-                lib_name = lib.HEIGHT_PROCESS
-                start_height_process = replace_new_node(
-                    group_tree, channel, 'start_height_process', 'ShaderNodeGroup', 'Input Height Process',
-                    lib_name, hard_replace=True
-                )
-                #else:
-                #    remove_node(group_tree, channel, 'start_height_process')
+                if channel.use_height_normalize:
+                    lib_name = lib.HEIGHT_PROCESS
+                    start_height_process = replace_new_node(
+                        group_tree, channel, 'start_height_process', 'ShaderNodeGroup', 'Input Height Process',
+                        lib_name, hard_replace=True
+                    )
+                else:
+                    remove_node(group_tree, channel, 'start_height_process')
 
                 normal_ch, height_ch = get_normal_height_ch_pairs(yp)
 
-                if normal_ch and channel.use_height_as_bump:
-                    process_lib_name = lib.BUMP_PROCESS
-                else: process_lib_name = lib.HEIGHT_NORMALIZE
+                if not channel.use_height_normalize and channel.use_height_as_bump:
+                    end_linear = replace_new_node(
+                        group_tree, channel, 'end_linear', 'ShaderNodeBump', 'Height Process', hard_replace=True
+                    )
+                    if 'Distance' in end_linear.inputs: end_linear.inputs['Distance'].default_value = 1.0
+                else:
+                    #if normal_ch and channel.use_height_as_bump:
+                    if normal_ch and channel.use_height_normalize and channel.use_height_as_bump:
+                        process_lib_name = lib.BUMP_PROCESS
+                    else: process_lib_name = lib.HEIGHT_NORMALIZE
 
-                end_linear = replace_new_node(
-                    group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Height Process',
-                    process_lib_name, hard_replace=True
-                )
+                    end_linear = replace_new_node(
+                        group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Height Process',
+                        process_lib_name, hard_replace=True
+                    )
             else:
                 remove_node(group_tree, channel, 'end_linear')
                 remove_node(group_tree, channel, 'start_height_process')
@@ -1031,7 +1038,8 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         # Displacement IO
         if root_ch.special_channel_type == 'HEIGHT':
 
-            if channel_enabled and (root_ch.use_height_normalize or root_ch.use_height_as_bump):
+            #if channel_enabled and (root_ch.use_height_normalize or root_ch.use_height_as_bump):
+            if channel_enabled and root_ch.use_height_normalize:
                 name = root_ch.name + io_suffix['SCALE']
 
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
