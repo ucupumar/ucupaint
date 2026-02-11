@@ -1374,6 +1374,11 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         channel = yp.channels.get(ch_name)
         yp.active_channel_index = get_channel_index(channel)
 
+        # Automatically enable new layer channel for group and background layers
+        for layer in yp.layers:
+            if layer.type in {'GROUP', 'BACKGROUND'}:
+                layer.channels[yp.active_channel_index].enable = True
+
         return {'FINISHED'}
 
 class YToggleChannelAsAlpha(bpy.types.Operator, BaseOperator.BlendMethodOptions):
