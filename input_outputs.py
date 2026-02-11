@@ -863,22 +863,21 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 dirty = create_prop_input(ch, 'override_1_color', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
 
-            if root_ch.special_channel_type == 'HEIGHT':
-                # Height/bump distance input
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+            if layer.type != 'GROUP':
+                if root_ch.special_channel_type == 'HEIGHT':
+                    # Height/bump distance input
                     dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
-                # Height/bump midlevel input
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    # Height/bump midlevel input
                     dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
-            if root_ch.special_channel_type == 'NORMAL':
+                if root_ch.special_channel_type == 'NORMAL':
 
-                # Normal map strength input
-                dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty, float_factor_input_names)
-                input_index += 1
+                    # Normal map strength input
+                    dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
 
             if root_ch.type == 'NORMAL':
 
@@ -1164,7 +1163,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                     input_index += 1
 
             # Displacement Input
-            if root_ch.special_channel_type == 'HEIGHT' and layer.type == 'GROUP':
+            if root_ch.special_channel_type == 'HEIGHT' and layer.type == 'GROUP' and root_ch.use_height_normalize:
                 name = root_ch.name + io_suffix['SCALE'] + io_suffix['GROUP']
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
                 input_index += 1

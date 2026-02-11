@@ -2845,9 +2845,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         rgb = create_link(tree, rgb, normal_proc.inputs['Color'])[0]
 
             # Connect tangent if overlay blend is used
-            if blend and ch.normal_blend_type == 'OVERLAY':
-                if tangent and 'Tangent' in blend.inputs: create_link(tree, tangent, blend.inputs['Tangent'])
-                if bitangent and 'Bitangent' in blend.inputs: create_link(tree, bitangent, blend.inputs['Bitangent'])
+            if blend:
+                if ch.normal_blend_type == 'OVERLAY':
+                    if tangent and 'Tangent' in blend.inputs: create_link(tree, tangent, blend.inputs['Tangent'])
+                    if bitangent and 'Bitangent' in blend.inputs: create_link(tree, bitangent, blend.inputs['Bitangent'])
 
         if root_ch.type == 'NORMAL':
 
@@ -3919,7 +3920,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         else: 
             if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
                 blend_type = ch.normal_blend_type
-            if root_ch.special_channel_type == 'HEIGHT':
+            elif root_ch.special_channel_type == 'HEIGHT':
                 blend_type = ch.height_blend_type
             else: blend_type = ch.blend_type
 
@@ -3947,7 +3948,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if (
                     #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
                     (blend_type == 'MIX' and (has_parent or is_channel_alpha_enabled(root_ch)))
-                    or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
+                    #or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 ):
 
                 if prev_rgb:
