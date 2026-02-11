@@ -134,40 +134,35 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
         if channel.special_channel_type == 'HEIGHT':
             
-            # NOTE: Height process is always necessary even when there's no layer using height channel
-            #if any_layers_using_channel(channel) and (channel.use_height_normalize or channel.use_height_as_bump):
-            if channel.use_height_normalize or channel.use_height_as_bump:
+            normal_ch, height_ch = get_normal_height_ch_pairs(yp)
 
-                # Process height input
-                if channel.use_height_normalize:
-                    lib_name = lib.HEIGHT_PROCESS
-                    start_height_process = replace_new_node(
-                        group_tree, channel, 'start_height_process', 'ShaderNodeGroup', 'Input Height Process',
-                        lib_name, hard_replace=True
-                    )
-                else:
-                    remove_node(group_tree, channel, 'start_height_process')
+            # Process height input
+            if channel.use_height_normalize:
+                lib_name = lib.HEIGHT_PROCESS
+                start_height_process = replace_new_node(
+                    group_tree, channel, 'start_height_process', 'ShaderNodeGroup', 'Input Height Process',
+                    lib_name, hard_replace=True
+                )
 
-                normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+                end_height_normalize = replace_new_node(
+                    group_tree, channel, 'end_height_normalize', 'ShaderNodeGroup', 'Height Normalize',
+                    lib.HEIGHT_NORMALIZE, hard_replace=True
+                )
 
-                if not channel.use_height_normalize and channel.use_height_as_bump:
-                    end_linear = replace_new_node(
-                        group_tree, channel, 'end_linear', 'ShaderNodeBump', 'Height Process', hard_replace=True
-                    )
-                    if 'Distance' in end_linear.inputs: end_linear.inputs['Distance'].default_value = 1.0
-                else:
-                    #if normal_ch and channel.use_height_as_bump:
-                    if normal_ch and channel.use_height_normalize and channel.use_height_as_bump:
-                        process_lib_name = lib.BUMP_PROCESS
-                    else: process_lib_name = lib.HEIGHT_NORMALIZE
-
-                    end_linear = replace_new_node(
-                        group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Height Process',
-                        process_lib_name, hard_replace=True
-                    )
             else:
-                remove_node(group_tree, channel, 'end_linear')
                 remove_node(group_tree, channel, 'start_height_process')
+                remove_node(group_tree, channel, 'end_height_normalize')
+
+            if channel.use_height_as_bump and normal_ch and channel == height_ch:
+                end_bump_process = replace_new_node(
+                    group_tree, channel, 'end_bump_process', 'ShaderNodeBump', 'Height Process', hard_replace=True
+                )
+                if 'Distance' in end_bump_process.inputs: end_bump_process.inputs['Distance'].default_value = 1.0
+            else:
+                remove_node(group_tree, channel, 'end_bump_process')
+
+            # NOTE: Remove old node from old files
+            remove_node(group_tree, channel, 'end_linear')
 
         elif channel.special_channel_type == 'NORMAL':
             lib_name = lib.CHECK_INPUT_NORMAL

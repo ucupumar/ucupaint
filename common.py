@@ -5397,7 +5397,7 @@ def is_entity_need_tangent_input(entity, uv_name):
             if normal_root_ch and is_layer_using_normal_map(entity, normal_root_ch):
                 return True
 
-        elif uv_name == normal_root_ch.main_uv:
+        elif normal_root_ch and uv_name == normal_root_ch.main_uv:
 
             # Main UV tangent is needed for normal process
             if height_channel_enabled and is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:

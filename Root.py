@@ -129,9 +129,11 @@ def set_default_height_channel_prop(channel):
     if is_bl_newer_than(2, 77):
         channel.enable_smooth_bump = False
 
-    # Enable height as bump by default for Blender less than 4.2
-    if not is_bl_newer_than(4, 2):
-        channel.use_height_as_bump = True
+    # NOTE: Height as bump is default for all blender versions 
+    # since Cycles doesn't produce correct bump if material displacement setting is set to `Bump Only`.
+    # Also overlay blending will cause extra bump normal on displaced surface
+    #if not is_bl_newer_than(4, 2):
+    channel.use_height_as_bump = True
 
     yp.halt_update = False
 
@@ -1191,7 +1193,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             links.new(node.outputs[ch_roughness.name], inp)
 
         if ch_height:
-            if not ch_height.use_height_as_bump:
+            if not ch_height.use_height_as_bump or not ch_normal:
                 do_displacement_node_setup(mat, node, ch_height, is_vector_disp=False)
 
         if ch_normal:
@@ -2553,6 +2555,10 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             if channel.enable_smooth_bump:
                 channel.enable_smooth_bump = False
 
+        # Do displacement setup if there's a height channel
+        normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+        need_displacement_setup = channel == normal_ch
+
         # Remove channel nodes from layers
         for layer in yp.layers:
             ch = layer.channels[channel_idx]
@@ -2642,6 +2648,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'end_backface')
         remove_node(group_tree, channel, 'end_max_height')
         remove_node(group_tree, channel, 'end_max_height_tweak')
+        remove_node(group_tree, channel, 'end_height_normalize')
+        remove_node(group_tree, channel, 'end_bump_process')
         remove_node(group_tree, channel, 'start_normal_filter')
         remove_node(group_tree, channel, 'start_bump_process')
         remove_node(group_tree, channel, 'start_height_process')
@@ -2669,6 +2677,11 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         #    reconnect_layer_nodes(t)
         #    rearrange_layer_nodes(t)
         #rearrange_yp_nodes(group_tree)
+
+        if need_displacement_setup:
+            height_ch = get_root_height_channel(yp)
+            if height_ch:
+                do_displacement_node_setup(mat, group_node, height_ch, is_vector_disp=False)
 
         # Set new active index
         if (yp.active_channel_index == len(yp.channels) and
@@ -4782,6 +4795,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
     start_bump_process : StringProperty(default='')
     start_height_process : StringProperty(default='')
     bump_process : StringProperty(default='')
+    end_height_normalize : StringProperty(default='')
+    end_bump_process : StringProperty(default='')
     end_max_height : StringProperty(default='')
     end_max_height_tweak : StringProperty(default='')
     end_backface : StringProperty(default='')

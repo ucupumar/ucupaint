@@ -1453,12 +1453,24 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 if bitangent and 'Bitangent' in end_linear.inputs:
                     create_link(tree, bitangent, end_linear.inputs['Bitangent'])
-            else:
-                if ch.special_channel_type == 'HEIGHT':
-                    if max_height and 'Max Height' in end_linear.inputs:
-                        create_link(tree, max_height, end_linear.inputs['Max Height'])
-                if 'Height' in end_linear.inputs:
-                    rgb = create_link(tree, rgb, end_linear.inputs['Height'])[0]
+
+        if ch.special_channel_type == 'HEIGHT':
+
+            end_height_normalize = nodes.get(ch.end_height_normalize)
+            if end_height_normalize:
+                if 'Height' in end_height_normalize.inputs:
+                    rgb = create_link(tree, rgb, end_height_normalize.inputs['Height'])[0]
+
+                if max_height and 'Max Height' in end_height_normalize.inputs:
+                    create_link(tree, max_height, end_height_normalize.inputs['Max Height'])
+
+            end_bump_process = nodes.get(ch.end_bump_process)
+            if end_bump_process:
+                if 'Height' in end_bump_process.inputs:
+                    rgb = create_link(tree, rgb, end_bump_process.inputs['Height'])[0]
+
+                if ch.use_height_normalize and max_height and 'Distance' in end_bump_process.inputs:
+                    create_link(tree, max_height, end_bump_process.inputs['Distance'])
 
         if clamp:
             mixcol0, mixcol1, mixout = get_mix_color_indices(clamp)
@@ -1468,10 +1480,10 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         if ch.special_channel_type in {'NORMAL', 'HEIGHT'}:
             normal_ch, height_ch = get_normal_height_ch_pairs(yp)
             if height_ch and height_ch.use_height_as_bump:
-                height_end_linear = nodes.get(height_ch.end_linear)
+                height_end_bump_process = nodes.get(height_ch.end_bump_process)
                 if ch == normal_ch:
-                    if height_end_linear and 'Normal' in height_end_linear.inputs:
-                        rgb = create_link(tree, rgb, height_end_linear.inputs['Normal'])[0]
+                    if height_end_bump_process and 'Normal' in height_end_bump_process.inputs:
+                        rgb = create_link(tree, rgb, height_end_bump_process.inputs['Normal'])[0]
 
                 elif ch == height_ch:
                     if ch.use_height_normalize:
