@@ -635,7 +635,7 @@ CACHE_BITANGENT_IMAGE_SUFFIX = '_YP_CACHE_BITANGENT'
 
 GAMMA = 2.2
 
-valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
+valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp", ".tif", ".tiff"]
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
