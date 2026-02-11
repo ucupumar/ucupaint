@@ -2639,10 +2639,16 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     return_status=True, hard_replace=True, dirty=need_reconnect
                 )
             else:
-                blend, need_reconnect = replace_new_mix_node(
-                    tree, ch, 'blend', 'Blend',
-                    return_status=True, hard_replace=True, dirty=need_reconnect
-                )
+                if (has_parent or is_channel_alpha_enabled(root_ch)):
+                    blend, need_reconnect = replace_new_node(
+                        tree, ch, 'blend',  'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, 
+                        return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
+                else:
+                    blend, need_reconnect = replace_new_mix_node(
+                        tree, ch, 'blend', 'Blend',
+                        return_status=True, hard_replace=True, dirty=need_reconnect
+                    )
 
             # Normal process
             if layer.type != 'GROUP':
