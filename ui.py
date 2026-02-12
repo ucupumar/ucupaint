@@ -1288,16 +1288,26 @@ def draw_root_channels_ui(context, layout, node):
                 # Check for normal channel
                 normal_ch = get_root_normal_channel(yp)
 
-                brow = bcol.row(align=True)
-                brow.active = normal_ch != None
-                brow.label(text='', icon='BLANK1')
-                brow.label(text='Use as Bump Only:')
-                brow.prop(channel, 'use_height_as_bump', text='')
+                if ypup.developer_mode:
+                    brow = bcol.row(align=True)
+                    brow.active = normal_ch != None
+                    brow.label(text='', icon='BLANK1')
+                    brow.label(text='Use as Bump Only:')
+                    brow.prop(channel, 'use_height_as_bump', text='')
 
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='BLANK1')
                 brow.label(text='Normalize Input Output:')
                 brow.prop(channel, 'use_height_normalize', text='')
+
+                brow = bcol.row(align=True)
+                brow.active = normal_ch != None
+                brow.label(text='', icon='BLANK1')
+                brow.label(text='Disaplacement Setup:')
+                bbrow = brow.row(align=True)
+                bbrow.alignment = 'RIGHT'
+                label = 'Enabled' if not channel.use_height_as_bump else 'Disabled'
+                bbrow.label(text=label)
 
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='BLANK1')
