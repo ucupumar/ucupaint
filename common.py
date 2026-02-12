@@ -5410,6 +5410,9 @@ def is_entity_need_tangent_input(entity, uv_name):
             if normal_channel_enabled and normal_ch.normal_blend_type == 'OVERLAY':
                 return True
 
+            if height_channel_enabled and height_ch.use_height_as_normal and normal_ch.normal_blend_type == 'OVERLAY':
+                return True
+
             if height_channel_enabled and height_root_ch.enable_smooth_bump:
                 if height_ch.enable_transition_bump:
                     return True

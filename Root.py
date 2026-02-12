@@ -512,7 +512,7 @@ def create_ao_node(mat, node, channel=None, shift_other_nodes=False):
 class YRemoveDisplacementSetup(bpy.types.Operator):
     bl_idname = "wm.y_remove_displacement_setup"
     bl_label = "Remove Displacement and Subdivision Setup"
-    bl_description = "Disable material displacement settings and remove or use lower subdivision modifer to all objects with the same material"
+    bl_description = "Disable material displacement settings and remove or use lower subdivision modifer to all objects with the same material.\nNOTE: This will also make the height output no longer accessible."
     bl_options = {'REGISTER', 'UNDO'}
 
     keep_subdivision : BoolProperty(
@@ -636,7 +636,7 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
 class YQuickDisplacementSetup(bpy.types.Operator):
     bl_idname = "wm.y_quick_displacement_setup"
     bl_label = "Quick Displacement and Subdivision Setup"
-    bl_description = "Enable material displacement settings and add subdivision modifer to all objects with the same material"
+    bl_description = "Enable material displacement settings and add subdivision modifer to all objects with the same material.\nNOTE: This will also make the height output accessible."
     bl_options = {'REGISTER', 'UNDO'}
 
     displacement_method : EnumProperty(

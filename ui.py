@@ -2050,14 +2050,18 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if ch and root_ch:
             rrow = row.row(align=True)
             rrow.alignment = 'RIGHT'
-            if root_ch.special_channel_type == 'HEIGHT' and layer.type != 'GROUP':
+            if ch == height_ch and height_ch.use_height_as_normal:
                 splits = split_layout(rrow, 0.5, align=True)
-                splits.prop(ch, 'height_blend_type', text='')
+                splits.prop(normal_ch, 'normal_blend_type', text='')
                 draw_input_prop(splits, ch, 'bump_distance', layer=layer)
             elif root_ch.special_channel_type == 'NORMAL' and layer.type != 'GROUP':
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.prop(ch, 'normal_blend_type', text='')
                 draw_input_prop(splits, ch, 'normal_strength', layer=layer)
+            elif root_ch.special_channel_type == 'HEIGHT' and layer.type != 'GROUP':
+                splits = split_layout(rrow, 0.5, align=True)
+                splits.prop(ch, 'height_blend_type', text='')
+                draw_input_prop(splits, ch, 'bump_distance', layer=layer)
             elif root_ch.type == 'NORMAL' and layer.type != 'GROUP':
                 splits = split_layout(rrow, 0.5, align=True)
                 if root_ch.special_channel_type == 'HEIGHT':
@@ -2139,7 +2143,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         if ch == height_ch and height_ch.use_height_as_normal:
             root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
             alt_ch_for_icon = root_normal_ch
-            label = root_height_ch.name+' as '+root_normal_ch.name
+            label = root_normal_ch.name+' from '+root_height_ch.name
         elif root_ch.type == 'NORMAL' and layer.type != 'GROUP':
             if chui.expand_content:
                 label += yp.channels[i].name + ' ('
@@ -2178,7 +2182,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 ssplit = split_layout(rrow, 0.4, align=True)
                 
-                if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
+                if ch == height_ch and height_ch.use_height_as_normal:
+                    label = normal_blend_labels[normal_ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
+                    ssplit.prop(normal_ch, 'normal_blend_type', text='')
+                elif root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
                     label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(ch, 'normal_blend_type', text='')
                 elif root_ch.special_channel_type == 'HEIGHT':
@@ -2319,7 +2326,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             rrow = split.row(align=True)
 
-            if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
+            if height_ch == ch and height_ch.use_height_as_normal:
+                rrow.prop(normal_ch, 'normal_blend_type', text='')
+            elif root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
                 rrow.prop(ch, 'normal_blend_type', text='')
             elif root_ch.special_channel_type == 'HEIGHT':
                 rrow.prop(ch, 'height_blend_type', text='')
@@ -2338,7 +2347,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 draw_input_prop(row, ch, 'intensity_value', layer=layer)
 
                 # Use Clamp
-                if root_ch.type != 'NORMAL' and root_ch.special_channel_type != 'HEIGHT':
+                if root_ch.type != 'NORMAL' and root_ch.special_channel_type not in {'HEIGHT', 'NORMAL'}:
                     row = mcol.row(align=True)
                     row.label(text='', icon='BLANK1')
                     row.label(text='Use Clamp:')
@@ -2359,27 +2368,28 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         if root_ch.special_channel_type == 'HEIGHT':
 
-            # Height
-            row = mcol.row(align=True)
-            row.label(text='', icon='BLANK1')
-            row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
-            row.label(text='Scale:') #, icon_value=lib.get_icon('input'))
-            row.active == is_bump_distance_relevant(layer, ch)
-            draw_input_prop(row, ch, 'bump_distance', layer=layer)
-
-            # Midlevel
-            row = mcol.row(align=True)
-            row.label(text='', icon='BLANK1')
-            row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
-            row.label(text='Midlevel:') 
-            draw_input_prop(row, ch, 'bump_midlevel', layer=layer)
-
-            if root_ch.enable_smooth_bump:
-                # Smooth multiplier
+            if layer.type != 'GROUP':
+                # Height
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
-                row.label(text='Smooth Multiplier:') 
-                draw_input_prop(row, ch, 'bump_smooth_multiplier', layer=layer)
+                row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
+                row.label(text='Scale:') #, icon_value=lib.get_icon('input'))
+                row.active == is_bump_distance_relevant(layer, ch)
+                draw_input_prop(row, ch, 'bump_distance', layer=layer)
+
+                # Midlevel
+                row = mcol.row(align=True)
+                row.label(text='', icon='BLANK1')
+                row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
+                row.label(text='Midlevel:') 
+                draw_input_prop(row, ch, 'bump_midlevel', layer=layer)
+
+                if root_ch.enable_smooth_bump:
+                    # Smooth multiplier
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    row.label(text='Smooth Multiplier:') 
+                    draw_input_prop(row, ch, 'bump_smooth_multiplier', layer=layer)
 
             # Write Height
             row = mcol.row(align=True)
@@ -2387,7 +2397,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             row.label(text='Use as Normal Only:')
             row.prop(ch, 'use_height_as_normal', text='')
 
-        if root_ch.special_channel_type == 'NORMAL':
+            if ch.use_height_as_normal:
+                row = mcol.row(align=True)
+                row.label(text='', icon='BLANK1')
+                row.label(text='Height Blend:')
+                row.prop(ch, 'height_blend_type', text='')
+
+        if root_ch.special_channel_type == 'NORMAL' and layer.type != 'GROUP':
 
             #height_as_normal_disabled = ch == normal_ch and (height_ch == None or not height_ch.enable or not height_ch.use_height_as_normal)
 
