@@ -1922,7 +1922,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
         label = 'Layer'
 
         if ch == alpha_ch and color_ch.enable and not color_ch.unpair_alpha:
-            if color_ch.socket_input_name == 'Alpha':
+            if not color_ch.override and color_ch.socket_input_name == 'Alpha':
                 label = 'Solid Value (1.0)'
             else: label += ' Alpha'
         else: label += ' ' + get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
@@ -2086,7 +2086,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 label += ')'
         else: label += yp.channels[i].name
         intensity_value = get_entity_prop_value(ch, 'intensity_value', layer=layer, 
-            path='channels['+str(i)+'].intensity_value') # NOTE: Manual path passing is for optimization
+            path='.channels['+str(i)+'].intensity_value') # NOTE: Manual path passing is for optimization
         if intensity_value != 1.0 and layer.type != 'GROUP':
             label += ' (%.1f)' % intensity_value
         if not chui.expand_content:
@@ -6386,7 +6386,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         if color_ch and color_ch.enable and not color_ch.unpair_alpha and alpha_ch == ch:
             icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
 
-            if color_ch.socket_input_name == 'Alpha' and layer.type != 'GROUP':
+            if color_ch.socket_input_name == 'Alpha' and not color_ch.override and layer.type != 'GROUP':
                 label = ' Solid Value (1.0)'
             else:
                 label = 'Layer' if layer.type != 'GROUP' else 'Group'

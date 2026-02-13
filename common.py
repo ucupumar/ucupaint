@@ -637,7 +637,7 @@ CACHE_BITANGENT_IMAGE_SUFFIX = '_YP_CACHE_BITANGENT'
 
 GAMMA = 2.2
 
-valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
+valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp", ".tif", ".tiff"]
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -2756,7 +2756,10 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not inp: 
         inp =  tree.interface.new_socket(name, description=description, in_out='INPUT', socket_type=socket_type)
 
-    if hasattr(inp, 'subtype'): inp.subtype = subtype
+    # NOTE: Setting subtype in Blender 5.1 Alpha here is causing the input socket to disappear
+    if hasattr(inp, 'subtype') and not is_bl_newer_than(5, 1):
+        inp.subtype = subtype
+
     return inp
 
 def new_tree_output(tree, name, socket_type, description='', use_both=False):
@@ -5161,8 +5164,9 @@ def set_active_paint_slot_entity(yp):
             if img == None: continue
             if img.name == image.name:
                 mat.paint_active_slot = idx
-                # HACK: Just in case paint slot does not update
-                wmyp.correct_paint_image_name = img.name
+                # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
+                if not is_bl_newer_than(5, 1):
+                    wmyp.correct_paint_image_name = img.name                                         
                 break
         
     else:
@@ -6816,7 +6820,7 @@ def get_material_fcurves(mat):
     fcurves = []
 
     if tree.animation_data and tree.animation_data.action:
-        for fc in get_datablock_fcurves(mat):
+        for fc in get_datablock_fcurves(tree):
             match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if match:
                 fcurves.append(fc)

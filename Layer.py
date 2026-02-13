@@ -4722,6 +4722,7 @@ class YSetLayerChannelInput(bpy.types.Operator):
 
     def execute(self, context):
         ch = context.channel
+        layer = context.layer
 
         if self.socket_name == '':
             if self.set_normal_input:
