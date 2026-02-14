@@ -5,6 +5,8 @@ from bpy_extras.io_utils import ExportHelper
 from .common import *
 import time
 from . import UDIM, subtree, BaseOperator
+import bmesh
+from mathutils.kdtree import KDTree
 
 def preserve_float_color_hack_before_saving(image):
     if not image.is_float or not is_bl_newer_than(2, 80): return
@@ -40,7 +42,7 @@ def save_float_image(image):
             if form == 'OPEN_EXR_MULTILAYER' and image.type != 'MULTILAYER': continue
             settings.file_format = form
             break
-    
+
     if settings.file_format in {'OPEN_EXR', 'OPEN_EXR_MULTILAYER'}:
         settings.exr_codec = 'ZIP'
         settings.color_depth = '32'
@@ -50,7 +52,7 @@ def save_float_image(image):
     # Need to pack first to save the image
     if is_bl_newer_than(2, 81) and image.is_dirty:
         pack_image(image)
-    
+
     full_path = bpy.path.abspath(image.filepath)
     image.save_render(full_path, scene=tmpscene)
     # HACK: If image still dirty after saving, save using standard save method
@@ -297,7 +299,7 @@ def save_pack_all(yp):
                     except: pass
 
                     temp_saved = True
-                    
+
                 pack_image(image, reload_float=True)
 
                 if temp_saved:
@@ -331,7 +333,7 @@ def save_pack_all(yp):
                     # Remove old files to avoid caching (?)
                     try: os.remove(path)
                     except Exception as e: print(e)
-                    
+
                     # Then unpack
                     default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
 
@@ -451,12 +453,297 @@ class YInvertImage(bpy.types.Operator):
 
             space = context.area.spaces[0]
             space.image = context.image
-                
+
             bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
 
             context.area.type = ori_area_type
 
         return {'FINISHED'}
+
+class Y_UV_Kaleidoscope(bpy.types.Operator):
+    bl_options = {'REGISTER'}
+
+    # Shared props
+    perform_on_what_axis: bpy.props.EnumProperty(
+        name="Axis",
+        items=[
+            ('x', "X", "Operation on X axis"),
+            ('y', "Y", "Operation on Y axis"),
+            ('z', "Z", "Operation on Z axis"),
+        ],
+        default='x',
+    )
+
+    keep_only_positive: bpy.props.BoolProperty(name="Keep Only Positive Side", default=True)
+
+    # Todo: slider will not appear in lower left of viewport unless 'undo' bug is fixed
+    merge_distance: bpy.props.FloatProperty(
+        name="Merge distance",
+        description="Tolerance for finding matching vertices on the target side",
+        default=0.01,
+        min=0.0001,
+        max=1.0,
+        precision=4,
+        step=0.1,
+        subtype='DISTANCE'
+    )
+
+    MODE = "Mirror"
+    EPSILON = 0.0001
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'image') and context.image
+
+    def execute(self, context):
+        image = context.image
+        obj = context.active_object
+        original_mode = obj.mode if obj else 'OBJECT'
+        bm = None
+
+        # Switch to object mode to ensure texture is safe
+        if original_mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+        try: # Try catch after scene state change ensures blender project is safe
+
+            if hasattr(image, 'yia') and image.yia.is_image_atlas:
+                self.report({'ERROR'}, f'Cannot {self.ACTION_NAME.lower()} image atlas!')
+                return {'CANCELLED'}
+
+            if not obj or obj.type != 'MESH':
+                self.report({'ERROR'}, "Active object is not a mesh!")
+                return {'CANCELLED'}
+
+            mesh = obj.data
+            width, height = image.size
+
+            if width == 0 or height == 0 or len(image.pixels) == 0:
+                self.report({'ERROR'}, "Image has no data.")
+                return {'CANCELLED'}
+
+            pixels = numpy.array(image.pixels, dtype=numpy.float32).reshape((height, width, 4))
+            out_pixels = pixels.copy()
+
+            bm = bmesh.new()
+            bm.from_mesh(mesh)
+            bm.verts.ensure_lookup_table()
+            bm.faces.ensure_lookup_table()
+
+            uv_lay = bm.loops.layers.uv.active
+            if not uv_lay:
+                self.report({'ERROR'}, "No active UV layer!")
+                return {'CANCELLED'}
+
+            axis_index = {'x': 0, 'y': 1, 'z': 2}[self.perform_on_what_axis]
+
+            if self.keep_only_positive:
+                def is_source(val): return val >= self.EPSILON
+                def is_target(val): return val < self.EPSILON
+            else:
+                def is_source(val): return val <= -self.EPSILON
+                def is_target(val): return val > -self.EPSILON
+
+            kd = KDTree(len(bm.verts))
+            for i, v in enumerate(bm.verts):
+                kd.insert(v.co, i)
+            kd.balance()
+
+            vert_by_index = {v.index: v for v in bm.verts}
+            source_faces = [f for f in bm.faces if is_source(f.calc_center_median()[axis_index])]
+            target_faces = [f for f in bm.faces if is_target(f.calc_center_median()[axis_index])]
+
+            processed_targets = set()
+            source_clear_uvs = []
+
+            # If perfectly-symmetrical mesh on mirroring axis,
+            # this code is all that's needed
+            for face in source_faces:
+                src_loops = list(face.loops)
+                mirror_verts = []
+                mapping_failed = False
+
+                for loop in src_loops:
+                    t_co = loop.vert.co.copy()
+                    t_co[axis_index] *= -1
+                    _co, idx, dist = kd.find(t_co)
+                    if dist > self.merge_distance:
+                        mapping_failed = True; break
+                    mirror_verts.append(vert_by_index[idx])
+
+                if mapping_failed or len(mirror_verts) != len(src_loops): continue
+
+                potential = set(mirror_verts[0].link_faces)
+                for mv in mirror_verts[1:]: potential &= set(mv.link_faces)
+
+                target_face = None
+                for pf in potential:
+                    if len(pf.verts) == len(face.verts) and is_target(pf.calc_center_median()[axis_index]):
+                        target_face = pf; break
+
+                if not target_face: continue
+
+                t_loop_map = {tl.vert.index: tl for tl in target_face.loops}
+                src_uvs, dst_uvs = [], []
+
+                for i, sl in enumerate(src_loops):
+                    src_uvs.append(sl[uv_lay].uv.copy())
+                    tl = t_loop_map.get(mirror_verts[i].index)
+                    if not tl: mapping_failed = True; break
+                    dst_uvs.append(tl[uv_lay].uv.copy())
+
+                if mapping_failed: continue
+
+                processed_targets.add(target_face.index)
+                self._remap_face(src_uvs, dst_uvs, pixels, out_pixels, width, height)
+
+                if self.MODE == 'Flip':
+                    self._remap_face(dst_uvs, src_uvs, pixels, out_pixels, width, height)
+
+            # If not perfectly-symmetrical mesh on mirroring axis,
+            # for each target face, find the closest source face
+            # and interpolate its texture data onto the target face.
+            unmatched = [f for f in target_faces if f.index not in processed_targets]
+            if unmatched:
+                src_center_kd = KDTree(len(source_faces))
+                for i, sf in enumerate(source_faces): src_center_kd.insert(sf.calc_center_median(), i)
+                src_center_kd.balance()
+
+                for tf in unmatched:
+                    t_center = tf.calc_center_median()
+                    t_center[axis_index] *= -1
+                    _co, s_idx, _d = src_center_kd.find(t_center)
+                    sf = source_faces[s_idx]
+
+                    # Continue if not a face (<3 connected vertices)
+                    if len(tf.loops) < 3 or len(sf.loops) < 3: continue
+
+                    face_kd = KDTree(len(sf.loops))
+                    for i, sl in enumerate(sf.loops): face_kd.insert(sl.vert.co, i)
+                    face_kd.balance()
+
+                    src_uvs, dst_uvs = [], []
+                    used_s_idx = set()
+                    fail = False
+
+                    for tl in tf.loops:
+                        m_co = tl.vert.co.copy()
+                        m_co[axis_index] *= -1
+                        _co, best_idx, _d = face_kd.find(m_co)
+
+                        if best_idx in used_s_idx:
+                            found = False
+                            for r_co, r_idx, r_d in face_kd.find_n(m_co, len(sf.loops)):
+                                if r_idx not in used_s_idx:
+                                    best_idx = r_idx; found = True; break
+                            if not found: fail = True; break
+
+                        used_s_idx.add(best_idx)
+                        dst_uvs.append(tl[uv_lay].uv.copy())
+                        src_uvs.append(sf.loops[best_idx][uv_lay].uv.copy())
+
+                    if fail or len(src_uvs) < 3: continue
+                    self._remap_face(src_uvs, dst_uvs, pixels, out_pixels, width, height)
+
+                    if self.MODE == "Flip":
+                        self._remap_face(dst_uvs, src_uvs, pixels, out_pixels, width, height)
+
+            # Apply changes
+            image.pixels = out_pixels.flatten()
+            image.update()
+
+        except Exception as e:
+            self.report({'ERROR'}, f"{self.MODE} Failed: {str(e)}")
+            return {'CANCELLED'}
+
+        finally:
+            if bm: bm.free() # Memory cleanup
+
+            # Restore mode
+            if original_mode != 'OBJECT' and obj.mode != original_mode:
+                try:
+                    bpy.ops.object.mode_set(mode=original_mode)
+                except Exception as e:
+                    print(f"Could not restore mode: {e}")
+
+        # Warn user of 'undo' bug
+        msg = f"{self.MODE} complete. To undo you must undo and redo."
+        self.report({'INFO'}, msg)
+
+        def draw_warning(self, context):
+            self.layout.label(text=msg)
+        context.window_manager.popup_menu(draw_warning, title=f"{self.MODE} Complete", icon='INFO')
+
+        return {'FINISHED'}
+
+    def _remap_face(self, src_uvs, dst_uvs, pixels, out_pixels, width, height):
+        src_uv_array = numpy.array(src_uvs)
+        dst_uv_array = numpy.array(dst_uvs)
+        count = len(src_uv_array)
+        for i in range(1, count - 1):
+            tri = [0, i, i + 1]
+            self._remap_triangle(src_uv_array[tri], dst_uv_array[tri], pixels, out_pixels, width, height)
+
+    def _remap_triangle(self, src_coords_uv, dst_coords_uv, src_pix, dst_pix, w, h):
+        scale = numpy.array([w - 1, h - 1])
+        src_px = src_coords_uv * scale
+        dst_px = dst_coords_uv * scale
+
+        min_x = int(numpy.floor(numpy.min(dst_px[:, 0])))
+        max_x = int(numpy.ceil(numpy.max(dst_px[:, 0])))
+        min_y = int(numpy.floor(numpy.min(dst_px[:, 1])))
+        max_y = int(numpy.ceil(numpy.max(dst_px[:, 1])))
+
+        min_x, max_x = max(0, min_x), min(w - 1, max_x)
+        min_y, max_y = max(0, min_y), min(h - 1, max_y)
+
+        if min_x > max_x or min_y > max_y: return
+
+        grid_x, grid_y = numpy.meshgrid(
+            numpy.arange(min_x, max_x + 1),
+            numpy.arange(min_y, max_y + 1),
+        )
+
+        A, B, C = dst_px[0], dst_px[1], dst_px[2]
+        v0 = B - A; v1 = C - A
+        v2 = numpy.stack((grid_x - A[0], grid_y - A[1]), axis=-1)
+
+        den = v0[0] * v1[1] - v1[0] * v0[1]
+        if abs(den) < 1e-6: return
+
+        v = (v2[..., 0] * v1[1] - v1[0] * v2[..., 1]) / den
+        w_coord = (v0[0] * v2[..., 1] - v2[..., 0] * v0[1]) / den
+        u = 1.0 - v - w_coord
+
+        mask = (u >= 0) & (v >= 0) & (w_coord >= 0)
+        if not numpy.any(mask): return
+
+        src_A, src_B, src_C = src_px[0], src_px[1], src_px[2]
+        src_x = u[mask] * src_A[0] + v[mask] * src_B[0] + w_coord[mask] * src_C[0]
+        src_y = u[mask] * src_A[1] + v[mask] * src_B[1] + w_coord[mask] * src_C[1]
+
+        src_ix = numpy.clip(numpy.round(src_x).astype(int), 0, w - 1)
+        src_iy = numpy.clip(numpy.round(src_y).astype(int), 0, h - 1)
+
+        dst_pix[grid_y[mask], grid_x[mask]] = src_pix[src_iy, src_ix]
+
+class YFlipImage(Y_UV_Kaleidoscope):
+    bl_idname = "wm.y_flip_image"
+    bl_label = "Flip Image Layer/Mask"
+    bl_description = "Flip image of layer or mask"
+
+    MODE = "Flip"
+
+    #TODO: add mode to flip with an angle beyond just 180 degrees
+
+class YMirrorImage(Y_UV_Kaleidoscope):
+    bl_idname = "wm.y_mirror_image"
+    bl_label = "Mirror Image Layer/Mask"
+    bl_description = "Mirror image of layer or mask"
+
+    MODE = "Mirror"
+
+    #TODO: add mode to mirror with an angle beyond just 180 degrees
 
 class YRefreshImage(bpy.types.Operator):
     """Reload Image"""
@@ -712,7 +999,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
         description = 'Create a new image file without modifying the current image in Blender',
         default = False
     )
-    
+
     force_exr_vdisp : BoolProperty(
         name = 'Use EXR for Baked VDM',
         description = 'Always use EXR file format for baked vector displacement image',
@@ -849,7 +1136,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
             ori_colorspace = image.colorspace_settings.name
             if not image.is_float and image.colorspace_settings.name != get_srgb_name():
                 image.colorspace_settings.name = get_srgb_name()
-            
+
             # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
             unpacked_to_disk = False
             if not is_bl_newer_than(2, 81) and bpy.data.filepath != '' and image.packed_file:
@@ -1107,7 +1394,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
 
             if filepath != self.filepath:
                 self.filepath = filepath
-                change_ext = True  
+                change_ext = True
 
         return change_ext
         #return True
@@ -1176,7 +1463,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
         # Remembers
         ori_colorspace = image.colorspace_settings.name
         ori_alpha_mode = image.alpha_mode
-        
+
         if image.is_float:
             # HACK: Set image color to linear first to save linear float image
             if image.colorspace_settings.name == get_linear_color_name():
@@ -1210,7 +1497,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
                     image.alpha_mode = 'STRAIGHT'
                 elif image.alpha_mode == 'STRAIGHT':
                     image.alpha_mode = 'PREMUL'
-        
+
         # Save image
         if image.source == 'TILED':
             override = bpy.context.copy()
@@ -1312,7 +1599,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
 
         tilenums = [tile.number for tile in image.tiles]
         new_image = bpy.data.images.new(
-            image.name, width=image.size[0], height=image.size[1], 
+            image.name, width=image.size[0], height=image.size[1],
             alpha=True, float_buffer=not image.is_float, tiled=True
         )
 
@@ -1326,7 +1613,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
 
     else:
         new_image = bpy.data.images.new(
-            image.name, width=image.size[0], height=image.size[1], 
+            image.name, width=image.size[0], height=image.size[1],
             alpha=True, float_buffer=not image.is_float
         )
 
@@ -1350,7 +1637,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
     if no_copy == False:
         if image.source == 'TILED':
             UDIM.copy_udim_pixels(image, new_image, convert_colorspace=convert_colorspace)
-        else: 
+        else:
             if convert_colorspace:
                 copy_image_pixels_with_conversion(image, new_image)
             else: copy_image_pixels(image, new_image)
@@ -1386,9 +1673,9 @@ class YConvertImageBitDepth(bpy.types.Operator):
         if m1:
             layer = yp.layers[int(m1.group(1))]
             convert_colorspace = True
-        elif m2: 
+        elif m2:
             layer = yp.layers[int(m2.group(1))]
-        elif m3: 
+        elif m3:
             layer = yp.layers[int(m3.group(1))]
         else:
             self.report({'ERROR'}, "Wrong context!")
@@ -1414,6 +1701,8 @@ def register():
     bpy.utils.register_class(YCopyImagePathToClipboard)
     bpy.utils.register_class(YOpenContainingImageFolder)
     bpy.utils.register_class(YInvertImage)
+    bpy.utils.register_class(YFlipImage)
+    bpy.utils.register_class(YMirrorImage)
     bpy.utils.register_class(YRefreshImage)
     bpy.utils.register_class(YPackImage)
     bpy.utils.register_class(YSaveImage)
@@ -1426,6 +1715,8 @@ def unregister():
     bpy.utils.unregister_class(YCopyImagePathToClipboard)
     bpy.utils.unregister_class(YOpenContainingImageFolder)
     bpy.utils.unregister_class(YInvertImage)
+    bpy.utils.unregister_class(YFlipImage)
+    bpy.utils.unregister_class(YMirrorImage)
     bpy.utils.unregister_class(YRefreshImage)
     bpy.utils.unregister_class(YPackImage)
     bpy.utils.unregister_class(YSaveImage)
