@@ -1080,17 +1080,25 @@ def draw_root_channels_ui(context, layout, node):
     ypui = context.window_manager.ypui
     ypup = get_user_preferences()
 
+    channel = yp.channels[yp.active_channel_index] if len(yp.channels) > 0 and yp.active_channel_index < len(yp.channels) else None 
+
     box = layout.box()
     col = box.column()
     row = col.row()
 
     rcol = row.column()
     if len(yp.channels) > 0:
-        pcol = rcol.column()
-        if yp.preview_mode: pcol.alert = True
-        if not is_bl_newer_than(2, 80):
-            pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-        else: pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
+
+        if channel and channel.type == 'NORMAL':
+            prow = split_layout(rcol, 0.667, align=True)
+        else: prow = rcol.row()
+
+        if yp.preview_mode: prow.alert = True
+        icon = 'HIDE_OFF' if is_bl_newer_than(2, 80) else 'RESTRICT_VIEW_OFF'
+        prow.prop(yp, 'preview_mode', text='Preview Mode', icon=icon)
+
+        if channel and channel.type == 'NORMAL':
+            prow.prop(yp, 'preview_mode_normal_space', text='')
 
     rcol.template_list("NODE_UL_YPaint_channels", "", yp,
             "channels", yp, "active_channel_index", rows=3, maxrows=5)  
@@ -1114,7 +1122,6 @@ def draw_root_channels_ui(context, layout, node):
 
         mcol = col.column(align=False)
 
-        channel = yp.channels[yp.active_channel_index]
         mcol.context_pointer_set('channel', channel)
 
         chui = ypui.channel_ui
