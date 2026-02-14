@@ -382,11 +382,10 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
     split = split_layout(col, 0.4)
 
     scol = split.column()
-    if not image.is_dirty:
-        scol.label(text='Color Space:')
-        if hasattr(image, 'use_alpha'):
-            scol.label(text='Use Alpha:')
-        scol.label(text='Alpha Mode:')
+    scol.label(text='Color Space:')
+    if hasattr(image, 'use_alpha'):
+        scol.label(text='Use Alpha:')
+    scol.label(text='Alpha Mode:')
 
     scol.label(text='Interpolation:')
 
@@ -402,6 +401,11 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
         if hasattr(image, 'use_alpha'):
             scol.prop(image, 'use_alpha', text='')
         scol.prop(image, 'alpha_mode', text='')
+    else:
+        scol.label(text=image.colorspace_settings.name)
+        if hasattr(image, 'use_alpha'):
+            scol.label(text='True' if image.use_alpha else 'False')
+        scol.label(text=alpha_mode_labels[image.alpha_mode])
 
     scol.prop(source, 'interpolation', text='')
 
