@@ -1920,7 +1920,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                         # Get image channel
                         subidx = 0
-                        if ch.type in {'RGB', 'NORMAL'}:
+                        if ch == alpha_ch and ch.alpha_combine_to_baked_color:
+                            subidx = 3
+                        elif ch.type in {'RGB', 'NORMAL'}:
                             subidx = int(getattr(btc, 'subchannel_index'))
 
                         # Get baked node
@@ -1932,6 +1934,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                             subidx = 0
                         elif ch.type == 'NORMAL' and btc.normal_type == 'VECTOR_DISPLACEMENT':
                             baked = tree.nodes.get(ch.baked_vdisp)
+                        elif ch == alpha_ch and ch.alpha_combine_to_baked_color:
+                            baked = tree.nodes.get(color_ch.baked)
                         else: baked = tree.nodes.get(ch.baked)
 
                         # Check if a layer is using the channel, in case an old unused baked image is present

@@ -382,11 +382,10 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
     split = split_layout(col, 0.4)
 
     scol = split.column()
-    if not image.is_dirty:
-        scol.label(text='Color Space:')
-        if hasattr(image, 'use_alpha'):
-            scol.label(text='Use Alpha:')
-        scol.label(text='Alpha Mode:')
+    scol.label(text='Color Space:')
+    if hasattr(image, 'use_alpha'):
+        scol.label(text='Use Alpha:')
+    scol.label(text='Alpha Mode:')
 
     scol.label(text='Interpolation:')
 
@@ -402,6 +401,11 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
         if hasattr(image, 'use_alpha'):
             scol.prop(image, 'use_alpha', text='')
         scol.prop(image, 'alpha_mode', text='')
+    else:
+        scol.label(text=image.colorspace_settings.name)
+        if hasattr(image, 'use_alpha'):
+            scol.label(text='True' if image.use_alpha else 'False')
+        scol.label(text=alpha_mode_labels[image.alpha_mode])
 
     scol.prop(source, 'interpolation', text='')
 
@@ -1076,17 +1080,25 @@ def draw_root_channels_ui(context, layout, node):
     ypui = context.window_manager.ypui
     ypup = get_user_preferences()
 
+    channel = yp.channels[yp.active_channel_index] if len(yp.channels) > 0 and yp.active_channel_index < len(yp.channels) else None 
+
     box = layout.box()
     col = box.column()
     row = col.row()
 
     rcol = row.column()
     if len(yp.channels) > 0:
-        pcol = rcol.column()
-        if yp.preview_mode: pcol.alert = True
-        if not is_bl_newer_than(2, 80):
-            pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-        else: pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
+
+        if channel and channel.type == 'NORMAL':
+            prow = split_layout(rcol, 0.667, align=True)
+        else: prow = rcol.row()
+
+        if yp.preview_mode: prow.alert = True
+        icon = 'HIDE_OFF' if is_bl_newer_than(2, 80) else 'RESTRICT_VIEW_OFF'
+        prow.prop(yp, 'preview_mode', text='Preview Mode', icon=icon)
+
+        if channel and channel.type == 'NORMAL':
+            prow.prop(yp, 'preview_mode_normal_space', text='')
 
     rcol.template_list("NODE_UL_YPaint_channels", "", yp,
             "channels", yp, "active_channel_index", rows=3, maxrows=5)  
@@ -1110,7 +1122,6 @@ def draw_root_channels_ui(context, layout, node):
 
         mcol = col.column(align=False)
 
-        channel = yp.channels[yp.active_channel_index]
         mcol.context_pointer_set('channel', channel)
 
         chui = ypui.channel_ui
@@ -1990,7 +2001,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
         label = 'Layer'
 
         if ch == alpha_ch and color_ch.enable and not color_ch.unpair_alpha:
-            if color_ch.socket_input_name == 'Alpha':
+            if not color_ch.override and color_ch.socket_input_name == 'Alpha':
                 label = 'Solid Value (1.0)'
             else: label += ' Alpha'
         else: label += ' ' + get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
@@ -6526,7 +6537,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         if color_ch and color_ch.enable and not color_ch.unpair_alpha and alpha_ch == ch:
             icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
 
-            if color_ch.socket_input_name == 'Alpha' and layer.type != 'GROUP':
+            if color_ch.socket_input_name == 'Alpha' and not color_ch.override and layer.type != 'GROUP':
                 label = ' Solid Value (1.0)'
             else:
                 label = 'Layer' if layer.type != 'GROUP' else 'Group'

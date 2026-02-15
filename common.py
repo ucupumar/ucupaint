@@ -624,6 +624,13 @@ tex_default_brushes = [
     'Paint Soft Pressure',
 ]
 
+alpha_mode_labels = {
+    'STRAIGHT' : 'Straight',
+    'PREMUL' : 'Premultiplied',
+    'CHANNEL_PACKED' : 'Channel Packed',
+    'NONE' : 'None'
+}
+
 rgba_letters = ['r', 'g', 'b', 'a']
 nsew_letters = ['n', 's', 'e', 'w']
 
@@ -638,7 +645,7 @@ CACHE_BITANGENT_IMAGE_SUFFIX = '_YP_CACHE_BITANGENT'
 
 GAMMA = 2.2
 
-valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
+valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp", ".tif", ".tiff"]
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -5160,8 +5167,9 @@ def set_active_paint_slot_entity(yp):
             if img == None: continue
             if img.name == image.name:
                 mat.paint_active_slot = idx
-                # HACK: Just in case paint slot does not update
-                wmyp.correct_paint_image_name = img.name
+                # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
+                if not is_bl_newer_than(5, 1):
+                    wmyp.correct_paint_image_name = img.name                                         
                 break
         
     else:
@@ -6827,7 +6835,7 @@ def get_material_fcurves(mat):
     fcurves = []
 
     if tree.animation_data and tree.animation_data.action:
-        for fc in get_datablock_fcurves(mat):
+        for fc in get_datablock_fcurves(tree):
             match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if match:
                 fcurves.append(fc)
