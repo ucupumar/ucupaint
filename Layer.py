@@ -61,7 +61,7 @@ def add_new_layer(
         use_divider_alpha=False, use_udim_for_mask=False,
         interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05, mask_edge_detect_method='CROSS',
         normal_space = 'TANGENT', edge_detect_radius=0.05, edge_detect_method='CROSS', mask_use_prev_normal=True,
-        ao_distance=1.0
+        ao_distance=1.0, height_blend_type='MIX'
     ):
 
     yp = group_tree.yp
@@ -343,6 +343,8 @@ def add_new_layer(
             if root_ch.special_channel_type == 'NORMAL':
                 ch.normal_blend_type = normal_blend_type
                 ch.normal_space = normal_space
+            if root_ch.special_channel_type == 'HEIGHT':
+                ch.height_blend_type = height_blend_type
             else:
                 ch.blend_type = blend_type
         else: 
@@ -618,7 +620,7 @@ class YNewVDMLayer(bpy.types.Operator):
 
     blend_type : EnumProperty(
         name = 'Blend Type',
-        items = normal_blend_items,
+        items = normal_blend_type_items,
         default = 'OVERLAY'
     )
 
@@ -874,10 +876,16 @@ class YNewLayer(bpy.types.Operator):
         items = blend_type_items,
     )
 
+    height_blend_type : EnumProperty(
+        name = 'Height Blend Type',
+        description = 'Height blend type',
+        items = height_blend_type_items,
+    )
+
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
         description = 'Normal blend type',
-        items = normal_blend_items,
+        items = normal_blend_type_items,
         default = 'MIX'
     )
 
@@ -1405,11 +1413,13 @@ class YNewLayer(bpy.types.Operator):
             rrow = col.row(align=True)
             rrow.prop(self, 'channel_idx', text='')
             if channel:
-                if channel.type == 'NORMAL':
+                if channel.special_channel_type == 'NORMAL':
                     rrow.prop(self, 'normal_blend_type', text='')
-                    col.prop(self, 'normal_map_type', text='')
-                    if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                        col.prop(self, 'normal_space', text='')
+                    #col.prop(self, 'normal_map_type', text='')
+                    #if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    col.prop(self, 'normal_space', text='')
+                elif channel.special_channel_type == 'HEIGHT':
+                    rrow.prop(self, 'height_blend_type', text='')
                 else: 
                     rrow.prop(self, 'blend_type', text='')
 
@@ -1690,7 +1700,8 @@ class YNewLayer(bpy.types.Operator):
             use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
             mask_edge_detect_radius=self.mask_edge_detect_radius, mask_edge_detect_method=self.mask_edge_detect_method,
             edge_detect_radius=self.edge_detect_radius, edge_detect_method=self.edge_detect_method,
-            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance, normal_space=self.normal_space
+            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance, normal_space=self.normal_space,
+            height_blend_type=self.height_blend_type
         )
 
         if segment:
@@ -2978,10 +2989,16 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         items = blend_type_items,
     )
 
+    height_blend_type : EnumProperty(
+        name = 'Height Blend Type',
+        description = 'Height blend type',
+        items = height_blend_type_items,
+    )
+
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
         description = 'Normal blend type',
-        items = normal_blend_items,
+        items = normal_blend_type_items,
         default = 'MIX'
     )
 
@@ -3076,11 +3093,13 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         rrow = col.row(align=True)
         rrow.prop(self, 'channel_idx', text='')
         if channel:
-            if channel.type == 'NORMAL':
+            if channel.special_channel_type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
-                col.prop(self, 'normal_map_type', text='')
-                if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                    col.prop(self, 'normal_space', text='')
+                #col.prop(self, 'normal_map_type', text='')
+                #if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                col.prop(self, 'normal_space', text='')
+            elif channel.special_channel_type == 'HEIGHT':
+                rrow.prop(self, 'height_blend_type', text='')
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
@@ -3138,7 +3157,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
                 blend_type=self.blend_type, normal_blend_type=self.normal_blend_type,
                 normal_map_type=self.normal_map_type, texcoord_type=self.texcoord_type,
                 uv_name = self.uv_map, image=image, vcol=None, segment=None,
-                interpolation=self.interpolation, normal_space=self.normal_space
+                interpolation=self.interpolation, normal_space=self.normal_space,
+                height_blend_type=self.height_blend_type
             )
 
         node.node_tree.yp.halt_update = False
@@ -3511,10 +3531,16 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
         items = blend_type_items,
     )
 
+    height_blend_type : EnumProperty(
+        name = 'Height Blend Type',
+        description = 'Height blend type',
+        items = height_blend_type_items,
+    )
+
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
         description = 'Normal blend type',
-        items = normal_blend_items,
+        items = normal_blend_type_items,
         default = 'MIX'
     )
 
@@ -3626,9 +3652,11 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
         if channel:
             if channel.type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
-                col.prop(self, 'normal_map_type', text='')
-                if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                    col.prop(self, 'normal_space', text='')
+                #col.prop(self, 'normal_map_type', text='')
+                #if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                col.prop(self, 'normal_space', text='')
+            elif channel.special_channel_type == 'HEIGHT':
+                rrow.prop(self, 'height_blend_type', text='')
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
@@ -3685,7 +3713,8 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
             blend_type=self.blend_type, normal_blend_type=self.normal_blend_type,
             normal_map_type=self.normal_map_type, texcoord_type=self.texcoord_type,
             uv_name=self.uv_map, image=image, vcol=vcol, segment=None,
-            interpolation=self.interpolation, normal_space=self.normal_space
+            interpolation=self.interpolation, normal_space=self.normal_space,
+            height_blend_type=self.height_blend_type
         )
 
         node.node_tree.yp.halt_update = False
@@ -4666,7 +4695,7 @@ class YSetLayerChannelNormalBlendType(bpy.types.Operator):
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
         description = 'Normal blend type',
-        items = normal_blend_items,
+        items = normal_blend_type_items,
         default = 'MIX'
     )
 
@@ -6548,6 +6577,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
         update = update_blend_type
     )
 
+    height_blend_type : EnumProperty(
+        name = 'Height Blend Type',
+        description = 'Blend type of layer height channel',
+        items = height_blend_type_items,
+        update = update_blend_type
+    )
+
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
         description = 'Blend type of layer normal channel',
@@ -6562,13 +6598,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
         items = normal_space_items,
         default = 'TANGENT',
         update = update_normal_space
-    )
-
-    height_blend_type : EnumProperty(
-        name = 'Height Blend Type',
-        description = 'Blend type of layer height channel',
-        items = height_blend_type_items,
-        update = update_blend_type
     )
 
     intensity_value : FloatProperty(
