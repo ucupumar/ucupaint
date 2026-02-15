@@ -623,6 +623,13 @@ tex_default_brushes = [
     'Paint Soft Pressure',
 ]
 
+alpha_mode_labels = {
+    'STRAIGHT' : 'Straight',
+    'PREMUL' : 'Premultiplied',
+    'CHANNEL_PACKED' : 'Channel Packed',
+    'NONE' : 'None'
+}
+
 rgba_letters = ['r', 'g', 'b', 'a']
 nsew_letters = ['n', 's', 'e', 'w']
 

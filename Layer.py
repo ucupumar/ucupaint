@@ -590,8 +590,10 @@ def update_channel_idx_new_layer(self, context):
         channel = yp.channels[channel_idx]
     else: channel = None
 
-    if channel and channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP':
-        self.interpolation = 'Cubic'
+    if channel and channel.type == 'NORMAL':
+        if self.normal_map_type != 'NORMAL_MAP':
+            self.interpolation = 'Cubic'
+        else: self.interpolation = 'Linear'
 
 class YNewVDMLayer(bpy.types.Operator):
     bl_idname = "wm.y_new_vdm_layer"
@@ -993,6 +995,13 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
         items = get_normal_map_type_items
     )
 
+    normal_space : EnumProperty(
+        name = 'Normal Map Space',
+        description = 'Normal map space of this layer',
+        items = normal_space_items,
+        default = 'TANGENT'
+    )
+
     use_udim : BoolProperty(
         name = 'Use UDIM Tiles',
         description = 'Use UDIM Tiles',
@@ -1172,10 +1181,6 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
             self.mask_color = 'WHITE'
         else: self.mask_color = 'BLACK'
 
-        # Default normal map type is fine bump map
-        #self.normal_map_type = 'FINE_BUMP_MAP'
-        self.normal_map_type = 'BUMP_MAP'
-
         # Fake lighting default blend type is add
         if self.type in {'HEMI', 'EDGE_DETECT'}:
             self.blend_type = 'ADD'
@@ -1270,6 +1275,9 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
             uv_name = get_default_uv_name(obj, self.yp)
             self.mask_uv_name = uv_name
 
+        # Update image interpolation
+        update_channel_idx_new_layer(self, context)
+
         return True
 
     def get_to_be_cleared_image_atlas(self, context, yp):
@@ -1313,6 +1321,8 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
             col.label(text='Channel:')
             if channel and channel.type == 'NORMAL':
                 col.label(text='Type:')
+                if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    col.label(text='Space:')
 
         if self.type == 'COLOR':
             col.label(text='Color:')
@@ -1410,6 +1420,8 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
                 if channel.type == 'NORMAL':
                     rrow.prop(self, 'normal_blend_type', text='')
                     col.prop(self, 'normal_map_type', text='')
+                    if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                        col.prop(self, 'normal_space', text='')
                 else: 
                     rrow.prop(self, 'blend_type', text='')
 
@@ -1440,7 +1452,7 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
             crow = col.row(align=True)
-            #crow.prop(self, 'image_resolution', expand= True,)
+            #crow.prop(self, 'image_resolution', expand=True)
             if not self.use_vertical_expand_for_image_options: crow.prop(self, 'image_size', expand=True)
             else: 
                 ccol = crow.column(align=True)
@@ -1595,6 +1607,15 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
         try: channel_idx = int(self.channel_idx)
         except: channel_idx = 0
 
+        # Default colorspace
+        colorspace = get_linear_color_name() if self.hdr else get_srgb_name()
+
+        # Colorspace based on channel setting
+        if not self.hdr:
+            channel = yp.channels[channel_idx] if channel_idx < len(yp.channels) and channel_idx >= 0 else None
+            if channel and (channel.colorspace == 'LINEAR' or channel.type == 'NORMAL'):
+                colorspace = get_noncolor_name()
+
         img = None
         segment = None
         if self.type == 'IMAGE':
@@ -1608,9 +1629,9 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
 
             if self.use_image_atlas:
                 if self.use_udim:
-                    segment = UDIM.get_set_udim_atlas_segment(tilenums, self.width, self.height, color, get_srgb_name(), self.hdr, yp)
+                    segment = UDIM.get_set_udim_atlas_segment(tilenums, self.width, self.height, color, colorspace, self.hdr, yp)
                 else:
-                    segment = ImageAtlas.get_set_image_atlas_segment(self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp)
+                    segment = ImageAtlas.get_set_image_atlas_segment(self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp, colorspace=colorspace)
                 img = segment.id_data
             else:
 
@@ -1640,6 +1661,9 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
                 # Set alpha mode to premultiplied to make sure alpha will be packed correctly
                 if img.is_float and is_bl_newer_than(2, 80):
                     img.alpha_mode = 'PREMUL'
+
+                # Set colorspace
+                img.colorspace_settings.name = colorspace
 
             update_image_editor_image(context, img)
 
@@ -1682,7 +1706,7 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
             use_udim_for_mask=self.use_udim_for_mask, interpolation=self.interpolation, mask_interpolation=self.mask_interpolation,
             mask_edge_detect_radius=self.mask_edge_detect_radius, mask_edge_detect_method=self.mask_edge_detect_method,
             edge_detect_radius=self.edge_detect_radius, edge_detect_method=self.edge_detect_method,
-            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance
+            mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance, normal_space=self.normal_space
         )
 
         if segment:
@@ -4383,9 +4407,6 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     yp.halt_reconnect = True
 
     # Standard bump map is easier to convert
-    #fine_bump_channels = [ch for ch in layer.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
-    #for ch in fine_bump_channels:
-    #    ch.normal_map_type = 'BUMP_MAP'
     fine_bump_channels = [ch for ch in yp.channels if ch.enable_smooth_bump]
     for ch in fine_bump_channels:
         ch.enable_smooth_bump = False
@@ -4473,7 +4494,6 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Back to use fine bump if conversion happen
     for ch in fine_bump_channels:
-        #ch.normal_map_type = 'FINE_BUMP_MAP'
         ch.enable_smooth_bump = True
 
     # Bring back transition

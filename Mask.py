@@ -535,7 +535,6 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False, modifier_
 
     # Back to use fine bump if conversion happen
     for ch in fine_bump_channels:
-        #ch.normal_map_type = 'FINE_BUMP_MAP'
         ch.enable_smooth_bump = True
 
     # Bring back transition
