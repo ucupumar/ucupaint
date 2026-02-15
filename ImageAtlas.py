@@ -140,7 +140,7 @@ def check_need_of_erasing_segments(yp, color='BLACK', width=1024, height=1024, h
 
     return None
 
-def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_from=None, segment_from=None, yp=None):
+def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_from=None, segment_from=None, yp=None, colorspace=''):
 
     ypup = get_user_preferences()
     segment = None
@@ -156,6 +156,7 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_fro
     # Search for available image atlas
     for img in images:
         #if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
+        if colorspace != '' and image.colorspace_settings.name != colorspace: continue
         if img.yia.is_image_atlas and img.yia.color == color and img.is_float == hdr:
             segment = create_image_atlas_segment(img.yia, width, height)
             if segment: 

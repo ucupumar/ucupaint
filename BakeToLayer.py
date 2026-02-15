@@ -421,6 +421,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         # Get height channel
         height_root_ch = get_root_height_channel(yp)
+        normal_root_ch = get_root_normal_channel(yp)
 
         # Set default float image
         if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT'}:
@@ -455,9 +456,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             self.use_baked_disp = False
             self.samples = 32
 
-            if height_root_ch:
-                self.channel_idx = str(get_channel_index(height_root_ch))
-                self.normal_map_type = 'NORMAL_MAP'
+            if normal_root_ch:
+                self.channel_idx = str(get_channel_index(normal_root_ch))
+                #self.normal_map_type = 'NORMAL_MAP'
 
         elif self.type == 'BEVEL_MASK':
             self.blend_type = 'MIX'
@@ -467,9 +468,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         elif self.type == 'MULTIRES_NORMAL':
             self.blend_type = 'MIX'
 
-            if height_root_ch:
-                self.channel_idx = str(get_channel_index(height_root_ch))
-                self.normal_map_type = 'NORMAL_MAP'
+            if normal_root_ch:
+                self.channel_idx = str(get_channel_index(normal_root_ch))
+                #self.normal_map_type = 'NORMAL_MAP'
                 self.normal_blend_type = 'OVERLAY'
 
         elif self.type == 'MULTIRES_DISPLACEMENT':
@@ -477,7 +478,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
             if height_root_ch:
                 self.channel_idx = str(get_channel_index(height_root_ch))
-                self.normal_map_type = 'BUMP_MAP'
+                #self.normal_map_type = 'BUMP_MAP'
                 self.normal_blend_type = 'OVERLAY'
 
         elif self.type == 'OTHER_OBJECT_EMISSION':
@@ -489,9 +490,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         elif self.type in {'OTHER_OBJECT_NORMAL', 'OBJECT_SPACE_NORMAL'}:
             self.subsurf_influence = False
 
-            if height_root_ch:
-                self.channel_idx = str(get_channel_index(height_root_ch))
-                self.normal_map_type = 'NORMAL_MAP'
+            if normal_root_ch:
+                self.channel_idx = str(get_channel_index(normal_root_ch))
+                #self.normal_map_type = 'NORMAL_MAP'
                 self.normal_blend_type = 'OVERLAY'
 
             if self.type == 'OTHER_OBJECT_NORMAL':

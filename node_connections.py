@@ -2135,8 +2135,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if trans_bump_ch:
         trans_bump_flip = trans_bump_ch.transition_bump_flip #or layer.type == 'BACKGROUND'
         trans_bump_crease = trans_bump_ch.transition_bump_crease and not trans_bump_flip
-        #trans_bump_flip = trans_bump_ch.transition_bump_flip
-        #fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
 
     compare_alpha = None
     bump_smooth_multiplier_value = None

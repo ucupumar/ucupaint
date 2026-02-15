@@ -1980,18 +1980,18 @@ def get_bake_properties_from_self(self):
     return bprops
 
 def any_object_space_normal(yp):
-    # NOTE: Height and normal channel are currently the same thing
-    norm_root_ch = get_root_height_channel(yp)
-    if not norm_root_ch: return False
+    normal_root_ch = get_root_normal_channel(yp)
+    if not normal_root_ch: return False
 
     for layer in yp.layers:
         if not layer.enable or layer.type == 'GROUP': continue
 
-        norm_ch = get_height_channel(layer)
+        norm_ch = get_normal_channel(layer)
         if not norm_ch: continue
-        if not get_channel_enabled(norm_ch, layer, norm_root_ch): continue
+        if not get_channel_enabled(norm_ch, layer, normal_root_ch): continue
 
-        if norm_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and norm_ch.normal_space == 'OBJECT':
+        #if norm_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and norm_ch.normal_space == 'OBJECT':
+        if norm_ch.normal_space == 'OBJECT':
             return True
 
     return False
