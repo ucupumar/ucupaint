@@ -2527,6 +2527,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     # Get channel pairs
     color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
     normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
+    root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
 
     # Check if channel is enabled
     channel_enabled = is_blend_node_needed(ch, layer, root_ch)
@@ -2541,7 +2542,8 @@ def check_blend_type_nodes(root_ch, layer, ch):
     else: blend_type = ch.blend_type
 
     # Layer intensity nodes
-    if channel_enabled and (ch != normal_ch or not height_ch.enable or not height_ch.use_height_as_normal):
+    # NOTE: No need intensity nodes for converted height to bump (expect for group)
+    if channel_enabled and not (layer.type != 'GROUP' and ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal):
         layer_intensity = tree.nodes.get(ch.layer_intensity)
         if not layer_intensity:
             layer_intensity = new_node(tree, ch, 'layer_intensity', 'ShaderNodeMath', 'Layer Opacity')
@@ -2651,32 +2653,43 @@ def check_blend_type_nodes(root_ch, layer, ch):
                         return_status=True, hard_replace=True, dirty=need_reconnect
                     )
 
+            # Check if height converted to normal
+            height_as_normal = ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal
+
             # Normal process
-            if layer.type != 'GROUP':
+            if height_as_normal:
 
-                if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                #lib_name = lib.BUMP_2_NORMAL
 
-                    #lib_name = lib.BUMP_2_NORMAL
+                #normal_proc, need_reconnect = replace_new_node(
+                #    tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 
+                #    lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
+                #)
+                normal_proc, need_reconnect = replace_new_node(tree, ch, 'normal_proc', 'ShaderNodeBump', label='Normal Process', return_status=True)
+                normal_proc.inputs['Distance'].default_value = 1.0
+                normal_proc.inputs['Strength'].default_value = 1.0
 
-                    #normal_proc, need_reconnect = replace_new_node(
-                    #    tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 
-                    #    lib_name, return_status=True, hard_replace=True, dirty=need_reconnect
-                    #)
-                    normal_proc, need_reconnect = replace_new_node(tree, ch, 'normal_proc', 'ShaderNodeBump', label='Normal Process', return_status=True)
-                    normal_proc.inputs['Distance'].default_value = 1.0
-                    normal_proc.inputs['Strength'].default_value = 1.0
-
-                else:
-                    # Normal map
-                    normal_proc, need_reconnect = replace_new_node(tree, ch, 'normal_proc', 'ShaderNodeNormalMap', label='Normal Process', return_status=True)
-                    normal_proc.uv_map = layer.uv_name
-                    normal_proc.space = ch.normal_space
+            elif layer.type != 'GROUP':
+                # Normal map
+                normal_proc, need_reconnect = replace_new_node(tree, ch, 'normal_proc', 'ShaderNodeNormalMap', label='Normal Process', return_status=True)
+                normal_proc.uv_map = layer.uv_name
+                normal_proc.space = ch.normal_space
             else:
                 if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
+
+            # Normal overlay is necessary if there's already normal data and height that acts as bump nomral
+            if layer.type == 'GROUP' and height_as_normal and has_channel_children(layer, root_normal_ch):
+                normal_overlay, need_reconnect = replace_new_node(
+                    tree, ch, 'normal_overlay',  'ShaderNodeGroup', 'Normal Overlay', lib.OVERLAY_NORMAL_STRAIGHT_OVER, 
+                    return_status=True, hard_replace=True, dirty=need_reconnect
+                )
+            else:
+                if remove_node(tree, ch, 'normal_overlay'): need_reconnect = True
 
         else:
             if remove_node(tree, ch, 'blend'): need_reconnect = True
             if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
+            if remove_node(tree, ch, 'normal_overlay'): need_reconnect = True
 
     elif root_ch.type == 'NORMAL':
 

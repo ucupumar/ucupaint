@@ -275,6 +275,10 @@ def remove_unused_group_node_connections(tree, layer, node): #, height_only=Fals
         if io_name in node.inputs:
             break_input_link(tree, node.inputs[io_name])
 
+        io_name = root_ch.name + io_suffix['SCALE']
+        if io_name in node.inputs:
+            break_input_link(tree, node.inputs[io_name])
+
         #if height_only: continue
 
         io_name = root_ch.name + io_suffix['GROUP']
@@ -2801,7 +2805,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Pass alpha to layer intensity
         if layer_intensity and layer_intensity_value:
-            if ch_intensity: ch_intensity = create_link(tree, ch_intensity, layer_intensity.inputs[0])[0]
+            if ch_intensity:
+                # NOTE: Layer group with height as normal enabled will use height channel intensity rather than it's own
+                if layer.type == 'GROUP' and ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                    height_ch_intensity = get_essential_node(tree, TREE_START).get(get_entity_input_name(height_ch, 'intensity_value'))
+                    ch_intensity = create_link(tree, height_ch_intensity, layer_intensity.inputs[0])[0]
+                else:
+                    ch_intensity = create_link(tree, ch_intensity, layer_intensity.inputs[0])[0]
             create_link(tree, layer_intensity_value, layer_intensity.inputs[1])
 
         # Bookmark alpha before intensity because it can be useful
@@ -2813,40 +2823,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         normal_map_proc = nodes.get(ch.normal_map_proc)
         vdisp_proc = nodes.get(ch.vdisp_proc)
         vdisp_blend = None
-
-        if root_ch.special_channel_type == 'NORMAL':
-
-            if normal_proc:
-                ch_normal_strength = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'normal_strength'))
-                if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
-                    # Height channel as bump
-                    if height_ch_rgb and 'Height' in normal_proc.inputs:
-                        create_link(tree, height_ch_rgb, normal_proc.inputs['Height'])
-
-                    #if ch_normal_strength and 'Strength' in normal_proc.inputs:
-                    #    create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
-
-                    #height_ch_bump_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(height_ch, 'bump_distance'))
-                    #if height_ch_bump_distance and 'Max Height' in normal_proc.inputs:
-                    #    create_link(tree, height_ch_bump_distance, normal_proc.inputs['Max Height'])
-
-                    #if prev_rgb and 'Normal' in normal_proc.inputs:
-                    #    create_link(tree, prev_rgb, normal_proc.inputs['Normal'])
-
-                    rgb = normal_proc.outputs[0]
-                else:
-                    # Normal map
-                    if 'Strength' in normal_proc.inputs and ch_normal_strength:
-                        create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
-
-                    if 'Color' in normal_proc.inputs:
-                        rgb = create_link(tree, rgb, normal_proc.inputs['Color'])[0]
-
-            # Connect tangent if overlay blend is used
-            if blend:
-                if ch.normal_blend_type == 'OVERLAY':
-                    if tangent and 'Tangent' in blend.inputs: create_link(tree, tangent, blend.inputs['Tangent'])
-                    if bitangent and 'Bitangent' in blend.inputs: create_link(tree, bitangent, blend.inputs['Bitangent'])
 
         if root_ch.type == 'NORMAL':
 
@@ -3692,13 +3668,62 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Pass alpha to intensity
         if intensity:
-
             if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc and normal_alpha:
                 normal_alpha = create_link(tree, normal_alpha, intensity.inputs[0])[0]
             else: alpha = create_link(tree, alpha, intensity.inputs[0])[0]
 
             if ch_intensity:
                 create_link(tree, ch_intensity, intensity.inputs[1])
+
+        if root_ch.special_channel_type == 'NORMAL':
+
+            if normal_proc:
+                ch_normal_strength = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'normal_strength'))
+                if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                    # Height channel as bump
+                    if height_ch_rgb and 'Height' in normal_proc.inputs:
+                        create_link(tree, height_ch_rgb, normal_proc.inputs['Height'])
+
+                    #if ch_normal_strength and 'Strength' in normal_proc.inputs:
+                    #    create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
+
+                    #height_ch_bump_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(height_ch, 'bump_distance'))
+                    #if height_ch_bump_distance and 'Max Height' in normal_proc.inputs:
+                    #    create_link(tree, height_ch_bump_distance, normal_proc.inputs['Max Height'])
+
+                    #if prev_rgb and 'Normal' in normal_proc.inputs:
+                    #    create_link(tree, prev_rgb, normal_proc.inputs['Normal'])
+
+                    rgb_original = rgb
+                    rgb = normal_proc.outputs[0]
+
+                    normal_overlay = nodes.get(ch.normal_overlay)
+                    if normal_overlay and height_ch_alpha:
+                        create_link(tree, rgb, normal_overlay.inputs[0])
+                        create_link(tree, height_ch_alpha, normal_overlay.inputs[1])
+                        create_link(tree, rgb_original, normal_overlay.inputs[2])
+                        create_link(tree, alpha, normal_overlay.inputs[3])
+
+                        if layer_tangent and 'Tangent' in normal_overlay.inputs:
+                            create_link(tree, layer_tangent, normal_overlay.inputs['Tangent'])
+                        if layer_bitangent and 'Bitangent' in normal_overlay.inputs:
+                            create_link(tree, layer_bitangent, normal_overlay.inputs['Bitangent'])
+
+                        rgb = normal_overlay.outputs[0]
+                        alpha = normal_overlay.outputs[1]
+                else:
+                    # Normal map
+                    if 'Strength' in normal_proc.inputs and ch_normal_strength:
+                        create_link(tree, ch_normal_strength, normal_proc.inputs['Strength'])
+
+                    if 'Color' in normal_proc.inputs:
+                        rgb = create_link(tree, rgb, normal_proc.inputs['Color'])[0]
+
+            # Connect tangent if overlay blend is used
+            if blend:
+                if ch.normal_blend_type == 'OVERLAY':
+                    if tangent and 'Tangent' in blend.inputs: create_link(tree, tangent, blend.inputs['Tangent'])
+                    if bitangent and 'Bitangent' in blend.inputs: create_link(tree, bitangent, blend.inputs['Bitangent'])
 
         # Special height channel
         if root_ch.special_channel_type == 'HEIGHT':

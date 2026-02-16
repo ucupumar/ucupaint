@@ -6745,6 +6745,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     normal_map_proc : StringProperty(default='') # For processing normal map
     #normal_blend : StringProperty(default='')
     normal_flip : StringProperty(default='')
+    normal_overlay : StringProperty(default='')
 
     bump_distance : FloatProperty(
         name = 'Bump Scale', 

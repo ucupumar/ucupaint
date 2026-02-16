@@ -3185,10 +3185,32 @@ def has_channel_children(layer, root_ch):
     ch_idx = get_channel_index(root_ch)
     children = get_list_of_direct_children(layer)
 
+    # Get normal height channel pair index
+    normal_ch_idx = -1
+    height_ch_idx = -1
+    if root_ch.special_channel_type == 'NORMAL':
+        normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+        
+        normal_ch_idx = get_channel_index(normal_ch) if normal_ch else -1
+        height_ch_idx = get_channel_index(height_ch) if height_ch else -1
+
     for child in children:
         if not child.enable: continue
-        for i, ch in enumerate(child.channels):
-            if i == ch_idx and ch.enable:
+        try: ch = child.channels[ch_idx]
+        except: continue
+
+        if child.type == 'GROUP':
+            if has_channel_children(child, root_ch):
+                return True
+        else:
+            # Check if height channel is converted to normal
+            if ch_idx == normal_ch_idx:
+                try: hch = child.channels[height_ch_idx]
+                except: hch = None
+                if hch and hch.enable and hch.use_height_as_normal:
+                    return True
+
+            if ch.enable:
                 return True
 
     return False
@@ -5402,6 +5424,9 @@ def is_entity_need_tangent_input(entity, uv_name):
         if entity.type == 'GROUP':
 
             if normal_root_ch and is_layer_using_normal_map(entity, normal_root_ch):
+                return True
+
+            if normal_ch and height_ch and height_ch.use_height_as_normal and has_channel_children(entity, normal_root_ch):
                 return True
 
         elif normal_root_ch and uv_name == normal_root_ch.main_uv:

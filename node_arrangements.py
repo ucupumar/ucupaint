@@ -219,6 +219,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         if root_ch.special_channel_type == 'NORMAL':
             check_set_node_parent(tree, ch.normal_proc, frame)
+            check_set_node_parent(tree, ch.normal_overlay, frame)
 
         if root_ch.type == 'NORMAL':
             check_set_node_parent(tree, ch.spread_alpha, frame)
@@ -1599,6 +1600,9 @@ def rearrange_layer_nodes(layer, tree=None):
 
         elif root_ch.special_channel_type == 'NORMAL':
             if check_set_node_loc(tree, ch.normal_proc, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.normal_overlay, loc):
                 loc.x += 200
 
         bookmark_x1 = loc.x
