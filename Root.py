@@ -3710,6 +3710,7 @@ def update_layer_preview_mode(self, context):
 
         else:
             ch = layer.channels[yp.active_channel_index]
+            normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
 
             #if channel.type == 'NORMAL' and ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
             if channel.special_channel_type == 'NORMAL':
@@ -3736,8 +3737,12 @@ def update_layer_preview_mode(self, context):
             #mix.blend_type = ch.blend_type
             update_preview_mix(ch, preview)
 
+            if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                channel_enabled = True
+            else: channel_enabled = ch.enable
+
             # Use different grid if channel is not enabled
-            preview.inputs['Missing Data'].default_value = 1.0 if (not ch.enable or not layer.enable) else 0.0
+            preview.inputs['Missing Data'].default_value = 1.0 if (not channel_enabled or not layer.enable) else 0.0
 
     else:
         check_all_channel_ios(yp)

@@ -5601,6 +5601,12 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
                     if cc.enable and not cc.unpair_alpha:
                         continue
 
+                # NOTE: Normal will automatically enabled if a layer height channel uses 'Height as Normal'
+                if channel_idx == normal_ch_idx:
+                    height_c = l.channels[height_ch_idx]
+                    if height_c.enable and height_c.use_height_as_normal:
+                        return True
+
                 if c.enable:
                     return True
 

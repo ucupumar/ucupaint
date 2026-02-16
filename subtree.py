@@ -1766,7 +1766,7 @@ def set_height_blend_node(tree, layer, root_ch, ch, prop_name='height_blend', bl
 
     if not root_ch.enable_smooth_bump:
         # Has parent
-        if (layer.parent_idx != -1 or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX': #in {'MIX', 'COMPARE'}:
+        if (layer.parent_idx != -1 or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX' and not ch.use_height_as_normal: #in {'MIX', 'COMPARE'}:
             #if blend_type == 'COMPARE':
             #    lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE
             #else: 

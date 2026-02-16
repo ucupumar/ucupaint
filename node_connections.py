@@ -2830,8 +2830,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     #if height_ch_bump_distance and 'Max Height' in normal_proc.inputs:
                     #    create_link(tree, height_ch_bump_distance, normal_proc.inputs['Max Height'])
 
-                    if prev_rgb and 'Normal' in normal_proc.inputs:
-                        create_link(tree, prev_rgb, normal_proc.inputs['Normal'])
+                    #if prev_rgb and 'Normal' in normal_proc.inputs:
+                    #    create_link(tree, prev_rgb, normal_proc.inputs['Normal'])
 
                     rgb = normal_proc.outputs[0]
                 else:
@@ -3946,7 +3946,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if (
                     #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
-                    (blend_type == 'MIX' and (has_parent or is_channel_alpha_enabled(root_ch)))
+                    (blend_type == 'MIX' and (has_parent or is_channel_alpha_enabled(root_ch)) and (ch != height_ch or not ch.use_height_as_normal))
                     #or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 ):
 
@@ -4043,6 +4043,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if not blend or (blend and len(blend.outputs) < 2) or (
                 (blend_type != 'MIX' and (has_parent or is_channel_alpha_enabled(root_ch)))
                 #and not (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
+                ) or (
+                ch == height_ch and ch.use_height_as_normal
                 ):
                 if prev_alpha: create_link(tree, prev_alpha, next_alpha)
             else:
