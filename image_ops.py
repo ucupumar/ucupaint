@@ -505,6 +505,7 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
         if original_mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
 
+        saved = self._force_render_settings(obj)
         try: # Try catch after scene state change ensures blender project is safe
 
             if hasattr(image, 'yia') and image.yia.is_image_atlas:
@@ -515,9 +516,11 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
                 self.report({'ERROR'}, "Active object is not a mesh!")
                 return {'CANCELLED'}
 
-            mesh = obj.data
-            width, height = image.size
+            # Get the object in its final rendered state
+            depsgraph = context.evaluated_depsgraph_get()
+            rendered_obj = obj.evaluated_get(depsgraph)
 
+            width, height = image.size
             if width == 0 or height == 0 or len(image.pixels) == 0:
                 self.report({'ERROR'}, "Image has no data.")
                 return {'CANCELLED'}
@@ -526,7 +529,7 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
             out_pixels = pixels.copy()
 
             bm = bmesh.new()
-            bm.from_mesh(mesh)
+            bm.from_mesh(rendered_obj.data)
             bm.verts.ensure_lookup_table()
             bm.faces.ensure_lookup_table()
 
@@ -658,6 +661,7 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
 
         finally:
             if bm: bm.free() # Memory cleanup
+            self._restore_render_settings(obj, saved)
 
             # Restore mode
             if original_mode != 'OBJECT' and obj.mode != original_mode:
@@ -666,8 +670,8 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
                 except Exception as e:
                     print(f"Could not restore mode: {e}")
 
-        # Warn user of 'undo' bug
-        msg = f"{self.MODE} complete. To undo you must undo and redo."
+        # Warn user of 'undo' bug, and object performed on
+        msg = f"{self.MODE} performed on {obj.name} as if displayed in render mode. To undo you must undo and redo."
         self.report({'INFO'}, msg)
 
         def draw_warning(self, context):
@@ -726,6 +730,40 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
         src_iy = numpy.clip(numpy.round(src_y).astype(int), 0, h - 1)
 
         dst_pix[grid_y[mask], grid_x[mask]] = src_pix[src_iy, src_ix]
+
+    def _force_render_settings(self, obj):
+        """For executing on the finally rendered object, sync modifier viewport settings to render settings."""
+        saved = []
+        for mod in obj.modifiers:
+            state = {'name': mod.name, 'show_viewport': mod.show_viewport}
+
+            # The only four modifiers that currently have render settings:
+            if mod.type == 'SUBSURF':
+                state['levels'] = mod.levels
+                mod.levels = mod.render_levels
+            elif mod.type == 'MULTIRES':
+                state['levels'] = mod.levels
+                mod.levels = mod.render_levels
+            elif mod.type == 'OCEAN':
+                state['viewport_resolution'] = mod.viewport_resolution
+                mod.viewport_resolution = mod.resolution
+            elif mod.type == 'SCREW':
+                state['steps'] = mod.steps
+                mod.steps = mod.render_steps
+
+            mod.show_viewport = mod.show_render
+            saved.append(state)
+        return saved
+
+    def _restore_render_settings(self, obj, saved):
+        """After execution, restore the viewport settings back to how they were before."""
+        for state in saved:
+            mod = obj.modifiers.get(state['name'])
+            if not mod:
+                continue
+            mod.show_viewport = state['show_viewport']
+            if 'levels' in state:
+                mod.levels = state['levels']
 
 class YFlipImage(Y_UV_Kaleidoscope):
     bl_idname = "wm.y_flip_image"
