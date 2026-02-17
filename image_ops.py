@@ -7,6 +7,7 @@ import time
 from . import UDIM, subtree, BaseOperator
 import bmesh
 from mathutils.kdtree import KDTree
+from mathutils.bvhtree import BVHTree
 
 def preserve_float_color_hack_before_saving(image):
     if not image.is_float or not is_bl_newer_than(2, 80): return
@@ -541,11 +542,11 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
             axis_index = {'x': 0, 'y': 1, 'z': 2}[self.perform_on_what_axis]
 
             if self.keep_only_positive:
-                def is_source(val): return val >= self.EPSILON
-                def is_target(val): return val < self.EPSILON
+                def is_src(val): return val >= self.EPSILON
+                def is_trg(val): return val < self.EPSILON
             else:
-                def is_source(val): return val <= -self.EPSILON
-                def is_target(val): return val > -self.EPSILON
+                def is_src(val): return val <= -self.EPSILON
+                def is_trg(val): return val > -self.EPSILON
 
             kd = KDTree(len(bm.verts))
             for i, v in enumerate(bm.verts):
@@ -553,15 +554,15 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
             kd.balance()
 
             vert_by_index = {v.index: v for v in bm.verts}
-            source_faces = [f for f in bm.faces if is_source(f.calc_center_median()[axis_index])]
-            target_faces = [f for f in bm.faces if is_target(f.calc_center_median()[axis_index])]
+            src_faces = [f for f in bm.faces if is_src(f.calc_center_median()[axis_index])]
+            trg_faces = [f for f in bm.faces if is_trg(f.calc_center_median()[axis_index])]
 
-            processed_targets = set()
-            source_clear_uvs = []
+            processed_trgs = set()
+            processed_srcs = set()
 
-            # If perfectly-symmetrical mesh on mirroring axis,
+            # If perfectly-symmetrical mesh on mirroring/flipping axis,
             # this code is all that's needed
-            for face in source_faces:
+            for face in src_faces:
                 src_loops = list(face.loops)
                 mirror_verts = []
                 mapping_failed = False
@@ -579,14 +580,14 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
                 potential = set(mirror_verts[0].link_faces)
                 for mv in mirror_verts[1:]: potential &= set(mv.link_faces)
 
-                target_face = None
+                trg_face = None
                 for pf in potential:
-                    if len(pf.verts) == len(face.verts) and is_target(pf.calc_center_median()[axis_index]):
-                        target_face = pf; break
+                    if len(pf.verts) == len(face.verts) and is_trg(pf.calc_center_median()[axis_index]):
+                        trg_face = pf; break
 
-                if not target_face: continue
+                if not trg_face: continue
 
-                t_loop_map = {tl.vert.index: tl for tl in target_face.loops}
+                t_loop_map = {tl.vert.index: tl for tl in trg_face.loops}
                 src_uvs, dst_uvs = [], []
 
                 for i, sl in enumerate(src_loops):
@@ -597,59 +598,55 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
 
                 if mapping_failed: continue
 
-                processed_targets.add(target_face.index)
+                processed_trgs.add(trg_face.index)
+                processed_srcs.add(face.index)
                 self._remap_face(src_uvs, dst_uvs, pixels, out_pixels, width, height)
 
                 if self.MODE == 'Flip':
                     self._remap_face(dst_uvs, src_uvs, pixels, out_pixels, width, height)
 
-            # If not perfectly-symmetrical mesh on mirroring axis,
-            # for each target face, find the closest source face
-            # and interpolate its texture data onto the target face.
-            unmatched = [f for f in target_faces if f.index not in processed_targets]
-            if unmatched:
-                src_center_kd = KDTree(len(source_faces))
-                for i, sf in enumerate(source_faces): src_center_kd.insert(sf.calc_center_median(), i)
-                src_center_kd.balance()
+            # If not perfectly-symmetrical mesh on mirroring/flipping axis,
+            # perform computationally much slower per-pixel texture projection
+            unmatched_trgs = [f for f in trg_faces if f.index not in processed_trgs]
+            if unmatched_trgs:
+                src_bvh, src_face_data = self._build_bvh_data(bm, src_faces, uv_lay)
 
-                for tf in unmatched:
-                    t_center = tf.calc_center_median()
-                    t_center[axis_index] *= -1
-                    _co, s_idx, _d = src_center_kd.find(t_center)
-                    sf = source_faces[s_idx]
+                for tf in unmatched_trgs:
+                    tf_loops = list(tf.loops)
+                    if len(tf_loops) < 3:
+                        continue
 
-                    # Continue if not a face (<3 connected vertices)
-                    if len(tf.loops) < 3 or len(sf.loops) < 3: continue
+                    dst_uvs = [numpy.array(l[uv_lay].uv) for l in tf_loops]
+                    dst_cos = [numpy.array(l.vert.co) for l in tf_loops]
 
-                    face_kd = KDTree(len(sf.loops))
-                    for i, sl in enumerate(sf.loops): face_kd.insert(sl.vert.co, i)
-                    face_kd.balance()
+                    for i in range(1, len(tf_loops) - 1):
+                        tri_uvs = numpy.array([dst_uvs[0], dst_uvs[i], dst_uvs[i + 1]])
+                        tri_cos = numpy.array([dst_cos[0], dst_cos[i], dst_cos[i + 1]])
+                        self._remap_triangle_projected(
+                            tri_uvs, tri_cos, src_bvh, src_face_data,
+                            axis_index, pixels, out_pixels, width, height
+                        )
 
-                    src_uvs, dst_uvs = [], []
-                    used_s_idx = set()
-                    fail = False
+                if self.MODE == "Flip":
+                    unmatched_srcs = [f for f in src_faces if f.index not in processed_srcs]
+                    if unmatched_srcs:
+                        tgt_bvh, tgt_face_data = self._build_bvh_data(bm, trg_faces, uv_lay)
 
-                    for tl in tf.loops:
-                        m_co = tl.vert.co.copy()
-                        m_co[axis_index] *= -1
-                        _co, best_idx, _d = face_kd.find(m_co)
+                        for sf in unmatched_srcs:
+                            sf_loops = list(sf.loops)
+                            if len(sf_loops) < 3:
+                                continue
 
-                        if best_idx in used_s_idx:
-                            found = False
-                            for r_co, r_idx, r_d in face_kd.find_n(m_co, len(sf.loops)):
-                                if r_idx not in used_s_idx:
-                                    best_idx = r_idx; found = True; break
-                            if not found: fail = True; break
+                            dst_uvs = [numpy.array(l[uv_lay].uv) for l in sf_loops]
+                            dst_cos = [numpy.array(l.vert.co) for l in sf_loops]
 
-                        used_s_idx.add(best_idx)
-                        dst_uvs.append(tl[uv_lay].uv.copy())
-                        src_uvs.append(sf.loops[best_idx][uv_lay].uv.copy())
-
-                    if fail or len(src_uvs) < 3: continue
-                    self._remap_face(src_uvs, dst_uvs, pixels, out_pixels, width, height)
-
-                    if self.MODE == "Flip":
-                        self._remap_face(dst_uvs, src_uvs, pixels, out_pixels, width, height)
+                            for i in range(1, len(sf_loops) - 1):
+                                tri_uvs = numpy.array([dst_uvs[0], dst_uvs[i], dst_uvs[i + 1]])
+                                tri_cos = numpy.array([dst_cos[0], dst_cos[i], dst_cos[i + 1]])
+                                self._remap_triangle_projected(
+                                    tri_uvs, tri_cos, tgt_bvh, tgt_face_data,
+                                    axis_index, pixels, out_pixels, width, height
+                                )
 
             # Apply changes
             image.pixels = out_pixels.flatten()
@@ -680,6 +677,7 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
 
         return {'FINISHED'}
 
+    # Fast pass functions
     def _remap_face(self, src_uvs, dst_uvs, pixels, out_pixels, width, height):
         src_uv_array = numpy.array(src_uvs)
         dst_uv_array = numpy.array(dst_uvs)
@@ -726,11 +724,246 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
         src_x = u[mask] * src_A[0] + v[mask] * src_B[0] + w_coord[mask] * src_C[0]
         src_y = u[mask] * src_A[1] + v[mask] * src_B[1] + w_coord[mask] * src_C[1]
 
+
+        # Uses nearest neighbor as interpolation isn't needed
+        # (source and destination triangles are perfect mirrors)
         src_ix = numpy.clip(numpy.round(src_x).astype(int), 0, w - 1)
         src_iy = numpy.clip(numpy.round(src_y).astype(int), 0, h - 1)
-
         dst_pix[grid_y[mask], grid_x[mask]] = src_pix[src_iy, src_ix]
 
+    # Slow pass functions
+    def _build_bvh_data(self, bm, faces, uv_lay):
+        """Build a BVHTree and per-face loop data for a set of faces.
+
+        Returns:
+            bvh: BVHTree built from the given faces.
+            face_data: List of dicts per face, each containing numpy arrays
+                       of vertex positions ('cos') and UVs ('uvs') per loop.
+                       Index in this list matches the BVH polygon index.
+        """
+        all_verts = [v.co[:] for v in bm.verts]
+        polys = [[v.index for v in f.verts] for f in faces]
+        bvh = BVHTree.FromPolygons(all_verts, polys)
+
+        face_data = []
+        for f in faces:
+            cos = numpy.array([l.vert.co[:] for l in f.loops])
+            uvs = numpy.array([l[uv_lay].uv[:] for l in f.loops])
+            face_data.append({'cos': cos, 'uvs': uvs})
+
+        return bvh, face_data
+
+    def _remap_triangle_projected(self, dst_tri_uvs, dst_tri_cos, src_bvh,
+                                  src_face_data, axis_index, src_pix, dst_pix, w, h):
+        """Remap pixels by projecting each destination pixel into 3D, mirroring/flipping,
+        and sampling the source side via BVHTree lookup."""
+
+        scale = numpy.array([w - 1, h - 1])
+        dst_px = dst_tri_uvs * scale
+
+        min_x = int(numpy.floor(numpy.min(dst_px[:, 0])))
+        max_x = int(numpy.ceil(numpy.max(dst_px[:, 0])))
+        min_y = int(numpy.floor(numpy.min(dst_px[:, 1])))
+        max_y = int(numpy.ceil(numpy.max(dst_px[:, 1])))
+
+        min_x, max_x = max(0, min_x), min(w - 1, max_x)
+        min_y, max_y = max(0, min_y), min(h - 1, max_y)
+
+        if min_x > max_x or min_y > max_y:
+            return
+
+        grid_x, grid_y = numpy.meshgrid(
+            numpy.arange(min_x, max_x + 1),
+            numpy.arange(min_y, max_y + 1),
+        )
+
+        A, B, C = dst_px[0], dst_px[1], dst_px[2]
+        v0 = B - A
+        v1 = C - A
+        v2 = numpy.stack((grid_x - A[0], grid_y - A[1]), axis=-1)
+
+        den = v0[0] * v1[1] - v1[0] * v0[1]
+        if abs(den) < 1e-6:
+            return
+
+        bary_v = (v2[..., 0] * v1[1] - v1[0] * v2[..., 1]) / den
+        bary_w = (v0[0] * v2[..., 1] - v2[..., 0] * v0[1]) / den
+        bary_u = 1.0 - bary_v - bary_w
+
+        mask = (bary_u >= -0.5) & (bary_v >= -0.5) & (bary_w >= -0.5)
+        if not numpy.any(mask):
+            return
+
+        u_vals = bary_u[mask]
+        v_vals = bary_v[mask]
+        w_vals = bary_w[mask]
+
+        # Interpolate 3D positions on the destination triangle
+        A3, B3, C3 = dst_tri_cos[0], dst_tri_cos[1], dst_tri_cos[2]
+        pos_3d = (u_vals[:, None] * A3 +
+                  v_vals[:, None] * B3 +
+                  w_vals[:, None] * C3)
+
+        # Mirror across the chosen axis
+        pos_3d[:, axis_index] *= -1
+
+        dst_ys = grid_y[mask]
+        dst_xs = grid_x[mask]
+
+        # Per-pixel BVH lookup, collecting source UVs for sampling
+        n_pixels = len(pos_3d)
+        src_uv_x = numpy.full(n_pixels, -1.0)
+        src_uv_y = numpy.full(n_pixels, -1.0)
+        valid = numpy.zeros(n_pixels, dtype=bool)
+
+        for k in range(n_pixels):
+            pt = Vector(pos_3d[k])
+            loc, _normal, face_idx, _dist = src_bvh.find_nearest(pt)
+            if face_idx is None:
+                continue
+
+            src_uv = self._src_uv_from_hit(loc, src_face_data[face_idx])
+
+            # If hit is near a face edge, try nearby faces for a better match
+            if src_uv is None:
+                for loc2, _n2, fi2, _d2 in src_bvh.find_nearest_range(pt, _dist * 2.0 + 0.001):
+                    if fi2 == face_idx:
+                        continue
+                    src_uv = self._src_uv_from_hit(loc2, src_face_data[fi2])
+                    if src_uv is not None:
+                        break
+
+            if src_uv is None:
+                continue
+
+            src_uv_x[k] = src_uv[0]
+            src_uv_y[k] = src_uv[1]
+            valid[k] = True
+
+        if not numpy.any(valid):
+            return
+
+        # Batched Catmull-Rom bicubic sampling via numpy
+        sx = src_uv_x[valid] * (w - 1)
+        sy = src_uv_y[valid] * (h - 1)
+
+        ix = numpy.floor(sx).astype(int)
+        iy = numpy.floor(sy).astype(int)
+        fx = sx - ix
+        fy = sy - iy
+
+        def catmull_rom_weights(t):
+            """ t = frac pos """
+            t2 = t * t
+            t3 = t2 * t
+
+            # 4 weights is optimal as 3 is blurrier and
+            # 5 introduces halo artifacts
+            w0 = -0.5 * t3 + t2 - 0.5 * t
+            w1 = 1.5 * t3 - 2.5 * t2 + 1.0
+            w2 = -1.5 * t3 + 2.0 * t2 + 0.5 * t
+            w3 = 0.5 * t3 - 0.5 * t2
+            return w0, w1, w2, w3
+
+        wx0, wx1, wx2, wx3 = catmull_rom_weights(fx)
+        wy0, wy1, wy2, wy3 = catmull_rom_weights(fy)
+
+        result = numpy.zeros((len(sx), 4), dtype=numpy.float32)
+        for j, wy in enumerate([wy0, wy1, wy2, wy3]):
+            py = numpy.clip(iy + j - 1, 0, h - 1)
+            row = numpy.zeros_like(result)
+            for i, wx in enumerate([wx0, wx1, wx2, wx3]):
+                px = numpy.clip(ix + i - 1, 0, w - 1)
+                row += wx.reshape(-1, 1) * src_pix[py, px]
+            result += wy.reshape(-1, 1) * row
+
+        dst_pix[dst_ys[valid], dst_xs[valid]] = result
+
+    def _src_uv_from_hit(self, hit_location, face_data):
+        """Given a 3D hit point and the source face's loop data,
+        compute the interpolated UV via barycentric coordinates.
+
+        The face is fan-triangulated from loop 0. We try each sub-triangle
+        and fall back to the first one if no triangle contains the point
+        (can happen due to floating point limitations on edges)."""
+
+        hit = numpy.array(hit_location)
+        cos = face_data['cos']
+        uvs = face_data['uvs']
+        n_loops = len(cos)
+
+        best_bary = None
+        best_tri = None
+        best_min_coord = -999.0
+
+        for i in range(1, n_loops - 1):
+            bary = self._barycentric_3d_unclamped(hit, cos[0], cos[i], cos[i + 1])
+            min_coord = min(bary)
+
+            # Point is inside this triangle
+            if min_coord >= -0.001:
+                return bary[0] * uvs[0] + bary[1] * uvs[i] + bary[2] * uvs[i + 1]
+
+            # Track the closest triangle for fallback
+            if min_coord > best_min_coord:
+                best_min_coord = min_coord
+                best_bary = bary
+                best_tri = (0, i, i + 1)
+
+        # Fallback: use whichever sub-triangle the point was closest to being inside
+        if best_bary is not None:
+            i0, i1, i2 = best_tri
+            return best_bary[0] * uvs[i0] + best_bary[1] * uvs[i1] + best_bary[2] * uvs[i2]
+
+        return None
+
+    @staticmethod
+    def _barycentric_3d(point, a, b, c, tolerance=-0.01):
+        """Compute barycentric coordinates for point a,b and c in triangle."""
+
+        v0 = b - a
+        v1 = c - a
+        v2 = point - a
+
+        d00 = numpy.dot(v0, v0)
+        d01 = numpy.dot(v0, v1)
+        d11 = numpy.dot(v1, v1)
+        d20 = numpy.dot(v2, v0)
+        d21 = numpy.dot(v2, v1)
+
+        den = d00 * d11 - d01 * d01
+        if abs(den) < 1e-10:
+            return (1.0, 0.0, 0.0)
+
+        v = (d11 * d20 - d01 * d21) / den
+        w = (d00 * d21 - d01 * d20) / den
+        u = 1.0 - v - w
+        return (u, v, w)
+
+    @staticmethod
+    def _barycentric_3d_unclamped(point, a, b, c):
+        """Compute barycentric coordinates without rejecting out-of-triangle points."""
+
+        v0 = b - a
+        v1 = c - a
+        v2 = point - a
+
+        d00 = numpy.dot(v0, v0)
+        d01 = numpy.dot(v0, v1)
+        d11 = numpy.dot(v1, v1)
+        d20 = numpy.dot(v2, v0)
+        d21 = numpy.dot(v2, v1)
+
+        den = d00 * d11 - d01 * d01
+        if abs(den) < 1e-10:
+            return (1.0, 0.0, 0.0)
+
+        v = (d11 * d20 - d01 * d21) / den
+        w = (d00 * d21 - d01 * d20) / den
+        u = 1.0 - v - w
+        return (u, v, w)
+
+    # Render settings functions
     def _force_render_settings(self, obj):
         """For executing on the finally rendered object, sync modifier viewport settings to render settings."""
         saved = []
@@ -753,6 +986,7 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
 
             mod.show_viewport = mod.show_render
             saved.append(state)
+
         return saved
 
     def _restore_render_settings(self, obj, saved):

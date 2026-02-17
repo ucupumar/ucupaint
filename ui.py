@@ -6711,27 +6711,27 @@ class YMirrorImageMenu(bpy.types.Menu):
     def draw(self, context):
         col = self.layout.column()
         # When keep_only_positive is false, keeps only the negative side
-        op = col.operator("wm.y_mirror_image", text="X+")
+        op = col.operator("wm.y_mirror_image", text="X+ to X-")
         op.perform_on_what_axis = 'x'
         op.keep_only_positive = True
 
-        op = col.operator("wm.y_mirror_image", text="X-")
+        op = col.operator("wm.y_mirror_image", text="X- to X+")
         op.perform_on_what_axis = 'x'
         op.keep_only_positive = False
 
-        op = col.operator("wm.y_mirror_image", text="Y+")
+        op = col.operator("wm.y_mirror_image", text="Y+ to Y-")
         op.perform_on_what_axis = 'y'
         op.keep_only_positive = True
 
-        op = col.operator("wm.y_mirror_image", text="Y-")
+        op = col.operator("wm.y_mirror_image", text="Y- to Y+")
         op.perform_on_what_axis = 'y'
         op.keep_only_positive = False
 
-        op = col.operator("wm.y_mirror_image", text="Z+")
+        op = col.operator("wm.y_mirror_image", text="Z+ to Z-")
         op.perform_on_what_axis = 'z'
         op.keep_only_positive = True
 
-        op = col.operator("wm.y_mirror_image", text="Z-")
+        op = col.operator("wm.y_mirror_image", text="Z- to Z+")
         op.perform_on_what_axis = 'z'
         op.keep_only_positive = False
 
