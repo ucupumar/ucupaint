@@ -5,6 +5,9 @@ from bpy_extras.io_utils import ExportHelper
 from .common import *
 import time
 from . import UDIM, subtree, BaseOperator
+import bmesh
+from mathutils.kdtree import KDTree
+from mathutils.bvhtree import BVHTree
 
 def preserve_float_color_hack_before_saving(image):
     if not image.is_float or not is_bl_newer_than(2, 80): return
@@ -40,7 +43,7 @@ def save_float_image(image):
             if form == 'OPEN_EXR_MULTILAYER' and image.type != 'MULTILAYER': continue
             settings.file_format = form
             break
-    
+
     if settings.file_format in {'OPEN_EXR', 'OPEN_EXR_MULTILAYER'}:
         settings.exr_codec = 'ZIP'
         settings.color_depth = '32'
@@ -50,7 +53,7 @@ def save_float_image(image):
     # Need to pack first to save the image
     if is_bl_newer_than(2, 81) and image.is_dirty:
         pack_image(image)
-    
+
     full_path = bpy.path.abspath(image.filepath)
     image.save_render(full_path, scene=tmpscene)
     # HACK: If image still dirty after saving, save using standard save method
@@ -297,7 +300,7 @@ def save_pack_all(yp):
                     except: pass
 
                     temp_saved = True
-                    
+
                 pack_image(image, reload_float=True)
 
                 if temp_saved:
@@ -331,7 +334,7 @@ def save_pack_all(yp):
                     # Remove old files to avoid caching (?)
                     try: os.remove(path)
                     except Exception as e: print(e)
-                    
+
                     # Then unpack
                     default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
 
@@ -451,12 +454,568 @@ class YInvertImage(bpy.types.Operator):
 
             space = context.area.spaces[0]
             space.image = context.image
-                
+
             bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
 
             context.area.type = ori_area_type
 
         return {'FINISHED'}
+
+class Y_UV_Kaleidoscope(bpy.types.Operator):
+    bl_options = {'REGISTER'}
+
+    # Shared props
+    perform_on_what_axis: bpy.props.EnumProperty(
+        name="Axis",
+        items=[
+            ('x', "X", "Operation on X axis"),
+            ('y', "Y", "Operation on Y axis"),
+            ('z', "Z", "Operation on Z axis"),
+        ],
+        default='x',
+    )
+
+    keep_only_positive: bpy.props.BoolProperty(name="Keep Only Positive Side", default=True)
+
+    # Todo: slider will not appear in lower left of viewport unless 'undo' bug is fixed
+    merge_distance: bpy.props.FloatProperty(
+        name="Merge distance",
+        description="Tolerance for finding matching vertices on the target side",
+        default=0.01,
+        min=0.0001,
+        max=1.0,
+        precision=4,
+        step=0.1,
+        subtype='DISTANCE'
+    )
+
+    MODE = "Mirror"
+    EPSILON = 0.0001
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'image') and context.image
+
+    def execute(self, context):
+        image = context.image
+        obj = context.active_object
+        original_mode = obj.mode if obj else 'OBJECT'
+        bm = None
+
+        # Switch to object mode to ensure texture is safe
+        if original_mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+        saved = self._force_render_settings(obj)
+        try: # Try catch after scene state change ensures blender project is safe
+
+            if hasattr(image, 'yia') and image.yia.is_image_atlas:
+                self.report({'ERROR'}, f'Cannot {self.ACTION_NAME.lower()} image atlas!')
+                return {'CANCELLED'}
+
+            if not obj or obj.type != 'MESH':
+                self.report({'ERROR'}, "Active object is not a mesh!")
+                return {'CANCELLED'}
+
+            # Get the object in its final rendered state
+            depsgraph = context.evaluated_depsgraph_get()
+            rendered_obj = obj.evaluated_get(depsgraph)
+
+            width, height = image.size
+            if width == 0 or height == 0 or len(image.pixels) == 0:
+                self.report({'ERROR'}, "Image has no data.")
+                return {'CANCELLED'}
+
+            pixels = numpy.array(image.pixels, dtype=numpy.float32).reshape((height, width, 4))
+            out_pixels = pixels.copy()
+
+            bm = bmesh.new()
+            bm.from_mesh(rendered_obj.data)
+            bm.verts.ensure_lookup_table()
+            bm.faces.ensure_lookup_table()
+
+            uv_lay = bm.loops.layers.uv.active
+            if not uv_lay:
+                self.report({'ERROR'}, "No active UV layer!")
+                return {'CANCELLED'}
+
+            axis_index = {'x': 0, 'y': 1, 'z': 2}[self.perform_on_what_axis]
+
+            if self.keep_only_positive:
+                def is_src(val): return val >= self.EPSILON
+                def is_trg(val): return val < self.EPSILON
+            else:
+                def is_src(val): return val <= -self.EPSILON
+                def is_trg(val): return val > -self.EPSILON
+
+            kd = KDTree(len(bm.verts))
+            for i, v in enumerate(bm.verts):
+                kd.insert(v.co, i)
+            kd.balance()
+
+            vert_by_index = {v.index: v for v in bm.verts}
+            src_faces = [f for f in bm.faces if is_src(f.calc_center_median()[axis_index])]
+            trg_faces = [f for f in bm.faces if is_trg(f.calc_center_median()[axis_index])]
+
+            processed_trgs = set()
+            processed_srcs = set()
+
+            # If perfectly-symmetrical mesh on mirroring/flipping axis,
+            # this code is all that's needed
+            for face in src_faces:
+                src_loops = list(face.loops)
+                mirror_verts = []
+                mapping_failed = False
+
+                for loop in src_loops:
+                    t_co = loop.vert.co.copy()
+                    t_co[axis_index] *= -1
+                    _co, idx, dist = kd.find(t_co)
+                    if dist > self.merge_distance:
+                        mapping_failed = True; break
+                    mirror_verts.append(vert_by_index[idx])
+
+                if mapping_failed or len(mirror_verts) != len(src_loops): continue
+
+                potential = set(mirror_verts[0].link_faces)
+                for mv in mirror_verts[1:]: potential &= set(mv.link_faces)
+
+                trg_face = None
+                for pf in potential:
+                    if len(pf.verts) == len(face.verts) and is_trg(pf.calc_center_median()[axis_index]):
+                        trg_face = pf; break
+
+                if not trg_face: continue
+
+                t_loop_map = {tl.vert.index: tl for tl in trg_face.loops}
+                src_uvs, dst_uvs = [], []
+
+                for i, sl in enumerate(src_loops):
+                    src_uvs.append(sl[uv_lay].uv.copy())
+                    tl = t_loop_map.get(mirror_verts[i].index)
+                    if not tl: mapping_failed = True; break
+                    dst_uvs.append(tl[uv_lay].uv.copy())
+
+                if mapping_failed: continue
+
+                processed_trgs.add(trg_face.index)
+                processed_srcs.add(face.index)
+                self._remap_face(src_uvs, dst_uvs, pixels, out_pixels, width, height)
+
+                if self.MODE == 'Flip':
+                    self._remap_face(dst_uvs, src_uvs, pixels, out_pixels, width, height)
+
+            # If not perfectly-symmetrical mesh on mirroring/flipping axis,
+            # perform computationally much slower per-pixel texture projection
+            unmatched_trgs = [f for f in trg_faces if f.index not in processed_trgs]
+            if unmatched_trgs:
+                src_bvh, src_face_data = self._build_bvh_data(bm, src_faces, uv_lay)
+
+                for tf in unmatched_trgs:
+                    tf_loops = list(tf.loops)
+                    if len(tf_loops) < 3:
+                        continue
+
+                    dst_uvs = [numpy.array(l[uv_lay].uv) for l in tf_loops]
+                    dst_cos = [numpy.array(l.vert.co) for l in tf_loops]
+
+                    for i in range(1, len(tf_loops) - 1):
+                        tri_uvs = numpy.array([dst_uvs[0], dst_uvs[i], dst_uvs[i + 1]])
+                        tri_cos = numpy.array([dst_cos[0], dst_cos[i], dst_cos[i + 1]])
+                        self._remap_triangle_projected(
+                            tri_uvs, tri_cos, src_bvh, src_face_data,
+                            axis_index, pixels, out_pixels, width, height
+                        )
+
+                if self.MODE == "Flip":
+                    unmatched_srcs = [f for f in src_faces if f.index not in processed_srcs]
+                    if unmatched_srcs:
+                        tgt_bvh, tgt_face_data = self._build_bvh_data(bm, trg_faces, uv_lay)
+
+                        for sf in unmatched_srcs:
+                            sf_loops = list(sf.loops)
+                            if len(sf_loops) < 3:
+                                continue
+
+                            dst_uvs = [numpy.array(l[uv_lay].uv) for l in sf_loops]
+                            dst_cos = [numpy.array(l.vert.co) for l in sf_loops]
+
+                            for i in range(1, len(sf_loops) - 1):
+                                tri_uvs = numpy.array([dst_uvs[0], dst_uvs[i], dst_uvs[i + 1]])
+                                tri_cos = numpy.array([dst_cos[0], dst_cos[i], dst_cos[i + 1]])
+                                self._remap_triangle_projected(
+                                    tri_uvs, tri_cos, tgt_bvh, tgt_face_data,
+                                    axis_index, pixels, out_pixels, width, height
+                                )
+
+            # Apply changes
+            image.pixels = out_pixels.flatten()
+            image.update()
+
+        except Exception as e:
+            self.report({'ERROR'}, f"{self.MODE} Failed: {str(e)}")
+            return {'CANCELLED'}
+
+        finally:
+            if bm: bm.free() # Memory cleanup
+            self._restore_render_settings(obj, saved)
+
+            # Restore mode
+            if original_mode != 'OBJECT' and obj.mode != original_mode:
+                try:
+                    bpy.ops.object.mode_set(mode=original_mode)
+                except Exception as e:
+                    print(f"Could not restore mode: {e}")
+
+        # Warn user of 'undo' bug, and object performed on
+        msg = f"{self.MODE} performed on {obj.name} as if displayed in render mode. To undo you must undo and redo."
+        self.report({'INFO'}, msg)
+
+        def draw_warning(self, context):
+            self.layout.label(text=msg)
+        context.window_manager.popup_menu(draw_warning, title=f"{self.MODE} Complete", icon='INFO')
+
+        return {'FINISHED'}
+
+    # Fast pass functions
+    def _remap_face(self, src_uvs, dst_uvs, pixels, out_pixels, width, height):
+        src_uv_array = numpy.array(src_uvs)
+        dst_uv_array = numpy.array(dst_uvs)
+        count = len(src_uv_array)
+        for i in range(1, count - 1):
+            tri = [0, i, i + 1]
+            self._remap_triangle(src_uv_array[tri], dst_uv_array[tri], pixels, out_pixels, width, height)
+
+    def _remap_triangle(self, src_coords_uv, dst_coords_uv, src_pix, dst_pix, w, h):
+        scale = numpy.array([w - 1, h - 1])
+        src_px = src_coords_uv * scale
+        dst_px = dst_coords_uv * scale
+
+        min_x = int(numpy.floor(numpy.min(dst_px[:, 0])))
+        max_x = int(numpy.ceil(numpy.max(dst_px[:, 0])))
+        min_y = int(numpy.floor(numpy.min(dst_px[:, 1])))
+        max_y = int(numpy.ceil(numpy.max(dst_px[:, 1])))
+
+        min_x, max_x = max(0, min_x), min(w - 1, max_x)
+        min_y, max_y = max(0, min_y), min(h - 1, max_y)
+
+        if min_x > max_x or min_y > max_y: return
+
+        grid_x, grid_y = numpy.meshgrid(
+            numpy.arange(min_x, max_x + 1),
+            numpy.arange(min_y, max_y + 1),
+        )
+
+        A, B, C = dst_px[0], dst_px[1], dst_px[2]
+        v0 = B - A; v1 = C - A
+        v2 = numpy.stack((grid_x - A[0], grid_y - A[1]), axis=-1)
+
+        den = v0[0] * v1[1] - v1[0] * v0[1]
+        if abs(den) < 1e-6: return
+
+        v = (v2[..., 0] * v1[1] - v1[0] * v2[..., 1]) / den
+        w_coord = (v0[0] * v2[..., 1] - v2[..., 0] * v0[1]) / den
+        u = 1.0 - v - w_coord
+
+        mask = (u >= 0) & (v >= 0) & (w_coord >= 0)
+        if not numpy.any(mask): return
+
+        src_A, src_B, src_C = src_px[0], src_px[1], src_px[2]
+        src_x = u[mask] * src_A[0] + v[mask] * src_B[0] + w_coord[mask] * src_C[0]
+        src_y = u[mask] * src_A[1] + v[mask] * src_B[1] + w_coord[mask] * src_C[1]
+
+
+        # Uses nearest neighbor as interpolation isn't needed
+        # (source and destination triangles are perfect mirrors)
+        src_ix = numpy.clip(numpy.round(src_x).astype(int), 0, w - 1)
+        src_iy = numpy.clip(numpy.round(src_y).astype(int), 0, h - 1)
+        dst_pix[grid_y[mask], grid_x[mask]] = src_pix[src_iy, src_ix]
+
+    # Slow pass functions
+    def _build_bvh_data(self, bm, faces, uv_lay):
+        """Build a BVHTree and per-face loop data for a set of faces.
+
+        Returns:
+            bvh: BVHTree built from the given faces.
+            face_data: List of dicts per face, each containing numpy arrays
+                       of vertex positions ('cos') and UVs ('uvs') per loop.
+                       Index in this list matches the BVH polygon index.
+        """
+        all_verts = [v.co[:] for v in bm.verts]
+        polys = [[v.index for v in f.verts] for f in faces]
+        bvh = BVHTree.FromPolygons(all_verts, polys)
+
+        face_data = []
+        for f in faces:
+            cos = numpy.array([l.vert.co[:] for l in f.loops])
+            uvs = numpy.array([l[uv_lay].uv[:] for l in f.loops])
+            face_data.append({'cos': cos, 'uvs': uvs})
+
+        return bvh, face_data
+
+    def _remap_triangle_projected(self, dst_tri_uvs, dst_tri_cos, src_bvh,
+                                  src_face_data, axis_index, src_pix, dst_pix, w, h):
+        """Remap pixels by projecting each destination pixel into 3D, mirroring/flipping,
+        and sampling the source side via BVHTree lookup."""
+
+        scale = numpy.array([w - 1, h - 1])
+        dst_px = dst_tri_uvs * scale
+
+        min_x = int(numpy.floor(numpy.min(dst_px[:, 0])))
+        max_x = int(numpy.ceil(numpy.max(dst_px[:, 0])))
+        min_y = int(numpy.floor(numpy.min(dst_px[:, 1])))
+        max_y = int(numpy.ceil(numpy.max(dst_px[:, 1])))
+
+        min_x, max_x = max(0, min_x), min(w - 1, max_x)
+        min_y, max_y = max(0, min_y), min(h - 1, max_y)
+
+        if min_x > max_x or min_y > max_y:
+            return
+
+        grid_x, grid_y = numpy.meshgrid(
+            numpy.arange(min_x, max_x + 1),
+            numpy.arange(min_y, max_y + 1),
+        )
+
+        A, B, C = dst_px[0], dst_px[1], dst_px[2]
+        v0 = B - A
+        v1 = C - A
+        v2 = numpy.stack((grid_x - A[0], grid_y - A[1]), axis=-1)
+
+        den = v0[0] * v1[1] - v1[0] * v0[1]
+        if abs(den) < 1e-6:
+            return
+
+        bary_v = (v2[..., 0] * v1[1] - v1[0] * v2[..., 1]) / den
+        bary_w = (v0[0] * v2[..., 1] - v2[..., 0] * v0[1]) / den
+        bary_u = 1.0 - bary_v - bary_w
+
+        mask = (bary_u >= -0.5) & (bary_v >= -0.5) & (bary_w >= -0.5)
+        if not numpy.any(mask):
+            return
+
+        u_vals = bary_u[mask]
+        v_vals = bary_v[mask]
+        w_vals = bary_w[mask]
+
+        # Interpolate 3D positions on the destination triangle
+        A3, B3, C3 = dst_tri_cos[0], dst_tri_cos[1], dst_tri_cos[2]
+        pos_3d = (u_vals[:, None] * A3 +
+                  v_vals[:, None] * B3 +
+                  w_vals[:, None] * C3)
+
+        # Mirror across the chosen axis
+        pos_3d[:, axis_index] *= -1
+
+        dst_ys = grid_y[mask]
+        dst_xs = grid_x[mask]
+
+        # Per-pixel BVH lookup, collecting source UVs for sampling
+        n_pixels = len(pos_3d)
+        src_uv_x = numpy.full(n_pixels, -1.0)
+        src_uv_y = numpy.full(n_pixels, -1.0)
+        valid = numpy.zeros(n_pixels, dtype=bool)
+
+        for k in range(n_pixels):
+            pt = Vector(pos_3d[k])
+            loc, _normal, face_idx, _dist = src_bvh.find_nearest(pt)
+            if face_idx is None:
+                continue
+
+            src_uv = self._src_uv_from_hit(loc, src_face_data[face_idx])
+
+            # If hit is near a face edge, try nearby faces for a better match
+            if src_uv is None:
+                for loc2, _n2, fi2, _d2 in src_bvh.find_nearest_range(pt, _dist * 2.0 + 0.001):
+                    if fi2 == face_idx:
+                        continue
+                    src_uv = self._src_uv_from_hit(loc2, src_face_data[fi2])
+                    if src_uv is not None:
+                        break
+
+            if src_uv is None:
+                continue
+
+            src_uv_x[k] = src_uv[0]
+            src_uv_y[k] = src_uv[1]
+            valid[k] = True
+
+        if not numpy.any(valid):
+            return
+
+        # Batched Catmull-Rom bicubic sampling via numpy
+        sx = src_uv_x[valid] * (w - 1)
+        sy = src_uv_y[valid] * (h - 1)
+
+        ix = numpy.floor(sx).astype(int)
+        iy = numpy.floor(sy).astype(int)
+        fx = sx - ix
+        fy = sy - iy
+
+        def catmull_rom_weights(t):
+            """ t = frac pos """
+            t2 = t * t
+            t3 = t2 * t
+
+            # 4 weights is optimal as 3 is blurrier and
+            # 5 introduces halo artifacts
+            w0 = -0.5 * t3 + t2 - 0.5 * t
+            w1 = 1.5 * t3 - 2.5 * t2 + 1.0
+            w2 = -1.5 * t3 + 2.0 * t2 + 0.5 * t
+            w3 = 0.5 * t3 - 0.5 * t2
+            return w0, w1, w2, w3
+
+        wx0, wx1, wx2, wx3 = catmull_rom_weights(fx)
+        wy0, wy1, wy2, wy3 = catmull_rom_weights(fy)
+
+        result = numpy.zeros((len(sx), 4), dtype=numpy.float32)
+        for j, wy in enumerate([wy0, wy1, wy2, wy3]):
+            py = numpy.clip(iy + j - 1, 0, h - 1)
+            row = numpy.zeros_like(result)
+            for i, wx in enumerate([wx0, wx1, wx2, wx3]):
+                px = numpy.clip(ix + i - 1, 0, w - 1)
+                row += wx.reshape(-1, 1) * src_pix[py, px]
+            result += wy.reshape(-1, 1) * row
+
+        dst_pix[dst_ys[valid], dst_xs[valid]] = result
+
+    def _src_uv_from_hit(self, hit_location, face_data):
+        """Given a 3D hit point and the source face's loop data,
+        compute the interpolated UV via barycentric coordinates.
+
+        The face is fan-triangulated from loop 0. We try each sub-triangle
+        and fall back to the first one if no triangle contains the point
+        (can happen due to floating point limitations on edges)."""
+
+        hit = numpy.array(hit_location)
+        cos = face_data['cos']
+        uvs = face_data['uvs']
+        n_loops = len(cos)
+
+        best_bary = None
+        best_tri = None
+        best_min_coord = -999.0
+
+        for i in range(1, n_loops - 1):
+            bary = self._barycentric_3d_unclamped(hit, cos[0], cos[i], cos[i + 1])
+            min_coord = min(bary)
+
+            # Point is inside this triangle
+            if min_coord >= -0.001:
+                return bary[0] * uvs[0] + bary[1] * uvs[i] + bary[2] * uvs[i + 1]
+
+            # Track the closest triangle for fallback
+            if min_coord > best_min_coord:
+                best_min_coord = min_coord
+                best_bary = bary
+                best_tri = (0, i, i + 1)
+
+        # Fallback: use whichever sub-triangle the point was closest to being inside
+        if best_bary is not None:
+            i0, i1, i2 = best_tri
+            return best_bary[0] * uvs[i0] + best_bary[1] * uvs[i1] + best_bary[2] * uvs[i2]
+
+        return None
+
+    @staticmethod
+    def _barycentric_3d(point, a, b, c, tolerance=-0.01):
+        """Compute barycentric coordinates for point a,b and c in triangle."""
+
+        v0 = b - a
+        v1 = c - a
+        v2 = point - a
+
+        d00 = numpy.dot(v0, v0)
+        d01 = numpy.dot(v0, v1)
+        d11 = numpy.dot(v1, v1)
+        d20 = numpy.dot(v2, v0)
+        d21 = numpy.dot(v2, v1)
+
+        den = d00 * d11 - d01 * d01
+        if abs(den) < 1e-10:
+            return (1.0, 0.0, 0.0)
+
+        v = (d11 * d20 - d01 * d21) / den
+        w = (d00 * d21 - d01 * d20) / den
+        u = 1.0 - v - w
+        return (u, v, w)
+
+    @staticmethod
+    def _barycentric_3d_unclamped(point, a, b, c):
+        """Compute barycentric coordinates without rejecting out-of-triangle points."""
+
+        v0 = b - a
+        v1 = c - a
+        v2 = point - a
+
+        d00 = numpy.dot(v0, v0)
+        d01 = numpy.dot(v0, v1)
+        d11 = numpy.dot(v1, v1)
+        d20 = numpy.dot(v2, v0)
+        d21 = numpy.dot(v2, v1)
+
+        den = d00 * d11 - d01 * d01
+        if abs(den) < 1e-10:
+            return (1.0, 0.0, 0.0)
+
+        v = (d11 * d20 - d01 * d21) / den
+        w = (d00 * d21 - d01 * d20) / den
+        u = 1.0 - v - w
+        return (u, v, w)
+
+    # Render settings functions
+    def _force_render_settings(self, obj):
+        """For executing on the finally rendered object, sync modifier viewport settings to render settings."""
+        saved = []
+        for mod in obj.modifiers:
+            state = {'name': mod.name, 'show_viewport': mod.show_viewport}
+
+            # The only four modifiers that currently have render settings:
+            if mod.type == 'SUBSURF':
+                state['levels'] = mod.levels
+                mod.levels = mod.render_levels
+            elif mod.type == 'MULTIRES':
+                state['levels'] = mod.levels
+                mod.levels = mod.render_levels
+            elif mod.type == 'OCEAN':
+                state['viewport_resolution'] = mod.viewport_resolution
+                mod.viewport_resolution = mod.resolution
+            elif mod.type == 'SCREW':
+                state['steps'] = mod.steps
+                mod.steps = mod.render_steps
+
+            mod.show_viewport = mod.show_render
+            saved.append(state)
+
+        return saved
+
+    def _restore_render_settings(self, obj, saved):
+        """After execution, restore the viewport settings back to how they were before."""
+        for state in saved:
+            mod = obj.modifiers.get(state['name'])
+            if not mod:
+                continue
+            mod.show_viewport = state['show_viewport']
+            if 'levels' in state:
+                mod.levels = state['levels']
+
+class YFlipImage(Y_UV_Kaleidoscope):
+    bl_idname = "wm.y_flip_image"
+    bl_label = "Flip Image Layer/Mask"
+    bl_description = "Flip image of layer or mask"
+
+    MODE = "Flip"
+
+    #TODO: add mode to flip with an angle beyond just 180 degrees
+
+class YMirrorImage(Y_UV_Kaleidoscope):
+    bl_idname = "wm.y_mirror_image"
+    bl_label = "Mirror Image Layer/Mask"
+    bl_description = "Mirror image of layer or mask"
+
+    MODE = "Mirror"
+
+    #TODO: add mode to mirror with an angle beyond just 180 degrees
 
 class YRefreshImage(bpy.types.Operator):
     """Reload Image"""
@@ -712,7 +1271,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
         description = 'Create a new image file without modifying the current image in Blender',
         default = False
     )
-    
+
     force_exr_vdisp : BoolProperty(
         name = 'Use EXR for Baked VDM',
         description = 'Always use EXR file format for baked vector displacement image',
@@ -849,7 +1408,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
             ori_colorspace = image.colorspace_settings.name
             if not image.is_float and image.colorspace_settings.name != get_srgb_name():
                 image.colorspace_settings.name = get_srgb_name()
-            
+
             # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
             unpacked_to_disk = False
             if not is_bl_newer_than(2, 81) and bpy.data.filepath != '' and image.packed_file:
@@ -1107,7 +1666,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
 
             if filepath != self.filepath:
                 self.filepath = filepath
-                change_ext = True  
+                change_ext = True
 
         return change_ext
         #return True
@@ -1176,7 +1735,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
         # Remembers
         ori_colorspace = image.colorspace_settings.name
         ori_alpha_mode = image.alpha_mode
-        
+
         if image.is_float:
             # HACK: Set image color to linear first to save linear float image
             if image.colorspace_settings.name == get_linear_color_name():
@@ -1210,7 +1769,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
                     image.alpha_mode = 'STRAIGHT'
                 elif image.alpha_mode == 'STRAIGHT':
                     image.alpha_mode = 'PREMUL'
-        
+
         # Save image
         if image.source == 'TILED':
             override = bpy.context.copy()
@@ -1312,7 +1871,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
 
         tilenums = [tile.number for tile in image.tiles]
         new_image = bpy.data.images.new(
-            image.name, width=image.size[0], height=image.size[1], 
+            image.name, width=image.size[0], height=image.size[1],
             alpha=True, float_buffer=not image.is_float, tiled=True
         )
 
@@ -1326,7 +1885,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
 
     else:
         new_image = bpy.data.images.new(
-            image.name, width=image.size[0], height=image.size[1], 
+            image.name, width=image.size[0], height=image.size[1],
             alpha=True, float_buffer=not image.is_float
         )
 
@@ -1350,7 +1909,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
     if no_copy == False:
         if image.source == 'TILED':
             UDIM.copy_udim_pixels(image, new_image, convert_colorspace=convert_colorspace)
-        else: 
+        else:
             if convert_colorspace:
                 copy_image_pixels_with_conversion(image, new_image)
             else: copy_image_pixels(image, new_image)
@@ -1386,9 +1945,9 @@ class YConvertImageBitDepth(bpy.types.Operator):
         if m1:
             layer = yp.layers[int(m1.group(1))]
             convert_colorspace = True
-        elif m2: 
+        elif m2:
             layer = yp.layers[int(m2.group(1))]
-        elif m3: 
+        elif m3:
             layer = yp.layers[int(m3.group(1))]
         else:
             self.report({'ERROR'}, "Wrong context!")
@@ -1414,6 +1973,8 @@ def register():
     bpy.utils.register_class(YCopyImagePathToClipboard)
     bpy.utils.register_class(YOpenContainingImageFolder)
     bpy.utils.register_class(YInvertImage)
+    bpy.utils.register_class(YFlipImage)
+    bpy.utils.register_class(YMirrorImage)
     bpy.utils.register_class(YRefreshImage)
     bpy.utils.register_class(YPackImage)
     bpy.utils.register_class(YSaveImage)
@@ -1426,6 +1987,8 @@ def unregister():
     bpy.utils.unregister_class(YCopyImagePathToClipboard)
     bpy.utils.unregister_class(YOpenContainingImageFolder)
     bpy.utils.unregister_class(YInvertImage)
+    bpy.utils.unregister_class(YFlipImage)
+    bpy.utils.unregister_class(YMirrorImage)
     bpy.utils.unregister_class(YRefreshImage)
     bpy.utils.unregister_class(YPackImage)
     bpy.utils.unregister_class(YSaveImage)
