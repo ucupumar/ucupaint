@@ -218,55 +218,55 @@ class YPaintPreferences(AddonPreferences):
             self.layout.prop(self, 'icons')
         self.layout.prop(self, 'layer_list_mode')
 
-        box = self.layout.box()
-        boxcol = box.column(align=True)
-        boxcol.label(text='Image Size Options')
-        for i, option in enumerate(self.image_size_options):
-            row = boxcol.row(align=True)
+        if is_image_size_options_supported():
+            box = self.layout.box()
+            boxcol = box.column(align=True)
+            boxcol.label(text='Image Size Options')
+            for i, option in enumerate(self.image_size_options):
+                row = boxcol.row(align=True)
 
-            rrow = row.row()
-            rrow.scale_y = 2.0
-            rrow.label(text='Option '+str(i+1))
+                rrow = row.row()
+                rrow.scale_y = 2.0
+                rrow.label(text='Option '+str(i+1))
 
-            rrow = row.row()
-            rrow.scale_y = 2.0
-            rrow.prop(option, 'name', text='')
+                rrow = row.row()
+                rrow.scale_y = 2.0
+                rrow.prop(option, 'name', text='')
 
-            row.separator()
+                row.separator()
 
-            col = row.column(align=True)
-            col.prop(option, 'width', text='Width')
-            col.prop(option, 'height', text='Height')
+                col = row.column(align=True)
+                col.prop(option, 'width', text='Width')
+                col.prop(option, 'height', text='Height')
 
-            row.separator()
+                row.separator()
 
-            rrow = row.row()
-            rrow.scale_y = 2.0
-            rrow.scale_x = 0.5
-            rrow.prop(option, 'interpolation', expand=True)
+                rrow = row.row()
+                rrow.scale_y = 2.0
+                rrow.scale_x = 0.5
+                rrow.prop(option, 'interpolation', expand=True)
 
-            row.separator()
+                row.separator()
 
-            rrow = row.row()
-            rrow.scale_y = 2.0
-            if i == self.default_image_size_option:
-                rrow.label(text='Set as Default', icon='CHECKBOX_HLT')
-            else: rrow.operator('wm.y_set_default_image_option', text='Set as Default', icon='CHECKBOX_DEHLT').index = i
+                rrow = row.row()
+                rrow.scale_y = 2.0
+                if i == self.default_image_size_option:
+                    rrow.label(text='Set as Default', icon='CHECKBOX_HLT')
+                else: rrow.operator('wm.y_set_default_image_option', text='Set as Default', icon='CHECKBOX_DEHLT').index = i
 
-            row.separator()
+                row.separator()
 
-            rrow = row.row()
-            rrow.scale_y = 2.0
-            rrow.operator('wm.y_remove_image_size_option', text='', icon='PANEL_CLOSE').index = i
+                rrow = row.row()
+                rrow.scale_y = 2.0
+                rrow.operator('wm.y_remove_image_size_option', text='', icon='PANEL_CLOSE').index = i
 
-            boxcol.separator()
+                boxcol.separator()
 
-        boxcol.operator('wm.y_add_new_image_size_option', text='Add New Image Size Option', icon='ADD')
-
-        boxcol.separator()
-        boxcol.prop(self, 'default_image_resolution')
-        if self.default_image_resolution == 'CUSTOM':
-            boxcol.prop(self, 'default_new_image_size')
+            boxcol.operator('wm.y_add_new_image_size_option', text='Add New Image Size Option', icon='ADD')
+        else:
+            self.layout.prop(self, 'default_image_resolution')
+            if self.default_image_resolution == 'CUSTOM':
+                self.layout.prop(self, 'default_new_image_size')
 
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
@@ -427,41 +427,42 @@ def register():
 
     default_index = 1
 
-    if len(ypup.image_size_options) == 0:
-        option = ypup.image_size_options.add()
-        option.name = '512'
-        option.width = 512
-        option.height = 512
+    if is_image_size_options_supported():
+        if len(ypup.image_size_options) == 0:
+            option = ypup.image_size_options.add()
+            option.name = '512'
+            option.width = 512
+            option.height = 512
 
-        option = ypup.image_size_options.add()
-        option.name = '1024'
-        option.width = 1024
-        option.height = 1024
+            option = ypup.image_size_options.add()
+            option.name = '1024'
+            option.width = 1024
+            option.height = 1024
 
-        option = ypup.image_size_options.add()
-        option.name = '2048'
-        option.width = 2048
-        option.height = 2048
+            option = ypup.image_size_options.add()
+            option.name = '2048'
+            option.width = 2048
+            option.height = 2048
 
-        option = ypup.image_size_options.add()
-        option.name = '4096'
-        option.width = 4096
-        option.height = 4096
+            option = ypup.image_size_options.add()
+            option.name = '4096'
+            option.width = 4096
+            option.height = 4096
 
-        ypup.default_image_size_option = default_index
-        ypup.ori_default_image_size_option = default_index
-        write_image_option_index_to_file(default_index)
-
-    else:
-        # Read from file to make sure the settings are in sync
-        index = get_image_option_index_from_file()
-        if index != None and index < len(ypup.image_size_options):
-            ypup.default_image_size_option = index
-            ypup.ori_default_image_size_option = index
-        elif len(ypup.image_size_options) > default_index:
             ypup.default_image_size_option = default_index
             ypup.ori_default_image_size_option = default_index
             write_image_option_index_to_file(default_index)
+
+        else:
+            # Read from file to make sure the settings are in sync
+            index = get_image_option_index_from_file()
+            if index != None and index < len(ypup.image_size_options):
+                ypup.default_image_size_option = index
+                ypup.ori_default_image_size_option = index
+            elif len(ypup.image_size_options) > default_index:
+                ypup.default_image_size_option = default_index
+                ypup.ori_default_image_size_option = default_index
+                write_image_option_index_to_file(default_index)
 
     bpy.app.handlers.save_pre.append(auto_save_images)
     bpy.app.handlers.save_post.append(refresh_float_image_hack)

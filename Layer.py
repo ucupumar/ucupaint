@@ -927,6 +927,14 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
         default = '1024'
     )
     
+    if is_image_size_options_supported():
+        mask_image_size : EnumProperty(
+            name = 'Mask Image Size',
+            description = 'Mask Image size',
+            items = BaseOperator.image_size_items,
+            default = BaseOperator.default_image_size(),
+        )
+    
     mask_use_custom_resolution : BoolProperty(
         name = 'Custom Resolution',
         description= 'Use custom Resolution to adjust the width and height individually',
@@ -1231,11 +1239,13 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
         if get_user_preferences().skip_property_popups and not event.shift:
             return self.execute(context)
 
-        width = 320
+        self.dialog_width = 320
         if self.type == 'EDGE_DETECT' or (self.add_mask and self.mask_type == 'EDGE_DETECT'):
-            width = 370
+            self.dialog_width = 370
 
-        return context.window_manager.invoke_props_dialog(self, width=width)
+        self.dialog_width += self.extra_popup_width
+
+        return context.window_manager.invoke_props_dialog(self, width=self.dialog_width)
 
     #def is_mask_using_udim(self):
     #    return self.use_udim_for_mask and UDIM.is_udim_supported()
@@ -1247,12 +1257,24 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
         ypup = get_user_preferences()
 
         if not self.use_custom_resolution:
-            self.width = int(self.image_resolution)
-            self.height = int(self.image_resolution)
+            if is_image_size_options_supported():
+                try: 
+                    self.width = ypup.image_size_options[self.image_size].width
+                    self.height = ypup.image_size_options[self.image_size].height
+                except Exception as e: print('Image size option exception:', e)
+            else:
+                self.width = int(self.image_resolution)
+                self.height = int(self.image_resolution)
 
         if not self.mask_use_custom_resolution:
-            self.mask_width = int(self.mask_image_resolution)
-            self.mask_height = int(self.mask_image_resolution)
+            if is_image_size_options_supported():
+                try: 
+                    self.mask_width = ypup.image_size_options[self.mask_image_size].width
+                    self.mask_height = ypup.image_size_options[self.mask_image_size].height
+                except Exception as e: print('Image size option exception:', e)
+            else:
+                self.mask_width = int(self.mask_image_resolution)
+                self.mask_height = int(self.mask_image_resolution)
 
         # New image cannot use more pixels than the image atlas
         if self.use_image_atlas:
@@ -1308,7 +1330,10 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
             else: channel = None
         except: channel = None
 
-        row = split_layout(self.layout, 0.4)
+        label_width = 128
+        percentage = 128 / self.dialog_width
+
+        row = split_layout(self.layout, percentage)
         col = row.column(align=False)
 
         if self.add_mask and self.mask_type == 'IMAGE' and self.mask_image_filepath:
@@ -1346,13 +1371,7 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
 
         if self.type == 'IMAGE' and self.use_custom_resolution == False:
             col.label(text='')
-            if self.use_vertical_expand_for_image_options:
-                ccol = col.column(align=True)
-                ccol.label(text='Resolution:')
-                for i in range(len(ypup.image_size_options)-1):
-                    ccol.label(text='')
-            else:
-                col.label(text='Resolution:')
+            col.label(text='Resolution:')
         elif self.type == 'IMAGE' and self.use_custom_resolution == True:
             col.label(text='')
             col.label(text='Width:')
@@ -1453,10 +1472,12 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
             crow.prop(self, 'use_custom_resolution')
             crow = col.row(align=True)
             #crow.prop(self, 'image_resolution', expand=True)
-            if not self.use_vertical_expand_for_image_options: crow.prop(self, 'image_size', expand=True)
-            else: 
-                ccol = crow.column(align=True)
-                ccol.prop(self, 'image_size', expand=True)
+            if is_image_size_options_supported():
+                if self.expand_image_size_options:
+                    crow.prop(self, 'image_size', expand=True)
+                else: crow.prop(self, 'image_size', text='', expand=False)
+            else:
+                crow.prop(self, 'image_resolution', expand=True)
         elif self.type == 'IMAGE' and self.use_custom_resolution == True:
             crow = col.row(align=True)
             crow.prop(self, 'use_custom_resolution')
@@ -1507,7 +1528,12 @@ class YNewLayer(bpy.types.Operator, BaseOperator.NewImage):
                             col.prop(self, 'mask_use_custom_resolution')
                             if not self.mask_use_custom_resolution:
                                 crow = col.row(align=True)
-                                crow.prop(self, 'mask_image_resolution', expand=True)
+                                if is_image_size_options_supported():
+                                    if self.expand_image_size_options:
+                                        crow.prop(self, 'mask_image_size', expand=True)
+                                    else: crow.prop(self, 'mask_image_size', text='', expand=False)
+                                else:
+                                    crow.prop(self, 'mask_image_resolution', expand=True)
                             else:
                                 col.prop(self, 'mask_width', text='')
                                 col.prop(self, 'mask_height', text='')
@@ -2096,7 +2122,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
         items = image_resolution_items,
         default = '1024'
     )
-    
+
     mask_use_custom_resolution : BoolProperty(
         name = 'Custom Resolution',
         description = 'Use custom Resolution to adjust the width and height individually',

@@ -95,23 +95,32 @@ def default_image_size():
     return index if index != None else 1
 
 class NewImage():
-    image_size : EnumProperty(
-        name = 'Image Size',
-        description = 'Image size',
-        items = image_size_items,
-        default = default_image_size(),
-        #update = update_image_size_options
-    )
+    if is_image_size_options_supported():
+        image_size : EnumProperty(
+            name = 'Image Size',
+            description = 'Image size',
+            items = image_size_items,
+            default = default_image_size(),
+        )
 
     def invoke_operator(self, context, event):
         ypup = get_user_preferences()
 
-        # Force to set the image size if image size option is changed during blender session
-        if ypup.ori_default_image_size_option != ypup.default_image_size_option and ypup.default_image_size_option < len(ypup.image_size_options):
-            self.image_size = [opt.name for i, opt in enumerate(ypup.image_size_options) if i == ypup.default_image_size_option][0]
+        self.extra_popup_width = 0
+        self.expand_image_size_options = True
+
+        if is_image_size_options_supported():
+            # Force to set the image size if image size option is changed during blender session
+            if ypup.ori_default_image_size_option != ypup.default_image_size_option and ypup.default_image_size_option < len(ypup.image_size_options):
+                self.image_size = [opt.name for i, opt in enumerate(ypup.image_size_options) if i == ypup.default_image_size_option][0]
+
+            # Max number of options for expanded panel 
+            self.max_expand = 10
+            self.expand_image_size_options = len(ypup.image_size_options) <= self.max_expand
+
+            # Extra dialog box width for extra options
+            self.extra_popup_width = max(48*(len(ypup.image_size_options)-4), 0) if len(ypup.image_size_options) <= self.max_expand else 0
 
     def draw_operator(self, context):
-        ypup = get_user_preferences()
-
-        self.use_vertical_expand_for_image_options = len(ypup.image_size_options) > 4
+        pass
 

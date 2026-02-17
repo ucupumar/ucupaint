@@ -989,6 +989,10 @@ def write_image_option_index_to_file(index):
         try: f.write(str(index))
         except Exception as e: print(e)
 
+def is_image_size_options_supported():
+    # NOTE: Older versions have glitchy UI when image size options are used
+    return is_bl_newer_than(5, 1)
+
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
