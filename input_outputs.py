@@ -193,7 +193,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 else:
                     remove_node(group_tree, channel, 'end_linear')
 
-                if channel.use_clamp and any_layers_using_channel(channel):
+                if channel.special_channel_type != 'VDISP' and channel.use_clamp and any_layers_using_channel(channel):
                     clamp = group_tree.nodes.get(channel.clamp)
                     if not clamp:
                         clamp = new_mix_node(group_tree, channel, 'clamp', 'Clamp')
@@ -877,6 +877,10 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
                     # Normal map strength input
                     dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
+
+                if root_ch.special_channel_type == 'VDISP':
+                    dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
             if root_ch.type == 'NORMAL':

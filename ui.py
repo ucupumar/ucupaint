@@ -1311,13 +1311,19 @@ def draw_root_channels_ui(context, layout, node):
                 brow.label(text='Normalize Input Output:')
                 brow.prop(channel, 'use_height_normalize', text='')
 
+            if channel.special_channel_type in {'HEIGHT', 'VDISP'}:
                 brow = bcol.row(align=True)
-                brow.active = normal_ch != None
+                #brow.active = normal_ch != None
                 brow.label(text='', icon='BLANK1')
-                brow.label(text='Disaplacement Setup:')
+                brow.label(text='Displacement Setup:')
                 bbrow = brow.row(align=True)
                 bbrow.alignment = 'RIGHT'
-                label = 'Enabled' if not channel.use_height_as_bump else 'Disabled'
+
+                # Displacement enabled label
+                displacement_enabled = get_displacement_method() != 'BUMP'
+                if channel.special_channel_type == 'HEIGHT':
+                    displacement_enabled = displacement_enabled and not channel.use_height_as_bump
+                label = 'Enabled' if displacement_enabled else 'Disabled'
                 bbrow.label(text=label)
 
                 brow = bcol.row(align=True)
@@ -2036,6 +2042,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                         if is_bl_newer_than(2, 80):
                             label += ' (VDM)'
                         else: label = 'VDM'
+                elif root_ch.special_channel_type == 'VDISP' and layer.type != 'GROUP':
+                    if is_bl_newer_than(2, 80):
+                        label += ' (VDM)'
+                    else: label = 'VDM'
                 else:
                     if is_bl_newer_than(2, 80):
                         label += ' (' + root_ch.name + ')'
@@ -2073,6 +2083,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.prop(ch, 'height_blend_type', text='')
                 draw_input_prop(splits, ch, 'bump_distance', layer=layer)
+            elif root_ch.special_channel_type == 'VDISP':
+                splits = split_layout(rrow, 0.5, align=True)
+                splits.prop(ch, 'blend_type', text='')
+                draw_input_prop(splits, ch, 'vdisp_strength', layer=layer)
             elif root_ch.type == 'NORMAL' and layer.type != 'GROUP':
                 splits = split_layout(rrow, 0.5, align=True)
                 if root_ch.special_channel_type == 'HEIGHT':
@@ -2231,6 +2245,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                         rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
                     elif ch.override_type != 'DEFAULT':
                         rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
+
+            elif root_ch.special_channel_type == 'VDISP':
+                rrrow = ssplit.row(align=True)
+                draw_input_prop(rrrow, ch, 'vdisp_strength', layer=layer)
 
             elif root_ch.type == 'NORMAL':
                 rrrow = ssplit.row(align=True)
@@ -2439,6 +2457,20 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 row = row.row(align=True)
                 row.scale_x = 1.4
             row.prop(ch, 'normal_space', text='')
+
+        if root_ch.special_channel_type == 'VDISP' and layer.type != 'GROUP':
+
+            # Vector Displacement Strength
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            row.label(text='Strength:') #, icon_value=lib.get_icon('input'))
+            draw_input_prop(row, ch, 'vdisp_strength', layer=layer)
+
+            # Vector Displacement Flip Y/Z
+            row = mcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            row.label(text='Flip Y/Z:') #, icon_value=lib.get_icon('input'))
+            draw_input_prop(row, ch, 'vdisp_enable_flip_yz', layer=layer)
 
         if root_ch.type == 'NORMAL':
 
@@ -4331,8 +4363,8 @@ def draw_layers_ui(context, layout, node):
                 row.operator('wm.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
         if is_a_mesh and is_bl_newer_than(3, 2):
-            height_layer_ch = get_height_channel(layer)
-            if height_layer_ch and height_layer_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+            vdisp_layer_ch = get_vdisp_channel(layer)
+            if vdisp_layer_ch:
                 bbox = col.box()
                 cbox = bbox.column()
                 row = cbox.row(align=True)

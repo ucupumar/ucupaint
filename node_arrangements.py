@@ -221,6 +221,10 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, ch.normal_proc, frame)
             check_set_node_parent(tree, ch.normal_overlay, frame)
 
+        if root_ch.special_channel_type == 'VDISP':
+            check_set_node_parent(tree, ch.vdisp_flip_yz, frame)
+            check_set_node_parent(tree, ch.vdisp_proc, frame)
+
         if root_ch.type == 'NORMAL':
             check_set_node_parent(tree, ch.spread_alpha, frame)
             #check_set_node_parent(tree, ch.spread_alpha_n, frame)
@@ -1603,6 +1607,13 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x += 200
 
             if check_set_node_loc(tree, ch.normal_overlay, loc):
+                loc.x += 200
+
+        elif root_ch.special_channel_type == 'VDISP':
+            if check_set_node_loc(tree, ch.vdisp_flip_yz, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.vdisp_proc, loc):
                 loc.x += 200
 
         bookmark_x1 = loc.x

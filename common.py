@@ -3985,6 +3985,13 @@ def get_root_height_channel(yp):
 
     return None
 
+def get_root_vdisp_channel(yp):
+    for ch in yp.channels:
+        if ch.special_channel_type == 'VDISP':
+            return ch
+
+    return None
+
 def get_height_channel(layer):
 
     yp = layer.id_data.yp
@@ -4002,6 +4009,17 @@ def get_normal_channel(layer):
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
         if root_ch.special_channel_type == 'NORMAL':
+            return ch
+
+    return None
+
+def get_vdisp_channel(layer):
+
+    yp = layer.id_data.yp
+
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+        if root_ch.special_channel_type == 'VDISP':
             return ch
 
     return None
@@ -5516,21 +5534,20 @@ def is_height_process_needed(layer):
 
 def is_vdisp_process_needed(layer):
     yp = layer.id_data.yp
-    height_root_ch = get_root_height_channel(yp)
-    if not height_root_ch: return False
+    vdisp_root_ch = get_root_height_channel(yp)
+    if not vdisp_root_ch: return False
 
-    height_ch = get_height_channel(layer)
-    if not height_ch or not height_ch.enable: return False
+    vdisp_ch = get_vdisp_channel(layer)
+    if not vdisp_ch or not vdisp_ch.enable: return False
 
-    #if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+    #if yp.layer_preview_mode and vdisp_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
     if layer.type == 'GROUP': 
-        if is_layer_using_vdisp_map(layer, height_root_ch):
-            return True
-    elif height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or height_ch.enable_transition_bump:
-        return True
+        return is_layer_using_vdisp_map(layer, vdisp_root_ch)
+    #elif vdisp_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or vdisp_ch.enable_transition_bump:
+    #    return True
 
-    return False
+    return True
 
 def is_normal_process_needed(layer):
     yp = layer.id_data.yp
@@ -5727,7 +5744,7 @@ def is_layer_using_bump_map(layer, root_ch=None):
 
 def is_layer_using_vdisp_map(layer, root_ch=None):
     yp = layer.id_data.yp
-    if not root_ch: root_ch = get_root_height_channel(yp)
+    if not root_ch: root_ch = get_root_vdisp_channel(yp)
     if not root_ch: return False
 
     channel_idx = get_channel_index(root_ch)
@@ -5739,7 +5756,8 @@ def is_layer_using_vdisp_map(layer, root_ch=None):
             for child in children:
                 if is_layer_using_vdisp_map(child):
                     return True
-        elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or ch.enable_transition_bump:
+        #elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or ch.enable_transition_bump:
+        else:
             return True
 
     return False
@@ -5839,6 +5857,23 @@ def is_any_layer_using_channel(root_ch, node=None):
             return True
 
     return False
+
+def get_displacement_method():
+    mat = get_active_material()
+
+    if mat and hasattr(mat, 'displacement_method'):
+        return mat.displacement_method
+
+    if mat and hasattr(mat.cycles, 'displacement_method'):
+        return mat.cycles.displacement_method
+
+    # Displacement method is inside object data for Blender 2.77 and below 
+    if not is_bl_newer_than(2, 78):
+        obj = bpy.context.object
+        if obj and obj.data and hasattr(obj.data, 'cycles'):
+            return obj.data.cycles.displacement_method
+
+    return 'BUMP'
 
 def get_layer_type_icon(layer_type):
 

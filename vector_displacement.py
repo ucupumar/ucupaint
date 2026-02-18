@@ -958,7 +958,8 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     tree = node.node_tree
     yp = tree.yp
     height_root_ch = get_root_height_channel(yp)
-    if not height_root_ch: return None
+    vdisp_root_ch = get_root_vdisp_channel(yp)
+    #if not height_root_ch: return None
 
     # Get active layer
     try: cur_layer = yp.layers[yp.active_layer_index]
@@ -983,26 +984,25 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     # Disable other than vdm layers
     if only_vdms:
         for l in yp.layers:
-            height_ch = get_height_channel(l)
-            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
+            vdisp_ch = get_vdisp_channel(l)
+            if not vdisp_ch or not vdisp_ch.enable: continue
+            vdisp_ch.vdisp_enable_flip_yz = not vdisp_ch.vdisp_enable_flip_yz
 
         for l in yp.layers:
-            height_ch = get_height_channel(l)
-            if not height_ch or not height_ch.enable: continue
-            if height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+            vdisp_ch = get_vdisp_channel(l)
+            if not vdisp_ch or not vdisp_ch.enable: continue
 
-                # Flip flip Y/Z
-                if flip_yz:
-                    height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
+            # Flip flip Y/Z
+            if flip_yz:
+                vdisp_ch.vdisp_enable_flip_yz = not vdisp_ch.vdisp_enable_flip_yz
 
             # Disable layer other than VDM
             elif only_vdms and l.type != 'GROUP':
                 l.enable = False
 
     # Make sure vdm output exists
-    if not height_root_ch.enable_subdiv_setup:
-        check_all_channel_ios(yp, force_height_io=True)
+    #if not height_root_ch.enable_subdiv_setup:
+    #    check_all_channel_ios(yp, force_height_io=True)
 
     # Combined VDM image name
     if disable_current_layer:
@@ -1032,16 +1032,24 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     mat.node_tree.nodes.active = tex
     tex.image = image
 
-    # Emission connection
-    disp_outp = node.outputs.get(height_root_ch.name + io_suffix['HEIGHT'])
-    max_height_outp = node.outputs.get(height_root_ch.name + io_suffix['MAX_HEIGHT'])
-    vdisp_outp = node.outputs.get(height_root_ch.name + io_suffix['VDISP'])
+    # Outputs
+    disp_outp = None
+    midlevel_outp = None
+    max_height_outp = None
+    if height_root_ch:
+        disp_outp = node.outputs.get(height_root_ch.name)
+        midlevel_outp = node.outputs.get(height_root_ch.name + io_suffix['MIDLEVEL'])
+        max_height_outp = node.outputs.get(height_root_ch.name + io_suffix['SCALE'])
+
+    vdisp_outp = None
+    if vdisp_root_ch:
+        vdisp_outp = node.outputs.get(height_root_ch.name + io_suffix['VDISP'])
 
     # Connection
-    #mat.node_tree.links.new(vdisp_outp, emit.inputs[0])
-    mat.node_tree.links.new(disp_outp, calc.inputs['Height'])
-    mat.node_tree.links.new(max_height_outp, calc.inputs['Scale'])
-    mat.node_tree.links.new(vdisp_outp, calc.inputs['Vector Displacement'])
+    if disp_outp: mat.node_tree.links.new(disp_outp, calc.inputs['Height'])
+    if midlevel_outp and 'Midlevel' in calc.inputs: mat.node_tree.links.new(midlevel_outp, calc.inputs['Midlevel'])
+    if max_height_outp and 'Scale' in calc.inputs: mat.node_tree.links.new(max_height_outp, calc.inputs['Scale'])
+    if vdisp_outp: mat.node_tree.links.new(vdisp_outp, calc.inputs['Vector Displacement'])
     mat.node_tree.links.new(calc.outputs[0], emit.inputs[0])
     mat.node_tree.links.new(emit.outputs[0], mat_out.inputs[0])
 
@@ -1066,15 +1074,15 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
             l.enable = ori_layer_enables[i]
 
     # Recover input outputs
-    if not height_root_ch.enable_subdiv_setup:
-        check_all_channel_ios(yp)
+    #if not height_root_ch.enable_subdiv_setup:
+    #    check_all_channel_ios(yp)
 
     # Recover flip yzs
     if flip_yz:
         for i, l in enumerate(yp.layers):
-            height_ch = get_height_channel(l)
-            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
+            vdisp_ch = get_vdisp_channel(l)
+            if not vdisp_ch or not vdisp_ch.enable: continue
+            vdisp_ch.vdisp_enable_flip_yz = not vdisp_ch.vdisp_enable_flip_yz
 
     # Recover sculpt mode
     if ori_sculpt_mode:
@@ -1261,12 +1269,10 @@ def is_multi_disp_used(yp):
     # Check if there's another vdm layer
     for l in yp.layers:
         if not l.enable: continue
+        vch = get_vdisp_channel(l)
         hch = get_height_channel(l)
-        if (not hch or not hch.enable
-            or hch.normal_map_type not in {'BUMP_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} 
-            or (not hch.write_height and hch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'})
-        ): continue
-        num_disps += 1
+        if (vch and vch.enable) or (hch and hch.enable and not hch.use_height_as_normal) :
+            num_disps += 1
 
     return num_disps > 1
 
@@ -1440,9 +1446,9 @@ class YSculptImage(bpy.types.Operator):
         uv_name = layer.uv_name
         mapping = get_layer_mapping(layer)
 
-        height_root_ch = get_root_height_channel(yp)
-        if not height_root_ch:
-            self.report({'ERROR'}, "Need normal channel!")
+        vdisp_root_ch = get_root_vdisp_channel(yp)
+        if not vdisp_root_ch:
+            self.report({'ERROR'}, "Need vector displacement channel!")
             return {'CANCELLED'}
 
         if mapping and is_transformed(mapping, layer):
@@ -1468,7 +1474,7 @@ class YSculptImage(bpy.types.Operator):
             flip_yz = True
         else: 
             sculpt_image = image
-            height_ch = get_height_channel(layer)
+            height_ch = get_vdisp_channel(layer)
             intensity = get_vdm_intensity(layer, height_ch) if height_ch else 1.0
             flip_yz = not height_ch.vdisp_enable_flip_yz
 
@@ -1513,7 +1519,7 @@ class YApplySculptToImage(bpy.types.Operator):
         tree = node.node_tree
         yp = tree.yp
         layer = yp.layers[yp.active_layer_index]
-        height_ch = get_height_channel(layer)
+        height_ch = get_vdisp_channel(layer)
 
         if height_ch:
 
@@ -1582,7 +1588,7 @@ class YCancelSculptToImage(bpy.types.Operator):
         tree = node.node_tree
         yp = tree.yp
         layer = yp.layers[yp.active_layer_index]
-        height_ch = get_height_channel(layer)
+        height_ch = get_vdisp_channel(layer)
 
         # Remove multires
         multires = get_multires_modifier(obj, TEMP_MULTIRES_NAME)
@@ -1656,7 +1662,7 @@ class YRemoveVDMandAddMultires(bpy.types.Operator):
         if not source or not source.image or source.image.size[0] == 0:
             self.report({'ERROR'}, "Invalid/Missing VDM image!")
             return {'CANCELLED'}
-        height_ch = get_height_channel(vdm_layers[0])
+        height_ch = get_vdisp_channel(vdm_layers[0])
         flip_yz = not height_ch.vdisp_enable_flip_yz if height_ch else True
 
         vdm_image = source.image

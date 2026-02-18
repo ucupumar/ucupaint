@@ -620,8 +620,8 @@ class YNewVDMLayer(bpy.types.Operator):
 
     blend_type : EnumProperty(
         name = 'Blend Type',
-        items = normal_blend_type_items,
-        default = 'OVERLAY'
+        items = blend_type_items,
+        #default = 'ADD'
     )
 
     use_udim : BoolProperty(
@@ -660,6 +660,9 @@ class YNewVDMLayer(bpy.types.Operator):
         # Set default name
         name = obj.active_material.name + DEFAULT_NEW_VDM_SUFFIX
         self.name = get_unique_name(name, bpy.data.images)
+
+        # Set default blend type
+        self.blend_type = 'ADD'
 
         # Use user preference default image size
         if ypup.default_image_resolution == 'CUSTOM':
@@ -724,8 +727,9 @@ class YNewVDMLayer(bpy.types.Operator):
         if False:
             col.prop(self, 'use_udim')
 
-        height_root_ch = get_root_height_channel(yp)
-        if height_root_ch and not height_root_ch.enable_subdiv_setup:
+        #height_root_ch = get_root_height_channel(yp)
+        #if height_root_ch and not height_root_ch.enable_subdiv_setup:
+        if get_displacement_method() == 'BUMP':
             col = self.layout.column()
             col.label(text='Displacement Setup is not enabled yet!', icon='ERROR')
             col.prop(self, 'enable_subdiv_setup')
@@ -747,11 +751,11 @@ class YNewVDMLayer(bpy.types.Operator):
         mat = get_active_material()
         objs = get_all_objects_with_same_materials(mat)
 
-        height_root_ch = get_root_height_channel(yp)
-        if not height_root_ch:
-            self.report({'ERROR'}, "There should be a normal channel!")
+        vdisp_root_ch = get_root_vdisp_channel(yp)
+        if not vdisp_root_ch:
+            self.report({'ERROR'}, "There should be a Vector Displacement channel!")
             return {'CANCELLED'}
-        channel_idx = get_channel_index(height_root_ch)
+        channel_idx = get_channel_index(vdisp_root_ch)
 
         alpha = True
         color = (0, 0, 0, 0)
@@ -788,16 +792,14 @@ class YNewVDMLayer(bpy.types.Operator):
         layer = add_new_layer(
             group_tree=node.node_tree, layer_name=self.name,
             layer_type='IMAGE', channel_idx=channel_idx,
-            blend_type='MIX', normal_blend_type=self.blend_type, 
-            normal_map_type='VECTOR_DISPLACEMENT_MAP',
+            blend_type=self.blend_type, 
+            normal_blend_type='MIX', # Unused anymore
+            normal_map_type='VECTOR_DISPLACEMENT_MAP',# Unused anymore
             texcoord_type='UV', uv_name=self.uv_map, image=img,
             interpolation = 'Cubic'
         )
 
         yp.halt_update = False
-
-        if not height_root_ch.enable_subdiv_setup and self.enable_subdiv_setup:
-            height_root_ch.enable_subdiv_setup = True
 
         # Reconnect and rearrange nodes
         reconnect_yp_nodes(node.node_tree)
@@ -818,6 +820,10 @@ class YNewVDMLayer(bpy.types.Operator):
             uv = uv_layers.get(self.uv_map)
             if uv and not uv.active_render:
                 uv.active_render = True
+
+        # Call operator to do displacement setup
+        if self.enable_subdiv_setup and get_displacement_method() == 'BUMP':
+            bpy.ops.wm.y_quick_displacement_setup(displacement_method='BOTH', max_polys=1000, use_adaptive_subdivision=False)
 
         print('INFO: VDM Layer', layer.name, 'is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
@@ -6444,11 +6450,13 @@ def update_layer_channel_vdisp_flip_yz(self, context):
 
     if m1:
         layer = yp.layers[int(m1.group(1))]
+        root_ch = yp.channels[int(m1.group(2))]
         tree = get_tree(layer)
     else:
         return
 
-    if self.normal_map_type == 'VECTOR_DISPLACEMENT_MAP' and self.vdisp_enable_flip_yz:
+    #if self.normal_map_type == 'VECTOR_DISPLACEMENT_MAP' and self.vdisp_enable_flip_yz:
+    if root_ch.special_channel_type == 'VDISP' and self.vdisp_enable_flip_yz:
         vdisp_flip_yz = check_new_node(tree, self, 'vdisp_flip_yz', 'ShaderNodeGroup', 'Flip Y/Z')
         vdisp_flip_yz.node_tree = lib.get_node_tree_lib(lib.FLIP_YZ)
     else:

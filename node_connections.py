@@ -3751,6 +3751,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if ch_bump_midlevel and 'Midlevel' in max_height_calc.inputs: create_link(tree, ch_bump_midlevel, max_height_calc.inputs['Midlevel'])
                 if ch_intensity and 'Intensity' in max_height_calc.inputs: create_link(tree, ch_intensity, max_height_calc.inputs['Intensity'])
 
+        if root_ch.special_channel_type == 'VDISP':
+
+            vdisp_flip_yz = tree.nodes.get(ch.vdisp_flip_yz)
+            if vdisp_flip_yz:
+                rgb = create_link(tree, rgb, vdisp_flip_yz.inputs[0])[0]
+
+            if vdisp_proc:
+                inp0, inp1, outp0 = get_mix_color_indices(vdisp_proc)
+                ch_vdisp_strength = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'vdisp_strength'))
+                
+                rgb = create_link(tree, rgb, vdisp_proc.inputs[inp0])[outp0]
+                if ch_vdisp_strength: create_link(tree, ch_vdisp_strength, vdisp_proc.inputs[inp1])
+
         # Transition AO
         tao = nodes.get(ch.tao)
         if tao and root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao: # and layer.type != 'BACKGROUND':

@@ -2044,6 +2044,37 @@ def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=Fa
         if remove_node(tree, ch, 'tb_delta_calc'): need_reconnect = True
         if remove_node(tree, ch, 'max_height_calc'): need_reconnect = True
 
+def check_channel_vdisp_nodes(tree, layer, root_ch, ch, need_reconnect=False):
+
+    yp = layer.id_data.yp
+
+    # Only normal channel will continue proceed with this function
+    if root_ch.special_channel_type != 'VDISP': return need_reconnect
+
+    channel_enabled = get_channel_enabled(ch, layer, root_ch)
+
+    if channel_enabled and is_vdisp_process_needed(layer) and layer.type != 'GROUP':
+
+        if ch.vdisp_enable_flip_yz:
+            vdisp_flip_yz, dirty = check_new_node(tree, ch, 'vdisp_flip_yz', 'ShaderNodeGroup', 'Flip Y/Z', True)
+            vdisp_flip_yz.node_tree = lib.get_node_tree_lib(lib.FLIP_YZ)
+            if dirty: need_reconnect = True
+        else:
+            if remove_node(tree, ch, 'vdisp_flip_yz'): need_reconnect = True
+
+        vdisp_proc, need_reconnect = replace_new_mix_node(
+            tree, ch, 'vdisp_proc', 'Vector Displacement Process',
+            return_status=True, hard_replace=True, dirty=need_reconnect
+        )
+        vdisp_proc.blend_type = 'MULTIPLY'
+        vdisp_proc.inputs[0].default_value = 1.0
+
+    else:
+        if remove_node(tree, ch, 'vdisp_proc'): need_reconnect = True
+        if remove_node(tree, ch, 'vdisp_flip_yz'): need_reconnect = True
+
+    return need_reconnect
+
 def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=False):
 
     #print("Checking channel normal map nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
@@ -2518,6 +2549,9 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     # Update normal map nodes
     need_reconnect = check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect)
+
+    # Update vector displacement nodes
+    need_reconnect = check_channel_vdisp_nodes(tree, layer, root_ch, ch, need_reconnect)
 
     # Extra alpha
     need_reconnect = check_extra_alpha(layer, need_reconnect)

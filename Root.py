@@ -515,10 +515,10 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
     bl_description = "Disable material displacement settings and remove or use lower subdivision modifer to all objects with the same material.\nNOTE: This will also make the height output no longer accessible."
     bl_options = {'REGISTER', 'UNDO'}
 
-    keep_subdivision : BoolProperty(
-        name = 'Keep Subdivision Modifier',
-        description = 'Keep existing subdivision modifier on all objects with the same material',
-        default=True,
+    delete_subdivision : BoolProperty(
+        name = 'Delete Subdivision Modifier',
+        description = 'Delete existing subdivision modifier on all objects with the same material',
+        default=False,
     )
 
     subdiv_level : IntProperty(
@@ -532,47 +532,30 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
         return context.object and get_active_material()
 
     def invoke(self, context, event):
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat, True)
+        #displacement_method = get_displacement_method()
+        #
+        #self.displacement_found = displacement_method in {'DISPLACEMENT', 'BOTH', 'TRUE'}
+        #if not self.displacement_found:
+        #    return self.execute(context)
 
-        # Check if displacement is enabled
-        self.displacement_found = False
-
-        if hasattr(mat, 'displacement_method') and mat.displacement_method in {'DISPLACEMENT', 'BOTH', 'TRUE'}:
-            self.displacement_found = True
-
-        if hasattr(mat.cycles, 'displacement_method') and mat.cycles.displacement_method in {'DISPLACEMENT', 'BOTH', 'TRUE'}:
-            self.displacement_found = True
-
-        # Displacement method is inside object data for Blender 2.77 and below 
-        if not is_bl_newer_than(2, 78):
-            for obj in objs:
-                if obj.data and hasattr(obj.data, 'cycles'):
-                    if obj.data.cycles.displacement_method in {'DISPLACEMENT', 'BOTH', 'TRUE'}:
-                        self.displacement_method = True
-                        break
-        
-        if not self.displacement_found:
-            return self.execute(context)
-
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=350)
 
     def draw(self, context):
         row = split_layout(self.layout, 0.35)
         col = row.column()
         col.label(text='')
-        if self.keep_subdivision:
-            col.label(text='Subdivision Level:')
+        if not self.delete_subdivision:
+            col.label(text='Set Subdivision Level:')
 
         col = row.column()
-        col.prop(self, 'keep_subdivision')
-        if self.keep_subdivision:
+        col.prop(self, 'delete_subdivision')
+        if not self.delete_subdivision:
             col.prop(self, 'subdiv_level', text='')
 
     def execute(self, context):
-        if not self.displacement_found:
-            self.report({'ERROR'}, "Displacement setup doesn't exist yet!")
-            return {'CANCELLED'}
+        #if not self.displacement_found:
+        #    self.report({'ERROR'}, "Displacement setup doesn't exist yet!")
+        #    return {'CANCELLED'}
 
         mat = get_active_material()
         objs = get_all_objects_with_same_materials(mat, True)
@@ -605,7 +588,7 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
             subsurf = get_subsurf_modifier(obj)
 
             if subsurf:
-                if self.keep_subdivision:
+                if not self.delete_subdivision:
                     subsurf.levels = self.subdiv_level
                     subsurf.render_levels = self.subdiv_level
                 else:
@@ -794,10 +777,10 @@ class YQuickDisplacementSetup(bpy.types.Operator):
         # NOTE: Height as bump will always be disabled at this point for now
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
-        try: ch = yp.channels[yp.active_channel_index] if yp else None
-        except: ch = None
-        if ch and ch.special_channel_type == 'HEIGHT':
-            ch.use_height_as_bump = False
+        if yp:
+            for ch in yp.channels:
+                if ch and ch.special_channel_type == 'HEIGHT':
+                    ch.use_height_as_bump = False
 
         return {'FINISHED'}
 
