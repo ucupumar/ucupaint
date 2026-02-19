@@ -2569,7 +2569,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     # Background layer always using mix blend type
     if root_ch.special_channel_type == 'HEIGHT':
         blend_type = ch.height_blend_type
-    elif root_ch.special_channel_type in {'NORMAL', 'VDISP'}:
+    elif root_ch.special_channel_type == 'NORMAL':
         blend_type = ch.normal_blend_type
     elif layer.type == 'BACKGROUND':
         blend_type = 'MIX'

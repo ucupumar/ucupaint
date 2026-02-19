@@ -1043,7 +1043,7 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
 
     vdisp_outp = None
     if vdisp_root_ch:
-        vdisp_outp = node.outputs.get(height_root_ch.name + io_suffix['VDISP'])
+        vdisp_outp = node.outputs.get(vdisp_root_ch.name)
 
     # Connection
     if disp_outp: mat.node_tree.links.new(disp_outp, calc.inputs['Height'])
