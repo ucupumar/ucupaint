@@ -5450,8 +5450,8 @@ def is_entity_need_tangent_input(entity, uv_name):
         elif normal_root_ch and uv_name == normal_root_ch.main_uv:
 
             # Main UV tangent is needed for normal process
-            if height_channel_enabled and is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
-                return True
+            #if height_channel_enabled and is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
+            #    return True
 
             # Overlay blend and transition bump need tangent
             #if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and (height_ch.normal_blend_type == 'OVERLAY' or (height_ch.enable_transition_bump and height_root_ch.enable_smooth_bump)):
@@ -5534,7 +5534,7 @@ def is_height_process_needed(layer):
 
 def is_vdisp_process_needed(layer):
     yp = layer.id_data.yp
-    vdisp_root_ch = get_root_height_channel(yp)
+    vdisp_root_ch = get_root_vdisp_channel(yp)
     if not vdisp_root_ch: return False
 
     vdisp_ch = get_vdisp_channel(layer)

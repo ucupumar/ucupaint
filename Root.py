@@ -655,6 +655,14 @@ class YQuickDisplacementSetup(bpy.types.Operator):
         return context.object and get_active_material()
 
     def invoke(self, context, event):
+        # Check current displacement mode
+        method = get_displacement_method()
+
+        if method in {'TRUE', 'DISPLACEMENT'}:
+            self.displacement_method = 'DISPLACEMENT'
+        elif method == 'BOTH':
+            self.displacement_method = 'BOTH'
+
         return context.window_manager.invoke_props_dialog(self, width=330)
 
     def draw(self, context):
@@ -2615,7 +2623,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             layer.channels.remove(channel_idx)
 
             # Update layer ios
-            Layer.check_all_layer_channel_io_and_nodes(layer, ttree) #, has_parent=has_parent)
+            #Layer.check_all_layer_channel_io_and_nodes(layer, ttree) #, has_parent=has_parent)
 
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
