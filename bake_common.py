@@ -217,6 +217,7 @@ def remember_before_bake(yp=None, mat=None):
     book['ori_normal_space'] = scene.render.bake.normal_space
     book['ori_simplify'] = scene.render.use_simplify
     book['ori_device'] = scene.cycles.device
+    book['ori_use_motion_blur'] = scene.render.use_motion_blur
     if hasattr(scene.render.bake, 'use_pass_direct'): book['ori_use_pass_direct'] = scene.render.bake.use_pass_direct
     if hasattr(scene.render.bake, 'use_pass_indirect'): book['ori_use_pass_indirect'] = scene.render.bake.use_pass_indirect
     if hasattr(scene.render.bake, 'use_pass_diffuse'): book['ori_use_pass_diffuse'] = scene.render.bake.use_pass_diffuse
@@ -635,6 +636,7 @@ def prepare_bake_settings(
     cage_object = bpy.data.objects.get(cage_object_name) if cage_object_name != '' else None
     #scene.render.bake.use_cage = True if cage_object else False
     scene.render.bake.use_cage = use_cage
+    scene.render.use_motion_blur = False
     if cage_object: 
         if is_bl_newer_than(2, 80): scene.render.bake.cage_object = cage_object
         else: scene.render.bake.cage_object = cage_object.name
@@ -866,6 +868,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene.render.bake.use_clear = book['ori_use_clear']
     scene.render.bake.normal_space = book['ori_normal_space']
     scene.render.use_simplify = book['ori_simplify']
+    scene.render.use_motion_blur = book['ori_use_motion_blur']
     scene.cycles.device = book['ori_device']
     if hasattr(scene.render.bake, 'use_pass_direct'): scene.render.bake.use_pass_direct = book['ori_use_pass_direct']
     if hasattr(scene.render.bake, 'use_pass_indirect'): scene.render.bake.use_pass_indirect = book['ori_use_pass_indirect']
@@ -1996,6 +1999,26 @@ def any_object_space_normal(yp):
 
     return False
 
+def get_posed_armatures_from_objects(objs):
+    armature_objs = []
+    for obj in objs:
+        for mod in obj.modifiers:
+            if mod.type == 'ARMATURE' and mod.object and mod.object.data.pose_position == 'POSE' and mod.object not in armature_objs:
+                armature_objs.append(mod.object)
+
+    return armature_objs
+
+def set_related_armatures_to_rest_pose(objs):
+    armature_objs = get_posed_armatures_from_objects(objs)
+    for armature_obj in armature_objs:
+        armature_obj.data.pose_position = 'REST'
+
+    return armature_objs
+
+def recover_rested_armature_objects(armature_objs):
+    for armature_obj in armature_objs:
+        armature_obj.data.pose_position = 'POSE'
+
 def bake_channel(
         uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
         aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
@@ -2089,6 +2112,7 @@ def bake_channel(
     # Normal baking need special node setup
     bsdf = None
     norm = None
+    armature_objs = []
     if root_ch.type == 'NORMAL':
 
         # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF

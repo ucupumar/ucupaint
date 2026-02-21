@@ -1714,12 +1714,19 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
+
+                # NOTE: Since normal channel only bake to tangent space for now, make sure all used armature objects are in rest pose
+                armature_objs = set_related_armatures_to_rest_pose(objs) if ch.type == 'NORMAL' else []
+
                 bake_channel(
                     self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
                     tilenums=tilenums, interpolation=self.interpolation, 
                     use_float_for_displacement=self.use_float_for_displacement, 
                     use_float_for_normal=self.use_float_for_normal, bprops=bprops
                 )
+
+                # Recover armature objects
+                recover_rested_armature_objects(armature_objs)
 
         # Process baked images
         baked_images = []
