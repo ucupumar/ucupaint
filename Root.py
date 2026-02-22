@@ -4846,7 +4846,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Default value related
     ori_alpha_value : FloatProperty(default=0.0)
     ori_midlevel_value : FloatProperty(default=0.0)
-    ori_max_height_value : FloatProperty(default=1.0)
+    ori_max_height_value : FloatProperty(default=0.0)
 
 class YPaintUV(bpy.types.PropertyGroup):
     name : StringProperty(default='')

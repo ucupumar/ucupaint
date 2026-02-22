@@ -81,24 +81,12 @@ def blend_type_items(self, context):
 
     return items
 
-def height_blend_type_items(self, context):
-
-    items = []
-
-    # Original height blend type items
-    items.append(("MIX", "Mix", ""))
-    items.append(("ADD", "Add", ""))
-    items.append(("COMPARE", "Compare Height", ""))
-
-    # Remaining default blend type items
-    for i in range(2, len(base_blend_type_items)):
-        item = base_blend_type_items[i]
-        items.append(item)
-
-    if is_bl_newer_than(3, 5):
-        items.append(("EXCLUSION", "Exclusion", ""))
-
-    return items
+height_blend_type_items = (
+    ("MIX", "Mix", ""),
+    ("ADD", "Add", ""),
+    ("SUBTRACT", "Subtract", ""),
+    ("COMPARE", "Compare Height", ""),
+)
 
 blend_type_labels = {
     "MIX" : "Mix",

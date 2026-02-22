@@ -1713,7 +1713,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
-                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
+                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB') or ch.special_channel_type == 'VDISP'
                 bake_channel(
                     self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
                     tilenums=tilenums, interpolation=self.interpolation, 

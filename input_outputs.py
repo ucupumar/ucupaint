@@ -478,7 +478,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
                 name = ch.name + io_suffix['SCALE']
 
-                if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=1.0):
+                if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=0.0):
                     # Set node default value
                     if group_node and group_node.node_tree == group_tree:
                         group_node.inputs[name].default_value = ch.ori_max_height_value
