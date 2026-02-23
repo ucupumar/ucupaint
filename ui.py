@@ -7028,6 +7028,8 @@ class YLayerMaskMenu(bpy.types.Menu):
             col.operator('wm.y_invert_image', text='Invert Image', icon='IMAGE_ALPHA')
 
         col.separator()
+        col.operator('wm.y_duplicate_layer_mask', icon='DUPLICATE', text='Duplicate Mask')
+        col.separator()
 
         op = col.operator('wm.y_move_layer_mask', icon='TRIA_UP', text='Move Mask Up')
         op.direction = 'UP'
