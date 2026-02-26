@@ -5126,11 +5126,12 @@ def set_active_paint_slot_entity(yp):
     if yp.use_baked and len(yp.channels) > 0:
 
         ch = yp.channels[yp.active_channel_index]
-        if ch.type == 'NORMAL':
+        if ch.special_channel_type == 'NORMAL':
             cur_image = get_active_paint_slot_image()
 
             # Cycle through all baked normal images
-            orders = ['baked', 'baked_normal_overlay', 'baked_disp', 'baked_vdisp']
+            #orders = ['baked', 'baked_normal_overlay', 'baked_disp', 'baked_vdisp']
+            orders = ['baked', 'baked_normal_no_disp']
             for i, prop in enumerate(orders):
                 cur_baked = root_tree.nodes.get(getattr(ch, prop))
                 if cur_baked and cur_baked.image == cur_image:
@@ -6079,6 +6080,10 @@ def get_yp_images(yp, udim_only=False, get_baked_channels=False, check_overlay_n
                     if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
                         images.append(baked_normal_overlay.image)
 
+                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
+                if baked_normal_no_disp and baked_normal_no_disp.image and baked_normal_no_disp.image not in images:
+                    images.append(baked_normal_no_disp.image)
+
         # Custom bake target images
         for bt in yp.bake_targets:
             image_node = tree.nodes.get(bt.image_node)
@@ -6244,6 +6249,10 @@ def get_all_baked_channel_images(tree):
             baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
             if baked_normal_overlay and baked_normal_overlay.image:
                 images.append(baked_normal_overlay.image)
+
+            baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
+            if baked_normal_no_disp and baked_normal_no_disp.image:
+                images.append(baked_normal_no_disp.image)
 
     return images
 

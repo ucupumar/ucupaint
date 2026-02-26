@@ -1002,7 +1002,7 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
 
     # Make sure vdm output exists
     #if not height_root_ch.enable_subdiv_setup:
-    #    check_all_channel_ios(yp, force_height_io=True)
+    #    check_all_channel_ios(yp, force_height_output=True)
 
     # Combined VDM image name
     if disable_current_layer:

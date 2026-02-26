@@ -2644,6 +2644,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'baked_normal_prep')
         remove_node(group_tree, channel, 'baked_disp')
         remove_node(group_tree, channel, 'baked_normal_overlay')
+        remove_node(group_tree, channel, 'baked_normal_no_disp')
 
         for mod in channel.modifiers:
             Modifier.delete_modifier_nodes(group_tree, mod)
@@ -3132,14 +3133,18 @@ class YDuplicateYPNodes(bpy.types.Operator):
                 #ext = os.path.splitext(path)[1]
                 #baked.image.filepath = os.path.dirname(path) + baked.image.name + ext
 
-            if ch.type == 'NORMAL':
-                baked_disp = tree.nodes.get(ch.baked_disp)
-                if baked_disp and baked_disp.image:
-                    baked_disp.image = baked_disp.image.copy()
+            if ch.special_channel_type == 'NORMAL':
+                #baked_disp = tree.nodes.get(ch.baked_disp)
+                #if baked_disp and baked_disp.image:
+                #    baked_disp.image = baked_disp.image.copy()
 
-                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                if baked_normal_overlay and baked_normal_overlay.image:
-                    baked_normal_overlay.image = baked_normal_overlay.image.copy()
+                #baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                #if baked_normal_overlay and baked_normal_overlay.image:
+                #    baked_normal_overlay.image = baked_normal_overlay.image.copy()
+
+                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
+                if baked_normal_no_disp and baked_normal_no_disp.image:
+                    baked_normal_no_disp.image = baked_normal_no_disp.image.copy()
 
         # Recover possibly deleted parallax
         height_root_ch = get_root_height_channel(yp)
@@ -4805,6 +4810,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_disp : StringProperty(default='')
     baked_vdisp : StringProperty(default='')
     baked_normal_overlay : StringProperty(default='')
+    baked_normal_no_disp : StringProperty(default='')
 
     # Outside baked nodes
     baked_outside : StringProperty(default='')
@@ -4846,7 +4852,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Default value related
     ori_alpha_value : FloatProperty(default=0.0)
     ori_midlevel_value : FloatProperty(default=0.0)
-    ori_max_height_value : FloatProperty(default=0.0)
+    ori_max_height_value : FloatProperty(default=1.0)
 
 class YPaintUV(bpy.types.PropertyGroup):
     name : StringProperty(default='')

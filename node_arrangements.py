@@ -2163,6 +2163,9 @@ def rearrange_yp_nodes(group_tree):
         if check_set_node_loc(group_tree, ch.baked_normal_overlay, loc):
             loc.y -= 270
 
+        if check_set_node_loc(group_tree, ch.baked_normal_no_disp, loc):
+            loc.y -= 270
+
         if check_set_node_loc(group_tree, ch.baked_disp, loc):
             loc.y -= 270
 

@@ -1164,6 +1164,12 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
                 remove_node(tree, root_ch, 'baked_normal')
                 remove_node(tree, root_ch, 'end_max_height')
 
+            elif root_ch.special_channel_type == 'NORMAL':
+                remove_node(tree, root_ch, 'baked_normal_no_disp')
+
+            elif root_ch.special_channel_type == 'HEIGHT':
+                remove_node(tree, root_ch, 'end_max_height')
+
         # Reconnect
         reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
@@ -1357,10 +1363,17 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         self.enable_bake_as_vcol = False
         if len(self.channels) > 0:
 
+            # Get normal and height channel pair
+            normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
             # Check if any layer is using the channels
             layer_found = False
             for ch in self.channels:
                 if is_any_layer_using_channel(ch, node):
+                    layer_found = True
+                    break
+                # Also check the height pair channel
+                if not layer_found and ch == normal_ch and is_any_layer_using_channel(height_ch, node):
                     layer_found = True
                     break
             if not layer_found:
@@ -1692,8 +1705,9 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             for layer in disabled_layers:
                 layer.enable = True 
 
-        # Get color and alpha channel
+        # Get channel pairs
         color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+        normal_ch, height_ch = get_normal_height_ch_pairs(yp)
 
         # Bake channels
         baked_exists = []
@@ -1712,8 +1726,13 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             else: baked_exists.append(False)
 
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
+
+            # Also check height channel if it's a normal channel pair
+            if ch.no_layer_using and ch == normal_ch:
+                ch.no_layer_using = not is_any_layer_using_channel(height_ch, node)
+
             if not ch.no_layer_using:
-                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB') or ch.special_channel_type == 'VDISP'
+                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB') or ch.special_channel_type in {'HEIGHT', 'VDISP'}
                 bake_channel(
                     self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
                     tilenums=tilenums, interpolation=self.interpolation, 
@@ -1756,6 +1775,23 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     fxaa_image(baked.image, alpha_enabled, bake_device=self.bake_device)
 
                 baked_images.append(baked.image)
+
+            if ch.special_channel_type == 'NORMAL':
+                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
+                if baked_normal_no_disp and baked_normal_no_disp.image:
+
+                    # AA process
+                    if self.aa_level > 1:
+                        resize_image(
+                            baked_normal_no_disp.image, self.width, self.height, 
+                            baked.image.colorspace_settings.name,
+                            alpha_aware=alpha_enabled, bake_device=self.bake_device
+                        )
+                    # FXAA
+                    if self.fxaa:
+                        fxaa_image(baked_normal_no_disp.image, alpha_enabled, bake_device=self.bake_device)
+
+                    baked_images.append(baked_normal_no_disp.image)
 
             if ch.type == 'NORMAL':
 
@@ -2093,8 +2129,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         yp.halt_update = False
 
         # Check subdiv Setup
-        if height_ch:
-            check_subdiv_setup(height_ch)
+        #if height_ch:
+        #    check_subdiv_setup(height_ch)
 
         # Update global uv
         check_uv_nodes(yp)

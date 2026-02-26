@@ -374,7 +374,7 @@ def set_float_factor_inputs_hack(tree, float_factor_input_names):
         if inp.name in float_factor_input_names and inp.subtype != 'FACTOR':
             inp.subtype = 'FACTOR'
 
-def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_io=False, hard_reset=False, yp_node=None):
+def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_output=False, hard_reset=False, yp_node=None):
 
     #print("Checking YP IO. Specific Layer: " + str(specific_layer))
 
@@ -421,7 +421,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 valid_inputs, input_index, default_value=default_value, hide_value=hide_value, node=yp_node
             )
 
-        if not is_bump_only:
+        if not is_bump_only or force_height_output:
             create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
                     valid_outputs, output_index)
 
@@ -466,11 +466,12 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
             if ch.use_height_normalize:
                 name = ch.name + io_suffix['MIDLEVEL']
 
-                if create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, default_value=0.0, min_value=0.0, max_value=1.0):
-                    # Set node default value
-                    if group_node and group_node.node_tree == group_tree:
-                        group_node.inputs[name].default_value = ch.ori_midlevel_value
-                input_index += 1
+                if ch.use_height_normalize:
+                    if create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, default_value=0.0, min_value=0.0, max_value=1.0):
+                        # Set node default value
+                        if group_node and group_node.node_tree == group_tree:
+                            group_node.inputs[name].default_value = ch.ori_midlevel_value
+                    input_index += 1
 
                 if not is_bump_only:
                     create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
@@ -478,17 +479,18 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
                 name = ch.name + io_suffix['SCALE']
 
-                if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=0.0):
-                    # Set node default value
-                    if group_node and group_node.node_tree == group_tree:
-                        group_node.inputs[name].default_value = ch.ori_max_height_value
-                input_index += 1
+                if ch.use_height_normalize:
+                    if create_input(group_tree, name, 'NodeSocketFloat', valid_inputs, input_index, default_value=1.0):
+                        # Set node default value
+                        if group_node and group_node.node_tree == group_tree:
+                            group_node.inputs[name].default_value = ch.ori_max_height_value
+                    input_index += 1
 
                 if not is_bump_only:
                     create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
                     output_index += 1
 
-        elif ch.type == 'NORMAL' and (ch.enable_subdiv_setup or force_height_io):
+        elif ch.type == 'NORMAL' and ch.enable_subdiv_setup:
 
             name = ch.name + io_suffix['HEIGHT']
 

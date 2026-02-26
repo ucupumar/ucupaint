@@ -1859,11 +1859,12 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
         # Use high margin to make sure all pixels are covered
         scene.render.bake.margin = high_margin
 
-    # Check for height socket
-    forced_height_ios = False
-    if 'Height' not in node.outputs:
-        check_all_channel_ios(yp, reconnect=True, force_height_io=True)
-        forced_height_ios = True
+    # Make sure height scale socket is available
+    ori_use_height_as_bump = root_ch.use_height_as_bump
+    ori_use_height_normalize = root_ch.use_height_normalize
+    if root_ch.use_height_as_bump:
+        root_ch.use_height_as_bump = False
+        root_ch.use_height_normalize = True
 
     # Create target image
     if UDIM.is_udim_supported():
@@ -1881,7 +1882,7 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
     tex.image = img
 
     # Connect max height output to emit node
-    create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
+    create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['SCALE']], 
             emit.inputs[0])
 
     # Bake
@@ -1910,6 +1911,12 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
     else:
         # Recover margin
         scene.render.bake.margin = ori_margin
+
+    # Recover props
+    if root_ch.use_height_as_bump != ori_use_height_as_bump:
+        root_ch.use_height_as_bump = ori_use_height_as_bump
+    if root_ch.use_height_normalize != ori_use_height_normalize:
+        root_ch.use_height_normalize = ori_use_height_normalize
 
     return max_height_value
 
@@ -2089,7 +2096,7 @@ def bake_channel(
     # Normal baking need special node setup
     bsdf = None
     norm = None
-    if root_ch.type == 'NORMAL':
+    if root_ch.special_channel_type == 'NORMAL':
 
         # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF
         if is_bl_newer_than(2, 80) and not any_object_space_normal(yp):
@@ -2107,18 +2114,30 @@ def bake_channel(
     #for l in output.inputs['Displacement'].links:
     #    disp_from_socket = l.from_socket
 
+    # Get normal and height channel pair
+    normal_root_ch, height_root_ch = get_normal_height_ch_pairs(yp)
+
     # Original displacement connection
     ori_disp_from_node = ''
     ori_disp_from_socket = ''
 
     # Remove displacement link early if displacement setup is enabled and the current channel is not normal channel
-    height_root_ch = get_root_height_channel(yp)
-    if height_root_ch and root_ch != height_root_ch and height_root_ch.enable_subdiv_setup:
-        for link in output.inputs['Displacement'].links:
-            ori_disp_from_node = link.from_node.name
-            ori_disp_from_socket = link.from_socket.name
-            mat.node_tree.links.remove(link)
-            break
+    #height_root_ch = get_root_height_channel(yp)
+    #if height_root_ch and root_ch != height_root_ch and height_root_ch.enable_subdiv_setup:
+    if height_root_ch and not height_root_ch.use_height_as_bump:
+        if root_ch != normal_root_ch:
+            # Disconnect displacement for non-normal channel
+            for link in output.inputs['Displacement'].links:
+                ori_disp_from_node = link.from_node.name
+                ori_disp_from_socket = link.from_socket.name
+                mat.node_tree.links.remove(link)
+                break
+        else:
+            # Reconnect displacement for normal channel
+            from_node = mat.node_tree.nodes.get(ori_disp_from_node)
+            from_socket = from_node.outputs.get(ori_disp_from_socket) if from_node else None
+            if from_socket:
+                mat.node_tree.links.new(from_socket, output.inputs['Displacement'])
 
     # Connect emit to output material
     mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
@@ -2143,13 +2162,13 @@ def bake_channel(
         if not baked or not is_root_ch_prop_node_unique(root_ch, 'baked'):
             baked = new_node(tree, root_ch, 'baked', 'ShaderNodeTexImage', 'Baked ' + root_ch.name)
         if hasattr(baked, 'color_space'):
-            if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL':
+            if root_ch.colorspace == 'LINEAR' or root_ch.special_channel_type == 'NORMAL':
                 baked.color_space = 'NONE'
             else: baked.color_space = 'COLOR'
         baked.interpolation = interpolation
         
         # Normal related nodes
-        if root_ch.type == 'NORMAL':
+        if root_ch.special_channel_type == 'NORMAL':
             baked_normal = tree.nodes.get(root_ch.baked_normal)
             if not baked_normal:
                 baked_normal = new_node(tree, root_ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
@@ -2168,7 +2187,7 @@ def bake_channel(
         # Check if image is available
         if baked.image:
             img_name = baked.image.name
-            if root_ch.type == 'NORMAL':
+            if root_ch.special_channel_type == 'NORMAL':
                 filepath = baked.image.filepath
             else: filepath = get_valid_filepath(baked.image, use_hdr)
             baked.image.name = '____TEMP'
@@ -2192,8 +2211,11 @@ def bake_channel(
 
                 color = segment.base_color
 
-        elif root_ch.type == 'NORMAL':
+        elif root_ch.special_channel_type == 'NORMAL':
             color = (0.5, 0.5, 1.0, 1.0)
+
+        elif root_ch.special_channel_type == 'HEIGHT' and root_ch.use_height_normalize:
+            color = (0.5, 0.5, 0.5, 1.0)
 
         elif root_ch.type == 'VALUE':
             val = node.inputs[root_ch.name].default_value
@@ -2271,6 +2293,23 @@ def bake_channel(
             img.colorspace_settings.name = get_noncolor_name()
         else: img.colorspace_settings.name = get_srgb_name()
 
+    if root_ch.special_channel_type == 'HEIGHT':
+
+        if root_ch.use_height_normalize:
+            inp_height = node.inputs.get(root_ch.name)
+            inp_scale = node.inputs.get(root_ch.name + io_suffix['SCALE'])
+            ori_default_height_scale = inp_scale.default_value if inp_scale else 1.0
+
+            # NOTE: Set height input scale to 0.0 since it can affect the bake result
+            if len(inp_height.links) == 0 and inp_height.default_value == 0.0 and inp_scale: 
+                ori_default_height_scale = inp_scale.default_value
+                inp_scale.default_value = 0.0
+
+        # Make sure height output exists by disabling use_height_as_bump
+        ori_use_height_as_bump = root_ch.use_height_as_bump
+        if root_ch.use_height_as_bump:
+            root_ch.use_height_as_bump = False
+
     # Bake main image
     if (
         (target_layer and (root_ch.type != 'NORMAL' or ch.normal_map_type == 'NORMAL_MAP')) or
@@ -2283,7 +2322,7 @@ def bake_channel(
         # Links to bake
         rgb = node.outputs[root_ch.name]
 
-        if root_ch.type == 'NORMAL':
+        if root_ch.special_channel_type == 'NORMAL':
             if norm:
                 # Custom normal calculation setup
                 rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
@@ -2318,12 +2357,119 @@ def bake_channel(
             scene.render.bake.normal_space = ori_normal_space
             mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
+    # Bake normal without bump/displacement
+    norm_img = None
+    if height_root_ch and root_ch.special_channel_type == 'NORMAL':
+
+        # Disable use height as bump so normal output doesn't have bump data
+        ori_height_as_bump = height_root_ch.use_height_as_bump
+        if height_root_ch.use_height_as_bump:
+            height_root_ch.use_height_as_bump = False
+
+        baked_normal_no_disp = tree.nodes.get(root_ch.baked_normal_no_disp)
+        if not baked_normal_no_disp:
+            baked_normal_no_disp = new_node(
+                tree, root_ch, 'baked_normal_no_disp', 'ShaderNodeTexImage', 
+                'Baked ' + root_ch.name + ' Overlay Only'
+            )
+            if hasattr(baked_normal_no_disp, 'color_space'):
+                baked_normal_no_disp.color_space = 'NONE'
+
+        if baked_normal_no_disp.image:
+            norm_img_name = baked_normal_no_disp.image.name
+            filepath = baked_normal_no_disp.image.filepath
+            #filepath = get_valid_filepath(baked_normal_no_disp.image, use_hdr)
+            baked_normal_no_disp.image.name = '____NORM_TEMP'
+        else:
+            norm_img_name = tree.name + ' ' + root_ch.name + ' without Displacement'
+
+        # Create target image
+        norm_img = img.copy()
+        norm_img.name = norm_img_name
+        norm_img.colorspace_settings.name = get_noncolor_name()
+        color = (0.5, 0.5, 1.0, 1.0)
+
+        if img.source == 'TILED':
+            UDIM.fill_tiles(norm_img, color)
+            UDIM.initial_pack_udim(norm_img, color)
+        else: 
+            norm_img.generated_color = color
+            if filepath != '' and (
+                    (use_udim and '.<UDIM>.' in filepath) or 
+                    (not use_udim and '.<UDIM>.' not in filepath)
+                ):
+                norm_img.filepath = filepath
+
+        tex.image = norm_img
+
+        # Disconnect displacement before baking
+        ori_disp_node = ''
+        ori_disp_socket = ''
+        for link in output.inputs['Displacement'].links:
+            ori_disp_node = link.from_node.name
+            ori_disp_socket = link.from_socket.name
+            mat.node_tree.links.remove(link)
+
+        # Preparing for normal baking
+        if bsdf:
+            scene.cycles.bake_type = 'NORMAL'
+            scene.render.bake.normal_space = 'TANGENT'
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+        # Bake
+        print('BAKE CHANNEL: Baking normal without bump image of ' + root_ch.name + ' channel...')
+        bake_object_op(scene.cycles.bake_type)
+
+        # Recover normal baking related
+        if bsdf:
+            scene.cycles.bake_type = 'EMIT'
+            scene.render.bake.normal_space = ori_normal_space
+            mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+
+        # Recover displacement connection
+        from_node = mat.node_tree.nodes.get(ori_disp_node)
+        from_socket = from_node.outputs.get(ori_disp_socket) if from_node else None
+        if from_socket:
+            mat.node_tree.links.new(from_socket, output.inputs['Displacement'])
+
+        # Set baked normal without bump image
+        if baked_normal_no_disp.image:
+            temp = baked_normal_no_disp.image
+            img_users = get_all_image_users(baked_normal_no_disp.image)
+            for user in img_users:
+                user.image = norm_img
+            remove_datablock(bpy.data.images, temp)
+        else:
+            baked_normal_no_disp.image = norm_img
+
+        # Recover height as bump
+        if height_root_ch.use_height_as_bump != ori_height_as_bump:
+            height_root_ch.use_height_as_bump = ori_height_as_bump
+
+    if root_ch.special_channel_type == 'HEIGHT':
+
+        if root_ch.use_height_normalize:
+
+            # Bake maximum height / height scale
+            max_height_value = get_bake_max_height(root_ch, mat, node, tex, emit)
+            end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+            end_max_height.outputs[0].default_value = max_height_value
+
+            # Recover default height scale value
+            inp_height = node.inputs.get(root_ch.name)
+            inp_scale = node.inputs.get(root_ch.name + io_suffix['SCALE'])
+            if len(inp_height.links) == 0 and inp_height.default_value == 0.0 and inp_scale: 
+                inp_scale.default_value = ori_default_height_scale
+            
+        if root_ch.use_height_as_bump != ori_use_height_as_bump:
+            root_ch.use_height_as_bump = ori_use_height_as_bump
+
     # Bake displacement
     disp_img = None
     if root_ch.type == 'NORMAL':
 
         # Make sure height outputs available
-        check_all_channel_ios(yp, reconnect=True, force_height_io=True)
+        check_all_channel_ios(yp, reconnect=True, force_height_output=True)
 
         # Break displacement connection if displacement setup is enabled
         if root_ch.enable_subdiv_setup:

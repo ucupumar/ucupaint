@@ -521,6 +521,12 @@ class YPackImage(bpy.types.Operator):
 
                     baked_normal_overlay.image.filepath = ''
 
+                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
+                if baked_normal_no_disp and baked_normal_no_disp.image and not baked_normal_no_disp.image.packed_file:
+                    pack_image(baked_normal_no_disp.image)
+
+                baked_normal_no_disp.image.filepath = ''
+
         print('INFO:', context.image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
@@ -787,6 +793,10 @@ class YSaveAllBakedImages(bpy.types.Operator):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         images.append(baked_normal_overlay.image)
+
+                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
+                if baked_normal_no_disp and baked_normal_no_disp.image:
+                    images.append(baked_normal_no_disp.image)
 
         # Custom bake target images
         for bt in yp.bake_targets:
