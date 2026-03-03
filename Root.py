@@ -4816,7 +4816,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_outside : StringProperty(default='')
     baked_outside_disp : StringProperty(default='')
     baked_outside_vdisp : StringProperty(default='')
-    baked_outside_normal_overlay : StringProperty(default='')
+    baked_outside_normal_overlay : StringProperty(default='') # Deprecated
+    baked_outside_normal_no_disp : StringProperty(default='')
 
     baked_outside_disp_process : StringProperty(default='')
     baked_outside_vdisp_process : StringProperty(default='')

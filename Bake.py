@@ -2988,6 +2988,7 @@ def update_enable_baked_outside(self, context):
     scene = context.scene
     ypup = get_user_preferences()
     output_mat = get_material_output(mat)
+    height_root_ch = get_root_height_channel(yp)
 
     mtree = mat.node_tree
 
@@ -3036,11 +3037,12 @@ def update_enable_baked_outside(self, context):
 
             # Remember current connection
             outp = node.outputs.get(ch.name)
-            for l in outp.links:
-                con = ch.ori_to.add()
-                con.node = l.to_node.name
-                con.socket = l.to_socket.name
-                con.socket_index = get_node_input_index(l.to_node, l.to_socket)
+            if outp:
+                for l in outp.links:
+                    con = ch.ori_to.add()
+                    con.node = l.to_node.name
+                    con.socket = l.to_socket.name
+                    con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
             outp_alpha = None
             if ch.enable_alpha:
@@ -3057,15 +3059,15 @@ def update_enable_baked_outside(self, context):
                     con.socket = l.to_socket.name
                     con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
-            outp_height = node.outputs.get(ch.name + io_suffix['HEIGHT'])
-            if outp_height:
-                for l in outp_height.links:
+            outp_midlevel = node.outputs.get(ch.name + io_suffix['MIDLEVEL'])
+            if outp_midlevel:
+                for l in outp_midlevel.links:
                     con = ch.ori_height_to.add()
                     con.node = l.to_node.name
                     con.socket = l.to_socket.name
                     con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
-            outp_mheight = node.outputs.get(ch.name + io_suffix['MAX_HEIGHT'])
+            outp_mheight = node.outputs.get(ch.name + io_suffix['SCALE'])
             if outp_mheight:
                 for l in outp_mheight.links:
                     con = ch.ori_max_height_to.add()
@@ -3105,14 +3107,15 @@ def update_enable_baked_outside(self, context):
                         else:
                             mtree.links.new(tex.outputs[1], l.to_socket)
 
-                if ch.type != 'NORMAL':
+                if ch.special_channel_type != 'NORMAL':
 
-                    for l in outp.links:
-                        if vcol and ch.enable_bake_to_vcol:
-                            outp_name = 'Alpha' if ch.bake_to_vcol_alpha else 'Color'
-                            mtree.links.new(vcol.outputs[outp_name], l.to_socket)
-                        else:
-                            mtree.links.new(tex.outputs[0], l.to_socket)
+                    if outp:
+                        for l in outp.links:
+                            if vcol and ch.enable_bake_to_vcol:
+                                outp_name = 'Alpha' if ch.bake_to_vcol_alpha else 'Color'
+                                mtree.links.new(vcol.outputs[outp_name], l.to_socket)
+                            else:
+                                mtree.links.new(tex.outputs[0], l.to_socket)
                 else:
 
                     loc_x += 280
@@ -3129,27 +3132,28 @@ def update_enable_baked_outside(self, context):
 
                     mtree.links.new(tex.outputs[0], norm.inputs[1])
 
-                    baked_normal_overlay = None
-                    if is_baked_normal_without_bump_needed(ch):
-                        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                        if baked_normal_overlay and baked_normal_overlay.image:
-                            loc_y -= 300
-                            tex_normal_overlay = check_new_node(mtree, ch, 'baked_outside_normal_overlay', 'ShaderNodeTexImage')
-                            tex_normal_overlay.image = baked_normal_overlay.image
-                            tex_normal_overlay.location.x = loc_x
-                            tex_normal_overlay.location.y = loc_y
-                            tex_normal_overlay.parent = frame
-                            mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
+                    #baked_normal_no_disp = None
+                    #if is_baked_normal_without_bump_needed(ch):
+                    baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
+                    if baked_normal_no_disp and baked_normal_no_disp.image:
+                        loc_y -= 300
+                        tex_normal_no_disp = check_new_node(mtree, ch, 'baked_outside_normal_no_disp', 'ShaderNodeTexImage')
+                        tex_normal_no_disp.image = baked_normal_no_disp.image
+                        tex_normal_no_disp.location.x = loc_x
+                        tex_normal_no_disp.location.y = loc_y
+                        tex_normal_no_disp.parent = frame
+                        mtree.links.new(uv.outputs[0], tex_normal_no_disp.inputs[0])
 
-                            if not is_bl_newer_than(2, 80) and baked_normal_overlay.image.colorspace_settings.name != get_srgb_name():
-                                tex_normal_overlay.color_space = 'NONE'
+                        if not is_bl_newer_than(2, 80) and baked_normal_no_disp.image.colorspace_settings.name != get_srgb_name():
+                            tex_normal_no_disp.color_space = 'NONE'
 
-                            # NOTE: Use combined normal since displacement map is not exportable using GLTF
-                            #if ch.enable_subdiv_setup:
-                            #    mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
+                        # NOTE: Use combined normal since displacement map is not exportable using GLTF
+                        #if ch.enable_subdiv_setup:
+                        #    mtree.links.new(tex_normal_no_disp.outputs[0], norm.inputs[1])
 
-                    for l in outp.links:
-                        mtree.links.new(norm.outputs[0], l.to_socket)
+                    if outp:
+                        for l in outp.links:
+                            mtree.links.new(norm.outputs[0], l.to_socket)
 
                     baked_disp = tree.nodes.get(ch.baked_disp)
                     baked_vdisp = tree.nodes.get(ch.baked_vdisp)
@@ -3289,8 +3293,9 @@ def update_enable_baked_outside(self, context):
 
                 # Copy yp default value to connected nodes
                 inp = node.inputs.get(ch.name)
-                for l in outp.links:
-                    copy_default_value(inp, l.to_socket)
+                if outp:
+                    for l in outp.links:
+                        copy_default_value(inp, l.to_socket)
 
                 inp_alpha = node.inputs.get(ch.name + io_suffix['ALPHA'])
                 if inp_alpha and outp_alpha:
@@ -3298,8 +3303,8 @@ def update_enable_baked_outside(self, context):
                         copy_default_value(inp_alpha, l.to_socket)
 
                 inp_height = node.inputs.get(ch.name + io_suffix['HEIGHT'])
-                if inp_height and outp_height:
-                    for l in outp_height.links:
+                if inp_height and outp_midlevel:
+                    for l in outp_midlevel.links:
                         copy_default_value(inp_height, l.to_socket)
 
         # Bake targets
@@ -3329,6 +3334,22 @@ def update_enable_baked_outside(self, context):
             for l in outp.links:
                 mtree.links.remove(l)
 
+        # Set midlevel and scale
+        if height_root_ch and height_root_ch.special_channel_type == 'HEIGHT':
+            disp = get_closest_disp_node_backward(output_mat, 'Displacement', False)
+            if disp:
+
+                end_max_height = node.node_tree.nodes.get(height_root_ch.end_max_height)
+                max_height = end_max_height.outputs[0].default_value if end_max_height else 1.0
+
+                midlevel_inp = disp.inputs.get('Midlevel')
+                if midlevel_inp and len(midlevel_inp.links) == 0: 
+                    midlevel_inp.default_value = 0.5 if height_root_ch.use_height_normalize else 0.0
+
+                scale_inp = disp.inputs.get('Scale')
+                if scale_inp and len(scale_inp.links) == 0: 
+                    scale_inp.default_value = max_height if height_root_ch.use_height_normalize else 1.0
+
         loc_x = max_x + 100
         yp.baked_outside_x_shift = int(loc_x - node.location.x)
 
@@ -3345,7 +3366,8 @@ def update_enable_baked_outside(self, context):
         for ch in yp.channels:
 
             outp = node.outputs.get(ch.name)
-            connect_to_original_node(mtree, outp, ch.ori_to)
+            if outp:
+                connect_to_original_node(mtree, outp, ch.ori_to)
             ch.ori_to.clear()
 
             outp_alpha = None
@@ -3360,12 +3382,12 @@ def update_enable_baked_outside(self, context):
                 connect_to_original_node(mtree, outp_alpha, ch.ori_alpha_to)
                 ch.ori_alpha_to.clear()
 
-            outp_height = node.outputs.get(ch.name + io_suffix['HEIGHT'])
-            if outp_height:
-                connect_to_original_node(mtree, outp_height, ch.ori_height_to)
+            outp_midlevel = node.outputs.get(ch.name + io_suffix['MIDLEVEL'])
+            if outp_midlevel:
+                connect_to_original_node(mtree, outp_midlevel, ch.ori_height_to)
                 ch.ori_height_to.clear()
 
-            outp_mheight = node.outputs.get(ch.name + io_suffix['MAX_HEIGHT'])
+            outp_mheight = node.outputs.get(ch.name + io_suffix['SCALE'])
             if outp_mheight:
                 connect_to_original_node(mtree, outp_mheight, ch.ori_max_height_to)
                 ch.ori_max_height_to.clear()
@@ -3377,10 +3399,23 @@ def update_enable_baked_outside(self, context):
                 remove_node(mtree, ch, 'baked_outside_disp', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_vdisp', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_normal_overlay', parent=baked_outside_frame)
+                remove_node(mtree, ch, 'baked_outside_normal_no_disp', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_normal_process', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_disp_process', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_vdisp_process', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_disp_addition', parent=baked_outside_frame)
+
+        # Recover displacement midlevel and scale
+        if height_root_ch and height_root_ch.special_channel_type == 'HEIGHT':
+            disp = get_closest_disp_node_backward(output_mat, 'Displacement', False)
+            if disp:
+                midlevel_inp = disp.inputs.get('Midlevel')
+                if midlevel_inp:
+                    midlevel_inp.default_value = 0.0
+
+                scale_inp = disp.inputs.get('Scale')
+                if scale_inp:
+                    scale_inp.default_value = 1.0
 
         # Bake targets
         for bt in yp.bake_targets:

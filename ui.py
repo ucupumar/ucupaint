@@ -1309,7 +1309,9 @@ def draw_root_channels_ui(context, layout, node):
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='BLANK1')
                 brow.label(text='Normalize Input Output:')
-                brow.prop(channel, 'use_height_normalize', text='')
+                if yp.use_baked and not channel.no_layer_using:
+                    brow.label(text='', icon_value=lib.get_icon('texture'))
+                else: brow.prop(channel, 'use_height_normalize', text='')
 
             if channel.special_channel_type in {'HEIGHT', 'VDISP'}:
                 brow = bcol.row(align=True)
@@ -4364,7 +4366,7 @@ def draw_layers_ui(context, layout, node):
 
         if is_a_mesh and is_bl_newer_than(3, 2):
             vdisp_layer_ch = get_vdisp_channel(layer)
-            if vdisp_layer_ch:
+            if vdisp_layer_ch and vdisp_layer_ch.enable:
                 bbox = col.box()
                 cbox = bbox.column()
                 row = cbox.row(align=True)
