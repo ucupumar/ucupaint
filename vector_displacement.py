@@ -1000,9 +1000,14 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
             elif only_vdms and l.type != 'GROUP':
                 l.enable = False
 
-    # Make sure vdm output exists
-    #if not height_root_ch.enable_subdiv_setup:
-    #    check_all_channel_ios(yp, force_height_output=True)
+    # Make sure height output exists
+    if height_root_ch:
+        ori_use_height_as_bump = height_root_ch.use_height_as_bump
+        ori_use_height_normalize = height_root_ch.use_height_normalize
+        if height_root_ch.use_height_as_bump:
+            height_root_ch.use_height_as_bump = False
+        if height_root_ch.use_height_normalize:
+            height_root_ch.use_height_normalize = False
 
     # Combined VDM image name
     if disable_current_layer:
@@ -1032,14 +1037,8 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     mat.node_tree.nodes.active = tex
     tex.image = image
 
-    # Outputs
-    disp_outp = None
-    midlevel_outp = None
-    max_height_outp = None
-    if height_root_ch:
-        disp_outp = node.outputs.get(height_root_ch.name)
-        midlevel_outp = node.outputs.get(height_root_ch.name + io_suffix['MIDLEVEL'])
-        max_height_outp = node.outputs.get(height_root_ch.name + io_suffix['SCALE'])
+    # Height Output
+    disp_outp = node.outputs.get(height_root_ch.name) if height_root_ch else None
 
     vdisp_outp = None
     if vdisp_root_ch:
@@ -1047,8 +1046,6 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
 
     # Connection
     if disp_outp: mat.node_tree.links.new(disp_outp, calc.inputs['Height'])
-    if midlevel_outp and 'Midlevel' in calc.inputs: mat.node_tree.links.new(midlevel_outp, calc.inputs['Midlevel'])
-    if max_height_outp and 'Scale' in calc.inputs: mat.node_tree.links.new(max_height_outp, calc.inputs['Scale'])
     if vdisp_outp: mat.node_tree.links.new(vdisp_outp, calc.inputs['Vector Displacement'])
     mat.node_tree.links.new(calc.outputs[0], emit.inputs[0])
     mat.node_tree.links.new(emit.outputs[0], mat_out.inputs[0])
@@ -1073,9 +1070,12 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
         if l.enable != ori_layer_enables[i]:
             l.enable = ori_layer_enables[i]
 
-    # Recover input outputs
-    #if not height_root_ch.enable_subdiv_setup:
-    #    check_all_channel_ios(yp)
+    # Recover height output
+    if height_root_ch:
+        if height_root_ch.use_height_as_bump != ori_use_height_as_bump:
+            height_root_ch.use_height_as_bump = ori_use_height_as_bump
+        if height_root_ch.use_height_normalize != ori_use_height_normalize:
+            height_root_ch.use_height_normalize = ori_use_height_normalize
 
     # Recover flip yzs
     if flip_yz:
