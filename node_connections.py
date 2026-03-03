@@ -4141,6 +4141,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                 if col_preview:
                     if root_ch.type == 'NORMAL' and normal_proc: create_link(tree, normal_proc.outputs[0], col_preview)
+                    elif root_ch.special_channel_type == 'VDISP' and vdisp_proc: 
+                        _, _, mixout = get_mix_color_indices(vdisp_proc)
+                        create_link(tree, vdisp_proc.outputs[mixout], col_preview)
                     else: create_link(tree, rgb, col_preview)
                 if alpha_preview and yp.layer_preview_mode_type != 'SPECIFIC_MASK':
                     create_link(tree, alpha, alpha_preview)
