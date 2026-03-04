@@ -2015,7 +2015,7 @@ def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=Fa
                 set_default_value(height_proc, 'Delta', get_transition_disp_delta(layer, ch))
                 set_default_value(height_proc, 'Transition Max Height', get_transition_bump_max_distance(ch))
 
-            set_default_value(height_proc, 'Intensity', ch.intensity_value)
+            #set_default_value(height_proc, 'Intensity', ch.intensity_value)
 
             if ch.enable_transition_bump and channel_enabled and ch.transition_bump_crease and not ch.transition_bump_flip:
                 set_default_value(height_proc, 'Crease Factor', ch.transition_bump_crease_factor)

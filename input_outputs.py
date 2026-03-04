@@ -387,6 +387,10 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     valid_outputs = []
     float_factor_input_names = []
 
+    # Get active channel
+    try: active_ch = yp.channels[yp.active_channel_index]
+    except: active_ch = None
+
     # Get channel pairs
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
     normal_ch, height_ch = get_normal_height_ch_pairs(yp)
@@ -421,7 +425,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 valid_inputs, input_index, default_value=default_value, hide_value=hide_value, node=yp_node
             )
 
-        if not is_bump_only or force_height_output:
+        if not is_bump_only or force_height_output or (yp.preview_mode and ch == active_ch):
             create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
                     valid_outputs, output_index)
 

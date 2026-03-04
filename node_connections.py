@@ -1471,7 +1471,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             end_bump_process = nodes.get(ch.end_bump_process)
             if end_bump_process:
                 if 'Height' in end_bump_process.inputs:
-                    rgb = create_link(tree, rgb, end_bump_process.inputs['Height'])[0]
+                    #rgb = create_link(tree, rgb, end_bump_process.inputs['Height'])[0]
+                    create_link(tree, rgb, end_bump_process.inputs['Height'])
 
                 if ch.use_height_normalize and max_height and 'Distance' in end_bump_process.inputs:
                     create_link(tree, max_height, end_bump_process.inputs['Distance'])
@@ -1489,7 +1490,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     if height_end_bump_process and 'Normal' in height_end_bump_process.inputs:
                         rgb = create_link(tree, rgb, height_end_bump_process.inputs['Normal'])[0]
 
-                elif ch == height_ch:
+                elif ch == height_ch and not yp.preview_mode:
                     if ch.use_height_normalize:
                         rgb = get_essential_node(tree, HALF_VALUE)[0]
                     else: rgb = get_essential_node(tree, ZERO_VALUE)[0]

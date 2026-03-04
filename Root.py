@@ -3808,6 +3808,9 @@ def update_preview_mode(self, context):
         # Preview should exists by now
         if not preview: return
 
+        # Make sure needed output exists
+        check_all_channel_ios(yp)
+
         if is_from_socket_missing:
             # Connect first output
             tree.links.new(group_node.outputs[channel.name], preview.inputs[0])
@@ -3821,6 +3824,7 @@ def update_preview_mode(self, context):
 
         tree.links.new(preview.outputs[0], output.inputs[0])
     else:
+        check_all_channel_ios(yp)
         remove_preview(mat)
 
 def update_active_yp_channel(self, context):
