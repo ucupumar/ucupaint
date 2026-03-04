@@ -201,7 +201,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
             else: lib_name = lib.CHECK_INPUT_NORMAL
 
             # NOTE: Start normal filter is no longer necessary when there are only bump layers in Blender 5.0+
-            if not is_bl_newer_than(5) or channel.enable_subdiv_setup or not any_bumps or any_layers_using_normal_map(channel):
+            if not is_bl_newer_than(5) or channel.enable_subdiv_setup or not any_bumps or any_layers_using_normal_map(channel) or channel.enable_smooth_bump:
                 start_normal_filter = replace_new_node(
                     group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter', lib_name
                 )
