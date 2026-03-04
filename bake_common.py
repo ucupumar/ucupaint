@@ -2112,7 +2112,6 @@ def bake_channel(
     # Normal baking need special node setup
     bsdf = None
     norm = None
-    armature_objs = []
     if root_ch.type == 'NORMAL':
 
         # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF
@@ -2126,10 +2125,6 @@ def bake_channel(
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex
-
-    #disp_from_socket = None
-    #for l in output.inputs['Displacement'].links:
-    #    disp_from_socket = l.from_socket
 
     # Original displacement connection
     ori_disp_from_node = ''
