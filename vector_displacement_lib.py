@@ -25,7 +25,7 @@ def get_tangent_bake_mat(uv_name='', target_image=None):
     mat = bpy.data.materials.get(MAT_TANGENT_BAKE)
     if not mat:
         mat = bpy.data.materials.new(MAT_TANGENT_BAKE)
-        mat.use_nodes = True
+        if hasattr(mat, 'use_nodes'): mat.use_nodes = True
 
         tree = mat.node_tree
         nodes = tree.nodes
@@ -94,7 +94,7 @@ def get_bitangent_bake_mat(uv_name='', target_image=None):
     mat = bpy.data.materials.get(MAT_BITANGENT_BAKE)
     if not mat:
         mat = bpy.data.materials.new(MAT_BITANGENT_BAKE)
-        mat.use_nodes = True
+        if hasattr(mat, 'use_nodes'): mat.use_nodes = True
 
         tree = mat.node_tree
         nodes = tree.nodes
@@ -418,7 +418,7 @@ def get_offset_bake_mat(uv_name='', target_image=None, bitangent_image=None, fli
     mat = bpy.data.materials.get(lib_name)
     if not mat:
         mat = bpy.data.materials.new(lib_name)
-        mat.use_nodes = True
+        if hasattr(mat, 'use_nodes'): mat.use_nodes = True
 
         tree = mat.node_tree
         nodes = tree.nodes
