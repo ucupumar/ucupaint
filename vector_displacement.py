@@ -678,8 +678,12 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     multires = get_multires_modifier(obj)
     if not multires: return
 
+    # NOTE: Native baking on mesh with simple subsurf currently produces wrong result (tested in Feb 2026)
+    subsurf = get_subsurf_modifier(obj)
+    is_simple_subdivision = subsurf.subdivision_type == 'SIMPLE' if subsurf else False
+
     # Blender 5.0 introduce native VDM baking from multires
-    native_baking = is_bl_newer_than(5)
+    native_baking = is_bl_newer_than(5) and not is_simple_subdivision
 
     # Get combined but active layer disabled image
     layer_disabled_vdm_image = None

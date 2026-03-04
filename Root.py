@@ -950,7 +950,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         if not mat:
             material_name = self.tree_name if self.set_material_name_from_tree_name else obj.name
             mat = bpy.data.materials.new(material_name)
-            mat.use_nodes = True
+            if hasattr(mat, 'use_nodes'): mat.use_nodes = True
 
             if len(obj.material_slots) > 0:
                 matslot = obj.material_slots[obj.active_material_index]
@@ -965,7 +965,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             mat.name = self.tree_name
 
         if not mat.node_tree:
-            mat.use_nodes = True
+            if hasattr(mat, 'use_nodes'): mat.use_nodes = True
 
             # Remove default nodes
             for n in mat.node_tree.nodes:

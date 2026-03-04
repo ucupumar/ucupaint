@@ -895,8 +895,12 @@ def update_yp_tree(tree):
         # Also when preview mode is on, remember current scene if it uses compositing or not
         if yp.preview_mode or yp.layer_preview_mode:
             scene = bpy.context.scene
-            if scene.yp.ori_use_compositing != scene.use_nodes:
-                scene.yp.ori_use_compositing = scene.use_nodes
+            if is_bl_newer_than(5):
+                if scene.compositing_node_group:
+                    scene.yp.ori_compositing_node_name = scene.compositing_node_group.name
+            else:
+                if scene.yp.ori_use_compositing != scene.use_nodes:
+                    scene.yp.ori_use_compositing = scene.use_nodes
 
         # Collapse layer channel UI when there's no modifiers
         for layer in yp.layers:

@@ -217,6 +217,7 @@ def remember_before_bake(yp=None, mat=None):
     book['ori_normal_space'] = scene.render.bake.normal_space
     book['ori_simplify'] = scene.render.use_simplify
     book['ori_device'] = scene.cycles.device
+    book['ori_use_motion_blur'] = scene.render.use_motion_blur
     if hasattr(scene.render.bake, 'use_pass_direct'): book['ori_use_pass_direct'] = scene.render.bake.use_pass_direct
     if hasattr(scene.render.bake, 'use_pass_indirect'): book['ori_use_pass_indirect'] = scene.render.bake.use_pass_indirect
     if hasattr(scene.render.bake, 'use_pass_diffuse'): book['ori_use_pass_diffuse'] = scene.render.bake.use_pass_diffuse
@@ -364,15 +365,15 @@ def prepare_other_objs_colors(yp, other_objs):
                 if m == None:
                     temp_mat = get_temp_default_material()
                     o.data.materials[i] = temp_mat
-                elif not m.use_nodes:
+                elif not is_mat_use_nodes(m):
                     if m not in ori_mat_no_nodes:
                         ori_mat_no_nodes.append(m)
-                    m.use_nodes = True
+                    if hasattr(m, 'use_nodes'): m.use_nodes = True
 
         for mat in o.data.materials:
             if mat == None: continue
             if mat in other_mats: continue
-            if not mat.use_nodes: continue
+            if not is_mat_use_nodes(mat): continue
 
             # Get material output
             output = get_material_output(mat)
@@ -472,15 +473,15 @@ def prepare_other_objs_channels(yp, other_objs):
                     if m == None:
                         temp_mat = get_temp_default_material()
                         o.data.materials[i] = temp_mat
-                    elif not m.use_nodes:
+                    elif not is_mat_use_nodes(m):
                         if m not in ori_mat_no_nodes:
                             ori_mat_no_nodes.append(m)
-                        m.use_nodes = True
+                        if hasattr(m, 'use_nodes'): m.use_nodes = True
 
             for mat in o.data.materials:
                 if mat == None: continue
                 #if mat in mats: continue
-                if not mat.use_nodes: continue
+                if not is_mat_use_nodes(mat): continue
 
                 # Get material output
                 output = get_material_output(mat)
@@ -603,7 +604,7 @@ def recover_other_objs_channels(other_objs, ori_mat_no_nodes):
                     o.data.materials.pop(index=i)
 
     for m in ori_mat_no_nodes:
-        m.use_nodes = False
+        if hasattr(m, 'use_nodes'): m.use_nodes = False
 
     remove_temp_default_material()
 
@@ -635,6 +636,7 @@ def prepare_bake_settings(
     cage_object = bpy.data.objects.get(cage_object_name) if cage_object_name != '' else None
     #scene.render.bake.use_cage = True if cage_object else False
     scene.render.bake.use_cage = use_cage
+    scene.render.use_motion_blur = False
     if cage_object: 
         if is_bl_newer_than(2, 80): scene.render.bake.cage_object = cage_object
         else: scene.render.bake.cage_object = cage_object.name
@@ -806,7 +808,7 @@ def prepare_bake_settings(
         # Remember other material active nodes
         active_node_names = []
         for m in o.data.materials:
-            if m and m.use_nodes and m.node_tree.nodes.active:
+            if m and is_mat_use_nodes(m) and m.node_tree.nodes.active:
                 active_node_names.append(m.node_tree.nodes.active.name)
                 continue
             active_node_names.append('')
@@ -828,7 +830,7 @@ def prepare_bake_settings(
                     add_active_render_uv_node(mat.node_tree, active_render_uv.name)
 
         for m in o.data.materials:
-            if not m or not m.use_nodes: continue
+            if not m or not is_mat_use_nodes(m): continue
 
             # Create temporary image texture node to make sure
             # other materials inside single object did not bake to their active image
@@ -866,6 +868,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene.render.bake.use_clear = book['ori_use_clear']
     scene.render.bake.normal_space = book['ori_normal_space']
     scene.render.use_simplify = book['ori_simplify']
+    scene.render.use_motion_blur = book['ori_use_motion_blur']
     scene.cycles.device = book['ori_device']
     if hasattr(scene.render.bake, 'use_pass_direct'): scene.render.bake.use_pass_direct = book['ori_use_pass_direct']
     if hasattr(scene.render.bake, 'use_pass_indirect'): scene.render.bake.use_pass_indirect = book['ori_use_pass_indirect']
@@ -1034,7 +1037,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
             o = bpy.data.objects.get(o_name)
             if not o: continue
             for j, m in enumerate(o.data.materials):
-                if not m or not m.use_nodes: continue
+                if not m or not is_mat_use_nodes(m): continue
                 active_node = m.node_tree.nodes.get(book['ori_mat_objs_active_nodes'][i][j])
                 m.node_tree.nodes.active = active_node
 
@@ -1434,7 +1437,7 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
 
     # Create temporary material
     mat = bpy.data.materials.new('__TEMP__')
-    mat.use_nodes = True
+    if hasattr(mat, 'use_nodes'): mat.use_nodes = True
     plane_obj.active_material = mat
 
     # Create nodes
@@ -1568,7 +1571,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
 
     # Create temporary material
     mat = bpy.data.materials.new('__TEMP__')
-    mat.use_nodes = True
+    if hasattr(mat, 'use_nodes'): mat.use_nodes = True
     plane_obj.active_material = mat
 
     # Create nodes
@@ -2003,6 +2006,26 @@ def any_object_space_normal(yp):
 
     return False
 
+def get_posed_armatures_from_objects(objs):
+    armature_objs = []
+    for obj in objs:
+        for mod in obj.modifiers:
+            if mod.type == 'ARMATURE' and mod.object and mod.object.data.pose_position == 'POSE' and mod.object not in armature_objs:
+                armature_objs.append(mod.object)
+
+    return armature_objs
+
+def set_related_armatures_to_rest_pose(objs):
+    armature_objs = get_posed_armatures_from_objects(objs)
+    for armature_obj in armature_objs:
+        armature_obj.data.pose_position = 'REST'
+
+    return armature_objs
+
+def recover_rested_armature_objects(armature_objs):
+    for armature_obj in armature_objs:
+        armature_obj.data.pose_position = 'POSE'
+
 def bake_channel(
         uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
         aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
@@ -2109,10 +2132,6 @@ def bake_channel(
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex
-
-    #disp_from_socket = None
-    #for l in output.inputs['Displacement'].links:
-    #    disp_from_socket = l.from_socket
 
     # Get normal and height channel pair
     normal_root_ch, height_root_ch = get_normal_height_ch_pairs(yp)
@@ -3465,7 +3484,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         # Get all other materials
         for oo in other_objs:
             for m in oo.data.materials:
-                if m == None or not m.use_nodes: continue
+                if m == None or not is_mat_use_nodes(m): continue
                 if m not in all_other_mats:
                     all_other_mats.append(m)
 
@@ -4892,7 +4911,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=margin, bake_device=bake_device)
 
     mat = bpy.data.materials.new('__TEMP__')
-    mat.use_nodes = True
+    if hasattr(mat, 'use_nodes'): mat.use_nodes = True
     plane_obj.active_material = mat
 
     output = get_material_output(mat, create_one=True)
@@ -5073,7 +5092,7 @@ def get_temp_default_material():
 
     if not mat: 
         mat = bpy.data.materials.new(TEMP_MATERIAL)
-        mat.use_nodes = True
+        if hasattr(mat, 'use_nodes'): mat.use_nodes = True
 
     return mat
 
@@ -5087,7 +5106,7 @@ def get_temp_emit_white_mat():
 
     if not mat: 
         mat = bpy.data.materials.new(TEMP_EMIT_WHITE)
-        mat.use_nodes = True
+        if hasattr(mat, 'use_nodes'): mat.use_nodes = True
 
         # Create nodes
         output = get_material_output(mat, create_one=True)
