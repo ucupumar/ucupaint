@@ -1412,8 +1412,11 @@ def get_active_ypaint_node(obj=None, mat=None):
 
     return None
 
+def is_mat_use_nodes(mat):
+    return mat.node_tree != None and (not hasattr(mat, 'use_nodes') or mat.use_nodes)
+
 def is_yp_on_material(yp, mat):
-    if not mat.use_nodes: return False
+    if not is_mat_use_nodes(mat): return False
     for node in mat.node_tree.nodes:
         if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
             return True
@@ -1423,14 +1426,14 @@ def is_yp_on_material(yp, mat):
 def get_materials_using_yp(yp):
     mats = []
     for mat in bpy.data.materials:
-        if not mat.use_nodes: continue
+        if not is_mat_use_nodes(mat): continue
         for node in mat.node_tree.nodes:
             if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp and mat not in mats:
                 mats.append(mat)
     return mats
 
 def get_nodes_using_yp(mat, yp):
-    if not mat.use_nodes: return []
+    if not is_mat_use_nodes(mat): return []
     yp_nodes = []
     for node in mat.node_tree.nodes:
         if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
