@@ -6613,6 +6613,9 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         if hasattr(context, 'image'):
             op.image_name = context.image.name
         col.operator("wm.y_invert_image", icon='IMAGE_ALPHA')
+        if hasattr(context, 'image'):
+            col.menu('NODE_MT_y_mirror_image_menu', text='Mirror Image', icon='MOD_MIRROR')
+            col.menu('NODE_MT_y_flip_image_menu', text='Flip Image', icon='GESTURE_ROTATE')
 
         col.separator()
         col.operator('wm.y_pack_image', icon='PACKAGE')
@@ -6688,6 +6691,56 @@ class YNewSolidColorLayerMenu(bpy.types.Menu):
             c.type = 'COLOR'
             c.add_mask = True
             c.mask_type = 'EDGE_DETECT'
+
+class YFlipImageMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_flip_image_menu"
+    bl_label = "Flip Image Layer/Mask menu"
+    bl_description = "Flip Image Layer/Mask menu"
+    def draw(self, context):
+        col = self.layout.column()
+        # When keep_only_positive is false, keeps only the negative side
+        op = col.operator("wm.y_flip_image", text="X")
+        op.perform_on_what_axis = 'x'
+        op.keep_only_positive = True
+
+        op = col.operator("wm.y_flip_image", text="Y")
+        op.perform_on_what_axis = 'y'
+        op.keep_only_positive = True
+
+        op = col.operator("wm.y_flip_image", text="Z")
+        op.perform_on_what_axis = 'z'
+        op.keep_only_positive = True
+
+class YMirrorImageMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_mirror_image_menu"
+    bl_label = "Mirror Image Layer/Mask menu"
+    bl_description = "Mirror Image Layer/Mask menu"
+    def draw(self, context):
+        col = self.layout.column()
+        # When keep_only_positive is false, keeps only the negative side
+        op = col.operator("wm.y_mirror_image", text="X+ to X-")
+        op.perform_on_what_axis = 'x'
+        op.keep_only_positive = True
+
+        op = col.operator("wm.y_mirror_image", text="X- to X+")
+        op.perform_on_what_axis = 'x'
+        op.keep_only_positive = False
+
+        op = col.operator("wm.y_mirror_image", text="Y+ to Y-")
+        op.perform_on_what_axis = 'y'
+        op.keep_only_positive = True
+
+        op = col.operator("wm.y_mirror_image", text="Y- to Y+")
+        op.perform_on_what_axis = 'y'
+        op.keep_only_positive = False
+
+        op = col.operator("wm.y_mirror_image", text="Z+ to Z-")
+        op.perform_on_what_axis = 'z'
+        op.keep_only_positive = True
+
+        op = col.operator("wm.y_mirror_image", text="Z- to Z+")
+        op.perform_on_what_axis = 'z'
+        op.keep_only_positive = False
 
 class YImageConvertToMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_image_convert_menu"
@@ -8434,6 +8487,8 @@ def register():
     bpy.utils.register_class(YLayerChannelInputMenu)
     bpy.utils.register_class(YLayerChannelInput1Menu)
     bpy.utils.register_class(YLayerMaskInputMenu)
+    bpy.utils.register_class(YFlipImageMenu)
+    bpy.utils.register_class(YMirrorImageMenu)
     bpy.utils.register_class(YImageConvertToMenu)
     bpy.utils.register_class(YOpenImagesToSingleLayerMenu)
     bpy.utils.register_class(YNewSolidColorLayerMenu)
@@ -8524,6 +8579,8 @@ def unregister():
     bpy.utils.unregister_class(YLayerChannelInputMenu)
     bpy.utils.unregister_class(YLayerChannelInput1Menu)
     bpy.utils.unregister_class(YLayerMaskInputMenu)
+    bpy.utils.unregister_class(YFlipImageMenu)
+    bpy.utils.unregister_class(YMirrorImageMenu)
     bpy.utils.unregister_class(YImageConvertToMenu)
     bpy.utils.unregister_class(YOpenImagesToSingleLayerMenu)
     bpy.utils.unregister_class(YNewSolidColorLayerMenu)
