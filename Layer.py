@@ -5514,6 +5514,12 @@ class YPasteLayer(bpy.types.Operator):
         default = True
     )
 
+    paste_blank : BoolProperty(
+        name = 'Make Pasted Images blank',
+        description = 'Make pasted images blank',
+        default = False
+    )
+
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
@@ -5535,30 +5541,32 @@ class YPasteLayer(bpy.types.Operator):
         self.any_decal = False
         self.any_baked = False
 
-        tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
-        if tree_source:
-            yp_source = tree_source.yp
-            source_layers = []
-            if wmp.clipboard_layer == '':
-                source_layers = yp_source.layers
-            else:
-                layer = yp_source.layers.get(wmp.clipboard_layer)
-                source_layers.append(layer)
+        if not self.paste_blank:
 
-            for layer in source_layers:
-                if not self.any_packed_image: self.any_packed_image = any(get_layer_images(layer, packed_only=True))
-                if not self.any_ondisk_image: self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
-                if not self.any_decal: self.any_decal = Decal.any_decal_inside_layer(layer)
+            tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
+            if tree_source:
+                yp_source = tree_source.yp
+                source_layers = []
+                if wmp.clipboard_layer == '':
+                    source_layers = yp_source.layers
+                else:
+                    layer = yp_source.layers.get(wmp.clipboard_layer)
+                    source_layers.append(layer)
 
-                # Do not check baked if current yp == yp_source
-                if yp != yp_source:
-                    if not self.any_baked: self.any_baked = any(get_layer_images(layer, baked_only=True))
+                for layer in source_layers:
+                    if not self.any_packed_image: self.any_packed_image = any(get_layer_images(layer, packed_only=True))
+                    if not self.any_ondisk_image: self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
+                    if not self.any_decal: self.any_decal = Decal.any_decal_inside_layer(layer)
 
-        if self.any_packed_image or self.any_ondisk_image or self.any_decal or self.any_baked:
-            if get_user_preferences().skip_property_popups and not event.shift:
-                return self.execute(context)
+                    # Do not check baked if current yp == yp_source
+                    if yp != yp_source:
+                        if not self.any_baked: self.any_baked = any(get_layer_images(layer, baked_only=True))
 
-            return context.window_manager.invoke_props_dialog(self, width=200)
+            if self.any_packed_image or self.any_ondisk_image or self.any_decal or self.any_baked:
+                if get_user_preferences().skip_property_popups and not event.shift:
+                    return self.execute(context)
+
+                return context.window_manager.invoke_props_dialog(self, width=200)
 
         return self.execute(context)
 
@@ -5735,6 +5743,7 @@ class YPasteLayer(bpy.types.Operator):
         pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
         duplicate_layer_nodes_and_images(
             tree, pasted_layers, packed_duplicate = self.packed_duplicate,
+            duplicate_blank = self.paste_blank,
             ondisk_duplicate = self.ondisk_duplicate,
             set_new_decal_position = self.set_new_decal_position
         )
