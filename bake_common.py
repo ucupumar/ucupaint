@@ -3144,9 +3144,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             for m in get_problematic_modifiers(ob):
                 m.show_render = False
 
-        ori_mat_ids[ob.name] = []
-        ori_loop_locs[ob.name] = []
-
         if bprops.subsurf_influence and not bprops.use_baked_disp and not bprops.type.startswith('MULTIRES_'):
             for m in ob.modifiers:
                 if m.type == 'MULTIRES':
@@ -3154,7 +3151,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     m.render_levels = m.total_levels
                     break
 
-        if len(ob.data.materials) > 1:
+        # NOTE: This code can freeze blender if there are too many polygons, but it's needed for Blender 2.83 and lower
+        ori_mat_ids[ob.name] = []
+        ori_loop_locs[ob.name] = []
+        if not is_bl_newer_than(2, 90) and len(ob.data.materials) > 1:
             active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat]
             if active_mat_id: active_mat_id = active_mat_id[0]
             else: continue
