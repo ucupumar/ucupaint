@@ -2434,6 +2434,113 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 row.label(text='Height Blend:')
                 row.prop(ch, 'height_blend_type', text='')
 
+            if ch.show_transition_bump or ch.enable_transition_bump:
+
+                brow = mcol.row(align=True)
+
+                rrow = brow.row(align=True)
+                inbox_dropdown_button(rrow, chui, 'expand_transition_bump_settings', 'Transition Bump:', scale_override=0.915)
+
+                if is_bl_newer_than(2, 80): rrow = brow.row(align=True) # To make sure the next row align right
+                brow.separator()
+
+                if ch.enable_transition_bump and not chui.expand_transition_bump_settings:
+                    draw_input_prop(brow, ch, 'transition_bump_distance', layer=layer)
+
+                brow.context_pointer_set('parent', ch)
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                brow.menu("NODE_MT_y_transition_bump_menu", text='', icon=icon)
+
+                brow.prop(ch, 'enable_transition_bump', text='')
+
+                if chui.expand_transition_bump_settings:
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+
+                    bbox = row.box()
+                    bbox.active = ch.enable_transition_bump
+                    cccol = bbox.column(align=True)
+
+                    #crow = cccol.row(align=True)
+                    #crow.label(text='Type:') #, icon_value=lib.get_icon('input'))
+                    #crow.prop(ch, 'transition_bump_type', text='')
+
+                    #crow = cccol.row(align=True)
+                    #crow.label(text='Type:') #, icon_value=lib.get_icon('input'))
+                    #crow.prop(ch, 'transition_bump_type', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
+                    draw_input_prop(crow, ch, 'transition_bump_distance', layer=layer)
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Edge 1:') #, icon_value=lib.get_icon('input'))
+                    draw_input_prop(crow, ch, 'transition_bump_value', layer=layer)
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Edge 2:') #, icon_value=lib.get_icon('input'))
+                    draw_input_prop(crow, ch, 'transition_bump_second_edge_value', layer=layer)
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Affected Masks:') #, icon_value=lib.get_icon('input'))
+                    crow.prop(ch, 'transition_bump_chain', text='')
+
+                    #if ch.transition_bump_type == 'CURVED_BUMP_MAP':
+                    #    crow = cccol.row(align=True)
+                    #    crow.label(text='Offset:') #, icon_value=lib.get_icon('input'))
+                    #    crow.prop(ch, 'transition_bump_curved_offset', text='')
+
+                    crow = cccol.row(align=True)
+                    #crow.active = layer.type != 'BACKGROUND'
+                    crow.label(text='Flip:') #, icon_value=lib.get_icon('input'))
+                    crow.prop(ch, 'transition_bump_flip', text='')
+
+                    crow = cccol.row(align=True)
+                    #crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
+                    crow.active = not ch.transition_bump_flip
+                    crow.label(text='Crease:') #, icon_value=lib.get_icon('input'))
+                    crow.prop(ch, 'transition_bump_crease', text='')
+
+                    if ch.transition_bump_crease:
+                        crow = cccol.row(align=True)
+                        crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
+                        crow.label(text='Crease Factor:') #, icon_value=lib.get_icon('input'))
+                        draw_input_prop(crow, ch, 'transition_bump_crease_factor', layer=layer)
+
+                        crow = cccol.row(align=True)
+                        crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
+                        crow.label(text='Crease Power:') #, icon_value=lib.get_icon('input'))
+                        draw_input_prop(crow, ch, 'transition_bump_crease_power', layer=layer)
+
+                        cccol.separator()
+
+                    crow = cccol.row(align=True)
+                    #crow.active = layer.type != 'BACKGROUND'
+                    crow.label(text='Falloff:') #, icon_value=lib.get_icon('input'))
+                    crow.prop(ch, 'transition_bump_falloff', text='')
+
+                    if ch.transition_bump_falloff:
+
+                        crow = cccol.row(align=True)
+                        crow.label(text='Falloff Type :') #, icon_value=lib.get_icon('input'))
+                        crow.prop(ch, 'transition_bump_falloff_type', text='')
+
+                        if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
+
+                            crow = cccol.row(align=True)
+                            crow.label(text='Falloff Factor:') #, icon_value=lib.get_icon('input'))
+                            draw_input_prop(crow, ch, 'transition_bump_falloff_emulated_curve_fac', layer=layer)
+                        
+                        elif ch.transition_bump_falloff_type == 'CURVE' and ch.enable_transition_bump and ch.enable:
+                            cccol.separator()
+                            tbf = layer_tree.nodes.get(ch.tb_falloff)
+                            if root_ch.enable_smooth_bump:
+                                tbf = tbf.node_tree.nodes.get('_original')
+                            curve = tbf.node_tree.nodes.get('_curve')
+                            curve.draw_buttons_ext(context, cccol)
+
+                    #row.label(text='', icon='BLANK1')
+
         if root_ch.special_channel_type == 'NORMAL' and layer.type != 'GROUP':
 
             #height_as_normal_disabled = ch == normal_ch and (height_ch == None or not height_ch.enable or not height_ch.use_height_as_normal)
@@ -7570,13 +7677,14 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
             col.operator('wm.y_new_normalmap_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
             col.operator('wm.y_new_normalmap_modifier', text='Math', icon_value=lib.get_icon('modifier')).type = 'MATH'
 
-        col = row.column()
-        col.label(text='Transition Effects')
-        if root_ch.type == 'NORMAL':
-            col.operator('wm.y_show_transition_bump', text='Transition Bump', icon_value=lib.get_icon('background'))
-        else:
-            col.operator('wm.y_show_transition_ramp', text='Transition Ramp', icon_value=lib.get_icon('background'))
-            col.operator('wm.y_show_transition_ao', text='Transition AO', icon_value=lib.get_icon('background'))
+        if root_ch.special_channel_type not in {'NORMAL', 'VDISP'}:
+            col = row.column()
+            col.label(text='Transition Effects')
+            if root_ch.special_channel_type == 'HEIGHT':
+                col.operator('wm.y_show_transition_bump', text='Transition Bump', icon_value=lib.get_icon('background'))
+            else:
+                col.operator('wm.y_show_transition_ramp', text='Transition Ramp', icon_value=lib.get_icon('background'))
+                col.operator('wm.y_show_transition_ao', text='Transition AO', icon_value=lib.get_icon('background'))
 
 class YLayerTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_type_menu"

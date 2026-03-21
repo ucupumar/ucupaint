@@ -922,6 +922,8 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 #    dirty = create_prop_input( ch, 'normal_bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
                 #    input_index += 1
 
+            if root_ch.special_channel_type == 'HEIGHT':
+
                 # Transition bump inputs
                 if ch.enable_transition_bump:
                     dirty = create_prop_input(ch, 'transition_bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)

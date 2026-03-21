@@ -1866,6 +1866,150 @@ def reconnect_mask_source_nodes(mask, layer_tree):
 
     return source, val
 
+def do_height_mask_loops(tree, layer, ch_idx, chain, alpha, alpha_n, alpha_s, alpha_e, alpha_w):
+    yp = layer.id_data.yp
+
+    nodes = tree.nodes
+    root_ch = yp.channels[ch_idx]
+    ch = layer.channels[ch_idx]
+    trans_bump_ch = get_transition_bump_channel(layer)
+
+    # NOTE: Probably needed if use height as bump is enabled
+    #if write_height:
+    chain_local = len(layer.masks)
+    #else: chain_local = min(len(layer.masks), ch.transition_bump_chain)
+
+    end_chain = alpha
+    end_chain_n = alpha_n
+    end_chain_s = alpha_s
+    end_chain_e = alpha_e
+    end_chain_w = alpha_w
+
+    end_chain_crease = alpha
+    end_chain_crease_n = alpha_n
+    end_chain_crease_s = alpha_s
+    end_chain_crease_e = alpha_e
+    end_chain_crease_w = alpha_w
+
+    pure = alpha
+    remains = get_essential_node(tree, ONE_VALUE)[0]
+
+    tb_falloff = nodes.get(ch.tb_falloff)
+    if tb_falloff:
+        tb_emulated_curve_fac = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'transition_bump_falloff_emulated_curve_fac'))
+        if tb_emulated_curve_fac:
+            if 'Fac' in tb_falloff.inputs:
+                create_link(tree, tb_emulated_curve_fac, tb_falloff.inputs['Fac'])
+
+    if chain == 0 or len(layer.masks) == 0:
+        if tb_falloff:
+            end_chain = pure = create_link(tree, end_chain, tb_falloff.inputs[0])[0]
+
+            if root_ch.enable_smooth_bump:
+                end_chain_n = alpha_n = create_link(tree, end_chain_n, tb_falloff.inputs['Value n'])['Value n']
+                end_chain_s = alpha_s = create_link(tree, end_chain_s, tb_falloff.inputs['Value s'])['Value s']
+                end_chain_e = alpha_e = create_link(tree, end_chain_e, tb_falloff.inputs['Value e'])['Value e']
+                end_chain_w = alpha_w = create_link(tree, end_chain_w, tb_falloff.inputs['Value w'])['Value w']
+
+    for j, mask in enumerate(layer.masks):
+        if not mask.enable: continue
+
+        c = mask.channels[ch_idx]
+        mask_mix = nodes.get(c.mix)
+        mix_pure = nodes.get(c.mix_pure)
+        mix_remains = nodes.get(c.mix_remains)
+        mix_normal = nodes.get(c.mix_normal)
+        mix_vdisp = nodes.get(c.mix_vdisp)
+        mix_limit_normal = nodes.get(c.mix_limit_normal)
+
+        mmixcol0, mmixcol1, mmixout = get_mix_color_indices(mask_mix)
+        mp_mixcol0, mp_mixcol1, mp_mixout = get_mix_color_indices(mix_pure)
+        mr_mixcol0, mr_mixcol1, mr_mixout = get_mix_color_indices(mix_remains)
+        mn_mixcol0, mn_mixcol1, mn_mixout = get_mix_color_indices(mix_normal)
+        mv_mixcol0, mv_mixcol1, mv_mixout = get_mix_color_indices(mix_vdisp)
+
+        if mask.type == 'MODIFIER' and root_ch.enable_smooth_bump:
+            mask_source_n = nodes.get(mask.source_n)
+            mask_source_s = nodes.get(mask.source_s)
+            mask_source_e = nodes.get(mask.source_e)
+            mask_source_w = nodes.get(mask.source_w)
+
+            if mask_source_n: create_link(tree, alpha_n, mask_source_n.inputs[0])
+            if mask_source_s: create_link(tree, alpha_s, mask_source_s.inputs[0])
+            if mask_source_e: create_link(tree, alpha_e, mask_source_e.inputs[0])
+            if mask_source_w: create_link(tree, alpha_w, mask_source_w.inputs[0])
+
+        if tb_falloff and (j == chain-1 or (j == chain_local-1 and not trans_bump_ch)):
+            pure = tb_falloff.outputs[0]
+        elif j < chain:
+            if mask_mix: pure = mask_mix.outputs[mmixout]
+        else:
+            if mix_pure: pure = create_link(tree, pure, mix_pure.inputs[mp_mixcol0])[mp_mixout]
+
+        if j >= chain:
+            if mix_remains: remains = create_link(tree, remains, mix_remains.inputs[mr_mixcol0])[mr_mixout]
+
+        # NOTE: Probably needed if use height as bump is enabled
+        #if normal_alpha:
+        #    if mix_normal:
+        #        normal_alpha = create_link(tree, normal_alpha, mix_normal.inputs[mn_mixcol0])[mn_mixout]
+        #    if mix_limit_normal and group_alpha:
+        #        normal_alpha = create_link(tree, normal_alpha, mix_limit_normal.inputs[0])[0]
+        #        create_link(tree, group_alpha, mix_limit_normal.inputs[1])
+
+        #if vdisp_alpha and mix_vdisp:
+        #    vdisp_alpha = create_link(tree, vdisp_alpha, mix_vdisp.inputs[mv_mixcol0])[mv_mixout]
+
+        if root_ch.enable_smooth_bump and mask_mix:
+            if j == chain and trans_bump_ch == ch and trans_bump_crease:
+                alpha_n = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 n'])['Color n']
+                alpha_s = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 s'])['Color s']
+                alpha_e = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 e'])['Color e']
+                alpha_w = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 w'])['Color w']
+            elif 'Color1 n' in mask_mix.inputs:
+                if alpha_n: alpha_n = create_link(tree, alpha_n, mask_mix.inputs['Color1 n'])['Color n']
+                if alpha_s: alpha_s = create_link(tree, alpha_s, mask_mix.inputs['Color1 s'])['Color s']
+                if alpha_e: alpha_e = create_link(tree, alpha_e, mask_mix.inputs['Color1 e'])['Color e']
+                if alpha_w: alpha_w = create_link(tree, alpha_w, mask_mix.inputs['Color1 w'])['Color w']
+
+                if group_alpha and 'Limit' in mask_mix.inputs:
+                    create_link(tree, group_alpha, mask_mix.inputs['Limit'])
+
+                if group_alpha_n and 'Limit n' in mask_mix.inputs:
+                    create_link(tree, group_alpha_n, mask_mix.inputs['Limit n'])
+                    create_link(tree, group_alpha_s, mask_mix.inputs['Limit s'])
+                    create_link(tree, group_alpha_e, mask_mix.inputs['Limit e'])
+                    create_link(tree, group_alpha_w, mask_mix.inputs['Limit w'])
+
+        if j == chain-1 or (j == chain_local-1 and not trans_bump_ch):
+            
+            if mask_mix:
+                end_chain_crease = mask_mix.outputs[mmixout]
+            #else: end_chain_crease = alpha
+            end_chain_crease_n = alpha_n
+            end_chain_crease_s = alpha_s
+            end_chain_crease_e = alpha_e
+            end_chain_crease_w = alpha_w
+
+            if tb_falloff:
+                if mask_mix: create_link(tree, mask_mix.outputs[mmixout], tb_falloff.inputs[0])[0]
+                end_chain = tb_falloff.outputs[0]
+            elif mask_mix: 
+                end_chain = mask_mix.outputs[mmixout]
+
+            if tb_falloff and root_ch.enable_smooth_bump: 
+                end_chain_n = alpha_n = create_link(tree, alpha_n, tb_falloff.inputs['Value n'])['Value n']
+                end_chain_s = alpha_s = create_link(tree, alpha_s, tb_falloff.inputs['Value s'])['Value s']
+                end_chain_e = alpha_e = create_link(tree, alpha_e, tb_falloff.inputs['Value e'])['Value e']
+                end_chain_w = alpha_w = create_link(tree, alpha_w, tb_falloff.inputs['Value w'])['Value w']
+            else:
+                end_chain_n = alpha_n
+                end_chain_s = alpha_s
+                end_chain_e = alpha_e
+                end_chain_w = alpha_w
+
+    return end_chain, end_chain_crease, pure, remains
+
 def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     yp = layer.id_data.yp
 
@@ -2816,6 +2960,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 alpha = create_link(tree, alpha, mix_limit.inputs[0])[0]
                 create_link(tree, group_alpha, mix_limit.inputs[1])
 
+            # Transition input uses the alpha at the chain end
             if j == chain-1 and intensity_multiplier:
                 transition_input = alpha
                 alpha = create_link(tree, alpha, intensity_multiplier.inputs[0])[0]
@@ -3759,12 +3904,74 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             ch_bump_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'bump_distance'))
             ch_bump_midlevel = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'bump_midlevel'))
 
+            bump_distance_ignorer = nodes.get(ch.bump_distance_ignorer)
+            if bump_distance_ignorer:
+                ch_bump_distance = create_link(tree, ch_bump_distance, bump_distance_ignorer.inputs[0])[0]
+
+            alpha_n = alpha_after_mod
+            alpha_s = alpha_after_mod
+            alpha_e = alpha_after_mod
+            alpha_w = alpha_after_mod
+
+            # Get various alpha variations from mask loop
+            end_chain, end_chain_crease, pure, remains = do_height_mask_loops(tree, layer, i, chain, alpha_after_mod, alpha_n, alpha_s, alpha_e, alpha_w)
+
+            # Transition bump
+            tb_distance = None
+            tb_intensity_multiplier = None
+            if ch.enable_transition_bump: # and ch.enable:
+                tb_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'transition_bump_distance'))
+                tb_intensity_multiplier = nodes.get(ch.tb_intensity_multiplier)
+
+                if tb_distance:
+                    tb_distance_flipper = nodes.get(ch.tb_distance_flipper)
+                    if tb_distance_flipper:
+                        tb_distance = create_link(tree, tb_distance, tb_distance_flipper.inputs[0])[0]
+
+                if tb_intensity_multiplier:
+                    tb_inverse = nodes.get(ch.tb_inverse)
+                    if tb_inverse:
+                        create_link(tree, transition_input, tb_inverse.inputs[1])
+                        create_link(tree, tb_inverse.outputs[0], tb_intensity_multiplier.inputs[0])
+
+                    if tb_second_value:
+                        create_link(tree, tb_second_value, tb_intensity_multiplier.inputs[1])
+
+                if tb_value:
+                    create_link(tree, tb_value, intensity_multiplier.inputs[1])
+                
             # Connect height process
             if height_proc: 
                 if 'Value' in height_proc.inputs: rgb = create_link(tree, rgb, height_proc.inputs['Value'])[0]
                 if 'Alpha' in height_proc.inputs: alpha = create_link(tree, alpha, height_proc.inputs['Alpha'])[1]
                 if 'Value Max Height' in height_proc.inputs: create_link(tree, ch_bump_distance, height_proc.inputs['Value Max Height'])
                 if 'Midlevel' in height_proc.inputs: create_link(tree, ch_bump_midlevel, height_proc.inputs['Midlevel'])
+
+                # Transition bump related
+                if tb_distance:
+                    if 'Transition Max Height' in height_proc.inputs: 
+                        create_link(tree, tb_distance, height_proc.inputs['Transition Max Height'])
+
+                if 'Delta' in height_proc.inputs and ch_bump_distance:
+                    tb_delta_calc = nodes.get(ch.tb_delta_calc)
+                    if tb_delta_calc:
+                        create_link(tree, tb_distance, tb_delta_calc.inputs[0])
+                        create_link(tree, ch_bump_distance, tb_delta_calc.inputs[1])
+                        create_link(tree, tb_delta_calc.outputs[0], height_proc.inputs['Delta'])
+
+                if 'Edge 1 Alpha' in height_proc.inputs:
+                    create_link(tree, alpha_before_intensity, height_proc.inputs['Edge 1 Alpha'])
+
+                if 'Edge 2 Alpha' in height_proc.inputs and tb_intensity_multiplier:
+                    create_link(tree, tb_intensity_multiplier.outputs[0], height_proc.inputs['Edge 2 Alpha'])
+
+                if 'Transition' in height_proc.inputs: 
+                    create_link(tree, pure, height_proc.inputs['Transition'])
+                #if 'Transition n' in height_proc.inputs: 
+                #    create_link(tree, alpha_n, height_proc.inputs['Transition n'])
+                #    create_link(tree, alpha_s, height_proc.inputs['Transition s'])
+                #    create_link(tree, alpha_e, height_proc.inputs['Transition e'])
+                #    create_link(tree, alpha_w, height_proc.inputs['Transition w'])
 
             # Connect max height calculation
             if max_height_calc:
@@ -3776,6 +3983,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if ch_bump_distance and 'Bump Distance' in max_height_calc.inputs: create_link(tree, ch_bump_distance, max_height_calc.inputs['Bump Distance'])
                 if ch_bump_midlevel and 'Midlevel' in max_height_calc.inputs: create_link(tree, ch_bump_midlevel, max_height_calc.inputs['Midlevel'])
                 if ch_intensity and 'Intensity' in max_height_calc.inputs: create_link(tree, ch_intensity, max_height_calc.inputs['Intensity'])
+
+                if tb_distance:
+                    if 'Transition Bump Distance' in max_height_calc.inputs:
+                        create_link(tree, tb_distance, max_height_calc.inputs['Transition Bump Distance'])
 
         if root_ch.special_channel_type == 'VDISP':
 
