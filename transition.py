@@ -25,7 +25,7 @@ def update_transition_bump_chain(self, context):
 
     # Trigger normal channel update
     #ch.normal_map_type = ch.normal_map_type
-    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
+    check_layer_height_channel_nodes(tree, layer, root_ch, ch)
 
     reconnect_layer_nodes(layer) #, mod_reconnect=True)
     rearrange_layer_nodes(layer)

@@ -2663,7 +2663,7 @@ def get_showed_transition_bump_channel(layer):
 
     bump_ch = None
     for i, ch in enumerate(layer.channels):
-        if yp.channels[i].type == 'NORMAL' and ch.show_transition_bump:
+        if yp.channels[i].special_channel_type == 'HEIGHT' and ch.show_transition_bump:
             bump_ch = ch
             break
 

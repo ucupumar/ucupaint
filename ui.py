@@ -2898,7 +2898,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 row = mcol.row(align=True)
                 row.active = bump_ch_found
                 row.label(text='', icon='BLANK1')
-                row.label(text='Transition Factor')
+                row.label(text='Transition Factor:')
                 draw_input_prop(row, ch, 'transition_bump_fac', layer=layer)
 
             extra_separator = True
