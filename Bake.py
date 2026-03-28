@@ -1737,9 +1737,13 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 # NOTE: Since normal channel only bake to tangent space for now, make sure all used armature objects are in rest pose
                 armature_objs = set_related_armatures_to_rest_pose(objs) if ch.type == 'NORMAL' else []
 
+                if ch.special_channel_type == 'HEIGHT' and not self.only_active_channel:
+                    interpolation = 'Cubic'
+                else: interpolation = self.interpolation
+
                 bake_channel(
                     self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
-                    tilenums=tilenums, interpolation=self.interpolation, 
+                    tilenums=tilenums, interpolation=interpolation, 
                     use_float_for_displacement=self.use_float_for_displacement, 
                     use_float_for_normal=self.use_float_for_normal, bprops=bprops
                 )
