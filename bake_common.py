@@ -4721,6 +4721,12 @@ def get_merged_mesh_objects(scene, objs, hide_original=False, disable_problemati
                     obj.data.attributes.active_index = i
                     bpy.ops.geometry.attribute_convert(domain='CORNER', data_type='FLOAT2')
 
+        # HACK: Remove string attributes for Blender 5.1 since it can cause crash
+        if is_bl_newer_than(5, 1) and not is_bl_newer_than(5, 2):
+            for attr in reversed(obj.data.attributes):
+                if attr.data_type == 'STRING':
+                    obj.data.attributes.remove(attr)
+
     # Set first index as merged object
     merged_obj = new_objs[0]
 
