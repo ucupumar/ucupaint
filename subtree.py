@@ -553,6 +553,7 @@ def check_create_spread_alpha(layer, tree, root_ch, ch):
     return need_reconnect
 
 def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None):
+    print('HAHAHAH')
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
@@ -584,13 +585,13 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 if remove_node(tree, c, 'mix_remains'): need_reconnect = True
                 if remove_node(tree, c, 'mix_limit'): need_reconnect = True
                 if remove_node(tree, c, 'mix_limit_normal'): need_reconnect = True
-                if root_ch.type == 'NORMAL':
+                if root_ch.special_channel_type == 'HEIGHT':
                     if remove_node(tree, c, 'mix_pure'): need_reconnect = True
                     if remove_node(tree, c, 'mix_normal'): need_reconnect = True
                     if remove_node(tree, c, 'mix_vdisp'): need_reconnect = True
                 continue
 
-            if (root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and height_process_needed and
+            if (root_ch.special_channel_type == 'HEIGHT' and root_ch.enable_smooth_bump and height_process_needed and
                 (write_height or (not write_height and i < chain))
                 ):
                 mix = tree.nodes.get(c.mix)
@@ -617,7 +618,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
                     set_mix_clamp(mix, True)
 
-            if root_ch.type == 'NORMAL':
+            if root_ch.special_channel_type == 'HEIGHT':
 
                 if i >= chain and trans_bump and ch == trans_bump:
                     mix_pure = tree.nodes.get(c.mix_pure)
@@ -700,7 +701,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
             if layer.type == 'GROUP' and mask.blend_type in limited_mask_blend_types:
 
-                if root_ch.type != 'NORMAL' or not root_ch.enable_smooth_bump and height_process_needed:
+                if root_ch.special_channel_type != 'HEIGHT' or not root_ch.enable_smooth_bump and height_process_needed:
                     mix_limit = tree.nodes.get(c.mix_limit)
                     if not mix_limit:
                         need_reconnect = True
@@ -710,7 +711,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 else:
                     if remove_node(tree, c, 'mix_limit'): need_reconnect = True
 
-                if root_ch.type == 'NORMAL':
+                if root_ch.special_channel_type == 'HEIGHT':
                     mix_limit_normal = tree.nodes.get(c.mix_limit_normal)
                     if not mix_limit_normal:
                         need_reconnect = True
@@ -1884,6 +1885,9 @@ def set_height_blend_node(tree, layer, root_ch, ch, prop_name='height_blend', bl
 
 def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=False):
     yp = layer.id_data.yp
+
+    # Check mask mix nodes
+    if check_mask_mix_nodes(layer, tree): need_reconnect = True
 
     # Only height channel will continue proceed with this function
     if root_ch.special_channel_type != 'HEIGHT': return need_reconnect

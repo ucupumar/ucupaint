@@ -215,6 +215,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         if root_ch.special_channel_type == 'HEIGHT':
             check_set_node_parent(tree, ch.bump_distance_ignorer, frame)
+            check_set_node_parent(tree, ch.tb_distance_flipper, frame)
             check_set_node_parent(tree, ch.tb_delta_calc, frame)
             check_set_node_parent(tree, ch.height_proc, frame)
             check_set_node_parent(tree, ch.max_height_calc, frame)
@@ -1599,6 +1600,9 @@ def rearrange_layer_nodes(layer, tree=None):
 
         if root_ch.special_channel_type == 'HEIGHT':
             if check_set_node_loc(tree, ch.bump_distance_ignorer, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.tb_distance_flipper, loc):
                 loc.x += 200
 
             if check_set_node_loc(tree, ch.tb_delta_calc, loc):

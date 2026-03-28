@@ -3939,6 +3939,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 if tb_value:
                     create_link(tree, tb_value, intensity_multiplier.inputs[1])
+
+            # Transition bump crease
+            tb_crease_factor = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'transition_bump_crease_factor')) if trans_bump_crease else None
+            tb_crease_power = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'transition_bump_crease_power')) if trans_bump_crease else None
                 
             # Connect height process
             if height_proc: 
@@ -3960,18 +3964,40 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         create_link(tree, tb_delta_calc.outputs[0], height_proc.inputs['Delta'])
 
                 if 'Edge 1 Alpha' in height_proc.inputs:
-                    create_link(tree, alpha_before_intensity, height_proc.inputs['Edge 1 Alpha'])
+                    if trans_bump_crease:
+                        create_link(tree, intensity_multiplier.outputs[0], height_proc.inputs['Edge 1 Alpha'])
+                    else: create_link(tree, alpha_before_intensity, height_proc.inputs['Edge 1 Alpha'])
 
                 if 'Edge 2 Alpha' in height_proc.inputs and tb_intensity_multiplier:
                     create_link(tree, tb_intensity_multiplier.outputs[0], height_proc.inputs['Edge 2 Alpha'])
 
                 if 'Transition' in height_proc.inputs: 
-                    create_link(tree, pure, height_proc.inputs['Transition'])
-                #if 'Transition n' in height_proc.inputs: 
-                #    create_link(tree, alpha_n, height_proc.inputs['Transition n'])
-                #    create_link(tree, alpha_s, height_proc.inputs['Transition s'])
-                #    create_link(tree, alpha_e, height_proc.inputs['Transition e'])
-                #    create_link(tree, alpha_w, height_proc.inputs['Transition w'])
+                    if trans_bump_crease:
+                        create_link(tree, end_chain, height_proc.inputs['Transition'])
+                    else: create_link(tree, pure, height_proc.inputs['Transition'])
+
+                if 'Remaining Alpha' in height_proc.inputs: 
+                    create_link(tree, remains, height_proc.inputs['Remaining Alpha'])
+
+                # Transition bump crease
+                if tb_crease_factor:
+                    if 'Crease Factor' in height_proc.inputs:
+                        create_link(tree, tb_crease_factor, height_proc.inputs['Crease Factor'])
+
+                if tb_crease_power and 'Crease Power' in height_proc.inputs:
+                    create_link(tree, tb_crease_power, height_proc.inputs['Crease Power'])
+
+                if 'Transition Crease' in height_proc.inputs:
+                    create_link(tree, end_chain_crease, height_proc.inputs['Transition Crease'])
+
+                if trans_bump_crease:
+                    if root_ch.use_height_as_bump and not root_ch.enable_smooth_bump:
+                        alpha = height_proc.outputs['Filtered Alpha']
+                    else: alpha = height_proc.outputs['Combined Alpha']
+
+                # Transition bump crease sometimes need intensity input
+                if ch_intensity and 'Intensity' in height_proc.inputs:
+                    create_link(tree, ch_intensity, height_proc.inputs['Intensity'])
 
             # Connect max height calculation
             if max_height_calc:
@@ -3984,9 +4010,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if ch_bump_midlevel and 'Midlevel' in max_height_calc.inputs: create_link(tree, ch_bump_midlevel, max_height_calc.inputs['Midlevel'])
                 if ch_intensity and 'Intensity' in max_height_calc.inputs: create_link(tree, ch_intensity, max_height_calc.inputs['Intensity'])
 
-                if tb_distance:
-                    if 'Transition Bump Distance' in max_height_calc.inputs:
-                        create_link(tree, tb_distance, max_height_calc.inputs['Transition Bump Distance'])
+                # Transition bump
+                if tb_distance and 'Transition Bump Distance' in max_height_calc.inputs:
+                    create_link(tree, tb_distance, max_height_calc.inputs['Transition Bump Distance'])
+
+                # Transition bump crease
+                if tb_crease_factor and 'Crease Factor' in max_height_calc.inputs:
+                    create_link(tree, tb_crease_factor, max_height_calc.inputs['Crease Factor'])
 
         if root_ch.special_channel_type == 'VDISP':
 
