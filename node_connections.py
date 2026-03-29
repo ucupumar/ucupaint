@@ -3991,7 +3991,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, end_chain_crease, height_proc.inputs['Transition Crease'])
 
                 if trans_bump_crease:
-                    if root_ch.use_height_as_bump and not root_ch.enable_smooth_bump:
+                    if ch.use_height_as_normal and not root_ch.enable_smooth_bump:
                         alpha = height_proc.outputs['Filtered Alpha']
                     else: alpha = height_proc.outputs['Combined Alpha']
 
@@ -4242,6 +4242,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         if blend:
             bcol0, bcol1, bout = get_mix_color_indices(blend)
+
+            # NOTE: Normal channel from height channel with transition bump will skip usual alpha process
+            if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal and height_ch == trans_bump_ch:
+                alpha = height_ch_alpha
 
             # Pass rgb to blend
             if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc:

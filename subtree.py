@@ -2025,7 +2025,7 @@ def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=Fa
                 set_default_value(height_proc, 'Crease Factor', ch.transition_bump_crease_factor)
                 set_default_value(height_proc, 'Crease Power', ch.transition_bump_crease_power)
 
-                if not ch.write_height and not root_ch.enable_smooth_bump:
+                if ch.use_height_as_normal and not root_ch.enable_smooth_bump:
                     set_default_value(height_proc, 'Remaining Filter', 1.0)
                 else: set_default_value(height_proc, 'Remaining Filter', 0.0)
         else:
