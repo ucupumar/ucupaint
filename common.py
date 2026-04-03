@@ -610,7 +610,8 @@ eraser_names = {
 tex_eraser_asset_names = [
     'Erase Hard',
     'Erase Hard Pressure',
-    'Erase Soft'
+    'Erase Soft',
+    'Erase Pixel Art'
 ]
 
 tex_default_brushes = [
@@ -619,6 +620,7 @@ tex_default_brushes = [
     'Paint Hard Pressure',
     'Paint Soft',
     'Paint Soft Pressure',
+    'Paint Pixel Art',
 ]
 
 alpha_mode_labels = {
