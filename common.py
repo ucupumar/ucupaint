@@ -2103,7 +2103,7 @@ def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name=
 
         # Check if group is copied
         if prev_tree:
-            m = re.match(r'^' + group_name + '_Copy\.*\d{0,3}$', prev_tree.name)
+            m = re.match(r'^' + group_name + r'_Copy\.*\d{0,3}$', prev_tree.name)
         else: m = None
 
         #print(prev_tree)
@@ -2170,7 +2170,7 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
         # Check if group is copied
         if prev_tree:
-            m = re.match(r'^' + group_name + '_Copy\.*\d{0,3}$', prev_tree.name)
+            m = re.match(r'^' + group_name + r'_Copy\.*\d{0,3}$', prev_tree.name)
         else: m = None
 
         #print(prev_tree)
@@ -4586,7 +4586,7 @@ def get_bump_chain(layer, ch=None):
 
 def check_if_node_is_duplicated_from_lib(node, lib_name):
     if not node or node.type != 'GROUP': return False
-    m = re.match(r'^' + lib_name + '_Copy\.*\d{0,3}$', node.node_tree.name)
+    m = re.match(r'^' + lib_name + r'_Copy\.*\d{0,3}$', node.node_tree.name)
     if m: return True
     return False
 
@@ -6937,7 +6937,7 @@ def swap_channel_fcurves(yp, idx0, idx1):
             fcurves = get_material_fcurves_and_drivers(mat)
             for node in yp_nodes:
                 for fc in fcurves:
-                    m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                    m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                     if m:
                         index = int(m.group(1))
                         if index == ch0_idx:
@@ -6958,8 +6958,8 @@ def swap_layer_channel_fcurves(layer, idx0, idx1):
 
     for fc in fcurves:
 
-        m1 = re.match(r'yp\.layers\[' + str(layer_index) + '\]\.channels\[(\d+)\]\.(.+)', fc.data_path)
-        m2 = re.match(r'^nodes\["' + layer.group_node + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+        m1 = re.match(r'yp\.layers\[' + str(layer_index) + r'\]\.channels\[(\d+)\]\.(.+)', fc.data_path)
+        m2 = re.match(r'^nodes\["' + layer.group_node + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
 
         index = -1
         neighbor_idx = -1
@@ -7097,7 +7097,7 @@ def get_layer_and_channel_prop_name_from_data_path(yp, channel_index, data_path)
     prop_name = ''
 
     m0 = re.match(r'^nodes\["(.+)"\]\.inputs\[(\d+)\]\.default_value$', data_path)
-    m1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[' + str(channel_index) + '\]\.(.+)', data_path)
+    m1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[' + str(channel_index) + r'\]\.(.+)', data_path)
 
     if m0:
         # Get layer based on node name
@@ -7111,7 +7111,7 @@ def get_layer_and_channel_prop_name_from_data_path(yp, channel_index, data_path)
 
             if inp:
                 # Get the channel index from input name
-                m = re.match(r'\.channels\[' + str(channel_index) + '\]\.(.+)', inp.name)
+                m = re.match(r'\.channels\[' + str(channel_index) + r'\]\.(.+)', inp.name)
                 if m: prop_name = m.group(1)
 
     elif m1:
@@ -7140,7 +7140,7 @@ def remove_channel_fcurves(root_ch):
             if tree_fcurves: tree_fcurves.remove(fc)
 
         else:
-            m = re.match(r'.*\.channels\[' + str(index) + '\].*', fc.data_path)
+            m = re.match(r'.*\.channels\[' + str(index) + r'\].*', fc.data_path)
             if m and tree_fcurves: tree_fcurves.remove(fc)
 
     for dr in reversed(drivers):
@@ -7148,7 +7148,7 @@ def remove_channel_fcurves(root_ch):
         if layer and prop_name != '':
             tree.animation_data.drivers.remove(dr)
         else:
-            m = re.match(r'.*\.channels\[' + str(index) + '\].*', dr.data_path)
+            m = re.match(r'.*\.channels\[' + str(index) + r'\].*', dr.data_path)
             if m and index == int(m.group(1)):
                 tree.animation_data.drivers.remove(dr)
 
@@ -7168,7 +7168,7 @@ def remove_channel_fcurves(root_ch):
     fcs = []
     for index in indices:
         for fc in fcurves:
-            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(index) + '\]\.default_value$', fc.data_path)
+            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(index) + r'\]\.default_value$', fc.data_path)
             if m and fc not in fcs:
                 fcs.append(fc)
 
@@ -7180,7 +7180,7 @@ def remove_channel_fcurves(root_ch):
     drs = []
     for index in indices:
         for dr in drivers:
-            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(index) + '\]\.default_value$', dr.data_path)
+            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(index) + r'\]\.default_value$', dr.data_path)
             if m and dr not in drs:
                 drs.append(dr)
 
@@ -7270,7 +7270,7 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
 
                 else:
 
-                    m = re.match(r'.*\.channels\[' + str(i) + '\].*', fc.data_path)
+                    m = re.match(r'.*\.channels\[' + str(i) + r'\].*', fc.data_path)
                     if m:
                         fc.data_path = fc.data_path.replace('.channels[' + str(i) + ']', '.channels[' + str(i+shifter) + ']')
 
@@ -7299,7 +7299,7 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
                         if i <= start_index: continue
                         io_index = root_ch.io_index
                         for fc in fcurves:
-                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
+                            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(io_index) + r'\]\.default_value$', fc.data_path)
                             if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
                 else:
 
@@ -7307,7 +7307,7 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
                         if i <= start_index: continue
                         io_index = root_ch.io_index
                         for fc in fcurves:
-                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
+                            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(io_index) + r'\]\.default_value$', fc.data_path)
                             if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
 
 

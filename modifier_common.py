@@ -50,7 +50,7 @@ def save_rgb2i_props(tree, m):
 
         for fcs in get_action_and_driver_fcurves(tree):
             for fc in fcs:
-                match = re.match(r'^nodes\["' + m.rgb2i + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                match = re.match(r'^nodes\["' + m.rgb2i + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                 if match:
                     index = int(match.group(1))
                     if index == 3:
@@ -81,7 +81,7 @@ def save_huesat_props(tree, m):
 
         for fcs in get_action_and_driver_fcurves(tree):
             for fc in fcs:
-                match = re.match(r'^nodes\["' + m.huesat + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                match = re.match(r'^nodes\["' + m.huesat + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                 if match:
                     index = int(match.group(1))
                     if root_tree != tree:
@@ -130,7 +130,7 @@ def save_brightcon_props(tree, m):
 
         for fcs in get_action_and_driver_fcurves(tree):
             for fc in fcs:
-                match = re.match(r'^nodes\["' + m.brightcon + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                match = re.match(r'^nodes\["' + m.brightcon + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                 if match:
                     index = int(match.group(1))
                     if root_tree != tree:
@@ -172,7 +172,7 @@ def save_math_props(tree, m, channel_type):
 
         for fcs in get_action_and_driver_fcurves(tree):
             for fc in fcs:
-                match = re.match(r'^nodes\["' + m.math + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                match = re.match(r'^nodes\["' + m.math + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                 if match:
                     index = int(match.group(1))
                     if root_tree != tree:

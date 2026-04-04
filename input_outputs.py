@@ -186,7 +186,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 # Rename fcurve datapath
                 for fcs in get_action_and_driver_fcurves(group_tree):
                     for fc in fcs:
-                        match = re.match(r'^nodes\["' + channel.end_max_height_tweak + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                        match = re.match(r'^nodes\["' + channel.end_max_height_tweak + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                         if match:
                             index = int(match.group(1))
                             if end_max_height_tweak.inputs[index].name == 'Height Tweak':
@@ -290,7 +290,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 # Rename fcurve datapath
                 for fcs in get_action_and_driver_fcurves(group_tree):
                     for fc in fcs:
-                        match = re.match(r'^nodes\["' + channel.end_linear + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                        match = re.match(r'^nodes\["' + channel.end_linear + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                         if match:
                             index = int(match.group(1))
                             if end_linear.inputs[index].name == 'Normal Tweak':
@@ -320,7 +320,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                     # Rename fcurve datapath
                     for fcs in get_action_and_driver_fcurves(group_tree):
                         for fc in fcs:
-                            match = re.match(r'^nodes\["' + channel.end_linear + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                            match = re.match(r'^nodes\["' + channel.end_linear + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                             if match:
                                 index = int(match.group(1))
                                 if end_linear.inputs[index].name == 'Normal Tweak':
@@ -717,13 +717,13 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         # Example: nodes["Group.003"].inputs[9].default_value'
 
         for fc in get_datablock_fcurves(root_tree):
-            m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+            m = re.match(r'^nodes\["' + layer_node.name + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if m:
                 inp = layer_node.inputs[int(m.group(1))]
                 fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
 
         for driver in root_tree.animation_data.drivers:
-            m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', driver.data_path)
+            m = re.match(r'^nodes\["' + layer_node.name + r'"\]\.inputs\[(\d+)\]\.default_value$', driver.data_path)
             if m:
                 inp = layer_node.inputs[int(m.group(1))]
                 driver.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
