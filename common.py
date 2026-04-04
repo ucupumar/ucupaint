@@ -5025,7 +5025,7 @@ def set_active_paint_slot_entity(yp):
     is_multiple_mats = obj.type == 'MESH' and len(obj.data.materials) > 1
 
     # Set material active node 
-    if is_bl_newer_than(2, 81):
+    if mat and node and is_bl_newer_than(2, 81):
         node.select = True
         mat.node_tree.nodes.active = node
 
@@ -5152,15 +5152,17 @@ def set_active_paint_slot_entity(yp):
     if not is_multiple_mats and image and is_bl_newer_than(2, 81):
 
         scene.tool_settings.image_paint.mode = 'MATERIAL'
+        
+        if mat:
 
-        for idx, img in enumerate(mat.texture_paint_images):
-            if img == None: continue
-            if img.name == image.name:
-                mat.paint_active_slot = idx
-                # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
-                if not is_bl_newer_than(5, 1):
-                    wmyp.correct_paint_image_name = img.name                                         
-                break
+            for idx, img in enumerate(mat.texture_paint_images):
+                if img == None: continue
+                if img.name == image.name:
+                    mat.paint_active_slot = idx
+                    # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
+                    if not is_bl_newer_than(5, 1):
+                        wmyp.correct_paint_image_name = img.name                                         
+                    break
         
     else:
         scene.tool_settings.image_paint.mode = 'IMAGE'
