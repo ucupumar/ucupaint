@@ -6409,7 +6409,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             and not ch.gamma_space 
             and root_ch.type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
-            and socket_input_name == 'Color' 
+            and (socket_input_name == 'Color' or layer.type in {'HEMI', 'EDGE_DETECT'})
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
         ):
             return 1.0 / GAMMA
