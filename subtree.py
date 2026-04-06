@@ -553,8 +553,6 @@ def check_create_spread_alpha(layer, tree, root_ch, ch):
     return need_reconnect
 
 def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None):
-    print('HAHAHAH')
-
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
     if not tree: return False

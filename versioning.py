@@ -1228,6 +1228,10 @@ def update_yp_tree(tree):
                     if mask_source and len(mask_source.inputs[0].links) > 0:
                         mask_tree.links.remove(mask_source.inputs[0].links[0])
 
+    # Version 3.0.0 has separated normal, height, and vector displacement channel
+    if version_tuple(yp.version) < (3, 0, 0):
+        pass
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
