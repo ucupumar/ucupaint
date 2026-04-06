@@ -1230,7 +1230,30 @@ def update_yp_tree(tree):
 
     # Version 3.0.0 has separated normal, height, and vector displacement channel
     if version_tuple(yp.version) < (3, 0, 0):
-        pass
+        
+        normal_ch_found = False
+        normal_ch_idx = -1
+
+        # Check if there's legacy normal channel
+        for i, ch in enumerate(yp.channels):
+            if ch.type == 'NORMAL':
+                normal_ch_found = True
+                normal_ch_idx = i
+
+                # Replace normal channel to vector type with normal special type
+                ch.type = 'VECTOR'
+                ch.special_channel_type = 'NORMAL'
+
+        # Create height channel
+        if normal_ch_found:
+            ch_height = Root.create_new_yp_channel(tree, 'Height', 'VALUE', non_color=True)
+            ch_height.special_channel_type = 'HEIGHT'
+
+            # Move index
+            Root.set_channel_index(ch_height, normal_ch_idx+1)
+
+            # Update input outputs
+            check_all_channel_ios(yp, yp_node=None)
 
     # SECTION II: Updates based on the blender version
 
