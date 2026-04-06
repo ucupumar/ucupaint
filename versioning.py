@@ -1231,26 +1231,63 @@ def update_yp_tree(tree):
     # Version 3.0.0 has separated normal, height, and vector displacement channel
     if version_tuple(yp.version) < (3, 0, 0):
         
-        normal_ch_found = False
+        normal_ch = None
         normal_ch_idx = -1
+        normal_ch_name = ''
 
         # Check if there's legacy normal channel
         for i, ch in enumerate(yp.channels):
             if ch.type == 'NORMAL':
-                normal_ch_found = True
                 normal_ch_idx = i
+                normal_ch_name = ch.name
+                normal_ch = ch
 
                 # Replace normal channel to vector type with normal special type
                 ch.type = 'VECTOR'
                 ch.special_channel_type = 'NORMAL'
 
-        # Create height channel
-        if normal_ch_found:
-            ch_height = Root.create_new_yp_channel(tree, 'Height', 'VALUE', non_color=True)
-            ch_height.special_channel_type = 'HEIGHT'
+        if normal_ch != None:
+            # Delete some nodes since it's no longer needed
+            remove_node(tree, normal_ch, 'end_linear')
 
-            # Move index
-            Root.set_channel_index(ch_height, normal_ch_idx+1)
+            # Create height channel
+            height_ch = Root.create_new_yp_channel(tree, 'Height', 'VALUE', non_color=True)
+
+            yp.halt_update = True
+
+            height_ch.special_channel_type = 'HEIGHT'
+            height_ch.use_height_as_bump = True
+            height_ch.enable_smooth_bump = False
+
+            # Swap index
+            Root.set_channel_index(height_ch, normal_ch_idx)
+
+            # Get correct indices for normal and height channel
+            height_ch_idx = normal_ch_idx
+            normal_ch_idx = height_ch_idx + 1
+
+            for layer in yp.layers:
+                hch = layer.channels[height_ch_idx]
+                nch = layer.channels[normal_ch_idx]
+
+                # Move bump map props from normal channel to height channel
+                if nch.normal_map_type == 'BUMP_MAP':
+
+                    # Delete some nodes since it's no longer needed
+                    ltree = get_tree(layer)
+                    remove_node(ltree, nch, 'height_blend')
+                    remove_node(ltree, nch, 'normal_proc')
+
+                    copy_id_props(nch, hch)
+
+                    # Set all strings to empty to original normal channel
+                    for prop in nch.bl_rna.properties:
+                        if prop.type == 'STRING' and 'Name' not in prop.name:
+                            setattr(nch, prop.identifier, '')
+
+                    nch.enable = False
+
+            yp.halt_update = False
 
             # Update input outputs
             check_all_channel_ios(yp, yp_node=None)
