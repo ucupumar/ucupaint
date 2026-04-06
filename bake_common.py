@@ -3120,12 +3120,18 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         bpy.ops.mesh.y_vcol_fill(color_option ='WHITE')
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
+    # Get color alpha channel pair
+    root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+
     # Check if there's channel using alpha
     alpha_outp = None
     for c in yp.channels:
         if c.enable_alpha:
             alpha_outp = node.outputs.get(c.name + io_suffix['ALPHA'])
             if alpha_outp: break
+
+    if not alpha_outp and root_alpha_ch:
+        alpha_outp = node.outputs.get(root_alpha_ch.name)
 
     # Prepare bake settings
     if bprops.type == 'AO':
@@ -3237,8 +3243,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             if main_uv and straight_uv:
                 flow_vcol = get_flow_vcol(ob, main_uv, straight_uv)
 
+    # Check if doing actual flip normals operator is needed
+    need_flip_normals_ops = bprops.flip_normals and (bprops.type != 'AO' or alpha_outp) and is_bl_newer_than(2, 80)
+
     # Flip normals setup
-    if bprops.flip_normals:
+    if need_flip_normals_ops:
         #ori_mode[obj.name] = obj.mode
         if is_bl_newer_than(2, 80):
             # Deselect other objects first
@@ -3290,9 +3299,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             for m in get_problematic_modifiers(ob):
                 m.show_render = False
 
-        ori_mat_ids[ob.name] = []
-        ori_loop_locs[ob.name] = []
-
         if bprops.subsurf_influence and not bprops.use_baked_disp and not bprops.type.startswith('MULTIRES_'):
             for m in ob.modifiers:
                 if m.type == 'MULTIRES':
@@ -3300,7 +3306,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     m.render_levels = m.total_levels
                     break
 
-        if len(ob.data.materials) > 1:
+        # NOTE: This code can freeze blender if there are too many polygons, but it's needed for Blender 2.83 and lower
+        ori_mat_ids[ob.name] = []
+        ori_loop_locs[ob.name] = []
+        if not is_bl_newer_than(2, 90) and len(ob.data.materials) > 1:
             active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat]
             if active_mat_id: active_mat_id = active_mat_id[0]
             else: continue
@@ -3377,6 +3386,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             else:
                 mat.node_tree.links.new(src.outputs['AO'], bsdf.inputs[0])
                 mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+                if bprops.flip_normals:
+                    src.inside = True
 
     elif bprops.type == 'POINTINESS':
         src = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
@@ -3568,7 +3580,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             image_name += ' ' + yp.channels[idx].name
 
             # Skip alpha channel since it will be included into color channel
-            root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
             if idx > 0  and root_ch == root_alpha_ch:
                 continue
 
@@ -4202,7 +4213,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             if vcol: vcols.remove(vcol)
 
     # Recover flip normals setup
-    if bprops.flip_normals:
+    if need_flip_normals_ops:
         #bpy.ops.object.mode_set(mode = 'EDIT')
         #bpy.ops.mesh.flip_normals()
         #bpy.ops.mesh.select_all(action='DESELECT')
@@ -4855,6 +4866,12 @@ def get_merged_mesh_objects(scene, objs, hide_original=False, disable_problemati
                 if attr and attr.name == guv:
                     obj.data.attributes.active_index = i
                     bpy.ops.geometry.attribute_convert(domain='CORNER', data_type='FLOAT2')
+
+        # HACK: Remove string attributes for Blender 5.1 since it can cause crash
+        if is_bl_newer_than(5, 1) and not is_bl_newer_than(5, 2):
+            for attr in reversed(obj.data.attributes):
+                if attr.data_type == 'STRING':
+                    obj.data.attributes.remove(attr)
 
     # Set first index as merged object
     merged_obj = new_objs[0]

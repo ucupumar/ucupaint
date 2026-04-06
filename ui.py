@@ -6894,7 +6894,8 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         col.operator('wm.y_copy_layer', text='Copy Layer', icon='COPYDOWN').all_layers = False
         col.operator('wm.y_copy_layer', text='Copy All Layers', icon='COPYDOWN').all_layers = True
-        col.operator('wm.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN')
+        col.operator('wm.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN').paste_blank = False
+        col.operator('wm.y_paste_layer', text='Paste Blank Layer(s)', icon='PASTEDOWN').paste_blank = True
 
         col.separator()
         col.operator('wm.y_rebake_baked_images', text='Rebake All Baked Images', icon_value=lib.get_icon('bake'))
