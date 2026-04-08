@@ -1365,7 +1365,18 @@ def update_yp_tree(tree):
                                 height_ch = [c for c in yp.channels if c.special_channel_type == 'HEIGHT'][0]
 
                                 # Do setup
-                                Root.do_displacement_node_setup(mat, node, height_ch)
+                                disp = Root.do_displacement_node_setup(mat, node, height_ch)
+
+                                # Update displacement node to use 1.0  scale and 0.0 midlevel
+                                if disp:
+                                    scale_inp = disp.inputs.get('Scale')
+                                    midlevel_inp = disp.inputs.get('Midlevel')
+
+                                    if scale_inp: #and scale_inp.default_value == 0.0:
+                                        scale_inp.default_value = 1.0
+
+                                    if midlevel_inp: #and midlevel_inp.default_value == 0.5:
+                                        midlevel_inp.default_value = 0.0
 
                             if vdm_found:
                                 # Getting the channel again just in case
