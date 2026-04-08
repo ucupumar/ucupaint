@@ -1233,18 +1233,24 @@ def update_yp_tree(tree):
         
         normal_ch = None
         normal_ch_idx = -1
-        normal_ch_name = ''
 
-        # Check if there's legacy normal channel
+        # Check if there's legacy special channels
         for i, ch in enumerate(yp.channels):
+
+            # Convert normal channel
             if ch.type == 'NORMAL':
                 normal_ch_idx = i
-                normal_ch_name = ch.name
                 normal_ch = ch
 
                 # Replace normal channel to vector type with normal special type
                 ch.type = 'VECTOR'
                 ch.special_channel_type = 'NORMAL'
+
+            # Convert alpha channel
+            if ch.is_alpha:
+                yp.halt_update = True
+                ch.special_channel_type = 'ALPHA'
+                yp.halt_update = False
 
         if normal_ch != None:
             # Delete some nodes since it's no longer needed
@@ -1271,21 +1277,36 @@ def update_yp_tree(tree):
                 nch = layer.channels[normal_ch_idx]
 
                 # Move bump map props from normal channel to height channel
-                if nch.normal_map_type == 'BUMP_MAP':
+                if nch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
 
-                    # Delete some nodes since it's no longer needed
                     ltree = get_tree(layer)
-                    remove_node(ltree, nch, 'height_blend')
-                    remove_node(ltree, nch, 'normal_proc')
 
-                    copy_id_props(nch, hch)
-
-                    # Set all strings to empty to original normal channel
+                    # Delete all nodes referenced, it will be fine since it will all be rebuilt
                     for prop in nch.bl_rna.properties:
-                        if prop.type == 'STRING' and 'Name' not in prop.name:
-                            setattr(nch, prop.identifier, '')
+                        if prop.type == 'STRING' and (
+                            prop.identifier not in {'name', 'source', 'source_1'} 
+                            and not prop.identifier.startswith('cache_')
+                            and not prop.identifier.endswith('_name')
+                            ):
+                            remove_node(ltree, nch, prop.identifier)
 
-                    nch.enable = False
+                    # Copy props
+                    exception_props = ['name']
+                    copy_id_props(nch, hch, exception_props)
+
+                    # Repoint props
+                    nch.source = nch.source_1
+                    nch.source_1 = ''
+                    nch.override_type = nch.override_1_type
+                    nch.override = nch.override_1
+
+                    hch.use_height_as_normal = not hch.write_height
+
+                    # TODO: Move modifiers
+
+                    # Disable normal channel if it's a bump channel
+                    if nch.normal_map_type == 'BUMP_MAP':
+                        nch.enable = False
 
             yp.halt_update = False
 
