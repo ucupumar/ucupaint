@@ -1233,14 +1233,16 @@ def update_yp_tree(tree):
         
         normal_ch = None
         normal_ch_idx = -1
+        displacement_setup_needed = False 
 
         # Check if there's legacy special channels
         for i, ch in enumerate(yp.channels):
 
             # Convert normal channel
             if ch.type == 'NORMAL':
-                normal_ch_idx = i
                 normal_ch = ch
+                normal_ch_idx = i
+                displacement_setup_needed = ch.enable_subdiv_setup
 
                 # Replace normal channel to vector type with normal special type
                 ch.type = 'VECTOR'
@@ -1252,36 +1254,65 @@ def update_yp_tree(tree):
                 ch.special_channel_type = 'ALPHA'
                 yp.halt_update = False
 
-        if normal_ch != None:
-            # Delete some nodes since it's no longer needed
-            remove_node(tree, normal_ch, 'end_linear')
 
-            # Create height channel
-            height_ch = Root.create_new_yp_channel(tree, 'Height', 'VALUE', non_color=True)
+        if normal_ch != None:
+
+            # Check if any layers are using bump/vdm
+            bump_found = False
+            vdm_found = False
+            for layer in yp.layers:
+                nch = layer.channels[normal_ch_idx]
+                #if nch.enable:
+                if nch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    bump_found = True
+                elif nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                    vdm_found = True
 
             yp.halt_update = True
 
-            height_ch.special_channel_type = 'HEIGHT'
-            height_ch.use_height_as_bump = True
-            height_ch.enable_smooth_bump = False
+            if bump_found or vdm_found:
+                # Delete some nodes since it's no longer needed
+                remove_node(tree, normal_ch, 'end_linear')
 
-            # Swap index
-            Root.set_channel_index(height_ch, normal_ch_idx)
+            height_ch_idx = -1
+            if bump_found:
 
-            # Get correct indices for normal and height channel
-            height_ch_idx = normal_ch_idx
-            normal_ch_idx = height_ch_idx + 1
+                # Create height channel
+                height_ch = Root.create_new_yp_channel(tree, 'Height', 'VALUE', non_color=True, special_channel_type='HEIGHT')
+                height_ch.use_height_as_bump = not displacement_setup_needed
+                height_ch.enable_smooth_bump = False
+
+                # Move index
+                Root.set_channel_index(height_ch, normal_ch_idx)
+
+                # Get correct indices for normal and height channel
+                height_ch_idx = normal_ch_idx
+                normal_ch_idx = height_ch_idx + 1
+
+            vdm_ch_idx = -1
+            if vdm_found:
+
+                # Create vdm channel
+                vdm_ch = Root.create_new_yp_channel(tree, 'Vector Displacement', 'RGB', non_color=True, special_channel_type='VDISP')
+
+                # Swap index
+                vdm_ch_idx = get_channel_index(vdm_ch)
+                if vdm_ch_idx != normal_ch_idx+1:
+                    Root.set_channel_index(vdm_ch, normal_ch_idx+1)
+                    vdm_ch_idx = normal_ch_idx + 1
 
             for layer in yp.layers:
-                hch = layer.channels[height_ch_idx]
+                ltree = get_tree(layer)
+
+                # Get related channels
                 nch = layer.channels[normal_ch_idx]
+                hch = layer.channels[height_ch_idx] if bump_found else None
+                vch = layer.channels[vdm_ch_idx] if vdm_found else None
 
-                # Move bump map props from normal channel to height channel
-                if nch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                copy_exception_props = ['name']
 
-                    ltree = get_tree(layer)
-
-                    # Delete all nodes referenced, it will be fine since it will all be rebuilt
+                if nch.normal_map_type != 'NORMAL_MAP':
+                    # Delete all nodes referenced, it will be fine since all will be rebuilt
                     for prop in nch.bl_rna.properties:
                         if prop.type == 'STRING' and (
                             prop.identifier not in {'name', 'source', 'source_1'} 
@@ -1289,29 +1320,59 @@ def update_yp_tree(tree):
                             and not prop.identifier.endswith('_name')
                             ):
                             remove_node(ltree, nch, prop.identifier)
+                            copy_exception_props.append(prop.identifier)
 
-                    # Copy props
-                    exception_props = ['name']
-                    copy_id_props(nch, hch, exception_props)
+                # Copy props
+                if hch and nch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    copy_id_props(nch, hch, copy_exception_props)
 
-                    # Repoint props
-                    nch.source = nch.source_1
-                    nch.source_1 = ''
-                    nch.override_type = nch.override_1_type
-                    nch.override = nch.override_1
-
+                    # Convert write height
                     hch.use_height_as_normal = not hch.write_height
 
-                    # TODO: Move modifiers
+                if vch and nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                    copy_id_props(nch, vch, copy_exception_props)
 
-                    # Disable normal channel if it's a bump channel
-                    if nch.normal_map_type == 'BUMP_MAP':
-                        nch.enable = False
+                # Repoint normal props
+                nch.source = nch.source_1
+                nch.source_1 = ''
+                nch.override_type = nch.override_1_type
+                nch.override = nch.override_1
+
+                # TODO: Move modifiers
+
+                # TODO: Move keyframes/drivers
+
+                # Disable normal channel if it's a bump channel
+                if nch.normal_map_type in {'BUMP_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
+                    nch.enable = False
 
             yp.halt_update = False
 
             # Update input outputs
             check_all_channel_ios(yp, yp_node=None)
+
+            # Displacement setup
+            if displacement_setup_needed:
+
+                # Get material using yp
+                mats = get_materials_using_yp(yp)
+                for mat in mats:
+                    for node in mat.node_tree.nodes:
+                        if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
+
+                            if bump_found:
+                                # Getting the channel again just in case
+                                height_ch = [c for c in yp.channels if c.special_channel_type == 'HEIGHT'][0]
+
+                                # Do setup
+                                Root.do_displacement_node_setup(mat, node, height_ch)
+
+                            if vdm_found:
+                                # Getting the channel again just in case
+                                vdm_ch = [c for c in yp.channels if c.special_channel_type == 'VDISP'][0]
+
+                                # Do setup
+                                Root.do_displacement_node_setup(mat, node, vdm_ch, is_vector_disp=True)
 
     # SECTION II: Updates based on the blender version
 
