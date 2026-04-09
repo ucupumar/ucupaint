@@ -4489,6 +4489,14 @@ def main_draw(self, context):
                 rrow.label(text='Transparent Shadows:')
                 rrow.prop(mat, 'use_transparent_shadow', text='')
 
+    # Check if Mio3 UV checker found
+    if obj and any([m for m in obj.modifiers if m.type == 'NODES' and m.node_group and m.node_group.name == 'Mio3MaterialOverride' and (m.show_viewport or m.show_render)]):
+        row = layout.row(align=True)
+        row.alert = True
+        op = row.operator("wm.y_remove_mio3_uv_checker", icon='ERROR')
+        row.alert = False
+        return
+
     if not node:
         layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
         layout.operator("wm.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
