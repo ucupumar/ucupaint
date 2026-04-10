@@ -15,7 +15,7 @@ body:
     attributes:
       label: Blender Version
       description: Type Blender version here.
-      placeholder: ex. 4.2.0
+      placeholder: ex. 3.6.0
     validations:
       required: true
   - type: textarea
@@ -30,12 +30,14 @@ body:
     id: reproducebug
     attributes:
       label: To Reproduce
-      description: Steps to reproduce the behavior.
+      description: Steps to reproduce the bug, plus a sample file. The file is optional, but please include it whenever possible, it greatly helps with debugging.
       placeholder: |
         1. Go to '...'
         2. Click on '....'
         3. Scroll down to '....'
         4. See error
+
+        Sample file : (Link to sample file)
     validations:
       required: true
   - type: textarea
