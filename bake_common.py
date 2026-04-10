@@ -128,7 +128,9 @@ def is_there_any_missmatched_attribute_types(objs):
 
     return False
 
-def is_join_objects_problematic(yp, mat=None):
+def is_joining_objects_problematic(yp, mat=None, return_reasons=False):
+    reasons = []
+
     for layer in yp.layers:
         if not layer.enable: continue
 
@@ -137,30 +139,34 @@ def is_join_objects_problematic(yp, mat=None):
             if mask.type in {'VCOL', 'HEMI', 'COLOR_ID'}: 
                 continue
             if mask.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS or mask.type in {'OBJECT_INDEX'}:
-                print('INFO: Merged bake is not happening because there\'s object index mask')
-                return True
+                reasons.append('Object index mask')
 
         if layer.type in {'VCOL', 'COLOR', 'BACKGROUND', 'HEMI', 'GROUP'}: 
             continue
         if layer.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS:
-            print('INFO: Merged bake is not happening because there\'s problematic texcoord used')
-            return True
+            reasons.append('Object or generated vector')
 
     if mat:
         output = get_material_output(mat)
         if output: 
             if search_join_problematic_texcoord(mat.node_tree, output):
-                print('INFO: Merged bake is not happening because there\'s problematic texcoord used outside node')
-                return True
+                reasons.append('Object or generated vector outside '+get_addon_title()+' node')
 
         # Check for missmatched color attribute data
         if is_bl_newer_than(3, 2):
             objs = get_all_objects_with_same_materials(mat, True)
             if is_there_any_missmatched_attribute_types(objs):
-                print('INFO: Merged bake is not happening because there\'s missmatched attribute data types')
-                return True
+                reasons.append('Missmatched attribute data types')
 
-    return False
+    if return_reasons:
+        return reasons
+
+    if any(reasons):
+        print('INFO: Merged bake is not possible due to:')
+        for reason in reasons:
+            print('-', reason)
+
+    return any(reasons)
 
 def get_pointiness_image_minmax_value(image):
     
@@ -2928,7 +2934,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         objs.extend(other_objs)
 
     # Join objects if the number of objects is higher than one
-    elif not bprops.type.startswith('MULTIRES_') and len(objs) > 1 and not is_join_objects_problematic(yp):
+    elif not bprops.type.startswith('MULTIRES_') and len(objs) > 1 and not is_joining_objects_problematic(yp):
         objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
 
     fill_mode = 'FACE'
