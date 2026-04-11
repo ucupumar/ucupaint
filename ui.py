@@ -3490,6 +3490,13 @@ def draw_layers_ui(context, layout, node):
     if yp.use_baked:
         col = box.column(align=False)
 
+        if is_not_in_material_view() and ypup.enable_material_view_warning:
+            bbox = col.box()
+            row = bbox.row(align=True)
+            row.alert = True
+            row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
+            row.alert = False
+
         root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
 
         for i, root_ch in enumerate(yp.channels):
