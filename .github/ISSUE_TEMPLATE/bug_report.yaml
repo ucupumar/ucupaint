@@ -18,6 +18,14 @@ body:
       placeholder: ex. 3.6.0
     validations:
       required: true
+  - type: input
+    id: operatingsystem
+    attributes:
+      label: Operating System
+      description: Type the operating system you used here.
+      placeholder: ex. Windows 11
+    validations:
+      required: true
   - type: textarea
     id: describebug
     attributes:
