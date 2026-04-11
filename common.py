@@ -715,6 +715,27 @@ def get_current_version():
 def is_online():
     return not is_bl_newer_than(4, 2) or bpy.app.online_access
 
+def is_connected():
+    ypup = get_user_preferences()
+
+    if ypup.developer_mode:
+        import time
+        T = time.time()
+
+    connected = False
+    try:
+        # Try to connect to a reliable host (Google's Public DNS)
+        # Port 53 is for DNS, which is usually open
+        import socket
+        socket.create_connection(("8.8.8.8", 53), timeout=3)
+        connected = True
+    except OSError: pass
+
+    if ypup.developer_mode:
+        print('INFO: Checking internet connection done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
+    return connected
+
 def is_bl_newer_than(major, minor=0, patch=0):
     return bpy.app.version >= (major, minor, patch)
 

@@ -3,7 +3,7 @@ from bpy.app.handlers import persistent
 import os, requests, time, threading, json
 from bpy.props import PointerProperty, IntProperty, FloatProperty
 import bpy.utils.previews
-from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title, get_user_preferences
+from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title, get_user_preferences, is_connected
 from . import lib
 
 class YForceUpdateSponsors(bpy.types.Operator):
@@ -525,11 +525,13 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             layout.operator('wm.y_force_update_sponsors', text="Force Update Sponsors", icon='FILE_REFRESH')
 
 def print_info(*args):
-    if get_user_preferences().developer_mode:
+    ypup = get_user_preferences()
+    if ypup.developer_mode and ypup.debug_credits:
         print(*args)
 
 def print_error(*args):
-    if get_user_preferences().developer_mode:
+    ypup = get_user_preferences()
+    if ypup.developer_mode and ypup.debug_credits:
         print("ERROR:", *args)
 
 def refresh_image_caches(force_reload:bool = False):
@@ -588,7 +590,7 @@ def load_preview(key:str, file_name:str):
 
 def check_contributors(goal_ui: YSponsorProp):
     if is_online():
-        if not goal_ui.initialized: # first time init
+        if not goal_ui.initialized and is_connected(): # first time init
             goal_ui.initialized = True
             print_info("first time init, loading contributors...")
 
