@@ -5782,7 +5782,7 @@ def draw_ypaint_about(self, context):
 
     # Credits UI currently doesn't work with legacy blenders
     if is_bl_newer_than(2, 80):
-        check_contributors(ypc)
+        check_contributors()
     
     collaborators = get_collaborators()
     contributors = collaborators.contributors
