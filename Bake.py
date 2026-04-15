@@ -1156,15 +1156,13 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
             remove_node(tree, root_ch, 'baked')
             remove_node(tree, root_ch, 'baked_vcol')
 
-            if root_ch.type == 'NORMAL':
+            if root_ch.special_channel_type == 'NORMAL':
                 remove_node(tree, root_ch, 'baked_disp')
                 remove_node(tree, root_ch, 'baked_vdisp')
                 remove_node(tree, root_ch, 'baked_normal_overlay')
                 remove_node(tree, root_ch, 'baked_normal_prep')
                 remove_node(tree, root_ch, 'baked_normal')
-                remove_node(tree, root_ch, 'end_max_height')
-
-            elif root_ch.special_channel_type == 'NORMAL':
+                #remove_node(tree, root_ch, 'end_max_height')
                 remove_node(tree, root_ch, 'baked_normal_no_disp')
 
             elif root_ch.special_channel_type == 'HEIGHT':

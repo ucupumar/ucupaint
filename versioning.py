@@ -1273,6 +1273,7 @@ def update_yp_tree(tree):
             if bump_found or vdm_found:
                 # Delete some nodes since it's no longer needed
                 remove_node(tree, normal_ch, 'end_linear')
+                remove_node(tree, normal_ch, 'end_normal_engine_filter')
 
             height_ch_idx = -1
             if bump_found:
@@ -1289,6 +1290,30 @@ def update_yp_tree(tree):
                 height_ch_idx = normal_ch_idx
                 normal_ch_idx = height_ch_idx + 1
 
+                # Get the channels again since it got new index
+                height_ch = yp.channels[height_ch_idx]
+                normal_ch = yp.channels[normal_ch_idx]
+
+                # Repoint some nodes
+                height_ch.baked = normal_ch.baked_disp
+                normal_ch.baked_disp = ''
+                if height_ch.baked != '':
+                    height_ch.no_layer_using = False
+                    # NOTE: Normalize height is enabled if height is baked before version 3.0
+                    height_ch.use_height_normalize = True
+
+                height_ch.end_max_height = normal_ch.end_max_height
+                normal_ch.end_max_height = ''
+
+                height_ch.baked_outside = normal_ch.baked_outside_disp
+                height_ch.baked_outside_disp = ''
+
+                normal_ch.baked_normal_no_disp = normal_ch.baked_normal_overlay
+                normal_ch.baked_normal_overlay = ''
+
+                normal_ch.baked_outside_normal_no_disp = normal_ch.baked_outside_normal_overlay
+                normal_ch.baked_outside_normal_overlay = ''
+
             vdm_ch_idx = -1
             if vdm_found:
 
@@ -1300,6 +1325,15 @@ def update_yp_tree(tree):
                 if vdm_ch_idx != normal_ch_idx+1:
                     Root.set_channel_index(vdm_ch, normal_ch_idx+1)
                     vdm_ch_idx = normal_ch_idx + 1
+
+                # Repoint some nodes
+                vdm_ch.baked = normal_ch.baked_vdisp
+                normal_ch.baked_vdisp = ''
+                if vdm_ch.baked != '':
+                    vdm_ch.no_layer_using = False
+
+                vdm_ch.baked_outside = normal_ch.baked_outside_vdisp
+                vdm_ch.baked_outside_vdisp = ''
 
             for layer in yp.layers:
                 ltree = get_tree(layer)
