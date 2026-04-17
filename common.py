@@ -240,12 +240,6 @@ normal_space_items = (
     ('BLENDER_WORLD', 'Blender World Space', 'World space normal mapping, compatible with Blender render baking'),
 )
 
-height_blend_items = (
-    ('REPLACE', 'Replace', ''),
-    ('COMPARE', 'Compare', ''),
-    ('ADD', 'Add', ''),
-)
-
 normal_type_labels = {
         'BUMP_MAP' : 'Bump',
         'NORMAL_MAP' : 'Normal',

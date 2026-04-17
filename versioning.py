@@ -1360,11 +1360,25 @@ def update_yp_tree(tree):
                 if hch and nch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     copy_id_props(nch, hch, copy_exception_props)
 
-                    # Convert write height
+                    # Convert some props
                     hch.use_height_as_normal = not hch.write_height
+                    if nch.normal_blend_type == 'MIX':
+                        hch.height_blend_type = 'MIX'
+                    elif nch.normal_blend_type == 'OVERLAY':
+                        hch.height_blend_type = 'ADD'
+                    # NOTE: Normal blend type only have 2 items since 3.0, so it reads as empty string
+                    # WARNING: If there will be another item for the normal blend, this code is invalid
+                    elif nch.normal_blend_type == '':
+                        hch.height_blend_type = 'COMPARE'
 
                 if vch and nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
                     copy_id_props(nch, vch, copy_exception_props)
+
+                    #if nch.normal_blend_type not in {'', 'COMPARE'}:
+                    print(layer.name, nch.normal_blend_type)
+                    if nch.normal_blend_type == 'OVERLAY':
+                        vch.blend_type = 'ADD'
+                    else: vch.blend_type = 'MIX'
 
                 # Repoint normal props
                 nch.source = nch.source_1
