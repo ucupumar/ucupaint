@@ -210,10 +210,10 @@ normal_blend_items = (
 )
 
 normal_blend_labels = {
-        'MIX' : 'Mix',
-        'OVERLAY' : 'Overlay',
-        'COMPARE' : 'Compare Height',
-        }
+    'MIX' : 'Mix',
+    'OVERLAY' : 'Overlay',
+    'COMPARE' : 'Compare Height',
+}
 
 normal_space_items = (
     ('TANGENT', 'Tangent Space', 'Tangent space normal mapping'),
@@ -230,11 +230,11 @@ height_blend_items = (
 )
 
 normal_type_labels = {
-        'BUMP_MAP' : 'Bump',
-        'NORMAL_MAP' : 'Normal',
-        'BUMP_NORMAL_MAP' : 'Bump + Normal',
-        'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
-        }
+    'BUMP_MAP' : 'Bump',
+    'NORMAL_MAP' : 'Normal',
+    'BUMP_NORMAL_MAP' : 'Bump + Normal',
+    'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
+}
 
 layer_type_items = (
     ('IMAGE', 'Image', ''),
