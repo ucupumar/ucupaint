@@ -2573,7 +2573,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     # Layer intensity nodes
     # NOTE: No need intensity nodes for converted height to bump (expect for group)
-    if channel_enabled and not (layer.type != 'GROUP' and ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal):
+    if channel_enabled and not (layer.type != 'GROUP' and ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal):
         layer_intensity = tree.nodes.get(ch.layer_intensity)
         if not layer_intensity:
             layer_intensity = new_node(tree, ch, 'layer_intensity', 'ShaderNodeMath', 'Layer Opacity')
@@ -2684,7 +2684,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     )
 
             # Check if height converted to normal
-            height_as_normal = ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal
+            height_as_normal = ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal
 
             # Normal process
             if height_as_normal:

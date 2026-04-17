@@ -5638,7 +5638,7 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
                         continue
 
                 # NOTE: Normal will automatically enabled if a layer height channel uses 'Height as Normal'
-                if channel_idx == normal_ch_idx:
+                if channel_idx == normal_ch_idx and height_ch_idx < len(l.channels):
                     height_c = l.channels[height_ch_idx]
                     if height_c.enable and height_c.use_height_as_normal:
                         return True
@@ -5700,7 +5700,7 @@ def is_blend_node_needed(ch, layer=None, root_ch=None):
             return color_ch.unpair_alpha
 
     # Blend node is necessary if height channel has 'use_height_as_normal' enabled
-    if ch == normal_ch:
+    if ch == normal_ch and height_ch:
         if height_ch.use_height_as_normal:
             return True
 

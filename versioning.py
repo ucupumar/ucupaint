@@ -1390,8 +1390,13 @@ def update_yp_tree(tree):
 
                 # TODO: Move keyframes/drivers
 
+                # Automatically enable new layer channel for group and background layers
+                if layer.type in {'GROUP', 'BACKGROUND'}:
+                    if hch: hch.enable = True
+                    if vch: vch.enable = True
+
                 # Disable normal channel if it's a bump channel
-                if nch.normal_map_type in {'BUMP_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
+                elif nch.normal_map_type in {'BUMP_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
                     nch.enable = False
 
             yp.halt_update = False
