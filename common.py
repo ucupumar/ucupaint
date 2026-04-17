@@ -227,10 +227,10 @@ normal_blend_type_items = (
 )
 
 normal_blend_labels = {
-        'MIX' : 'Mix',
-        'OVERLAY' : 'Overlay',
-        'COMPARE' : 'Compare Height',
-        }
+    'MIX' : 'Mix',
+    'OVERLAY' : 'Overlay',
+    'COMPARE' : 'Compare Height',
+}
 
 normal_space_items = (
     ('TANGENT', 'Tangent Space', 'Tangent space normal mapping'),
@@ -241,11 +241,11 @@ normal_space_items = (
 )
 
 normal_type_labels = {
-        'BUMP_MAP' : 'Bump',
-        'NORMAL_MAP' : 'Normal',
-        'BUMP_NORMAL_MAP' : 'Bump + Normal',
-        'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
-        }
+    'BUMP_MAP' : 'Bump',
+    'NORMAL_MAP' : 'Normal',
+    'BUMP_NORMAL_MAP' : 'Bump + Normal',
+    'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
+}
 
 layer_type_items = (
     ('IMAGE', 'Image', ''),
@@ -1292,12 +1292,11 @@ def get_active_paint_slot_image():
 
     return image
 
-def safely_set_image_paint_canvas(image, scene=None):
-    if not scene: scene = bpy.context.scene
-
+def safely_set_image_paint_canvas(image):
     # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
     ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
+    scene = bpy.context.scene
     try:
         scene.tool_settings.image_paint.canvas = image
         success = True
@@ -1310,7 +1309,7 @@ def set_image_paint_canvas(image):
     scene = bpy.context.scene
     try:
         scene.tool_settings.image_paint.mode = 'IMAGE'
-        safely_set_image_paint_canvas(image, scene)
+        safely_set_image_paint_canvas(image)
     except Exception as e: print(e)
 
 # Check if name already available on the list
@@ -1487,7 +1486,7 @@ def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
 
         # Remove image from canvas
         if scene.tool_settings.image_paint.canvas == image:
-            safely_set_image_paint_canvas(None, scene)
+            safely_set_image_paint_canvas(None)
 
         if remove_on_disk and not image.packed_file and image.filepath != '':
             if image.source == 'TILED':
@@ -2761,7 +2760,11 @@ def set_modifier_input_value(mod, socket_name, value):
     inp = get_tree_input_by_name(mod.node_group, socket_name)
     if not inp: return
 
-    mod[inp.identifier] = value
+    if is_bl_newer_than(5, 2):
+        mod_inp = getattr(mod.properties.inputs, inp.identifier)
+        mod_inp.value = value
+    else:
+        mod[inp.identifier] = value
 
 def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not is_bl_newer_than(4):

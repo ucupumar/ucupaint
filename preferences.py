@@ -46,6 +46,12 @@ class YPaintPreferences(AddonPreferences):
         default = False
     )
 
+    debug_credits : BoolProperty(
+        name = 'Show Credits Debug Message',
+        description = 'Print contributors and sponsors related debug message in the console',
+        default = False
+    )
+
     show_experimental : BoolProperty(
         name = 'Show Experimental Features',
         description = 'Show unfinished experimental features',
@@ -216,6 +222,11 @@ class YPaintPreferences(AddonPreferences):
         #self.layout.prop(self, 'parallax_without_baked')
 
         if self.developer_mode:
+
+            if is_bl_newer_than(2, 80):
+                box = self.layout.box()
+                box.prop(self, 'debug_credits')
+
             box = self.layout.box()
 
             box.prop(self, "auto_check_update")

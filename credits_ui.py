@@ -472,7 +472,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
         don_col.scale_y = 1.5
         don_col.operator('wm.url_open', text="Become a Sponsor", icon='FUND').url = url_donation
 
-        check_contributors(goal_ui)
+        check_contributors()
 
         if is_online() and 'tiers' in goal and goal_ui.connection_status != "REQUESTING":
             layout.separator()
@@ -525,11 +525,13 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
             layout.operator('wm.y_force_update_sponsors', text="Force Update Sponsors", icon='FILE_REFRESH')
 
 def print_info(*args):
-    if get_user_preferences().developer_mode:
+    ypup = get_user_preferences()
+    if ypup.developer_mode and ypup.debug_credits:
         print(*args)
 
 def print_error(*args):
-    if get_user_preferences().developer_mode:
+    ypup = get_user_preferences()
+    if ypup.developer_mode and ypup.debug_credits:
         print("ERROR:", *args)
 
 def refresh_image_caches(force_reload:bool = False):
@@ -586,16 +588,18 @@ def load_preview(key:str, file_name:str):
         img = previews_users.load(key, file_name, 'IMAGE', True)
     return img
 
-def check_contributors(goal_ui: YSponsorProp):
+def check_contributors():
+    goal_ui = bpy.context.window_manager.ypui_credits
+    
     if is_online():
         if not goal_ui.initialized: # first time init
             goal_ui.initialized = True
             print_info("first time init, loading contributors...")
 
-            load_thread = threading.Thread(target=load_contributors, args=(goal_ui,))
+            load_thread = threading.Thread(target=load_contributors)
             load_thread.start()
         else:
-            load_expanded_images(goal_ui)
+            load_expanded_images()
     elif goal_ui.initialized:
         goal_ui.initialized = False
 
@@ -638,7 +642,7 @@ def is_valid_file(path:str)->bool:
     except:
         return False
     
-def load_contributors(goal_ui: YSponsorProp):    
+def load_contributors():    
 
     path = credits_path
     if not os.path.exists(path):
@@ -703,6 +707,8 @@ def load_contributors(goal_ui: YSponsorProp):
             collaborators.contributor_settings = settings.get("contributors", {})
     else:
         reload_contributors = True
+
+    goal_ui = bpy.context.window_manager.ypui_credits
 
     if reload_contributors and is_online():
         timeout_seconds = 10
@@ -861,9 +867,11 @@ def load_contributors(goal_ui: YSponsorProp):
             collaborators.sponsors.clear()
 
     print_info("loaded contributors and sponsors.")
-    load_expanded_images(goal_ui)
+    load_expanded_images()
 
-def load_expanded_images(goal_ui: YSponsorProp):
+def load_expanded_images():
+    goal_ui = bpy.context.window_manager.ypui_credits
+
     if collaborators.load_thread and collaborators.load_thread.is_alive():
         return
 
@@ -993,8 +1001,7 @@ def get_collaborators():
 
 @persistent
 def check_contributors_on_load(scn):
-    goal_ui = bpy.context.window_manager.ypui_credits
-    check_contributors(goal_ui)
+    check_contributors()
 
 def register():
     for cls in classes:
@@ -1039,7 +1046,7 @@ def register():
     ui_sp.initialized = False
 
     if is_bl_newer_than(2, 80):
-        check_contributors(ui_sp)
+        check_contributors()
 
         bpy.app.handlers.load_post.append(check_contributors_on_load)
 

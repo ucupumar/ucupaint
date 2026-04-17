@@ -3793,6 +3793,13 @@ def draw_layers_ui(context, layout, node):
     if yp.use_baked:
         col = box.column(align=False)
 
+        if is_not_in_material_view() and ypup.enable_material_view_warning:
+            bbox = col.box()
+            row = bbox.row(align=True)
+            row.alert = True
+            row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
+            row.alert = False
+
         root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
 
         for i, root_ch in enumerate(yp.channels):
@@ -4791,6 +4798,14 @@ def main_draw(self, context):
                 rrow = col.row(align=True)
                 rrow.label(text='Transparent Shadows:')
                 rrow.prop(mat, 'use_transparent_shadow', text='')
+
+    # Check if Mio3 UV checker found
+    if obj and any([m for m in obj.modifiers if m.type == 'NODES' and m.node_group and m.node_group.name == 'Mio3MaterialOverride' and (m.show_viewport or m.show_render)]):
+        row = layout.row(align=True)
+        row.alert = True
+        op = row.operator("wm.y_remove_mio3_uv_checker", icon='ERROR')
+        row.alert = False
+        return
 
     if not node:
         layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
@@ -6070,7 +6085,7 @@ def draw_ypaint_about(self, context):
 
     # Credits UI currently doesn't work with legacy blenders
     if is_bl_newer_than(2, 80):
-        check_contributors(ypc)
+        check_contributors()
     
     collaborators = get_collaborators()
     contributors = collaborators.contributors

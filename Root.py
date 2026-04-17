@@ -3295,6 +3295,35 @@ class YFixMissingData(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YRemoveMio3Checker(bpy.types.Operator):
+    bl_idname = "wm.y_remove_mio3_uv_checker"
+    bl_label = "Remove Mio3 UV Checker"
+    bl_description = "Remove Mio3 UV checker material"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.object
+
+    def execute(self, context):
+
+        # Switch to material view
+        space = bpy.context.space_data
+        if not is_bl_newer_than(2, 80):
+            space.viewport_shade = 'MATERIAL'
+        else: space.shading.type = 'MATERIAL'
+
+        # Remove Mio3 modifier
+        if hasattr(bpy.ops, 'mio3uv') and hasattr(bpy.ops.mio3uv, 'checker_map_cleanup'):
+            bpy.ops.mio3uv.checker_map_cleanup()
+        else:
+            obj = bpy.context.object
+            for mod in reversed(bpy.context.object.modifiers):
+                if mod.type == 'NODES' and mod.node_group and mod.node_group.name == 'Mio3MaterialOverride':
+                    obj.modifiers.remove(mod)
+
+        return {'FINISHED'}
+
 class YRefreshTangentSignVcol(bpy.types.Operator):
     bl_idname = "wm.y_refresh_tangent_sign_vcol"
     bl_label = "Refresh Tangent Sign "+get_vertex_color_label()+"s"
@@ -5453,6 +5482,7 @@ def register():
     bpy.utils.register_class(YDuplicateYPNodes)
     bpy.utils.register_class(YOptimizeNormalProcess)
     bpy.utils.register_class(YFixMissingData)
+    bpy.utils.register_class(YRemoveMio3Checker)
     bpy.utils.register_class(YRefreshTangentSignVcol)
     bpy.utils.register_class(YRemoveYPaintNode)
     bpy.utils.register_class(YCleanYPCaches)
@@ -5519,6 +5549,7 @@ def unregister():
     bpy.utils.unregister_class(YDuplicateYPNodes)
     bpy.utils.unregister_class(YOptimizeNormalProcess)
     bpy.utils.unregister_class(YFixMissingData)
+    bpy.utils.unregister_class(YRemoveMio3Checker)
     bpy.utils.unregister_class(YRefreshTangentSignVcol)
     bpy.utils.unregister_class(YRemoveYPaintNode)
     bpy.utils.unregister_class(YCleanYPCaches)

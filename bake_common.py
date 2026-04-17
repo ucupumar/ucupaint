@@ -283,6 +283,12 @@ def remember_before_bake(yp=None, mat=None):
         book['ori_col_hide_viewport'] = [c for c in bpy.data.collections if c.hide_viewport]
         book['ori_col_hide_render'] = [c for c in bpy.data.collections if c.hide_render]
 
+        # Remember space data
+        space = bpy.context.space_data
+        if space.type == 'VIEW_3D':
+            book['ori_space_show_object_viewport_mesh'] = space.show_object_viewport_mesh
+            book['ori_space_show_object_select_mesh'] = space.show_object_select_mesh
+
     else: 
         book['ori_hide_selects'] = [o for o in scene.objects if o.hide_select]
         book['ori_active_selected_objs'] = [o for o in scene.objects if o.select]
@@ -785,6 +791,13 @@ def prepare_bake_settings(
                     mod.show_viewport = False
                     book['obj_mods_lib'][obj.name]['disabled_viewport_mods'].append(mod.name)
 
+    # Make sure mesh objects are visible
+    if is_bl_newer_than(2, 80):
+        space = bpy.context.space_data
+        if space.type == 'VIEW_3D':
+            space.show_object_viewport_mesh = True
+            space.show_object_select_mesh = True
+
     # Disable auto temp uv update
     #ypui.disable_auto_temp_uv_update = True
 
@@ -980,6 +993,13 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
             if o in book['ori_hide_selects']:
                 o.hide_select = True
             else: o.hide_select = False
+
+        # Recover space data
+        space = bpy.context.space_data
+        if space.type == 'VIEW_3D':
+            space.show_object_viewport_mesh = book['ori_space_show_object_viewport_mesh']
+            space.show_object_select_mesh = book['ori_space_show_object_select_mesh']
+
     else:
         for o in scene.objects:
             if o in book['ori_active_selected_objs']:
@@ -1004,6 +1024,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         except: area.spaces[0].image = None
 
         area.spaces[0].use_image_pin = book['editor_pins'][i]
+
 
     # Recover active object
 
