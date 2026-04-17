@@ -2723,7 +2723,11 @@ def set_modifier_input_value(mod, socket_name, value):
     inp = get_tree_input_by_name(mod.node_group, socket_name)
     if not inp: return
 
-    mod[inp.identifier] = value
+    if is_bl_newer_than(5, 2):
+        mod_inp = getattr(mod.properties.inputs, inp.identifier)
+        mod_inp.value = value
+    else:
+        mod[inp.identifier] = value
 
 def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not is_bl_newer_than(4):
