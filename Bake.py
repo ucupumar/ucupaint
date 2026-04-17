@@ -386,7 +386,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_transfer_some_layer_uv"
     bl_label = "Transfer Some Layer UV"
     bl_description = "Transfer some layers/masks UV by baking it to other uv (this will take quite some time to finish)"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     from_uv_map : StringProperty(default='')
     uv_map : StringProperty(default='')
@@ -555,7 +555,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_transfer_layer_uv"
     bl_label = "Transfer Layer UV"
     bl_description = "Transfer Layer UV by baking it to other uv (this will take quite some time to finish)"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -2292,7 +2292,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_merge_layer"
     bl_label = "Merge layer"
     bl_description = "Merge Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -2340,7 +2340,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         self.invoke_operator(context)
 
         node = get_active_ypaint_node()
-        yp = self.yp = node.node_tree.yp
+        yp = node.node_tree.yp
 
         # Get active layer
         layer_idx = self.layer_idx = yp.active_layer_index
@@ -2416,7 +2416,10 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
     def draw(self, context):
         row = split_layout(self.layout, 0.5)
 
-        main_ch = self.yp.channels[int(self.channel_idx)]
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        main_ch = yp.channels[int(self.channel_idx)]
         ch = self.layer.channels[int(self.channel_idx)]
         blend_type = ch.blend_type if main_ch.type != 'NORMAL' else ch.normal_blend_type
 

@@ -1304,7 +1304,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         T = time.time()
         node = get_active_ypaint_node()
-        self.yp = yp = node.node_tree.yp
+        yp = node.node_tree.yp
         tree = node.node_tree
         layer_tree = get_tree(self.layer)
 

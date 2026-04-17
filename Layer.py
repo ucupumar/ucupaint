@@ -654,8 +654,8 @@ class YNewVDMLayer(bpy.types.Operator):
     def invoke(self, context, event):
         ypup = get_user_preferences()
         obj = context.object
-        node = self.node = get_active_ypaint_node()
-        yp = self.yp = node.node_tree.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
         # Set default name
         name = obj.active_material.name + DEFAULT_NEW_VDM_SUFFIX
@@ -686,7 +686,8 @@ class YNewVDMLayer(bpy.types.Operator):
 
     def draw(self, context):
 
-        yp = self.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
         first_vdm = get_first_vdm_layer(yp)
 
         row = split_layout(self.layout, 0.4)
@@ -741,8 +742,8 @@ class YNewVDMLayer(bpy.types.Operator):
         T = time.time()
 
         wm = context.window_manager
-        node = self.node
-        yp = self.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
         mat = get_active_material()
         objs = get_all_objects_with_same_materials(mat)
@@ -1145,7 +1146,7 @@ class YNewLayer(bpy.types.Operator):
 
         ypup = get_user_preferences()
         node = get_active_ypaint_node()
-        yp = self.yp = node.node_tree.yp
+        yp = node.node_tree.yp
         obj = context.object
 
         if self.type == 'IMAGE':
@@ -1271,7 +1272,7 @@ class YNewLayer(bpy.types.Operator):
 
             obj = context.object
 
-            uv_name = get_default_uv_name(obj, self.yp)
+            uv_name = get_default_uv_name(obj, yp)
             self.mask_uv_name = uv_name
 
         # Update image interpolation
@@ -3021,7 +3022,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
     def invoke(self, context, event):
         obj = context.object
         node = get_active_ypaint_node()
-        yp = self.yp = node.node_tree.yp
+        yp = node.node_tree.yp
 
         if not is_object_work_with_uv(obj):
             self.texcoord_type = 'Generated'
