@@ -6532,7 +6532,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
         if ( 
             not ch.override
             and ch.gamma_space 
-            and root_ch.type != 'NORMAL' 
+            and root_ch.special_channel_type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
             and socket_input_name == 'Color' 
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
@@ -6540,10 +6540,10 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             return GAMMA
 
         # NOTE: Linear blending currently will only use gamma correction on normal channel
-        if not ch.override_1 and image and is_image_source_srgb(image, source) and root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
-            return 1.0 / GAMMA
+        #if not ch.override_1 and image and is_image_source_srgb(image, source) and root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
+        #    return 1.0 / GAMMA
 
-        if image and is_image_source_srgb(image, source) and root_ch.special_channel_type == 'NORMAL':
+        if image and is_image_source_srgb(image, source) and root_ch.special_channel_type == 'NORMAL' and (not ch.override or ch.override_type == 'IMAGE'):
             return 1.0 / GAMMA
 
         # NOTE: These two gamma correction are unused yet for simplicity and older file compatibility

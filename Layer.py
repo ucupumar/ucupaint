@@ -360,6 +360,14 @@ def add_new_layer(
             # Flip YZ is no longer enabled by default for faster calculation
             ch.vdisp_enable_flip_yz = False
 
+        if root_ch.special_channel_type == 'NORMAL':
+            # Set default override color for normal
+            ch.override_color = (0.5, 0.5, 1.0)
+
+        if root_ch.special_channel_type == 'VDISP':
+            # Flip YZ is no longer enabled by default for faster calculation
+            ch.vdisp_enable_flip_yz = False
+
         # Set linear node of layer channel
         check_layer_channel_linear_node(ch, layer, root_ch)
 
@@ -2131,15 +2139,15 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
 
     # NOTE: Most PBR textures are optimized to use 'displacement only without bump' in conjunction with normal map
     # Since this addon already produce normal map with the displacement, it's better to use only bump map by default
-    normal_map_priority : EnumProperty(
-        name = 'Normal Map Priority',
-        description = 'Normal map mode when bump and normal map are both found',
+    normal_height_priority : EnumProperty(
+        name = 'Height/Normal Map Priority',
+        description = 'What to do when height and normal map are both found',
         items = (
-            ('BUMP_MAP', 'Prioritize Bump Map', ''),
-            ('NORMAL_MAP', 'Prioritize Normal Map', ''),
-            ('BUMP_NORMAL_MAP', 'Use both Bump and Normal Map', '')
+            ('HEIGHT_ONLY', 'Height Map Only', ''),
+            ('NORMAL_ONLY', 'Normal Map Only', ''),
+            ('BOTH', 'Both Height and Normal Map', '')
         ),
-        default = 'BUMP_MAP'
+        default = 'HEIGHT_ONLY'
     )
 
     normal_map_flip_y : BoolProperty(
@@ -2243,10 +2251,10 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
             'ambient occlusion' : ['ao'], 
             'metallic' : ['metalness', 'm'],
             'roughness' : ['glossiness', 'smoothness', 'r'],
-            'normal' : ['displacement', 'height', 'bump', 'n'], # Prioritize displacement/bump before actual normal map
+            #'normal' : ['displacement', 'height', 'bump', 'n'], # Prioritize displacement/bump before actual normal map
+            'normal' : ['n'],
+            'height' : ['displacement', 'bump']
         }
-
-        bump_synonyms = ['displacement', 'height', 'bump']
 
         wm = context.window_manager
         node = get_active_ypaint_node()
@@ -2256,7 +2264,6 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
 
             # One channel will only use one image
             if ch in valid_channels: continue
-
             ch_name = ch.name.lower()
 
             # Get synonyms
@@ -2266,8 +2273,6 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
             synonyms.append(ch_name)
 
             # Normal channel can use both bump and normal override images
-            bump_image_found = False
-            normal_image_found = False
             main_image_found = False
                 
             for syname in synonyms:
@@ -2278,7 +2283,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                 for image in images:
 
                     # DirectX image will be skipped if there's OpenGL image
-                    if ch.type == 'NORMAL' and dx_image and gl_image and image == dx_image:
+                    if ch.special_channel_type == 'NORMAL' and dx_image and gl_image and image == dx_image:
                         continue
 
                     if image in channel_image_dict.values():
@@ -2303,22 +2308,12 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                     # Check if synonym is in image name
                     if self.is_synonym_in_image_name(syname, alias):
 
-                        if (ch.type != 'NORMAL' or 
-                            (syname in bump_synonyms and not bump_image_found) or # Only proceed if bump image is not yet found
-                            (syname not in bump_synonyms and not normal_image_found) # Only proceed if normal image is not yet found
-                            ):
-                            valid_images.append(image)
-                            valid_channels.append(ch)
-                            valid_synonyms.append(syname)
+                        valid_images.append(image)
+                        valid_channels.append(ch)
+                        valid_synonyms.append(syname)
 
-                            if ch.type == 'NORMAL':
-                                if syname in bump_synonyms:
-                                    bump_image_found = True
-                                else: normal_image_found = True
-
-                        if ch.type != 'NORMAL' or (bump_image_found and normal_image_found):
-                            main_image_found = True
-                            break
+                        main_image_found = True
+                        break
 
         if not valid_images:
             # Remove loaded images
@@ -2328,15 +2323,6 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                 remove_datablock(bpy.data.images, image)
             return False
 
-        # Check if found more than 1 images for normal channel
-        
-        if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
-            normal_map_type = self.normal_map_priority
-        elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] in {'normal', 'n'}]):
-            normal_map_type = 'NORMAL_MAP'
-        else: normal_map_type = 'BUMP_MAP'
-
-        #if valid_channels and valid_channels[0]
         layer = None
         main_image = None
         for i, image in enumerate(valid_images):
@@ -2362,7 +2348,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                     group_tree=node.node_tree, layer_name=image.name,
                     layer_type='IMAGE', channel_idx=int(ch_idx),
                     blend_type='MIX', normal_blend_type='MIX', 
-                    normal_map_type=normal_map_type, texcoord_type=self.texcoord_type,
+                    normal_map_type='BUMP_MAP', texcoord_type=self.texcoord_type,
                     uv_name=self.uv_map, image=image,
                     vcol=None, segment=None, solid_color=(1, 1, 1), 
                     add_mask=self.add_mask, mask_type=self.mask_type, mask_color=self.mask_color, mask_use_hdr=self.mask_use_hdr, 
@@ -2376,30 +2362,28 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
             else:
                 ch = layer.channels[ch_idx]
                 ch.enable = True
-                if root_ch.type == 'NORMAL' and (syname in {'normal', 'n'} or 'normal without bump' in image.name.lower()):
-                    if image == main_image:
-                        ch.override_1 = False
-                    else:
-                        image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
-                        image_node.image = image
-                        ch.override_1 = True
-                        ch.override_1_type = 'IMAGE'
-                    if (self.normal_map_flip_y and (not gl_image or gl_image != image)) or (dx_image and dx_image == image):
-                        ch.image_flip_y = True
+
+                image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+                image_node.image = image
+                if root_ch.special_channel_type == 'HEIGHT': image_node.interpolation = 'Cubic'
+
+                # Add invert modifier for glosiness
+                if syname in {'glossiness', 'smoothness'}:
+                    Modifier.add_new_modifier(ch, 'INVERT')
+
+                if image == main_image:
+                    ch.override = False
                 else:
-                    image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
-                    image_node.image = image
-                    if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT': image_node.interpolation = 'Cubic'
+                    ch.override = True
+                    ch.override_type = 'IMAGE'
 
-                    # Add invert modifier for glosiness
-                    if syname in {'glossiness', 'smoothness'}:
-                        Modifier.add_new_modifier(ch, 'INVERT')
-
-                    if image == main_image:
-                        ch.override = False
-                    else:
-                        ch.override = True
-                        ch.override_type = 'IMAGE'
+        # Normal/height priority
+        normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
+        if normal_ch and height_ch:
+            if self.normal_height_priority == 'HEIGHT_ONLY':
+                normal_ch.enable = False
+            elif self.normal_height_priority == 'NORMAL_ONLY':
+                height_ch.enable = False
 
         # Check image projections
         check_layer_projections(layer)
@@ -2457,10 +2441,6 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
 
-        # Normal map is the default
-        #self.normal_map_type = 'NORMAL_MAP'
-
-        #return context.window_manager.invoke_props_dialog(self)
     def draw_operator(self, context, display_relative_toggle=True):
         obj = context.object
         node = get_active_ypaint_node()
@@ -3083,10 +3063,10 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         col.label(text='Interpolation:')
         col.label(text='Vector:')
         col.label(text='Channel:')
-        if channel and channel.type == 'NORMAL':
-            col.label(text='Type:')
-            if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                col.label(text='Space:')
+        #if channel and channel.type == 'NORMAL':
+        #    col.label(text='Type:')
+        #    if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+        #        col.label(text='Space:')
 
         col = row.column()
         if self.file_browser_filepath != '':

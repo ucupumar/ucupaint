@@ -182,6 +182,10 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         # New channel is disabled in layer by default
         layer.channels[last_index].enable = enable
 
+        # For normal channel, set default channel override color to default normal
+        if special_channel_type == 'NORMAL':
+            layer.channels[last_index].override_color = (0.5, 0.5, 1.0)
+
     if channel_type in {'RGB', 'VALUE'}:
         if non_color:
             channel.colorspace = 'LINEAR'
