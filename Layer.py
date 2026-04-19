@@ -2479,7 +2479,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
 
         if not yp or height_root_ch:
             crow = col.row(align=True)
-            crow.prop(self, 'normal_map_priority', text='')
+            crow.prop(self, 'normal_height_priority', text='')
             crow.prop(self, 'normal_map_flip_y', text='', icon_value=lib.get_icon('g'))
 
         col.prop(self, 'add_mask', text='Add Mask')
