@@ -2995,7 +2995,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         vdisp_proc = nodes.get(ch.vdisp_proc)
         vdisp_blend = None
 
-        if root_ch.type == 'NORMAL':
+        # TODO: Actually remove these normal codepath since it can cause error while updating
+        if False and root_ch.type == 'NORMAL':
 
             write_height = get_write_height(ch)
 
