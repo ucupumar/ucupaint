@@ -466,7 +466,7 @@ def prepare_other_objs_channels(yp, other_objs):
         for o in other_objs:
 
             # Normal channel will always use any objects
-            if ch.type == 'NORMAL':
+            if ch.special_channel_type == 'NORMAL':
                 objs.append(o)
                 continue
 
@@ -1719,7 +1719,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
     # Create setup nodes
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
-    if root_ch.type == 'NORMAL':
+    if root_ch.special_channel_type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
         if is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
@@ -1735,7 +1735,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
 
     # Links to bake
     rgb = node.outputs[root_ch.name]
-    if root_ch.type == 'NORMAL':
+    if root_ch.special_channel_type == 'NORMAL':
         rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
 
     if extra_channel:
@@ -1814,7 +1814,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, emit)
-    if root_ch.type == 'NORMAL':
+    if root_ch.special_channel_type == 'NORMAL':
         simple_remove_node(mat.node_tree, norm)
 
     if extra_channel:
@@ -2070,7 +2070,7 @@ def bake_channel(
     # Check if baking fake lighting is necessary
     # NOTE: Only needed for Blender 2.80 or less because those are the only versions that can use non-baked fake lighting as bump
     ori_bprops_name = bprops['name'] if bprops else ''
-    if not is_bl_newer_than(2, 81) and root_ch.type == 'NORMAL':
+    if not is_bl_newer_than(2, 81) and root_ch.special_channel_type == 'NORMAL':
         for lay in yp.layers:
             if not lay.enable: continue
             if channel_idx >= len(lay.channels): continue
@@ -2293,7 +2293,7 @@ def bake_channel(
             img = bpy.data.images.new(
                 name=img_name, width=width, height=height,
                 alpha=True, tiled=True,
-                float_buffer = (root_ch.type == 'NORMAL' and use_float_for_normal) or use_hdr
+                float_buffer = (root_ch.special_channel_type == 'NORMAL' and use_float_for_normal) or use_hdr
             )
 
             # Fill tiles
@@ -2312,7 +2312,7 @@ def bake_channel(
             # Create new standard image
             img = bpy.data.images.new(
                 name=img_name, width=width, height=height, alpha=True,
-                float_buffer = (root_ch.type == 'NORMAL' and use_float_for_normal) or use_hdr
+                float_buffer = (root_ch.special_channel_type == 'NORMAL' and use_float_for_normal) or use_hdr
             )
             img.generated_type = 'BLANK'
 
@@ -2329,7 +2329,7 @@ def bake_channel(
             img.filepath = filepath
 
         # Set colorspace to linear
-        if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL' or (root_ch.type != 'NORMAL' and use_hdr):
+        if root_ch.colorspace == 'LINEAR' or root_ch.special_channel_type == 'NORMAL' or (root_ch.special_channel_type != 'NORMAL' and use_hdr):
             img.colorspace_settings.name = get_noncolor_name()
         else: img.colorspace_settings.name = get_srgb_name()
 
@@ -2392,7 +2392,7 @@ def bake_channel(
         bake_object_op(scene.cycles.bake_type)
 
         # Revert back the original bake settings
-        if root_ch.type == 'NORMAL' and bsdf:
+        if root_ch.special_channel_type == 'NORMAL' and bsdf:
             scene.cycles.bake_type = 'EMIT'
             scene.render.bake.normal_space = ori_normal_space
             mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
@@ -3610,7 +3610,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     oo.hide_render = True
                 else: oo.hide_render = False
 
-            if root_ch.type == 'NORMAL':
+            if root_ch.special_channel_type == 'NORMAL':
                 bake_type = 'NORMAL'
 
                 # Set back original socket
@@ -3723,9 +3723,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 root_ch = yp.channels[idx]
                 ch = layer.channels[idx]
 
-                if root_ch.type == 'NORMAL':
-                    source = get_channel_source_1(ch, layer)
-                else: source = get_channel_source(ch, layer)
+                #if root_ch.type == 'NORMAL':
+                #    source = get_channel_source_1(ch, layer)
+                #else: source = get_channel_source(ch, layer)
+                source = get_channel_source(ch, layer)
 
                 if source and hasattr(source, 'image') and source.image and not source.image.packed_file and source.image.filepath != '':
                     image.filepath = source.image.filepath
@@ -4076,15 +4077,15 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             if not ch.enable: ch.enable = True
 
             # Normal channel will use second override
-            if root_ch.type == 'NORMAL':
-                if ch.normal_map_type != 'NORMAL_MAP': ch.normal_map_type = 'NORMAL_MAP'
-                if not ch.override_1: ch.override_1 = True
-                if ch.override_1_type != 'IMAGE': ch.override_1_type = 'IMAGE'
-                source = get_channel_source_1(ch, layer)
-            else:
-                if not ch.override: ch.override = True
-                if ch.override_type != 'IMAGE': ch.override_type = 'IMAGE'
-                source = get_channel_source(ch, layer)
+            #if root_ch.type == 'NORMAL':
+            #    if ch.normal_map_type != 'NORMAL_MAP': ch.normal_map_type = 'NORMAL_MAP'
+            #    if not ch.override_1: ch.override_1 = True
+            #    if ch.override_1_type != 'IMAGE': ch.override_1_type = 'IMAGE'
+            #    source = get_channel_source_1(ch, layer)
+            #else:
+            if not ch.override: ch.override = True
+            if ch.override_type != 'IMAGE': ch.override_type = 'IMAGE'
+            source = get_channel_source(ch, layer)
 
             # If image already exists on source
             old_image = None
