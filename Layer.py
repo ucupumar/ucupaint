@@ -2704,7 +2704,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
         # Images to be processed
         images = []
 
-        # channel name and their image dictionary
+        # Channel name and their image dictionary
         channel_image_dict = {}
 
         # Get active material output
@@ -2719,13 +2719,20 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
 
             bsdf_node = get_closest_bsdf_backward(output)
 
-            for inp in bsdf_node.inputs:
-                if inp.is_linked:
-                    for link in inp.links:
-                        ch_name = inp.name
-                        if ch_name == "Base Color":
-                            ch_name = "Color"
-                        search_for_image_node(link.from_node, ch_name, channel_image_dict)
+            if bsdf_node:
+                for inp in bsdf_node.inputs:
+                    if inp.is_linked:
+                        for link in inp.links:
+                            ch_name = inp.name
+                            if ch_name == "Base Color":
+                                ch_name = "Color"
+                            search_for_image_node(link.from_node, ch_name, channel_image_dict)
+            else:
+                # Check image node connected directly to material output
+                image_node = get_closest_image_node_backward(output)
+                if image_node:
+                    images.append(image_node.image)
+                    channel_image_dict['Color'] = image_node.image
 
             for img in channel_image_dict.values():
                 if img not in images: images.append(img)

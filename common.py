@@ -7807,6 +7807,20 @@ def get_closest_bsdf_backward(node, valid_types=[], include_any=False):
 
     return None
 
+def get_closest_image_node_backward(node):
+    for inp in node.inputs:
+        # NOTE: Only check for image connected to surface socket for now
+        if node.type == 'OUTPUT_MATERIAL' and inp.name != 'Surface': continue
+        for link in inp.links:
+            n = link.from_node
+            if n.type == 'TEX_IMAGE' and n.image:
+                return n
+            else:
+                n = get_closest_image_node_backward(link.from_node)
+                if n: return n
+
+    return None
+
 def get_closest_bsdf_forward(node, valid_types=[]):
     for outp in node.outputs:
         for link in outp.links:
