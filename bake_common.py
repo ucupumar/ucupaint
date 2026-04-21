@@ -268,6 +268,12 @@ def remember_before_bake(yp=None, mat=None):
     if active_render_uvs:
         book['ori_active_render_uv'] = active_render_uvs[0].name
 
+    # Remember if 3d viewport is in local view
+    space = bpy.context.space_data
+    if space.type == 'VIEW_3D':
+        book['ori_space_local_view'] = space.local_view
+        book['ori_space_view_matrix'] = space.region_3d.view_matrix.copy()
+
     # Remember scene objects
     if is_bl_newer_than(2, 80):
         book['ori_hide_selects'] = [o for o in bpy.context.view_layer.objects if o.hide_select]
@@ -284,7 +290,6 @@ def remember_before_bake(yp=None, mat=None):
         book['ori_col_hide_render'] = [c for c in bpy.data.collections if c.hide_render]
 
         # Remember space data
-        space = bpy.context.space_data
         if space.type == 'VIEW_3D':
             book['ori_space_show_object_viewport_mesh'] = space.show_object_viewport_mesh
             book['ori_space_show_object_select_mesh'] = space.show_object_select_mesh
@@ -791,12 +796,18 @@ def prepare_bake_settings(
                     mod.show_viewport = False
                     book['obj_mods_lib'][obj.name]['disabled_viewport_mods'].append(mod.name)
 
-    # Make sure mesh objects are visible
-    if is_bl_newer_than(2, 80):
-        space = bpy.context.space_data
-        if space.type == 'VIEW_3D':
+    space = bpy.context.space_data
+
+    if space.type == 'VIEW_3D':
+        # Make sure mesh objects are visible
+        if is_bl_newer_than(2, 80):
             space.show_object_viewport_mesh = True
             space.show_object_select_mesh = True
+
+        # Use global view
+        if space.local_view:
+            try: bpy.ops.view3d.localview()
+            except: pass
 
     # Disable auto temp uv update
     #ypui.disable_auto_temp_uv_update = True
@@ -1025,8 +1036,14 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
 
         area.spaces[0].use_image_pin = book['editor_pins'][i]
 
-
-    # Recover active object
+    # Recover local view
+    space = bpy.context.space_data
+    if space.type == 'VIEW_3D':
+        if book['ori_space_local_view'] and not space.local_view:
+            try: bpy.ops.view3d.localview()
+            except: pass
+            if 'ori_space_view_matrix' in book:
+                space.region_3d.view_matrix = book['ori_space_view_matrix']
 
     # Recover ypui
     #ypui.disable_auto_temp_uv_update = book['ori_disable_temp_uv']
