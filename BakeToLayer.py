@@ -1550,7 +1550,9 @@ class YSelectAllOtherObjects(bpy.types.Operator):
             so = context.bake_info.other_objects[i]
             if so.object:
                 so_object = so.object
-                so_object.hide_viewport = False
+                if is_bl_newer_than(2, 80):
+                    so_object.hide_viewport = False
+                else: set_object_hide(so_object, False)
                 so_object.hide_render = False
                 set_object_select(so_object, True)
         if so_object:
@@ -1580,11 +1582,13 @@ class YToggleOtherObjectsVisibility(bpy.types.Operator):
         if not reference_obj:
             return {'CANCELLED'}
 
-        current_hidden_state = reference_obj.hide_viewport
+        current_hidden_state = reference_obj.hide_viewport if is_bl_newer_than(2, 80) else get_object_hide(reference_obj)
 
         for oo in bi.other_objects:
             if oo.object:
-                oo.object.hide_viewport = not current_hidden_state
+                if is_bl_newer_than(2, 80):
+                    oo.object.hide_viewport = not current_hidden_state
+                else: set_object_hide(oo.object, not current_hidden_state)
                 oo.object.hide_render = not current_hidden_state
 
         return {'FINISHED'}
