@@ -356,20 +356,32 @@ def add_active_render_uv_node(tree, active_render_uv_name):
 
 def realize_particle_instances(objs):
 
+    space = bpy.context.space_data
+
     # Remember active object
     ori_active_object = bpy.context.object
+
+    # Make sure it's in global view
+    ori_local_view = False
+    ori_view_matrix = None
+    if space.type == 'VIEW_3D' and space.local_view:
+        ori_local_view = True
+        ori_view_matrix = space.region_3d.view_matrix.copy()
+
+        try: bpy.ops.view3d.localview()
+        except: pass
 
     realized_objs = []
 
     # Check for particles
     for obj in objs:
-        hair_found = False
+        instance_found = False
         for ps in obj.particle_systems:
-            if ps.settings.type == 'HAIR' and ps.settings.render_type in {'OBJECT', 'COLLECTION'}:
-                hair_found = True
+            if ps.settings.render_type in {'OBJECT', 'COLLECTION'}:
+                instance_found = True
                 break
 
-        if hair_found:
+        if instance_found:
 
             # Select object
             if is_bl_newer_than(2, 80):
@@ -381,6 +393,9 @@ def realize_particle_instances(objs):
             # Need to check current scene objects since they're will be compared to get realized objects
             cur_objs = [o for o in get_scene_objects()]
 
+            # NOTE: HACK: Move object sometimes needed before realizing the instance
+            bpy.ops.transform.translate()
+
             # Make hair instance real
             try: bpy.ops.object.duplicates_make_real()
             except: print('EXCEPTION: Particles in object "'+obj.name+'" cannot be realized!')
@@ -391,6 +406,12 @@ def realize_particle_instances(objs):
     # Recover active object
     if bpy.context.object != ori_active_object:
         set_active_object(ori_active_object)
+
+    # Recover local view
+    if ori_local_view:
+        try: bpy.ops.view3d.localview()
+        except: pass
+        space.region_3d.view_matrix = ori_view_matrix
 
     return realized_objs
 
@@ -3661,6 +3682,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         # Set bake image
         tex.image = image
         mat.node_tree.nodes.active = tex
+
+        print('BAKE TO LAYER: Baking "'+image_name+'"...')
 
         # Bake!
         try:
