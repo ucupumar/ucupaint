@@ -2395,6 +2395,9 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         elif self.direction == 'DOWN':
             neighbor_idx, neighbor_layer = self.neighbor_idx, self.neighbor_layer = get_lower_neighbor(layer)
 
+        # Force mix blending should enabled by default if the merge direction is up since it doesn't affect blending
+        self.force_mix_blending = self.direction == 'UP'
+
         if not neighbor_layer:
             self.error_message = "No neighbor found!"
 
@@ -2459,7 +2462,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         main_ch = yp.channels[int(self.channel_idx)]
         ch = self.layer.channels[int(self.channel_idx)]
-        blend_type = ch.blend_type if main_ch.type != 'NORMAL' else ch.normal_blend_type
+        if main_ch.special_channel_type == 'HEIGHT':
+            blend_type = ch.height_blend_type
+        elif main_ch.special_channel_type == 'NORMAL':
+            blend_type = ch.normal_blend_type
+        else: blend_type = ch.blend_type
 
         col = row.column(align=False)
         col.label(text='Main Channel:')
@@ -2525,7 +2532,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         merge_success = False
 
-        if (layer.type == 'IMAGE' and main_ch.type == 'NORMAL' and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
+        if (layer.type == 'IMAGE' and main_ch.special_channel_type == 'VECTOR_DISPLACEMENT_MAP'):
             self.report({'ERROR'}, "Merging VDM layers is not supported yet!")
             return self.execute_operator_cancelled(context)
 
@@ -2564,12 +2571,15 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             # Force to use mix on layer channel
             if self.force_mix_blending:
-                if main_ch.type != 'NORMAL':
-                    ori_blend_type = ch.blend_type
-                    ch.blend_type = 'MIX'
-                else:
+                if main_ch.special_channel_type == 'HEIGHT':
+                    ori_blend_type = ch.height_blend_type
+                    ch.height_blend_type = 'MIX'
+                elif main_ch.special_channel_type == 'NORMAL':
                     ori_blend_type = ch.normal_blend_type
                     ch.normal_blend_type = 'MIX'
+                else:
+                    ori_blend_type = ch.blend_type
+                    ch.blend_type = 'MIX'
 
             # New alpha channel can make the merging result goes blank, so disable it first
             color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
@@ -2582,6 +2592,12 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             ori_enable_alpha = main_ch.enable_alpha
             #yp.alpha_auto_setup = False
             main_ch.enable_alpha = True
+
+            # Enable normalize height for height channel
+            ori_use_height_normalize = False
+            if main_ch.special_channel_type == 'HEIGHT':
+                ori_use_height_normalize = main_ch.use_height_normalize
+                main_ch.use_height_normalize = True
 
             # Reconnect tree with merged layer ids
             reconnect_yp_nodes(tree, [layer_idx, neighbor_idx])
@@ -2610,13 +2626,19 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             main_ch.enable_alpha = ori_enable_alpha
             #yp.alpha_auto_setup = True
 
+            # Recover height normalize
+            if main_ch.special_channel_type == 'HEIGHT':
+                main_ch.use_height_normalize = ori_use_height_normalize
+
             if alpha_ch and ori_alpha_pair != '':
                 alpha_ch.alpha_pair_name = ori_alpha_pair
 
             if self.force_mix_blending:
-                if main_ch.type != 'NORMAL':
-                    ch.blend_type = ori_blend_type
-                else: ch.normal_blend_type = ori_blend_type
+                if main_ch.special_channel_type == 'HEIGHT':
+                    ch.height_blend_type = ori_blend_type
+                elif main_ch.special_channel_type == 'NORMAL':
+                    ch.normal_blend_type = ori_blend_type
+                else: ch.blend_type = ori_blend_type
 
             # Set all channel intensity value to 1.0
             for c in layer.channels:

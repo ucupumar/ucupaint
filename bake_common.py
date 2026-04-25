@@ -2578,8 +2578,10 @@ def bake_channel(
 
             # Bake maximum height / height scale
             max_height_value = get_bake_max_height(root_ch, mat, node, tex, emit)
-            end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
-            end_max_height.outputs[0].default_value = max_height_value
+            if not target_layer:
+                end_max_height = check_new_node(tree, root_ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+                end_max_height.outputs[0].default_value = max_height_value
+            elif ch: set_entity_prop_value(ch, 'bump_distance', max_height_value)
 
             # Recover default height scale value
             inp_height = node.inputs.get(root_ch.name)
