@@ -268,6 +268,12 @@ def remember_before_bake(yp=None, mat=None):
     if active_render_uvs:
         book['ori_active_render_uv'] = active_render_uvs[0].name
 
+    # Remember if 3d viewport is in local view
+    space = bpy.context.space_data
+    if space.type == 'VIEW_3D':
+        book['ori_space_local_view'] = space.local_view
+        book['ori_space_view_matrix'] = space.region_3d.view_matrix.copy()
+
     # Remember scene objects
     if is_bl_newer_than(2, 80):
         book['ori_hide_selects'] = [o for o in bpy.context.view_layer.objects if o.hide_select]
@@ -284,7 +290,6 @@ def remember_before_bake(yp=None, mat=None):
         book['ori_col_hide_render'] = [c for c in bpy.data.collections if c.hide_render]
 
         # Remember space data
-        space = bpy.context.space_data
         if space.type == 'VIEW_3D':
             book['ori_space_show_object_viewport_mesh'] = space.show_object_viewport_mesh
             book['ori_space_show_object_select_mesh'] = space.show_object_select_mesh
@@ -349,6 +354,67 @@ def add_active_render_uv_node(tree, active_render_uv_name):
         if n.type == 'GROUP' and n.node_tree and not n.node_tree.yp.is_ypaint_node:
             add_active_render_uv_node(n.node_tree, active_render_uv_name)
 
+def realize_particle_instances(objs):
+
+    space = bpy.context.space_data
+
+    # Remember active object
+    ori_active_object = bpy.context.object
+
+    # Make sure it's in global view
+    ori_local_view = False
+    ori_view_matrix = None
+    if space.type == 'VIEW_3D' and space.local_view:
+        ori_local_view = True
+        ori_view_matrix = space.region_3d.view_matrix.copy()
+
+        try: bpy.ops.view3d.localview()
+        except: pass
+
+    realized_objs = []
+
+    # Check for particles
+    for obj in objs:
+        instance_found = False
+        for ps in obj.particle_systems:
+            if ps.settings.render_type in {'OBJECT', 'COLLECTION'}:
+                instance_found = True
+                break
+
+        if instance_found:
+
+            # Select object
+            if is_bl_newer_than(2, 80):
+                obj.hide_viewport = False
+            set_object_hide(obj, False)
+            set_object_select(obj, True)
+            set_active_object(obj)
+
+            # Need to check current scene objects since they're will be compared to get realized objects
+            cur_objs = [o for o in get_scene_objects()]
+
+            # NOTE: HACK: Move object sometimes needed before realizing the instance
+            bpy.ops.transform.translate()
+
+            # Make hair instance real
+            try: bpy.ops.object.duplicates_make_real()
+            except: print('EXCEPTION: Particles in object "'+obj.name+'" cannot be realized!')
+
+            # Get realized particle objects
+            realized_objs.extend([o for o in get_scene_objects() if o not in cur_objs])
+
+    # Recover active object
+    if bpy.context.object != ori_active_object:
+        set_active_object(ori_active_object)
+
+    # Recover local view
+    if ori_local_view:
+        try: bpy.ops.view3d.localview()
+        except: pass
+        space.region_3d.view_matrix = ori_view_matrix
+
+    return realized_objs
+
 def prepare_other_objs_colors(yp, other_objs):
 
     other_mats = []
@@ -360,6 +426,10 @@ def prepare_other_objs_colors(yp, other_objs):
     ori_mat_no_nodes = []
 
     valid_bsdf_types = ['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']
+
+    # Realize particle instances
+    other_temp_objs = realize_particle_instances(other_objs)
+    other_objs.extend(other_temp_objs)
 
     for o in other_objs:
         # Set new material if there's no material
@@ -439,7 +509,7 @@ def prepare_other_objs_colors(yp, other_objs):
                 other_alpha_sockets.append(alpha_socket)
                 other_alpha_defaults.append(alpha_default)
 
-    return other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes
+    return other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes, other_temp_objs
 
 def prepare_other_objs_channels(yp, other_objs):
     ch_other_objects = []
@@ -451,6 +521,10 @@ def prepare_other_objs_channels(yp, other_objs):
     ch_other_alpha_defaults = []
 
     ori_mat_no_nodes = []
+
+    # Realize particle instances
+    other_temp_objs = realize_particle_instances(other_objs)
+    other_objs.extend(other_temp_objs)
 
     valid_bsdf_types = ['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']
 
@@ -598,7 +672,7 @@ def prepare_other_objs_channels(yp, other_objs):
         ch_other_alpha_sockets.append(alpha_sockets)
         ch_other_alpha_defaults.append(alpha_defaults)
 
-    return ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes
+    return ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes, other_temp_objs
 
 def recover_other_objs_channels(other_objs, ori_mat_no_nodes):
     for o in other_objs:
@@ -791,12 +865,18 @@ def prepare_bake_settings(
                     mod.show_viewport = False
                     book['obj_mods_lib'][obj.name]['disabled_viewport_mods'].append(mod.name)
 
-    # Make sure mesh objects are visible
-    if is_bl_newer_than(2, 80):
-        space = bpy.context.space_data
-        if space.type == 'VIEW_3D':
+    space = bpy.context.space_data
+
+    if space.type == 'VIEW_3D':
+        # Make sure mesh objects are visible
+        if is_bl_newer_than(2, 80):
             space.show_object_viewport_mesh = True
             space.show_object_select_mesh = True
+
+        # Use global view
+        if space.local_view:
+            try: bpy.ops.view3d.localview()
+            except: pass
 
     # Disable auto temp uv update
     #ypui.disable_auto_temp_uv_update = True
@@ -1025,8 +1105,14 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
 
         area.spaces[0].use_image_pin = book['editor_pins'][i]
 
-
-    # Recover active object
+    # Recover local view
+    space = bpy.context.space_data
+    if space.type == 'VIEW_3D':
+        if book['ori_space_local_view'] and not space.local_view:
+            try: bpy.ops.view3d.localview()
+            except: pass
+            if 'ori_space_view_matrix' in book:
+                space.region_3d.view_matrix = book['ori_space_view_matrix']
 
     # Recover ypui
     #ypui.disable_auto_temp_uv_update = book['ori_disable_temp_uv']
@@ -2968,6 +3054,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     # Get other objects for other object baking
     other_objs = []
     
+    # To hold temporary objects
+    temp_objs = []
+    instanced_temp_objs = []
+
     if bprops.type.startswith('OTHER_OBJECT_'):
 
         # Get other objects based on selected objects with different material
@@ -2999,10 +3089,15 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                             other_objs.append(o)
 
         if bprops.type == 'OTHER_OBJECT_EMISSION':
-            other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_colors(yp, other_objs)
+            other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes, instanced_temp_objs = prepare_other_objs_colors(yp, other_objs)
 
         elif bprops.type == 'OTHER_OBJECT_CHANNELS':
-            ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_channels(yp, other_objs)
+            ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes, instanced_temp_objs = prepare_other_objs_channels(yp, other_objs)
+
+        else: instanced_temp_objs = realize_particle_instances(other_objs)
+
+        # Add temporary instanced objects to other objects list
+        other_objs.extend(instanced_temp_objs)
 
         if not other_objs:
             if overwrite_img:
@@ -3047,9 +3142,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             height_root_ch.enable_subdiv_setup = True
             subdiv_setup_changes = True
 
-    # To hold temporary objects
-    temp_objs = []
-
     # Sometimes Cavity bake will create temporary objects
     if (bprops.type == 'CAVITY' and (bprops.subsurf_influence or bprops.use_baked_disp)):
 
@@ -3068,7 +3160,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             tanimage, bitimage = vector_displacement.get_tangent_bitangent_images(objs[0], bprops.uv_map)
 
             # Duplicate object
-            objs = temp_objs = [get_merged_mesh_objects(scene, objs, True, disable_problematic_modifiers=False)]
+            temp_objs.extend([get_merged_mesh_objects(scene, objs, True, disable_problematic_modifiers=False)])
+            objs = temp_objs
 
             # Use VDM loader geometry nodes
             # NOTE: Geometry nodes currently does not support UDIM, so using UDIM will cause wrong bake result
@@ -3084,19 +3177,21 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             remove_datablock(bpy.data.images, combined_vdm_image)
 
         else:
-            objs = temp_objs = get_duplicated_mesh_objects(scene, objs, True)
+            temp_objs.extend(get_duplicated_mesh_objects(scene, objs, True))
+            objs = temp_objs
 
     # Join objects then extend with other objects
     elif bprops.type.startswith('OTHER_OBJECT_'):
         if len(objs) > 1:
             objs = [get_merged_mesh_objects(scene, objs)]
-            temp_objs = objs.copy()
+            temp_objs.extend(objs.copy())
 
         objs.extend(other_objs)
 
     # Join objects if the number of objects is higher than one
     elif not bprops.type.startswith('MULTIRES_') and len(objs) > 1 and not is_join_objects_problematic(yp):
-        objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
+        temp_objs.extend([get_merged_mesh_objects(scene, objs, True)])
+        objs = temp_objs
 
     fill_mode = 'FACE'
     obj_vertex_indices = {}
@@ -3735,6 +3830,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         tex.image = image
         mat.node_tree.nodes.active = tex
 
+        print('BAKE TO LAYER: Baking "'+image_name+'"...')
+
         # Bake!
         try:
             if bprops.type.startswith('MULTIRES_'):
@@ -4280,13 +4377,20 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     # Hide other objects after baking
     if is_bl_newer_than(2, 79) and bprops.type.startswith('OTHER_OBJECT_') and other_objs and bprops.hide_source_objects:
         for oo in other_objs:
-            oo.hide_viewport = True
+            if is_bl_newer_than(2, 80):
+                oo.hide_viewport = True
+            else: set_object_hide(oo, True)
             oo.hide_render = True
 
     # Remove temporary objects
     if temp_objs:
         for o in temp_objs:
             remove_mesh_obj(o)
+
+    # Remove instance temporary objects
+    if instanced_temp_objs:
+        for o in instanced_temp_objs:
+            remove_datablock(bpy.data.objects, o)
 
     # Check linear nodes becuse sometimes bake results can be linear or srgb
     check_yp_linear_nodes(yp, reconnect=True)
