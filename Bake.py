@@ -2410,22 +2410,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         elif neighbor_layer.type == 'GROUP' or layer.type == 'GROUP':
             self.error_message = "Merge doesn't works with layer group!"
 
-        # Get height channnel
-        height_root_ch = self.height_root_ch = get_root_height_channel(yp)
-
-        if height_root_ch and neighbor_layer:
-            height_ch_idx = self.height_ch_idx = get_channel_index(height_root_ch)
-            height_ch = self.height_ch = layer.channels[height_ch_idx] 
-            neighbor_height_ch = self.neighbor_height_ch = neighbor_layer.channels[height_ch_idx] 
-
-            if (layer.channels[height_ch_idx].enable and 
-                neighbor_layer.channels[height_ch_idx].enable):
-                if height_ch.normal_map_type != neighbor_height_ch.normal_map_type:
-                    self.error_message =  "These two layers has different normal map type!"
-        else:
-            height_ch = self.height_ch = None
-            neighbor_height_ch = self.neighbor_height_ch = None
-
         # Get source
         self.source = get_layer_source(layer)
 
@@ -2517,11 +2501,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         neighbor_idx = self.neighbor_idx
         source = self.source
 
-        # Height channel
-        height_root_ch = self.height_root_ch
-        height_ch = self.height_ch
-        neighbor_height_ch = self.neighbor_height_ch
-
         # Get main reference channel
         main_ch = yp.channels[int(self.channel_idx)]
         ch = layer.channels[int(self.channel_idx)]
@@ -2532,8 +2511,16 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         merge_success = False
 
-        if (layer.type == 'IMAGE' and main_ch.special_channel_type == 'VECTOR_DISPLACEMENT_MAP'):
+        if layer.type == 'IMAGE' and main_ch.special_channel_type == 'VECTOR_DISPLACEMENT_MAP':
             self.report({'ERROR'}, "Merging VDM layers is not supported yet!")
+            return self.execute_operator_cancelled(context)
+
+        if layer.type == 'IMAGE' and main_ch.special_channel_type == 'HEIGHT' and (ch.use_height_as_normal or neighbor_ch.use_height_as_normal):
+            self.report({'ERROR'}, "Merging converted normal from height is not supported yet!")
+            return self.execute_operator_cancelled(context)
+
+        if layer.type == 'IMAGE' and main_ch.special_channel_type == 'NORMAL' and ch.normal_space != 'TANGENT':
+            self.report({'ERROR'}, "Merging non-tangent normal is not supported yet!")
             return self.execute_operator_cancelled(context)
 
         # Merge image layers
