@@ -1284,7 +1284,7 @@ def update_yp_tree(tree):
                 height_ch.enable_smooth_bump = False
 
                 # Move index
-                Root.set_channel_index(height_ch, normal_ch_idx)
+                Root.set_channel_index(height_ch, normal_ch_idx, move_fcurves=False)
 
                 # Get correct indices for normal and height channel
                 height_ch_idx = normal_ch_idx
@@ -1388,7 +1388,15 @@ def update_yp_tree(tree):
 
                 # TODO: Move modifiers
 
-                # TODO: Move keyframes/drivers
+                # Move keyframes/drivers
+                # TODO: Bump + Normal Map type is not considered yet
+                if hch:
+                    if nch.normal_map_type == 'NORMAL_MAP':
+                        swap_layer_channel_fcurves(layer, height_ch_idx, normal_ch_idx)
+                    elif vch and nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                        swap_layer_channel_fcurves(layer, height_ch_idx, vdm_ch_idx)
+                elif vch and nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
+                    swap_layer_channel_fcurves(layer, normal_ch_idx, vdm_ch_idx)
 
                 # Automatically enable new layer channel for group and background layers
                 if layer.type in {'GROUP', 'BACKGROUND'}:
