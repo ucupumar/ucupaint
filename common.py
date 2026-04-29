@@ -51,8 +51,44 @@ BUMP_MULTIPLY_TWEAK = 5
 TEMP_ACTIVE_IMAGE_NAME = '.YP_TEMP_ACTIVE_IMAGE'
 TEMP_ACTIVE_IMAGE_NODE_NAME = '.YP_TEMP_ACTIVE_IMAGE_NODE'
 
-def blend_type_items(self, context):
-    items = [
+def is_bl_newer_than(major, minor=0, patch=0):
+    return bpy.app.version >= (major, minor, patch)
+
+def is_bl_equal(major, minor=None, patch=None):
+    if minor == None and patch == None:
+        return bpy.app.version[0] == major
+    elif patch == None:
+        return bpy.app.version[:2] == (major, minor)
+    else:
+        return bpy.app.version == (major, minor, patch)
+
+def is_created_before(major, minor=0, patch=0):
+    return bpy.data.version < (major, minor, patch)
+
+if is_bl_newer_than(3, 5):
+    blend_type_items = [
+        ("MIX", "Mix", ""),
+        ("ADD", "Add", ""),
+        ("SUBTRACT", "Subtract", ""),
+        ("MULTIPLY", "Multiply", ""),
+        ("SCREEN", "Screen", ""),
+        ("OVERLAY", "Overlay", ""),
+        ("DIFFERENCE", "Difference", ""),
+        ("DIVIDE", "Divide", ""),
+        ("DARKEN", "Darken", ""),
+        ("LIGHTEN", "Lighten", ""),
+        ("HUE", "Hue", ""),
+        ("SATURATION", "Saturation", ""),
+        ("VALUE", "Value", ""),
+        ("COLOR", "Color", ""),
+        ("SOFT_LIGHT", "Soft Light", ""),
+        ("LINEAR_LIGHT", "Linear Light", ""),
+        ("DODGE", "Dodge", ""),
+        ("BURN", "Burn", ""),
+        ("EXCLUSION", "Exclusion", ""),
+    ]
+else:
+    blend_type_items = [
         ("MIX", "Mix", ""),
         ("ADD", "Add", ""),
         ("SUBTRACT", "Subtract", ""),
@@ -72,11 +108,6 @@ def blend_type_items(self, context):
         ("DODGE", "Dodge", ""),
         ("BURN", "Burn", ""),
     ]
-
-    if is_bl_newer_than(3, 5):
-        items.append(("EXCLUSION", "Exclusion", ""))
-
-    return items
 
 blend_type_labels = {
     "MIX" : "Mix",
@@ -100,8 +131,30 @@ blend_type_labels = {
     "EXCLUSION" : "Exclusion",
 }
 
-def mask_blend_type_items(self, context):
-    items = [
+if is_bl_newer_than(3, 5):
+    mask_blend_type_items = [
+        ("MIX", "Replace", ""),
+        ("ADD", "Add", ""),
+        ("SUBTRACT", "Subtract", ""),
+        ("MULTIPLY", "Multiply", ""),
+        ("SCREEN", "Screen", ""),
+        ("OVERLAY", "Overlay", ""),
+        ("DIFFERENCE", "Difference", ""),
+        ("DIVIDE", "Divide", ""),
+        ("DARKEN", "Darken", ""),
+        ("LIGHTEN", "Lighten", ""),
+        ("HUE", "Hue", ""),
+        ("SATURATION", "Saturation", ""),
+        ("VALUE", "Value", ""),
+        ("COLOR", "Color", ""),
+        ("SOFT_LIGHT", "Soft Light", ""),
+        ("LINEAR_LIGHT", "Linear Light", ""),
+        ("DODGE", "Dodge", ""),
+        ("BURN", "Burn", ""),
+        ("EXCLUSION", "Exclusion", ""),
+    ]
+else:
+    mask_blend_type_items = [
         ("MIX", "Replace", ""),
         ("ADD", "Add", ""),
         ("SUBTRACT", "Subtract", ""),
@@ -121,11 +174,6 @@ def mask_blend_type_items(self, context):
         ("DODGE", "Dodge", ""),
         ("BURN", "Burn", ""),
     ]
-
-    if is_bl_newer_than(3, 5):
-        items.append(("EXCLUSION", "Exclusion", ""))
-
-    return items
 
 voronoi_feature_items = (
     ("F1", "F1", "Compute and return the distance to the closest feature point as well as its position and color"),
@@ -714,20 +762,6 @@ def get_current_version():
 
 def is_online():
     return not is_bl_newer_than(4, 2) or bpy.app.online_access
-
-def is_bl_newer_than(major, minor=0, patch=0):
-    return bpy.app.version >= (major, minor, patch)
-
-def is_bl_equal(major, minor=None, patch=None):
-    if minor == None and patch == None:
-        return bpy.app.version[0] == major
-    elif patch == None:
-        return bpy.app.version[:2] == (major, minor)
-    else:
-        return bpy.app.version == (major, minor, patch)
-
-def is_created_before(major, minor=0, patch=0):
-    return bpy.data.version < (major, minor, patch)
 
 def get_bpytypes():
     if not is_bl_newer_than(2, 77):
@@ -3533,8 +3567,7 @@ def set_uv_mirror_offsets(obj, matrix):
 
     movec = Vector((mirror.mirror_offset_u / 2, mirror.mirror_offset_v / 2, 0.0))
     if is_bl_newer_than(2, 80):
-        # NOTE: For compatibility to older blenders, put matrix multiplication under eval
-        movec = eval('matrix @ movec')
+        movec = matrix @ movec
     else: movec = matrix * movec
 
     if mirror.use_mirror_u:
@@ -3801,19 +3834,17 @@ def refresh_temp_uv(obj, entity):
         if mapping.vector_type == 'TEXTURE':
             for uv in arr:
                 vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
-                vec = eval('m @ vec')
-                vec = eval('m1 @ vec')
-                vec = eval('m2 @ vec')
-                vec = eval('m3 @ vec')
-                vec = eval('m4 @ vec')
+                vec = m @ vec
+                vec = m1 @ vec
+                vec = m2 @ vec
+                vec = m3 @ vec
+                vec = m4 @ vec
                 uv[0] = vec[0]
                 uv[1] = vec[1]
         else:
             for uv in arr:
                 vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
-                vec = eval('m @ vec')
+                vec = m @ vec
                 uv[0] = vec[0]
                 uv[1] = vec[1]
     else:
