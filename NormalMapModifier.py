@@ -30,7 +30,7 @@ class YNewNormalmapModifier(bpy.types.Operator):
     bl_description = "New Normal Map Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Modifier Type',
         items = normalmap_modifier_type_items,
         default = 'INVERT'
@@ -70,7 +70,7 @@ class YMoveNormalMapModifier(bpy.types.Operator):
     bl_description = "Move " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction : EnumProperty(
+    direction = EnumProperty(
         name = 'Direction',
         items = (
             ('UP', 'Up', ''),
@@ -272,44 +272,44 @@ def update_normalmap_modifier_enable(self, context):
     reconnect_layer_nodes(layer)
 
 class YNormalMapModifier(bpy.types.PropertyGroup):
-    enable : BoolProperty(default=True, update=update_normalmap_modifier_enable)
-    name : StringProperty(default='')
+    enable = BoolProperty(default=True, update=update_normalmap_modifier_enable)
+    name = StringProperty(default='')
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Modifier Type',
         items = normalmap_modifier_type_items,
         default = 'INVERT'
     )
 
     # Invert toggles
-    invert_r_enable : BoolProperty(default=True, update=update_invert_channel)
-    invert_g_enable : BoolProperty(default=True, update=update_invert_channel)
-    invert_b_enable : BoolProperty(default=True, update=update_invert_channel)
-    invert_a_enable : BoolProperty(default=False, update=update_invert_channel)
+    invert_r_enable = BoolProperty(default=True, update=update_invert_channel)
+    invert_g_enable = BoolProperty(default=True, update=update_invert_channel)
+    invert_b_enable = BoolProperty(default=True, update=update_invert_channel)
+    invert_a_enable = BoolProperty(default=False, update=update_invert_channel)
 
-    math_r_val : FloatProperty(default=1.0, update=update_math_val_input)
-    math_g_val : FloatProperty(default=1.0, update=update_math_val_input)
-    math_b_val : FloatProperty(default=1.0, update=update_math_val_input)
-    math_a_val : FloatProperty(default=1.0, update=update_math_val_input)
+    math_r_val = FloatProperty(default=1.0, update=update_math_val_input)
+    math_g_val = FloatProperty(default=1.0, update=update_math_val_input)
+    math_b_val = FloatProperty(default=1.0, update=update_math_val_input)
+    math_a_val = FloatProperty(default=1.0, update=update_math_val_input)
 
-    math_meth : EnumProperty(
+    math_meth = EnumProperty(
         name = 'Method',
         items = math_method_items,
         default = "MULTIPLY",
         update = update_math_method
     )
 
-    affect_alpha : BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
-    use_clamp : BoolProperty(name='Use Clamp', default=False, update=update_use_clamp)
+    affect_alpha = BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
+    use_clamp = BoolProperty(name='Use Clamp', default=False, update=update_use_clamp)
 
-    #ramp : StringProperty(default='')
-    #ramp_mix : StringProperty(default='')
-    invert : StringProperty(default='')
-    math : StringProperty(default='')
-    #curve : StringProperty(default='')
+    #ramp = StringProperty(default='')
+    #ramp_mix = StringProperty(default='')
+    invert = StringProperty(default='')
+    math = StringProperty(default='')
+    #curve = StringProperty(default='')
 
     # UI
-    expand_content : BoolProperty(default=True)
+    expand_content = BoolProperty(default=True)
 
 def register():
     bpy.utils.register_class(YNewNormalmapModifier)
