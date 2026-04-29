@@ -5424,45 +5424,43 @@ def ypaint_force_update_on_anim(scene):
         for fc in fcs:
             if not fc.mute and fc.data_path.startswith('yp.'):
 
-                # Get the datapath of the keyframed prop
-                ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
-                path = ng_string + fc.data_path
-
                 # Get evaluated value
                 val = fc.evaluate(scene.frame_current)
 
-                # Check if path is a string
-                if type(eval(path)) == str:
-                    # Get prop name
-                    m = re.match(r'(.+)\.(.+)$', fc.data_path)
-                    if m:
-                        parent_path = ng_string + m.group(1)
-                        prop_name = m.group(2)
-                        enum_path = parent_path + '.bl_rna.properties["' + prop_name + '"].enum_items[' + str(int(val)) + '].identifier'
-                        val = eval(enum_path)
+                # Get prop name
+                m = re.match(r'(.+)\.(.+)$', fc.data_path)
+                if m:
+                    entity_path = m.group(1)
+                    prop_name = m.group(2)
+                else: 
+                    entity_path = ''
+                    prop_name = ''
+
+                if type(ng.path_resolve(fc.data_path)) == str:
+
+                    # Check if path is a string enum
+                    if hasattr(ng.path_resolve(entity_path).bl_rna.properties[prop_name], 'enum_items'):
+                        enum_items = ng.path_resolve(entity_path).bl_rna.properties[prop_name].enum_items
+
+                        # NOTE: Dynamic enums can't be accesed using this
+                        if len(enum_items) > 0:
+                            val = enum_items[int(val)].identifier
+                        else: continue
+
+                    else: continue
 
                 # Check if path is an array
-                elif hasattr(eval(path), '__len__'):
-                    path += '[' + str(fc.array_index) + ']'
+                elif hasattr(ng.path_resolve(fc.data_path), '__len__'):
+                    if ng.path_resolve(fc.data_path)[fc.array_index] != val:
+                        ng.path_resolve(fc.data_path)[fc.array_index] = val
+                    continue
 
                 # Check if path is a boolean
-                elif type(eval(path)) == bool:
+                elif type(ng.path_resolve(fc.data_path)) == bool:
                     val = val == 1.0
 
-                #print(path, val)
-
-                # Only run script if needed
-                if eval(path) != val:
-
-                    # Convert evaluated value to string
-                    string_val = str(val) if type(val) != str else '"' + val + '"'
-
-                    # Construct the script
-                    script = path + ' = ' + string_val
-
-                    # Run the script to trigger update
-                    #print(script)
-                    exec(script)
+                if ng.path_resolve(fc.data_path) != val and entity_path != '' and prop_name != '':
+                    setattr(ng.path_resolve(entity_path), prop_name, val)
 
 def register():
     bpy.utils.register_class(YSelectMaterialPolygons)
