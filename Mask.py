@@ -579,38 +579,38 @@ class YNewLayerMask(bpy.types.Operator):
     bl_description = "New Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name : StringProperty(name='Mask Name', default='')
+    name = StringProperty(name='Mask Name', default='')
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Mask Type',
         items = mask_type_items,
         default = 'IMAGE'
     )
 
-    modifier_type : EnumProperty(
+    modifier_type = EnumProperty(
         name = 'Mask Modifier Type',
         items = MaskModifier.mask_modifier_type_items,
         default = 'INVERT'
     )
 
-    width : IntProperty(name='Width', default=1024, min=1, max=16384)
-    height : IntProperty(name='Height', default=1024, min=1, max=16384)
+    width = IntProperty(name='Width', default=1024, min=1, max=16384)
+    height = IntProperty(name='Height', default=1024, min=1, max=16384)
     
-    interpolation : EnumProperty(
+    interpolation = EnumProperty(
         name = 'Image Interpolation Type',
         description = 'image interpolation type',
         items = interpolation_type_items,
         default = 'Linear'
     )
 
-    blend_type : EnumProperty(
+    blend_type = EnumProperty(
         name = 'Blend',
         description = 'Blend type',
         items = mask_blend_type_items,
         default = 3 if is_bl_newer_than(2, 90) else None,
     )
 
-    color_option : EnumProperty(
+    color_option = EnumProperty(
         name = 'Color Option',
         description = 'Color Option',
         items = (
@@ -620,106 +620,106 @@ class YNewLayerMask(bpy.types.Operator):
         default='WHITE'
     )
 
-    color_id : FloatVectorProperty(
+    color_id = FloatVectorProperty(
         name = 'Color ID',
         size = 3,
         subtype = 'COLOR',
         default=(1.0, 0.0, 1.0), min=0.0, max=1.0,
     )
 
-    vcol_fill : BoolProperty(
+    vcol_fill = BoolProperty(
         name = 'Fill Selected Geometry with '+get_vertex_color_label()+' / Color ID',
         description = 'Fill selected geometry with '+get_vertex_color_label(00)+' / color ID',
         default = True
     )
 
-    hdr : BoolProperty(
+    hdr = BoolProperty(
         name = '32-bit Float',
         description = 'Use 32-bit float image',
         default = False
     )
 
-    texcoord_type : EnumProperty(
+    texcoord_type = EnumProperty(
         name = 'Mask Coordinate Type',
         description = 'Mask Coordinate Type',
         items = mask_texcoord_type_items,
         default = 'UV'
     )
 
-    uv_name : StringProperty(
+    uv_name = StringProperty(
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '',
         update = update_new_mask_uv_map
     )
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    use_udim : BoolProperty(
+    use_udim = BoolProperty(
         name = 'Use UDIM Tiles',
         description = 'Use UDIM Tiles',
         default = False
     )
 
-    use_image_atlas : BoolProperty(
+    use_image_atlas = BoolProperty(
         name = 'Use Image Atlas',
         description = 'Use Image Atlas',
         default = False
     )
 
     # For fake lighting
-    hemi_space : EnumProperty(
+    hemi_space = EnumProperty(
         name = 'Fake Lighting Space',
         description = 'Fake lighting space',
         items = hemi_space_items,
         default = 'WORLD'
     )
 
-    hemi_use_prev_normal : BoolProperty(
+    hemi_use_prev_normal = BoolProperty(
         name = 'Use previous Normal',
         description = 'Take previous Normal into the account',
         default = True
     )
 
     # For object index
-    object_index : IntProperty(
+    object_index = IntProperty(
         name = 'Object Index',
         description = 'Object Pass Index',
         default=0, min=0
     )
 
-    edge_detect_radius : FloatProperty(
+    edge_detect_radius = FloatProperty(
         name = 'Edge Detect Radius',
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0
     )
 
-    ao_distance : FloatProperty(
+    ao_distance = FloatProperty(
         name = 'Ambient Occlusion Distance',
         description = 'Ambient occlusion distance',
         default=1.0, min=0.0, max=10.0
     )
 
-    vcol_data_type : EnumProperty(
+    vcol_data_type = EnumProperty(
         name = get_vertex_color_label()+' Data Type',
         description = get_vertex_color_label(10)+' data type',
         items = vcol_data_type_items,
         default = 'BYTE_COLOR'
     )
 
-    vcol_domain : EnumProperty(
+    vcol_domain = EnumProperty(
         name = get_vertex_color_label()+' Domain',
         description = get_vertex_color_label(10)+' domain',
         items = vcol_domain_items,
         default = 'CORNER'
     )
     
-    image_resolution : EnumProperty(
+    image_resolution = EnumProperty(
         name = 'Image Resolution',
         items = image_resolution_items,
         default = '1024'
     )
     
-    use_custom_resolution : BoolProperty(
+    use_custom_resolution = BoolProperty(
         name = 'Custom Resolution',
         default = False,
         description = 'Use custom Resolution to adjust the width and height individually'
@@ -1147,34 +1147,34 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
     bl_label = "Open Image as Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    interpolation : EnumProperty(
+    interpolation = EnumProperty(
         name = 'Image Interpolation Type',
         description = 'image interpolation type',
         items = interpolation_type_items,
         default = 'Linear'
     )
 
-    texcoord_type : EnumProperty(
+    texcoord_type = EnumProperty(
         name = 'Mask Coordinate Type',
         description = 'Mask Coordinate Type',
         items = mask_texcoord_type_items,
         default = 'UV'
     )
 
-    uv_map : StringProperty(
+    uv_map = StringProperty(
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    blend_type : EnumProperty(
+    blend_type = EnumProperty(
         name = 'Blend',
         description = 'Blend type',
         items = mask_blend_type_items,
         default = 3 if is_bl_newer_than(2, 90) else None,
     )
 
-    socket_input_name : EnumProperty(
+    socket_input_name = EnumProperty(
         name = 'Source Input',
         description = 'Source data for mask input',
         items = (
@@ -1184,13 +1184,13 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
         default = 'Color'
     )
 
-    use_udim_detecting : BoolProperty(
+    use_udim_detecting = BoolProperty(
         name = 'Detect UDIMs',
         description = 'Detect selected UDIM files and load all matching tiles.',
         default = True
     )
 
-    file_browser_filepath : StringProperty(default='')
+    file_browser_filepath = StringProperty(default='')
 
     @classmethod
     def poll(cls, context):
@@ -1365,7 +1365,7 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
     bl_description = "Open existing data as Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
     
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Layer Type',
         items = (
             ('IMAGE', 'Image', ''),
@@ -1374,21 +1374,21 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
         default = 'IMAGE'
     )
 
-    interpolation : EnumProperty(
+    interpolation = EnumProperty(
         name = 'Image Interpolation Type',
         description = 'image interpolation type',
         items = interpolation_type_items,
         default = 'Linear'
     )
 
-    texcoord_type : EnumProperty(
+    texcoord_type = EnumProperty(
         name = 'Mask Coordinate Type',
         description = 'Mask Coordinate Type',
         items = mask_texcoord_type_items,
         default = 'UV'
     )
 
-    socket_input_name : EnumProperty(
+    socket_input_name = EnumProperty(
         name = 'Source Input',
         description = 'Source data for mask input',
         items = (
@@ -1398,19 +1398,19 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
         default = 'Color'
     )
 
-    uv_map : StringProperty(
+    uv_map = StringProperty(
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    image_name : StringProperty(name="Image")
-    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    image_name = StringProperty(name="Image")
+    image_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    vcol_name : StringProperty(name=get_vertex_color_label())
-    vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    vcol_name = StringProperty(name=get_vertex_color_label())
+    vcol_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    blend_type : EnumProperty(
+    blend_type = EnumProperty(
         name = 'Blend',
         description = 'Blend type',
         items = mask_blend_type_items,
@@ -1644,7 +1644,7 @@ class YMoveLayerMask(bpy.types.Operator):
     bl_description = "Move layer mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction : EnumProperty(
+    direction = EnumProperty(
         name = 'Direction',
         items = (
             ('UP', 'Up', ''),
@@ -1852,22 +1852,22 @@ class YReplaceMaskType(bpy.types.Operator):
     bl_description = "Replace Mask Type"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Layer Type',
         items = mask_type_items,
         default = 'IMAGE'
     )
 
-    modifier_type : EnumProperty(
+    modifier_type = EnumProperty(
         name = 'Mask Modifier Type',
         items = MaskModifier.mask_modifier_type_items,
         default = 'INVERT'
     )
 
-    item_name : StringProperty(name="Item")
-    item_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    item_name = StringProperty(name="Item")
+    item_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    load_item : BoolProperty(default=False)
+    load_item = BoolProperty(default=False)
 
     @classmethod
     def poll(cls, context):
@@ -1937,7 +1937,7 @@ class YSetMaskInput(bpy.types.Operator):
     bl_description = "Set mask input"
     bl_options = {'UNDO'}
 
-    socket_name : StringProperty(default='Color')
+    socket_name = StringProperty(default='Color')
 
     @classmethod
     def poll(cls, context):
@@ -2392,7 +2392,7 @@ def update_mask_source_input(self, context):
     rearrange_layer_nodes(layer)
 
 class YLayerMaskChannel(bpy.types.PropertyGroup):
-    enable : BoolProperty(
+    enable = BoolProperty(
         name = 'Enable Mask Channel',
         description = 'Mask will affect this channel',
         default = True, 
@@ -2400,32 +2400,32 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
     )
 
     # Multiply between mask channels
-    mix : StringProperty(default='')
+    mix = StringProperty(default='')
 
     # Pure mask without any extra multiplier or uv shift, useful for height process
-    mix_pure : StringProperty(default='')
+    mix_pure = StringProperty(default='')
 
     # Remaining masks after chain
-    mix_remains : StringProperty(default='')
+    mix_remains = StringProperty(default='')
 
     # Normal and height has its own alpha if using group, this one is for normal
-    mix_normal : StringProperty(default='')
+    mix_normal = StringProperty(default='')
 
     # ... and this one for vector displacement
-    mix_vdisp : StringProperty(default='')
+    mix_vdisp = StringProperty(default='')
 
     # To limit mix value to not go above original channel value, useful for group layer
-    mix_limit : StringProperty(default='')
-    mix_limit_normal : StringProperty(default='')
+    mix_limit = StringProperty(default='')
+    mix_limit_normal = StringProperty(default='')
 
     # Bump related
-    #mix_n : StringProperty(default='')
-    #mix_s : StringProperty(default='')
-    #mix_e : StringProperty(default='')
-    #mix_w : StringProperty(default='')
+    #mix_n = StringProperty(default='')
+    #mix_s = StringProperty(default='')
+    #mix_e = StringProperty(default='')
+    #mix_w = StringProperty(default='')
 
     # UI related
-    expand_content : BoolProperty(default=False)
+    expand_content = BoolProperty(default=False)
 
 def update_mask_uniform_scale_enabled(self, context):
     yp = self.id_data.yp
@@ -2443,46 +2443,46 @@ def update_mask_uniform_scale_enabled(self, context):
 
 class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
 
-    name : StringProperty(
+    name = StringProperty(
         name = 'Mask Name',
         description = 'Layer mask name',
         default = '',
         update = update_mask_name
     )
 
-    halt_update : BoolProperty(default=False)
+    halt_update = BoolProperty(default=False)
     
-    group_node : StringProperty(default='')
+    group_node = StringProperty(default='')
 
-    enable : BoolProperty(
+    enable = BoolProperty(
         name = 'Enable Mask', 
         description = 'Enable mask',
         default = True,
         update = update_layer_mask_enable
     )
 
-    active_edit : BoolProperty(
+    active_edit = BoolProperty(
         name = 'Active Mask', 
         description = 'Active mask for Blender\'s paint mode and edit mode, or '+get_addon_title()+'\'s Mask preview mode',
         default = False,
         update = update_mask_active_edit
     )
 
-    source_input : EnumProperty(
+    source_input = EnumProperty(
         name = 'Mask Source Input',
         description = 'Source input for mask',
         items = entity_input_items,
         #update = update_mask_source_input
     ) # Deprecated
 
-    socket_input_name : StringProperty(
+    socket_input_name = StringProperty(
         name = 'Socket Input Name',
         description = 'Socket name for mask input',
         default = 'Color',
         update = update_mask_source_input
     )
 
-    swizzle_input_mode : EnumProperty(
+    swizzle_input_mode = EnumProperty(
         name = 'Swizzle Mode',
         description = 'Swizzle input mode',
         items = swizzle_items,
@@ -2490,13 +2490,13 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         update = update_mask_source_input
     )
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Mask Type',
         items = mask_type_items,
         default = 'IMAGE'
     )
 
-    texcoord_type : EnumProperty(
+    texcoord_type = EnumProperty(
         name = 'Mask Coordinate Type',
         description = 'Mask Coordinate Type',
         items = mask_texcoord_type_items,
@@ -2506,13 +2506,13 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
             update_mask_texcoord_type(self, context)
     )
 
-    modifier_type : EnumProperty(
+    modifier_type = EnumProperty(
         name = 'Mask Modifier Type',
         items = MaskModifier.mask_modifier_type_items,
         default = 'INVERT'
     )
 
-    hemi_space : EnumProperty(
+    hemi_space = EnumProperty(
         name = 'Fake Lighting Space',
         description = 'Fake lighting space',
         items = hemi_space_items,
@@ -2520,41 +2520,41 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         update = update_mask_hemi_space
     )
 
-    hemi_camera_ray_mask : BoolProperty(
+    hemi_camera_ray_mask = BoolProperty(
         name = 'Camera Ray Mask',
         description = "Use Camera Ray value so the back of the mesh won't be affected by fake lighting",
         default = False,
         update = update_mask_hemi_camera_ray_mask
     )
 
-    hemi_use_prev_normal : BoolProperty(
+    hemi_use_prev_normal = BoolProperty(
         name = 'Use previous Normal',
         description = 'Take account previous Normal',
         default = False,
         update = update_mask_hemi_use_prev_normal
     )
 
-    uv_name : StringProperty(
+    uv_name = StringProperty(
         name = 'UV Map',
         description = 'UV Map to use for mask coordinate',
         default = '',
         update = update_mask_uv_name
     )
 
-    baked_uv_name : StringProperty(
+    baked_uv_name = StringProperty(
         name = 'Baked UV Map',
         description = 'UV Map to use for baked mask coordinate',
         default = ''
     )
 
-    blend_type : EnumProperty(
+    blend_type = EnumProperty(
         name = 'Blend',
         items = mask_blend_type_items,
         default = 3 if is_bl_newer_than(2, 90) else None,
         update = update_mask_blend_type
     )
 
-    intensity_value : FloatProperty(
+    intensity_value = FloatProperty(
         name = 'Mask Opacity', 
         description = 'Mask opacity',
         subtype = 'FACTOR',
@@ -2562,7 +2562,7 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     )
 
     # Transform
-    translation : FloatVectorProperty(
+    translation = FloatVectorProperty(
         name = 'Translation',
         size = 3,
         precision = 3, 
@@ -2570,7 +2570,7 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         update = update_mask_transform
     )
 
-    rotation : FloatVectorProperty(
+    rotation = FloatVectorProperty(
         name = 'Rotation',
         subtype = 'AXISANGLE',
         size = 3,
@@ -2580,7 +2580,7 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         update = update_mask_transform
     )
 
-    scale : FloatVectorProperty(
+    scale = FloatVectorProperty(
         name = 'Scale',
         size = 3,
         precision = 3, 
@@ -2588,49 +2588,49 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
         update = update_mask_transform,
     )
 
-    enable_blur_vector : BoolProperty(
+    enable_blur_vector = BoolProperty(
         name = 'Enable Blur Vector',
         description = "Enable blur vector",
         default = False,
         update = update_mask_blur_vector
     )
 
-    blur_vector_factor : FloatProperty(
+    blur_vector_factor = FloatProperty(
         name = 'Blur Vector Factor', 
         description = 'Mask Intensity Factor',
         default=1.0, min=0.0, max=100.0, precision=3
     )
 
-    color_id : FloatVectorProperty(
+    color_id = FloatVectorProperty(
         name = 'Color ID',
         size = 3,
         subtype = 'COLOR',
         default=(1.0, 0.0, 1.0), min=0.0, max=1.0,
     )
 
-    use_baked : BoolProperty(
+    use_baked = BoolProperty(
         name = 'Use Baked',
         description = 'Use baked image rather generated mask',
         default = False,
         update = update_mask_use_baked
     )
 
-    segment_name : StringProperty(default='')
-    baked_segment_name : StringProperty(default='')
+    segment_name = StringProperty(default='')
+    baked_segment_name = StringProperty(default='')
 
-    channels : CollectionProperty(type=YLayerMaskChannel)
+    channels = CollectionProperty(type=YLayerMaskChannel)
 
-    modifiers : CollectionProperty(type=MaskModifier.YMaskModifier)
+    modifiers = CollectionProperty(type=MaskModifier.YMaskModifier)
 
     # For object index
-    object_index : IntProperty(
+    object_index = IntProperty(
         name = 'Object Index',
         description = 'Object Pass Index',
         default=0, min=0,
         update = update_mask_object_index
     )
 
-    original_type : EnumProperty(
+    original_type = EnumProperty(
         name = 'Original Mask Type',
         items = mask_type_items,
         default = 'IMAGE'
@@ -2638,7 +2638,7 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
 
     # For fake lighting
 
-    hemi_vector : FloatVectorProperty(
+    hemi_vector = FloatVectorProperty(
         name = 'Cache Hemi vector',
         size = 3,
         precision = 3,
@@ -2646,14 +2646,14 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     )
 
     # For edge detection
-    edge_detect_radius : FloatProperty(
+    edge_detect_radius = FloatProperty(
         name = 'Edge Detect Radius',
         description = 'Edge detect radius',
         default=0.05, min=0.0, max=10.0, precision=3,
         update = update_mask_edge_detect_radius
     )
 
-    edge_detect_method : EnumProperty(
+    edge_detect_method = EnumProperty(
         name = 'Edge Detection Calculation Type',
         description = 'Edge detection calculation type (Cycles Only)',
         items = (
@@ -2665,14 +2665,14 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     )
 
     # For AO
-    ao_distance : FloatProperty(
+    ao_distance = FloatProperty(
         name = 'Ambient Occlusion Distance',
         description = 'Ambient occlusion distance',
         default=1.0, min=0.0, max=10.0
     )
 
     # Specific for voronoi
-    voronoi_feature : EnumProperty(
+    voronoi_feature = EnumProperty(
         name = 'Voronoi Feature',
         description = 'The voronoi feature that will be used for compute',
         items = voronoi_feature_items,
@@ -2681,77 +2681,77 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     )
 
     # Nodes
-    source : StringProperty(default='')
-    source_n : StringProperty(default='')
-    source_s : StringProperty(default='')
-    source_e : StringProperty(default='')
-    source_w : StringProperty(default='')
+    source = StringProperty(default='')
+    source_n = StringProperty(default='')
+    source_s = StringProperty(default='')
+    source_e = StringProperty(default='')
+    source_w = StringProperty(default='')
 
-    baked_source : StringProperty(default='')
+    baked_source = StringProperty(default='')
 
     # Mask type cache
-    cache_brick : StringProperty(default='')
-    cache_checker : StringProperty(default='')
-    cache_gradient : StringProperty(default='')
-    cache_magic : StringProperty(default='')
-    cache_musgrave : StringProperty(default='')
-    cache_noise : StringProperty(default='')
-    cache_gabor : StringProperty(default='')
-    cache_voronoi : StringProperty(default='')
-    cache_wave : StringProperty(default='')
-    cache_color : StringProperty(default='')
+    cache_brick = StringProperty(default='')
+    cache_checker = StringProperty(default='')
+    cache_gradient = StringProperty(default='')
+    cache_magic = StringProperty(default='')
+    cache_musgrave = StringProperty(default='')
+    cache_noise = StringProperty(default='')
+    cache_gabor = StringProperty(default='')
+    cache_voronoi = StringProperty(default='')
+    cache_wave = StringProperty(default='')
+    cache_color = StringProperty(default='')
 
-    cache_image : StringProperty(default='')
-    cache_vcol : StringProperty(default='')
-    cache_hemi : StringProperty(default='')
+    cache_image = StringProperty(default='')
+    cache_vcol = StringProperty(default='')
+    cache_hemi = StringProperty(default='')
 
-    cache_modifier_ramp : StringProperty(default='')
-    cache_modifier_curve : StringProperty(default='')
+    cache_modifier_ramp = StringProperty(default='')
+    cache_modifier_curve = StringProperty(default='')
 
-    uv_map : StringProperty(
+    uv_map = StringProperty(
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '')
-    uv_neighbor : StringProperty(default='')
-    mapping : StringProperty(default='')
-    baked_mapping : StringProperty(default='')
-    blur_vector : StringProperty(default='')
-    separate_color_channels : StringProperty(default='')
+    uv_neighbor = StringProperty(default='')
+    mapping = StringProperty(default='')
+    baked_mapping = StringProperty(default='')
+    blur_vector = StringProperty(default='')
+    separate_color_channels = StringProperty(default='')
 
-    enable_uniform_scale : BoolProperty(
+    enable_uniform_scale = BoolProperty(
         name = 'Enable Uniform Scale', 
         description = 'Use the same value for all scale components',
         default = False,
         update = update_mask_uniform_scale_enabled
     )
 
-    uniform_scale_value : FloatProperty(default=1)
+    uniform_scale_value = FloatProperty(default=1)
 
-    decal_process : StringProperty(default='')
-    texcoord : StringProperty(default='')
-    decal_alpha : StringProperty(default='')
-    decal_alpha_n : StringProperty(default='')
-    decal_alpha_s : StringProperty(default='')
-    decal_alpha_e : StringProperty(default='')
-    decal_alpha_w : StringProperty(default='')
+    decal_process = StringProperty(default='')
+    texcoord = StringProperty(default='')
+    decal_alpha = StringProperty(default='')
+    decal_alpha_n = StringProperty(default='')
+    decal_alpha_s = StringProperty(default='')
+    decal_alpha_e = StringProperty(default='')
+    decal_alpha_w = StringProperty(default='')
 
-    linear : StringProperty(default='')
+    linear = StringProperty(default='')
 
     # Only useful for merging mask for now
-    mix : StringProperty(default='')
+    mix = StringProperty(default='')
 
-    need_temp_uv_refresh : BoolProperty(default=False)
+    need_temp_uv_refresh = BoolProperty(default=False)
 
-    tangent : StringProperty(default='')
-    bitangent : StringProperty(default='')
-    tangent_flip : StringProperty(default='')
-    bitangent_flip : StringProperty(default='')
+    tangent = StringProperty(default='')
+    bitangent = StringProperty(default='')
+    tangent_flip = StringProperty(default='')
+    bitangent_flip = StringProperty(default='')
 
     # UI related
-    expand_content : BoolProperty(default=False)
-    expand_channels : BoolProperty(default=False)
-    expand_source : BoolProperty(default=False)
-    expand_vector : BoolProperty(default=False)
+    expand_content = BoolProperty(default=False)
+    expand_channels = BoolProperty(default=False)
+    expand_source = BoolProperty(default=False)
+    expand_vector = BoolProperty(default=False)
 
 def register():
     bpy.utils.register_class(YNewLayerMask)
