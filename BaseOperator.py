@@ -4,10 +4,10 @@ from .common import *
 
 class FileSelectOptions():
     # File browser filter
-    filter_folder : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_image : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
 
-    display_type : EnumProperty(
+    display_type = EnumProperty(
         items = (
             ('FILE_DEFAULTDISPLAY', 'Default', ''),
             ('FILE_SHORTDISLPAY', 'Short List', ''),
@@ -19,7 +19,7 @@ class FileSelectOptions():
     )
 
 class BlendMethodOptions():
-    blend_method : EnumProperty(
+    blend_method = EnumProperty(
         name = 'Blend Method', 
         description = 'Blend method for transparent material',
         items = (
@@ -30,7 +30,7 @@ class BlendMethodOptions():
         default = 'HASHED'
     )
 
-    shadow_method : EnumProperty(
+    shadow_method = EnumProperty(
         name = 'Shadow Method', 
         description = 'Shadow method for transparent material',
         items = (
@@ -40,7 +40,7 @@ class BlendMethodOptions():
         default = 'HASHED'
     )
 
-    surface_render_method : EnumProperty(
+    surface_render_method = EnumProperty(
         name = 'Surface Render Method', 
         description = 'Surface render method for transparent material',
         items = (
@@ -53,10 +53,10 @@ class BlendMethodOptions():
 class OpenImage(FileSelectOptions):
 
     # File related
-    files : CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
-    directory : StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
+    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
+    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
 
-    relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
+    relative = BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
     def running_fileselect_modal(self, context, event):
         context.window_manager.fileselect_add(self)
