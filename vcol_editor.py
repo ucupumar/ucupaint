@@ -12,6 +12,7 @@ tex_default_brush_eraser_pairs = {
     'Smear' : 'Erase Soft',
     'Airbrush' : 'Erase Soft',
     'Paint Soft Pressure' : 'Erase Soft',
+    'Paint Pixel Art' : 'Erase Pixel Art',
     'Clone' : 'Erase Hard',
     'Blur' : 'Erase Soft',
     'Fill' : 'Erase Hard',

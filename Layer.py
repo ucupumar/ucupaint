@@ -662,8 +662,8 @@ class YNewVDMLayer(bpy.types.Operator):
     def invoke(self, context, event):
         ypup = get_user_preferences()
         obj = context.object
-        node = self.node = get_active_ypaint_node()
-        yp = self.yp = node.node_tree.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
         # Set default name
         name = obj.active_material.name + DEFAULT_NEW_VDM_SUFFIX
@@ -694,7 +694,8 @@ class YNewVDMLayer(bpy.types.Operator):
 
     def draw(self, context):
 
-        yp = self.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
         first_vdm = get_first_vdm_layer(yp)
 
         row = split_layout(self.layout, 0.4)
@@ -749,8 +750,8 @@ class YNewVDMLayer(bpy.types.Operator):
         T = time.time()
 
         wm = context.window_manager
-        node = self.node
-        yp = self.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
         mat = get_active_material()
         objs = get_all_objects_with_same_materials(mat)
@@ -1153,7 +1154,7 @@ class YNewLayer(bpy.types.Operator):
 
         ypup = get_user_preferences()
         node = get_active_ypaint_node()
-        yp = self.yp = node.node_tree.yp
+        yp = node.node_tree.yp
         obj = context.object
 
         if self.type == 'IMAGE':
@@ -1278,8 +1279,10 @@ class YNewLayer(bpy.types.Operator):
         if self.add_mask and self.mask_uv_name == '':
 
             obj = context.object
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
 
-            uv_name = get_default_uv_name(obj, self.yp)
+            uv_name = get_default_uv_name(obj, yp)
             self.mask_uv_name = uv_name
 
         # Update image interpolation
@@ -2709,7 +2712,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
         # Images to be processed
         images = []
 
-        # channel name and their image dictionary
+        # Channel name and their image dictionary
         channel_image_dict = {}
 
         # Get active material output
@@ -2724,13 +2727,20 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
 
             bsdf_node = get_closest_bsdf_backward(output)
 
-            for inp in bsdf_node.inputs:
-                if inp.is_linked:
-                    for link in inp.links:
-                        ch_name = inp.name
-                        if ch_name == "Base Color":
-                            ch_name = "Color"
-                        search_for_image_node(link.from_node, ch_name, channel_image_dict)
+            if bsdf_node:
+                for inp in bsdf_node.inputs:
+                    if inp.is_linked:
+                        for link in inp.links:
+                            ch_name = inp.name
+                            if ch_name == "Base Color":
+                                ch_name = "Color"
+                            search_for_image_node(link.from_node, ch_name, channel_image_dict)
+            else:
+                # Check image node connected directly to material output
+                image_node = get_closest_image_node_backward(output)
+                if image_node:
+                    images.append(image_node.image)
+                    channel_image_dict['Color'] = image_node.image
 
             for img in channel_image_dict.values():
                 if img not in images: images.append(img)
@@ -3029,7 +3039,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
     def invoke(self, context, event):
         obj = context.object
         node = get_active_ypaint_node()
-        yp = self.yp = node.node_tree.yp
+        yp = node.node_tree.yp
 
         if not is_object_work_with_uv(obj):
             self.texcoord_type = 'Generated'
@@ -5533,6 +5543,12 @@ class YPasteLayer(bpy.types.Operator):
         default = True
     )
 
+    paste_blank : BoolProperty(
+        name = 'Make Pasted Images blank',
+        description = 'Make pasted images blank',
+        default = False
+    )
+
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
@@ -5554,30 +5570,32 @@ class YPasteLayer(bpy.types.Operator):
         self.any_decal = False
         self.any_baked = False
 
-        tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
-        if tree_source:
-            yp_source = tree_source.yp
-            source_layers = []
-            if wmp.clipboard_layer == '':
-                source_layers = yp_source.layers
-            else:
-                layer = yp_source.layers.get(wmp.clipboard_layer)
-                source_layers.append(layer)
+        if not self.paste_blank:
 
-            for layer in source_layers:
-                if not self.any_packed_image: self.any_packed_image = any(get_layer_images(layer, packed_only=True))
-                if not self.any_ondisk_image: self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
-                if not self.any_decal: self.any_decal = Decal.any_decal_inside_layer(layer)
+            tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
+            if tree_source:
+                yp_source = tree_source.yp
+                source_layers = []
+                if wmp.clipboard_layer == '':
+                    source_layers = yp_source.layers
+                else:
+                    layer = yp_source.layers.get(wmp.clipboard_layer)
+                    source_layers.append(layer)
 
-                # Do not check baked if current yp == yp_source
-                if yp != yp_source:
-                    if not self.any_baked: self.any_baked = any(get_layer_images(layer, baked_only=True))
+                for layer in source_layers:
+                    if not self.any_packed_image: self.any_packed_image = any(get_layer_images(layer, packed_only=True))
+                    if not self.any_ondisk_image: self.any_ondisk_image = any(get_layer_images(layer, ondisk_only=True))
+                    if not self.any_decal: self.any_decal = Decal.any_decal_inside_layer(layer)
 
-        if self.any_packed_image or self.any_ondisk_image or self.any_decal or self.any_baked:
-            if get_user_preferences().skip_property_popups and not event.shift:
-                return self.execute(context)
+                    # Do not check baked if current yp == yp_source
+                    if yp != yp_source:
+                        if not self.any_baked: self.any_baked = any(get_layer_images(layer, baked_only=True))
 
-            return context.window_manager.invoke_props_dialog(self, width=200)
+            if self.any_packed_image or self.any_ondisk_image or self.any_decal or self.any_baked:
+                if get_user_preferences().skip_property_popups and not event.shift:
+                    return self.execute(context)
+
+                return context.window_manager.invoke_props_dialog(self, width=200)
 
         return self.execute(context)
 
@@ -5754,6 +5772,7 @@ class YPasteLayer(bpy.types.Operator):
         pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
         duplicate_layer_nodes_and_images(
             tree, pasted_layers, packed_duplicate = self.packed_duplicate,
+            duplicate_blank = self.paste_blank,
             ondisk_duplicate = self.ondisk_duplicate,
             set_new_decal_position = self.set_new_decal_position
         )

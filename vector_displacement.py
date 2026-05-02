@@ -691,8 +691,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     if node:
         yp = node.node_tree.yp
         if is_multi_disp_used(yp):
-            # NOTE: Non-native baking need flipped YZ
-            layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True, flip_yz=not native_baking)
+            layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True)
 
     set_active_object(obj)
     if obj.mode != 'OBJECT':
@@ -804,7 +803,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
             geomod = temp1.modifiers[-1]
             geomod.node_group = vdm_loader
             temp1.modifiers.active = geomod
-            set_modifier_input_value(geomod, 'Flip Y/Z', False)
+            set_modifier_input_value(geomod, 'Flip Y/Z', True)
 
             # Apply geomod
             bpy.ops.object.modifier_apply(modifier=geomod.name)
@@ -950,7 +949,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     set_active_object(obj)
     set_object_select(obj, True)
 
-def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_current_layer=False, flip_yz=False, only_vdms=False):
+def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_current_layer=False, only_vdms=False):
     # Bake preparations
     book = _remember_before_bake(obj)
     _prepare_bake_settings(book, obj, uv_name)     
@@ -984,24 +983,12 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     if disable_current_layer:
         cur_layer.enable = False
 
-    # Disable other than vdm layers
     if only_vdms:
-        for l in yp.layers:
-            height_ch = get_height_channel(l)
-            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
-
+        # Disable layer other than VDM
         for l in yp.layers:
             height_ch = get_height_channel(l)
             if not height_ch or not height_ch.enable: continue
-            if height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-
-                # Flip flip Y/Z
-                if flip_yz:
-                    height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
-
-            # Disable layer other than VDM
-            elif only_vdms and l.type != 'GROUP':
+            if height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP' and l.type != 'GROUP':
                 l.enable = False
 
     # Make sure vdm output exists
@@ -1072,13 +1059,6 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     # Recover input outputs
     if not height_root_ch.enable_subdiv_setup:
         check_all_channel_ios(yp)
-
-    # Recover flip yzs
-    if flip_yz:
-        for i, l in enumerate(yp.layers):
-            height_ch = get_height_channel(l)
-            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
 
     # Recover sculpt mode
     if ori_sculpt_mode:
@@ -1667,7 +1647,7 @@ class YRemoveVDMandAddMultires(bpy.types.Operator):
 
         if len(vdm_layers) > 1:
             # TODO: Use the highest resolution vdm image as the bake resolution
-            vdm_image = get_combined_vdm_image(obj, uv_name, width=vdm_image.size[0], height=vdm_image.size[1], flip_yz=True, only_vdms=True)
+            vdm_image = get_combined_vdm_image(obj, uv_name, width=vdm_image.size[0], height=vdm_image.size[1], only_vdms=True)
             flip_yz = True
 
         # Convert all vdm layers to multires modifier

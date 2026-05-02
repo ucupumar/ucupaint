@@ -2647,6 +2647,35 @@ class YFixMissingData(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YRemoveMio3Checker(bpy.types.Operator):
+    bl_idname = "wm.y_remove_mio3_uv_checker"
+    bl_label = "Remove Mio3 UV Checker"
+    bl_description = "Remove Mio3 UV checker material"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return bpy.context.object
+
+    def execute(self, context):
+
+        # Switch to material view
+        space = bpy.context.space_data
+        if not is_bl_newer_than(2, 80):
+            space.viewport_shade = 'MATERIAL'
+        else: space.shading.type = 'MATERIAL'
+
+        # Remove Mio3 modifier
+        if hasattr(bpy.ops, 'mio3uv') and hasattr(bpy.ops.mio3uv, 'checker_map_cleanup'):
+            bpy.ops.mio3uv.checker_map_cleanup()
+        else:
+            obj = bpy.context.object
+            for mod in reversed(bpy.context.object.modifiers):
+                if mod.type == 'NODES' and mod.node_group and mod.node_group.name == 'Mio3MaterialOverride':
+                    obj.modifiers.remove(mod)
+
+        return {'FINISHED'}
+
 class YRefreshTangentSignVcol(bpy.types.Operator):
     bl_idname = "wm.y_refresh_tangent_sign_vcol"
     bl_label = "Refresh Tangent Sign "+get_vertex_color_label()+"s"
@@ -2949,7 +2978,8 @@ def remove_preview(mat, advanced=False):
     scene = bpy.context.scene
 
     if preview: 
-        simple_remove_node(mat.node_tree, preview)
+        # NOTE: Make sure to not remove preview images since it can cause crash when preview mode is enabled again
+        simple_remove_node(mat.node_tree, preview, remove_images=False)
         bsdf = nodes.get(mat.yp.ori_bsdf)
         output = get_material_output(mat)
         mat.yp.ori_bsdf = ''
@@ -4723,45 +4753,43 @@ def ypaint_force_update_on_anim(scene):
         for fc in fcs:
             if not fc.mute and fc.data_path.startswith('yp.'):
 
-                # Get the datapath of the keyframed prop
-                ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
-                path = ng_string + fc.data_path
-
                 # Get evaluated value
                 val = fc.evaluate(scene.frame_current)
 
-                # Check if path is a string
-                if type(eval(path)) == str:
-                    # Get prop name
-                    m = re.match(r'(.+)\.(.+)$', fc.data_path)
-                    if m:
-                        parent_path = ng_string + m.group(1)
-                        prop_name = m.group(2)
-                        enum_path = parent_path + '.bl_rna.properties["' + prop_name + '"].enum_items[' + str(int(val)) + '].identifier'
-                        val = eval(enum_path)
+                # Get prop name
+                m = re.match(r'(.+)\.(.+)$', fc.data_path)
+                if m:
+                    entity_path = m.group(1)
+                    prop_name = m.group(2)
+                else: 
+                    entity_path = ''
+                    prop_name = ''
+
+                if type(ng.path_resolve(fc.data_path)) == str:
+
+                    # Check if path is a string enum
+                    if hasattr(ng.path_resolve(entity_path).bl_rna.properties[prop_name], 'enum_items'):
+                        enum_items = ng.path_resolve(entity_path).bl_rna.properties[prop_name].enum_items
+
+                        # NOTE: Dynamic enums can't be accesed using this
+                        if len(enum_items) > 0:
+                            val = enum_items[int(val)].identifier
+                        else: continue
+
+                    else: continue
 
                 # Check if path is an array
-                elif hasattr(eval(path), '__len__'):
-                    path += '[' + str(fc.array_index) + ']'
+                elif hasattr(ng.path_resolve(fc.data_path), '__len__'):
+                    if ng.path_resolve(fc.data_path)[fc.array_index] != val:
+                        ng.path_resolve(fc.data_path)[fc.array_index] = val
+                    continue
 
                 # Check if path is a boolean
-                elif type(eval(path)) == bool:
+                elif type(ng.path_resolve(fc.data_path)) == bool:
                     val = val == 1.0
 
-                #print(path, val)
-
-                # Only run script if needed
-                if eval(path) != val:
-
-                    # Convert evaluated value to string
-                    string_val = str(val) if type(val) != str else '"' + val + '"'
-
-                    # Construct the script
-                    script = path + ' = ' + string_val
-
-                    # Run the script to trigger update
-                    #print(script)
-                    exec(script)
+                if ng.path_resolve(fc.data_path) != val and entity_path != '' and prop_name != '':
+                    setattr(ng.path_resolve(entity_path), prop_name, val)
 
 def register():
     bpy.utils.register_class(YSelectMaterialPolygons)
@@ -4785,6 +4813,7 @@ def register():
     bpy.utils.register_class(YDuplicateYPNodes)
     bpy.utils.register_class(YOptimizeNormalProcess)
     bpy.utils.register_class(YFixMissingData)
+    bpy.utils.register_class(YRemoveMio3Checker)
     bpy.utils.register_class(YRefreshTangentSignVcol)
     bpy.utils.register_class(YRemoveYPaintNode)
     bpy.utils.register_class(YCleanYPCaches)
@@ -4848,6 +4877,7 @@ def unregister():
     bpy.utils.unregister_class(YDuplicateYPNodes)
     bpy.utils.unregister_class(YOptimizeNormalProcess)
     bpy.utils.unregister_class(YFixMissingData)
+    bpy.utils.unregister_class(YRemoveMio3Checker)
     bpy.utils.unregister_class(YRefreshTangentSignVcol)
     bpy.utils.unregister_class(YRemoveYPaintNode)
     bpy.utils.unregister_class(YCleanYPCaches)

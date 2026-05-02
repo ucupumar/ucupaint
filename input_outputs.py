@@ -186,7 +186,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 # Rename fcurve datapath
                 for fcs in get_action_and_driver_fcurves(group_tree):
                     for fc in fcs:
-                        match = re.match(r'^nodes\["' + channel.end_max_height_tweak + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                        match = re.match(r'^nodes\["' + channel.end_max_height_tweak + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                         if match:
                             index = int(match.group(1))
                             if end_max_height_tweak.inputs[index].name == 'Height Tweak':
@@ -290,7 +290,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 # Rename fcurve datapath
                 for fcs in get_action_and_driver_fcurves(group_tree):
                     for fc in fcs:
-                        match = re.match(r'^nodes\["' + channel.end_linear + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                        match = re.match(r'^nodes\["' + channel.end_linear + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                         if match:
                             index = int(match.group(1))
                             if end_linear.inputs[index].name == 'Normal Tweak':
@@ -320,7 +320,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                     # Rename fcurve datapath
                     for fcs in get_action_and_driver_fcurves(group_tree):
                         for fc in fcs:
-                            match = re.match(r'^nodes\["' + channel.end_linear + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                            match = re.match(r'^nodes\["' + channel.end_linear + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                             if match:
                                 index = int(match.group(1))
                                 if end_linear.inputs[index].name == 'Normal Tweak':
@@ -727,13 +727,13 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         # Example: nodes["Group.003"].inputs[9].default_value'
 
         for fc in get_datablock_fcurves(root_tree):
-            m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+            m = re.match(r'^nodes\["' + layer_node.name + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if m:
                 inp = layer_node.inputs[int(m.group(1))]
                 fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
 
         for driver in root_tree.animation_data.drivers:
-            m = re.match(r'^nodes\["' + layer_node.name + '"\]\.inputs\[(\d+)\]\.default_value$', driver.data_path)
+            m = re.match(r'^nodes\["' + layer_node.name + r'"\]\.inputs\[(\d+)\]\.default_value$', driver.data_path)
             if m:
                 inp = layer_node.inputs[int(m.group(1))]
                 driver.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
@@ -1152,7 +1152,6 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         output_index += 1
 
     # Deleting invalid inputs
-    #for i, inp in reversed(list(enumerate(get_tree_inputs(tree)))):
     for i, inp in enumerate(get_tree_inputs(tree)):
         if inp not in valid_inputs:
             do_remove = True
@@ -1163,20 +1162,28 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 # Set value back to prop
                 val = layer_node.inputs.get(inp.name).default_value
                 socket_type = inp.socket_type if is_bl_newer_than(4) else inp.type
-                if socket_type in {'NodeSocketColor', 'RGBA'}:
-                    # Do not remove input if it has color brighter than 1.0
-                    if val[0] > 1.0 or val[1] > 1.0 or val[2] > 1.0:
-                        do_remove = False
 
-                    try: exec('layer' + inp.name + ' = (val[0], val[1], val[2])')
-                    except Exception as e: print(e)
-                else:
-                    # Do not remove input if it has value outside of min max
-                    if val < inp.min_value or val > inp.max_value:
-                        do_remove = False
+                # Get property path
+                path = 'yp.layers['+str(get_layer_index(layer))+']'+inp.name
+                m = re.match(r'(.+)\.(.+)$', path)
+                if m:
+                    entity_path = m.group(1)
+                    prop_name = m.group(2)
 
-                    try: exec('layer' + inp.name + ' = val')
-                    except Exception as e: print(e)
+                    if socket_type in {'NodeSocketColor', 'RGBA'}:
+                        # Do not remove input if it has color brighter than 1.0
+                        if val[0] > 1.0 or val[1] > 1.0 or val[2] > 1.0:
+                            do_remove = False
+
+                        try: setattr(root_tree.path_resolve(entity_path), prop_name, (val[0], val[1], val[2]))
+                        except Exception as e: print(e)
+                    else:
+                        # Do not remove input if it has value outside of min max
+                        if val < inp.min_value or val > inp.max_value:
+                            do_remove = False
+
+                        try: setattr(root_tree.path_resolve(entity_path), prop_name, val)
+                        except Exception as e: print(e)
 
             # Remove input socket
             if do_remove:
