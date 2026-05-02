@@ -1532,7 +1532,7 @@ def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
 
         remove_datablock(bpy.data.images, image, user=user, user_prop=user_prop)
 
-def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False):
+def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False, remove_images=True):
     #if not node: return
     scene = bpy.context.scene
 
@@ -1548,7 +1548,8 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, re
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
             image = node.image
-            if image: safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
+            if image and remove_images: 
+                safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
 
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
@@ -1556,7 +1557,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, re
                 # Recursive remove
                 for n in node.node_tree.nodes:
                     if n.bl_idname in {'ShaderNodeTexImage', 'ShaderNodeGroup'}:
-                        simple_remove_node(node.node_tree, n, remove_data)
+                        simple_remove_node(node.node_tree, n, remove_data, remove_on_disk=remove_on_disk, remove_images=remove_images)
 
                 remove_datablock(bpy.data.node_groups, node.node_tree, user=node, user_prop='node_tree')
 
@@ -2067,6 +2068,18 @@ def check_duplicated_node_group(node_group, duplicated_trees=[]):
                     #    bpy.data.node_groups.remove(prev_tree)
 
             check_duplicated_node_group(node.node_tree, duplicated_trees)
+
+        # Check for duplicated image from library
+        elif node.type == 'TEX_IMAGE' and node.image:
+            m = re.match(r'^(.+)\.\d{3}$', node.image.name)
+            if m:
+                img = bpy.data.images.get(m.group(1))
+                if img and img.filepath == node.image.filepath:
+                    dup_img = node.image
+                    node.image = img
+
+                    # Remove duplicated image
+                    remove_datablock(bpy.data.images, dup_img)
 
     # Create info frame if not found
     if not info_frame_found and node_group.name.startswith('~yPL '):
