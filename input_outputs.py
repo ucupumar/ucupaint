@@ -489,9 +489,6 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     # NOTE HACK: Blender 5.1 Alpha can only set the socket subtype here
     set_float_factor_inputs_hack(group_tree, float_factor_input_names)
 
-    # NOTE HACK: Blender 5.1 Alpha can only set the socket subtype here
-    set_float_factor_inputs_hack(group_tree, float_factor_input_names)
-
     if do_process_layers:
         # Update layer IO
         for layer in yp.layers:
