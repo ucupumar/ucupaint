@@ -51,8 +51,44 @@ BUMP_MULTIPLY_TWEAK = 5
 TEMP_ACTIVE_IMAGE_NAME = '.YP_TEMP_ACTIVE_IMAGE'
 TEMP_ACTIVE_IMAGE_NODE_NAME = '.YP_TEMP_ACTIVE_IMAGE_NODE'
 
-def blend_type_items(self, context):
-    items = [
+def is_bl_newer_than(major, minor=0, patch=0):
+    return bpy.app.version >= (major, minor, patch)
+
+def is_bl_equal(major, minor=None, patch=None):
+    if minor == None and patch == None:
+        return bpy.app.version[0] == major
+    elif patch == None:
+        return bpy.app.version[:2] == (major, minor)
+    else:
+        return bpy.app.version == (major, minor, patch)
+
+def is_created_before(major, minor=0, patch=0):
+    return bpy.data.version < (major, minor, patch)
+
+if is_bl_newer_than(3, 5):
+    blend_type_items = [
+        ("MIX", "Mix", ""),
+        ("ADD", "Add", ""),
+        ("SUBTRACT", "Subtract", ""),
+        ("MULTIPLY", "Multiply", ""),
+        ("SCREEN", "Screen", ""),
+        ("OVERLAY", "Overlay", ""),
+        ("DIFFERENCE", "Difference", ""),
+        ("DIVIDE", "Divide", ""),
+        ("DARKEN", "Darken", ""),
+        ("LIGHTEN", "Lighten", ""),
+        ("HUE", "Hue", ""),
+        ("SATURATION", "Saturation", ""),
+        ("VALUE", "Value", ""),
+        ("COLOR", "Color", ""),
+        ("SOFT_LIGHT", "Soft Light", ""),
+        ("LINEAR_LIGHT", "Linear Light", ""),
+        ("DODGE", "Dodge", ""),
+        ("BURN", "Burn", ""),
+        ("EXCLUSION", "Exclusion", ""),
+    ]
+else:
+    blend_type_items = [
         ("MIX", "Mix", ""),
         ("ADD", "Add", ""),
         ("SUBTRACT", "Subtract", ""),
@@ -72,11 +108,6 @@ def blend_type_items(self, context):
         ("DODGE", "Dodge", ""),
         ("BURN", "Burn", ""),
     ]
-
-    if is_bl_newer_than(3, 5):
-        items.append(("EXCLUSION", "Exclusion", ""))
-
-    return items
 
 blend_type_labels = {
     "MIX" : "Mix",
@@ -100,8 +131,30 @@ blend_type_labels = {
     "EXCLUSION" : "Exclusion",
 }
 
-def mask_blend_type_items(self, context):
-    items = [
+if is_bl_newer_than(3, 5):
+    mask_blend_type_items = [
+        ("MIX", "Replace", ""),
+        ("ADD", "Add", ""),
+        ("SUBTRACT", "Subtract", ""),
+        ("MULTIPLY", "Multiply", ""),
+        ("SCREEN", "Screen", ""),
+        ("OVERLAY", "Overlay", ""),
+        ("DIFFERENCE", "Difference", ""),
+        ("DIVIDE", "Divide", ""),
+        ("DARKEN", "Darken", ""),
+        ("LIGHTEN", "Lighten", ""),
+        ("HUE", "Hue", ""),
+        ("SATURATION", "Saturation", ""),
+        ("VALUE", "Value", ""),
+        ("COLOR", "Color", ""),
+        ("SOFT_LIGHT", "Soft Light", ""),
+        ("LINEAR_LIGHT", "Linear Light", ""),
+        ("DODGE", "Dodge", ""),
+        ("BURN", "Burn", ""),
+        ("EXCLUSION", "Exclusion", ""),
+    ]
+else:
+    mask_blend_type_items = [
         ("MIX", "Replace", ""),
         ("ADD", "Add", ""),
         ("SUBTRACT", "Subtract", ""),
@@ -121,11 +174,6 @@ def mask_blend_type_items(self, context):
         ("DODGE", "Dodge", ""),
         ("BURN", "Burn", ""),
     ]
-
-    if is_bl_newer_than(3, 5):
-        items.append(("EXCLUSION", "Exclusion", ""))
-
-    return items
 
 voronoi_feature_items = (
     ("F1", "F1", "Compute and return the distance to the closest feature point as well as its position and color"),
@@ -210,10 +258,10 @@ normal_blend_items = (
 )
 
 normal_blend_labels = {
-        'MIX' : 'Mix',
-        'OVERLAY' : 'Overlay',
-        'COMPARE' : 'Compare Height',
-        }
+    'MIX' : 'Mix',
+    'OVERLAY' : 'Overlay',
+    'COMPARE' : 'Compare Height',
+}
 
 normal_space_items = (
     ('TANGENT', 'Tangent Space', 'Tangent space normal mapping'),
@@ -230,11 +278,11 @@ height_blend_items = (
 )
 
 normal_type_labels = {
-        'BUMP_MAP' : 'Bump',
-        'NORMAL_MAP' : 'Normal',
-        'BUMP_NORMAL_MAP' : 'Bump + Normal',
-        'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
-        }
+    'BUMP_MAP' : 'Bump',
+    'NORMAL_MAP' : 'Normal',
+    'BUMP_NORMAL_MAP' : 'Bump + Normal',
+    'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
+}
 
 layer_type_items = (
     ('IMAGE', 'Image', ''),
@@ -610,7 +658,8 @@ eraser_names = {
 tex_eraser_asset_names = [
     'Erase Hard',
     'Erase Hard Pressure',
-    'Erase Soft'
+    'Erase Soft',
+    'Erase Pixel Art'
 ]
 
 tex_default_brushes = [
@@ -619,7 +668,15 @@ tex_default_brushes = [
     'Paint Hard Pressure',
     'Paint Soft',
     'Paint Soft Pressure',
+    'Paint Pixel Art',
 ]
+
+alpha_mode_labels = {
+    'STRAIGHT' : 'Straight',
+    'PREMUL' : 'Premultiplied',
+    'CHANNEL_PACKED' : 'Channel Packed',
+    'NONE' : 'None'
+}
 
 rgba_letters = ['r', 'g', 'b', 'a']
 nsew_letters = ['n', 's', 'e', 'w']
@@ -635,7 +692,7 @@ CACHE_BITANGENT_IMAGE_SUFFIX = '_YP_CACHE_BITANGENT'
 
 GAMMA = 2.2
 
-valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp"]
+valid_image_extensions = [".jpg",".gif",".png",".tga", ".jpeg", ".mp4", ".webp", ".tif", ".tiff"]
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -705,20 +762,6 @@ def get_current_version():
 
 def is_online():
     return not is_bl_newer_than(4, 2) or bpy.app.online_access
-
-def is_bl_newer_than(major, minor=0, patch=0):
-    return bpy.app.version >= (major, minor, patch)
-
-def is_bl_equal(major, minor=None, patch=None):
-    if minor == None and patch == None:
-        return bpy.app.version[0] == major
-    elif patch == None:
-        return bpy.app.version[:2] == (major, minor)
-    else:
-        return bpy.app.version == (major, minor, patch)
-
-def is_created_before(major, minor=0, patch=0):
-    return bpy.data.version < (major, minor, patch)
 
 def get_bpytypes():
     if not is_bl_newer_than(2, 77):
@@ -1268,12 +1311,11 @@ def get_active_paint_slot_image():
 
     return image
 
-def safely_set_image_paint_canvas(image, scene=None):
-    if not scene: scene = bpy.context.scene
-
+def safely_set_image_paint_canvas(image):
     # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
     ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
+    scene = bpy.context.scene
     try:
         scene.tool_settings.image_paint.canvas = image
         success = True
@@ -1286,7 +1328,7 @@ def set_image_paint_canvas(image):
     scene = bpy.context.scene
     try:
         scene.tool_settings.image_paint.mode = 'IMAGE'
-        safely_set_image_paint_canvas(image, scene)
+        safely_set_image_paint_canvas(image)
     except Exception as e: print(e)
 
 # Check if name already available on the list
@@ -1405,8 +1447,11 @@ def get_active_ypaint_node(obj=None, mat=None):
 
     return None
 
+def is_mat_use_nodes(mat):
+    return mat.node_tree != None and (not hasattr(mat, 'use_nodes') or mat.use_nodes)
+
 def is_yp_on_material(yp, mat):
-    if not mat.use_nodes: return False
+    if not is_mat_use_nodes(mat): return False
     for node in mat.node_tree.nodes:
         if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
             return True
@@ -1416,14 +1461,14 @@ def is_yp_on_material(yp, mat):
 def get_materials_using_yp(yp):
     mats = []
     for mat in bpy.data.materials:
-        if not mat.use_nodes: continue
+        if not is_mat_use_nodes(mat): continue
         for node in mat.node_tree.nodes:
             if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp and mat not in mats:
                 mats.append(mat)
     return mats
 
 def get_nodes_using_yp(mat, yp):
-    if not mat.use_nodes: return []
+    if not is_mat_use_nodes(mat): return []
     yp_nodes = []
     for node in mat.node_tree.nodes:
         if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
@@ -1460,7 +1505,7 @@ def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
 
         # Remove image from canvas
         if scene.tool_settings.image_paint.canvas == image:
-            safely_set_image_paint_canvas(None, scene)
+            safely_set_image_paint_canvas(None)
 
         if remove_on_disk and not image.packed_file and image.filepath != '':
             if image.source == 'TILED':
@@ -1474,7 +1519,7 @@ def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
 
         remove_datablock(bpy.data.images, image, user=user, user_prop=user_prop)
 
-def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False):
+def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False, remove_images=True):
     #if not node: return
     scene = bpy.context.scene
 
@@ -1490,7 +1535,8 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, re
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
             image = node.image
-            if image: safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
+            if image and remove_images: 
+                safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
 
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
@@ -1498,7 +1544,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, re
                 # Recursive remove
                 for n in node.node_tree.nodes:
                     if n.bl_idname in {'ShaderNodeTexImage', 'ShaderNodeGroup'}:
-                        simple_remove_node(node.node_tree, n, remove_data)
+                        simple_remove_node(node.node_tree, n, remove_data, remove_on_disk=remove_on_disk, remove_images=remove_images)
 
                 remove_datablock(bpy.data.node_groups, node.node_tree, user=node, user_prop='node_tree')
 
@@ -2010,6 +2056,18 @@ def check_duplicated_node_group(node_group, duplicated_trees=[]):
 
             check_duplicated_node_group(node.node_tree, duplicated_trees)
 
+        # Check for duplicated image from library
+        elif node.type == 'TEX_IMAGE' and node.image:
+            m = re.match(r'^(.+)\.\d{3}$', node.image.name)
+            if m:
+                img = bpy.data.images.get(m.group(1))
+                if img and img.filepath == node.image.filepath:
+                    dup_img = node.image
+                    node.image = img
+
+                    # Remove duplicated image
+                    remove_datablock(bpy.data.images, dup_img)
+
     # Create info frame if not found
     if not info_frame_found and node_group.name.startswith('~yPL '):
         create_info_nodes(node_group)
@@ -2091,7 +2149,7 @@ def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name=
 
         # Check if group is copied
         if prev_tree:
-            m = re.match(r'^' + group_name + '_Copy\.*\d{0,3}$', prev_tree.name)
+            m = re.match(r'^' + group_name + r'_Copy\.*\d{0,3}$', prev_tree.name)
         else: m = None
 
         #print(prev_tree)
@@ -2158,7 +2216,7 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
         # Check if group is copied
         if prev_tree:
-            m = re.match(r'^' + group_name + '_Copy\.*\d{0,3}$', prev_tree.name)
+            m = re.match(r'^' + group_name + r'_Copy\.*\d{0,3}$', prev_tree.name)
         else: m = None
 
         #print(prev_tree)
@@ -2711,7 +2769,11 @@ def set_modifier_input_value(mod, socket_name, value):
     inp = get_tree_input_by_name(mod.node_group, socket_name)
     if not inp: return
 
-    mod[inp.identifier] = value
+    if is_bl_newer_than(5, 2):
+        mod_inp = getattr(mod.properties.inputs, inp.identifier)
+        mod_inp.value = value
+    else:
+        mod[inp.identifier] = value
 
 def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not is_bl_newer_than(4):
@@ -2737,7 +2799,10 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not inp: 
         inp =  tree.interface.new_socket(name, description=description, in_out='INPUT', socket_type=socket_type)
 
-    if hasattr(inp, 'subtype'): inp.subtype = subtype
+    # NOTE: Setting subtype in Blender 5.1 Alpha here is causing the input socket to disappear
+    if hasattr(inp, 'subtype') and not is_bl_newer_than(5, 1):
+        inp.subtype = subtype
+
     return inp
 
 def new_tree_output(tree, name, socket_type, description='', use_both=False):
@@ -3515,8 +3580,7 @@ def set_uv_mirror_offsets(obj, matrix):
 
     movec = Vector((mirror.mirror_offset_u / 2, mirror.mirror_offset_v / 2, 0.0))
     if is_bl_newer_than(2, 80):
-        # NOTE: For compatibility to older blenders, put matrix multiplication under eval
-        movec = eval('matrix @ movec')
+        movec = matrix @ movec
     else: movec = matrix * movec
 
     if mirror.use_mirror_u:
@@ -3783,19 +3847,17 @@ def refresh_temp_uv(obj, entity):
         if mapping.vector_type == 'TEXTURE':
             for uv in arr:
                 vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
-                vec = eval('m @ vec')
-                vec = eval('m1 @ vec')
-                vec = eval('m2 @ vec')
-                vec = eval('m3 @ vec')
-                vec = eval('m4 @ vec')
+                vec = m @ vec
+                vec = m1 @ vec
+                vec = m2 @ vec
+                vec = m3 @ vec
+                vec = m4 @ vec
                 uv[0] = vec[0]
                 uv[1] = vec[1]
         else:
             for uv in arr:
                 vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
-                vec = eval('m @ vec')
+                vec = m @ vec
                 uv[0] = vec[0]
                 uv[1] = vec[1]
     else:
@@ -4571,7 +4633,7 @@ def get_bump_chain(layer, ch=None):
 
 def check_if_node_is_duplicated_from_lib(node, lib_name):
     if not node or node.type != 'GROUP': return False
-    m = re.match(r'^' + lib_name + '_Copy\.*\d{0,3}$', node.node_tree.name)
+    m = re.match(r'^' + lib_name + r'_Copy\.*\d{0,3}$', node.node_tree.name)
     if m: return True
     return False
 
@@ -5010,7 +5072,7 @@ def set_active_paint_slot_entity(yp):
     is_multiple_mats = obj.type == 'MESH' and len(obj.data.materials) > 1
 
     # Set material active node 
-    if is_bl_newer_than(2, 81):
+    if mat and node and is_bl_newer_than(2, 81):
         node.select = True
         mat.node_tree.nodes.active = node
 
@@ -5137,14 +5199,17 @@ def set_active_paint_slot_entity(yp):
     if not is_multiple_mats and image and is_bl_newer_than(2, 81):
 
         scene.tool_settings.image_paint.mode = 'MATERIAL'
+        
+        if mat:
 
-        for idx, img in enumerate(mat.texture_paint_images):
-            if img == None: continue
-            if img.name == image.name:
-                mat.paint_active_slot = idx
-                # HACK: Just in case paint slot does not update
-                wmyp.correct_paint_image_name = img.name
-                break
+            for idx, img in enumerate(mat.texture_paint_images):
+                if img == None: continue
+                if img.name == image.name:
+                    mat.paint_active_slot = idx
+                    # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
+                    if not is_bl_newer_than(5, 1):
+                        wmyp.correct_paint_image_name = img.name                                         
+                    break
         
     else:
         scene.tool_settings.image_paint.mode = 'IMAGE'
@@ -6391,7 +6456,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
             and not ch.gamma_space 
             and root_ch.type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
-            and socket_input_name == 'Color' 
+            and (socket_input_name == 'Color' or layer.type in {'HEMI', 'EDGE_DETECT'})
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
         ):
             return 1.0 / GAMMA
@@ -6797,7 +6862,7 @@ def get_material_fcurves(mat):
     fcurves = []
 
     if tree.animation_data and tree.animation_data.action:
-        for fc in get_datablock_fcurves(mat):
+        for fc in get_datablock_fcurves(tree):
             match = re.match(r'^nodes\[".+"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if match:
                 fcurves.append(fc)
@@ -6919,7 +6984,7 @@ def swap_channel_fcurves(yp, idx0, idx1):
             fcurves = get_material_fcurves_and_drivers(mat)
             for node in yp_nodes:
                 for fc in fcurves:
-                    m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+                    m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
                     if m:
                         index = int(m.group(1))
                         if index == ch0_idx:
@@ -6940,8 +7005,8 @@ def swap_layer_channel_fcurves(layer, idx0, idx1):
 
     for fc in fcurves:
 
-        m1 = re.match(r'yp\.layers\[' + str(layer_index) + '\]\.channels\[(\d+)\]\.(.+)', fc.data_path)
-        m2 = re.match(r'^nodes\["' + layer.group_node + '"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
+        m1 = re.match(r'yp\.layers\[' + str(layer_index) + r'\]\.channels\[(\d+)\]\.(.+)', fc.data_path)
+        m2 = re.match(r'^nodes\["' + layer.group_node + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
 
         index = -1
         neighbor_idx = -1
@@ -7079,7 +7144,7 @@ def get_layer_and_channel_prop_name_from_data_path(yp, channel_index, data_path)
     prop_name = ''
 
     m0 = re.match(r'^nodes\["(.+)"\]\.inputs\[(\d+)\]\.default_value$', data_path)
-    m1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[' + str(channel_index) + '\]\.(.+)', data_path)
+    m1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[' + str(channel_index) + r'\]\.(.+)', data_path)
 
     if m0:
         # Get layer based on node name
@@ -7093,7 +7158,7 @@ def get_layer_and_channel_prop_name_from_data_path(yp, channel_index, data_path)
 
             if inp:
                 # Get the channel index from input name
-                m = re.match(r'\.channels\[' + str(channel_index) + '\]\.(.+)', inp.name)
+                m = re.match(r'\.channels\[' + str(channel_index) + r'\]\.(.+)', inp.name)
                 if m: prop_name = m.group(1)
 
     elif m1:
@@ -7122,7 +7187,7 @@ def remove_channel_fcurves(root_ch):
             if tree_fcurves: tree_fcurves.remove(fc)
 
         else:
-            m = re.match(r'.*\.channels\[' + str(index) + '\].*', fc.data_path)
+            m = re.match(r'.*\.channels\[' + str(index) + r'\].*', fc.data_path)
             if m and tree_fcurves: tree_fcurves.remove(fc)
 
     for dr in reversed(drivers):
@@ -7130,7 +7195,7 @@ def remove_channel_fcurves(root_ch):
         if layer and prop_name != '':
             tree.animation_data.drivers.remove(dr)
         else:
-            m = re.match(r'.*\.channels\[' + str(index) + '\].*', dr.data_path)
+            m = re.match(r'.*\.channels\[' + str(index) + r'\].*', dr.data_path)
             if m and index == int(m.group(1)):
                 tree.animation_data.drivers.remove(dr)
 
@@ -7150,7 +7215,7 @@ def remove_channel_fcurves(root_ch):
     fcs = []
     for index in indices:
         for fc in fcurves:
-            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(index) + '\]\.default_value$', fc.data_path)
+            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(index) + r'\]\.default_value$', fc.data_path)
             if m and fc not in fcs:
                 fcs.append(fc)
 
@@ -7162,7 +7227,7 @@ def remove_channel_fcurves(root_ch):
     drs = []
     for index in indices:
         for dr in drivers:
-            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(index) + '\]\.default_value$', dr.data_path)
+            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(index) + r'\]\.default_value$', dr.data_path)
             if m and dr not in drs:
                 drs.append(dr)
 
@@ -7252,7 +7317,7 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
 
                 else:
 
-                    m = re.match(r'.*\.channels\[' + str(i) + '\].*', fc.data_path)
+                    m = re.match(r'.*\.channels\[' + str(i) + r'\].*', fc.data_path)
                     if m:
                         fc.data_path = fc.data_path.replace('.channels[' + str(i) + ']', '.channels[' + str(i+shifter) + ']')
 
@@ -7281,7 +7346,7 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
                         if i <= start_index: continue
                         io_index = root_ch.io_index
                         for fc in fcurves:
-                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
+                            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(io_index) + r'\]\.default_value$', fc.data_path)
                             if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
                 else:
 
@@ -7289,7 +7354,7 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
                         if i <= start_index: continue
                         io_index = root_ch.io_index
                         for fc in fcurves:
-                            m = re.match(r'^nodes\["' + node.name + '"\]\.inputs\[' + str(io_index) + '\]\.default_value$', fc.data_path)
+                            m = re.match(r'^nodes\["' + node.name + r'"\]\.inputs\[' + str(io_index) + r'\]\.default_value$', fc.data_path)
                             if m: fc.data_path = 'nodes["' + node.name + '"].inputs[' + str(io_index+shifter) + '].default_value'
 
 
@@ -7786,6 +7851,20 @@ def get_closest_bsdf_backward(node, valid_types=[], include_any=False):
 
     return None
 
+def get_closest_image_node_backward(node):
+    for inp in node.inputs:
+        # NOTE: Only check for image connected to surface socket for now
+        if node.type == 'OUTPUT_MATERIAL' and inp.name != 'Surface': continue
+        for link in inp.links:
+            n = link.from_node
+            if n.type == 'TEX_IMAGE' and n.image:
+                return n
+            else:
+                n = get_closest_image_node_backward(link.from_node)
+                if n: return n
+
+    return None
+
 def get_closest_bsdf_forward(node, valid_types=[]):
     for outp in node.outputs:
         for link in outp.links:
@@ -7879,33 +7958,6 @@ def get_armature_modifier(obj, return_index=False):
         return None, None
 
     return None
-
-def remember_armature_index(obj):
-    ys_tree = get_ysculpt_tree(obj)
-    if not ys_tree: return
-    ys = ys_tree.ys
-    
-    mod, idx = get_armature_modifier(obj, return_index=True)
-    if mod:
-        ys.ori_armature_index = idx
-
-def restore_armature_order(obj):
-    ys_tree = get_ysculpt_tree(obj)
-    if not ys_tree: return
-    ys = ys_tree.ys
-
-    mod, idx = get_armature_modifier(obj, return_index=True)
-
-    if not mod: return
-
-    ori_obj = bpy.context.object
-    bpy.context.view_layer.objects.active = obj
-
-    bpy.ops.object.modifier_move_to_index(
-        modifier=mod.name, index=min(ys.ori_armature_index, len(obj.modifiers)-1)
-    )
-
-    bpy.context.view_layer.objects.active = ori_obj    
 
 def is_layer_vdm(layer):
 
@@ -8190,3 +8242,35 @@ def get_available_source_outputs(source, entity_type):
     outps = [outp for outp in source.outputs if outp.enabled and (not valid_socket_names or outp.name in valid_socket_names)]
 
     return outps
+
+def get_scene_bake_multires(scene):
+    return scene.render.bake.use_multires if is_bl_newer_than(5) else scene.render.use_bake_multires
+
+def get_scene_bake_clear(scene):
+    return scene.render.bake.use_clear if is_bl_newer_than(5) else scene.render.use_bake_clear
+
+def get_scene_render_bake_type(scene):
+    return scene.render.bake.type if is_bl_newer_than(5) else scene.render.bake_type
+
+def get_scene_bake_margin(scene):
+    return scene.render.bake.margin if is_bl_newer_than(5) else scene.render.bake_margin
+
+def set_scene_bake_multires(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_multires = value
+    else: scene.render.bake.use_multires = value
+
+def set_scene_bake_clear(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.use_bake_clear = value
+    else: scene.render.bake.use_clear = value
+
+def set_scene_render_bake_type(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_type = value
+    else: scene.render.bake.type = value
+
+def set_scene_bake_margin(scene, value):
+    if not is_bl_newer_than(5):
+        scene.render.bake_margin = value
+    else: scene.render.bake.margin = value

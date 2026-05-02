@@ -895,8 +895,12 @@ def update_yp_tree(tree):
         # Also when preview mode is on, remember current scene if it uses compositing or not
         if yp.preview_mode or yp.layer_preview_mode:
             scene = bpy.context.scene
-            if scene.yp.ori_use_compositing != scene.use_nodes:
-                scene.yp.ori_use_compositing = scene.use_nodes
+            if is_bl_newer_than(5):
+                if scene.compositing_node_group:
+                    scene.yp.ori_compositing_node_name = scene.compositing_node_group.name
+            else:
+                if scene.yp.ori_use_compositing != scene.use_nodes:
+                    scene.yp.ori_use_compositing = scene.use_nodes
 
         # Collapse layer channel UI when there's no modifiers
         for layer in yp.layers:
@@ -1297,6 +1301,8 @@ def update_yp_tree(tree):
     # Update version
     if version_tuple(yp.version) < version_tuple(cur_version):
         yp.version = cur_version
+        # Update info nodes
+        create_info_nodes(tree) 
         print('INFO:', tree.name, 'is updated to version', cur_version)
 
     return updated_to_tangent_process_300, updated_to_yp_200_displacement
@@ -1309,11 +1315,11 @@ def update_routine(name):
     updated_to_tangent_process_300 = False
     updated_to_yp_200_displacement = False
 
-    for ng in bpy.data.node_groups:
-        if not hasattr(ng, 'yp'): continue
-        if not ng.yp.is_ypaint_node: continue
+    # Get all yp trees
+    yp_trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]
 
-        # Update yp trees
+    for ng in yp_trees:   
+        # Update yp tree
         flag1, flag2 = update_yp_tree(ng)
         if flag1: updated_to_tangent_process_300 = True
         if flag2: updated_to_yp_200_displacement = True

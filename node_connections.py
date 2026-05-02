@@ -1976,7 +1976,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         root_ch = yp.channels[i]
 
         # Get main socket
-        outp = source.outputs.get(ch.socket_input_name)
+        # NOTE: Always use color socket if override is enabled and the layer is an image or color attribute
+        # This is to avoid solid alpha value if 'Alpha' socket is used.
+        if layer.type in {'IMAGE', 'VCOL'} and ch.override:
+            outp = source.outputs.get('Color')
+        else: outp = source.outputs.get(ch.socket_input_name)
         if outp not in available_outputs:
             outp = None
 
@@ -2082,8 +2086,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if trans_bump_ch:
         trans_bump_flip = trans_bump_ch.transition_bump_flip #or layer.type == 'BACKGROUND'
         trans_bump_crease = trans_bump_ch.transition_bump_crease and not trans_bump_flip
-        #trans_bump_flip = trans_bump_ch.transition_bump_flip
-        #fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
 
     compare_alpha = None
     bump_smooth_multiplier_value = None

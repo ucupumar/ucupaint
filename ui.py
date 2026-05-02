@@ -382,11 +382,10 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
     split = split_layout(col, 0.4)
 
     scol = split.column()
-    if not image.is_dirty:
-        scol.label(text='Color Space:')
-        if hasattr(image, 'use_alpha'):
-            scol.label(text='Use Alpha:')
-        scol.label(text='Alpha Mode:')
+    scol.label(text='Color Space:')
+    if hasattr(image, 'use_alpha'):
+        scol.label(text='Use Alpha:')
+    scol.label(text='Alpha Mode:')
 
     scol.label(text='Interpolation:')
 
@@ -402,6 +401,11 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
         if hasattr(image, 'use_alpha'):
             scol.prop(image, 'use_alpha', text='')
         scol.prop(image, 'alpha_mode', text='')
+    else:
+        scol.label(text=image.colorspace_settings.name)
+        if hasattr(image, 'use_alpha'):
+            scol.label(text='True' if image.use_alpha else 'False')
+        scol.label(text=alpha_mode_labels[image.alpha_mode])
 
     scol.prop(source, 'interpolation', text='')
 
@@ -1076,17 +1080,25 @@ def draw_root_channels_ui(context, layout, node):
     ypui = context.window_manager.ypui
     ypup = get_user_preferences()
 
+    channel = yp.channels[yp.active_channel_index] if len(yp.channels) > 0 and yp.active_channel_index < len(yp.channels) else None 
+
     box = layout.box()
     col = box.column()
     row = col.row()
 
     rcol = row.column()
     if len(yp.channels) > 0:
-        pcol = rcol.column()
-        if yp.preview_mode: pcol.alert = True
-        if not is_bl_newer_than(2, 80):
-            pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-        else: pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
+
+        if channel and channel.type == 'NORMAL':
+            prow = split_layout(rcol, 0.667, align=True)
+        else: prow = rcol.row()
+
+        if yp.preview_mode: prow.alert = True
+        icon = 'HIDE_OFF' if is_bl_newer_than(2, 80) else 'RESTRICT_VIEW_OFF'
+        prow.prop(yp, 'preview_mode', text='Preview Mode', icon=icon)
+
+        if channel and channel.type == 'NORMAL':
+            prow.prop(yp, 'preview_mode_normal_space', text='')
 
     rcol.template_list("NODE_UL_YPaint_channels", "", yp,
             "channels", yp, "active_channel_index", rows=3, maxrows=5)  
@@ -1110,7 +1122,6 @@ def draw_root_channels_ui(context, layout, node):
 
         mcol = col.column(align=False)
 
-        channel = yp.channels[yp.active_channel_index]
         mcol.context_pointer_set('channel', channel)
 
         chui = ypui.channel_ui
@@ -1982,7 +1993,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
         label = 'Layer'
 
         if ch == alpha_ch and color_ch.enable and not color_ch.unpair_alpha:
-            if color_ch.socket_input_name == 'Alpha':
+            if not color_ch.override and color_ch.socket_input_name == 'Alpha':
                 label = 'Solid Value (1.0)'
             else: label += ' Alpha'
         else: label += ' ' + get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
@@ -2146,7 +2157,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 label += ')'
         else: label += yp.channels[i].name
         intensity_value = get_entity_prop_value(ch, 'intensity_value', layer=layer, 
-            path='channels['+str(i)+'].intensity_value') # NOTE: Manual path passing is for optimization
+            path='.channels['+str(i)+'].intensity_value') # NOTE: Manual path passing is for optimization
         if intensity_value != 1.0 and layer.type != 'GROUP':
             label += ' (%.1f)' % intensity_value
         if not chui.expand_content:
@@ -2687,7 +2698,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     if ch == color_ch and ch.enable:
                         label = root_ch.name + ':'
 
-                    if ch.override or input_settings_available or swizzleable:
+                    dropdown_available = (ch.override and ch.override_type != 'VCOL') or input_settings_available or swizzleable
+
+                    if dropdown_available:
                         inbox_dropdown_button(row, chui, 'expand_source', label)
                     else:
                         row.label(text='', icon='BLANK1')
@@ -2728,7 +2741,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     if ch.override:
                         ch_source = get_channel_source(ch, layer)
 
-                    if ch.expand_source and (ch.override or input_settings_available or swizzleable): # and ch.override_type != 'DEFAULT':
+                    if ch.expand_source and dropdown_available: # and ch.override_type != 'DEFAULT':
 
                         rrow = mcol.row(align=True)
                         rrow.label(text='', icon='BLANK1')
@@ -3536,6 +3549,13 @@ def draw_layers_ui(context, layout, node):
 
     if yp.use_baked:
         col = box.column(align=False)
+
+        if is_not_in_material_view() and ypup.enable_material_view_warning:
+            bbox = col.box()
+            row = bbox.row(align=True)
+            row.alert = True
+            row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
+            row.alert = False
 
         root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
 
@@ -4542,6 +4562,14 @@ def main_draw(self, context):
                 rrow.label(text='Transparent Shadows:')
                 rrow.prop(mat, 'use_transparent_shadow', text='')
 
+    # Check if Mio3 UV checker found
+    if obj and any([m for m in obj.modifiers if m.type == 'NODES' and m.node_group and m.node_group.name == 'Mio3MaterialOverride' and (m.show_viewport or m.show_render)]):
+        row = layout.row(align=True)
+        row.alert = True
+        op = row.operator("wm.y_remove_mio3_uv_checker", icon='ERROR')
+        row.alert = False
+        return
+
     if not node:
         layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
         layout.operator("wm.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
@@ -5397,7 +5425,7 @@ def layer_listing(layout, layer, show_expand=False):
             if active_override_image:
                 if active_override_image.yia.is_image_atlas or active_override_image.yua.is_udim_atlas:
                     #row.label(text='Image Atlas Override')
-                    row.label(text=override_image.name)
+                    row.label(text=active_override_image.name)
                 else: row.prop(active_override_image, 'name', text='', emboss=False)
             elif override_ch.override_type == 'VCOL':
                 row.prop(override_ch, 'override_vcol_name', text='', emboss=False)
@@ -5866,7 +5894,7 @@ def draw_ypaint_about(self, context):
 
     # Credits UI currently doesn't work with legacy blenders
     if is_bl_newer_than(2, 80):
-        check_contributors(ypc)
+        check_contributors()
     
     collaborators = get_collaborators()
     contributors = collaborators.contributors
@@ -6416,40 +6444,6 @@ class YLayerChannelBlendMenu(bpy.types.Menu):
         for key, val in blend_type_labels.items():
             col.operator('wm.y_set_layer_channel_blend_type', text=val).blend_type = key
 
-class YLayerChannelBlendPopover(bpy.types.Panel):
-    bl_idname = "NODE_PT_y_layer_channel_blend_popover"
-    bl_label = "Layer Channel Blend"
-    bl_description = "Layer channel blend"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "WINDOW"
-    bl_ui_units_x = 8
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        ch = context.channel
-        yp = ch.id_data.yp
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
-        if m: 
-            #layer = yp.layers[int(m.group(1))]
-            root_ch = yp.channels[int(m.group(2))]
-            #tree = get_tree(layer)
-        else: return
-
-        #self.layout.label(text=root_ch.name)
-        split = split_layout(self.layout, 0.35)
-
-        col = split.column()
-        col.label(text='Blend:')
-        col.label(text='Opacity:')
-
-        col = split.column()
-        col.prop(ch, 'blend_type', text='')
-        draw_input_prop(col, ch, 'intensity_value', text='', layer=layer)
-
-
 def draw_expandable_list_options(layout):
     col = layout.column()
     yp = get_active_ypaint_node().node_tree.yp
@@ -6489,49 +6483,14 @@ class YListItemOptionMenu(bpy.types.Menu):
     def draw(self, context):
         draw_expandable_list_options(self.layout)
 
-class YLayerChannelNormalBlendPopover(bpy.types.Panel):
-    bl_idname = "NODE_PT_y_layer_channel_normal_blend_popover"
-    bl_label = "Layer Channel Normal Blend"
-    bl_description = "Layer channel normal blend"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "WINDOW"
-    bl_ui_units_x = 8
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        ch = context.channel
-        yp = ch.id_data.yp
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
-        if m: 
-            #layer = yp.layers[int(m.group(1))]
-            root_ch = yp.channels[int(m.group(2))]
-            #tree = get_tree(layer)
-        else: return
-
-        #self.layout.label(text=root_ch.name)
-        split = split_layout(self.layout, 0.35)
-
-        col = split.column()
-        col.label(text='Blend:')
-        col.label(text='Type:')
-        col.label(text='Opacity:')
-
-        col = split.column()
-        col.prop(ch, 'normal_blend_type', text='')
-        col.prop(ch, 'normal_map_type', text='')
-        draw_input_prop(col, ch, 'intensity_value', text='', layer=layer)
-
 def has_layer_input_options(layer):
     return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE', 'EDGE_DETECT', 'AO'} and not 
         (is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}))
 
 class YLayerChannelInputMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_input_menu"
-    bl_label = "Layer Channel Input"
-    bl_description = "Layer Channel Input"
+    bl_label = "Layer Channel Source"
+    bl_description = "Replace layer channel source"
 
     @classmethod
     def poll(cls, context):
@@ -6565,7 +6524,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         if color_ch and color_ch.enable and not color_ch.unpair_alpha and alpha_ch == ch:
             icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
 
-            if color_ch.socket_input_name == 'Alpha' and layer.type != 'GROUP':
+            if color_ch.socket_input_name == 'Alpha' and not color_ch.override and layer.type != 'GROUP':
                 label = ' Solid Value (1.0)'
             else:
                 label = 'Layer' if layer.type != 'GROUP' else 'Group'
@@ -6636,8 +6595,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
 class YLayerChannelInput1Menu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_input_1_menu"
-    bl_label = "Normal Channel Input"
-    bl_description = "Normal Channel Input"
+    bl_label = "Layer Normal Channel Source"
+    bl_description = "Replace layer normal channel source"
 
     @classmethod
     def poll(cls, context):
@@ -6750,7 +6709,8 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         col.operator('wm.y_copy_layer', text='Copy Layer', icon='COPYDOWN').all_layers = False
         col.operator('wm.y_copy_layer', text='Copy All Layers', icon='COPYDOWN').all_layers = True
-        col.operator('wm.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN')
+        col.operator('wm.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN').paste_blank = False
+        col.operator('wm.y_paste_layer', text='Paste Blank Layer(s)', icon='PASTEDOWN').paste_blank = True
 
         col.separator()
         col.operator('wm.y_rebake_baked_images', text='Rebake All Baked Images', icon_value=lib.get_icon('bake'))
@@ -7540,7 +7500,7 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
 class YLayerTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_type_menu"
     bl_label = "Layer Type Menu"
-    bl_description = 'Layer Type Menu'
+    bl_description = 'Replace layer source'
 
     @classmethod
     def poll(cls, context):
@@ -7658,7 +7618,7 @@ class YLayerTypeMenu(bpy.types.Menu):
 class YMaskTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_mask_type_menu"
     bl_label = "Mask Type Menu"
-    bl_description = 'Mask Type Menu'
+    bl_description = 'Replace mask source'
 
     @classmethod
     def poll(cls, context):
@@ -8605,8 +8565,6 @@ def register():
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YLayerChannelBlendMenu)
     bpy.utils.register_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.register_class(YLayerChannelBlendPopover)
-    bpy.utils.register_class(YLayerChannelNormalBlendPopover)
     bpy.utils.register_class(YLayerChannelInputMenu)
     bpy.utils.register_class(YLayerChannelInput1Menu)
     bpy.utils.register_class(YLayerMaskInputMenu)
@@ -8697,8 +8655,6 @@ def unregister():
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YLayerChannelBlendMenu)
     bpy.utils.unregister_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.unregister_class(YLayerChannelBlendPopover)
-    bpy.utils.unregister_class(YLayerChannelNormalBlendPopover)
     bpy.utils.unregister_class(YLayerChannelInputMenu)
     bpy.utils.unregister_class(YLayerChannelInput1Menu)
     bpy.utils.unregister_class(YLayerMaskInputMenu)
