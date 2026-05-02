@@ -988,8 +988,7 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
         # Disable layer other than VDM
         for l in yp.layers:
             vdisp_ch = get_vdisp_channel(l)
-            if not vdisp_ch or not vdisp_ch.enable: continue
-            if l.type != 'GROUP':
+            if l.type != 'GROUP' and (not vdisp_ch or not vdisp_ch.enable):
                 l.enable = False
 
     # Make sure height output exists

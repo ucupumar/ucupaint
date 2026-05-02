@@ -8129,8 +8129,8 @@ def get_armature_modifier(obj, return_index=False):
 
 def is_layer_vdm(layer):
 
-    hch = get_height_channel(layer)
-    if not hch or not hch.enable or hch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': 
+    vch = get_vdisp_channel(layer)
+    if not vch or not vch.enable:
         return False
 
     return True

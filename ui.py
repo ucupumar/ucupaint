@@ -7589,7 +7589,7 @@ class YChannelSpecialMenu(bpy.types.Menu):
 
         col.operator('wm.y_bake_channels', text="Bake " + context.parent.name + " Channel", icon_value=lib.get_icon('bake')).only_active_channel = True
 
-        if context.parent.type == 'NORMAL':
+        if context.parent.special_channel_type == 'VDISP':
             if is_bl_newer_than(3, 2):
                 col.separator()
                 col.operator('object.y_remove_vdm_and_add_multires', text="Apply VDM layers to Multires", icon='SCULPTMODE_HLT')
