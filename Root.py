@@ -3446,10 +3446,11 @@ def update_parallax_height_tweak(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
 
+    base_depth_scale = get_displacement_max_height(self) * self.parallax_height_tweak
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
-        if parallax_prep:
-            parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(self) * self.parallax_height_tweak
+        if not parallax_prep: continue
+        parallax_prep.inputs['depth_scale'].default_value = base_depth_scale
 
 def update_parallax_num_of_layers(self, context):
 
@@ -3986,7 +3987,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
             ('96', '96', ''),
             ('128', '128', ''),
         ),
-        default = '8',
+        default = '32',
         update = update_parallax_num_of_layers
     )
 
@@ -4043,11 +4044,25 @@ class YPaintChannel(bpy.types.PropertyGroup):
         update = update_parallax_height_tweak
     )
 
-    # Currently unused
     parallax_ref_plane : FloatProperty(
+        name = 'Parallax Bias',
+        description = 'Where the zero-displacement plane sits in the height range.\n0 = top of the height map, 1 = bottom. Tweak so flat regions read as flat',
         subtype = 'FACTOR',
         default=0.5, min=0.0, max=1.0,
         update = update_displacement_ref_plane
+    )
+
+    parallax_dither_amount : FloatProperty(
+        name = 'Parallax Dither',
+        description = (
+            'Per-pixel sub-step jitter that breaks up the uniform horizontal banding visible '
+            'at low Steps counts (especially from a distance). 0.0 = off (banding intact), '
+            '1.0 = full layer-width random offset (max banding break-up, mild noise). '
+            'Free perf-wise — adds 4 cheap nodes total'
+        ),
+        subtype = 'FACTOR',
+        default = 0.5, min = 0.0, max = 1.0,
+        update = update_channel_parallax
     )
 
     # Real displacement using height map

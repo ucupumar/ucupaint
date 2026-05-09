@@ -1398,10 +1398,10 @@ def draw_root_channels_ui(context, layout, node):
                 else:
                     brow.label(text='', icon_value=lib.get_icon('texture'))
 
-                # Put parallax settings to experimental since it's very imprescise
-                if ypup.show_experimental or channel.enable_parallax:
+                # Parallax settings — works on both baked and unbaked materials.
+                if True:
                     brow = bcol.row(align=True)
-                    brow.active = yp.use_baked and not channel.enable_subdiv_setup and not yp.enable_baked_outside
+                    brow.active = not channel.enable_subdiv_setup and not yp.enable_baked_outside
 
                     rrow = brow.row(align=True)
                     inbox_dropdown_button(rrow, chui, 'expand_parallax_settings', 'Parallax:')
@@ -1411,7 +1411,10 @@ def draw_root_channels_ui(context, layout, node):
                         rrow.alignment = 'RIGHT'
 
                     if not chui.expand_parallax_settings and channel.enable_parallax:
-                        rrow.prop(channel, 'baked_parallax_num_of_layers', text='')
+                        if yp.use_baked:
+                            rrow.prop(channel, 'baked_parallax_num_of_layers', text='')
+                        else:
+                            rrow.prop(channel, 'parallax_num_of_layers', text='')
                         brow.separator()
                     brow.prop(channel, 'enable_parallax', text='')
 
@@ -1426,18 +1429,44 @@ def draw_root_channels_ui(context, layout, node):
 
                         brow = bbcol.row(align=True)
                         brow.label(text='Steps:')
-                        brow.prop(channel, 'baked_parallax_num_of_layers', text='')
+                        if yp.use_baked:
+                            brow.prop(channel, 'baked_parallax_num_of_layers', text='')
+                        else:
+                            brow.prop(channel, 'parallax_num_of_layers', text='')
 
                         brow = bbcol.row(align=True)
-                        #brow.label(text='', icon_value=lib.get_icon('input'))
+                        brow.label(text='Depth:')
+                        brow.prop(channel, 'parallax_height_tweak', text='')
+
+                        brow = bbcol.row(align=True)
+                        brow.label(text='Bias:')
+                        brow.prop(channel, 'parallax_ref_plane', text='')
+
+                        brow = bbcol.row(align=True)
+                        brow.label(text='Dither:')
+                        brow.prop(channel, 'parallax_dither_amount', text='')
+
+                        brow = bbcol.row(align=True)
                         brow.label(text='Rim Hack:')
                         if channel.parallax_rim_hack:
                             brow.prop(channel, 'parallax_rim_hack_hardness', text='')
                         brow.prop(channel, 'parallax_rim_hack', text='')
 
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Height Tweak:')
-                        brow.prop(channel, 'parallax_height_tweak', text='')
+                        # Cached-height parallax is always on for non-baked materials.
+                        # The bake button only appears when the height stack is non-trivial
+                        # (multiple layers / masks) so a bake is genuinely needed.
+                        if not yp.use_baked:
+                            from .subtree import _resolve_trivial_height
+                            baked_disp = channel.id_data.nodes.get(channel.baked_disp)
+                            has_baked = bool(baked_disp and baked_disp.image)
+                            if not has_baked:
+                                trivial_img, reason = _resolve_trivial_height(yp)
+                                if trivial_img is None:
+                                    brow = bbcol.row(align=True)
+                                    brow.label(text='Height Cache:')
+                                    brow.operator('wm.y_bake_parallax_height_cache', text='Bake', icon='RENDER_STILL')
+                                    brow = bbcol.row(align=True)
+                                    brow.label(text=reason or 'Bake to enable parallax for masked / multi-layer setups.', icon='INFO')
 
                         brow = bbcol.row(align=True)
                         brow.label(text='Main UV: ' + channel.main_uv)

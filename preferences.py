@@ -87,12 +87,6 @@ class YPaintPreferences(AddonPreferences):
         default = True
     )
 
-    parallax_without_baked : BoolProperty(
-        name = 'Parallax Without Use Baked',
-        description = 'Make it possible to use parallax without using baked textures (currently VERY SLOW)',
-        default = False
-    )
-
     default_bake_device : EnumProperty(
         name = 'Bake Device',
         description = 'Default bake device',
@@ -219,7 +213,6 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'hide_update_notification')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
-        #self.layout.prop(self, 'parallax_without_baked')
 
         if self.developer_mode:
 

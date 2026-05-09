@@ -3953,6 +3953,38 @@ def set_subdiv_global_dicing(height_ch, objs=[]):
 def update_subdiv_global_dicing(self, context):
     set_subdiv_global_dicing(self)
 
+class YBakeParallaxHeightCache(bpy.types.Operator):
+    """Bake the Normal channel's height into a cached image used by the parallax depth source.
+After baking, returns to live-layer mode (use_baked=False) so color/normal/roughness layers stay
+editable. The cached height makes parallax dramatically faster and removes mask-edge glitches"""
+    bl_idname = "wm.y_bake_parallax_height_cache"
+    bl_label = "Bake Parallax Height Cache"
+    bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        if not node: return False
+        yp = node.node_tree.yp
+        return any(c.type == 'NORMAL' and c.enable_parallax for c in yp.channels)
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        # Switch active channel to Normal so y_bake_channels with only_active_channel hits it.
+        # Poll guarantees a NORMAL channel exists.
+        normal_idx = next(i for i, c in enumerate(yp.channels) if c.type == 'NORMAL')
+        yp.active_channel_index = normal_idx
+
+        result = bpy.ops.wm.y_bake_channels('INVOKE_DEFAULT', only_active_channel=True)
+        if 'FINISHED' not in result and 'RUNNING_MODAL' not in result:
+            self.report({'ERROR'}, "Bake operator did not start (result=%s)" % result)
+            return {'CANCELLED'}
+
+        self.report({'INFO'}, "After bake completes, toggle 'Use Baked' off to return to live layers — cached height stays.")
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YTransferSomeLayerUV)
     bpy.utils.register_class(YTransferLayerUV)
@@ -3962,6 +3994,7 @@ def register():
     bpy.utils.register_class(YMergeLayer)
     bpy.utils.register_class(YMergeMask)
     bpy.utils.register_class(YDeleteBakedChannelImages)
+    bpy.utils.register_class(YBakeParallaxHeightCache)
 
 def unregister():
     bpy.utils.unregister_class(YTransferSomeLayerUV)
@@ -3972,3 +4005,4 @@ def unregister():
     bpy.utils.unregister_class(YMergeLayer)
     bpy.utils.unregister_class(YMergeMask)
     bpy.utils.unregister_class(YDeleteBakedChannelImages)
+    bpy.utils.unregister_class(YBakeParallaxHeightCache)

@@ -585,10 +585,16 @@ def reconnect_parallax_process_nodes(group_tree, parallax, baked=False, uv_name=
     for uv in yp.uvs:
         if uv_name != '' and uv.name != uv_name: continue
 
+        # If a per-UV dither chain exists, its 'add' output supersedes Group Input.start_uv
+        # for all consumers (depth_source_0/1, loop). The white-noise and add nodes themselves
+        # still read the un-dithered start_uv directly.
+        dither_add = parallax.node_tree.nodes.get('_dither_add_' + uv.name)
+        start_uv_socket = dither_add.outputs[0] if dither_add else start.outputs[uv.name + START_UV]
+
         # Start and delta uv inputs
-        create_link(tree, start.outputs[uv.name + START_UV], depth_source_0.inputs[uv.name + START_UV])
-        create_link(tree, start.outputs[uv.name + START_UV], depth_source_1.inputs[uv.name + START_UV])
-        create_link(tree, start.outputs[uv.name + START_UV], loop.inputs[uv.name + START_UV])
+        create_link(tree, start_uv_socket, depth_source_0.inputs[uv.name + START_UV])
+        create_link(tree, start_uv_socket, depth_source_1.inputs[uv.name + START_UV])
+        create_link(tree, start_uv_socket, loop.inputs[uv.name + START_UV])
 
         create_link(tree, start.outputs[uv.name + DELTA_UV], depth_source_0.inputs[uv.name + DELTA_UV])
         create_link(tree, start.outputs[uv.name + DELTA_UV], depth_source_1.inputs[uv.name + DELTA_UV])
@@ -751,6 +757,13 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
     depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
     tree = depth_source_0.node_tree
 
+    # When the depth source is a single cached image (HEIGHT_MAP) the per-layer height
+    # chain is irrelevant — the wiring was already done in reconnect_parallax_process_nodes,
+    # and running the layer-eval wiring here would overwrite HEIGHT_MAP.Color → depth_from_tex
+    # with the unused normalize chain (leaving depth permanently flat).
+    if tree.nodes.get(HEIGHT_MAP) is not None:
+        return
+
     start = tree.nodes.get(TREE_START)
     end = tree.nodes.get(TREE_END)
 
@@ -776,6 +789,10 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
         if not layer.enable or not layer.channels[parallax_ch_idx].enable: continue
 
         node = tree.nodes.get(layer.depth_group_node)
+        # In cached-height mode the depth source is a single image texture rather than
+        # a chain of per-layer groups, so layer.depth_group_node is empty / invalid.
+        # Skip wiring for those layers — the cached image already provides the height.
+        if not node: continue
 
         uv_names = []
         if layer.texcoord_type == 'UV':

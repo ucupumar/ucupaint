@@ -3961,15 +3961,7 @@ def set_bitangent_backface_flip(node, flip_backface):
 def is_parallax_enabled(root_ch):
     if not root_ch: return False
 
-    yp = root_ch.id_data.yp
-    ypup = get_user_preferences()
-
-    parallax_enabled = root_ch.enable_parallax if root_ch.type == 'NORMAL' else False
-
-    if not ypup.parallax_without_baked and not yp.use_baked:
-        parallax_enabled = False
-
-    return parallax_enabled
+    return root_ch.enable_parallax if root_ch.type == 'NORMAL' else False
 
 def get_root_parallax_channel(yp):
     for ch in yp.channels:

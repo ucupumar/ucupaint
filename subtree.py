@@ -1069,14 +1069,16 @@ def check_actual_uv_nodes(yp, uv, obj):
             node = tp_nodes.get('_bitangent_from_norm')
             if node: node.uv_map = uv.name
 
-            if is_tangent_sign_hacks_needed(yp):
-                #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
-                node = tp_nodes.get('_tangent_sign')
-
-                vcol = refresh_tangent_sign_vcol(obj, uv.name)
-                if vcol: node.attribute_name = vcol.name
-            #else:
-            #    tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 0.0
+        # Bake the bitangent-sign vcol on the active object every pass, not just on
+        # node creation. Needed when an object becomes a new user of an already-
+        # configured material (e.g. the material was set up against the Cube, then
+        # later assigned to the Sphere — without this, the Sphere never gets a vcol
+        # and tangent-space parallax goes haywire on it).
+        if is_tangent_sign_hacks_needed(yp):
+            tp_nodes = tangent_process.node_tree.nodes
+            tsign = tp_nodes.get('_tangent_sign')
+            vcol = refresh_tangent_sign_vcol(obj, uv.name)
+            if vcol and tsign: tsign.attribute_name = vcol.name
     else:
         remove_node(tree, uv, 'tangent_process')
 
@@ -1241,6 +1243,83 @@ def refresh_parallax_depth_source_layers(yp, parallax): #, disp_ch):
             node = new_node(tree, layer, 'depth_group_node', 'ShaderNodeGroup', layer.name)
             node.node_tree = n.node_tree
 
+_LINEAR_COLORSPACES = {'Non-Color', 'Linear', 'Raw', 'Generic Data', 'Linear Rec.709'}
+
+def _resolve_layer_height_image(yp, layer):
+    """Returns (image, reason_if_none). Picks the right image to use as the height field
+    for a layer's parallax depth, depending on its Normal-channel mode:
+      • BUMP                 — layer.source if no override, else lch.source (override-bump)
+      • BUMP_NORMAL_MAP      — lch.source (the explicit Bump Source slot)
+      • NORMAL_MAP           — no height image; can't do trivial path
+    """
+    normal_lch = None
+    for j, root_ch in enumerate(yp.channels):
+        if root_ch.type == 'NORMAL' and j < len(layer.channels):
+            normal_lch = layer.channels[j]; break
+    if not normal_lch or not normal_lch.enable:
+        return None, "Layer doesn't write to Normal channel"
+    if not getattr(normal_lch, 'write_height', False):
+        return None, "Layer's height write is off"
+    nmt = normal_lch.normal_map_type
+    if nmt == 'NORMAL_MAP':
+        return None, "Normal-map-only layer has no height — bake to derive one"
+
+    ltree = get_tree(layer)
+    image_node = None
+
+    if nmt == 'BUMP_NORMAL_MAP':
+        # The dedicated Bump Source lives in the override slot (lch.source / cache_image).
+        for attr in ('source', 'cache_image'):
+            name = getattr(normal_lch, attr, '')
+            if name:
+                image_node = ltree.nodes.get(name)
+                if image_node and getattr(image_node, 'image', None):
+                    break
+                image_node = None
+        if not image_node:
+            return None, "Bump Source image missing"
+    else:  # 'BUMP'
+        # If user has explicitly overridden the bump image, prefer that.
+        for attr in ('source', 'cache_image'):
+            name = getattr(normal_lch, attr, '')
+            if name:
+                node = ltree.nodes.get(name)
+                if node and getattr(node, 'image', None):
+                    image_node = node
+                    break
+        if not image_node:
+            # Fall back to the layer's main source.
+            image_node = get_layer_source(layer)
+        if not (image_node and image_node.type == 'TEX_IMAGE' and image_node.image):
+            return None, "Layer source isn't a static image"
+
+    img = image_node.image
+    cs = img.colorspace_settings.name
+    if cs not in _LINEAR_COLORSPACES:
+        return None, "Bump image is %s — set image to Non-Color or bake" % cs
+
+    return img, None
+
+def _resolve_trivial_height(yp):
+    """Returns (image, reason). image is non-None only when the height stack reduces to
+    a single un-masked image layer. reason is a human-readable string explaining why
+    the trivial-source path is unavailable (None when image is non-None)."""
+    enabled = [l for l in yp.layers if l.enable]
+    if len(enabled) == 0: return None, "No enabled layers"
+    if len(enabled) > 1: return None, "Multiple layers — bake to composite"
+    layer = enabled[0]
+    if layer.type != 'IMAGE': return None, "Layer isn't an image — bake to rasterize"
+    if any(m.enable for m in layer.masks): return None, "Layer has masks — bake to flatten"
+    return _resolve_layer_height_image(yp, layer)
+
+def diagnose_trivial_height(yp):
+    """Human-readable reason the trivial-source path can't be used (or None when it works)."""
+    return _resolve_trivial_height(yp)[1]
+
+def get_trivial_height_image(yp):
+    """If the height stack reduces to a single image with no compositing, return that image."""
+    return _resolve_trivial_height(yp)[0]
+
 def refresh_parallax_depth_img(yp, parallax, disp_img): #, disp_ch):
 
     depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
@@ -1255,6 +1334,171 @@ def refresh_parallax_depth_img(yp, parallax, disp_img): #, disp_ch):
 
     height_map.image = disp_img
 
+_DITHER_PREFIX = '_dither_'
+
+def _clear_parallax_dither(parallax):
+    nt = parallax.node_tree
+    if not nt: return
+    for n in [n for n in nt.nodes if n.name.startswith(_DITHER_PREFIX)]:
+        nt.nodes.remove(n)
+
+def add_parallax_dither(parallax, amount):
+    """Per-pixel sub-step jitter on the parallax start UV. Each pixel's steep march
+    starts at a random sub-step offset (in [-amount/2, +amount/2] × layer_depth in UV),
+    so adjacent pixels see different "layer boundaries" and the eye averages out the
+    coherent stair-step bands into mild noise.
+
+    Idempotent: previous dither nodes are removed before new ones are built."""
+    _clear_parallax_dither(parallax)
+    if amount <= 0: return
+
+    nt = parallax.node_tree
+    if not nt: return
+    gi = next((n for n in nt.nodes if n.bl_idname == 'NodeGroupInput'), None)
+    if not gi: return
+
+    yp = parallax.id_data.yp
+    base_x = gi.location.x + 250
+    base_y = gi.location.y - 600
+
+    for i, uv in enumerate(yp.uvs):
+        start_name = uv.name + START_UV
+        delta_name = uv.name + DELTA_UV
+        if start_name not in [s.name for s in gi.outputs]: continue
+
+        col_y = base_y - i * 200
+
+        wn = nt.nodes.new('ShaderNodeTexWhiteNoise')
+        wn.name = _DITHER_PREFIX + 'wn_' + uv.name
+        wn.location = (base_x, col_y)
+        wn.noise_dimensions = '3D'
+        nt.links.new(gi.outputs[start_name], wn.inputs['Vector'])
+
+        m_sub = nt.nodes.new('ShaderNodeMath')
+        m_sub.name = _DITHER_PREFIX + 'sub_' + uv.name
+        m_sub.operation = 'SUBTRACT'
+        m_sub.location = (base_x + 180, col_y)
+        nt.links.new(wn.outputs['Value'], m_sub.inputs[0])
+        m_sub.inputs[1].default_value = 0.5
+
+        m_amt = nt.nodes.new('ShaderNodeMath')
+        m_amt.name = _DITHER_PREFIX + 'amt_' + uv.name
+        m_amt.operation = 'MULTIPLY'
+        m_amt.location = (base_x + 360, col_y)
+        nt.links.new(m_sub.outputs[0], m_amt.inputs[0])
+        m_amt.inputs[1].default_value = amount
+
+        v_scale = nt.nodes.new('ShaderNodeVectorMath')
+        v_scale.name = _DITHER_PREFIX + 'scale_' + uv.name
+        v_scale.operation = 'SCALE'
+        v_scale.location = (base_x + 540, col_y)
+        nt.links.new(gi.outputs[delta_name], v_scale.inputs['Vector'])
+        nt.links.new(m_amt.outputs[0], v_scale.inputs['Scale'])
+
+        v_add = nt.nodes.new('ShaderNodeVectorMath')
+        v_add.name = _DITHER_PREFIX + 'add_' + uv.name
+        v_add.operation = 'ADD'
+        v_add.location = (base_x + 720, col_y)
+        nt.links.new(gi.outputs[start_name], v_add.inputs[0])
+        nt.links.new(v_scale.outputs[0], v_add.inputs[1])
+
+        # Re-route consumers of Group Input.start_uv to the dithered value.
+        # Skip our own dither chain and the white-noise input (which still wants the un-dithered UV).
+        for L in list(gi.outputs[start_name].links):
+            if L.to_node.name.startswith(_DITHER_PREFIX): continue
+            target = L.to_socket
+            nt.links.remove(L)
+            nt.links.new(v_add.outputs[0], target)
+
+
+def fix_parallax_refinement_math(parallax):
+    """Repair the one-step linear refinement in the lib.blend parallax process tree.
+
+    The shipped formula has wrong signs and an off-by-two prev_index lookup, which makes
+    `_weight` snap to 0 or 1 (or go NaN at edges) and produces visible stair-stepping.
+
+    Correct linear refinement after a steep ray-march that exited at iteration `i`:
+        D_curr     = parallax_loop.cur_layer_depth                  (depth at exit)
+        D_prev     = D_curr - layer_depth                           (depth one step back)
+        H_curr     = parallax_loop.depth_from_tex                   (sample at curr_uv)
+        H_prev     = depth_source_1.depth_from_tex (index = i-1)    (sample at prev_uv)
+        curr_below = D_curr - H_curr                                (>0 — crossed)
+        prev_above = H_prev - D_prev                                (>0 — was above)
+        weight     = curr_below / (curr_below + prev_above)         in [0,1]
+        output_uv  = lerp(curr_uv, prev_uv, weight)
+                   = Mix(A=loop.UV, B=ds1.UV, factor=weight)
+
+    Idempotent: calling on an already-patched tree produces the same result.
+    """
+    nt = parallax.node_tree
+    if not nt: return
+
+    needed = ['Math', 'Math.002', 'Math.003', 'Math.004', 'Math.005',
+              '_weight', '_parallax_loop', '_depth_source_1']
+    for nm in needed:
+        if nt.nodes.get(nm) is None: return  # tree shape doesn't match — leave it alone
+
+    m_prev_idx = nt.nodes['Math']
+    m_curr_below = nt.nodes['Math.002']
+    m_d_prev = nt.nodes['Math.003']
+    m_prev_above = nt.nodes['Math.004']
+    m_sum = nt.nodes['Math.005']
+    mw = nt.nodes['_weight']
+    ploop = nt.nodes['_parallax_loop']
+    ds1 = nt.nodes['_depth_source_1']
+    gi = next((n for n in nt.nodes if n.bl_idname == 'NodeGroupInput'), None)
+    if not gi: return
+
+    def relink(socket_in, source_socket):
+        for L in list(socket_in.links):
+            nt.links.remove(L)
+        nt.links.new(source_socket, socket_in)
+
+    # prev_index = loop.index - 1
+    m_prev_idx.operation = 'SUBTRACT'
+    m_prev_idx.label = 'prev_index'
+    relink(m_prev_idx.inputs[0], ploop.outputs['index'])
+    m_prev_idx.inputs[1].default_value = 1.0
+
+    # curr_below = cur_layer_depth - depth_from_tex
+    m_curr_below.operation = 'SUBTRACT'
+    m_curr_below.label = 'curr_below'
+    relink(m_curr_below.inputs[0], ploop.outputs['cur_layer_depth'])
+    relink(m_curr_below.inputs[1], ploop.outputs['depth_from_tex'])
+
+    # D_prev = cur_layer_depth - layer_depth
+    m_d_prev.operation = 'SUBTRACT'
+    m_d_prev.label = 'D_prev'
+    relink(m_d_prev.inputs[0], ploop.outputs['cur_layer_depth'])
+    relink(m_d_prev.inputs[1], gi.outputs['layer_depth'])
+
+    # prev_above = ds1.depth_from_tex - D_prev
+    m_prev_above.operation = 'SUBTRACT'
+    m_prev_above.label = 'prev_above'
+    relink(m_prev_above.inputs[0], ds1.outputs['depth_from_tex'])
+    relink(m_prev_above.inputs[1], m_d_prev.outputs['Value'])
+
+    # sum = curr_below + prev_above
+    m_sum.operation = 'ADD'
+    m_sum.label = 'sum'
+    relink(m_sum.inputs[0], m_curr_below.outputs['Value'])
+    relink(m_sum.inputs[1], m_prev_above.outputs['Value'])
+
+    # weight = curr_below / sum   (clamped so degenerate sums can't blow up)
+    mw.operation = 'DIVIDE'
+    mw.use_clamp = True
+    relink(mw.inputs[0], m_curr_below.outputs['Value'])
+    relink(mw.inputs[1], m_sum.outputs['Value'])
+
+def _purge_legacy_distance_fade_nodes(tree, parallax_prep=None):
+    """One-time cleanup of legacy `_pdistfade_*` distance-fade nodes from older versions.
+    Also drops any stray link on parallax_prep.depth_scale so the static default takes effect."""
+    for n in [n for n in tree.nodes if n.name.startswith('_pdistfade_')]:
+        tree.nodes.remove(n)
+    if parallax_prep is not None:
+        for L in list(parallax_prep.inputs['depth_scale'].links):
+            tree.links.remove(L)
+
 def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=False):
 
     tree = yp.id_data
@@ -1267,6 +1511,9 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=Fals
     else: num_of_layers = int(height_ch.parallax_num_of_layers)
 
     max_height = get_displacement_max_height(height_ch)
+    base_depth_scale = max_height * height_ch.parallax_height_tweak
+
+    _purge_legacy_distance_fade_nodes(tree)
 
     # Create parallax preparations for uvs
     for uv in yp.uvs:
@@ -1277,13 +1524,13 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=Fals
             parallax_prep = tree.nodes.get(uv.parallax_prep)
             if not parallax_prep:
                 parallax_prep = new_node(
-                    tree, uv, 'parallax_prep', 'ShaderNodeGroup', 
+                    tree, uv, 'parallax_prep', 'ShaderNodeGroup',
                     uv.name + ' Parallax Preparation'
                 )
                 parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
 
-            #parallax_prep.inputs['depth_scale'].default_value = height_ch.displacement_height_ratio
-            parallax_prep.inputs['depth_scale'].default_value = max_height * height_ch.parallax_height_tweak
+            _purge_legacy_distance_fade_nodes(tree, parallax_prep)
+            parallax_prep.inputs['depth_scale'].default_value = base_depth_scale
             parallax_prep.inputs['ref_plane'].default_value = height_ch.parallax_ref_plane
             parallax_prep.inputs['Rim Hack'].default_value = 1.0 if height_ch.parallax_rim_hack else 0.0
             parallax_prep.inputs['Rim Hack Hardness'].default_value = height_ch.parallax_rim_hack_hardness
@@ -1306,7 +1553,8 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=Fals
                     parallax_prep.node_tree = lib.get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
                 parallax_prep.name = parallax_prep.label = tc + PARALLAX_PREP_SUFFIX
 
-            parallax_prep.inputs['depth_scale'].default_value = max_height * height_ch.parallax_height_tweak
+            _purge_legacy_distance_fade_nodes(tree, parallax_prep)
+            parallax_prep.inputs['depth_scale'].default_value = base_depth_scale
             parallax_prep.inputs['ref_plane'].default_value = height_ch.parallax_ref_plane
             parallax_prep.inputs['Rim Hack'].default_value = 1.0 if height_ch.parallax_rim_hack else 0.0
             parallax_prep.inputs['Rim Hack Hardness'].default_value = height_ch.parallax_rim_hack_hardness
@@ -1385,14 +1633,17 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
             if baked_parallax_filter: simple_remove_node(tree, baked_parallax_filter, True)
         return
 
-    # Displacement image needed for baked parallax
+    # Displacement image for the parallax depth source. For baked materials it must come
+    # from the baked-disp slot. For live materials we prefer the baked image when present,
+    # otherwise fall back to the layer's own image when the stack is trivial.
     disp_img = None
-    if baked:
-        baked_disp = tree.nodes.get(height_ch.baked_disp)
-        if baked_disp:
-            disp_img = baked_disp.image
-        else:
-            return
+    baked_disp = tree.nodes.get(height_ch.baked_disp)
+    if baked_disp and baked_disp.image:
+        disp_img = baked_disp.image
+    elif baked:
+        return
+    else:
+        disp_img = get_trivial_height_image(yp)
 
     # Create parallax node
     if not parallax:
@@ -1431,9 +1682,29 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
 
     parallax.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
-    if baked:
+    # Patch the lib.blend's broken refinement math — see fix_parallax_refinement_math docstring.
+    fix_parallax_refinement_math(parallax)
+
+    if disp_img:
         refresh_parallax_depth_img(yp, parallax, disp_img)
-    else: refresh_parallax_depth_source_layers(yp, parallax)
+        # Tear down any leftover layer-eval nodes from a previous mode
+        if not baked:
+            depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+            if depth_source_0 and depth_source_0.node_tree:
+                for layer in yp.layers:
+                    if layer.depth_group_node:
+                        leftover = depth_source_0.node_tree.nodes.get(layer.depth_group_node)
+                        if leftover:
+                            depth_source_0.node_tree.nodes.remove(leftover)
+                        layer.depth_group_node = ''
+    else:
+        refresh_parallax_depth_source_layers(yp, parallax)
+        # Tear down any leftover HEIGHT_MAP image-tex node from a previous cached run
+        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+        if depth_source_0 and depth_source_0.node_tree:
+            leftover_hm = depth_source_0.node_tree.nodes.get(HEIGHT_MAP)
+            if leftover_hm:
+                depth_source_0.node_tree.nodes.remove(leftover_hm)
 
     depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
     parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
@@ -1547,6 +1818,10 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
     #create_delete_iterate_nodes_(parallax_loop.node_tree, num_of_layers)
     create_delete_iterate_nodes__(parallax_loop.node_tree, num_of_layers)
     #update_displacement_height_ratio(height_ch)
+
+    # Per-UV sockets are now in place — safe to add dither, which reads/wires Group Input's
+    # UV-name-suffixed sockets and rewrites their consumers.
+    add_parallax_dither(parallax, height_ch.parallax_dither_amount)
 
 def remove_uv_nodes(uv, obj):
     tree = uv.id_data
