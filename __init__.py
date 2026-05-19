@@ -73,6 +73,14 @@ else:
 import bpy
 
 def register():
+    # Checking other ucupaint installation
+    package_names = ['ucupaint', 'ucupaint_plus', 'bl_ext.blender_org.ucupaint', 'bl_ext.user_default.ucupaint', 'bl_ext.user_default.ucupaint_plus']
+    for pkg_name in package_names:
+        if __package__ == pkg_name: continue
+        addons = bpy.context.preferences.addons
+        if pkg_name in addons:
+            raise ValueError("Another ucupaint version is installed, please disable it first.")
+
     if 'credits_ui' in globals(): credits_ui.register()
     preferences.register()
     lib.register()
