@@ -256,6 +256,8 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         mat = obj.active_material
         uv_name = self.uv_map if not self.new_uv else get_unique_name(self.new_uv_name, get_uv_layers(obj))
 
+        in_edit_mode = obj.mode == 'EDIT'
+
         if is_bl_newer_than(2, 80):
             objs = []
             for o in get_scene_objects():
@@ -265,11 +267,19 @@ class YSelectMaterialPolygons(bpy.types.Operator):
                     o.select_set(True)
                     objs.append(o)
                 else: o.select_set(False)
+
+            # Check if all objects are in edit mode
+            if in_edit_mode:
+                for o in objs:
+                    if o.mode != 'EDIT':
+                        in_edit_mode = False
+                        break
         else:
             objs = [obj]
 
         # Go to edit mode
-        if obj.mode != 'EDIT':
+        if not in_edit_mode:
+            if obj.mode == 'EDIT': bpy.ops.object.mode_set(mode='OBJECT')
             bpy.ops.object.mode_set(mode='EDIT')
 
         # Select polygon select mode
