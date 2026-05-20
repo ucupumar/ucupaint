@@ -590,7 +590,10 @@ def update_channel_idx_new_layer(self, context):
     if channel and channel.type == 'NORMAL':
         if self.normal_map_type != 'NORMAL_MAP':
             self.interpolation = 'Cubic'
-        else: self.interpolation = 'Linear'
+            if hasattr(self, 'mask_interpolation'): self.mask_interpolation = 'Cubic'
+        else: 
+            self.interpolation = 'Linear'
+            if hasattr(self, 'mask_interpolation'): self.mask_interpolation = 'Linear'
 
 class YNewVDMLayer(bpy.types.Operator):
     bl_idname = "wm.y_new_vdm_layer"
