@@ -419,6 +419,7 @@ class YSelectFacesByVcol(bpy.types.Operator):
         bpy.ops.object.mode_set(mode="OBJECT")
         bpy.ops.object.select_all(action='DESELECT')
         for obj in objs:
+            set_object_hide(obj, False)
             set_object_select(obj, True)
             
         # Reveal all hidden polygons
