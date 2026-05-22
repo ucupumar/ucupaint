@@ -256,8 +256,6 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         mat = obj.active_material
         uv_name = self.uv_map if not self.new_uv else get_unique_name(self.new_uv_name, get_uv_layers(obj))
 
-        in_edit_mode = obj.mode == 'EDIT'
-
         if is_bl_newer_than(2, 80):
             objs = []
             for o in get_scene_objects():
@@ -268,20 +266,25 @@ class YSelectMaterialPolygons(bpy.types.Operator):
                     o.select_set(True)
                     objs.append(o)
                 else: o.select_set(False)
-
-            # Check if all objects are in edit mode
-            if in_edit_mode:
-                for o in objs:
-                    if o.mode != 'EDIT':
-                        in_edit_mode = False
-                        break
         else:
             objs = [obj]
 
+        # Go to object mode
+        if obj.mode != 'OBJECT': bpy.ops.object.mode_set(mode='OBJECT')
+
+        # Select the UV
+        for o in objs:
+            # Get uv layer
+            uv_layers = get_uv_layers(o)
+            uvl = uv_layers.get(uv_name)
+
+            # Create one if it didn't exist
+            if not uvl:
+                uvl = uv_layers.new(name=uv_name)
+            uv_layers.active = uvl
+
         # Go to edit mode
-        if not in_edit_mode:
-            if obj.mode == 'EDIT': bpy.ops.object.mode_set(mode='OBJECT')
-            bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.object.mode_set(mode='EDIT')
 
         # Select polygon select mode
         bpy.context.tool_settings.mesh_select_mode = (False, False, True)
@@ -294,15 +297,6 @@ class YSelectMaterialPolygons(bpy.types.Operator):
             mat_index = [i for i, m in enumerate(o.data.materials) if m == mat]
             if mat_index: mat_index = mat_index[0]
             else: continue
-
-            # Get uv layer
-            uv_layers = get_uv_layers(o)
-            uvl = uv_layers.get(uv_name)
-
-            # Create one if it didn't exist
-            if not uvl:
-                uvl = uv_layers.new(name=uv_name)
-            uv_layers.active = uvl
 
             # Select the faces
             me = o.data
