@@ -5717,7 +5717,8 @@ def draw_ypaint_about(self, context):
         if not is_installed_through_extension_platform() and (not is_bl_newer_than(2, 80) or not credits_ui):
             col.label(text='Support '+get_addon_title() + '!')
             icon = 'FUND' if is_bl_newer_than(2, 80) else 'POSE_DATA'
-            col.operator('wm.url_open', text="Become a Sponsor", icon=icon).url = "https://github.com/sponsors/ucupumar"
+            label = "Get "+get_addon_title()+" Plus!" if is_bl_newer_than(2, 80) else "Become a Sponsor!"
+            col.operator('wm.url_open', text=label, icon=icon).url = "https://github.com/sponsors/ucupumar"
             any_ui_drawn = True
 
         if credits_ui: credits_ui.draw_contributor_status(context, col, add_separator=any_ui_drawn)    

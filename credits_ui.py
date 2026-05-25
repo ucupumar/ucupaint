@@ -473,7 +473,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         don_col = layout.column(align=True)
         don_col.scale_y = 1.5
-        don_col.operator('wm.url_open', text="Become a Sponsor", icon='FUND').url = url_donation
+        don_col.operator('wm.url_open', text="Get "+get_addon_title()+" Plus - Become a Sponsor!", icon='FUND').url = url_donation
 
         check_contributors()
 

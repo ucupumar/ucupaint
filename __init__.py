@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, morirain, Patrick W. Crawford, neomonkeus, Kareem Haddad, passivestar, Przemysław Bągard",
-    "version": (2, 4, 6),
+    "version": (2, 4, 7),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
     "warning": "",
@@ -73,13 +73,14 @@ else:
 import bpy
 
 def register():
-    # Checking other ucupaint installation
-    package_names = ['ucupaint', 'ucupaint_plus', 'bl_ext.blender_org.ucupaint', 'bl_ext.user_default.ucupaint', 'bl_ext.user_default.ucupaint_plus']
-    for pkg_name in package_names:
-        if __package__ == pkg_name: continue
-        addons = bpy.context.preferences.addons
-        if pkg_name in addons:
-            raise ValueError("Another ucupaint version is installed, please disable it first.")
+    if common.is_bl_newer_than(2, 80):
+        # Checking other ucupaint installation
+        package_names = ['ucupaint', 'ucupaint_plus', 'bl_ext.blender_org.ucupaint', 'bl_ext.user_default.ucupaint', 'bl_ext.user_default.ucupaint_plus']
+        for pkg_name in package_names:
+            if __package__ == pkg_name: continue
+            addons = bpy.context.preferences.addons
+            if pkg_name in addons:
+                raise ValueError("Another ucupaint version is installed, please disable it first.")
 
     if 'credits_ui' in globals(): credits_ui.register()
     preferences.register()
