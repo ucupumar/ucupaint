@@ -1,7 +1,7 @@
 import bpy
 from bpy.app.handlers import persistent
 import os, requests, time, threading, json
-from bpy.props import PointerProperty, IntProperty, FloatProperty
+from bpy.props import PointerProperty, IntProperty, FloatProperty, BoolProperty
 import bpy.utils.previews
 from .common import get_addon_filepath, is_bl_newer_than, is_online, get_addon_title, get_user_preferences
 from . import lib
@@ -12,12 +12,12 @@ class YForceUpdateSponsors(bpy.types.Operator):
     bl_label = "Force Update Sponsors"
 
     # debugging purpose
-    clear_image_cache : bpy.props.BoolProperty(
+    clear_image_cache : BoolProperty(
         default = False,
         description = "Clear image cache",
     )
 
-    use_dummy_users : bpy.props.BoolProperty(
+    use_dummy_users : BoolProperty(
         default = False,
         description = "Use dummy users",
     )
@@ -29,7 +29,8 @@ class YForceUpdateSponsors(bpy.types.Operator):
         layout = self.layout
         layout.prop(self, 'clear_image_cache', text="Clear Image Cache")
 
-        if get_user_preferences().developer_mode:
+        ypup = get_user_preferences()
+        if ypup and ypup.developer_mode:
             layout.prop(self, 'use_dummy_users', text="Use Dummy Users for Testing")
 
     def execute(self, context):
@@ -41,7 +42,8 @@ class YForceUpdateSponsors(bpy.types.Operator):
 
         goal_ui = context.window_manager.ypui_credits
         goal_ui.initialized = False
-        goal_ui.use_dummy_users = self.use_dummy_users if get_user_preferences().developer_mode else False
+        ypup = get_user_preferences()
+        goal_ui.use_dummy_users = self.use_dummy_users if ypup and ypup.developer_mode else False
 
         refresh_image_caches(self.clear_image_cache)
 
@@ -72,7 +74,7 @@ class YTierPagingButton(bpy.types.Operator):
     bl_idname = "wm.y_sponsor_paging"
     bl_label = "Next Page"
 
-    is_next_button : bpy.props.BoolProperty(default=True)
+    is_next_button : BoolProperty(default=True)
     tier_index : bpy.props.IntProperty(default=0)
     max_page : bpy.props.IntProperty(default=0)
 
@@ -96,7 +98,7 @@ class YCollaboratorPagingButton(bpy.types.Operator):
     bl_idname = "wm.y_collaborator_paging"
     bl_label = "Next Page"
 
-    is_next_button : bpy.props.BoolProperty(default=True)
+    is_next_button : BoolProperty(default=True)
     max_page : bpy.props.IntProperty(default=0)
 
     def execute(self, context):
@@ -199,16 +201,16 @@ class YSponsorProp(bpy.types.PropertyGroup):
     page_collaborators : IntProperty(
         default = 0)
 
-    expand_description : bpy.props.BoolProperty(
+    expand_description : BoolProperty(
         default = False,
         description = get_addon_title() + "'s sponsor is updated daily",
     )
 
-    initialized : bpy.props.BoolProperty(
+    initialized : BoolProperty(
         default = False,
     )
 
-    expanded : bpy.props.BoolProperty(
+    expanded : BoolProperty(
         default = False,
     )
 
@@ -224,7 +226,7 @@ class YSponsorProp(bpy.types.PropertyGroup):
     )
 
     # debugging purpose
-    use_dummy_users : bpy.props.BoolProperty(
+    use_dummy_users : BoolProperty(
         default = False,
         description = "Use dummy users",
     )
@@ -293,7 +295,8 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
             url = collaborators.sponsorships.get('url', collaborators.default_url)
             row.operator('wm.url_open', text="Donate Us", icon='FUND').url = url
-            if get_user_preferences().developer_mode:
+            ypup = get_user_preferences()
+            if ypup and ypup.developer_mode:
                 row.operator('wm.y_force_update_sponsors', text="", icon='FILE_REFRESH')
 
         goal_ui.expanded = False
@@ -470,7 +473,7 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         don_col = layout.column(align=True)
         don_col.scale_y = 1.5
-        don_col.operator('wm.url_open', text="Become a Sponsor", icon='FUND').url = url_donation
+        don_col.operator('wm.url_open', text="Get "+get_addon_title()+" Plus - Become a Sponsor!", icon='FUND').url = url_donation
 
         check_contributors()
 
@@ -521,17 +524,18 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
         goal_ui.expanded = True
 
-        if get_user_preferences().developer_mode:
+        ypup = get_user_preferences()
+        if ypup and ypup.developer_mode:
             layout.operator('wm.y_force_update_sponsors', text="Force Update Sponsors", icon='FILE_REFRESH')
 
 def print_info(*args):
     ypup = get_user_preferences()
-    if ypup.developer_mode and ypup.debug_credits:
+    if ypup and ypup.developer_mode and ypup.debug_credits:
         print(*args)
 
 def print_error(*args):
     ypup = get_user_preferences()
-    if ypup.developer_mode and ypup.debug_credits:
+    if ypup and ypup.developer_mode and ypup.debug_credits:
         print("ERROR:", *args)
 
 def refresh_image_caches(force_reload:bool = False):
@@ -836,7 +840,8 @@ def load_contributors():
 
     refresh_ui()
 
-    if get_user_preferences().developer_mode:
+    ypup = get_user_preferences()
+    if ypup and ypup.developer_mode:
         # extra dummy
         show_extra_dummy = goal_ui.use_dummy_users
         empty_all_sponsors = False
@@ -978,6 +983,89 @@ def refresh_ui():
                     if reg.type == "WINDOW":
                         reg.tag_redraw()
 
+def draw_contributors(context, layout):
+
+    # Credits UI currently doesn't work with legacy blenders
+    if is_bl_newer_than(2, 80):
+        check_contributors()
+    
+    ypc = context.window_manager.ypui_credits
+    collaborators = get_collaborators()
+    contributors = collaborators.contributors
+    member_count = len(contributors)
+
+    if is_bl_newer_than(2, 80) and is_online() and member_count > 0:
+
+        row_title = layout.row(align=True)
+        row_title_label = row_title.row(align=True)
+
+        row_title_label.label(text=get_addon_title() + ' is created by:')
+
+        paging_layout = row_title.row(align=True)
+        paging_layout.alignment = 'RIGHT'
+        # NOTE: HACK: Older blender need paging scale_x to avoid the label from being cut
+        if not is_bl_newer_than(3):
+            paging_layout.scale_x = 0.95
+
+        cont_setting = collaborators.contributor_settings
+
+        column_num = cont_setting.get('column_num', 3)
+        per_page_item = cont_setting.get('per_page_item', 9)
+        current_page = ypc.page_collaborators
+
+        grid = layout.grid_flow(row_major=True, columns=column_num, even_columns=True, even_rows=True, align=True)
+
+        paged_contributors = list(contributors.values())[current_page*per_page_item:(current_page+1)*per_page_item]
+        missing_column = column_num - (len(paged_contributors) % column_num)
+
+        for cl, item in enumerate(paged_contributors):
+            rw = grid.column(align=True)
+
+            thumb = item['thumb']
+            if not thumb:
+                thumb = collaborators.loading_pic
+                
+            rw.template_icon(icon_value = thumb, scale = 3.0)
+
+            user_name = item["name"].strip()
+            if user_name == '':
+                user_name = item["id"]
+            rw.operator('wm.url_open', text=user_name, emboss=False).url = item["url"]
+
+        if missing_column != column_num:
+            for i in range(missing_column):
+                rw = grid.column(align=True)
+
+                rw.template_icon(icon_value = collaborators.default_pic, scale = 3.0)
+                rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
+
+        if member_count > per_page_item:
+            prev = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_LEFT')
+            prev.is_next_button = False
+            prev.max_page = (member_count + per_page_item - 1) // per_page_item
+
+            paging_layout.label(text=str(current_page+1)+'/'+str(prev.max_page))
+
+            next = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_RIGHT')
+            next.is_next_button = True
+            next.max_page = prev.max_page
+
+        return True
+
+    return False
+
+def draw_contributor_status(context, layout, add_separator=False):
+    ypc = context.window_manager.ypui_credits
+
+    if is_online() and is_bl_newer_than(2, 80):
+        if add_separator:
+            layout.separator()     
+        if ypc.connection_status == "FAILED":
+            layout.label(text="Failed to load contributors.", icon='ERROR')
+            layout.operator('wm.y_force_refresh_sponsors', text='Reload sponsors', icon='FILE_REFRESH')
+        else:
+            layout.label(text="Loading contributors...", icon='TIME')
+
 classes = [
     VIEW3D_PT_YPaint_support_ui,
     YSponsorProp,
@@ -998,6 +1086,25 @@ class Collaborators:
 
 def get_collaborators():
     return collaborators
+
+credits_preferences = {
+    'debug_credits' : BoolProperty(
+        name = 'Show Credits Debug Message',
+        description = 'Print contributors and sponsors related debug message in the console',
+        default = False
+    ),
+}
+
+def add_preference_props(Preference):
+    for prop_name, prop in credits_preferences.items():
+        if is_bl_newer_than(2, 80):
+            Preference.__annotations__[prop_name] = prop
+        else: setattr(Preference, prop_name, prop)
+
+def draw_preferences(self, layout):
+    if self.developer_mode and is_bl_newer_than(2, 80):
+        box = layout.box()
+        box.prop(self, 'debug_credits')
 
 @persistent
 def check_contributors_on_load(scn):

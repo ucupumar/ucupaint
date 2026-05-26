@@ -7,7 +7,7 @@ from .subtree import *
 from .input_outputs import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer, Mask, ImageAtlas, UDIM, vector_displacement_lib, vector_displacement
+from . import lib, Layer, Mask, ImageAtlas, UDIM, vector_displacement_lib, vector_displacement, BaseOperator
 
 class YTryToSelectBakedVertexSelect(bpy.types.Operator):
     bl_idname = "wm.y_try_to_select_baked_vertex"
@@ -61,11 +61,10 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
             self.report({'ERROR'}, "Cannot select the object!")
             return {'CANCELLED'}
 
-        for obj in actual_selectable_objs:
+        for i, obj in enumerate(actual_selectable_objs):
             set_object_hide(obj, False)
             set_object_select(obj, True)
-
-        set_active_object(actual_selectable_objs[0])
+            if i == 0: set_active_object(obj)
         
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.reveal()
@@ -301,7 +300,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     channel_idx : EnumProperty(
         name = 'Channel',
         description = 'Channel of new layer, can be changed later',
-        items = Layer.channel_items
+        items = BaseOperator.channel_items
     )
 
     blend_type : EnumProperty(

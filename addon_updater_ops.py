@@ -277,7 +277,7 @@ class AddonUpdaterCheckNow(bpy.types.Operator):
             return {'CANCELLED'}
 
         updater.set_check_interval(
-            enabled = settings.auto_check_update,
+            enabled = settings.updater_auto_check_update,
             months = settings.updater_interval_months,
             days = settings.updater_interval_days,
             hours = settings.updater_interval_hours,
@@ -939,7 +939,7 @@ def check_for_update_background():
         return
 
     updater.set_check_interval(
-        enabled = settings.auto_check_update,
+        enabled = settings.updater_auto_check_update,
         months = settings.updater_interval_months,
         days = settings.updater_interval_days,
         hours = settings.updater_interval_hours,
@@ -966,7 +966,7 @@ def check_for_update_nonthreaded(self, context):
         return
 
     updater.set_check_interval(
-        enabled = settings.auto_check_update,
+        enabled = settings.updater_auto_check_update,
         months = settings.updater_interval_months,
         days = settings.updater_interval_days,
         hours = settings.updater_interval_hours,
@@ -1325,6 +1325,78 @@ def select_link_function(self, tag):
 
     return link
 
+def draw_top_ui_panel(context, layout):
+    from .common import get_user_preferences, get_addon_title, get_version_str
+    wm = context.window_manager
+    ypui = wm.ypui
+    ypup = get_user_preferences()
+    need_restart = False
+
+    if not updater.auto_reload_post_update:
+        saved_state = updater.json
+        if "just_updated" in saved_state and saved_state["just_updated"]:
+            row_update = layout.row()
+            row_update.alert = True
+            row_update.operator(
+                "wm.quit_blender",
+                text="Restart blender to complete update",
+                icon="ERROR"
+            )
+            need_restart = True
+            return need_restart
+        
+    # Auto-update notification
+    if updater.update_ready and not ypui.hide_update and not ypup.hide_update_notification:
+        row_update = layout.row(align=True)
+        row_update.alert = True
+        if updater.using_development_build:
+            update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
+            row_update.operator(AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
+        else:
+            row_update.operator(
+                AddonUpdaterUpdateNow.bl_idname,
+                text="Update to "+get_addon_title()+" "+get_version_str(updater.update_version)
+            )
+        row_update.alert = False
+
+        row_update.operator(UpdaterPendingUpdate.bl_idname, icon="X", text="")
+
+    return need_restart
+
+def draw_updater_options(context, layout):
+    from .common import get_addon_title, get_version_str
+
+    row = layout.row()            
+    if updater.using_development_build:
+        if updater.legacy_blender:
+            row.label(text="Branch: Master (Blender 2.7x)")
+        else:
+            row.label(text="Branch: "+updater.current_branch)
+    else:
+        row.label(text="Branch: Stable ("+get_version_str(updater.current_version)+")")
+    if updater.legacy_blender:
+        layout.operator(AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
+    else:
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        row.menu(UpdaterSettingMenu.bl_idname, text='', icon=icon)
+
+    if updater.async_checking:
+        layout.enabled = False
+        layout.operator(AddonUpdaterUpdateNow.bl_idname, text="Checking...")
+    elif updater.update_ready:
+        layout.alert = True
+        if updater.using_development_build:
+            update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
+            layout.operator(AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
+        else:
+            layout.operator(
+                AddonUpdaterUpdateNow.bl_idname,
+                text="Update to "+get_addon_title()+" "+get_version_str(updater.update_version)
+            )
+        layout.label(text="Update is available!")
+    elif is_online() or updater.current_branch != None:
+        layout.operator(RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
+        layout.label(text=get_addon_title()+" is up to date")
 
 # -----------------------------------------------------------------------------
 # Register, should be run in the register module itself
@@ -1541,7 +1613,7 @@ def register():
         if not first_time:
             settings = get_user_preferences()
             updater.set_check_interval(
-                enabled = settings.auto_check_update,
+                enabled = settings.updater_auto_check_update,
                 months = settings.updater_interval_months,
                 days = settings.updater_interval_days,
                 hours = settings.updater_interval_hours,

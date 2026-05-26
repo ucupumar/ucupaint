@@ -1536,10 +1536,8 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
-    # Create new plane
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-    plane_obj = create_plane_on_object_mode()
-
+    # Create a plane for baking
+    plane_obj = create_plane_object()
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=0, bake_device=bake_device)
 
     # Create temporary material
@@ -1645,20 +1643,50 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
 
     return image
 
-def create_plane_on_object_mode():
+def create_plane_object():
+    # Create the mesh
+    mesh = bpy.data.meshes.new("Plane")
+    obj = bpy.data.objects.new("Plane", mesh)
+    link_object(bpy.context.scene, obj)
+    
+    # Define the geometry
+    verts = [(-1.0, -1.0, 0.0), (1.0, -1.0, 0.0), (1.0, 1.0, 0.0), (-1.0, 1.0, 0.0)]
+    faces = [(0, 1, 2, 3)]
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
 
-    if not is_bl_newer_than(2, 77):
-        bpy.ops.mesh.primitive_plane_add()
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.0)
-        bpy.ops.object.mode_set(mode='OBJECT')
-    else: 
-        bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
+    # Create new UVmap
+    uv_layers = get_uv_layers(obj)
+    uv_layer = uv_layers.new(name="UVMap")
+    
+    # Set UV coordinates
+    uv_coords = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    uv_layer = mesh.uv_layers[-1] # Getting the uv layer again for Blender 2.7x compatibility
+    for i, loop in enumerate(mesh.loops):
+        uv_layer.data[loop.index].uv = uv_coords[i]
 
-    if not is_bl_newer_than(2, 80):
-        return bpy.context.scene.objects.active
+    return obj
 
-    return bpy.context.view_layer.objects.active
+def flip_mesh_normals(obj):
+    if not obj or obj.type != 'MESH': return
+
+    # Create BMesh from object data
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+
+    if is_bl_newer_than(2, 80):
+        for face in bm.faces:
+            face.normal_flip()
+    else:
+        for face in bm.faces:
+            bmesh.utils.face_flip(face)
+
+    # Write changes back to the mesh
+    bm.to_mesh(obj.data)
+    bm.free()
+    
+    # Update viewport to show changes
+    obj.data.update()
 
 def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False):
     T = time.time()
@@ -1670,10 +1698,8 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
-    # Create new plane
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-    plane_obj = create_plane_on_object_mode()
-
+    # Create a plane for baking
+    plane_obj = create_plane_object()
     prepare_bake_settings(book, [plane_obj], samples=1, margin=0, bake_device=bake_device)
 
     # Create temporary material
@@ -3043,7 +3069,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         objs.extend(other_objs)
 
     # Join objects if the number of objects is higher than one
-    elif not bprops.type.startswith('MULTIRES_') and len(objs) > 1 and not is_join_objects_problematic(yp):
+    elif not bprops.type.startswith('MULTIRES_') and bprops.type not in {'SELECTED_VERTICES'} and len(objs) > 1 and not is_join_objects_problematic(yp):
         temp_objs.extend([get_merged_mesh_objects(scene, objs, True)])
         objs = temp_objs
 
@@ -3054,12 +3080,19 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             fill_mode = 'VERTEX'
 
         if is_bl_newer_than(2, 80):
-            edit_objs = [o for o in objs if o.mode == 'EDIT']
+            if obj.mode == 'EDIT':
+                edit_objs = [o for o in objs if o.mode == 'EDIT']
+            else: edit_objs = objs
         else: edit_objs = [obj]
 
         for ob in edit_objs:
             mesh = ob.data
-            bm = bmesh.from_edit_mesh(mesh)
+
+            if obj.mode == 'EDIT':
+                bm = bmesh.from_edit_mesh(mesh)
+            else:
+                bm = bmesh.new()
+                bm.from_mesh(mesh)
 
             bm.verts.ensure_lookup_table()
             #bm.edges.ensure_lookup_table()
@@ -3080,7 +3113,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
             obj_vertex_indices[ob.name] = v_indices
 
-        bpy.ops.object.mode_set(mode = 'OBJECT')
+        if obj.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode = 'OBJECT')
         for ob in objs:
             try:
                 vcol = new_vertex_color(ob, TEMP_VCOL, color_fill=(0.0, 0.0, 0.0, 1.0))
@@ -3214,32 +3248,13 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 flow_vcol = get_flow_vcol(ob, main_uv, straight_uv)
 
     # Check if doing actual flip normals operator is needed
-    need_flip_normals_ops = bprops.flip_normals and (bprops.type != 'AO' or alpha_outp) and is_bl_newer_than(2, 80)
+    need_flip_normals = bprops.flip_normals and (bprops.type != 'AO' or alpha_outp or not is_bl_newer_than(2, 80))
 
     # Flip normals setup
-    if need_flip_normals_ops:
-        #ori_mode[obj.name] = obj.mode
-        if is_bl_newer_than(2, 80):
-            # Deselect other objects first
-            for o in other_objs:
-                o.select_set(False)
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.flip_normals()
-            bpy.ops.object.mode_set(mode='OBJECT')
-            # Reselect other objects
-            for o in other_objs:
-                o.select_set(True)
-        else:
-            for ob in objs:
-                if ob in other_objs: continue
-                scene.objects.active = ob
-                bpy.ops.object.mode_set(mode='EDIT')
-                bpy.ops.mesh.reveal()
-                bpy.ops.mesh.select_all(action='SELECT')
-                bpy.ops.mesh.flip_normals()
-                bpy.ops.object.mode_set(mode='OBJECT')
+    if need_flip_normals:
+        for ob in objs:
+            if ob in other_objs: continue
+            flip_mesh_normals(ob)
 
     # More setup
     ori_mods = {}
@@ -4185,32 +4200,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             if vcol: vcols.remove(vcol)
 
     # Recover flip normals setup
-    if need_flip_normals_ops:
-        #bpy.ops.object.mode_set(mode = 'EDIT')
-        #bpy.ops.mesh.flip_normals()
-        #bpy.ops.mesh.select_all(action='DESELECT')
-        #bpy.ops.object.mode_set(mode = ori_mode)
-        if is_bl_newer_than(2, 80):
-            # Deselect other objects first
-            for o in other_objs:
-                o.select_set(False)
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.flip_normals()
-            bpy.ops.object.mode_set(mode='OBJECT')
-            # Reselect other objects
-            for o in other_objs:
-                o.select_set(True)
-        else:
-            for ob in objs:
-                if ob in other_objs: continue
-                scene.objects.active = ob
-                bpy.ops.object.mode_set(mode='EDIT')
-                bpy.ops.mesh.reveal()
-                bpy.ops.mesh.select_all(action='SELECT')
-                bpy.ops.mesh.flip_normals()
-                bpy.ops.object.mode_set(mode='OBJECT')
+    if need_flip_normals:
+        for ob in objs:
+            if ob in other_objs: continue
+            flip_mesh_normals(ob)
 
     # Recover subdiv setup
     if height_root_ch and subdiv_setup_changes:
@@ -4900,10 +4893,8 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
-    # Create new plane
-    bpy.ops.object.mode_set(mode='OBJECT')
-    plane_obj = create_plane_on_object_mode()
-
+    # Create a plane for baking
+    plane_obj = create_plane_object()
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=margin, bake_device=bake_device)
 
     mat = bpy.data.materials.new('__TEMP__')
@@ -5205,7 +5196,6 @@ class BaseBakeOperator():
 
         # Depsgraph update functions can cause crash or bake inconsistencies, so halt them before any baking operation
         wmyp = bpy.context.window_manager.ypprops
-        wmyp.halt_paint_slot_hacks = True
         wmyp.halt_last_object_update = True
 
         return True
@@ -5213,7 +5203,6 @@ class BaseBakeOperator():
     def execute_operator_recover(self, context):
         # Recover depsgraph update functions
         wmyp = bpy.context.window_manager.ypprops
-        wmyp.halt_paint_slot_hacks = False
         wmyp.halt_last_object_update = False
 
     def execute_operator_finished(self, context):
