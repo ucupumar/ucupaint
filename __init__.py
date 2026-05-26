@@ -11,15 +11,22 @@ bl_info = {
     "category": "Node",
 }
 
+def is_available(module_relpath):
+    import importlib.util
+    return importlib.util.find_spec(module_relpath, package=__package__)
+
 if "bpy" in locals():
     import importlib
-    importlib.reload(Localization)
-    importlib.reload(BaseOperator)
-    importlib.reload(image_ops)
     importlib.reload(common)
+    if 'addon_updater_preferences' in locals(): importlib.reload(addon_updater_preferences)
+    if 'credits_ui' in locals(): importlib.reload(credits_ui)
+    importlib.reload(preferences)
+    importlib.reload(lib)
+    importlib.reload(BaseOperator)
+    importlib.reload(Localization)
+    importlib.reload(image_ops)
     importlib.reload(bake_common)
     importlib.reload(modifier_common)
-    importlib.reload(lib)
     importlib.reload(Decal)
     importlib.reload(ui)
     importlib.reload(subtree)
@@ -27,7 +34,6 @@ if "bpy" in locals():
     importlib.reload(input_outputs)
     importlib.reload(node_arrangements)
     importlib.reload(node_connections)
-    importlib.reload(preferences)
     importlib.reload(vector_displacement_lib)
     importlib.reload(vector_displacement)
     importlib.reload(vcol_editor)
@@ -46,26 +52,43 @@ if "bpy" in locals():
     importlib.reload(BakeToLayer)
     importlib.reload(Root)
     importlib.reload(versioning)
-    importlib.reload(addon_updater_ops)
-    importlib.reload(Test)
-    importlib.reload(credits_ui)
+    if 'addon_updater_ops' in locals(): importlib.reload(addon_updater_ops)
+    if 'Test' in locals(): importlib.reload(Test)
+    if 'psd_io' in locals(): importlib.reload(psd_io)
 else:
+    from . import common
+    if is_available('.addon_updater_preferences'): from . import addon_updater_preferences
+    if is_available('.credits_ui'): from . import credits_ui
+    from . import preferences
+    from . import lib
+    from . import BaseOperator
     from . import Localization
-    from . import BaseOperator, image_ops, common, bake_common, modifier_common, lib, Decal, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
+    from . import image_ops, bake_common, modifier_common, Decal, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections
     from . import vector_displacement_lib, vector_displacement
     from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
-    from . import addon_updater_ops
-    from . import Test
-    from . import credits_ui
+    if is_available('.addon_updater_ops'): from . import addon_updater_ops
+    if is_available('.Test'): from . import Test
+    if is_available('.psd_io'): from . import psd_io
 
-import bpy 
+import bpy
 
 def register():
+    if common.is_bl_newer_than(2, 80):
+        # Checking other ucupaint installation
+        package_names = ['ucupaint', 'ucupaint_plus', 'bl_ext.blender_org.ucupaint', 'bl_ext.user_default.ucupaint', 'bl_ext.user_default.ucupaint_plus']
+        for pkg_name in package_names:
+            if __package__ == pkg_name: continue
+            addons = bpy.context.preferences.addons
+            if pkg_name in addons:
+                raise ValueError("Another ucupaint version is installed, please disable it first.")
+
+    if 'credits_ui' in globals(): credits_ui.register()
+    preferences.register()
+    lib.register()
+        
     Localization.register_module(ui)
 
     image_ops.register()
-    preferences.register()
-    lib.register()
     Decal.register()
     ui.register()
     vcol_editor.register()
@@ -85,19 +108,19 @@ def register():
     BakeToLayer.register()
     Root.register()
     versioning.register()
-    addon_updater_ops.register()
-    Test.register()
-    credits_ui.register()
+    if 'addon_updater_ops' in globals(): addon_updater_ops.register()
+    if 'Test' in globals(): Test.register()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is registered!')
 
 def unregister():
-    Localization.unregister_module(ui)
-
-    credits_ui.unregister()
-    image_ops.unregister()
+    if 'credits_ui' in globals(): credits_ui.unregister()
     preferences.unregister()
     lib.unregister()
+
+    Localization.unregister_module(ui)
+
+    image_ops.unregister()
     Decal.unregister()
     ui.unregister()
     vcol_editor.unregister()
@@ -117,8 +140,8 @@ def unregister():
     BakeToLayer.unregister()
     Root.unregister()
     versioning.unregister()
-    addon_updater_ops.unregister()
-    Test.unregister()
+    if 'addon_updater_ops' in globals(): addon_updater_ops.unregister()
+    if 'Test' in globals(): Test.unregister()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is unregistered!')
 

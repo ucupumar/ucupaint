@@ -15,22 +15,6 @@ if not is_bl_newer_than(3, 2):
 else: DEFAULT_NEW_VCOL_SUFFIX = ' Attribute'
 DEFAULT_NEW_VDM_SUFFIX = ' VDM'
 
-def channel_items(self, context):
-    items = []
-
-    node = get_active_ypaint_node()
-    if node:
-        yp = node.node_tree.yp
-        for i, ch in enumerate(yp.channels):
-            # Add two spaces to prevent text from being translated
-            text_ch_name = ch.name + '  '
-            icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i), text_ch_name, '', lib.get_icon(icon_name), i))
-
-    items.append(('-1', 'All Channels', '', lib.get_icon('channels'), len(items)))
-
-    return items
-
 def get_normal_map_type_items(self, context):
     items = []
 
@@ -52,7 +36,7 @@ def add_new_layer(
         blend_type, normal_blend_type, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, segment=None,
         solid_color=(1, 1, 1),
-        add_mask=False, mask_type='IMAGE', mask_image_filepath='', mask_relative=True,
+        add_mask=False, mask_type='IMAGE', mask_image=None, mask_image_filepath='', mask_relative=True,
         mask_texcoord_type='UV', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name='', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space='WORLD', hemi_use_prev_normal=True,
@@ -61,7 +45,9 @@ def add_new_layer(
         use_divider_alpha=False, use_udim_for_mask=False,
         interpolation='Linear', mask_interpolation='Linear', mask_edge_detect_radius=0.05, mask_edge_detect_method='CROSS',
         normal_space = 'TANGENT', edge_detect_radius=0.05, edge_detect_method='CROSS', mask_use_prev_normal=True,
-        ao_distance=1.0, height_blend_type='MIX'
+        ao_distance=1.0, height_blend_type='MIX',
+        enable=True,
+        use_designated_idx = False, designated_index = -1, designated_parent_idx = -1,
     ):
 
     yp = group_tree.yp
@@ -77,22 +63,28 @@ def add_new_layer(
     parent_dict = get_parent_dict(yp)
     index_dict = get_index_dict(yp)
 
-    # Get active layer
-    try: active_layer = yp.layers[yp.active_layer_index]
-    except: active_layer = None
-
-    # Get a possible parent layer group
     parent_layer = None
     active_layer_is_group = False
-    if active_layer: 
-        if active_layer.type == 'GROUP':
-            parent_layer = active_layer
-            active_layer_is_group = True
-        elif active_layer.parent_idx != -1:
-            parent_layer = yp.layers[active_layer.parent_idx]
+    if use_designated_idx:
+        # Use designated parent if it's set
+        if designated_parent_idx != -1:
+            try: parent_layer = yp.layers[designated_parent_idx]
+            except: parent_layer = None
+    else:
+        # Get active layer
+        try: active_layer = yp.layers[yp.active_layer_index]
+        except: active_layer = None
+
+        # Get a possible parent layer group
+        if active_layer:
+            if active_layer.type == 'GROUP':
+                parent_layer = active_layer
+                active_layer_is_group = True
+            elif active_layer.parent_idx != -1:
+                parent_layer = yp.layers[active_layer.parent_idx]
 
     # Get parent index
-    if parent_layer: 
+    if parent_layer != None: 
         parent_idx = get_layer_index(parent_layer)
         has_parent = True
     else: 
@@ -103,6 +95,7 @@ def add_new_layer(
     layer = yp.layers.add()
     layer.type = layer_type
     layer.name = get_unique_name(layer_name, yp.layers)
+    layer.enable = enable
 
     # Set default uv name if it's an empty string
     if uv_name == '':
@@ -119,9 +112,14 @@ def add_new_layer(
 
     # Move new layer to current index
     last_index = len(yp.layers)-1
-    if active_layer_is_group:
-        index = yp.active_layer_index + 1
-    else: index = yp.active_layer_index
+
+    if use_designated_idx and designated_index != -1:
+        # Use designated index if it's set
+        index = designated_index
+    else:
+        if active_layer_is_group:
+            index = yp.active_layer_index + 1
+        else: index = yp.active_layer_index
 
     # Set parent index
     parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, parent_idx)
@@ -221,11 +219,10 @@ def add_new_layer(
 
         #mask_name = 'Mask ' + layer.name
         mask_name = Mask.get_new_mask_name(obj, layer, mask_type)
-        mask_image = None
         mask_vcol_name = ''
         mask_segment = None
 
-        if mask_type == 'IMAGE':
+        if not mask_image and mask_type == 'IMAGE':
             if not mask_image_filepath:
                 color = (0, 0, 0, 0)
                 if mask_color == 'WHITE':
@@ -602,6 +599,7 @@ def update_channel_idx_new_layer(self, context):
 
     if channel and ((channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP') or channel.special_channel_type == 'HEIGHT'):
         self.interpolation = 'Cubic'
+        if hasattr(self, 'mask_interpolation'): self.mask_interpolation = 'Cubic'
 
 class YNewVDMLayer(bpy.types.Operator):
     bl_idname = "wm.y_new_vdm_layer"
@@ -881,7 +879,7 @@ class YNewLayer(bpy.types.Operator):
     channel_idx : EnumProperty(
         name = 'Channel',
         description = 'Channel of new layer, can be changed later',
-        items = channel_items,
+        items = BaseOperator.channel_items,
         update = update_channel_idx_new_layer
     )
 
@@ -2976,7 +2974,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
     channel_idx : EnumProperty(
         name = 'Channel',
         description = 'Channel of new layer, can be changed later',
-        items = channel_items,
+        items = BaseOperator.channel_items,
         update = update_channel_idx_new_layer
     )
 
@@ -3013,6 +3011,18 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
     use_udim_detecting : BoolProperty(
         name = 'Detect UDIMs',
         description = 'Detect selected UDIM files and load all matching tiles.',
+        default = True
+    )
+
+    read_layers : BoolProperty(
+        name = 'Read Layers',
+        description = 'Read layers from image and put them into separate layers',
+        default = False
+    )
+
+    convert_image_to_solid_color : BoolProperty(
+        name = 'Convert Flat Layer to Solid Color',
+        description = 'Convert flat image layer to solid color',
         default = True
     )
 
@@ -3106,11 +3116,46 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         if UDIM.is_udim_supported():
             layout.prop(self, 'use_udim_detecting')
 
+        # Detect for layered images
+        layered_image_found = False
+        ext = ''
+        params = context.space_data.params
+        if get_lowercase_extension(params.filename) == 'psd':
+            layered_image_found = True
+            ext = 'psd'
+
+        if not layered_image_found and hasattr(context, 'selected_files') and context.selected_files:
+            for f in context.selected_files:
+                ext = get_lowercase_extension(f.name)
+                if ext == 'psd':
+                    layered_image_found = True
+                    break
+        
+        if layered_image_found and is_bl_newer_than(2, 80):
+            psd_io = get_package_module('.psd_io')
+            if ext == 'psd':
+                layout.prop(self, 'read_layers', text='Read Photoshop Layers')
+                if self.read_layers:
+                    layout.prop(self, 'convert_image_to_solid_color')
+                    if psd_io:
+                        psd_io.draw_no_psd_tools_warning(layout)
+                    else: 
+                        layout.alert = True
+                        layout.label(text='Reading PSD layers currently only', icon='ERROR')
+                        layout.label(text='available in Ucupaint Plus!', icon='BLANK1')
+                        layout.alert = False
+            elif ext == 'kra':
+                layout.prop(self, 'read_layers', text='Read Krita Layers')
+            elif ext == 'xcf':
+                layout.prop(self, 'read_layers', text='Read GIMP Layers')
+
     def execute(self, context):
         T = time.time()
 
+        psd_io = get_package_module('.psd_io')
         wm = context.window_manager
         node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
         if self.file_browser_filepath == '':
             import_list, directory = self.generate_paths()
@@ -3140,24 +3185,122 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
             if ori_tree_type != None:
                 bpy.context.area.spaces[0].tree_type = ori_tree_type
 
-        node.node_tree.yp.halt_update = True
+        yp.halt_update = True
 
+        # Put images into layer descriptors
+        lds = []
         for image in images:
-            if self.relative and bpy.data.filepath != '':
+            ld = create_layer_descriptor()
+            ld.type = 'IMAGE'
+            ld.blend_type = self.blend_type
+            ld.opacity = 1.0
+            ld.image = image
+            ld.name = image.name
+            lds.append(ld)
+
+        # Get layers from layered image
+        any_psd_layers = False
+        if self.read_layers:
+            updated_lds = []
+            updated_images = []
+            for image in images:
+                psd_found = get_lowercase_extension(image.filepath) == 'psd'
+                if psd_found: any_psd_layers = True
+
+                if psd_found and psd_io and psd_io.is_psd_io_supported() and psd_io.is_psd_tools_found():
+                    extra_lds = psd_io.read_psd_image_layers(image, 
+                        convert_image_to_solid_color=self.convert_image_to_solid_color
+                    )
+                    if any(extra_lds):
+                        for ld in extra_lds:
+                            if ld.image: updated_images.append(ld.image)
+                            # Make sure parent index point to correct index
+                            if ld.parent_idx != -1:
+                                ld.parent_idx += len(updated_lds)
+                        updated_lds.extend(extra_lds)
+                else:
+                    ld = [d for d in lds if d.image == image][0]
+                    updated_lds.append(ld)
+                    if ld.image: updated_images.append(ld.image)
+
+            if any(updated_lds):
+                # Remove unused images
+                for image in images:
+                    if image not in updated_images:
+                        remove_datablock(bpy.data.images, image)
+
+                # Point to updated images
+                lds = updated_lds
+
+        try: active_layer = yp.layers[yp.active_layer_index]
+        except: active_layer = None
+
+        # Get designated index that the layer will be
+        designated_index = 0
+        designated_parent_idx = -1
+        if active_layer:
+            designated_index = get_layer_index(active_layer)
+            if active_layer.type == 'GROUP':
+                designated_parent_idx = designated_index
+                designated_index += 1
+            elif active_layer.parent_idx != -1:
+                designated_parent_idx = active_layer.parent_idx
+
+        for ld in lds:
+
+            if ld.image and ld.image.filepath != '' and self.relative and bpy.data.filepath != '':
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            add_new_layer(
-                group_tree=node.node_tree, layer_name=image.name,
-                layer_type='IMAGE', channel_idx=int(self.channel_idx),
-                blend_type=self.blend_type, normal_blend_type=self.normal_blend_type,
+            layer = add_new_layer(
+                group_tree=node.node_tree, layer_name=ld.name,
+                layer_type=ld.type, channel_idx=int(self.channel_idx),
+                blend_type=ld.blend_type, normal_blend_type=self.normal_blend_type,
                 normal_map_type=self.normal_map_type, texcoord_type=self.texcoord_type,
-                uv_name = self.uv_map, image=image, vcol=None, segment=None,
+                uv_name = self.uv_map, image=ld.image, vcol=None, segment=None,
                 interpolation=self.interpolation, normal_space=self.normal_space,
-                height_blend_type=self.height_blend_type
+                height_blend_type=self.height_blend_type,
+                solid_color = ld.color,
+                add_mask = ld.mask_image != None,
+                mask_uv_name=self.uv_map, mask_image=ld.mask_image,
+                enable = ld.enable,
+                use_designated_idx = True,
+                designated_index = designated_index,
+                designated_parent_idx = designated_parent_idx
             )
 
-        node.node_tree.yp.halt_update = False
+            # Repoint to correct name
+            ld.name = layer.name
+
+            if ld.opacity != 1.0:
+                set_entity_prop_value(layer, 'intensity_value', ld.opacity)
+
+        # Check if there's added group layers
+        need_root_io_check_again = False
+        for ld in lds:
+            layer = yp.layers.get(ld.name)
+            if not layer: continue
+            if ld.parent_idx != -1:
+                try: parent_ld = lds[ld.parent_idx]
+                except: continue
+                parent_layer = yp.layers.get(parent_ld.name)
+                parent_layer.expand_subitems = True
+                if parent_layer:
+                    layer.parent_idx = get_layer_index(parent_layer)
+
+                # Check layer IO
+                check_all_layer_channel_io_and_nodes(layer)
+
+                # Rearrange node inside layers
+                reconnect_layer_nodes(layer)
+                rearrange_layer_nodes(layer)
+
+                need_root_io_check_again = True
+
+        if need_root_io_check_again:
+            check_start_end_root_ch_nodes(node.node_tree)
+
+        yp.halt_update = False
 
         # Reconnect and rearrange nodes
         reconnect_yp_nodes(node.node_tree)
@@ -3168,6 +3311,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         if self.texcoord_type == 'Decal':
             wm.ypui.layer_ui.expand_content = True
             wm.ypui.layer_ui.expand_vector = True
+
+        if any_psd_layers and psd_io and not psd_io.is_psd_tools_found():
+            self.report({'WARNING'}, 'Trying to read PSD image as layers but no PSD-Tools module installed, so image read as merged!')
 
         print('INFO: Image(s) opened in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
@@ -3518,7 +3664,7 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
     channel_idx : EnumProperty(
         name = 'Channel',
         description = 'Channel of new layer, can be changed later',
-        items = channel_items,
+        items = BaseOperator.channel_items,
         update = update_channel_idx_new_layer
     )
 

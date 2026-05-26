@@ -1216,6 +1216,12 @@ def update_yp_tree(tree):
                     print('INFO: Unused image named \''+n.image.name+'\' is removed!')
                     simple_remove_node(ltree, n)
 
+        # HACK: Enable and reenable layer to make sure internal nodes connected correctly
+        for layer in yp.layers:
+            if layer.enable:
+                layer.enable = False
+                layer.enable = True
+
     # Version 2.4.1 has fix for inbetween invert modifier mask
     if version_tuple(yp.version) < (2, 4, 1):
 

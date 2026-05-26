@@ -574,25 +574,18 @@ def apply_mirror_modifier(obj):
 def recover_mirror_modifier(obj):
     if obj.yp_vdm.mirror_modifier_name == '': return
 
-    # Go to edit mode to delete mirrored verts
-    bpy.ops.object.mode_set(mode='EDIT')
-
-    # Get bmesh
-    bm = bmesh.from_edit_mesh(obj.data)
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
     bm.verts.ensure_lookup_table()
-
-    # Deselect all first
-    bpy.ops.mesh.select_all(action='DESELECT')
-
-    # Select all vertices outside
-    for i in range(obj.yp_vdm.num_verts, len(bm.verts)):
-        bm.verts[i].select = True
-
-    # Delete mirrored vertices
-    bpy.ops.mesh.delete(type='VERT')
-
-    # Back to object mode
-    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    # Delete vertices after the original count
+    verts_to_delete = list(bm.verts[obj.yp_vdm.num_verts:])
+    for vert in verts_to_delete:
+        bm.verts.remove(vert)
+    
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
 
     # Show up the modifier back
     mirror = obj.modifiers.get(obj.yp_vdm.mirror_modifier_name)
@@ -1079,6 +1072,10 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
 
 def get_tangent_bitangent_images(obj, uv_name):
 
+    ori_mode = obj.mode
+    if ori_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+
     tanimage_name = obj.name + '_' + uv_name + CACHE_TANGENT_IMAGE_SUFFIX
     bitimage_name = obj.name + '_' + uv_name + CACHE_BITANGENT_IMAGE_SUFFIX
 
@@ -1136,18 +1133,22 @@ def get_tangent_bitangent_images(obj, uv_name):
         try:
             temp.data.calc_tangents()
         except:
-            # Triangulate ngon faces on temp object
-            bpy.ops.object.select_all(action='DESELECT')
-            temp.select_set(True)
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_all(action='DESELECT')
-            bpy.ops.mesh.select_mode(type="FACE")
-            bpy.ops.mesh.select_face_by_sides(number=4, type='GREATER')
-            bpy.ops.mesh.quads_convert_to_tris()
-            bpy.ops.mesh.tris_convert_to_quads()
-            bpy.ops.object.mode_set(mode='OBJECT')
-
+            # Triangulate ngon faces on temp object using bmesh
+            bm = bmesh.new()
+            bm.from_mesh(temp.data)
+            
+            # Triangulate faces with more than 4 vertices
+            faces_to_tri = [f for f in bm.faces if len(f.verts) > 4]
+            if faces_to_tri:
+                bmesh.ops.triangulate(bm, faces=faces_to_tri)
+            
+            # Convert back to quads
+            bmesh.ops.planar_faces(bm, faces=bm.faces[:])
+            
+            bm.to_mesh(temp.data)
+            bm.free()
+            temp.data.update()
+            
             temp.data.calc_tangents()   
 
         # Bitangent sign attribute's
@@ -1238,6 +1239,9 @@ def get_tangent_bitangent_images(obj, uv_name):
         set_active_object(obj)
         set_object_select(obj, True)
 
+    if ori_mode != obj.mode:
+        bpy.ops.object.mode_set(mode=ori_mode)
+
     return tanimage, bitimage
 
 def get_vdm_intensity(layer, ch):
@@ -1262,6 +1266,10 @@ def is_multi_disp_used(yp):
 
 def convert_vdm_to_multires(obj, vdm_image, uv_name, intensity=1.0, flip_yz=False, use_temp_multires=False):
     # TODO: Multi objects awareness
+
+    ori_mode = obj.mode
+    if ori_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
 
     scene = bpy.context.scene
 
@@ -1395,6 +1403,9 @@ def convert_vdm_to_multires(obj, vdm_image, uv_name, intensity=1.0, flip_yz=Fals
     # Remove temp data
     remove_mesh_obj(temp) 
     bpy.data.node_groups.remove(vdm_loader)
+
+    if ori_mode != obj.mode:
+        bpy.ops.object.mode_set(mode=ori_mode)
 
 class YSculptImage(bpy.types.Operator):
     bl_idname = "sculpt.y_sculpt_image"

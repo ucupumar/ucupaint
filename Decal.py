@@ -303,13 +303,7 @@ class YPaintDecalObjectProps(bpy.types.PropertyGroup):
     last_operator : StringProperty(default='')
     last_operator_pointer : StringProperty(default='')
 
-@persistent
-def ypaint_decal_constraint_update(scene):
-    wm = bpy.context.window_manager
-    if len(wm.operators) == 0: return
-    op = wm.operators[-1]
-    if not op.bl_idname.startswith('TRANSFORM_OT_'): return
-
+def apply_decal_constraint_transforms(op):
     for obj in bpy.context.selected_objects:
         if not obj.yp_decal.enable_shrinkwrap: continue
 
@@ -329,6 +323,30 @@ def ypaint_decal_constraint_update(scene):
                 c.mute = False
             except Exception as e: print('EXCEPTIION:', e)
 
+@persistent
+def ypaint_decal_constraint_update(scene):
+    # NOTE: Only apply constraint transformations when the active object enable the decal contstraint flag
+    # This is to improve performance since there's no need to check every selected objects
+    obj = bpy.context.object
+    if obj and obj.yp_decal.enable_shrinkwrap and bpy.context.active_operator:
+        op = bpy.context.active_operator
+        # NOTE: Using depsgraph updates is slightly faster than using `startswith`, but only works on Blender 2.80+
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        for update in depsgraph.updates:
+            if update.is_updated_transform:
+                apply_decal_constraint_transforms(op)
+                break
+
+@persistent
+def ypaint_decal_constraint_update_legacy(scene):
+    # NOTE: Only apply constraint transformations when the active object enable the decal contstraint flag
+    # This is to improve performance since there's no need to check every selected objects
+    obj = bpy.context.object
+    if obj and obj.yp_decal.enable_shrinkwrap and bpy.context.active_operator:
+        op = bpy.context.active_operator
+        if op.bl_idname.startswith('TRANSFORM_OT'):
+            apply_decal_constraint_transforms(op)
+
 def register():
     bpy.utils.register_class(YSelectDecalObject)
     bpy.utils.register_class(YSetDecalObjectPositionToCursor)
@@ -340,7 +358,7 @@ def register():
     # Handlers
     if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.append(ypaint_decal_constraint_update)
-    else: bpy.app.handlers.scene_update_pre.append(ypaint_decal_constraint_update)
+    else: bpy.app.handlers.scene_update_pre.append(ypaint_decal_constraint_update_legacy)
 
 def unregister():
     bpy.utils.unregister_class(YSelectDecalObject)
@@ -350,4 +368,4 @@ def unregister():
     # Handlers
     if is_bl_newer_than(2, 80):
         bpy.app.handlers.depsgraph_update_post.remove(ypaint_decal_constraint_update)
-    else: bpy.app.handlers.scene_update_pre.remove(ypaint_decal_constraint_update)
+    else: bpy.app.handlers.scene_update_pre.remove(ypaint_decal_constraint_update_legacy)

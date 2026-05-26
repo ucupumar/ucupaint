@@ -1,4 +1,4 @@
-import bpy, os, sys, re, numpy, math, pathlib, string, random
+import bpy, os, sys, re, numpy, math, pathlib, string, random, bmesh
 import bpy_extras.image_utils
 from mathutils import *
 from bpy.app.handlers import persistent
@@ -734,6 +734,9 @@ def get_addon_title():
     manifest = get_manifest()
     return manifest['name']
 
+def get_extra_title():
+    return ''
+
 def get_addon_warning():
     if not is_bl_newer_than(4, 2):
         bl_info = sys.modules[get_addon_name()].bl_info
@@ -776,11 +779,24 @@ def get_current_version():
 def is_online():
     return not is_bl_newer_than(4, 2) or bpy.app.online_access
 
+def is_installed_through_extension_platform():
+    return 'bl_ext.blender_org.' in __package__
+
 def get_bpytypes():
     if not is_bl_newer_than(2, 77):
         import bpy_types
         return bpy_types.bpy_types
     return bpy.types
+
+def is_package_module_exists(module_relpath):
+    import importlib.util
+    return importlib.util.find_spec(module_relpath, package=__package__)
+
+def get_package_module(module_relpath):
+    import importlib
+    if is_package_module_exists(module_relpath):
+        return importlib.import_module(module_relpath, package=__package__)
+    return None
 
 def get_srgb_name():
     names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
@@ -1018,6 +1034,10 @@ def is_layer_collection_hidden(obj):
 
 def get_addon_filepath():
     return os.path.dirname(bpy.path.abspath(__file__)) + os.sep
+
+def get_lowercase_extension(filepath):
+    try: return filepath.split('.')[-1].lower()
+    except: return ''
 
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
@@ -2267,6 +2287,25 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
     return node
 
+def create_layer_descriptor():
+    l = dotdict()
+    l.layer = None
+    l.external_layer = None
+    l.parent_idx = -1
+    l.name = 'Layer'
+    l.enable = True
+    l.type = 'IMAGE'
+    l.color = (1.0, 1.0, 1.0)
+    l.opacity = 1.0
+    l.blend_type = 'MIX'
+    l.image = None
+    l.pil_image = None
+    l.mask_image = None
+    l.mask_pil_image = None
+    l.masks = []
+
+    return l
+
 def get_tree(entity):
 
     # Search inside yp tree
@@ -2643,29 +2682,60 @@ def copy_vertex_color_data(obj, source_name, dest_name):
     #if ori_mode:
     #    bpy.ops.object.mode_set(mode=ori_mode)
 
-def set_obj_vertex_colors(obj, vcol_name, color):
+def fill_obj_vertex_colors(obj, vcol_name, color=(1.0, 1.0, 1.0, 1.0), bm=None, bm_layer=None):
     if obj.type != 'MESH': return
-
-    ori_mode = None
-    if obj.mode != 'OBJECT':
-        ori_mode = obj.mode
-        bpy.ops.object.mode_set(mode='OBJECT')
 
     vcols = get_vertex_colors(obj)
     vcol = vcols.get(vcol_name)
     if not vcol: return
 
-    ones = numpy.ones(len(vcol.data))
+    if obj.mode == 'EDIT':
 
-    if is_bl_newer_than(2, 80):
-        vcol.data.foreach_set( "color",
-            numpy.array((color[0] * ones, color[1] * ones, color[2] * ones, color[3] * ones)).T.ravel())
+        # Initialize BMesh
+        if not bm: bm = bmesh.from_edit_mesh(obj.data)
+
+        if not bm_layer:
+            # Version-safe layer access
+            if not is_bl_newer_than(3, 2) or vcol.domain == 'CORNER':
+                target_layers = bm.loops.layers
+            else: # POINT
+                target_layers = bm.verts.layers
+
+            # Data type selection
+            if not is_bl_newer_than(3, 2) or vcol.data_type == 'BYTE_COLOR':
+                bm_layer = target_layers.color.get(vcol_name)
+            else: bm_layer = target_layers.float_color.get(vcol_name)
+
+        # Do color fill
+        if len(color) >= 3:
+            # Make sure the color is compatible with older blender versions
+            if not is_bl_newer_than(2, 80):
+                if len(color) > 3:
+                    color = (color[0], color[1], color[2])
+            elif len(color) == 3:
+                color = (color[0], color[1], color[2], 1.0)
+
+            if not is_bl_newer_than(3, 2) or vcol.domain == 'CORNER':
+                for face in bm.faces:
+                    for loop in face.loops:
+                        loop[bm_layer] = color
+            else: # POINT
+                for vert in bm.verts:
+                    vert[bm_layer] = color
+
+        # Finalize changes
+        bmesh.update_edit_mesh(obj.data)
+
+    # Non-edit mode vertex color fill
     else:
-        vcol.data.foreach_set( "color",
-            numpy.array((color[0] * ones, color[1] * ones, color[2] * ones)).T.ravel())
+        ones = numpy.ones(len(vcol.data))
 
-    if ori_mode:
-        bpy.ops.object.mode_set(mode=ori_mode)
+        if is_bl_newer_than(2, 80):
+            vcol.data.foreach_set( "color",
+                numpy.array((color[0] * ones, color[1] * ones, color[2] * ones, color[3] * ones)).T.ravel())
+        else:
+            vcol.data.foreach_set( "color",
+                numpy.array((color[0] * ones, color[1] * ones, color[2] * ones)).T.ravel())
 
 def force_bump_base_value(tree, ch, value):
     col = (value, value, value, 1.0)
@@ -3026,6 +3096,8 @@ def get_layer_index(layer):
     for i, t in enumerate(yp.layers):
         if layer == t:
             return i
+
+    return -1
 
 def get_layer_index_by_name(yp, name):
 
@@ -4966,28 +5038,46 @@ def set_active_vertex_color_by_name(obj, vcol_name):
 def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER', color_fill=()):
     if not obj or obj.type != 'MESH': return None
 
-    # Cannot add new vertex color in edit mode, so go to object mode
-    ori_edit_mode = False
+    # In edit mode, vertex color is better created using BMesh
     if obj.mode == 'EDIT':
-        bpy.ops.object.mode_set(mode='OBJECT')
-        ori_edit_mode = True
 
-    # Create new vertex color
-    if not is_bl_newer_than(3, 2):
-        vcol = obj.data.vertex_colors.new(name=name)
-    else: vcol = obj.data.color_attributes.new(name, data_type, domain)
+        # Initialize BMesh
+        bm = bmesh.from_edit_mesh(obj.data)
 
-    vcol_name = vcol.name
+        # Version-safe layer access
+        if not is_bl_newer_than(3, 2) or domain == 'CORNER':
+            target_layers = bm.loops.layers
+        else: target_layers = bm.verts.layers
 
-    # Fill color
-    if color_fill != ():
-        set_obj_vertex_colors(obj, vcol.name, color_fill)
+        # Data type selection
+        if not is_bl_newer_than(3, 2) or data_type == 'BYTE_COLOR':
+            bm_layer = target_layers.color.new(name)
+        else: bm_layer = target_layers.float_color.new(name)
 
-    # Back to edit mode and get the vertex color again to avoid pointer error
-    if ori_edit_mode:
-        bpy.ops.object.mode_set(mode='EDIT')
-        vcols = get_vertex_colors(obj)
-        vcol = vcols.get(vcol_name)
+        vcol_name = bm_layer.name
+
+        if color_fill != ():
+            # Fill colors
+            fill_obj_vertex_colors(obj, vcol_name, color=color_fill, bm=bm, bm_layer=bm_layer)
+        else: 
+            # Fill colors already update the edit mesh so no need to do it again
+            bmesh.update_edit_mesh(obj.data)
+
+    # Create vertex color in non-edit mode
+    else:
+        # Create new vertex color
+        if not is_bl_newer_than(3, 2):
+            vcol = obj.data.vertex_colors.new(name=name)
+        else: vcol = obj.data.color_attributes.new(name, data_type, domain)
+
+        vcol_name = vcol.name
+
+        # Fill color
+        if color_fill != ():
+            fill_obj_vertex_colors(obj, vcol_name, color_fill)
+
+    vertex_colors = get_vertex_colors(obj)
+    vcol = vertex_colors.get(vcol_name)
 
     return vcol
 
@@ -5302,6 +5392,7 @@ def set_active_paint_slot_entity(yp):
                     # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
                     if not is_bl_newer_than(5, 1):
                         wmyp.correct_paint_image_name = img.name                                         
+                        wmyp.use_paint_slot_hacks = True
                     break
         
     else:

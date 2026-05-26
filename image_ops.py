@@ -926,6 +926,89 @@ def get_file_format_items():
 
     return items
 
+class YExportLayers(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOptions):
+    bl_idname = "wm.y_export_layers"
+    bl_label = "Export "+get_addon_title()+" Layers"
+    bl_description = "Export "+get_addon_title()+" Layers"
+    bl_options = {'UNDO'}
+
+    filename_ext = ".psd"
+
+    channel_idx : EnumProperty(
+        name = 'Channel',
+        description = 'Only layers with this channel will be used for export',
+        items = BaseOperator.channel_items_base
+    )
+
+    convert_solid_colors_to_pixels : BoolProperty(
+        name = 'Convert Solid Colors to pixels',
+        description = 'Convert solid color layers to pixels for non-Photoshop app compatibility',
+        default = True
+    )
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        psd_io = get_package_module('.psd_io')
+        if not psd_io:
+            return self.execute(context)
+
+        node = get_active_ypaint_node()
+
+        self.filepath = node.node_tree.name + '.psd'
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def draw(self, context):
+        psd_io = get_package_module('.psd_io')
+
+        row = split_layout(self.layout, 0.325)
+        col = row.column()
+        col.label(text='Channel:')
+
+        col = row.column()
+        col.prop(self, 'channel_idx', text='')
+
+        col = self.layout.column()
+        col.prop(self, 'convert_solid_colors_to_pixels')
+        if psd_io: psd_io.draw_no_psd_tools_warning(col)
+
+    def execute(self, context):
+        psd_io = get_package_module('.psd_io')
+        if not psd_io:
+            self.report({'ERROR'}, "This feature currently only available in Ucupaint Plus!")
+            return {'CANCELLED'}
+
+        if not psd_io.is_psd_io_supported():
+            self.report({'ERROR'}, "Need at least Blender 3.1 to work!")
+            return {'CANCELLED'}
+
+        status = psd_io.ensure_psd_tools()
+        if not status: 
+            self.report({'ERROR'}, "Cannot import psd-tools module!")
+            return {'CANCELLED'}
+
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        status, message = psd_io.export_layers_to_psd(node, self.filepath, ch_idx=int(self.channel_idx),
+            convert_solid_colors_to_pixels=self.convert_solid_colors_to_pixels)
+
+        if status:
+            text = 'PSD successfully exported!'
+            if message != '':
+                text += ' '+message
+            #self.report({'INFO'}, "PSD successfully exported! File can be accessed at "+self.filepath)
+            self.report({'INFO'}, text)
+            return {'FINISHED'}
+
+        text = "Failed to export layers to PSD!"
+        if message != '': text += ' '+message
+        self.report({'ERROR'}, text)
+        return {'CANCELLED'}
+
 class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOptions):
     """Save As Image"""
     bl_idname = "wm.y_save_as_image"
@@ -1427,6 +1510,7 @@ def register():
     bpy.utils.register_class(YRefreshImage)
     bpy.utils.register_class(YPackImage)
     bpy.utils.register_class(YSaveImage)
+    bpy.utils.register_class(YExportLayers)
     bpy.utils.register_class(YSaveAsImage)
     bpy.utils.register_class(YSavePackAll)
     bpy.utils.register_class(YSaveAllBakedImages)
@@ -1439,6 +1523,7 @@ def unregister():
     bpy.utils.unregister_class(YRefreshImage)
     bpy.utils.unregister_class(YPackImage)
     bpy.utils.unregister_class(YSaveImage)
+    bpy.utils.unregister_class(YExportLayers)
     bpy.utils.unregister_class(YSaveAsImage)
     bpy.utils.unregister_class(YSavePackAll)
     bpy.utils.unregister_class(YSaveAllBakedImages)
