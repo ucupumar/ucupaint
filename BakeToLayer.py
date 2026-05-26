@@ -7,7 +7,7 @@ from .subtree import *
 from .input_outputs import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer, Mask, ImageAtlas, UDIM, vector_displacement_lib, vector_displacement
+from . import lib, Layer, Mask, ImageAtlas, UDIM, vector_displacement_lib, vector_displacement, BaseOperator
 
 class YTryToSelectBakedVertexSelect(bpy.types.Operator):
     bl_idname = "wm.y_try_to_select_baked_vertex"
@@ -61,11 +61,10 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
             self.report({'ERROR'}, "Cannot select the object!")
             return {'CANCELLED'}
 
-        for obj in actual_selectable_objs:
+        for i, obj in enumerate(actual_selectable_objs):
             set_object_hide(obj, False)
             set_object_select(obj, True)
-
-        set_active_object(actual_selectable_objs[0])
+            if i == 0: set_active_object(obj)
         
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.reveal()
@@ -301,7 +300,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     channel_idx : EnumProperty(
         name = 'Channel',
         description = 'Channel of new layer, can be changed later',
-        items = Layer.channel_items
+        items = BaseOperator.channel_items
     )
 
     blend_type : EnumProperty(
@@ -1304,7 +1303,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
         T = time.time()
         node = get_active_ypaint_node()
-        self.yp = yp = node.node_tree.yp
+        yp = node.node_tree.yp
         tree = node.node_tree
         layer_tree = get_tree(self.layer)
 
@@ -1550,7 +1549,9 @@ class YSelectAllOtherObjects(bpy.types.Operator):
             so = context.bake_info.other_objects[i]
             if so.object:
                 so_object = so.object
-                so_object.hide_viewport = False
+                if is_bl_newer_than(2, 80):
+                    so_object.hide_viewport = False
+                else: set_object_hide(so_object, False)
                 so_object.hide_render = False
                 set_object_select(so_object, True)
         if so_object:
@@ -1580,11 +1581,13 @@ class YToggleOtherObjectsVisibility(bpy.types.Operator):
         if not reference_obj:
             return {'CANCELLED'}
 
-        current_hidden_state = reference_obj.hide_viewport
+        current_hidden_state = reference_obj.hide_viewport if is_bl_newer_than(2, 80) else get_object_hide(reference_obj)
 
         for oo in bi.other_objects:
             if oo.object:
-                oo.object.hide_viewport = not current_hidden_state
+                if is_bl_newer_than(2, 80):
+                    oo.object.hide_viewport = not current_hidden_state
+                else: set_object_hide(oo.object, not current_hidden_state)
                 oo.object.hide_render = not current_hidden_state
 
         return {'FINISHED'}

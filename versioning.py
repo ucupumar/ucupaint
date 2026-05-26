@@ -1216,6 +1216,12 @@ def update_yp_tree(tree):
                     print('INFO: Unused image named \''+n.image.name+'\' is removed!')
                     simple_remove_node(ltree, n)
 
+        # HACK: Enable and reenable layer to make sure internal nodes connected correctly
+        for layer in yp.layers:
+            if layer.enable:
+                layer.enable = False
+                layer.enable = True
+
     # Version 2.4.1 has fix for inbetween invert modifier mask
     if version_tuple(yp.version) < (2, 4, 1):
 
@@ -1315,11 +1321,11 @@ def update_routine(name):
     updated_to_tangent_process_300 = False
     updated_to_yp_200_displacement = False
 
-    for ng in bpy.data.node_groups:
-        if not hasattr(ng, 'yp'): continue
-        if not ng.yp.is_ypaint_node: continue
+    # Get all yp trees
+    yp_trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]
 
-        # Update yp trees
+    for ng in yp_trees:   
+        # Update yp tree
         flag1, flag2 = update_yp_tree(ng)
         if flag1: updated_to_tangent_process_300 = True
         if flag2: updated_to_yp_200_displacement = True

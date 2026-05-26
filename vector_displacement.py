@@ -574,25 +574,18 @@ def apply_mirror_modifier(obj):
 def recover_mirror_modifier(obj):
     if obj.yp_vdm.mirror_modifier_name == '': return
 
-    # Go to edit mode to delete mirrored verts
-    bpy.ops.object.mode_set(mode='EDIT')
-
-    # Get bmesh
-    bm = bmesh.from_edit_mesh(obj.data)
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
     bm.verts.ensure_lookup_table()
-
-    # Deselect all first
-    bpy.ops.mesh.select_all(action='DESELECT')
-
-    # Select all vertices outside
-    for i in range(obj.yp_vdm.num_verts, len(bm.verts)):
-        bm.verts[i].select = True
-
-    # Delete mirrored vertices
-    bpy.ops.mesh.delete(type='VERT')
-
-    # Back to object mode
-    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    # Delete vertices after the original count
+    verts_to_delete = list(bm.verts[obj.yp_vdm.num_verts:])
+    for vert in verts_to_delete:
+        bm.verts.remove(vert)
+    
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
 
     # Show up the modifier back
     mirror = obj.modifiers.get(obj.yp_vdm.mirror_modifier_name)
@@ -691,8 +684,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     if node:
         yp = node.node_tree.yp
         if is_multi_disp_used(yp):
-            # NOTE: Non-native baking need flipped YZ
-            layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True, flip_yz=not native_baking)
+            layer_disabled_vdm_image = get_combined_vdm_image(obj, uv_name, width=image.size[0], height=image.size[1], disable_current_layer=True)
 
     set_active_object(obj)
     if obj.mode != 'OBJECT':
@@ -804,7 +796,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
             geomod = temp1.modifiers[-1]
             geomod.node_group = vdm_loader
             temp1.modifiers.active = geomod
-            set_modifier_input_value(geomod, 'Flip Y/Z', False)
+            set_modifier_input_value(geomod, 'Flip Y/Z', True)
 
             # Apply geomod
             bpy.ops.object.modifier_apply(modifier=geomod.name)
@@ -950,7 +942,7 @@ def bake_multires_image(obj, image, uv_name, intensity=1.0, flip_yz=False):
     set_active_object(obj)
     set_object_select(obj, True)
 
-def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_current_layer=False, flip_yz=False, only_vdms=False):
+def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_current_layer=False, only_vdms=False):
     # Bake preparations
     book = _remember_before_bake(obj)
     _prepare_bake_settings(book, obj, uv_name)     
@@ -984,24 +976,12 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     if disable_current_layer:
         cur_layer.enable = False
 
-    # Disable other than vdm layers
     if only_vdms:
-        for l in yp.layers:
-            height_ch = get_height_channel(l)
-            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
-
+        # Disable layer other than VDM
         for l in yp.layers:
             height_ch = get_height_channel(l)
             if not height_ch or not height_ch.enable: continue
-            if height_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-
-                # Flip flip Y/Z
-                if flip_yz:
-                    height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
-
-            # Disable layer other than VDM
-            elif only_vdms and l.type != 'GROUP':
+            if height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP' and l.type != 'GROUP':
                 l.enable = False
 
     # Make sure vdm output exists
@@ -1073,13 +1053,6 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     if not height_root_ch.enable_subdiv_setup:
         check_all_channel_ios(yp)
 
-    # Recover flip yzs
-    if flip_yz:
-        for i, l in enumerate(yp.layers):
-            height_ch = get_height_channel(l)
-            if not height_ch or not height_ch.enable or height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': continue
-            height_ch.vdisp_enable_flip_yz = not height_ch.vdisp_enable_flip_yz
-
     # Recover sculpt mode
     if ori_sculpt_mode:
         yp.sculpt_mode = True
@@ -1090,6 +1063,10 @@ def get_combined_vdm_image(obj, uv_name, width=1024, height=1024, disable_curren
     return image
 
 def get_tangent_bitangent_images(obj, uv_name):
+
+    ori_mode = obj.mode
+    if ori_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
 
     tanimage_name = obj.name + '_' + uv_name + CACHE_TANGENT_IMAGE_SUFFIX
     bitimage_name = obj.name + '_' + uv_name + CACHE_BITANGENT_IMAGE_SUFFIX
@@ -1148,18 +1125,22 @@ def get_tangent_bitangent_images(obj, uv_name):
         try:
             temp.data.calc_tangents()
         except:
-            # Triangulate ngon faces on temp object
-            bpy.ops.object.select_all(action='DESELECT')
-            temp.select_set(True)
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_all(action='DESELECT')
-            bpy.ops.mesh.select_mode(type="FACE")
-            bpy.ops.mesh.select_face_by_sides(number=4, type='GREATER')
-            bpy.ops.mesh.quads_convert_to_tris()
-            bpy.ops.mesh.tris_convert_to_quads()
-            bpy.ops.object.mode_set(mode='OBJECT')
-
+            # Triangulate ngon faces on temp object using bmesh
+            bm = bmesh.new()
+            bm.from_mesh(temp.data)
+            
+            # Triangulate faces with more than 4 vertices
+            faces_to_tri = [f for f in bm.faces if len(f.verts) > 4]
+            if faces_to_tri:
+                bmesh.ops.triangulate(bm, faces=faces_to_tri)
+            
+            # Convert back to quads
+            bmesh.ops.planar_faces(bm, faces=bm.faces[:])
+            
+            bm.to_mesh(temp.data)
+            bm.free()
+            temp.data.update()
+            
             temp.data.calc_tangents()   
 
         # Bitangent sign attribute's
@@ -1250,6 +1231,9 @@ def get_tangent_bitangent_images(obj, uv_name):
         set_active_object(obj)
         set_object_select(obj, True)
 
+    if ori_mode != obj.mode:
+        bpy.ops.object.mode_set(mode=ori_mode)
+
     return tanimage, bitimage
 
 def get_vdm_intensity(layer, ch):
@@ -1276,6 +1260,10 @@ def is_multi_disp_used(yp):
 
 def convert_vdm_to_multires(obj, vdm_image, uv_name, intensity=1.0, flip_yz=False, use_temp_multires=False):
     # TODO: Multi objects awareness
+
+    ori_mode = obj.mode
+    if ori_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
 
     scene = bpy.context.scene
 
@@ -1409,6 +1397,9 @@ def convert_vdm_to_multires(obj, vdm_image, uv_name, intensity=1.0, flip_yz=Fals
     # Remove temp data
     remove_mesh_obj(temp) 
     bpy.data.node_groups.remove(vdm_loader)
+
+    if ori_mode != obj.mode:
+        bpy.ops.object.mode_set(mode=ori_mode)
 
 class YSculptImage(bpy.types.Operator):
     bl_idname = "sculpt.y_sculpt_image"
@@ -1667,7 +1658,7 @@ class YRemoveVDMandAddMultires(bpy.types.Operator):
 
         if len(vdm_layers) > 1:
             # TODO: Use the highest resolution vdm image as the bake resolution
-            vdm_image = get_combined_vdm_image(obj, uv_name, width=vdm_image.size[0], height=vdm_image.size[1], flip_yz=True, only_vdms=True)
+            vdm_image = get_combined_vdm_image(obj, uv_name, width=vdm_image.size[0], height=vdm_image.size[1], only_vdms=True)
             flip_yz = True
 
         # Convert all vdm layers to multires modifier

@@ -207,7 +207,7 @@ def remove_udim_files_from_disk(image, directory, remove_dir=False, tilenum=-1):
     prefix = filename.split('.<UDIM>.')[0]
     if os.path.isdir(directory):
         for f in os.listdir(directory):
-            m = re.match(r'' + re.escape(prefix) + '\.(\d{4})\.*', f)
+            m = re.match(r'' + re.escape(prefix) + r'\.(\d{4})\.*', f)
             if m:
                 if tilenum != -1 and tilenum != int(m.group(1)): continue
                 img_names.append(f)
@@ -384,7 +384,7 @@ def swap_tiles(image, swap_dict, reverse=False):
         path0 = ''
         path1 = ''
         for f in os.listdir(directory):
-            m = re.match(r'' + re.escape(prefix) + '\.\d{4}\.*', f)
+            m = re.match(r'' + re.escape(prefix) + r'\.\d{4}\.*', f)
             if m:
                 if str0 in f: path0 = os.path.join(directory, f)
                 elif str1 in f: path1 = os.path.join(directory, f)
