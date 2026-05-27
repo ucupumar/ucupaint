@@ -2409,7 +2409,8 @@ def get_channel_source_tree(ch, layer=None, tree=None):
 
     if ch.source_group != '':
         source_group = tree.nodes.get(ch.source_group)
-        return source_group.node_tree
+        if source_group:
+            return source_group.node_tree
 
     return tree
 
