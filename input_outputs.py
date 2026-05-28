@@ -1014,7 +1014,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch)) or (ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal)
+        channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch)) or (ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal)
 
         force_normal_input = root_ch.type == 'NORMAL' and need_prev_normal and layer_enabled
 

@@ -2113,9 +2113,10 @@ def remove_smooth_bump_setup(check_io=True):
         # Get normal channel
         norm_chs = [ch for ch in yp.channels if ch.type == 'NORMAL']
         norm_ch = norm_chs[0] if any(norm_chs) else None
-        norm_ch_idx = get_channel_index(norm_ch)
 
         if norm_ch and norm_ch.enable_smooth_bump:
+
+            norm_ch_idx = get_channel_index(norm_ch)
 
             # Get object dimension and volume
             dimension = None
