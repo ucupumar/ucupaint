@@ -1539,6 +1539,9 @@ def update_routine(name):
     updated_to_tangent_process_300 = False
     updated_to_yp_200_displacement = False
 
+    # Remove smooth bump first
+    remove_smooth_bump_setup(check_io=False)
+
     # Get all yp trees
     yp_trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]
 
@@ -2100,7 +2103,7 @@ class YDisableLegacyAlpha(bpy.types.Operator):
         return {'FINISHED'}
 
 
-def remove_smooth_bump_setup():
+def remove_smooth_bump_setup(check_io=True):
     # Get all yp trees
     yp_trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]
 
@@ -2184,7 +2187,8 @@ def remove_smooth_bump_setup():
             norm_ch.enable_smooth_bump = False
             yp.halt_update = False
 
-            check_all_channel_ios(yp)
+            if check_io:
+                check_all_channel_ios(yp)
 
             print("INFO: Smooth bump on "+tree.name+" is now disabled!")
 
