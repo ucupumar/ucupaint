@@ -1459,6 +1459,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 if bitangent and 'Bitangent' in end_linear.inputs:
                     create_link(tree, bitangent, end_linear.inputs['Bitangent'])
+            else:
+                rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
 
         if ch.special_channel_type == 'HEIGHT':
 
