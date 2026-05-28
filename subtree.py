@@ -1,4 +1,4 @@
-import bpy, re
+import bpy, re, bmesh
 from . import lib, Modifier, MaskModifier
 from .common import *
 from .node_arrangements import *
@@ -882,16 +882,21 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                 bpy.context.scene.objects.link(temp_ob)
                 bpy.context.scene.objects.active = temp_ob
 
-            # Triangulate ngon faces on temp object
-            bpy.ops.object.select_all(action='DESELECT')
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_all(action='DESELECT')
-            bpy.ops.mesh.select_mode(type="FACE")
-            bpy.ops.mesh.select_face_by_sides(number=4, type='GREATER')
-            bpy.ops.mesh.quads_convert_to_tris()
-            bpy.ops.mesh.tris_convert_to_quads()
-            bpy.ops.object.mode_set(mode='OBJECT')
+            # Triangulate ngon faces on temp object using bmesh
+            bm = bmesh.new()
+            bm.from_mesh(temp_ob.data)
+            
+            # Triangulate faces with more than 4 vertices
+            faces_to_tri = [f for f in bm.faces if len(f.verts) > 4]
+            if faces_to_tri:
+                bmesh.ops.triangulate(bm, faces=faces_to_tri)
+            
+            # Convert back to quads
+            bmesh.ops.planar_faces(bm, faces=bm.faces[:])
+            
+            bm.to_mesh(temp_ob.data)
+            bm.free()
+            temp_ob.data.update()
 
             # Remove all modifiers on temp object
             for mod in temp_ob.modifiers:

@@ -1,4 +1,4 @@
-import bpy, os, sys, re, numpy, math, pathlib, string, random
+import bpy, os, sys, re, numpy, math, pathlib, string, random, bmesh
 import bpy_extras.image_utils
 from mathutils import *
 from bpy.app.handlers import persistent
@@ -51,8 +51,44 @@ BUMP_MULTIPLY_TWEAK = 5
 TEMP_ACTIVE_IMAGE_NAME = '.YP_TEMP_ACTIVE_IMAGE'
 TEMP_ACTIVE_IMAGE_NODE_NAME = '.YP_TEMP_ACTIVE_IMAGE_NODE'
 
-def blend_type_items(self, context):
-    items = [
+def is_bl_newer_than(major, minor=0, patch=0):
+    return bpy.app.version >= (major, minor, patch)
+
+def is_bl_equal(major, minor=None, patch=None):
+    if minor == None and patch == None:
+        return bpy.app.version[0] == major
+    elif patch == None:
+        return bpy.app.version[:2] == (major, minor)
+    else:
+        return bpy.app.version == (major, minor, patch)
+
+def is_created_before(major, minor=0, patch=0):
+    return bpy.data.version < (major, minor, patch)
+
+if is_bl_newer_than(3, 5):
+    blend_type_items = [
+        ("MIX", "Mix", ""),
+        ("ADD", "Add", ""),
+        ("SUBTRACT", "Subtract", ""),
+        ("MULTIPLY", "Multiply", ""),
+        ("SCREEN", "Screen", ""),
+        ("OVERLAY", "Overlay", ""),
+        ("DIFFERENCE", "Difference", ""),
+        ("DIVIDE", "Divide", ""),
+        ("DARKEN", "Darken", ""),
+        ("LIGHTEN", "Lighten", ""),
+        ("HUE", "Hue", ""),
+        ("SATURATION", "Saturation", ""),
+        ("VALUE", "Value", ""),
+        ("COLOR", "Color", ""),
+        ("SOFT_LIGHT", "Soft Light", ""),
+        ("LINEAR_LIGHT", "Linear Light", ""),
+        ("DODGE", "Dodge", ""),
+        ("BURN", "Burn", ""),
+        ("EXCLUSION", "Exclusion", ""),
+    ]
+else:
+    blend_type_items = [
         ("MIX", "Mix", ""),
         ("ADD", "Add", ""),
         ("SUBTRACT", "Subtract", ""),
@@ -72,11 +108,6 @@ def blend_type_items(self, context):
         ("DODGE", "Dodge", ""),
         ("BURN", "Burn", ""),
     ]
-
-    if is_bl_newer_than(3, 5):
-        items.append(("EXCLUSION", "Exclusion", ""))
-
-    return items
 
 blend_type_labels = {
     "MIX" : "Mix",
@@ -100,8 +131,30 @@ blend_type_labels = {
     "EXCLUSION" : "Exclusion",
 }
 
-def mask_blend_type_items(self, context):
-    items = [
+if is_bl_newer_than(3, 5):
+    mask_blend_type_items = [
+        ("MIX", "Replace", ""),
+        ("ADD", "Add", ""),
+        ("SUBTRACT", "Subtract", ""),
+        ("MULTIPLY", "Multiply", ""),
+        ("SCREEN", "Screen", ""),
+        ("OVERLAY", "Overlay", ""),
+        ("DIFFERENCE", "Difference", ""),
+        ("DIVIDE", "Divide", ""),
+        ("DARKEN", "Darken", ""),
+        ("LIGHTEN", "Lighten", ""),
+        ("HUE", "Hue", ""),
+        ("SATURATION", "Saturation", ""),
+        ("VALUE", "Value", ""),
+        ("COLOR", "Color", ""),
+        ("SOFT_LIGHT", "Soft Light", ""),
+        ("LINEAR_LIGHT", "Linear Light", ""),
+        ("DODGE", "Dodge", ""),
+        ("BURN", "Burn", ""),
+        ("EXCLUSION", "Exclusion", ""),
+    ]
+else:
+    mask_blend_type_items = [
         ("MIX", "Replace", ""),
         ("ADD", "Add", ""),
         ("SUBTRACT", "Subtract", ""),
@@ -121,11 +174,6 @@ def mask_blend_type_items(self, context):
         ("DODGE", "Dodge", ""),
         ("BURN", "Burn", ""),
     ]
-
-    if is_bl_newer_than(3, 5):
-        items.append(("EXCLUSION", "Exclusion", ""))
-
-    return items
 
 voronoi_feature_items = (
     ("F1", "F1", "Compute and return the distance to the closest feature point as well as its position and color"),
@@ -210,10 +258,10 @@ normal_blend_items = (
 )
 
 normal_blend_labels = {
-        'MIX' : 'Mix',
-        'OVERLAY' : 'Overlay',
-        'COMPARE' : 'Compare Height',
-        }
+    'MIX' : 'Mix',
+    'OVERLAY' : 'Overlay',
+    'COMPARE' : 'Compare Height',
+}
 
 normal_space_items = (
     ('TANGENT', 'Tangent Space', 'Tangent space normal mapping'),
@@ -230,11 +278,11 @@ height_blend_items = (
 )
 
 normal_type_labels = {
-        'BUMP_MAP' : 'Bump',
-        'NORMAL_MAP' : 'Normal',
-        'BUMP_NORMAL_MAP' : 'Bump + Normal',
-        'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
-        }
+    'BUMP_MAP' : 'Bump',
+    'NORMAL_MAP' : 'Normal',
+    'BUMP_NORMAL_MAP' : 'Bump + Normal',
+    'VECTOR_DISPLACEMENT_MAP' : 'Vector Displacement',
+}
 
 layer_type_items = (
     ('IMAGE', 'Image', ''),
@@ -673,6 +721,9 @@ def get_addon_title():
     manifest = get_manifest()
     return manifest['name']
 
+def get_extra_title():
+    return ''
+
 def get_addon_warning():
     if not is_bl_newer_than(4, 2):
         bl_info = sys.modules[get_addon_name()].bl_info
@@ -715,25 +766,24 @@ def get_current_version():
 def is_online():
     return not is_bl_newer_than(4, 2) or bpy.app.online_access
 
-def is_bl_newer_than(major, minor=0, patch=0):
-    return bpy.app.version >= (major, minor, patch)
-
-def is_bl_equal(major, minor=None, patch=None):
-    if minor == None and patch == None:
-        return bpy.app.version[0] == major
-    elif patch == None:
-        return bpy.app.version[:2] == (major, minor)
-    else:
-        return bpy.app.version == (major, minor, patch)
-
-def is_created_before(major, minor=0, patch=0):
-    return bpy.data.version < (major, minor, patch)
+def is_installed_through_extension_platform():
+    return 'bl_ext.blender_org.' in __package__
 
 def get_bpytypes():
     if not is_bl_newer_than(2, 77):
         import bpy_types
         return bpy_types.bpy_types
     return bpy.types
+
+def is_package_module_exists(module_relpath):
+    import importlib.util
+    return importlib.util.find_spec(module_relpath, package=__package__)
+
+def get_package_module(module_relpath):
+    import importlib
+    if is_package_module_exists(module_relpath):
+        return importlib.import_module(module_relpath, package=__package__)
+    return None
 
 def get_srgb_name():
     names = bpy.types.Image.bl_rna.properties['colorspace_settings'].fixed_type.properties['name'].enum_items.keys()
@@ -972,6 +1022,10 @@ def is_layer_collection_hidden(obj):
 def get_addon_filepath():
     return os.path.dirname(bpy.path.abspath(__file__)) + os.sep
 
+def get_lowercase_extension(filepath):
+    try: return filepath.split('.')[-1].lower()
+    except: return ''
+
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
@@ -1066,7 +1120,7 @@ def copy_id_props(source, dest, extras=[], reverse=False):
 
     bpytypes = get_bpytypes()
     props = dir(source)
-    filters = ['bl_rna', 'rna_type']
+    filters = ['bl_rna', 'rna_type', 'bl_system_properties_get']
     filters.extend(extras)
 
     if reverse: props.reverse()
@@ -1277,12 +1331,11 @@ def get_active_paint_slot_image():
 
     return image
 
-def safely_set_image_paint_canvas(image, scene=None):
-    if not scene: scene = bpy.context.scene
-
+def safely_set_image_paint_canvas(image):
     # HACK: Remember all original images in all image editors since setting canvas/paint slot will replace all of them
     ori_editor_imgs, ori_editor_pins = get_editor_images_dict(return_pins=True)
 
+    scene = bpy.context.scene
     try:
         scene.tool_settings.image_paint.canvas = image
         success = True
@@ -1295,7 +1348,7 @@ def set_image_paint_canvas(image):
     scene = bpy.context.scene
     try:
         scene.tool_settings.image_paint.mode = 'IMAGE'
-        safely_set_image_paint_canvas(image, scene)
+        safely_set_image_paint_canvas(image)
     except Exception as e: print(e)
 
 # Check if name already available on the list
@@ -1472,7 +1525,7 @@ def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
 
         # Remove image from canvas
         if scene.tool_settings.image_paint.canvas == image:
-            safely_set_image_paint_canvas(None, scene)
+            safely_set_image_paint_canvas(None)
 
         if remove_on_disk and not image.packed_file and image.filepath != '':
             if image.source == 'TILED':
@@ -1486,7 +1539,7 @@ def safe_remove_image(image, remove_on_disk=False, user=None, user_prop=''):
 
         remove_datablock(bpy.data.images, image, user=user, user_prop=user_prop)
 
-def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False):
+def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, remove_on_disk=False, remove_images=True):
     #if not node: return
     scene = bpy.context.scene
 
@@ -1502,7 +1555,8 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, re
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
             image = node.image
-            if image: safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
+            if image and remove_images: 
+                safe_remove_image(image, remove_on_disk, user=node, user_prop='image')
 
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
@@ -1510,7 +1564,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, re
                 # Recursive remove
                 for n in node.node_tree.nodes:
                     if n.bl_idname in {'ShaderNodeTexImage', 'ShaderNodeGroup'}:
-                        simple_remove_node(node.node_tree, n, remove_data)
+                        simple_remove_node(node.node_tree, n, remove_data, remove_on_disk=remove_on_disk, remove_images=remove_images)
 
                 remove_datablock(bpy.data.node_groups, node.node_tree, user=node, user_prop='node_tree')
 
@@ -2022,6 +2076,18 @@ def check_duplicated_node_group(node_group, duplicated_trees=[]):
 
             check_duplicated_node_group(node.node_tree, duplicated_trees)
 
+        # Check for duplicated image from library
+        elif node.type == 'TEX_IMAGE' and node.image:
+            m = re.match(r'^(.+)\.\d{3}$', node.image.name)
+            if m:
+                img = bpy.data.images.get(m.group(1))
+                if img and img.filepath == node.image.filepath:
+                    dup_img = node.image
+                    node.image = img
+
+                    # Remove duplicated image
+                    remove_datablock(bpy.data.images, dup_img)
+
     # Create info frame if not found
     if not info_frame_found and node_group.name.startswith('~yPL '):
         create_info_nodes(node_group)
@@ -2208,6 +2274,25 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
     return node
 
+def create_layer_descriptor():
+    l = dotdict()
+    l.layer = None
+    l.external_layer = None
+    l.parent_idx = -1
+    l.name = 'Layer'
+    l.enable = True
+    l.type = 'IMAGE'
+    l.color = (1.0, 1.0, 1.0)
+    l.opacity = 1.0
+    l.blend_type = 'MIX'
+    l.image = None
+    l.pil_image = None
+    l.mask_image = None
+    l.mask_pil_image = None
+    l.masks = []
+
+    return l
+
 def get_tree(entity):
 
     # Search inside yp tree
@@ -2324,7 +2409,8 @@ def get_channel_source_tree(ch, layer=None, tree=None):
 
     if ch.source_group != '':
         source_group = tree.nodes.get(ch.source_group)
-        return source_group.node_tree
+        if source_group:
+            return source_group.node_tree
 
     return tree
 
@@ -2584,29 +2670,60 @@ def copy_vertex_color_data(obj, source_name, dest_name):
     #if ori_mode:
     #    bpy.ops.object.mode_set(mode=ori_mode)
 
-def set_obj_vertex_colors(obj, vcol_name, color):
+def fill_obj_vertex_colors(obj, vcol_name, color=(1.0, 1.0, 1.0, 1.0), bm=None, bm_layer=None):
     if obj.type != 'MESH': return
-
-    ori_mode = None
-    if obj.mode != 'OBJECT':
-        ori_mode = obj.mode
-        bpy.ops.object.mode_set(mode='OBJECT')
 
     vcols = get_vertex_colors(obj)
     vcol = vcols.get(vcol_name)
     if not vcol: return
 
-    ones = numpy.ones(len(vcol.data))
+    if obj.mode == 'EDIT':
 
-    if is_bl_newer_than(2, 80):
-        vcol.data.foreach_set( "color",
-            numpy.array((color[0] * ones, color[1] * ones, color[2] * ones, color[3] * ones)).T.ravel())
+        # Initialize BMesh
+        if not bm: bm = bmesh.from_edit_mesh(obj.data)
+
+        if not bm_layer:
+            # Version-safe layer access
+            if not is_bl_newer_than(3, 2) or vcol.domain == 'CORNER':
+                target_layers = bm.loops.layers
+            else: # POINT
+                target_layers = bm.verts.layers
+
+            # Data type selection
+            if not is_bl_newer_than(3, 2) or vcol.data_type == 'BYTE_COLOR':
+                bm_layer = target_layers.color.get(vcol_name)
+            else: bm_layer = target_layers.float_color.get(vcol_name)
+
+        # Do color fill
+        if len(color) >= 3:
+            # Make sure the color is compatible with older blender versions
+            if not is_bl_newer_than(2, 80):
+                if len(color) > 3:
+                    color = (color[0], color[1], color[2])
+            elif len(color) == 3:
+                color = (color[0], color[1], color[2], 1.0)
+
+            if not is_bl_newer_than(3, 2) or vcol.domain == 'CORNER':
+                for face in bm.faces:
+                    for loop in face.loops:
+                        loop[bm_layer] = color
+            else: # POINT
+                for vert in bm.verts:
+                    vert[bm_layer] = color
+
+        # Finalize changes
+        bmesh.update_edit_mesh(obj.data)
+
+    # Non-edit mode vertex color fill
     else:
-        vcol.data.foreach_set( "color",
-            numpy.array((color[0] * ones, color[1] * ones, color[2] * ones)).T.ravel())
+        ones = numpy.ones(len(vcol.data))
 
-    if ori_mode:
-        bpy.ops.object.mode_set(mode=ori_mode)
+        if is_bl_newer_than(2, 80):
+            vcol.data.foreach_set( "color",
+                numpy.array((color[0] * ones, color[1] * ones, color[2] * ones, color[3] * ones)).T.ravel())
+        else:
+            vcol.data.foreach_set( "color",
+                numpy.array((color[0] * ones, color[1] * ones, color[2] * ones)).T.ravel())
 
 def force_bump_base_value(tree, ch, value):
     col = (value, value, value, 1.0)
@@ -2723,7 +2840,11 @@ def set_modifier_input_value(mod, socket_name, value):
     inp = get_tree_input_by_name(mod.node_group, socket_name)
     if not inp: return
 
-    mod[inp.identifier] = value
+    if is_bl_newer_than(5, 2):
+        mod_inp = getattr(mod.properties.inputs, inp.identifier)
+        mod_inp.value = value
+    else:
+        mod[inp.identifier] = value
 
 def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not is_bl_newer_than(4):
@@ -2941,6 +3062,8 @@ def get_layer_index(layer):
     for i, t in enumerate(yp.layers):
         if layer == t:
             return i
+
+    return -1
 
 def get_layer_index_by_name(yp, name):
 
@@ -3530,8 +3653,7 @@ def set_uv_mirror_offsets(obj, matrix):
 
     movec = Vector((mirror.mirror_offset_u / 2, mirror.mirror_offset_v / 2, 0.0))
     if is_bl_newer_than(2, 80):
-        # NOTE: For compatibility to older blenders, put matrix multiplication under eval
-        movec = eval('matrix @ movec')
+        movec = matrix @ movec
     else: movec = matrix * movec
 
     if mirror.use_mirror_u:
@@ -3798,19 +3920,17 @@ def refresh_temp_uv(obj, entity):
         if mapping.vector_type == 'TEXTURE':
             for uv in arr:
                 vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
-                vec = eval('m @ vec')
-                vec = eval('m1 @ vec')
-                vec = eval('m2 @ vec')
-                vec = eval('m3 @ vec')
-                vec = eval('m4 @ vec')
+                vec = m @ vec
+                vec = m1 @ vec
+                vec = m2 @ vec
+                vec = m3 @ vec
+                vec = m4 @ vec
                 uv[0] = vec[0]
                 uv[1] = vec[1]
         else:
             for uv in arr:
                 vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
-                # NOTE: For compatibility to older blenders, put matrix multiplication under eval
-                vec = eval('m @ vec')
+                vec = m @ vec
                 uv[0] = vec[0]
                 uv[1] = vec[1]
     else:
@@ -4827,28 +4947,46 @@ def set_active_vertex_color_by_name(obj, vcol_name):
 def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER', color_fill=()):
     if not obj or obj.type != 'MESH': return None
 
-    # Cannot add new vertex color in edit mode, so go to object mode
-    ori_edit_mode = False
+    # In edit mode, vertex color is better created using BMesh
     if obj.mode == 'EDIT':
-        bpy.ops.object.mode_set(mode='OBJECT')
-        ori_edit_mode = True
 
-    # Create new vertex color
-    if not is_bl_newer_than(3, 2):
-        vcol = obj.data.vertex_colors.new(name=name)
-    else: vcol = obj.data.color_attributes.new(name, data_type, domain)
+        # Initialize BMesh
+        bm = bmesh.from_edit_mesh(obj.data)
 
-    vcol_name = vcol.name
+        # Version-safe layer access
+        if not is_bl_newer_than(3, 2) or domain == 'CORNER':
+            target_layers = bm.loops.layers
+        else: target_layers = bm.verts.layers
 
-    # Fill color
-    if color_fill != ():
-        set_obj_vertex_colors(obj, vcol.name, color_fill)
+        # Data type selection
+        if not is_bl_newer_than(3, 2) or data_type == 'BYTE_COLOR':
+            bm_layer = target_layers.color.new(name)
+        else: bm_layer = target_layers.float_color.new(name)
 
-    # Back to edit mode and get the vertex color again to avoid pointer error
-    if ori_edit_mode:
-        bpy.ops.object.mode_set(mode='EDIT')
-        vcols = get_vertex_colors(obj)
-        vcol = vcols.get(vcol_name)
+        vcol_name = bm_layer.name
+
+        if color_fill != ():
+            # Fill colors
+            fill_obj_vertex_colors(obj, vcol_name, color=color_fill, bm=bm, bm_layer=bm_layer)
+        else: 
+            # Fill colors already update the edit mesh so no need to do it again
+            bmesh.update_edit_mesh(obj.data)
+
+    # Create vertex color in non-edit mode
+    else:
+        # Create new vertex color
+        if not is_bl_newer_than(3, 2):
+            vcol = obj.data.vertex_colors.new(name=name)
+        else: vcol = obj.data.color_attributes.new(name, data_type, domain)
+
+        vcol_name = vcol.name
+
+        # Fill color
+        if color_fill != ():
+            fill_obj_vertex_colors(obj, vcol_name, color_fill)
+
+    vertex_colors = get_vertex_colors(obj)
+    vcol = vertex_colors.get(vcol_name)
 
     return vcol
 
@@ -5162,6 +5300,7 @@ def set_active_paint_slot_entity(yp):
                     # HACK: Just in case paint slot does not update (Necessary for Blender 5.0 and lower)
                     if not is_bl_newer_than(5, 1):
                         wmyp.correct_paint_image_name = img.name                                         
+                        wmyp.use_paint_slot_hacks = True
                     break
         
     else:
@@ -7800,6 +7939,20 @@ def get_closest_bsdf_backward(node, valid_types=[], include_any=False):
                 return link.from_node
             else:
                 n = get_closest_bsdf_backward(link.from_node, valid_types)
+                if n: return n
+
+    return None
+
+def get_closest_image_node_backward(node):
+    for inp in node.inputs:
+        # NOTE: Only check for image connected to surface socket for now
+        if node.type == 'OUTPUT_MATERIAL' and inp.name != 'Surface': continue
+        for link in inp.links:
+            n = link.from_node
+            if n.type == 'TEX_IMAGE' and n.image:
+                return n
+            else:
+                n = get_closest_image_node_backward(link.from_node)
                 if n: return n
 
     return None

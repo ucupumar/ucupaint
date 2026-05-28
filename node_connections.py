@@ -162,8 +162,9 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
         # Get nodes inside modifier group tree and repoint it
         mod_tree = mod_group.node_tree
         start = mod_tree.nodes.get(MOD_TREE_START)
-        rgb = start.outputs[0]
-        alpha = start.outputs[1]
+        if start:
+            rgb = start.outputs[0]
+            alpha = start.outputs[1]
     else:
         mod_tree = tree
 
@@ -179,8 +180,9 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 
         # Connect to end node
         end = mod_tree.nodes.get(MOD_TREE_END)
-        create_link(mod_tree, rgb, end.inputs[0])
-        create_link(mod_tree, alpha, end.inputs[1])
+        if end:
+            create_link(mod_tree, rgb, end.inputs[0])
+            create_link(mod_tree, alpha, end.inputs[1])
 
         # Repoint rgb and alpha to mod group
         rgb = mod_group.outputs[0]

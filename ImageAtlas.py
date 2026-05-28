@@ -156,7 +156,7 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_fro
     # Search for available image atlas
     for img in images:
         #if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
-        if colorspace != '' and image.colorspace_settings.name != colorspace: continue
+        if colorspace != '' and img.colorspace_settings.name != colorspace: continue
         if img.yia.is_image_atlas and img.yia.color == color and img.is_float == hdr:
             segment = create_image_atlas_segment(img.yia, width, height)
             if segment: 

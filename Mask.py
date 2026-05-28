@@ -84,6 +84,7 @@ def add_new_mask(
         modifier_type='INVERT', interpolation='Linear', ao_distance=1.0, socket_input_name='Color'
     ):
     yp = layer.id_data.yp
+    ori_halt_update = yp.halt_update
     yp.halt_update = True
     ypup = get_user_preferences()
 
@@ -180,7 +181,8 @@ def add_new_mask(
     # Check mask linear
     check_mask_image_linear_node(mask)
 
-    yp.halt_update = False
+    if ori_halt_update != yp.halt_update:
+        yp.halt_update = ori_halt_update
 
     # Update coords
     update_mask_texcoord_type(mask, None, False)

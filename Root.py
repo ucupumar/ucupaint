@@ -1,4 +1,4 @@
-import bpy, time, re
+import bpy, time, re, bmesh
 from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
@@ -209,16 +209,13 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object
+        return context.object and context.object.type == 'MESH'
 
     @classmethod
     def description(self, context, properties):
         return get_operator_description(self)
 
     def invoke(self, context, event):
-        if not is_bl_newer_than(2, 80):
-            self.execute(context)
-
         obj = context.object
 
         # Always set new uv to false to avoid unwanted new uv
@@ -237,9 +234,6 @@ class YSelectMaterialPolygons(bpy.types.Operator):
             if not uv.name.startswith(TEMP_UV):
                 self.uv_map_coll.add().name = uv.name
         
-        if get_user_preferences().skip_property_popups and not event.shift:
-            return self.execute(context)
-
         return context.window_manager.invoke_props_dialog(self, width=400)
 
     def check(self, context):
@@ -254,38 +248,32 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         self.layout.prop(self, "set_canvas_to_empty")
 
     def execute(self, context):
-        if not is_bl_newer_than(2, 80):
-            self.report({'ERROR'}, "This feature only works in Blender 2.8+")
-            return {'CANCELLED'}
-
         if (self.new_uv and self.new_uv_name == '') or (not self.new_uv and self.uv_map == ''):
             self.report({'ERROR'}, "UV name cannot be empty!")
             return {'CANCELLED'}
 
         obj = context.object
         mat = obj.active_material
-
-        objs = []
-        for o in get_scene_objects():
-            if o.type != 'MESH': continue
-            if is_layer_collection_hidden(o): continue
-            if mat.name in o.data.materials:
-                o.select_set(True)
-                objs.append(o)
-            else: o.select_set(False)
-
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.context.tool_settings.mesh_select_mode = (False, False, True)
-        bpy.ops.mesh.reveal()
-        bpy.ops.mesh.select_all(action='DESELECT')
-
-        bpy.ops.object.mode_set(mode='OBJECT')
-
         uv_name = self.uv_map if not self.new_uv else get_unique_name(self.new_uv_name, get_uv_layers(obj))
 
-        for o in objs:
+        if is_bl_newer_than(2, 80):
+            objs = []
+            for o in get_scene_objects():
+                if o.type != 'MESH': continue
+                if is_layer_collection_hidden(o): continue
+                if mat.name in o.data.materials:
+                    set_object_hide(o, False)
+                    o.select_set(True)
+                    objs.append(o)
+                else: o.select_set(False)
+        else:
+            objs = [obj]
 
-            #if uv_name != '':
+        # Go to object mode
+        if obj.mode != 'OBJECT': bpy.ops.object.mode_set(mode='OBJECT')
+
+        # Select the UV
+        for o in objs:
             # Get uv layer
             uv_layers = get_uv_layers(o)
             uvl = uv_layers.get(uv_name)
@@ -295,16 +283,35 @@ class YSelectMaterialPolygons(bpy.types.Operator):
                 uvl = uv_layers.new(name=uv_name)
             uv_layers.active = uvl
 
-            active_mat_id = [i for i, m in enumerate(o.data.materials) if m == mat][0]
-            # Select polygons
-            for p in o.data.polygons:
-                if p.material_index == active_mat_id:
-                    p.select = True
-                else: p.select = False
-
+        # Go to edit mode
         bpy.ops.object.mode_set(mode='EDIT')
 
+        # Select polygon select mode
+        bpy.context.tool_settings.mesh_select_mode = (False, False, True)
+
+        # Unhide all polygons
+        bpy.ops.mesh.reveal()
+
+        for o in objs:
+            # Find the material index
+            mat_index = [i for i, m in enumerate(o.data.materials) if m == mat]
+            if mat_index: mat_index = mat_index[0]
+            else: continue
+
+            # Select the faces
+            me = o.data
+            bm = bmesh.from_edit_mesh(me)
+            for face in bm.faces:
+                if face.material_index == mat_index:
+                    face.select = True
+                else: face.select = False
+
+            # Required: Flush selection to update verts/edges and notify Blender of changes
+            bm.select_flush(True)
+            bmesh.update_edit_mesh(me)
+
         if self.set_canvas_to_empty:
+            # Set image editor image to empty
             update_image_editor_image(context, None)
             set_image_paint_canvas(None)
 
@@ -2972,7 +2979,8 @@ def remove_preview(mat, advanced=False):
     scene = bpy.context.scene
 
     if preview: 
-        simple_remove_node(mat.node_tree, preview)
+        # NOTE: Make sure to not remove preview images since it can cause crash when preview mode is enabled again
+        simple_remove_node(mat.node_tree, preview, remove_images=False)
         bsdf = nodes.get(mat.yp.ori_bsdf)
         output = get_material_output(mat)
         mat.yp.ori_bsdf = ''
@@ -4476,7 +4484,7 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     image_editor_dict : StringProperty(default='')
     image_editor_pins : StringProperty(default='')
 
-    halt_paint_slot_hacks : BoolProperty(default=False)
+    use_paint_slot_hacks : BoolProperty(default=False)
     halt_last_object_update : BoolProperty(default=False)
 
     cache_animated_trees : CollectionProperty(type=YPaintCacheAnimatedTree)
@@ -4552,7 +4560,7 @@ def ypaint_hacks_and_scene_updates(scene):
                 yp.active_layer_index = yp.active_layer_index
 
 @persistent
-def ypaint_last_object_update(scene):
+def ypaint_object_changes_update(scene):
     ypwm = bpy.context.window_manager.ypprops
     if ypwm.halt_last_object_update: return
 
@@ -4659,9 +4667,9 @@ def ypaint_last_object_update(scene):
 
 @persistent
 def ypaint_missmatch_paint_slot_hack(scene):
-    # HACK: Force material active slot to update if necessary
+    # HACK: Update material active slot when necessary
     wmyp = bpy.context.window_manager.ypprops
-    if not wmyp.halt_paint_slot_hacks and wmyp.correct_paint_image_name != '':
+    if wmyp.use_paint_slot_hacks and wmyp.correct_paint_image_name != '':
 
         if scene.tool_settings.image_paint.mode == 'MATERIAL':
 
@@ -4693,6 +4701,27 @@ def ypaint_missmatch_paint_slot_hack(scene):
                         break
 
         wmyp.correct_paint_image_name = ''
+        wmyp.use_paint_slot_hacks = False
+
+bus_owner = object()
+
+def obj_changes_callback(*args):
+    ypaint_object_changes_update(bpy.context.scene)
+
+@persistent
+def yp_load_msgbus_subscription(dummy):
+    # Clear owner first
+    bpy.msgbus.clear_by_owner(bus_owner) 
+
+    keys = (
+        (bpy.types.LayerObjects, "active"), # Active object changes
+        (bpy.types.Object, "mode"), # Mode changes
+        (bpy.types.Object, "active_material_index"), # Active material changes
+    )
+
+    # Subscribe to object changes update
+    for key in keys:
+        bpy.msgbus.subscribe_rna(key=key, owner=bus_owner, args=(), notify=obj_changes_callback)
 
 def get_yp_animated_tree_names():
     wmyp = bpy.context.window_manager.ypprops
@@ -4744,45 +4773,43 @@ def ypaint_force_update_on_anim(scene):
         for fc in fcs:
             if not fc.mute and fc.data_path.startswith('yp.'):
 
-                # Get the datapath of the keyframed prop
-                ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
-                path = ng_string + fc.data_path
-
                 # Get evaluated value
                 val = fc.evaluate(scene.frame_current)
 
-                # Check if path is a string
-                if type(eval(path)) == str:
-                    # Get prop name
-                    m = re.match(r'(.+)\.(.+)$', fc.data_path)
-                    if m:
-                        parent_path = ng_string + m.group(1)
-                        prop_name = m.group(2)
-                        enum_path = parent_path + '.bl_rna.properties["' + prop_name + '"].enum_items[' + str(int(val)) + '].identifier'
-                        val = eval(enum_path)
+                # Get prop name
+                m = re.match(r'(.+)\.(.+)$', fc.data_path)
+                if m:
+                    entity_path = m.group(1)
+                    prop_name = m.group(2)
+                else: 
+                    entity_path = ''
+                    prop_name = ''
+
+                if type(ng.path_resolve(fc.data_path)) == str:
+
+                    # Check if path is a string enum
+                    if hasattr(ng.path_resolve(entity_path).bl_rna.properties[prop_name], 'enum_items'):
+                        enum_items = ng.path_resolve(entity_path).bl_rna.properties[prop_name].enum_items
+
+                        # NOTE: Dynamic enums can't be accesed using this
+                        if len(enum_items) > 0:
+                            val = enum_items[int(val)].identifier
+                        else: continue
+
+                    else: continue
 
                 # Check if path is an array
-                elif hasattr(eval(path), '__len__'):
-                    path += '[' + str(fc.array_index) + ']'
+                elif hasattr(ng.path_resolve(fc.data_path), '__len__'):
+                    if ng.path_resolve(fc.data_path)[fc.array_index] != val:
+                        ng.path_resolve(fc.data_path)[fc.array_index] = val
+                    continue
 
                 # Check if path is a boolean
-                elif type(eval(path)) == bool:
+                elif type(ng.path_resolve(fc.data_path)) == bool:
                     val = val == 1.0
 
-                #print(path, val)
-
-                # Only run script if needed
-                if eval(path) != val:
-
-                    # Convert evaluated value to string
-                    string_val = str(val) if type(val) != str else '"' + val + '"'
-
-                    # Construct the script
-                    script = path + ' = ' + string_val
-
-                    # Run the script to trigger update
-                    #print(script)
-                    exec(script)
+                if ng.path_resolve(fc.data_path) != val and entity_path != '' and prop_name != '':
+                    setattr(ng.path_resolve(entity_path), prop_name, val)
 
 def register():
     bpy.utils.register_class(YSelectMaterialPolygons)
@@ -4834,19 +4861,22 @@ def register():
 
     # Handlers
     if is_bl_newer_than(2, 80):
-        bpy.app.handlers.depsgraph_update_post.append(ypaint_last_object_update)
-
         # Paint slot hack is no longer necessary with Blender 5.1
         if not is_bl_newer_than(5, 1):
             bpy.app.handlers.depsgraph_update_post.append(ypaint_missmatch_paint_slot_hack)
     else:
-        bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
+        bpy.app.handlers.scene_update_pre.append(ypaint_object_changes_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
 
     if is_bl_newer_than(3, 6):
         bpy.app.handlers.animation_playback_pre.append(ypaint_playback_preparations)
 
     bpy.app.handlers.frame_change_pre.append(ypaint_force_update_on_anim)
+
+    if is_bl_newer_than(2, 80):
+        # Msgbus Subscription
+        yp_load_msgbus_subscription(None)
+        bpy.app.handlers.load_post.append(yp_load_msgbus_subscription)
 
 def unregister():
     bpy.utils.unregister_class(YSelectMaterialPolygons)
@@ -4889,15 +4919,19 @@ def unregister():
 
     # Remove handlers
     if is_bl_newer_than(2, 80):
-        bpy.app.handlers.depsgraph_update_post.remove(ypaint_last_object_update)
         if not is_bl_newer_than(5, 1):
             bpy.app.handlers.depsgraph_update_post.remove(ypaint_missmatch_paint_slot_hack)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
-        bpy.app.handlers.scene_update_pre.remove(ypaint_last_object_update)
+        bpy.app.handlers.scene_update_pre.remove(ypaint_object_changes_update)
 
     if is_bl_newer_than(3, 6):
         bpy.app.handlers.animation_playback_pre.remove(ypaint_playback_preparations)
 
     bpy.app.handlers.frame_change_pre.remove(ypaint_force_update_on_anim)
+
+    if is_bl_newer_than(2, 80):
+        # Remove msgbus subscription
+        bpy.msgbus.clear_by_owner(bus_owner) 
+        bpy.app.handlers.load_post.remove(yp_load_msgbus_subscription)
 

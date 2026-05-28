@@ -73,3 +73,28 @@ class OpenImage(FileSelectOptions):
         loaded_images = tuple(load_image(path, directory) for path in import_list)
 
         return loaded_images
+
+def channel_items_base(self, context):
+    from . import lib
+
+    items = []
+
+    node = get_active_ypaint_node()
+    if node:
+        yp = node.node_tree.yp
+        for i, ch in enumerate(yp.channels):
+            # Add two spaces to prevent text from being translated
+            text_ch_name = ch.name + '  '
+            icon_name = lib.channel_custom_icon_dict[ch.type]
+            items.append((str(i), text_ch_name, '', lib.get_icon(icon_name), i))
+
+    return items
+
+def channel_items(self, context):
+    from . import lib
+
+    items = channel_items_base(self, context)
+    items.append(('-1', 'All Channels', '', lib.get_icon('channels'), len(items)))
+
+    return items
+
