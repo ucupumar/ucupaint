@@ -146,38 +146,39 @@ def disable_layer_source_tree(layer, layer_tree=None, source_group=None):
     if not layer_tree: layer_tree = get_tree(layer)
     if not source_group: source_group = layer_tree.nodes.get(layer.source_group)
 
-    source_ref = source_group.node_tree.nodes.get(layer.source)
-    baked_source_ref = source_group.node_tree.nodes.get(layer.baked_source)
-    linear_ref = source_group.node_tree.nodes.get(layer.linear)
-    flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
-    divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
+    if source_group:
+        source_ref = source_group.node_tree.nodes.get(layer.source)
+        baked_source_ref = source_group.node_tree.nodes.get(layer.baked_source)
+        linear_ref = source_group.node_tree.nodes.get(layer.linear)
+        flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
+        divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
 
-    # Create new source
-    source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
-    copy_node_props(source_ref, source)
+        # Create new source
+        source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
+        copy_node_props(source_ref, source)
 
-    if baked_source_ref:
-        baked_source = new_node(layer_tree, layer, 'baked_source', baked_source_ref.bl_idname)
-        copy_node_props(baked_source_ref, baked_source)
+        if baked_source_ref:
+            baked_source = new_node(layer_tree, layer, 'baked_source', baked_source_ref.bl_idname)
+            copy_node_props(baked_source_ref, baked_source)
 
-    if linear_ref:
-        linear = new_node(layer_tree, layer, 'linear', linear_ref.bl_idname)
-        copy_node_props(linear_ref, linear)
+        if linear_ref:
+            linear = new_node(layer_tree, layer, 'linear', linear_ref.bl_idname)
+            copy_node_props(linear_ref, linear)
 
-    if flip_y_ref:
-        flip_y = new_node(layer_tree, layer, 'flip_y', flip_y_ref.bl_idname)
-        copy_node_props(flip_y_ref, flip_y)
+        if flip_y_ref:
+            flip_y = new_node(layer_tree, layer, 'flip_y', flip_y_ref.bl_idname)
+            copy_node_props(flip_y_ref, flip_y)
 
-    if divider_alpha_ref:
-        divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
-        copy_node_props(divider_alpha_ref, divider_alpha)
+        if divider_alpha_ref:
+            divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
+            copy_node_props(divider_alpha_ref, divider_alpha)
 
-    # Bring back layer modifier to original tree
-    if len(layer.mod_groups) == 0:
-        for mod in layer.modifiers:
-            Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
-    else:
-        move_mod_groups(layer, source_group.node_tree, layer_tree)
+        # Bring back layer modifier to original tree
+        if len(layer.mod_groups) == 0:
+            for mod in layer.modifiers:
+                Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
+        else:
+            move_mod_groups(layer, source_group.node_tree, layer_tree)
 
     # Remove previous source
     remove_node(layer_tree, layer, 'source_group')
