@@ -74,12 +74,16 @@ import bpy
 
 def register():
     if common.is_bl_newer_than(2, 80):
+        import addon_utils
+        enabled_addons = bpy.context.preferences.addons
+        installed_addons = [m.__name__ for m in addon_utils.modules()]
+
         # Checking other ucupaint installation
         package_names = ['ucupaint', 'ucupaint_plus', 'bl_ext.blender_org.ucupaint', 'bl_ext.user_default.ucupaint', 'bl_ext.user_default.ucupaint_plus']
         for pkg_name in package_names:
             if __package__ == pkg_name: continue
-            addons = bpy.context.preferences.addons
-            if pkg_name in addons:
+            # NOTE: Check both enabled and installed addons since Blender can mistakenly list unavailable addon
+            if pkg_name in enabled_addons and pkg_name in installed_addons:
                 raise ValueError("Another ucupaint version is installed, please disable it first.")
 
     if 'credits_ui' in globals(): credits_ui.register()
