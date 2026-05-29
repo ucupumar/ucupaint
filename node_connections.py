@@ -1256,7 +1256,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             #if yp.disable_quick_toggle and not layer_ch_enable:
             #if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch_enable:
-            if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch_enable:
+            #if not (ch.type == 'NORMAL' and need_prev_normal) and not layer_ch_enable:
+            if not (ch.special_channel_type in {'NORMAL', 'HEIGHT'} and need_prev_normal) and not layer_ch_enable:
                 continue
 
             # UV inputs
@@ -2051,6 +2052,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     layer_tangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['TANGENT'])
     layer_bitangent = get_essential_node(tree, TREE_START).get(layer.uv_name + io_suffix['BITANGENT'])
 
+    normal_root_ch = get_root_normal_channel(yp)
     height_root_ch = get_root_height_channel(yp)
     if height_root_ch and height_root_ch.main_uv != '':
         tangent = get_essential_node(tree, TREE_START).get(height_root_ch.main_uv + io_suffix['TANGENT'])
@@ -2063,23 +2065,23 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     bump_process = nodes.get(layer.bump_process)
     if bump_process and height_root_ch:
 
-        prev_normal = get_essential_node(tree, TREE_START).get(height_root_ch.name)
-        prev_height = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT'])
-        prev_max_height = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['MAX_HEIGHT'])
+        prev_normal = get_essential_node(tree, TREE_START).get(normal_root_ch.name) if normal_root_ch else None
+        prev_height = get_essential_node(tree, TREE_START).get(height_root_ch.name)
+        prev_max_height = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['SCALE'])
 
         if prev_height and 'Height' in bump_process.inputs: create_link(tree, prev_height, bump_process.inputs['Height'])
         if prev_max_height and 'Max Height' in bump_process.inputs: create_link(tree, prev_max_height, bump_process.inputs['Max Height'])
 
-        if height_root_ch.enable_smooth_bump:
-            prev_height_n = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_N'])
-            prev_height_s = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_S'])
-            prev_height_e = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_E'])
-            prev_height_w = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_W'])
+        #if height_root_ch.enable_smooth_bump:
+        #    prev_height_n = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_N'])
+        #    prev_height_s = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_S'])
+        #    prev_height_e = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_E'])
+        #    prev_height_w = get_essential_node(tree, TREE_START).get(height_root_ch.name + io_suffix['HEIGHT_W'])
 
-            if prev_height_n and 'Height N' in bump_process.inputs: create_link(tree, prev_height_n, bump_process.inputs['Height N'])
-            if prev_height_s and 'Height S' in bump_process.inputs: create_link(tree, prev_height_s, bump_process.inputs['Height S'])
-            if prev_height_e and 'Height E' in bump_process.inputs: create_link(tree, prev_height_e, bump_process.inputs['Height E'])
-            if prev_height_w and 'Height W' in bump_process.inputs: create_link(tree, prev_height_w, bump_process.inputs['Height W'])
+        #    if prev_height_n and 'Height N' in bump_process.inputs: create_link(tree, prev_height_n, bump_process.inputs['Height N'])
+        #    if prev_height_s and 'Height S' in bump_process.inputs: create_link(tree, prev_height_s, bump_process.inputs['Height S'])
+        #    if prev_height_e and 'Height E' in bump_process.inputs: create_link(tree, prev_height_e, bump_process.inputs['Height E'])
+        #    if prev_height_w and 'Height W' in bump_process.inputs: create_link(tree, prev_height_w, bump_process.inputs['Height W'])
 
         if prev_normal and 'Normal' in bump_process.inputs: create_link(tree, prev_normal, bump_process.inputs['Normal'])
         if tangent and 'Tangent' in bump_process.inputs: create_link(tree, tangent, bump_process.inputs['Tangent'])

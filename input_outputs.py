@@ -1016,7 +1016,8 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         root_ch = yp.channels[i]
         channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch)) or (ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal)
 
-        force_normal_input = root_ch.type == 'NORMAL' and need_prev_normal and layer_enabled
+        #force_normal_input = root_ch.type == 'NORMAL' and need_prev_normal and layer_enabled
+        force_normal_input = root_ch.special_channel_type in {'NORMAL', 'HEIGHT'} and need_prev_normal and layer_enabled
 
         if channel_enabled or force_normal_input:
             dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
@@ -1045,7 +1046,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if root_ch.special_channel_type == 'HEIGHT':
 
             #if channel_enabled and (root_ch.use_height_normalize or root_ch.use_height_as_bump):
-            if channel_enabled and root_ch.use_height_normalize:
+            if (channel_enabled and root_ch.use_height_normalize) or force_normal_input:
                 name = root_ch.name + io_suffix['SCALE']
 
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)

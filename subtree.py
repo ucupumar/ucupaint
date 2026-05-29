@@ -364,10 +364,11 @@ def check_layer_bump_process(layer, tree=None):
     dirty = False
 
     if need_prev_normal and get_layer_enabled(layer):
-        if height_root_ch.enable_subdiv_setup: # and ypup.eevee_next_displacement:
+        #if height_root_ch.enable_subdiv_setup: # and ypup.eevee_next_displacement:
+        if not height_root_ch.use_height_as_bump:
             lib_name = lib.SUBDIV_ON_NORMAL
-        elif height_root_ch.enable_smooth_bump:
-            lib_name = lib.FINE_BUMP_PROCESS
+        #elif height_root_ch.enable_smooth_bump:
+        #    lib_name = lib.FINE_BUMP_PROCESS
         else: lib_name = lib.BUMP_PROCESS
 
         bump_process, dirty = replace_new_node(
