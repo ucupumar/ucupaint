@@ -2178,10 +2178,20 @@ def remove_smooth_bump_setup(check_io=True):
                 remove_node(layer_tree, layer, 'uv_neighbor')
                 remove_node(layer_tree, ch, 'uv_neighbor')
 
+                # Get image and change the interpolation to Cubic
+                if layer.type == 'IMAGE':
+                    source = layer_tree.nodes.get(layer.source)
+                    if source: source.interpolation = 'Cubic' 
+
                 for mask in layer.masks:
                     disable_mask_source_tree(layer, mask)
                     remove_node(layer_tree, mask, 'uv_neighbor')
                     #check_mask_mix_nodes(layer, layer_tree, mask, ch)
+
+                    # Get image and change the interpolation to Cubic
+                    if mask.type == 'IMAGE':
+                        source = layer_tree.nodes.get(mask.source)
+                        if source: source.interpolation = 'Cubic' 
 
             # Disable smooth bump
             yp.halt_update = True

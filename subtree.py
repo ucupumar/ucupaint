@@ -152,6 +152,7 @@ def disable_layer_source_tree(layer, layer_tree=None, source_group=None):
         linear_ref = source_group.node_tree.nodes.get(layer.linear)
         flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
         divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
+        mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
         # Create new source
         source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
@@ -172,6 +173,10 @@ def disable_layer_source_tree(layer, layer_tree=None, source_group=None):
         if divider_alpha_ref:
             divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
             copy_node_props(divider_alpha_ref, divider_alpha)
+
+        if mapping_ref:
+            mapping = new_node(layer_tree, layer, 'mapping', mapping_ref.bl_idname)
+            copy_node_props(mapping_ref, mapping)
 
         # Bring back layer modifier to original tree
         if len(layer.mod_groups) == 0:
@@ -489,6 +494,7 @@ def disable_mask_source_tree(layer, mask):
         baked_source_ref = mask_tree.nodes.get(mask.baked_source)
         linear_ref = mask_tree.nodes.get(mask.linear)
         separate_color_channels_ref = mask_tree.nodes.get(mask.separate_color_channels)
+        mapping_ref = mask_tree.nodes.get(mask.mapping)
         group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
@@ -505,6 +511,10 @@ def disable_mask_source_tree(layer, mask):
 
         if separate_color_channels_ref:
             separate_color_channels = new_node(layer_tree, mask, 'separate_color_channels', separate_color_channels_ref.bl_idname, 'Separate Color')
+
+        if mapping_ref:
+            mapping = new_node(layer_tree, mask, 'mapping', mapping_ref.bl_idname, 'Mapping')
+            copy_node_props(mapping_ref, mapping)
 
         for mod in mask.modifiers:
             MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
