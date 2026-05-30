@@ -42,6 +42,19 @@ def check_entity_image_flip_y(entity):
 
     return layer
 
+def move_legacy_mod_groups(layer, from_tree, to_tree):
+    props = ['mod_group', 'mod_group_1']
+    for i, prop in enumerate(props):
+        mod_group = from_tree.nodes.get(getattr(layer, prop))
+        if mod_group:
+            mod_tree = mod_group.node_tree
+            remove_node(from_tree, layer, prop, remove_data=False)
+
+            mg = layer.mod_groups.add()
+
+            mod_group = new_node(to_tree, mg, 'name', 'ShaderNodeGroup', 'modifier_group_' + str(i))
+            mod_group.node_tree = mod_tree
+
 def move_mod_groups(layer, from_tree, to_tree):
     for i, mg in enumerate(layer.mod_groups):
         mod_group = from_tree.nodes.get(mg.name)
@@ -179,7 +192,9 @@ def disable_layer_source_tree(layer, layer_tree=None, source_group=None):
             copy_node_props(mapping_ref, mapping)
 
         # Bring back layer modifier to original tree
-        if len(layer.mod_groups) == 0:
+        if layer.mod_group != '':
+            move_legacy_mod_groups(layer, source_group.node_tree, layer_tree)
+        elif len(layer.mod_groups) == 0:
             for mod in layer.modifiers:
                 Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
         else:
