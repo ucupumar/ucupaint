@@ -1004,7 +1004,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     if not main_uv and len(yp.uvs) > 0:
         main_uv = yp.uvs[0]
 
-    if main_uv and tangents and bitangents:
+    if main_uv and main_uv.name in tangents and main_uv.name in bitangents:
         tangent = tangents[main_uv.name]
         bitangent = bitangents[main_uv.name]
     else:
@@ -4175,7 +4175,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 #break_input_link(tree, tr_ramp_blend.inputs['Intensity'])
 
             elif not trans_bump_flip:
-                create_link(tree, rgb, tr_ramp.inputs['RGB'])
+                if 'RGB' in tr_ramp.inputs:
+                    create_link(tree, rgb, tr_ramp.inputs['RGB'])
                 rgb = tr_ramp.outputs[0]
 
                 if tb_second_value:
@@ -4202,8 +4203,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         alpha = tr_ramp.outputs[3]
 
                 elif ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
-                    create_link(tree, alpha_before_intensity, tr_ramp.inputs['Remaining Alpha'])
-                    create_link(tree, alpha, tr_ramp.inputs['Channel Intensity'])
+                    if 'Remaining Alpha' in tr_ramp.inputs:
+                        create_link(tree, alpha_before_intensity, tr_ramp.inputs['Remaining Alpha'])
+                    if 'Channel Intensity' in tr_ramp.inputs:
+                        create_link(tree, alpha, tr_ramp.inputs['Channel Intensity'])
 
                     alpha = tr_ramp.outputs[1]
 
