@@ -174,7 +174,7 @@ def disable_layer_source_tree(layer, layer_tree=None, source_group=None):
             divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
             copy_node_props(divider_alpha_ref, divider_alpha)
 
-        if mapping_ref:
+        if mapping_ref and len(mapping_ref.outputs[0].links) > 0:
             mapping = new_node(layer_tree, layer, 'mapping', mapping_ref.bl_idname)
             copy_node_props(mapping_ref, mapping)
 
@@ -486,9 +486,9 @@ def enable_mask_source_tree(layer, mask):
 
 def disable_mask_source_tree(layer, mask):
 
-    if mask.group_node != '':
+    layer_tree = get_tree(layer)
 
-        layer_tree = get_tree(layer)
+    if mask.group_node != '':
         mask_tree = get_mask_tree(mask)
 
         source_ref = mask_tree.nodes.get(mask.source)
@@ -513,23 +513,23 @@ def disable_mask_source_tree(layer, mask):
         if separate_color_channels_ref:
             separate_color_channels = new_node(layer_tree, mask, 'separate_color_channels', separate_color_channels_ref.bl_idname, 'Separate Color')
 
-        if mapping_ref:
+        if mapping_ref and len(mapping_ref.outputs[0].links) > 0:
             mapping = new_node(layer_tree, mask, 'mapping', mapping_ref.bl_idname, 'Mapping')
             copy_node_props(mapping_ref, mapping)
 
         for mod in mask.modifiers:
             MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
 
-        # Remove previous source
-        remove_node(layer_tree, mask, 'group_node')
-        remove_node(layer_tree, mask, 'source_n')
-        remove_node(layer_tree, mask, 'source_s')
-        remove_node(layer_tree, mask, 'source_e')
-        remove_node(layer_tree, mask, 'source_w')
-        remove_node(layer_tree, mask, 'tangent')
-        remove_node(layer_tree, mask, 'bitangent')
-        remove_node(layer_tree, mask, 'tangent_flip')
-        remove_node(layer_tree, mask, 'bitangent_flip')
+    # Remove previous source
+    remove_node(layer_tree, mask, 'group_node')
+    remove_node(layer_tree, mask, 'source_n')
+    remove_node(layer_tree, mask, 'source_s')
+    remove_node(layer_tree, mask, 'source_e')
+    remove_node(layer_tree, mask, 'source_w')
+    remove_node(layer_tree, mask, 'tangent')
+    remove_node(layer_tree, mask, 'bitangent')
+    remove_node(layer_tree, mask, 'tangent_flip')
+    remove_node(layer_tree, mask, 'bitangent_flip')
 
 def check_create_height_pack(layer, tree, height_root_ch, height_ch):
 
