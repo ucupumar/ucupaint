@@ -529,6 +529,9 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
             pixels = numpy.array(image.pixels, dtype=numpy.float32).reshape((height, width, 4))
             out_pixels = pixels.copy()
 
+            # Map tracking distance to triangle center to prevent edge bleed overwriting valid interior pixels
+            best_bary_map = numpy.full((height, width), -1000.0, dtype=numpy.float32)
+
             bm = bmesh.new()
             bm.from_mesh(rendered_obj.data)
             bm.verts.ensure_lookup_table()
@@ -600,10 +603,10 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
 
                 processed_trgs.add(trg_face.index)
                 processed_srcs.add(face.index)
-                self._remap_face(src_uvs, dst_uvs, pixels, out_pixels, width, height)
+                self._remap_face(src_uvs, dst_uvs, pixels, out_pixels, width, height, best_bary_map)
 
                 if self.MODE == 'Flip':
-                    self._remap_face(dst_uvs, src_uvs, pixels, out_pixels, width, height)
+                    self._remap_face(dst_uvs, src_uvs, pixels, out_pixels, width, height, best_bary_map)
 
             # If not perfectly-symmetrical mesh on mirroring/flipping axis,
             # perform computationally much slower per-pixel texture projection
@@ -624,7 +627,7 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
                         tri_cos = numpy.array([dst_cos[0], dst_cos[i], dst_cos[i + 1]])
                         self._remap_triangle_projected(
                             tri_uvs, tri_cos, src_bvh, src_face_data,
-                            axis_index, pixels, out_pixels, width, height
+                            axis_index, pixels, out_pixels, width, height, best_bary_map
                         )
 
                 if self.MODE == "Flip":
@@ -645,7 +648,7 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
                                 tri_cos = numpy.array([dst_cos[0], dst_cos[i], dst_cos[i + 1]])
                                 self._remap_triangle_projected(
                                     tri_uvs, tri_cos, tgt_bvh, tgt_face_data,
-                                    axis_index, pixels, out_pixels, width, height
+                                    axis_index, pixels, out_pixels, width, height, best_bary_map
                                 )
 
             # Apply changes
@@ -678,23 +681,25 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
         return {'FINISHED'}
 
     # Fast pass functions
-    def _remap_face(self, src_uvs, dst_uvs, pixels, out_pixels, width, height):
+    def _remap_face(self, src_uvs, dst_uvs, pixels, out_pixels, width, height, best_bary_map):
         src_uv_array = numpy.array(src_uvs)
         dst_uv_array = numpy.array(dst_uvs)
         count = len(src_uv_array)
         for i in range(1, count - 1):
             tri = [0, i, i + 1]
-            self._remap_triangle(src_uv_array[tri], dst_uv_array[tri], pixels, out_pixels, width, height)
+            self._remap_triangle(src_uv_array[tri], dst_uv_array[tri], pixels, out_pixels, width, height, best_bary_map)
 
-    def _remap_triangle(self, src_coords_uv, dst_coords_uv, src_pix, dst_pix, w, h):
+    def _remap_triangle(self, src_coords_uv, dst_coords_uv, src_pix, dst_pix, w, h, best_bary_map):
         scale = numpy.array([w - 1, h - 1])
         src_px = src_coords_uv * scale
         dst_px = dst_coords_uv * scale
 
-        min_x = int(numpy.floor(numpy.min(dst_px[:, 0])))
-        max_x = int(numpy.ceil(numpy.max(dst_px[:, 0])))
-        min_y = int(numpy.floor(numpy.min(dst_px[:, 1])))
-        max_y = int(numpy.ceil(numpy.max(dst_px[:, 1])))
+        # Add a pixel bleed margin to fix UV seams and triangle gaps
+        bleed = 2.0
+        min_x = int(numpy.floor(numpy.min(dst_px[:, 0]) - bleed))
+        max_x = int(numpy.ceil(numpy.max(dst_px[:, 0]) + bleed))
+        min_y = int(numpy.floor(numpy.min(dst_px[:, 1]) - bleed))
+        max_y = int(numpy.ceil(numpy.max(dst_px[:, 1]) + bleed))
 
         min_x, max_x = max(0, min_x), min(w - 1, max_x)
         min_y, max_y = max(0, min_y), min(h - 1, max_y)
@@ -717,19 +722,56 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
         w_coord = (v0[0] * v2[..., 1] - v2[..., 0] * v0[1]) / den
         u = 1.0 - v - w_coord
 
-        mask = (u >= 0) & (v >= 0) & (w_coord >= 0)
+        min_bary = numpy.minimum(u, numpy.minimum(v, w_coord))
+
+        len_c = numpy.hypot(v0[0], v0[1])
+        len_b = numpy.hypot(v1[0], v1[1])
+        len_a = numpy.hypot(v1[0] - v0[0], v1[1] - v0[1])
+
+        min_u = -bleed * len_a / abs(den)
+        min_v = -bleed * len_b / abs(den)
+        min_w = -bleed * len_c / abs(den)
+
+        mask = (u >= min_u) & (v >= min_v) & (w_coord >= min_w)
         if not numpy.any(mask): return
 
-        src_A, src_B, src_C = src_px[0], src_px[1], src_px[2]
-        src_x = u[mask] * src_A[0] + v[mask] * src_B[0] + w_coord[mask] * src_C[0]
-        src_y = u[mask] * src_A[1] + v[mask] * src_B[1] + w_coord[mask] * src_C[1]
+        # Extract only the pixels falling inside the triangle (with bleed)
+        gy = grid_y[mask]
+        gx = grid_x[mask]
+        mb = min_bary[mask]
 
+        # Ensure bleed pixels do not overwrite valid inner pixels from adjacent triangles
+        better_mask = mb > best_bary_map[gy, gx]
+        if not numpy.any(better_mask): return
+
+        gy = gy[better_mask]
+        gx = gx[better_mask]
+        mb = mb[better_mask]
+        u_b = u[mask][better_mask]
+        v_b = v[mask][better_mask]
+        w_b = w_coord[mask][better_mask]
+
+        # Clamp barycentric coordinates to the triangle boundaries (0.0 to 1.0)
+        # This prevents dots/artifacts by ensuring we only pull valid source pixels on the edge
+        u_clamped = numpy.maximum(u_b, 0.0)
+        v_clamped = numpy.maximum(v_b, 0.0)
+        w_clamped = numpy.maximum(w_b, 0.0)
+        sum_clamped = u_clamped + v_clamped + w_clamped
+        u_clamped /= sum_clamped
+        v_clamped /= sum_clamped
+        w_clamped /= sum_clamped
+
+        src_A, src_B, src_C = src_px[0], src_px[1], src_px[2]
+        src_x = u_clamped * src_A[0] + v_clamped * src_B[0] + w_clamped * src_C[0]
+        src_y = u_clamped * src_A[1] + v_clamped * src_B[1] + w_clamped * src_C[1]
 
         # Uses nearest neighbor as interpolation isn't needed
         # (source and destination triangles are perfect mirrors)
         src_ix = numpy.clip(numpy.round(src_x).astype(int), 0, w - 1)
         src_iy = numpy.clip(numpy.round(src_y).astype(int), 0, h - 1)
-        dst_pix[grid_y[mask], grid_x[mask]] = src_pix[src_iy, src_ix]
+
+        dst_pix[gy, gx] = src_pix[src_iy, src_ix]
+        best_bary_map[gy, gx] = mb
 
     # Slow pass functions
     def _build_bvh_data(self, bm, faces, uv_lay):
@@ -754,17 +796,19 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
         return bvh, face_data
 
     def _remap_triangle_projected(self, dst_tri_uvs, dst_tri_cos, src_bvh,
-                                  src_face_data, axis_index, src_pix, dst_pix, w, h):
+                                  src_face_data, axis_index, src_pix, dst_pix, w, h, best_bary_map):
         """Remap pixels by projecting each destination pixel into 3D, mirroring/flipping,
         and sampling the source side via BVHTree lookup."""
 
         scale = numpy.array([w - 1, h - 1])
         dst_px = dst_tri_uvs * scale
 
-        min_x = int(numpy.floor(numpy.min(dst_px[:, 0])))
-        max_x = int(numpy.ceil(numpy.max(dst_px[:, 0])))
-        min_y = int(numpy.floor(numpy.min(dst_px[:, 1])))
-        max_y = int(numpy.ceil(numpy.max(dst_px[:, 1])))
+        # Add a pixel bleed margin to fix UV seams and triangle gaps
+        bleed = 2.0
+        min_x = int(numpy.floor(numpy.min(dst_px[:, 0]) - bleed))
+        max_x = int(numpy.ceil(numpy.max(dst_px[:, 0]) + bleed))
+        min_y = int(numpy.floor(numpy.min(dst_px[:, 1]) - bleed))
+        max_y = int(numpy.ceil(numpy.max(dst_px[:, 1]) + bleed))
 
         min_x, max_x = max(0, min_x), min(w - 1, max_x)
         min_y, max_y = max(0, min_y), min(h - 1, max_y)
@@ -790,25 +834,56 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
         bary_w = (v0[0] * v2[..., 1] - v2[..., 0] * v0[1]) / den
         bary_u = 1.0 - bary_v - bary_w
 
-        mask = (bary_u >= -0.5) & (bary_v >= -0.5) & (bary_w >= -0.5)
+        min_bary = numpy.minimum(bary_u, numpy.minimum(bary_v, bary_w))
+
+        len_c = numpy.hypot(v0[0], v0[1])
+        len_b = numpy.hypot(v1[0], v1[1])
+        len_a = numpy.hypot(v1[0] - v0[0], v1[1] - v0[1])
+
+        min_u = -bleed * len_a / abs(den)
+        min_v = -bleed * len_b / abs(den)
+        min_w = -bleed * len_c / abs(den)
+
+        mask = (bary_u >= min_u) & (bary_v >= min_v) & (bary_w >= min_w)
         if not numpy.any(mask):
             return
 
-        u_vals = bary_u[mask]
-        v_vals = bary_v[mask]
-        w_vals = bary_w[mask]
+        gy = grid_y[mask]
+        gx = grid_x[mask]
+        mb = min_bary[mask]
+
+        # Depth testing: ignore bleed pixels that overlap perfectly matched internal triangle pixels
+        better_mask = mb > best_bary_map[gy, gx]
+        if not numpy.any(better_mask):
+            return
+
+        gy = gy[better_mask]
+        gx = gx[better_mask]
+        mb = mb[better_mask]
+
+        u_vals = bary_u[mask][better_mask]
+        v_vals = bary_v[mask][better_mask]
+        w_vals = bary_w[mask][better_mask]
+
+        # Clamp barycentric coordinates for the 3D lookup. This forces the 3D sampling point
+        # to stay directly ON the mesh surface instead of extrapolating "off" into mid-air where
+        # it grabs discontinuous/wrong BVH geometry and causes dot artifacts.
+        u_clamped = numpy.maximum(u_vals, 0.0)
+        v_clamped = numpy.maximum(v_vals, 0.0)
+        w_clamped = numpy.maximum(w_vals, 0.0)
+        sum_clamped = u_clamped + v_clamped + w_clamped
+        u_clamped /= sum_clamped
+        v_clamped /= sum_clamped
+        w_clamped /= sum_clamped
 
         # Interpolate 3D positions on the destination triangle
         A3, B3, C3 = dst_tri_cos[0], dst_tri_cos[1], dst_tri_cos[2]
-        pos_3d = (u_vals[:, None] * A3 +
-                  v_vals[:, None] * B3 +
-                  w_vals[:, None] * C3)
+        pos_3d = (u_clamped[:, None] * A3 +
+                  v_clamped[:, None] * B3 +
+                  w_clamped[:, None] * C3)
 
         # Mirror across the chosen axis
         pos_3d[:, axis_index] *= -1
-
-        dst_ys = grid_y[mask]
-        dst_xs = grid_x[mask]
 
         # Per-pixel BVH lookup, collecting source UVs for sampling
         n_pixels = len(pos_3d)
@@ -877,7 +952,8 @@ class Y_UV_Kaleidoscope(bpy.types.Operator):
                 row += wx.reshape(-1, 1) * src_pix[py, px]
             result += wy.reshape(-1, 1) * row
 
-        dst_pix[dst_ys[valid], dst_xs[valid]] = result
+        dst_pix[gy[valid], gx[valid]] = result
+        best_bary_map[gy[valid], gx[valid]] = mb[valid]
 
     def _src_uv_from_hit(self, hit_location, face_data):
         """Given a 3D hit point and the source face's loop data,
