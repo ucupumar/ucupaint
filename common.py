@@ -1174,7 +1174,7 @@ def copy_id_props(source, dest, extras=[], reverse=False):
             for i, subval in enumerate(val):
                 dest_val[i] = subval
         else:
-            if getattr(dest, prop) != val:
+            if hasattr(dest, prop) and getattr(dest, prop) != val:
                 try: setattr(dest, prop, val)
                 except: print('Error set prop:', prop)
 

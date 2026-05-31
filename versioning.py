@@ -1368,20 +1368,21 @@ def update_yp_tree(tree):
 
                     # Convert some props
                     hch.use_height_as_normal = not hch.write_height
-                    if nch.normal_blend_type == 'MIX':
-                        hch.height_blend_type = 'MIX'
-                    elif nch.normal_blend_type == 'OVERLAY':
-                        hch.height_blend_type = 'ADD'
-                    # NOTE: Normal blend type only have 2 items since 3.0, so it reads as empty string
-                    # WARNING: If there will be another item for the normal blend, this code is invalid
-                    elif nch.normal_blend_type == '':
-                        hch.height_blend_type = 'COMPARE'
+                    if 'normal_blend_type' in nch:
+                        if nch['normal_blend_type'] == 0:
+                            hch.height_blend_type = 'MIX'
+                        elif nch['normal_blend_type'] == 1:
+                            hch.height_blend_type = 'ADD'
+                        elif nch['normal_blend_type'] == 2:
+                            hch.height_blend_type = 'COMPARE'
+                            nch['normal_blend_type'] = 0
+                    
+                    # Clear modifiers for normal channel
+                    nch.modifiers.clear()
 
                 if vch and nch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
                     copy_id_props(nch, vch, copy_exception_props)
 
-                    #if nch.normal_blend_type not in {'', 'COMPARE'}:
-                    print(layer.name, nch.normal_blend_type)
                     if nch.normal_blend_type == 'OVERLAY':
                         vch.blend_type = 'ADD'
                     else: vch.blend_type = 'MIX'
@@ -1392,7 +1393,12 @@ def update_yp_tree(tree):
                 nch.override_type = nch.override_1_type
                 nch.override = nch.override_1
 
-                # TODO: Move modifiers
+                # Move normal modifiers
+                # TODO: Remove modifiers_1 prop entirely
+                for m in nch.modifiers_1:
+                    new_m = nch.modifiers.add()
+                    copy_id_props(m, new_m)
+                nch.modifiers_1.clear()
 
                 # Move keyframes/drivers
                 # TODO: Bump + Normal Map type is not considered yet
