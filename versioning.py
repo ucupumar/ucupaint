@@ -680,6 +680,7 @@ def update_yp_tree(tree):
 
             # Set displacement method
             if not height_root_ch.subdiv_adaptive:
+                is_height_connected = False
                 mats = get_all_materials_with_tree(tree)
                 for mat in mats:
                     if hasattr(mat, 'displacement_method'):
@@ -689,8 +690,16 @@ def update_yp_tree(tree):
                         mat.cycles.displacement_method = 'BOTH'
                     else: mat.cycles.displacement_method = 'TRUE'
 
-                # Update displacement connection
-                Bake.check_subdiv_setup(height_root_ch)
+                    # Check if height output is connected to something
+                    yp_nodes = [node for node in mat.node_tree.nodes if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp]
+                    for yp_node in yp_nodes:
+                        outp = yp_node.outputs.get(height_root_ch.name + io_suffix['HEIGHT'])
+                        if outp and len(outp.links) > 0:
+                            is_height_connected = True
+
+                # Update displacement connection, make sure only setup with the height socket actually connected
+                if is_height_connected:
+                    Bake.check_subdiv_setup(height_root_ch)
 
                 updated_to_yp_200_displacement = True
 
