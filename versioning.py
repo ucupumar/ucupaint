@@ -2146,8 +2146,8 @@ def remove_smooth_bump_setup(check_io=True):
                     for obj in objs:
                         volumes += (obj.dimensions.x + obj.dimensions.y + obj.dimensions.z) / 3
                         dimensions += obj.dimensions.x * obj.dimensions.y * obj.dimensions.z
-                    dimension = dimensions / len(objs)
-                    volume = volumes / len(objs)
+                    dimension = dimensions # / len(objs)
+                    volume = volumes # / len(objs)
 
                 # Check if material use subsurface scattering
                 sss_enabled = False
