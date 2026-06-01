@@ -185,6 +185,11 @@ def refresh_list_items(yp, repoint_active=False):
                 elif active_item_name == mask.name and active_item_type == 'MASK':
                     new_active_index = layer_item_index
 
+    # The last item is always the base
+    item = yp.list_items.add()
+    item.type = 'BASE'
+    item.name = 'Base Layer'
+
     # If there's no new active index, set it active layer
     if new_active_index == -1 and yp.active_layer_index < len(yp.layers):
         new_active_index = get_layer_item_index(yp.layers[yp.active_layer_index])
@@ -209,7 +214,8 @@ class YListItem(bpy.types.PropertyGroup):
         items = (
             ('LAYER', 'Layer', ''),
             ('CHANNEL_OVERRIDE', 'Channel Override', ''),
-            ('MASK', 'Mask', '')
+            ('MASK', 'Mask', ''),
+            ('BASE', 'Base Layer', '')
         ),
         default = 'LAYER'
     )
@@ -279,6 +285,10 @@ def update_list_item_index(self, context):
     if layer_index != -1 and layer_index < len(yp.layers): # and yp.active_layer_index != layer_index:
         yp.active_layer_index = layer_index
 
+    # Trigger layer preview mode update
+    elif layer_index == -1 and yp.layer_preview_mode:
+        yp.layer_preview_mode = True
+
 def get_active_item_entity(yp):
     if yp.active_item_index >= len(yp.list_items) or len(yp.list_items) == 0:
         return None
@@ -303,6 +313,36 @@ def get_active_item_entity(yp):
             layer = yp.layers[layer_index]
             if item.index < len(layer.channels):
                 return layer.channels[item.index]
+
+    return None
+
+def get_active_layer(yp):
+    ypup = get_user_preferences()
+    
+    # Classic layer list
+    if ypup.layer_list_mode == 'CLASSIC':
+        if yp.active_layer_index < len(yp.layers):
+            return yp.layers[yp.active_layer_index]
+        return None
+        
+    if yp.active_item_index >= len(yp.list_items) or len(yp.list_items) == 0:
+        return None
+
+    item = yp.list_items[yp.active_item_index]
+
+    layer_index = -1
+
+    if item.type == 'LAYER':
+        layer_index = item.index
+
+    elif item.type == 'MASK':
+        layer_index = item.parent_index
+
+    elif item.type == 'CHANNEL_OVERRIDE':
+        layer_index = item.parent_index
+
+    if layer_index != -1 and layer_index < len(yp.layers):
+        return yp.layers[layer_index]
 
     return None
 

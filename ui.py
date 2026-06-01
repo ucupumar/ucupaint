@@ -1195,7 +1195,8 @@ def draw_root_channels_ui(context, layout, node):
 
             inp = node.inputs.get(channel.name)
 
-            if channel.type in {'RGB', 'VALUE'}:
+            # NOTE: Replaced by base layer
+            if ypup.layer_list_mode == 'CLASSIC' and channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
 
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -1585,6 +1586,65 @@ def draw_root_channels_ui(context, layout, node):
                         brow.label(text='Target '+get_vertex_color_label()+':')
                         brow.prop(channel, 'bake_to_vcol_name', text='')
 
+def draw_base_layer_ui(context, layout, yp, node):
+    ypui = context.window_manager.ypui
+
+    row = layout.row(align=True)
+    rrow = row.row(align=True)
+    rrow.alignment = 'LEFT'
+    rrow.scale_x = 0.95
+    label = 'Channel Base Values'
+    icon_value = lib.get_icon('channels')
+
+    icon = get_collapse_arrow_icon(ypui.expand_channel_base_values)
+    rrow.prop(ypui, 'expand_channel_base_values', text='', emboss=False, icon=icon)
+    if is_bl_newer_than(2, 80):
+        rrow.prop(ypui, 'expand_channel_base_values', text=label, emboss=False, icon_value=icon_value)
+    else: rrow.label(text=label, icon_value=icon_value)
+
+    if ypui.expand_channel_base_values:
+        rrow = layout.row(align=True)
+        rrow.label(text='', icon='BLANK1')
+        rcol = rrow.column(align=True)
+
+        inputs = node.inputs
+        outputs = node.outputs
+        ypup = get_user_preferences()
+        tree = node.node_tree
+
+        for root_ch in yp.channels:
+
+            input_index = root_ch.io_index
+
+            rcrow = rcol.row()
+
+            icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
+            rcrow.label(text=root_ch.name, icon_value=icon_value)
+
+            if root_ch.type == 'RGB':
+                rcrow = rcrow.row(align=True)
+
+            if len(inputs[input_index].links) > 0:
+                rcrow.label(text='', icon='LINKED')
+
+            # NOTE: Show base value when there's no input connection or there's baked node
+            # Baked node will show the input because sometimes user want to change base color of the baked image
+            baked = tree.nodes.get(root_ch.baked)
+            if len(inputs[input_index].links) == 0 or baked:
+                if root_ch.type == 'VALUE':
+                    rcrow.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
+                elif root_ch.type == 'RGB':
+                    rcrow.prop(inputs[input_index], 'default_value', text='', icon='COLOR')
+
+            #output_index = get_output_index(root_ch)
+            #if is_output_unconnected(node, output_index, root_ch):
+            #    rcrow.label(text='', icon='ERROR')
+
+            if ypup.developer_mode and root_ch.type=='RGB' and root_ch.enable_alpha:
+                if len(inputs[input_index + 1].links) == 0:
+                    rcrow.prop(inputs[input_index + 1], 'default_value', text='')
+                else: row.label(text='', icon='LINKED')
+
 def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
     obj = context.object
     yp = layer.id_data.yp
@@ -1622,6 +1682,9 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     elif layer.type in {'EDGE_DETECT', 'AO'}:
         icon_value = lib.get_icon('edge_detect')
         label += layer.name
+    elif layer.type == 'PREV_LAYERS':
+        icon_value = lib.get_icon('COLLAPSEMENU')
+        label += layer.name
     else:
         icon_value = lib.get_icon('texture')
         label += layer.name
@@ -1654,7 +1717,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     rcol = rbox.column(align=False)
 
     modcol = rcol.column()
-    modcol.active = layer.type not in {'BACKGROUND', 'GROUP'}
+    modcol.active = layer.type not in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}
     draw_modifier_stack(context, layer, 'RGB', modcol, lui, layer)
 
     #if layer.type not in {'VCOL', 'BACKGROUND'}:
@@ -1677,7 +1740,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     label_text = pgettext_iface('Layer') + ' Source:'
 
     rrow = split.row(align=True)
-    if layer.type in {'BACKGROUND', 'GROUP'}:
+    if layer.type in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}:
         rrow.label(text='', icon='BLANK1')
         rrow.label(text=label_text)
     else:
@@ -1705,6 +1768,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             icon_value = lib.get_icon('hemi')
         elif layer.type in {'EDGE_DETECT', 'AO'}:
             icon_value = lib.get_icon('edge_detect')
+        elif layer.type == 'PREV_LAYERS':
+            icon_value = lib.get_icon('COLLAPSEMENU')
         else: icon_value = lib.get_icon('texture')
 
     #if layer.type == 'COLOR' and not lui.expand_source:
@@ -1714,7 +1779,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     #else:
     split.menu("NODE_MT_y_layer_type_menu", text=menu_label, icon_value=icon_value)
 
-    if lui.expand_source and layer.type not in {'BACKGROUND', 'GROUP'}:
+    if lui.expand_source and layer.type not in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}:
         row = rcol.row(align=True)
         row.label(text='', icon='BLANK1')
         #bbox = row.box()
@@ -1975,9 +2040,12 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
             label = source.attribute_name
         elif override_type != 'DEFAULT':
             label = channel_override_labels[override_type]
-    elif layer.type == 'GROUP':
+    elif layer.type in {'GROUP', 'PREV_LAYERS'}:
         root_ch = yp.channels[get_layer_channel_index(layer, ch)]
-        label = 'Group ' + root_ch.name
+        label = 'Group ' if layer.type == 'GROUP' else 'Previous '
+        if root_ch.type == 'NORMAL' and not secondary_input:
+            label += 'Bump'
+        else: label += root_ch.name
     else:
         label = 'Layer'
 
@@ -2030,7 +2098,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 ch_idx = get_layer_channel_index(layer, ch)
                 root_ch = yp.channels[ch_idx]
                 #label = root_ch.name
-                if root_ch.type == 'NORMAL' and ch.normal_map_type != 'NORMAL_MAP' and layer.type != 'GROUP':
+                if root_ch.type == 'NORMAL' and ch.normal_map_type != 'NORMAL_MAP' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
                     if ch.normal_map_type == 'BUMP_MAP':
                         if is_bl_newer_than(2, 80):
                             label += ' (Bump)'
@@ -2152,7 +2220,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         row = ccol.row(align=True)
 
-        if layer.type == 'GROUP':
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
             row.active = get_channel_enabled(ch, layer, root_ch)
 
         if not chui.expand_content: # and ch.enable:
@@ -2170,7 +2238,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
             alt_ch_for_icon = root_normal_ch
             label = root_normal_ch.name+' from '+root_height_ch.name
-        elif root_ch.type == 'NORMAL' and layer.type != 'GROUP':
+        elif root_ch.type == 'NORMAL' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
             if chui.expand_content:
                 label += yp.channels[i].name + ' ('
             label += normal_type_labels[ch.normal_map_type]
@@ -2225,7 +2293,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             else:
                 ssplit = rrow.row(align=True)
 
-            if layer.type == 'GROUP':
+            if layer.type in {'GROUP', 'PREV_LAYERS'}:
                 rrrow = ssplit.row(align=True)
                 draw_input_prop(rrrow, ch, 'intensity_value', layer=layer)
 
@@ -2336,11 +2404,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         #mcol = mrow.column(align=True)
         #mcol.use_property_split = True
 
-        if layer.type == 'GROUP':
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
             channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
             if ch.enable and not channel_enabled:
-                mbox.label(text='No children is using \''+root_ch.name+'\' channel!', icon='ERROR')
+                if layer.type == 'GROUP':
+                    label ='No children is using \''+root_ch.name+'\' channel!'
+                else: label ='No previous layer is using \''+root_ch.name+'\' channel!'
+                mbox.label(text=label, icon='ERROR')
 
             mcol.active = channel_enabled
 
@@ -2582,7 +2653,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         if root_ch.type == 'NORMAL':
 
-            if layer.type != 'GROUP':
+            if layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
                 #mcol.separator()
 
@@ -2778,7 +2849,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     #row.label(text='', icon='BLANK1')
 
             # Write height
-            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump or layer.type == 'GROUP':
+            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump or layer.type in {'GROUP', 'PREV_LAYERS'}:
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 row.label(text='Write Height:')
@@ -2907,9 +2978,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         source_1 = layer_tree.nodes.get(ch.source_1)
         cache_1 = layer_tree.nodes.get(ch.cache_1_image)
 
-        split_factor = 0.375 if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 0.475
+        show_bump_normal_overrides = root_ch.type == 'NORMAL' and (ch.normal_map_type == 'BUMP_NORMAL_MAP' or layer.type in {'GROUP', 'PREV_LAYERS'})
 
-        if layer.type != 'GROUP' or root_ch.type != 'NORMAL':
+        split_factor = 0.475 if show_bump_normal_overrides else 0.375
+
+        if True: #layer.type != 'GROUP' or root_ch.type != 'NORMAL':
             # Override settings
             if root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP': # or (not source_1 and not cache_1):
 
@@ -2935,7 +3008,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     srow = split_layout(mcol, split_factor, align=False)
                     row = srow.row(align=True)
 
-                    label = 'Source:' if root_ch.type != 'NORMAL' or ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Bump Source:'
+                    label = ''
+                    if show_bump_normal_overrides:
+                        label += 'Bump '
+                    label += 'Source:'
 
                     if ch == color_ch and ch.enable:
                         label = root_ch.name + ':'
@@ -3019,7 +3095,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                             row.prop(ch, 'gamma_space', text='')
 
             # Override 1
-            if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}: # and (source_1 or cache_1))):
+            if root_ch.type == 'NORMAL' and (ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or layer.type in {'GROUP', 'PREV_LAYERS'}): # and (source_1 or cache_1))):
 
                 modcol = mcol.column()
                 modcol.active = layer.type != 'BACKGROUND'
@@ -3028,7 +3104,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                 srow = split_layout(mcol, split_factor, align=False)
                 row = srow.row(align=True)
-                label = 'Source:' if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 'Normal Source:'
+
+                label = ''
+                if show_bump_normal_overrides:
+                    label += root_ch.name + ' '
+                label += 'Source:'
+
                 if not ch.override_1:
                     row.label(text='', icon='BLANK1')
                     row.label(text=label)
@@ -3521,7 +3602,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
 
                     boxcol.context_pointer_set('entity', mask)
                     if is_bl_newer_than(2, 80):
-                        boxcol.operator('wm.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                        boxcol.operator('wm.y_select_decal_object', icon='COLLAPSEMENU')
                     else: boxcol.operator('wm.y_select_decal_object', icon='EMPTY_DATA')
                     boxcol.operator('wm.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
 
@@ -4073,7 +4154,7 @@ def draw_layers_ui(context, layout, node):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER', 'AO'} and layer.uv_name != '':
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PREV_LAYERS'} and layer.uv_name != '':
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
@@ -4128,7 +4209,9 @@ def draw_layers_ui(context, layout, node):
     colorid_col = None
     entity = None
 
-    if len(yp.layers) > 0:
+    is_base_layer_selected = ypup.layer_list_mode in {'DYNAMIC', 'BOTH'} and yp.active_item_index == len(yp.list_items)-1
+
+    if len(yp.layers) > 0 and not is_base_layer_selected:
         layer = yp.layers[yp.active_layer_index]
         layer = entity = yp.layers[yp.active_layer_index]
 
@@ -4190,7 +4273,7 @@ def draw_layers_ui(context, layout, node):
 
     row = col.row()
     rcol = row.column()
-    if len(yp.layers) > 0:
+    if True: #len(yp.layers) > 0:
         #prow = rcol.row(align=True)
 
         prow = split_layout(rcol, 0.667, align=True)
@@ -4544,6 +4627,10 @@ def draw_layers_ui(context, layout, node):
         if not specific_ch:
             # Masks
             draw_layer_masks(context, col, layer, specific_mask)
+
+    elif is_base_layer_selected:
+        col = box.column()
+        draw_base_layer_ui(context, col, yp, node)
 
     #print(get_addon_title()+': Layers UI is drawn in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -5176,6 +5263,9 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict[item.type])
         row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
 
+        # NOTE: Option for background only available for classic layer list mode
+        if ypup.layer_list_mode != 'CLASSIC': return
+
         if not yp.use_baked or (item.no_layer_using and not (yp.use_baked and yp.enable_baked_outside)):
             if item.type == 'RGB':
                 row = row.row(align=True)
@@ -5377,6 +5467,8 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
         elif layer.type == 'COLOR': 
             row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
+        elif layer.type == 'PREV_LAYERS': 
+            row.prop(layer, 'name', text='', emboss=False, icon='COLLAPSEMENU')
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
         elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
         else: 
@@ -5397,6 +5489,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
             elif layer.type == 'COLOR': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon='COLOR')
+            elif layer.type == 'PREV_LAYERS': 
+                row.prop(active_override, ae_prop, text='', emboss=False, icon='COLLAPSEMENU')
             elif layer.type == 'HEMI': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('hemi'))
             elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -5417,6 +5511,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon_value=lib.get_icon('vertex_color'))
             elif layer.type == 'COLOR': 
                 row.label(text='', icon='COLOR')
+            elif layer.type == 'PREV_LAYERS': 
+                row.label(text='', icon='COLLAPSEMENU')
             elif layer.type == 'HEMI': 
                 row.label(text='', icon_value=lib.get_icon('hemi'))
             elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -5711,6 +5807,49 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
         group_tree = item.id_data
         yp = group_tree.yp
         ypui = context.window_manager.ypui
+
+        # Base Layer
+        if item.type == 'BASE':
+            row = layout.row(align=True)
+            if ypui.any_expandable_layers:
+                row.label(text='', icon='BLANK1')
+            #row.label(text=item.name, icon_value=lib.get_icon('NODE_MATERIAL'))
+            row.label(text=item.name, icon_value=lib.get_icon('channels'))
+
+            # Get first channel
+            node = get_active_ypaint_node()
+            if node and len(yp.channels) > 0 and yp.channels[0].type == 'RGB':
+                root_ch = yp.channels[0]
+                root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+
+                # Alpha input
+                if root_alpha_ch and root_ch == root_color_ch:
+                    inp = node.inputs[root_alpha_ch.io_index]
+
+                    if len(inp.links) > 0:
+                        row.label(text='', icon='LINKED')
+
+                    if len(inp.links) == 0: # or baked:
+                        arow = row.row(align=True)
+                        arow.scale_x = 0.4
+                        if is_bl_newer_than(3):
+                            arow.emboss = 'NONE_OR_STATUS'
+                        elif is_bl_newer_than(2, 92):
+                            arow.emboss = 'UI_EMBOSS_NONE_OR_STATUS'
+                        elif is_bl_newer_than(2, 80): arow.emboss = 'NONE'
+                        arow.prop(inp, 'default_value', text='', emboss=False)
+
+                row.separator()
+
+                # Color input
+                if root_ch.io_index < len(node.inputs):
+                    inp = node.inputs[root_ch.io_index]
+                    baked = group_tree.nodes.get(root_ch.baked)
+                    if len(inp.links) > 0:
+                        row.label(text='', icon='LINKED')
+
+                    if len(inp.links) == 0: # or baked:
+                        row.prop(inp, 'default_value', text='', icon='COLOR')
 
         # Layer
         if item.type == 'LAYER' and item.index < len(yp.layers):
@@ -6243,6 +6382,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.separator()
 
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
+        col.operator("wm.y_new_layer", icon_value=lib.get_icon('COLLAPSEMENU'), text='Previous Layers').type = 'PREV_LAYERS'
         col.separator()
 
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New '+get_vertex_color_label()).type = 'VCOL'
@@ -6568,8 +6708,11 @@ class YLayerChannelInputMenu(bpy.types.Menu):
             op.socket_name = get_channel_input_socket_name(layer, ch)
             op.set_normal_input = False
         else:
-            if layer.type == 'GROUP':
-                label = 'Group ' + root_ch.name
+            if layer.type in {'GROUP', 'PREV_LAYERS'}:
+                label = 'Group ' if layer.type == 'GROUP' else 'Previous '
+                if root_ch.type == 'NORMAL':
+                    label += 'Bump'
+                else: label += root_ch.name
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
                 op.socket_name = ch.socket_input_name
@@ -6646,18 +6789,26 @@ class YLayerChannelInput1Menu(bpy.types.Menu):
 
         # Layer input based on source output sockets
 
-        source = get_layer_source(layer)
-        for outp in get_available_source_outputs(source, layer.type):
-            if not outp.enabled: continue
-            icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch, secondary_input=True) == outp.name and not ch.override_1 else 'RADIOBUT_OFF'
-            label = 'Layer ' + outp.name
-
-            if layer.type not in {'IMAGE', 'VCOL'}:
-                label += ' ('+layer_type_labels[layer.type]+')'
-
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
+            label = 'Group ' if layer.type == 'GROUP' else 'Previous '
+            label += root_ch.name
+            icon = 'RADIOBUT_ON' if not ch.override_1 else 'RADIOBUT_OFF'
             op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-            op.socket_name = outp.name
+            op.socket_name = ch.socket_input_1_name
             op.set_normal_input = True
+        else:
+            source = get_layer_source(layer)
+            for outp in get_available_source_outputs(source, layer.type):
+                if not outp.enabled: continue
+                icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch, secondary_input=True) == outp.name and not ch.override_1 else 'RADIOBUT_OFF'
+                label = 'Layer ' + outp.name
+
+                if layer.type not in {'IMAGE', 'VCOL'}:
+                    label += ' ('+layer_type_labels[layer.type]+')'
+
+                op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
+                op.socket_name = outp.name
+                op.set_normal_input = True
 
         col.separator()
 
@@ -7490,7 +7641,10 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
 
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         yp = context.parent.id_data.yp
+        layer = yp.layers[int(m.group(1))]
         root_ch = yp.channels[int(m.group(2))]
+
+        is_group_layer = layer.type in {'GROUP', 'PREV_LAYERS'}
 
         if root_ch.type == 'NORMAL':
             if context.parent.normal_map_type == 'BUMP_MAP':
@@ -7502,7 +7656,7 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        if is_bump_normal_layer_channel or is_bump_layer_channel:
+        if is_bump_normal_layer_channel or is_bump_layer_channel or is_group_layer:
             col.label(text='Add Modifier (Bump)')
         elif is_normal_layer_channel:
             col.label(text='Add Modifier (Normal)')
@@ -7517,11 +7671,11 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
                 if mt[0] == 'MULTIPLIER': continue
                 col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
-        if is_bump_normal_layer_channel:
+        if is_bump_normal_layer_channel or is_group_layer:
             col.separator()
             col.label(text='Add Modifier (Normal)')
 
-        if is_normal_layer_channel or is_bump_normal_layer_channel:
+        if is_normal_layer_channel or is_bump_normal_layer_channel or is_group_layer:
             col.operator('wm.y_new_normalmap_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
             col.operator('wm.y_new_normalmap_modifier', text='Math', icon_value=lib.get_icon('modifier')).type = 'MATH'
 
@@ -7610,6 +7764,9 @@ class YLayerTypeMenu(bpy.types.Menu):
 
         icon = 'RADIOBUT_ON' if layer.type == 'GROUP' else 'RADIOBUT_OFF'
         col.operator('wm.y_replace_layer_type', text='Group', icon=icon).type = 'GROUP'
+
+        icon = 'RADIOBUT_ON' if layer.type == 'PREV_LAYERS' else 'RADIOBUT_OFF'
+        col.operator("wm.y_replace_layer_type", icon=icon, text='Previous Layers').type = 'PREV_LAYERS'
 
         col.separator()
 
@@ -7818,7 +7975,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
             return
 
-        if context.parent.type != 'GROUP':
+        if context.parent.type not in {'GROUP', 'PREV_LAYERS'}:
             col = row.column()
             col.label(text='Add Modifier')
             ## List the modifiers
@@ -8292,7 +8449,7 @@ class YPaintUI(bpy.types.PropertyGroup):
     show_channels : BoolProperty(
         name = 'Channels',
         description = 'Show channel lists',
-        default = True
+        default = False
     )
 
     show_layers : BoolProperty(
@@ -8335,6 +8492,12 @@ class YPaintUI(bpy.types.PropertyGroup):
         name = 'Expand all mask channels',
         description = 'Expand all mask channels',
         default = False
+    )
+
+    expand_channel_base_values : BoolProperty(
+        name = 'Expand channel base values',
+        description = 'Expand channel base values',
+        default = True
     )
 
     # To store active node and tree

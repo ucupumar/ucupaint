@@ -1211,6 +1211,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         if len([ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]) == 1:
             context.window_manager.ypui.expand_channels = True
 
+        # Update list items
+        ListItem.refresh_list_items(group_tree.yp, repoint_active=True)
+
         # Update UI
         context.window_manager.ypui.need_update = True
 
@@ -1284,6 +1287,9 @@ class YNewYPaintNode(bpy.types.Operator):
         # Expand channels now is enabled by default if it's the only yp node
         if len([ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]) == 1:
             context.window_manager.ypui.expand_channels = True
+
+        # Update list items
+        ListItem.refresh_list_items(yp, repoint_active=True)
 
         # Update UI
         context.window_manager.ypui.need_update = True
@@ -3727,7 +3733,8 @@ def update_layer_preview_mode(self, context):
     tree = mat.node_tree
     index = yp.active_channel_index
     channel = yp.channels[index]
-    layer = yp.layers[yp.active_layer_index]
+    #layer = yp.layers[yp.active_layer_index]
+    layer = ListItem.get_active_layer(yp)
 
     if yp.preview_mode and yp.layer_preview_mode:
         yp.preview_mode = False
@@ -3735,7 +3742,7 @@ def update_layer_preview_mode(self, context):
     # Get preview node
     if yp.layer_preview_mode:
 
-        check_all_channel_ios(yp, specific_layer=layer)
+        check_all_channel_ios(yp, specific_layer=layer) #, do_process_layers=layer!=None)
 
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
@@ -3749,8 +3756,8 @@ def update_layer_preview_mode(self, context):
             tree.links.new(preview.outputs[0], output.inputs[0])
 
         else:
-            ch = layer.channels[yp.active_channel_index]
-            normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer)
+            ch = layer.channels[yp.active_channel_index] if layer else None
+            normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer) if layer else None, None
 
             #if channel.type == 'NORMAL' and ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
             if channel.special_channel_type == 'NORMAL':
@@ -3775,14 +3782,17 @@ def update_layer_preview_mode(self, context):
             # Set channel layer blending
             #mix = preview.node_tree.nodes.get('Mix')
             #mix.blend_type = ch.blend_type
-            update_preview_mix(ch, preview)
+            blend_type = ch.blend_type if ch else 'Mix'
+            update_preview_mix(blend_type, preview)
 
-            if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
-                channel_enabled = True
-            else: channel_enabled = ch.enable
+            if ch:
+                if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
+                    channel_enabled = True
+                else: channel_enabled = ch.enable
+            else: channel_enabled = True
 
             # Use different grid if channel is not enabled
-            preview.inputs['Missing Data'].default_value = 1.0 if (not channel_enabled or not layer.enable) else 0.0
+            preview.inputs['Missing Data'].default_value = 1.0 if (not channel_enabled or (layer and not layer.enable)) else 0.0
 
     else:
         check_all_channel_ios(yp)

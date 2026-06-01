@@ -311,6 +311,7 @@ layer_type_items = (
     ('GABOR', 'Gabor', ''),
     ('EDGE_DETECT', 'Edge Detect', ''),
     ('AO', 'Ambient Occlusion', ''),
+    ('PREV_LAYERS', 'Previous Layers', ''),
 )
 
 mask_type_items = (
@@ -379,6 +380,7 @@ layer_type_labels = {
     'GABOR' : 'Gabor',
     'EDGE_DETECT' : 'Edge Detect',
     'AO' : 'Ambient Occlusion',
+    'PREV_LAYERS' : 'Previous Layers',
 }
 
 mask_type_labels = {
@@ -599,6 +601,7 @@ layer_node_bl_idnames = {
     'GABOR' : 'ShaderNodeTexGabor',
     'MODIFIER' : 'ShaderNodeGroup',
     'AO' : 'ShaderNodeAmbientOcclusion',
+    'PREV_LAYERS' : 'NodeGroupInput',
 }
 
 io_suffix = {
@@ -3268,6 +3271,18 @@ def get_last_chained_up_layer_ids(layer, idx_limit):
 
     return parent_idx
 
+def get_list_of_direct_previous_layers(layer):
+    yp = layer.id_data.yp
+
+    layer_idx = get_layer_index(layer)
+
+    prev_layers = []
+    for i, t in enumerate(yp.layers):
+        if t.parent_idx == layer.parent_idx and i > layer_idx:
+            prev_layers.append(t)
+
+    return prev_layers
+
 def has_children(layer):
 
     yp = layer.id_data.yp
@@ -3480,7 +3495,7 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO', 'PREV_LAYERS'} 
 
 def clear_mapping(entity, use_baked=False):
 
@@ -5512,7 +5527,7 @@ def is_uv_input_needed(layer, uv_name):
             return True
 
         if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'}:
+            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
                 return True
 
             for i, ch in enumerate(layer.channels):
@@ -5652,7 +5667,7 @@ def is_height_process_needed(layer):
 
     if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
-    if layer.type == 'GROUP': 
+    if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         if is_layer_using_bump_map(layer, height_root_ch):
             return True
     elif height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
@@ -5670,7 +5685,7 @@ def is_vdisp_process_needed(layer):
 
     #if yp.layer_preview_mode and vdisp_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
-    if layer.type == 'GROUP': 
+    if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         return is_layer_using_vdisp_map(layer, vdisp_root_ch)
     #elif vdisp_ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or vdisp_ch.enable_transition_bump:
     #    return True
@@ -5687,7 +5702,7 @@ def is_normal_process_needed(layer):
 
     if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
-    if layer.type == 'GROUP': 
+    if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         if is_layer_using_bump_map(layer, height_root_ch) and not height_ch.write_height:
             return True
     elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
@@ -5742,13 +5757,15 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
 
     channel_idx = get_channel_index(root_ch)
 
-    if layer.type in {'BACKGROUND', 'GROUP'}:
+    if layer.type in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}:
         
         if layer.type == 'BACKGROUND':
             layer_idx = get_layer_index(layer)
             lays = [l for i, l in enumerate(yp.layers) if i > layer_idx and l.parent_idx == layer.parent_idx]
-        else:
+        elif layer.type == 'GROUP':
             lays = get_list_of_direct_children(layer)
+        else:
+            lays = get_list_of_direct_previous_layers(layer)
 
         color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
         alpha_ch_idx = get_channel_index(alpha_ch) if alpha_ch else -1
@@ -5760,6 +5777,7 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
         
         for l in lays:
             if not l.enable: continue
+            if l.type == 'PREV_LAYERS': continue
             if channel_idx >= len(l.channels): continue
             c = l.channels[channel_idx]
 
@@ -5860,10 +5878,13 @@ def is_layer_using_bump_map(layer, root_ch=None):
     try: ch = layer.channels[channel_idx]
     except: return False
     if get_channel_enabled(ch, layer, root_ch):
-        if layer.type == 'GROUP':
-            children = get_list_of_direct_children(layer)
-            for child in children:
-                if is_layer_using_bump_map(child):
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
+            if layer.type == 'GROUP':
+                other_layers = get_list_of_direct_children(layer)
+            else: other_layers = get_list_of_direct_previous_layers(layer)
+
+            for ol in other_layers:
+                if is_layer_using_bump_map(ol):
                     return True
         elif ch.write_height and (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or ch.enable_transition_bump):
             return True
@@ -5879,10 +5900,13 @@ def is_layer_using_vdisp_map(layer, root_ch=None):
     try: ch = layer.channels[channel_idx]
     except: return False
     if get_channel_enabled(ch, layer, root_ch):
-        if layer.type == 'GROUP':
-            children = get_list_of_direct_children(layer)
-            for child in children:
-                if is_layer_using_vdisp_map(child):
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
+            if layer.type == 'GROUP':
+                other_layers = get_list_of_direct_children(layer)
+            else: other_layers = get_list_of_direct_previous_layers(layer)
+
+            for ol in other_layers:
+                if is_layer_using_vdisp_map(ol):
                     return True
         #elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP': # or ch.enable_transition_bump:
         else:
@@ -5899,10 +5923,13 @@ def is_layer_using_normal_map(layer, root_ch=None):
     try: ch = layer.channels[channel_idx]
     except: return False
     if get_channel_enabled(ch, layer, root_ch):
-        if layer.type == 'GROUP':
-            children = get_list_of_direct_children(layer)
-            for child in children:
-                if is_layer_using_normal_map(child) or (not ch.write_height and is_layer_using_bump_map(child)):
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
+            if layer.type == 'GROUP':
+                other_layers = get_list_of_direct_children(layer)
+            else: other_layers = get_list_of_direct_previous_layers(layer)
+
+            for ol in other_layers:
+                if is_layer_using_normal_map(ol) or (not ch.write_height and is_layer_using_bump_map(ol)):
                     return True
         elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             return True
@@ -6398,7 +6425,7 @@ def get_all_baked_channel_images(tree):
 def is_layer_using_vector(layer, exclude_baked=False):
     yp = layer.id_data.yp
 
-    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO'}:
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
         return True
 
     for i, ch in enumerate(layer.channels):

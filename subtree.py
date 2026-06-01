@@ -213,7 +213,7 @@ def check_layer_source_tree(layer, smooth_bump_enabled):
     source_group = layer_tree.nodes.get(layer.source_group)
 
     if (smooth_bump_enabled and
-        (layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'})
+        (layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'PREV_LAYERS'})
     ):
         # Enable source group
         if not source_group:
@@ -306,7 +306,7 @@ def check_layer_source_tree(layer, smooth_bump_enabled):
                     layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
                     lib.NEIGHBOR_FAKE, hard_replace=True
                 )
-        elif layer.type not in {'GROUP', 'OBJECT_INDEX', 'BACKFACE', 'MODIFIER'}: 
+        elif layer.type not in {'GROUP', 'OBJECT_INDEX', 'BACKFACE', 'MODIFIER', 'PREV_LAYERS'}: 
             uv_neighbor = replace_new_node(
                 layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True
@@ -682,7 +682,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 else:
                     if remove_node(tree, c, 'mix_remains'): need_reconnect = True
 
-                if layer.type == 'GROUP' and is_layer_using_normal_map(layer):
+                if layer.type in {'GROUP', 'PREV_LAYERS'} and is_layer_using_normal_map(layer):
                     mix_normal = tree.nodes.get(c.mix_normal)
                     if not mix_normal:
                         need_reconnect = True
@@ -696,7 +696,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 else:
                     if remove_node(tree, c, 'mix_normal'): need_reconnect = True
 
-                if layer.type == 'GROUP' and is_layer_using_vdisp_map(layer):
+                if layer.type in {'GROUP', 'PREV_LAYERS'} and is_layer_using_vdisp_map(layer):
                     mix_vdisp = tree.nodes.get(c.mix_vdisp)
                     if not mix_vdisp:
                         need_reconnect = True
@@ -730,7 +730,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 else:
                     if remove_node(tree, c, 'mix_remains'): need_reconnect = True
 
-            if layer.type == 'GROUP' and mask.blend_type in limited_mask_blend_types:
+            if layer.type in {'GROUP', 'PREV_LAYERS'} and mask.blend_type in limited_mask_blend_types:
 
                 if root_ch.special_channel_type != 'HEIGHT' or not root_ch.enable_smooth_bump and height_process_needed:
                     mix_limit = tree.nodes.get(c.mix_limit)
@@ -2217,7 +2217,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             if remove_node(tree, ch, 'max_height_calc'): need_reconnect = True
 
         # Height Process
-        if layer.type != 'GROUP' and ch.normal_map_type == 'NORMAL_MAP':
+        if layer.type not in {'GROUP', 'PREV_LAYERS'} and ch.normal_map_type == 'NORMAL_MAP':
             if root_ch.enable_smooth_bump:
                 if ch.enable_transition_bump:
                     if ch.transition_bump_crease and not ch.transition_bump_flip:
@@ -2256,7 +2256,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     lib_name = lib.HEIGHT_PROCESS
 
             # Group lib
-            if layer.type == 'GROUP':
+            if layer.type in {'GROUP', 'PREV_LAYERS'}:
                 lib_name += ' Group'
 
         height_proc, need_reconnect = replace_new_node(
@@ -2270,7 +2270,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             else: 
                 set_default_value(height_proc, 'Bump Height', ch.normal_bump_distance)
         else:
-            if layer.type != 'GROUP':
+            if layer.type not in {'GROUP', 'PREV_LAYERS'}:
                 set_default_value(height_proc, 'Value Max Height', get_layer_channel_bump_distance(layer, ch))
             if ch.enable_transition_bump:
                 set_default_value(height_proc, 'Delta', get_transition_disp_delta(layer, ch))
@@ -2302,7 +2302,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         lib_name = ''
 
-        if layer.type == 'GROUP':
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
             if root_ch.enable_smooth_bump:
                 lib_name = lib.GROUP_BUMP_2_NORMAL_SMOOTH
             else: lib_name = lib.GROUP_BUMP_2_NORMAL
@@ -2329,7 +2329,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 lib_name = lib.NORMAL_MAP
 
         # Normal map
-        if layer.type != 'GROUP' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+        if layer.type not in {'GROUP', 'PREV_LAYERS'} and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             normal_map_proc, need_reconnect = check_new_node(tree, ch, 'normal_map_proc', 'ShaderNodeNormalMap', 'Normal Map Process', True)
             normal_map_proc.uv_map = layer.uv_name
             normal_map_proc.space = ch.normal_space
@@ -2378,7 +2378,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     if channel_enabled and is_vdisp_process_needed(layer):
 
         # Dedicated vdisp intensity currently is needed for group
-        if layer.type == 'GROUP':
+        if layer.type in {'GROUP', 'PREV_LAYERS'}:
             vdisp_intensity, dirty = check_new_node(tree, ch, 'vdisp_intensity', 'ShaderNodeMath', 'VDisp Opacity', True)
             vdisp_intensity.operation = 'MULTIPLY'
             if dirty: need_reconnect = True
@@ -2435,12 +2435,12 @@ def remove_layer_channel_nodes(layer, ch, tree=None):
     remove_node(tree, ch, 'blend')
     remove_node(tree, ch, 'extra_alpha')
 
-def update_preview_mix(ch, preview):
+def update_preview_mix(blend_type, preview):
     if preview.type != 'GROUP': return
     # Set channel layer blending
     mix = preview.node_tree.nodes.get('Mix')
-    if mix and mix.blend_type != ch.blend_type:
-        mix.blend_type = ch.blend_type
+    if mix and mix.blend_type != blend_type:
+        mix.blend_type = blend_type
 
 def check_override_1_layer_channel_nodes(root_ch, layer, ch):
 
@@ -2805,8 +2805,8 @@ def check_blend_type_nodes(root_ch, layer, ch):
         else:
             if remove_node(tree, ch, 'blend'): need_reconnect = True
 
-        if channel_enabled and ((layer.type == 'GROUP' and is_layer_using_normal_map(layer) and not is_normal_process_needed(layer)) or
-                (layer.type != 'GROUP' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} and not ch.enable_transition_bump)
+        if channel_enabled and ((layer.type in {'GROUP', 'PREV_LAYERS'} and is_layer_using_normal_map(layer) and not is_normal_process_needed(layer)) or
+                (layer.type not in {'GROUP', 'PREV_LAYERS'} and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} and not ch.enable_transition_bump)
                 ):
             # Intensity nodes
             intensity = tree.nodes.get(ch.intensity)
@@ -2824,7 +2824,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if yp.layer_preview_mode:
         mat = bpy.context.object.active_material
         preview = mat.node_tree.nodes.get(EMISSION_VIEWER)
-        if preview: update_preview_mix(ch, preview)
+        if preview: update_preview_mix(ch.blend_type, preview)
 
     return need_reconnect
 

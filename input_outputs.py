@@ -374,7 +374,7 @@ def set_float_factor_inputs_hack(tree, float_factor_input_names):
         if inp.name in float_factor_input_names and inp.subtype != 'FACTOR':
             inp.subtype = 'FACTOR'
 
-def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_output=False, hard_reset=False, yp_node=None):
+def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=False, force_height_output=False, hard_reset=False, yp_node=None, do_process_layers=True):
 
     #print("Checking YP IO. Specific Layer: " + str(specific_layer))
 
@@ -570,20 +570,22 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     # NOTE HACK: Blender 5.1 Alpha can only set the socket subtype here
     set_float_factor_inputs_hack(group_tree, float_factor_input_names)
 
-    # Update layer IO
-    for layer in yp.layers:
-        if specific_layer and layer != specific_layer: continue
-        specific_ch = None
-        if yp.layer_preview_mode and yp.active_channel_index < len(layer.channels):
-            specific_ch = layer.channels[yp.active_channel_index]
-        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=remove_props, hard_reset=hard_reset)
-
-    if reconnect:
-        # Rearrange layers
+    if do_process_layers:
+        # Update layer IO
         for layer in yp.layers:
             if specific_layer and layer != specific_layer: continue
-            reconnect_layer_nodes(layer)
-            rearrange_layer_nodes(layer)
+            specific_ch = None
+            if yp.layer_preview_mode and yp.active_channel_index < len(layer.channels):
+                specific_ch = layer.channels[yp.active_channel_index]
+            check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=remove_props, hard_reset=hard_reset)
+
+    if reconnect:
+        if do_process_layers:
+            # Rearrange layers
+            for layer in yp.layers:
+                if specific_layer and layer != specific_layer: continue
+                reconnect_layer_nodes(layer)
+                rearrange_layer_nodes(layer)
 
         # Rearrange nodes
         reconnect_yp_nodes(group_tree)
@@ -674,8 +676,13 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
         for child in children: 
             other_layers.append(child)
 
-        # Check background layers
         layer_idx = get_layer_index(layer)
+
+        # Check "Previous Layers" layers
+        pls = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'PREV_LAYERS']
+        other_layers.extend(pls)
+
+        # Check background layers
         bgs = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'BACKGROUND']
         other_layers.extend(bgs)
 
@@ -893,7 +900,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
 
             if root_ch.type == 'NORMAL':
 
-                if layer.type != 'GROUP':
+                if layer.type not in {'GROUP', 'PREV_LAYERS'}:
 
                     # Height/bump distance input
                     if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:

@@ -15,6 +15,15 @@ if not is_bl_newer_than(3, 2):
 else: DEFAULT_NEW_VCOL_SUFFIX = ' Attribute'
 DEFAULT_NEW_VDM_SUFFIX = ' VDM'
 
+def active_layer_op_poll(context):
+    if not context.object: return False
+    group_node = get_active_ypaint_node()
+    if not group_node: return False
+    layer = ListItem.get_active_layer(group_node.node_tree.yp)
+    if not layer: return False
+    return True
+
+
 def get_normal_map_type_items(self, context):
     items = []
 
@@ -4027,8 +4036,7 @@ class YMoveLayer(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return group_node and len(group_node.node_tree.yp.layers) > 0
+        return active_layer_op_poll(context)
 
     def execute(self, context):
         T = time.time()
@@ -4365,8 +4373,7 @@ class YRemoveLayer(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+        return active_layer_op_poll(context)
 
     @classmethod
     def description(self, context, properties):
@@ -4376,7 +4383,7 @@ class YRemoveLayer(bpy.types.Operator):
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        layer = yp.layers[yp.active_layer_index]
+        layer = ListItem.get_active_layer(yp)
 
         # Remove on disk is dangerous so it's always disabled by default
         self.remove_on_disk = False
@@ -4434,7 +4441,7 @@ class YRemoveLayer(bpy.types.Operator):
         node = get_active_ypaint_node()
         group_tree = node.node_tree
         yp = group_tree.yp
-        layer = yp.layers[yp.active_layer_index]
+        layer = ListItem.get_active_layer(yp)
         layer_name = layer.name
         layer_idx = get_layer_index(layer)
 
@@ -4577,7 +4584,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     source = source_tree.nodes.get(layer.source)
 
     # Save source to cache
-    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'} and layer.type != new_type:
+    if layer.type not in {'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'} and layer.type != new_type:
         setattr(layer, 'cache_' + layer.type.lower(), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
@@ -4588,7 +4595,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Try to get available cache
     cache = None
-    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
+    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'} or (new_type in {'IMAGE', 'VCOL'} and item_name == ''):
         cache = tree.nodes.get(getattr(layer, 'cache_' + new_type.lower()))
 
     if cache:
@@ -5479,7 +5486,11 @@ class YDuplicateLayer(bpy.types.Operator):
     def invoke(self, context, event):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        layer = yp.layers[yp.active_layer_index]
+        #layer = yp.layers[yp.active_layer_index]
+        layer = ListItem.get_active_layer(yp)
+
+        if not layer:
+            return self.execute(context)
 
         self.any_packed_image = False
         self.any_ondisk_image = False
@@ -5522,7 +5533,11 @@ class YDuplicateLayer(bpy.types.Operator):
 
         # Get active layer
         layer_idx = yp.active_layer_index
-        layer = yp.layers[layer_idx]
+        #layer = yp.layers[layer_idx]
+        layer = ListItem.get_active_layer(yp)
+        if not layer:
+            self.report({'ERROR'}, "Cannot duplicate a base layer!")
+            return {'CANCELLED'}
         source_layer_name = layer.name
 
         # Get all children
@@ -5646,7 +5661,12 @@ class YCopyLayer(bpy.types.Operator):
         yp = node.node_tree.yp
         wmp = context.window_manager.ypprops
 
-        layer = yp.layers[yp.active_layer_index]
+        #layer = yp.layers[yp.active_layer_index]
+        layer = ListItem.get_active_layer(yp)
+
+        if not layer:
+            self.report({'ERROR'}, "Cannot copy a base layer!")
+            return {'CANCELLED'}
 
         wmp.clipboard_tree = node.node_tree.name
         wmp.clipboard_layer = layer.name if not self.all_layers else ''
