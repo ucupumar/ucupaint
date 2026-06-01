@@ -801,14 +801,16 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         for fc in get_datablock_fcurves(root_tree):
             m = re.match(r'^nodes\["' + layer_node.name + r'"\]\.inputs\[(\d+)\]\.default_value$', fc.data_path)
             if m:
-                inp = layer_node.inputs[int(m.group(1))]
-                fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
+                try: inp = layer_node.inputs[int(m.group(1))]
+                except: inp = None
+                if inp: fc.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
 
         for driver in root_tree.animation_data.drivers:
             m = re.match(r'^nodes\["' + layer_node.name + r'"\]\.inputs\[(\d+)\]\.default_value$', driver.data_path)
             if m:
-                inp = layer_node.inputs[int(m.group(1))]
-                driver.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
+                try: inp = layer_node.inputs[int(m.group(1))]
+                except: inp = None
+                if inp: driver.data_path = 'yp.layers[' + str(get_layer_index(layer)) + ']' + inp.name
 
     # Prop inputs
     if not remove_props and layer_enabled:
