@@ -1293,8 +1293,10 @@ def update_yp_tree(tree):
             height_ch_idx = -1
             if bump_found:
 
+                height_ch_name = get_unique_name('Height', yp.channels)
+
                 # Create height channel
-                height_ch = Root.create_new_yp_channel(tree, 'Height', 'VALUE', non_color=True, special_channel_type='HEIGHT')
+                height_ch = Root.create_new_yp_channel(tree, height_ch_name, 'VALUE', non_color=True, special_channel_type='HEIGHT')
                 height_ch.use_height_as_bump = not displacement_setup_needed
                 height_ch.enable_smooth_bump = False
 
@@ -1329,11 +1331,20 @@ def update_yp_tree(tree):
                 normal_ch.baked_outside_normal_no_disp = normal_ch.baked_outside_normal_overlay
                 normal_ch.baked_outside_normal_overlay = ''
 
+                # Update bake target
+                for bt in yp.bake_targets:
+                    for letter in rgba_letters:
+                        btc = getattr(bt, letter)
+                        if btc.channel_name == normal_ch.name and btc.normal_type == 'DISPLACEMENT':
+                            btc.channel_name = height_ch_name
+
             vdm_ch_idx = -1
             if vdm_found:
 
+                vdm_ch_name = get_unique_name('Vector Displacement', yp.channels)
+
                 # Create vdm channel
-                vdm_ch = Root.create_new_yp_channel(tree, 'Vector Displacement', 'RGB', non_color=True, special_channel_type='VDISP')
+                vdm_ch = Root.create_new_yp_channel(tree, vdm_ch_name, 'RGB', non_color=True, special_channel_type='VDISP')
 
                 # Swap index
                 vdm_ch_idx = get_channel_index(vdm_ch)
@@ -1349,6 +1360,13 @@ def update_yp_tree(tree):
 
                 vdm_ch.baked_outside = normal_ch.baked_outside_vdisp
                 vdm_ch.baked_outside_vdisp = ''
+
+                # Update bake target
+                for bt in yp.bake_targets:
+                    for letter in rgba_letters:
+                        btc = getattr(bt, letter)
+                        if btc.channel_name == normal_ch.name and btc.normal_type == 'VECTOR_DISPLACEMENT':
+                            btc.channel_name = vdm_ch_name
 
             for layer in yp.layers:
                 ltree = get_tree(layer)
