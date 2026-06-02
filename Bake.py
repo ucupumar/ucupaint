@@ -413,7 +413,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_transfer_some_layer_uv"
     bl_label = "Transfer Some Layer UV"
     bl_description = "Transfer some layers/masks UV by baking it to other uv (this will take quite some time to finish)"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     from_uv_map : StringProperty(default='')
     uv_map : StringProperty(default='')
@@ -497,17 +497,17 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'reorder_uv_list')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
         if self.from_uv_map == '' or self.uv_map == '':
             self.report({'ERROR'}, "From or To UV Map cannot be empty!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.from_uv_map == self.uv_map:
             self.report({'ERROR'}, "From and To UV cannot have same value!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         mat = get_active_material()
         node = get_active_ypaint_node()
@@ -521,7 +521,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
             to_uv = uv_layers.get(self.uv_map)
             if not from_uv or not to_uv:
                 self.report({'ERROR'}, "Some uvs are not found in some objects!")
-                return {'CANCELLED'}
+                return self.execute_operator_cancelled(context)
 
         # Prepare bake settings
         book = remember_before_bake(yp)
@@ -576,13 +576,13 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
 
         self.report({'INFO'}, 'All layers and masks using '+self.from_uv_map+' are transferred to '+self.uv_map+' in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_transfer_layer_uv"
     bl_label = "Transfer Layer UV"
     bl_description = "Transfer Layer UV by baking it to other uv (this will take quite some time to finish)"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -640,24 +640,24 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'margin', text='')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
         if not hasattr(self, 'entity'):
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.entity.type != 'IMAGE' or self.entity.texcoord_type != 'UV':
             self.report({'ERROR'}, "Only works with image layer/mask with UV Mapping")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.uv_map == '':
             self.report({'ERROR'}, "Target UV Map cannot be empty!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.uv_map == self.entity.uv_name:
             self.report({'ERROR'}, "This layer/mask already use " + self.uv_map + "!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         mat = get_active_material()
         yp = self.entity.id_data.yp
@@ -690,7 +690,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
 
         self.report({'INFO'}, self.entity.name+' UV is transferred from '+ori_uv_name+' to '+self.uv_map+' in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 def get_resize_image_entity_and_image(self, context):
     yp = get_active_ypaint_node().node_tree.yp
@@ -801,14 +801,14 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
                     col.prop(self, 'tile_number', text='')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         yp = get_active_ypaint_node().node_tree.yp
         entity, image = get_resize_image_entity_and_image(self, context)
 
         if not entity or not image:
             self.report({'ERROR'}, "There is no active image!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Get original size
         segment = None
@@ -826,7 +826,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
 
         if ori_width == self.width and ori_height == self.height:
             self.report({'ERROR'}, "This image already had the same size!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         override_context = None
         space = None
@@ -875,7 +875,7 @@ class YResizeImage(bpy.types.Operator, BaseBakeOperator):
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_channel_to_vcol"
@@ -998,11 +998,11 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'force_first_index', text='')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         if not is_bl_newer_than(2, 92):
             self.report({'ERROR'}, "You need at least Blender 2.92 to use this feature!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         mat = get_active_material()
         node = get_active_ypaint_node()
@@ -1112,7 +1112,7 @@ class YBakeChannelToVcol(bpy.types.Operator, BaseBakeOperator):
         # Recover bake settings
         recover_bake_settings(book, yp)
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YDeleteBakedChannelImages(bpy.types.Operator):
     bl_idname = "wm.y_delete_baked_channel_images"
@@ -3360,6 +3360,25 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
+    def get_channels(self, yp):
+        # List of channels that will be baked
+        chs = []
+        if self.only_active_channel:
+            if yp.active_channel_index < len(yp.channels):
+                active_ch = yp.channels[yp.active_channel_index]
+                chs = [active_ch]
+
+                # Add alpha/color channel pair
+                color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+                if active_ch == color_ch:
+                    chs.append(alpha_ch)
+                elif active_ch == alpha_ch:
+                    chs.append(color_ch)
+
+        else: chs = [ch for ch in yp.channels]
+
+        return chs
+
     def invoke(self, context, event):
         self.invoke_operator(context)
 
@@ -3389,28 +3408,15 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     self.uv_map_coll.add().name = uv.name
 
         # List of channels that will be baked
-        self.channels = []
-        if self.only_active_channel:
-            if yp.active_channel_index < len(yp.channels):
-                active_ch = yp.channels[yp.active_channel_index]
-                self.channels = [active_ch]
-
-                # Add alpha/color channel pair
-                color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
-                if active_ch == color_ch:
-                    self.channels.append(alpha_ch)
-                elif active_ch == alpha_ch:
-                    self.channels.append(color_ch)
-
-        else: self.channels = yp.channels
+        channels = self.get_channels(yp)
 
         self.no_layer_using = False
         self.enable_bake_as_vcol = False
-        if len(self.channels) > 0:
+        if len(channels) > 0:
 
             # Check if any layer is using the channels
             layer_found = False
-            for ch in self.channels:
+            for ch in channels:
                 if is_any_layer_using_channel(ch, node):
                     layer_found = True
                     break
@@ -3418,7 +3424,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 self.no_layer_using = True
 
             bi = None
-            for ch in self.channels:
+            for ch in channels:
                 baked = node.node_tree.nodes.get(ch.baked)
                 if baked and baked.image:
                     if baked.image.y_bake_info.is_baked:
@@ -3427,7 +3433,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     self.height = baked.image.size[1] if baked.image.size[1] != 0 else ypup.default_new_image_size
                     break
             
-            for ch in self.channels:
+            for ch in channels:
                 if ch.enable_bake_to_vcol:
                     self.enable_bake_as_vcol = True
                     break
@@ -3446,7 +3452,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if self.vcol_force_first_ch_idx == '':
             self.vcol_force_first_ch_idx = 'Do Nothing'
 
-        if (get_user_preferences().skip_property_popups and not event.shift) or len(self.channels) == 0 or self.no_layer_using:
+        if (get_user_preferences().skip_property_popups and not event.shift) or len(channels) == 0 or self.no_layer_using:
             return self.execute(context)
 
         return context.window_manager.invoke_props_dialog(self, width=320)
@@ -3459,6 +3465,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         height_root_ch = get_root_height_channel(yp)
+        channels = self.get_channels(yp)
         
         obj = context.object
         mat = obj.active_material
@@ -3498,7 +3505,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
         active_channel = None
         if self.only_active_channel and not is_bl_equal(3, 2):
-            active_channel = self.channels[0]
+            active_channel = channels[0]
             if active_channel.enable_bake_to_vcol:
                 ccol.separator()
                 ccol.label(text='')
@@ -3563,7 +3570,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if is_bl_newer_than(2, 81):
             ccol.prop(self, 'denoise', text='Use Denoise')
 
-        any_color_channel = any([c for c in self.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+        any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
         if any_color_channel:
             if not self.use_dithering:
                 ccol.prop(self, 'use_dithering', text='Use Dithering')
@@ -3578,7 +3585,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         ccol.prop(self, 'bake_disabled_layers')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
@@ -3588,26 +3595,27 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         scene = context.scene
         obj = context.object
         mat = obj.active_material
+        channels = self.get_channels(yp)
 
-        if len(self.channels) == 0:
+        if len(channels) == 0:
             self.report({'ERROR'}, "This node has no channel!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if self.only_active_channel and self.no_layer_using:
-            self.report({'ERROR'}, "No layer is using '"+self.channels[0].name+"' channel!")
-            return {'CANCELLED'}
+            self.report({'ERROR'}, "No layer is using '"+channels[0].name+"' channel!")
+            return self.execute_operator_cancelled(context)
 
         if self.no_layer_using:
             self.report({'ERROR'}, "No layer is using any channel!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
             self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if not is_bl_newer_than(2, 80) and obj.hide_render:
             self.report({'ERROR'}, "Please unhide render of the active object!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Get all objects using material
         objs = [obj]
@@ -3632,7 +3640,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         if not objs:
             self.report({'ERROR'}, "No valid objects to bake!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # UV data should be accessible when there's multiple materials in single object, so object mode is necessary
         ori_edit_mode = False
@@ -3748,7 +3756,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Bake channels
         baked_exists = []
-        for ch in self.channels:
+        for ch in channels:
 
             # Remove baked node if alpha channel will be combined to color channel
             if alpha_ch == ch and alpha_ch.alpha_combine_to_baked_color:
@@ -3765,6 +3773,10 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
+
+                # NOTE: Since normal channel only bake to tangent space for now, make sure all used armature objects are in rest pose
+                armature_objs = set_related_armatures_to_rest_pose(objs) if ch.type == 'NORMAL' else []
+
                 bake_channel(
                     self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
                     tilenums=tilenums, interpolation=self.interpolation, 
@@ -3772,9 +3784,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                     use_float_for_normal=self.use_float_for_normal, bprops=bprops
                 )
 
+                # Recover armature objects
+                recover_rested_armature_objects(armature_objs)
+
         # Process baked images
         baked_images = []
-        for i, ch in enumerate(self.channels):
+        for i, ch in enumerate(channels):
             if ch.no_layer_using: continue
 
             baked = tree.nodes.get(ch.baked)
@@ -3897,7 +3912,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 color = []
                 for letter in rgba_letters:
                     btc = getattr(bt, letter)
-                    ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
+                    ch = [c for c in channels if c.name == (getattr(btc, 'channel_name'))]
                     if ch: ch = ch[0]
                     if ch and ch.type == 'NORMAL':
                         if btc.normal_type in {'COMBINED', 'OVERLAY_ONLY'}:
@@ -3965,13 +3980,15 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 # Copy image channels
                 for i, letter in enumerate(rgba_letters):
                     btc = getattr(bt, letter)
-                    ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
+                    ch = [c for c in channels if c.name == (getattr(btc, 'channel_name'))]
                     if ch:
                         ch = ch[0]
 
                         # Get image channel
                         subidx = 0
-                        if ch.type in {'RGB', 'NORMAL'}:
+                        if ch == alpha_ch and ch.alpha_combine_to_baked_color:
+                            subidx = 3
+                        elif ch.type in {'RGB', 'NORMAL'}:
                             subidx = int(getattr(btc, 'subchannel_index'))
 
                         # Get baked node
@@ -3983,6 +4000,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                             subidx = 0
                         elif ch.type == 'NORMAL' and btc.normal_type == 'VECTOR_DISPLACEMENT':
                             baked = tree.nodes.get(ch.baked_vdisp)
+                        elif ch == alpha_ch and ch.alpha_combine_to_baked_color:
+                            baked = tree.nodes.get(color_ch.baked)
                         else: baked = tree.nodes.get(ch.baked)
 
                         # Check if a layer is using the channel, in case an old unused baked image is present
@@ -4049,7 +4068,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             is_do_nothing = True
             is_sort_by_channel = False
             if self.only_active_channel:
-                active_channel = self.channels[0]
+                active_channel = channels[0]
                 if active_channel.enable_bake_to_vcol and self.vcol_force_first_ch_idx_bool:
                     real_force_first_ch_idx = yp.active_channel_index
                     is_do_nothing = False
@@ -4059,8 +4078,8 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 # check index, prevent crash
                 if not (is_do_nothing or is_sort_by_channel) and self.vcol_force_first_ch_idx != '':
                     real_force_first_ch_idx = int(self.vcol_force_first_ch_idx) - 2
-                    if real_force_first_ch_idx < len(self.channels) and real_force_first_ch_idx >= 0:
-                        target_ch = self.channels[real_force_first_ch_idx]
+                    if real_force_first_ch_idx < len(channels) and real_force_first_ch_idx >= 0:
+                        target_ch = channels[real_force_first_ch_idx]
                         if not (target_ch and target_ch.enable_bake_to_vcol):
                             real_force_first_ch_idx = -1
                     else: real_force_first_ch_idx = -1
@@ -4072,7 +4091,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 book, objs, yp, disable_problematic_modifiers=True,
                 bake_device=self.bake_device, bake_target='VERTEX_COLORS'
             )
-            for ch in self.channels:
+            for ch in channels:
                 if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
 
                     # Get vcol name
@@ -4187,7 +4206,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             self.report({'INFO'}, yp.channels[yp.active_channel_index].name+' channel is baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
         else: self.report({'INFO'}, tree.name+' channels are baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 def merge_channel_items(self, context):
     node = get_active_ypaint_node()
@@ -4324,7 +4343,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_merge_layer"
     bl_label = "Merge layer"
     bl_description = "Merge Layer"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     direction : EnumProperty(
         name = 'Direction',
@@ -4372,7 +4391,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         self.invoke_operator(context)
 
         node = get_active_ypaint_node()
-        yp = self.yp = node.node_tree.yp
+        yp = node.node_tree.yp
 
         # Get active layer
         layer_idx = self.layer_idx = yp.active_layer_index
@@ -4448,7 +4467,10 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
     def draw(self, context):
         row = split_layout(self.layout, 0.5)
 
-        main_ch = self.yp.channels[int(self.channel_idx)]
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        main_ch = yp.channels[int(self.channel_idx)]
         ch = self.layer.channels[int(self.channel_idx)]
         blend_type = ch.blend_type if main_ch.type != 'NORMAL' else ch.normal_blend_type
 
@@ -4477,11 +4499,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text="Are you sure you want to continue?", icon='BLANK1')
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         if hasattr(self, 'error_message') and self.error_message != '':
             self.report({'ERROR'}, self.error_message)
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         T = time.time()
 
@@ -4518,7 +4540,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         if (layer.type == 'IMAGE' and main_ch.type == 'NORMAL' and ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
             self.report({'ERROR'}, "Merging VDM layers is not supported yet!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Merge image layers
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
@@ -4633,11 +4655,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             if modifier_found:
                 self.report({'ERROR'}, get_vertex_color_label(10)+" merge does not works with modifers and masks yet!")
-                return {'CANCELLED'}
+                return self.execute_operator_cancelled(context)
 
             if ch.blend_type != 'MIX' or neighbor_ch.blend_type != 'MIX':
                 self.report({'ERROR'}, get_vertex_color_label(10)+" merge only works with Mix blend type for now!")
-                return {'CANCELLED'}
+                return self.execute_operator_cancelled(context)
 
             if neighbor_idx > layer_idx:
                 upper_layer = layer
@@ -4690,7 +4712,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         else:
             self.report({'ERROR'}, "This kind of merge is not supported yet!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if merge_success:
             # Remove neighbor layer
@@ -4719,11 +4741,11 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             ListItem.refresh_list_items(yp, repoint_active=True)
         else:
             self.report({'ERROR'}, "Merge failed for some reason!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         self.report({'INFO'}, 'Merging layers is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 class YMergeMask(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_merge_mask"
@@ -4791,7 +4813,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         return True
 
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.execute_operator_prep(context): return {'CANCELLED'}
 
         T = time.time()
 
@@ -4805,7 +4827,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
         # Get number of masks
         num_masks = len(layer.masks)
-        if num_masks < 2: return {'CANCELLED'}
+        if num_masks < 2: self.execute_operator_cancelled(context)
 
         # Get mask index
         m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
@@ -4818,17 +4840,17 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             neighbor_idx = index + 1
         else:
             self.report({'ERROR'}, "No valid neighbor mask!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         if mask.type != 'IMAGE':
             self.report({'ERROR'}, "Need image mask!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Get source
         source = get_mask_source(mask)
         if not source.image:
             self.report({'ERROR'}, "Mask image is missing!")
-            return {'CANCELLED'}
+            return self.execute_operator_cancelled(context)
 
         # Target image
         segment = None
@@ -4976,7 +4998,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
         self.report({'INFO'}, 'Merging masks is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
-        return {'FINISHED'}
+        return self.execute_operator_finished(context)
 
 def copy_default_value(inp_source, inp_target):
     if inp_target.bl_idname == inp_source.bl_idname:

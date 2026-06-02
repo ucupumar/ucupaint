@@ -12,6 +12,7 @@ tex_default_brush_eraser_pairs = {
     'Smear' : 'Erase Soft',
     'Airbrush' : 'Erase Soft',
     'Paint Soft Pressure' : 'Erase Soft',
+    'Paint Pixel Art' : 'Erase Pixel Art',
     'Clone' : 'Erase Hard',
     'Blur' : 'Erase Soft',
     'Fill' : 'Erase Hard',
@@ -408,56 +409,42 @@ class YSelectFacesByVcol(bpy.types.Operator):
         threshold = .004
         mat = context.object.active_material
         vcol_name = get_active_vertex_color(context.object).name
-        target = Color((self.color[0], self.color[1], self.color[2]))
-        if not is_bl_newer_than(3, 2):
-            target = linear_to_srgb(target)
+        target = Vector(linear_to_srgb(Color((self.color[0], self.color[1], self.color[2]))))
 
         if mat.users > 1 and is_bl_newer_than(2, 80):
             objs = get_all_objects_with_same_materials(mat, mesh_only=True)
         else: objs = [context.object]
 
-        # Select object first
+        # Select the objects first
         bpy.ops.object.mode_set(mode="OBJECT")
         bpy.ops.object.select_all(action='DESELECT')
         for obj in objs:
+            set_object_hide(obj, False)
             set_object_select(obj, True)
+            
+        # Reveal all hidden polygons
         bpy.ops.object.mode_set(mode="EDIT")
         bpy.context.tool_settings.mesh_select_mode = (False, False, True)
         bpy.ops.mesh.reveal()
-        bpy.ops.mesh.select_all(action='DESELECT')
 
-        bpy.ops.object.mode_set(mode="OBJECT")
-        
+        # Select polygons based on target color
         for obj in objs:
-
-            # Select vcol
-            vcols = get_vertex_colors(obj)
-            vcol = vcols.get(vcol_name)
-            if not vcol: continue
-            set_active_vertex_color(obj, vcol)
-
-            # Select polygons
-            for p in obj.data.polygons:
-                r = g = b = 0
-                for i in p.loop_indices:
-                    c = vcol.data[i].color
-                    r += c[0]
-                    g += c[1]
-                    b += c[2]
-                r /= p.loop_total
-                g /= p.loop_total
-                b /= p.loop_total
-                source = Color((r, g, b))
+            mesh = obj.data
             
-                if (abs(source.r - target.r) < threshold and
-                    abs(source.g - target.g) < threshold and
-                    abs(source.b - target.b) < threshold):
+            # Create bmesh from the object mesh
+            bm = bmesh.from_edit_mesh(mesh)
             
-                    p.select = True
-                    #p.select = not self.deselect
-
-        bpy.ops.object.mode_set(mode="EDIT")
-        
+            lcol = bm.loops.layers.color.get(vcol_name)
+            if not lcol: continue
+            
+            # Select the faces
+            for face in bm.faces:
+                # Alpha is not considered for now
+                face.select = any((Vector((l[lcol][0], l[lcol][1], l[lcol][2])) - target).length < threshold for l in face.loops)
+            
+            # Write changes back to the mesh
+            bmesh.update_edit_mesh(mesh)
+            
         return {'FINISHED'}
 
 class YVcolFillFaceCustom(bpy.types.Operator):
@@ -679,7 +666,10 @@ class YVcolFill(bpy.types.Operator):
                     if use_numpy:
                         loop_to_vert = numpy.zeros(len(mesh.loops), dtype=numpy.uint32)
                         mesh.loops.foreach_get('vertex_index', loop_to_vert)
-                        loop_indices = (numpy.in1d(loop_to_vert, vert_indices)).nonzero()[0]
+                        # Numpy in1d is deprecated since numpy version 2.0
+                        if version_tuple(numpy.__version__) >= (2, 0, 0):
+                            loop_indices = (numpy.isin(loop_to_vert, vert_indices)).nonzero()[0]
+                        else: loop_indices = (numpy.in1d(loop_to_vert, vert_indices)).nonzero()[0]
                         nvcol = numpy.zeros(len(vcol.data) * dimension, dtype=numpy.float32)
                         vcol.data.foreach_get('color', nvcol)
                         nvcol2D = nvcol.reshape(-1, dimension)

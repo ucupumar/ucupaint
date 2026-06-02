@@ -5,9 +5,8 @@ from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal
 from .common import *
-from .credits_ui import get_collaborators, check_contributors
 
-USE_CACHE_DELTA = 1000
+USE_CACHE_DELTA_MS = 250
 
 RGBA_CHANNEL_PREFIX = {
     'Color' : '',
@@ -382,11 +381,10 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
     split = split_layout(col, 0.4)
 
     scol = split.column()
-    if not image.is_dirty:
-        scol.label(text='Color Space:')
-        if hasattr(image, 'use_alpha'):
-            scol.label(text='Use Alpha:')
-        scol.label(text='Alpha Mode:')
+    scol.label(text='Color Space:')
+    if hasattr(image, 'use_alpha'):
+        scol.label(text='Use Alpha:')
+    scol.label(text='Alpha Mode:')
 
     scol.label(text='Interpolation:')
 
@@ -402,6 +400,11 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
         if hasattr(image, 'use_alpha'):
             scol.prop(image, 'use_alpha', text='')
         scol.prop(image, 'alpha_mode', text='')
+    else:
+        scol.label(text=image.colorspace_settings.name)
+        if hasattr(image, 'use_alpha'):
+            scol.label(text='True' if image.use_alpha else 'False')
+        scol.label(text=alpha_mode_labels[image.alpha_mode])
 
     scol.prop(source, 'interpolation', text='')
 
@@ -1236,17 +1239,25 @@ def draw_root_channels_ui(context, layout, node):
     ypui = context.window_manager.ypui
     ypup = get_user_preferences()
 
+    channel = yp.channels[yp.active_channel_index] if len(yp.channels) > 0 and yp.active_channel_index < len(yp.channels) else None 
+
     box = layout.box()
     col = box.column()
     row = col.row()
 
     rcol = row.column()
     if len(yp.channels) > 0:
-        pcol = rcol.column()
-        if yp.preview_mode: pcol.alert = True
-        if not is_bl_newer_than(2, 80):
-            pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-        else: pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
+
+        if channel and channel.type == 'NORMAL':
+            prow = split_layout(rcol, 0.667, align=True)
+        else: prow = rcol.row()
+
+        if yp.preview_mode: prow.alert = True
+        icon = 'HIDE_OFF' if is_bl_newer_than(2, 80) else 'RESTRICT_VIEW_OFF'
+        prow.prop(yp, 'preview_mode', text='Preview Mode', icon=icon)
+
+        if channel and channel.type == 'NORMAL':
+            prow.prop(yp, 'preview_mode_normal_space', text='')
 
     rcol.template_list("NODE_UL_YPaint_channels", "", yp,
             "channels", yp, "active_channel_index", rows=3, maxrows=5)  
@@ -1270,7 +1281,6 @@ def draw_root_channels_ui(context, layout, node):
 
         mcol = col.column(align=False)
 
-        channel = yp.channels[yp.active_channel_index]
         mcol.context_pointer_set('channel', channel)
 
         chui = ypui.channel_ui
@@ -1294,7 +1304,7 @@ def draw_root_channels_ui(context, layout, node):
                     row.alert = True
                     row.operator('wm.y_optimize_normal_process', icon='ERROR', text='Fix Height Input')
 
-            if is_output_unconnected(node, output_index, channel):
+            if is_output_unconnected(node, channel) and not channel.disable_unconnected_warning:
                 row = mcol.row(align=True)
                 row.alert = True
                 row.operator('wm.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
@@ -2082,7 +2092,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
         label = 'Layer'
 
         if ch == alpha_ch and color_ch.enable and not color_ch.unpair_alpha:
-            if color_ch.socket_input_name == 'Alpha':
+            if not color_ch.override and color_ch.socket_input_name == 'Alpha':
                 label = 'Solid Value (1.0)'
             else: label += ' Alpha'
         else: label += ' ' + get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
@@ -2246,7 +2256,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 label += ')'
         else: label += yp.channels[i].name
         intensity_value = get_entity_prop_value(ch, 'intensity_value', layer=layer, 
-            path='channels['+str(i)+'].intensity_value') # NOTE: Manual path passing is for optimization
+            path='.channels['+str(i)+'].intensity_value') # NOTE: Manual path passing is for optimization
         if intensity_value != 1.0 and layer.type != 'GROUP':
             label += ' (%.1f)' % intensity_value
         if not chui.expand_content:
@@ -2787,7 +2797,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     if ch == color_ch and ch.enable:
                         label = root_ch.name + ':'
 
-                    if ch.override or input_settings_available or swizzleable:
+                    dropdown_available = (ch.override and ch.override_type != 'VCOL') or input_settings_available or swizzleable
+
+                    if dropdown_available:
                         inbox_dropdown_button(row, chui, 'expand_source', label)
                     else:
                         row.label(text='', icon='BLANK1')
@@ -2828,7 +2840,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     if ch.override:
                         ch_source = get_channel_source(ch, layer)
 
-                    if ch.expand_source and (ch.override or input_settings_available or swizzleable): # and ch.override_type != 'DEFAULT':
+                    if ch.expand_source and dropdown_available: # and ch.override_type != 'DEFAULT':
 
                         rrow = mcol.row(align=True)
                         rrow.label(text='', icon='BLANK1')
@@ -3637,6 +3649,13 @@ def draw_layers_ui(context, layout, node):
     if yp.use_baked:
         col = box.column(align=False)
 
+        if is_not_in_material_view() and ypup.enable_material_view_warning:
+            bbox = col.box()
+            row = bbox.row(align=True)
+            row.alert = True
+            row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
+            row.alert = False
+
         root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
 
         for i, root_ch in enumerate(yp.channels):
@@ -4333,7 +4352,7 @@ def draw_layers_ui(context, layout, node):
                 row.operator('object.y_fix_vdm_missmatch_uv')
                 row.alert = False
 
-        if is_not_in_material_view():
+        if is_not_in_material_view() and ypup.enable_material_view_warning:
             bbox = col.box()
             row = bbox.row(align=True)
             row.alert = True
@@ -4387,38 +4406,10 @@ def draw_layers_ui(context, layout, node):
 
 def draw_test_ui(context, layout):
     ypup = get_user_preferences()
-    if (ypup.developer_mode == True):
-        wm = context.window_manager
-        ypui = wm.ypui
-        wmyp = wm.ypprops
-
-        obj = context.object
-        mat = get_active_material()
-        node = get_active_ypaint_node()
-
-        icon = 'TRIA_DOWN' if ypui.show_test else 'TRIA_RIGHT'
-        row = layout.row(align=True)
-
-        if is_bl_newer_than(2, 80):
-            row.alignment = 'LEFT'
-            row.scale_x = 0.95
-            row.prop(ypui, 'show_test', emboss=False, text='Test', icon=icon)
-        else:
-            row.prop(ypui, 'show_test', emboss=False, text='', icon=icon)
-            row.label(text='Test')
-
-        if (ypui.show_test):
-            box = layout.box()
-            col = box.column()
-
-            col.label(text='Run test with default cube scene!')
-            if obj and obj.name == 'Cube' and mat and mat.name == 'Material' and not node:
-                col.operator('wm.y_run_automated_test')
-
-            if (wmyp.test_result_run != 0):
-                col.label(text=pgettext_iface('Test Run Count: ') + str(wmyp.test_result_run))
-                col.label(text=pgettext_iface('Test Error Count: ') + str(wmyp.test_result_error))
-                col.label(text=pgettext_iface('Test Failed Count: ') + str(wmyp.test_result_failed))
+    if not ypup.developer_mode : return
+    Test = get_package_module('.Test')
+    if not Test: return
+    Test.draw_test_ui(context, layout)
 
 def main_draw(self, context):
     #T = time.time()
@@ -4440,9 +4431,8 @@ def main_draw(self, context):
 
     # NOTE: [HACK] Disable cache if delta time already pass the limit
     if ypui.use_cache:
-        delta = get_depsgraph_update_delta_ms()
-        if delta > USE_CACHE_DELTA:
-            #print('Use UI Cache Disabled')
+        delta = get_node_slider_delta_ms()
+        if delta > USE_CACHE_DELTA_MS:
             ypui.use_cache = False
 
     # Update ui props first
@@ -4452,39 +4442,19 @@ def main_draw(self, context):
 
     layout = self.layout
 
-    #layout.operator("wm.y_debug_mesh", icon='MESH_DATA')
-    #layout.operator("wm.y_test_ray", icon='MESH_DATA')
+    addon_updater_ops = get_package_module('.addon_updater_ops')
+    if addon_updater_ops:
+        need_restart = addon_updater_ops.draw_top_ui_panel(context, layout)
+        if need_restart: return
 
-    from . import addon_updater_ops
-
-    updater = addon_updater_ops.updater
-
-    if not updater.auto_reload_post_update:
-        saved_state = updater.json
-        if "just_updated" in saved_state and saved_state["just_updated"]:
-            row_update = layout.row()
-            row_update.alert = True
-            row_update.operator(
-                "wm.quit_blender",
-                text="Restart blender to complete update",
-                icon="ERROR"
-            )
-            return
-        
-    if updater.update_ready and not ypui.hide_update:
-        row_update = layout.row(align=True)
-        row_update.alert = True
-        if updater.using_development_build:
-            update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
-            row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
-        else:
-            row_update.operator(
-                addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                text="Update to "+get_addon_title()+" "+get_version_str(updater.update_version)
-            )
-        row_update.alert = False
-
-        row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
+    # Extension platform update notification
+    if is_online() and not ypup.hide_update_notification and ypui.extension_update_state == 'AVAILABLE':
+        col = layout.column()
+        row_alert = col.row(align=True)
+        row_alert.alert = True
+        row_alert.operator("extensions.userpref_show_for_update", icon='ERROR', text='New version is available!') # + ypui.latest_version)
+        row_alert.alert = False
+        row_alert.operator("ext.pending_update", icon='PANEL_CLOSE', text='')
 
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -4507,7 +4477,8 @@ def main_draw(self, context):
         rrow.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
     else: 
         row.popover("NODE_PT_ypaint_about_popover", text='', icon='HELP')
-        row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
+        if is_package_module_exists('.credits_ui'):
+            row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
 
     if ypui.show_object:
         box = layout.box()
@@ -4626,6 +4597,14 @@ def main_draw(self, context):
                 rrow.label(text='Transparent Shadows:')
                 rrow.prop(mat, 'use_transparent_shadow', text='')
 
+    # Check if Mio3 UV checker found
+    if obj and any([m for m in obj.modifiers if m.type == 'NODES' and m.node_group and m.node_group.name == 'Mio3MaterialOverride' and (m.show_viewport or m.show_render)]):
+        row = layout.row(align=True)
+        row.alert = True
+        op = row.operator("wm.y_remove_mio3_uv_checker", icon='ERROR')
+        row.alert = False
+        return
+
     if not node:
         layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
         layout.operator("wm.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
@@ -4651,7 +4630,7 @@ def main_draw(self, context):
         col = layout.column()
         col.alert = True
         col.label(text='This node uses newer version!', icon='ERROR')
-        if 'addon_updater_ops' not in dir():
+        if is_installed_through_extension_platform():
             # Extension platform releases link
             col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://extensions.blender.org/add-ons/ucupaint/'
         else: 
@@ -4934,7 +4913,7 @@ def main_draw(self, context):
 
 class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
-    bl_label = get_addon_title() + " " + get_current_version_str() + get_alpha_suffix()
+    bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_region_type = 'TOOLS'
     #bl_category = get_addon_title()
 
@@ -4948,7 +4927,7 @@ class NODE_PT_YPaint(bpy.types.Panel):
 
 class NODE_PT_YPaintUI(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
-    bl_label = get_addon_title() + " " + get_current_version_str() + get_alpha_suffix()
+    bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_region_type = 'UI'
     bl_category = get_addon_title()
 
@@ -4962,7 +4941,7 @@ class NODE_PT_YPaintUI(bpy.types.Panel):
 
 class VIEW3D_PT_YPaint_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
-    bl_label = get_addon_title() + " " + get_current_version_str() + get_alpha_suffix()
+    bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_region_type = 'TOOLS'
     bl_category = get_addon_title()
 
@@ -4974,7 +4953,7 @@ class VIEW3D_PT_YPaint_tools(bpy.types.Panel):
         main_draw(self, context)
 
 class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
-    bl_label = get_addon_title() + " " + get_current_version_str() + get_alpha_suffix()
+    bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
     bl_region_type = 'UI'
@@ -4985,29 +4964,16 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     def poll(cls, context):
         return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
-    #def draw_header_preset(self, context):
-    #    layout = self.layout
-    #    row = layout.row(align=True)
-
-    #    threshold = 250 * context.preferences.system.ui_scale
-    #    if context.region.width > threshold:
-    #        row.popover('VIEW3D_PT_ypaint_support_ui', text="Support Us", icon='FUND')
-    #    else:
-    #        row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
-
-    #def draw_header_preset(self, context):
-    #    layout = self.layout
-    #    row = layout.row(align=True)
-
-    #    row.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
     def draw(self, context):
         main_draw(self, context)
 
-def is_output_unconnected(node, index, root_ch=None):
+def is_output_unconnected(node, root_ch):
     yp = node.node_tree.yp
-    unconnected = len(node.outputs[index].links) == 0 and not (yp.use_baked and yp.enable_baked_outside)
-    if root_ch and root_ch.type == 'NORMAL':
-        unconnected &= not (not is_bl_newer_than(2, 80) and yp.use_baked and root_ch.subdiv_adaptive)
+    outp = node.outputs.get(root_ch.name)
+    if not outp: return False
+    unconnected = len(outp.links) == 0 and not (yp.use_baked and yp.enable_baked_outside)
+    #if root_ch.type == 'NORMAL':
+    #    unconnected &= not (not is_bl_newer_than(2, 80) and yp.use_baked and root_ch.subdiv_adaptive)
     return unconnected
 
 def is_height_input_connected_but_has_no_start_process(node, root_ch):
@@ -5080,7 +5046,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             else:
                 row.label(text='', icon='LINKED')
 
-            if is_output_unconnected(group_node, output_index, item):
+            if is_output_unconnected(group_node, item) and not item.disable_unconnected_warning:
                 row.label(text='', icon='ERROR')
 
             if ypup.developer_mode and item.type=='RGB' and item.enable_alpha:
@@ -5476,7 +5442,7 @@ def layer_listing(layout, layer, show_expand=False):
             if active_override_image:
                 if active_override_image.yia.is_image_atlas or active_override_image.yua.is_udim_atlas:
                     #row.label(text='Image Atlas Override')
-                    row.label(text=override_image.name)
+                    row.label(text=active_override_image.name)
                 else: row.prop(active_override_image, 'name', text='', emboss=False)
             elif override_ch.override_type == 'VCOL':
                 row.prop(override_ch, 'override_vcol_name', text='', emboss=False)
@@ -5898,90 +5864,26 @@ def draw_yp_file_browser_menu(self, context):
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
 
-    ypc = context.window_manager.ypui_credits
+    any_ui_drawn = False
 
-    # Credits UI currently doesn't work with legacy blenders
-    if is_bl_newer_than(2, 80):
-        check_contributors(ypc)
-    
-    collaborators = get_collaborators()
-    contributors = collaborators.contributors
-    member_count = len(contributors)
+    credits_ui = get_package_module('.credits_ui')
+    credits_ui_loaded = False
+    if credits_ui:
+        credits_ui_loaded = credits_ui.draw_contributors(context, col)
+        if credits_ui_loaded: any_ui_drawn = True
 
-    if is_bl_newer_than(2, 80) and is_online() and member_count > 0:
-
-        row_title = col.row(align=True)
-        row_title_label = row_title.row(align=True)
-
-        row_title_label.label(text=get_addon_title() + ' is created by:')
-
-        paging_layout = row_title.row(align=True)
-        paging_layout.alignment = 'RIGHT'
-        # NOTE: HACK: Older blender need paging scale_x to avoid the label from being cut
-        if not is_bl_newer_than(3):
-            paging_layout.scale_x = 0.95
-
-        cont_setting = collaborators.contributor_settings
-
-        column_num = cont_setting.get('column_num', 3)
-        per_page_item = cont_setting.get('per_page_item', 9)
-        current_page = ypc.page_collaborators
-
-        grid = col.grid_flow(row_major=True, columns=column_num, even_columns=True, even_rows=True, align=True)
-
-        paged_contributors = list(contributors.values())[current_page*per_page_item:(current_page+1)*per_page_item]
-        missing_column = column_num - (len(paged_contributors) % column_num)
-
-        for cl, item in enumerate(paged_contributors):
-            rw = grid.column(align=True)
-
-            thumb = item['thumb']
-            if not thumb:
-                thumb = collaborators.loading_pic
-                
-            rw.template_icon(icon_value = thumb, scale = 3.0)
-
-            user_name = item["name"].strip()
-            if user_name == '':
-                user_name = item["id"]
-            rw.operator('wm.url_open', text=user_name, emboss=False).url = item["url"]
-
-        if missing_column != column_num:
-            for i in range(missing_column):
-                rw = grid.column(align=True)
-
-                rw.template_icon(icon_value = collaborators.default_pic, scale = 3.0)
-                rw.operator('wm.url_open', text='', emboss=False).url = item["url"]
-
-        if member_count > per_page_item:
-            prev = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_LEFT')
-            prev.is_next_button = False
-            prev.max_page = (member_count + per_page_item - 1) // per_page_item
-
-            paging_layout.label(text=str(current_page+1)+'/'+str(prev.max_page))
-
-            next = paging_layout.operator('wm.y_collaborator_paging', text='', icon='TRIA_RIGHT')
-            next.is_next_button = True
-            next.max_page = prev.max_page
-
-        #col.separator()
-        #col.operator('wm.url_open', text='View Contributor Graph', icon='SEQ_HISTOGRAM').url = collaborators.default_contributors_url
-    else:
-        if not is_bl_newer_than(2, 80):
+    if not credits_ui_loaded:
+        # NOTE: Blender don't like if the addon creator get small money through UI :(((
+        if not is_installed_through_extension_platform() and (not is_bl_newer_than(2, 80) or not credits_ui):
             col.label(text='Support '+get_addon_title() + '!')
-            col.operator('wm.url_open', text="Become a Sponsor", icon='POSE_DATA').url = collaborators.default_url
+            icon = 'FUND' if is_bl_newer_than(2, 80) else 'POSE_DATA'
+            label = "Get "+get_addon_title()+" Plus!" if is_bl_newer_than(2, 80) else "Become a Sponsor!"
+            col.operator('wm.url_open', text=label, icon=icon).url = "https://github.com/sponsors/ucupumar"
+            any_ui_drawn = True
 
-        col.label(text=get_addon_title() + ' is created by: ')
-        col.operator('wm.url_open', text='View All Contributors', icon='BOIDS').url = collaborators.default_contributors_url
-        if is_online() and is_bl_newer_than(2, 80):
-            col.separator()
-            if ypc.connection_status == "FAILED":
-                col.label(text="Failed to load contributors.", icon='ERROR')
-                col.operator('wm.y_force_refresh_sponsors', text='Reload sponsors', icon='FILE_REFRESH')
-            else:
-                col.label(text="Loading contributors...", icon='TIME')
+        if credits_ui: credits_ui.draw_contributor_status(context, col, add_separator=any_ui_drawn)    
 
-    col.separator()
+    if any_ui_drawn: col.separator()
 
     col.label(text='Links:')
     col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
@@ -5989,44 +5891,10 @@ def draw_ypaint_about(self, context):
     icon = 'COMMUNITY' if is_bl_newer_than(2, 80) else 'SEQ_SEQUENCER'
     col.operator('wm.url_open', text=get_addon_title()+' Discord Server', icon=icon).url = 'https://discord.gg/BdNfGGzQHh'
 
-    # for cl, key in enumerate(previews_users.contributors.keys()):
-    #     col.operator('wm.url_open', text=key, icon=icon_name).url = previews_users.contributors[key]["url"]
-
-    from . import addon_updater_ops
-    updater = addon_updater_ops.updater
-
-    col.separator()
-    row = col.row()            
-    if updater.using_development_build:
-        if addon_updater_ops.updater.legacy_blender:
-            row.label(text="Branch: Master (Blender 2.7x)")
-        else:
-            row.label(text="Branch: "+updater.current_branch)
-    else:
-        row.label(text="Branch: Stable ("+get_version_str(updater.current_version)+")")
-    if addon_updater_ops.updater.legacy_blender:
-        col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
-    else:
-        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-        row.menu(addon_updater_ops.UpdaterSettingMenu.bl_idname, text='', icon=icon)
-
-    if updater.async_checking:
-        col.enabled = False
-        col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text="Checking...")
-    elif updater.update_ready:
-        col.alert = True
-        if updater.using_development_build:
-            update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
-            col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
-        else:
-            col.operator(
-                addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                text="Update to "+get_addon_title()+" "+get_version_str(updater.update_version)
-            )
-        col.label(text="Update is available!")
-    elif is_online() or updater.current_branch != None:
-        col.operator(addon_updater_ops.RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
-        col.label(text=get_addon_title()+" is up to date")
+    addon_updater_ops = get_package_module('.addon_updater_ops')
+    if addon_updater_ops:
+        col.separator()
+        addon_updater_ops.draw_updater_options(context, col)
 
 class YPaintAboutPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_about_popover"
@@ -6452,40 +6320,6 @@ class YLayerChannelBlendMenu(bpy.types.Menu):
         for key, val in blend_type_labels.items():
             col.operator('wm.y_set_layer_channel_blend_type', text=val).blend_type = key
 
-class YLayerChannelBlendPopover(bpy.types.Panel):
-    bl_idname = "NODE_PT_y_layer_channel_blend_popover"
-    bl_label = "Layer Channel Blend"
-    bl_description = "Layer channel blend"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "WINDOW"
-    bl_ui_units_x = 8
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        ch = context.channel
-        yp = ch.id_data.yp
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
-        if m: 
-            #layer = yp.layers[int(m.group(1))]
-            root_ch = yp.channels[int(m.group(2))]
-            #tree = get_tree(layer)
-        else: return
-
-        #self.layout.label(text=root_ch.name)
-        split = split_layout(self.layout, 0.35)
-
-        col = split.column()
-        col.label(text='Blend:')
-        col.label(text='Opacity:')
-
-        col = split.column()
-        col.prop(ch, 'blend_type', text='')
-        draw_input_prop(col, ch, 'intensity_value', text='', layer=layer)
-
-
 def draw_expandable_list_options(layout):
     col = layout.column()
     yp = get_active_ypaint_node().node_tree.yp
@@ -6525,49 +6359,14 @@ class YListItemOptionMenu(bpy.types.Menu):
     def draw(self, context):
         draw_expandable_list_options(self.layout)
 
-class YLayerChannelNormalBlendPopover(bpy.types.Panel):
-    bl_idname = "NODE_PT_y_layer_channel_normal_blend_popover"
-    bl_label = "Layer Channel Normal Blend"
-    bl_description = "Layer channel normal blend"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "WINDOW"
-    bl_ui_units_x = 8
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        ch = context.channel
-        yp = ch.id_data.yp
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
-        if m: 
-            #layer = yp.layers[int(m.group(1))]
-            root_ch = yp.channels[int(m.group(2))]
-            #tree = get_tree(layer)
-        else: return
-
-        #self.layout.label(text=root_ch.name)
-        split = split_layout(self.layout, 0.35)
-
-        col = split.column()
-        col.label(text='Blend:')
-        col.label(text='Type:')
-        col.label(text='Opacity:')
-
-        col = split.column()
-        col.prop(ch, 'normal_blend_type', text='')
-        col.prop(ch, 'normal_map_type', text='')
-        draw_input_prop(col, ch, 'intensity_value', text='', layer=layer)
-
 def has_layer_input_options(layer):
     return (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE', 'EDGE_DETECT', 'AO'} and not 
         (is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}))
 
 class YLayerChannelInputMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_input_menu"
-    bl_label = "Layer Channel Input"
-    bl_description = "Layer Channel Input"
+    bl_label = "Layer Channel Source"
+    bl_description = "Replace layer channel source"
 
     @classmethod
     def poll(cls, context):
@@ -6601,7 +6400,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         if color_ch and color_ch.enable and not color_ch.unpair_alpha and alpha_ch == ch:
             icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
 
-            if color_ch.socket_input_name == 'Alpha' and layer.type != 'GROUP':
+            if color_ch.socket_input_name == 'Alpha' and not color_ch.override and layer.type != 'GROUP':
                 label = ' Solid Value (1.0)'
             else:
                 label = 'Layer' if layer.type != 'GROUP' else 'Group'
@@ -6672,8 +6471,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
 
 class YLayerChannelInput1Menu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_input_1_menu"
-    bl_label = "Normal Channel Input"
-    bl_description = "Normal Channel Input"
+    bl_label = "Layer Normal Channel Source"
+    bl_description = "Replace layer normal channel source"
 
     @classmethod
     def poll(cls, context):
@@ -6786,7 +6585,8 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         col.operator('wm.y_copy_layer', text='Copy Layer', icon='COPYDOWN').all_layers = False
         col.operator('wm.y_copy_layer', text='Copy All Layers', icon='COPYDOWN').all_layers = True
-        col.operator('wm.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN')
+        col.operator('wm.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN').paste_blank = False
+        col.operator('wm.y_paste_layer', text='Paste Blank Layer(s)', icon='PASTEDOWN').paste_blank = True
 
         col.separator()
         col.operator('wm.y_rebake_baked_images', text='Rebake All Baked Images', icon_value=lib.get_icon('bake'))
@@ -6839,6 +6639,10 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         if is_bl_newer_than(2, 80): col.operator('wm.y_save_pack_all', text='Save/Pack All Images')
         else: col.operator('wm.y_save_pack_all', text='Save/Pack All Images', icon='FILE_TICK')
+
+        if is_bl_newer_than(2, 80):
+            col.separator()
+            col.operator('wm.y_export_layers', text='Export Layers as PSD', icon='EXPORT')
 
 class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_open_images_to_single_layer_menu"
@@ -7457,6 +7261,7 @@ class YChannelSpecialMenu(bpy.types.Menu):
         row = self.layout.row()
 
         col = row.column()
+        node = get_active_ypaint_node()
 
         if not hasattr(context, 'parent'):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
@@ -7479,12 +7284,22 @@ class YChannelSpecialMenu(bpy.types.Menu):
                 if mt[0] == 'MULTIPLIER': continue
                 col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
-        # NOTE: This menu is only visible if name of the channel has 'Alpha' on it
-        if context.parent.type == 'VALUE' and 'Alpha' in context.parent.name:
+        is_alpha_in_name = context.parent.type == 'VALUE' and 'Alpha' in context.parent.name
+        is_unconnected = is_output_unconnected(node, context.parent)
+
+        # Add extra section
+        if is_alpha_in_name or is_unconnected:
             col.separator()
             col.label(text='Extra')
+
+        # NOTE: This menu is only visible if name of the channel has 'Alpha' on it
+        if is_alpha_in_name:
             icon = 'CHECKBOX_HLT' if context.parent.is_alpha else 'CHECKBOX_DEHLT'
             col.operator('wm.y_toggle_channel_as_alpha', text='Use as Alpha Channel', icon=icon)
+
+        # NOTE: This menu is only visible when the channel output doesn't connect to anything
+        if is_unconnected:
+            col.prop(context.parent, 'disable_unconnected_warning')
 
         ypup = get_user_preferences()
         if ypup.show_experimental:
@@ -7565,7 +7380,7 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
 class YLayerTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_type_menu"
     bl_label = "Layer Type Menu"
-    bl_description = 'Layer Type Menu'
+    bl_description = 'Replace layer source'
 
     @classmethod
     def poll(cls, context):
@@ -7683,7 +7498,7 @@ class YLayerTypeMenu(bpy.types.Menu):
 class YMaskTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_mask_type_menu"
     bl_label = "Mask Type Menu"
-    bl_description = 'Mask Type Menu'
+    bl_description = 'Replace mask source'
 
     @classmethod
     def poll(cls, context):
@@ -8040,6 +7855,10 @@ def update_mask_channel_ui(self, context):
 
     mask_ch.expand_content = self.expand_content
 
+def update_ui_use_cache(self, context):
+    #print(get_addon_title(), 'UI Use Cache:', self.use_cache)
+    pass
+
 class YBakeTargetUI(bpy.types.PropertyGroup):
     expand_content : BoolProperty(
         name = 'Bake Target Options',
@@ -8301,15 +8120,6 @@ class YLayerUI(bpy.types.PropertyGroup):
     masks : CollectionProperty(type=YMaskUI)
     modifiers : CollectionProperty(type=YModifierUI)
 
-#class YLayerItemUI(bpy.types.PropertyGroup):
-#
-#    expand_subitems : BoolProperty(
-#        name = 'Expand Layer Sub-Items',
-#        description = 'Expand layer sub-items',
-#        default = False,
-#        #update = update_layer_ui_item
-#    )
-
 #def update_mat_active_yp_node(self, context):
 #    print('Update:', self.active_ypaint_node)
 
@@ -8387,8 +8197,6 @@ class YPaintUI(bpy.types.PropertyGroup):
     layer_idx : IntProperty(default=0)
     layer_ui : PointerProperty(type=YLayerUI)
 
-    #layer_items : CollectionProperty(type=YLayerItemUI)
-
     #disable_auto_temp_uv_update : BoolProperty(
     #        name = 'Disable Transformed UV Auto Update',
     #        description = "UV won't be created automatically if layer with custom offset/rotation/scale is selected.\n(This can make selecting layer faster)",
@@ -8429,8 +8237,8 @@ class YPaintUI(bpy.types.PropertyGroup):
     #random_prop : BoolProperty(default=False)
 
     # Cache timer
-    use_cache : BoolProperty(default=False)
-    depsgraph_timer : StringProperty(default='0')
+    use_cache : BoolProperty(default=False, update=update_ui_use_cache)
+    hit_node_slider_timestamp : StringProperty(default='0.0')
 
     # Cache variables
     cache_linear_problem : BoolProperty(default=False)
@@ -8438,6 +8246,21 @@ class YPaintUI(bpy.types.PropertyGroup):
     cache_missing_data : BoolProperty(default=False)
 
     any_expandable_layers : BoolProperty(default=False)
+
+    extension_update_state : EnumProperty(
+        name = 'Update State',
+        description = 'Extension update state',
+        items = (
+            ('UNAVAILABLE', 'Unavailable', ''),
+            ('AVAILABLE', 'Available', ''),
+            ('PENDING', 'Pending', '')
+        ),
+        default = 'UNAVAILABLE'
+    )
+
+    latest_version : StringProperty(
+        default= ''
+    )
 
 def add_new_ypaint_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}: return
@@ -8471,40 +8294,34 @@ def load_mat_ui_settings():
             mui.active_ypaint_node = mat.yp.active_ypaint_node
         mui.expand_content = mat.yp.expand_content
 
-def get_depsgraph_update_delta_ms():
+ui_bus_owner = object()
+
+def get_node_slider_delta_ms():
     ypui = bpy.context.window_manager.ypui
-    return (time.time() - float(ypui.depsgraph_timer)) * 1000
+    return (time.time() - float(ypui.hit_node_slider_timestamp)) * 1000
+
+def node_slider_callback(*args):
+    ypui = bpy.context.window_manager.ypui
+    ypui.hit_node_slider_timestamp = str(time.time())
+    # Enable the UI cache to improve performace until the time limit
+    if not ypui.use_cache:
+        ypui.use_cache = True
 
 @persistent
-def ypui_cache_timer_check(scene, depsgraph):
-    ypui = bpy.context.window_manager.ypui
+def yp_load_ui_msgbus_subscription(dummy):
+    # Clear owner first
+    bpy.msgbus.clear_by_owner(ui_bus_owner) 
 
-    # Check if depsgraph update contains material or shader tree
-    relevant_id_found = False
-    for upd in depsgraph.updates:
-        if type(upd.id) == bpy.types.Material:
-            relevant_id_found = True
-            break
+    # Subscribe to all socket types
+    keys = (
+        (bpy.types.NodeSocketFloat, "default_value"),
+        (bpy.types.NodeSocketFloatFactor, "default_value"),
+        (bpy.types.NodeSocketColor, "default_value"),
+    )
 
-        # Check if yp tree is in depsgraph update
-        #elif type(upd.id) == bpy.types.ShaderNodeTree:
-        #    tree = upd.id
-        #    if tree.yp.is_ypaint_node:
-        #        relevant_id_found = True
-        #        break
-
-    if not relevant_id_found: return
-
-    # NOTE: [HACK] If delta time between two depsgraph update is under 100ms, user probably tweaking a slider, 
-    # so it's better to use cache to improve performance
-    if not ypui.use_cache:
-        delta = get_depsgraph_update_delta_ms()
-        if delta < USE_CACHE_DELTA:
-            #print('Use UI Cache Enabled')
-            ypui.use_cache = True
-            return
-
-    ypui.depsgraph_timer = str(time.time())
+    # Subscribe to node slider update
+    for key in keys:
+        bpy.msgbus.subscribe_rna(key=key, owner=ui_bus_owner, args=(), notify=node_slider_callback)                
     
 @persistent
 def yp_save_ui_settings(scene):
@@ -8522,6 +8339,84 @@ def yp_load_ui_settings(scene):
 
     # Update UI
     wmui.need_update = True
+
+def get_new_extension_version_available():
+    addon_id = 'ucupaint'
+    from bl_pkg import bl_extension_ops as ext_op
+    from bl_pkg import bl_extension_utils
+
+    repos_all = ext_op.extension_repos_read(use_active_only=True)
+    repo_cache_store = ext_op.repo_cache_store_ensure()
+
+    repo_directory_supset = [repo_entry.directory for repo_entry in repos_all]
+
+    if not repos_all:
+        return None
+
+    for repo_item in repos_all:
+        if repo_item.use_cache:
+            continue
+        bl_extension_utils.pkg_repo_cache_clear(repo_item.directory)
+
+    pkg_manifest_local_all = list(repo_cache_store.pkg_manifest_from_local_ensure(
+        error_fn=None,
+        directory_subset=repo_directory_supset,
+    ))
+
+    for repo_index, pkg_manifest_remote in enumerate(repo_cache_store.pkg_manifest_from_remote_ensure(
+        error_fn=None,
+        directory_subset=repo_directory_supset,
+    )):
+        if pkg_manifest_remote is None:
+            continue
+
+        pkg_manifest_local = pkg_manifest_local_all[repo_index]
+        if pkg_manifest_local is None:
+            continue
+
+        repo_item = repos_all[repo_index]
+        for pkg_id, item_remote in pkg_manifest_remote.items():
+            item_local = pkg_manifest_local.get(pkg_id)
+            if item_local is None:
+                # Not installed.
+                continue
+            if item_remote.block:
+                # Blocked, don't touch.
+                continue
+
+            if pkg_id == addon_id and item_remote.version != item_local.version:
+                # print("available=", item_remote.version)
+                return item_remote.version
+            
+    return None
+
+def check_latest_extension_version():
+    # Only for extension platform installation
+    if not is_online() or not is_installed_through_extension_platform(): return
+    ypui = bpy.context.window_manager.ypui
+
+    try: new_ver = get_new_extension_version_available()
+    except Exception as e:
+        new_ver = None
+        print(get_addon_title()+" (Error extension version getter):",e)
+
+    if new_ver:
+        ypui.extension_update_state = 'AVAILABLE'
+        ypui.latest_version = new_ver
+    else:
+        ypui.extension_update_state = 'UNAVAILABLE'
+
+class YPendingUpdate(bpy.types.Operator):
+    bl_idname = "ext.pending_update"
+    bl_label = "Pending Update"
+    bl_description = "Pending update"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        ypui = bpy.context.window_manager.ypui
+        ypui.extension_update_state = 'PENDING'
+
+        return {'FINISHED'}
 
 def register():
 
@@ -8542,8 +8437,6 @@ def register():
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YLayerChannelBlendMenu)
     bpy.utils.register_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.register_class(YLayerChannelBlendPopover)
-    bpy.utils.register_class(YLayerChannelNormalBlendPopover)
     bpy.utils.register_class(YLayerChannelInputMenu)
     bpy.utils.register_class(YLayerChannelInput1Menu)
     bpy.utils.register_class(YLayerMaskInputMenu)
@@ -8573,7 +8466,6 @@ def register():
     bpy.utils.register_class(YMaskChannelUI)
     bpy.utils.register_class(YMaskUI)
     bpy.utils.register_class(YLayerUI)
-    #bpy.utils.register_class(YLayerItemUI)
     bpy.utils.register_class(YMaterialUI)
     bpy.utils.register_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.register_class(NODE_UL_YPaint_channels)
@@ -8582,6 +8474,7 @@ def register():
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
     bpy.utils.register_class(NODE_MT_copy_image_path_menu)
+    bpy.utils.register_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
@@ -8608,8 +8501,12 @@ def register():
     bpy.app.handlers.load_post.append(yp_load_ui_settings)
     bpy.app.handlers.save_pre.append(yp_save_ui_settings)
 
-    if is_bl_newer_than(2, 81):
-        bpy.app.handlers.depsgraph_update_post.append(ypui_cache_timer_check)
+    check_latest_extension_version()
+
+    if is_bl_newer_than(2, 80):
+        # Msgbus Subscription
+        yp_load_ui_msgbus_subscription(None)
+        bpy.app.handlers.load_post.append(yp_load_ui_msgbus_subscription)
 
 def unregister():
 
@@ -8629,8 +8526,6 @@ def unregister():
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YLayerChannelBlendMenu)
     bpy.utils.unregister_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.unregister_class(YLayerChannelBlendPopover)
-    bpy.utils.unregister_class(YLayerChannelNormalBlendPopover)
     bpy.utils.unregister_class(YLayerChannelInputMenu)
     bpy.utils.unregister_class(YLayerChannelInput1Menu)
     bpy.utils.unregister_class(YLayerMaskInputMenu)
@@ -8660,7 +8555,6 @@ def unregister():
     bpy.utils.unregister_class(YMaskChannelUI)
     bpy.utils.unregister_class(YMaskUI)
     bpy.utils.unregister_class(YLayerUI)
-    #bpy.utils.unregister_class(YLayerItemUI)
     bpy.utils.unregister_class(YMaterialUI)
     bpy.utils.unregister_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.unregister_class(NODE_UL_YPaint_channels)
@@ -8669,6 +8563,7 @@ def unregister():
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
     bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
+    bpy.utils.unregister_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
@@ -8692,6 +8587,7 @@ def unregister():
     bpy.app.handlers.load_post.remove(yp_load_ui_settings)
     bpy.app.handlers.save_pre.remove(yp_save_ui_settings)
 
-    if is_bl_newer_than(2, 81):
-        bpy.app.handlers.depsgraph_update_post.remove(ypui_cache_timer_check)
-
+    if is_bl_newer_than(2, 80):
+        # Remove msgbus subscription
+        bpy.msgbus.clear_by_owner(ui_bus_owner) 
+        bpy.app.handlers.load_post.remove(yp_load_ui_msgbus_subscription)

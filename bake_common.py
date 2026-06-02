@@ -3,7 +3,7 @@ from bpy.props import *
 from .common import *
 from .input_outputs import *
 from .node_connections import *
-from . import lib, Layer, ImageAtlas, UDIM, image_ops, Mask
+from . import lib, Layer, ImageAtlas, UDIM, image_ops, Mask, vector_displacement, vector_displacement_lib
 
 BL28_HACK = True
 
@@ -92,38 +92,6 @@ def get_compositor_output_node(tree):
     else: n = tree.nodes.new('CompositorNodeComposite')
 
     return n
-
-def get_scene_bake_multires(scene):
-    return scene.render.bake.use_multires if is_bl_newer_than(5) else scene.render.use_bake_multires
-
-def get_scene_bake_clear(scene):
-    return scene.render.bake.use_clear if is_bl_newer_than(5) else scene.render.use_bake_clear
-
-def get_scene_render_bake_type(scene):
-    return scene.render.bake.type if is_bl_newer_than(5) else scene.render.bake_type
-
-def get_scene_bake_margin(scene):
-    return scene.render.bake.margin if is_bl_newer_than(5) else scene.render.bake_margin
-
-def set_scene_bake_multires(scene, value):
-    if not is_bl_newer_than(5):
-        scene.render.use_bake_multires = value
-    else: scene.render.bake.use_multires = value
-
-def set_scene_bake_clear(scene, value):
-    if not is_bl_newer_than(5):
-        scene.render.use_bake_clear = value
-    else: scene.render.bake.use_clear = value
-
-def set_scene_render_bake_type(scene, value):
-    if not is_bl_newer_than(5):
-        scene.render.bake_type = value
-    else: scene.render.bake.type = value
-
-def set_scene_bake_margin(scene, value):
-    if not is_bl_newer_than(5):
-        scene.render.bake_margin = value
-    else: scene.render.bake.margin = value
 
 def is_there_any_missmatched_attribute_types(objs):
     # Get number of attributes founds
@@ -249,6 +217,7 @@ def remember_before_bake(yp=None, mat=None):
     book['ori_normal_space'] = scene.render.bake.normal_space
     book['ori_simplify'] = scene.render.use_simplify
     book['ori_device'] = scene.cycles.device
+    book['ori_use_motion_blur'] = scene.render.use_motion_blur
     if hasattr(scene.render.bake, 'use_pass_direct'): book['ori_use_pass_direct'] = scene.render.bake.use_pass_direct
     if hasattr(scene.render.bake, 'use_pass_indirect'): book['ori_use_pass_indirect'] = scene.render.bake.use_pass_indirect
     if hasattr(scene.render.bake, 'use_pass_diffuse'): book['ori_use_pass_diffuse'] = scene.render.bake.use_pass_diffuse
@@ -299,6 +268,12 @@ def remember_before_bake(yp=None, mat=None):
     if active_render_uvs:
         book['ori_active_render_uv'] = active_render_uvs[0].name
 
+    # Remember if 3d viewport is in local view
+    space = bpy.context.space_data
+    if space.type == 'VIEW_3D':
+        book['ori_space_local_view'] = space.local_view
+        book['ori_space_view_matrix'] = space.region_3d.view_matrix.copy()
+
     # Remember scene objects
     if is_bl_newer_than(2, 80):
         book['ori_hide_selects'] = [o for o in bpy.context.view_layer.objects if o.hide_select]
@@ -313,6 +288,11 @@ def remember_before_bake(yp=None, mat=None):
         book['ori_layer_col_exclude'] = [lc for lc in layer_cols if lc.exclude]
         book['ori_col_hide_viewport'] = [c for c in bpy.data.collections if c.hide_viewport]
         book['ori_col_hide_render'] = [c for c in bpy.data.collections if c.hide_render]
+
+        # Remember space data
+        if space.type == 'VIEW_3D':
+            book['ori_space_show_object_viewport_mesh'] = space.show_object_viewport_mesh
+            book['ori_space_show_object_select_mesh'] = space.show_object_select_mesh
 
     else: 
         book['ori_hide_selects'] = [o for o in scene.objects if o.hide_select]
@@ -374,6 +354,67 @@ def add_active_render_uv_node(tree, active_render_uv_name):
         if n.type == 'GROUP' and n.node_tree and not n.node_tree.yp.is_ypaint_node:
             add_active_render_uv_node(n.node_tree, active_render_uv_name)
 
+def realize_particle_instances(objs):
+
+    space = bpy.context.space_data
+
+    # Remember active object
+    ori_active_object = bpy.context.object
+
+    # Make sure it's in global view
+    ori_local_view = False
+    ori_view_matrix = None
+    if space.type == 'VIEW_3D' and space.local_view:
+        ori_local_view = True
+        ori_view_matrix = space.region_3d.view_matrix.copy()
+
+        try: bpy.ops.view3d.localview()
+        except: pass
+
+    realized_objs = []
+
+    # Check for particles
+    for obj in objs:
+        instance_found = False
+        for ps in obj.particle_systems:
+            if ps.settings.render_type in {'OBJECT', 'COLLECTION'}:
+                instance_found = True
+                break
+
+        if instance_found:
+
+            # Select object
+            if is_bl_newer_than(2, 80):
+                obj.hide_viewport = False
+            set_object_hide(obj, False)
+            set_object_select(obj, True)
+            set_active_object(obj)
+
+            # Need to check current scene objects since they're will be compared to get realized objects
+            cur_objs = [o for o in get_scene_objects()]
+
+            # NOTE: HACK: Move object sometimes needed before realizing the instance
+            bpy.ops.transform.translate()
+
+            # Make hair instance real
+            try: bpy.ops.object.duplicates_make_real()
+            except: print('EXCEPTION: Particles in object "'+obj.name+'" cannot be realized!')
+
+            # Get realized particle objects
+            realized_objs.extend([o for o in get_scene_objects() if o not in cur_objs])
+
+    # Recover active object
+    if bpy.context.object != ori_active_object:
+        set_active_object(ori_active_object)
+
+    # Recover local view
+    if ori_local_view:
+        try: bpy.ops.view3d.localview()
+        except: pass
+        space.region_3d.view_matrix = ori_view_matrix
+
+    return realized_objs
+
 def prepare_other_objs_colors(yp, other_objs):
 
     other_mats = []
@@ -386,6 +427,10 @@ def prepare_other_objs_colors(yp, other_objs):
 
     valid_bsdf_types = ['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']
 
+    # Realize particle instances
+    other_temp_objs = realize_particle_instances(other_objs)
+    other_objs.extend(other_temp_objs)
+
     for o in other_objs:
         # Set new material if there's no material
         if len(o.data.materials) == 0:
@@ -396,15 +441,15 @@ def prepare_other_objs_colors(yp, other_objs):
                 if m == None:
                     temp_mat = get_temp_default_material()
                     o.data.materials[i] = temp_mat
-                elif not m.use_nodes:
+                elif not is_mat_use_nodes(m):
                     if m not in ori_mat_no_nodes:
                         ori_mat_no_nodes.append(m)
-                    m.use_nodes = True
+                    if hasattr(m, 'use_nodes'): m.use_nodes = True
 
         for mat in o.data.materials:
             if mat == None: continue
             if mat in other_mats: continue
-            if not mat.use_nodes: continue
+            if not is_mat_use_nodes(mat): continue
 
             # Get material output
             output = get_material_output(mat)
@@ -421,30 +466,40 @@ def prepare_other_objs_colors(yp, other_objs):
             # Check for possible sockets available on the bsdf node
             if not socket:
                 # Search for main bsdf
-                bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types)
+                bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types, include_any=True)
 
-                if bsdf_node.type == 'BSDF_PRINCIPLED':
-                    socket = bsdf_node.inputs['Base Color']
-
-                elif 'Color' in bsdf_node.inputs:
-                    socket = bsdf_node.inputs['Color']
-
-                if socket:
-                    if len(socket.links) == 0:
-                        if default == None:
-                            default = socket.default_value
+                if bsdf_node:
+                    if bsdf_node.type not in valid_bsdf_types:
+                        # Get non bsdf input
+                        for outp in bsdf_node.outputs:
+                            if not outp.enabled: continue
+                            for link in outp.links:
+                                if link.to_socket == output.inputs[0]:
+                                    socket = link.from_socket
                     else:
-                        socket = socket.links[0].from_socket
 
-                # Get alpha socket
-                alpha_socket = bsdf_node.inputs.get('Alpha')
-                if alpha_socket:
+                        if bsdf_node.type == 'BSDF_PRINCIPLED':
+                            socket = bsdf_node.inputs['Base Color']
 
-                    if len(alpha_socket.links) == 0:
-                        alpha_default = alpha_socket.default_value
-                        alpha_socket = None
-                    else:
-                        alpha_socket = alpha_socket.links[0].from_socket
+                        elif 'Color' in bsdf_node.inputs:
+                            socket = bsdf_node.inputs['Color']
+
+                        if socket:
+                            if len(socket.links) == 0:
+                                if default == None:
+                                    default = socket.default_value
+                            else:
+                                socket = socket.links[0].from_socket
+
+                        # Get alpha socket
+                        alpha_socket = bsdf_node.inputs.get('Alpha')
+                        if alpha_socket:
+
+                            if len(alpha_socket.links) == 0:
+                                alpha_default = alpha_socket.default_value
+                                alpha_socket = None
+                            else:
+                                alpha_socket = alpha_socket.links[0].from_socket
 
             # Append objects and materials if socket is found
             if socket or default:
@@ -454,7 +509,7 @@ def prepare_other_objs_colors(yp, other_objs):
                 other_alpha_sockets.append(alpha_socket)
                 other_alpha_defaults.append(alpha_default)
 
-    return other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes
+    return other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes, other_temp_objs
 
 def prepare_other_objs_channels(yp, other_objs):
     ch_other_objects = []
@@ -466,6 +521,10 @@ def prepare_other_objs_channels(yp, other_objs):
     ch_other_alpha_defaults = []
 
     ori_mat_no_nodes = []
+
+    # Realize particle instances
+    other_temp_objs = realize_particle_instances(other_objs)
+    other_objs.extend(other_temp_objs)
 
     valid_bsdf_types = ['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']
 
@@ -494,15 +553,15 @@ def prepare_other_objs_channels(yp, other_objs):
                     if m == None:
                         temp_mat = get_temp_default_material()
                         o.data.materials[i] = temp_mat
-                    elif not m.use_nodes:
+                    elif not is_mat_use_nodes(m):
                         if m not in ori_mat_no_nodes:
                             ori_mat_no_nodes.append(m)
-                        m.use_nodes = True
+                        if hasattr(m, 'use_nodes'): m.use_nodes = True
 
             for mat in o.data.materials:
                 if mat == None: continue
                 #if mat in mats: continue
-                if not mat.use_nodes: continue
+                if not is_mat_use_nodes(mat): continue
 
                 # Get material output
                 output = get_material_output(mat)
@@ -537,47 +596,61 @@ def prepare_other_objs_channels(yp, other_objs):
 
                 # Check for possible sockets available on the bsdf node
                 if not socket:
+                    # Color channel can take any node, not only bsdf
+                    include_any_node = ch.name == 'Color'
+
                     # Search for main bsdf
-                    bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types)
+                    bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types, include_any=include_any_node)
 
-                    if ch.name == 'Color' and bsdf_node.type == 'BSDF_PRINCIPLED':
-                        socket = bsdf_node.inputs['Base Color']
+                    if bsdf_node:
 
-                    elif ch.name in bsdf_node.inputs:
-                        socket = bsdf_node.inputs[ch.name]
-
-                    if socket:
-                        if len(socket.links) == 0:
-                            if default == None:
-                                default = socket.default_value
-
-                                # Blender 4.0 has weight/strength value for some inputs
-                                if is_bl_newer_than(4):
-                                    input_prefixes = ['Subsurface', 'Coat', 'Sheen', 'Emission']
-                                    for prefix in input_prefixes:
-                                        if socket.name.startswith(prefix):
-
-                                            if socket.name.startswith('Emission'):
-                                                weight_socket_name = 'Emission Strength'
-                                            else: weight_socket_name = prefix + ' Weight'
-
-                                            # NOTE: Only set the default weight if there's no dedicated channel for weight in destination yp
-                                            if weight_socket_name not in yp.channels and weight_socket_name != socket.name:
-                                                weight_socket = bsdf_node.inputs.get(weight_socket_name)
-                                                if weight_socket:
-                                                    default_weight = weight_socket.default_value
+                        if bsdf_node.type not in valid_bsdf_types:
+                            # Get non bsdf input
+                            for outp in bsdf_node.outputs:
+                                if not outp.enabled: continue
+                                for link in outp.links:
+                                    if link.to_socket == output.inputs[0]:
+                                        socket = link.from_socket
                         else:
-                            socket = socket.links[0].from_socket
 
-                    # Get alpha socket
-                    alpha_socket = bsdf_node.inputs.get('Alpha')
-                    if alpha_socket:
+                            if ch.name == 'Color' and bsdf_node.type == 'BSDF_PRINCIPLED':
+                                socket = bsdf_node.inputs['Base Color']
 
-                        if len(alpha_socket.links) == 0:
-                            alpha_default = alpha_socket.default_value
-                            alpha_socket = None
-                        else:
-                            alpha_socket = alpha_socket.links[0].from_socket
+                            elif ch.name in bsdf_node.inputs:
+                                socket = bsdf_node.inputs[ch.name]
+
+                            if socket:
+                                if len(socket.links) == 0:
+                                    if default == None:
+                                        default = socket.default_value
+
+                                        # Blender 4.0 has weight/strength value for some inputs
+                                        if is_bl_newer_than(4):
+                                            input_prefixes = ['Subsurface', 'Coat', 'Sheen', 'Emission']
+                                            for prefix in input_prefixes:
+                                                if socket.name.startswith(prefix):
+
+                                                    if socket.name.startswith('Emission'):
+                                                        weight_socket_name = 'Emission Strength'
+                                                    else: weight_socket_name = prefix + ' Weight'
+
+                                                    # NOTE: Only set the default weight if there's no dedicated channel for weight in destination yp
+                                                    if weight_socket_name not in yp.channels and weight_socket_name != socket.name:
+                                                        weight_socket = bsdf_node.inputs.get(weight_socket_name)
+                                                        if weight_socket:
+                                                            default_weight = weight_socket.default_value
+                                else:
+                                    socket = socket.links[0].from_socket
+
+                            # Get alpha socket
+                            alpha_socket = bsdf_node.inputs.get('Alpha')
+                            if alpha_socket:
+
+                                if len(alpha_socket.links) == 0:
+                                    alpha_default = alpha_socket.default_value
+                                    alpha_socket = None
+                                else:
+                                    alpha_socket = alpha_socket.links[0].from_socket
 
                 # Append objects and materials if socket is found
                 if socket or default:
@@ -599,7 +672,7 @@ def prepare_other_objs_channels(yp, other_objs):
         ch_other_alpha_sockets.append(alpha_sockets)
         ch_other_alpha_defaults.append(alpha_defaults)
 
-    return ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes
+    return ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes, other_temp_objs
 
 def recover_other_objs_channels(other_objs, ori_mat_no_nodes):
     for o in other_objs:
@@ -611,7 +684,7 @@ def recover_other_objs_channels(other_objs, ori_mat_no_nodes):
                     o.data.materials.pop(index=i)
 
     for m in ori_mat_no_nodes:
-        m.use_nodes = False
+        if hasattr(m, 'use_nodes'): m.use_nodes = False
 
     remove_temp_default_material()
 
@@ -629,9 +702,6 @@ def prepare_bake_settings(
     ypui = bpy.context.window_manager.ypui
     wmyp = bpy.context.window_manager.ypprops
 
-    # Hack function on depsgraph update can cause crash, so halt it before baking
-    wmyp.halt_hacks = True
-
     scene.render.engine = 'CYCLES'
     scene.cycles.samples = samples
     scene.cycles.shading_system = use_osl
@@ -646,6 +716,7 @@ def prepare_bake_settings(
     cage_object = bpy.data.objects.get(cage_object_name) if cage_object_name != '' else None
     #scene.render.bake.use_cage = True if cage_object else False
     scene.render.bake.use_cage = use_cage
+    scene.render.use_motion_blur = False
     if cage_object: 
         if is_bl_newer_than(2, 80): scene.render.bake.cage_object = cage_object
         else: scene.render.bake.cage_object = cage_object.name
@@ -794,6 +865,19 @@ def prepare_bake_settings(
                     mod.show_viewport = False
                     book['obj_mods_lib'][obj.name]['disabled_viewport_mods'].append(mod.name)
 
+    space = bpy.context.space_data
+
+    if space.type == 'VIEW_3D':
+        # Make sure mesh objects are visible
+        if is_bl_newer_than(2, 80):
+            space.show_object_viewport_mesh = True
+            space.show_object_select_mesh = True
+
+        # Use global view
+        if space.local_view:
+            try: bpy.ops.view3d.localview()
+            except: pass
+
     # Disable auto temp uv update
     #ypui.disable_auto_temp_uv_update = True
 
@@ -817,7 +901,7 @@ def prepare_bake_settings(
         # Remember other material active nodes
         active_node_names = []
         for m in o.data.materials:
-            if m and m.use_nodes and m.node_tree.nodes.active:
+            if m and is_mat_use_nodes(m) and m.node_tree.nodes.active:
                 active_node_names.append(m.node_tree.nodes.active.name)
                 continue
             active_node_names.append('')
@@ -839,7 +923,7 @@ def prepare_bake_settings(
                     add_active_render_uv_node(mat.node_tree, active_render_uv.name)
 
         for m in o.data.materials:
-            if not m or not m.use_nodes: continue
+            if not m or not is_mat_use_nodes(m): continue
 
             # Create temporary image texture node to make sure
             # other materials inside single object did not bake to their active image
@@ -877,6 +961,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene.render.bake.use_clear = book['ori_use_clear']
     scene.render.bake.normal_space = book['ori_normal_space']
     scene.render.use_simplify = book['ori_simplify']
+    scene.render.use_motion_blur = book['ori_use_motion_blur']
     scene.cycles.device = book['ori_device']
     if hasattr(scene.render.bake, 'use_pass_direct'): scene.render.bake.use_pass_direct = book['ori_use_pass_direct']
     if hasattr(scene.render.bake, 'use_pass_indirect'): scene.render.bake.use_pass_indirect = book['ori_use_pass_indirect']
@@ -988,6 +1073,13 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
             if o in book['ori_hide_selects']:
                 o.hide_select = True
             else: o.hide_select = False
+
+        # Recover space data
+        space = bpy.context.space_data
+        if space.type == 'VIEW_3D':
+            space.show_object_viewport_mesh = book['ori_space_show_object_viewport_mesh']
+            space.show_object_select_mesh = book['ori_space_show_object_select_mesh']
+
     else:
         for o in scene.objects:
             if o in book['ori_active_selected_objs']:
@@ -1013,7 +1105,14 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
 
         area.spaces[0].use_image_pin = book['editor_pins'][i]
 
-    # Recover active object
+    # Recover local view
+    space = bpy.context.space_data
+    if space.type == 'VIEW_3D':
+        if book['ori_space_local_view'] and not space.local_view:
+            try: bpy.ops.view3d.localview()
+            except: pass
+            if 'ori_space_view_matrix' in book:
+                space.region_3d.view_matrix = book['ori_space_view_matrix']
 
     # Recover ypui
     #ypui.disable_auto_temp_uv_update = book['ori_disable_temp_uv']
@@ -1045,7 +1144,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
             o = bpy.data.objects.get(o_name)
             if not o: continue
             for j, m in enumerate(o.data.materials):
-                if not m or not m.use_nodes: continue
+                if not m or not is_mat_use_nodes(m): continue
                 active_node = m.node_tree.nodes.get(book['ori_mat_objs_active_nodes'][i][j])
                 m.node_tree.nodes.active = active_node
 
@@ -1054,9 +1153,6 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
                 if temp: m.node_tree.nodes.remove(temp)
                 #act_uv = m.node_tree.nodes.get(ACTIVE_UV_NODE)
                 #if act_uv: m.node_tree.nodes.remove(act_uv)
-
-    # Bring back the hack functions
-    wmyp.halt_hacks = False
 
 def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     book = {}
@@ -1440,15 +1536,13 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
-    # Create new plane
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-    plane_obj = create_plane_on_object_mode()
-
+    # Create a plane for baking
+    plane_obj = create_plane_object()
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=0, bake_device=bake_device)
 
     # Create temporary material
     mat = bpy.data.materials.new('__TEMP__')
-    mat.use_nodes = True
+    if hasattr(mat, 'use_nodes'): mat.use_nodes = True
     plane_obj.active_material = mat
 
     # Create nodes
@@ -1514,7 +1608,7 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
             pass
 
             # TODO: Bake straight over on blurred rgb
-            pass
+            straight_over = None
 
             # TODO: Copy result to main image
             #copy_image_channel_pixels(image_copy, image, 3, 3)
@@ -1529,7 +1623,7 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
     # Remove temp datas
     print('BLUR: Removing temporary data of blur pass')
     if alpha_aware:
-        if straight_over.node_tree.users == 1:
+        if straight_over and straight_over.node_tree.users == 1:
             remove_datablock(bpy.data.node_groups, straight_over.node_tree, user=straight_over, user_prop='node_tree')
 
     if blur.node_tree.users == 1:
@@ -1549,20 +1643,50 @@ def noise_blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_devi
 
     return image
 
-def create_plane_on_object_mode():
+def create_plane_object():
+    # Create the mesh
+    mesh = bpy.data.meshes.new("Plane")
+    obj = bpy.data.objects.new("Plane", mesh)
+    link_object(bpy.context.scene, obj)
+    
+    # Define the geometry
+    verts = [(-1.0, -1.0, 0.0), (1.0, -1.0, 0.0), (1.0, 1.0, 0.0), (-1.0, 1.0, 0.0)]
+    faces = [(0, 1, 2, 3)]
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
 
-    if not is_bl_newer_than(2, 77):
-        bpy.ops.mesh.primitive_plane_add()
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=0.0)
-        bpy.ops.object.mode_set(mode='OBJECT')
-    else: 
-        bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
+    # Create new UVmap
+    uv_layers = get_uv_layers(obj)
+    uv_layer = uv_layers.new(name="UVMap")
+    
+    # Set UV coordinates
+    uv_coords = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    uv_layer = mesh.uv_layers[-1] # Getting the uv layer again for Blender 2.7x compatibility
+    for i, loop in enumerate(mesh.loops):
+        uv_layer.data[loop.index].uv = uv_coords[i]
 
-    if not is_bl_newer_than(2, 80):
-        return bpy.context.scene.objects.active
+    return obj
 
-    return bpy.context.view_layer.objects.active
+def flip_mesh_normals(obj):
+    if not obj or obj.type != 'MESH': return
+
+    # Create BMesh from object data
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+
+    if is_bl_newer_than(2, 80):
+        for face in bm.faces:
+            face.normal_flip()
+    else:
+        for face in bm.faces:
+            bmesh.utils.face_flip(face)
+
+    # Write changes back to the mesh
+    bm.to_mesh(obj.data)
+    bm.free()
+    
+    # Update viewport to show changes
+    obj.data.update()
 
 def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False):
     T = time.time()
@@ -1574,15 +1698,13 @@ def fxaa_image(image, alpha_aware=True, bake_device='CPU', first_tile_only=False
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
-    # Create new plane
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-    plane_obj = create_plane_on_object_mode()
-
+    # Create a plane for baking
+    plane_obj = create_plane_object()
     prepare_bake_settings(book, [plane_obj], samples=1, margin=0, bake_device=bake_device)
 
     # Create temporary material
     mat = bpy.data.materials.new('__TEMP__')
-    mat.use_nodes = True
+    if hasattr(mat, 'use_nodes'): mat.use_nodes = True
     plane_obj.active_material = mat
 
     # Create nodes
@@ -2152,6 +2274,43 @@ def get_bake_properties_from_self(self):
 
     return bprops
 
+def any_object_space_normal(yp):
+    # NOTE: Height and normal channel are currently the same thing
+    norm_root_ch = get_root_height_channel(yp)
+    if not norm_root_ch: return False
+
+    for layer in yp.layers:
+        if not layer.enable or layer.type == 'GROUP': continue
+
+        norm_ch = get_height_channel(layer)
+        if not norm_ch: continue
+        if not get_channel_enabled(norm_ch, layer, norm_root_ch): continue
+
+        if norm_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and norm_ch.normal_space == 'OBJECT':
+            return True
+
+    return False
+
+def get_posed_armatures_from_objects(objs):
+    armature_objs = []
+    for obj in objs:
+        for mod in obj.modifiers:
+            if mod.type == 'ARMATURE' and mod.object and mod.object.data.pose_position == 'POSE' and mod.object not in armature_objs:
+                armature_objs.append(mod.object)
+
+    return armature_objs
+
+def set_related_armatures_to_rest_pose(objs):
+    armature_objs = get_posed_armatures_from_objects(objs)
+    for armature_obj in armature_objs:
+        armature_obj.data.pose_position = 'REST'
+
+    return armature_objs
+
+def recover_rested_armature_objects(armature_objs):
+    for armature_obj in armature_objs:
+        armature_obj.data.pose_position = 'POSE'
+
 def bake_channel(
         uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, 
         aa_level=1, force_use_udim=False, tilenums=[], interpolation='Linear', 
@@ -2246,7 +2405,9 @@ def bake_channel(
     bsdf = None
     norm = None
     if root_ch.type == 'NORMAL':
-        if is_bl_newer_than(2, 80):
+
+        # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF
+        if is_bl_newer_than(2, 80) and not any_object_space_normal(yp):
             # Use principled bsdf for Blender 2.80+
             bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
         else:
@@ -2256,10 +2417,6 @@ def bake_channel(
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex
-
-    #disp_from_socket = None
-    #for l in output.inputs['Displacement'].links:
-    #    disp_from_socket = l.from_socket
 
     # Original displacement connection
     ori_disp_from_node = ''
@@ -2936,6 +3093,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     # Get other objects for other object baking
     other_objs = []
     
+    # To hold temporary objects
+    temp_objs = []
+    instanced_temp_objs = []
+
     if bprops.type.startswith('OTHER_OBJECT_'):
 
         # Get other objects based on selected objects with different material
@@ -2967,10 +3128,15 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                             other_objs.append(o)
 
         if bprops.type == 'OTHER_OBJECT_EMISSION':
-            other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_colors(yp, other_objs)
+            other_mats, other_sockets, other_defaults, other_alpha_sockets, other_alpha_defaults, ori_mat_no_nodes, instanced_temp_objs = prepare_other_objs_colors(yp, other_objs)
 
         elif bprops.type == 'OTHER_OBJECT_CHANNELS':
-            ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes = prepare_other_objs_channels(yp, other_objs)
+            ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ch_other_default_weights, ch_other_alpha_sockets, ch_other_alpha_defaults, ori_mat_no_nodes, instanced_temp_objs = prepare_other_objs_channels(yp, other_objs)
+
+        else: instanced_temp_objs = realize_particle_instances(other_objs)
+
+        # Add temporary instanced objects to other objects list
+        other_objs.extend(instanced_temp_objs)
 
         if not other_objs:
             if overwrite_img:
@@ -3015,9 +3181,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             height_root_ch.enable_subdiv_setup = True
             subdiv_setup_changes = True
 
-    # To hold temporary objects
-    temp_objs = []
-
     # Sometimes Cavity bake will create temporary objects
     if (bprops.type == 'CAVITY' and (bprops.subsurf_influence or bprops.use_baked_disp)):
 
@@ -3036,7 +3199,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             tanimage, bitimage = vector_displacement.get_tangent_bitangent_images(objs[0], bprops.uv_map)
 
             # Duplicate object
-            objs = temp_objs = [get_merged_mesh_objects(scene, objs, True, disable_problematic_modifiers=False)]
+            temp_objs.extend([get_merged_mesh_objects(scene, objs, True, disable_problematic_modifiers=False)])
+            objs = temp_objs
 
             # Use VDM loader geometry nodes
             # NOTE: Geometry nodes currently does not support UDIM, so using UDIM will cause wrong bake result
@@ -3052,19 +3216,21 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             remove_datablock(bpy.data.images, combined_vdm_image)
 
         else:
-            objs = temp_objs = get_duplicated_mesh_objects(scene, objs, True)
+            temp_objs.extend(get_duplicated_mesh_objects(scene, objs, True))
+            objs = temp_objs
 
     # Join objects then extend with other objects
     elif bprops.type.startswith('OTHER_OBJECT_'):
         if len(objs) > 1:
             objs = [get_merged_mesh_objects(scene, objs)]
-            temp_objs = objs.copy()
+            temp_objs.extend(objs.copy())
 
         objs.extend(other_objs)
 
     # Join objects if the number of objects is higher than one
-    elif not bprops.type.startswith('MULTIRES_') and len(objs) > 1 and not is_join_objects_problematic(yp):
-        objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
+    elif not bprops.type.startswith('MULTIRES_') and bprops.type not in {'SELECTED_VERTICES'} and len(objs) > 1 and not is_join_objects_problematic(yp):
+        temp_objs.extend([get_merged_mesh_objects(scene, objs, True)])
+        objs = temp_objs
 
     fill_mode = 'FACE'
     obj_vertex_indices = {}
@@ -3073,12 +3239,19 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             fill_mode = 'VERTEX'
 
         if is_bl_newer_than(2, 80):
-            edit_objs = [o for o in objs if o.mode == 'EDIT']
+            if obj.mode == 'EDIT':
+                edit_objs = [o for o in objs if o.mode == 'EDIT']
+            else: edit_objs = objs
         else: edit_objs = [obj]
 
         for ob in edit_objs:
             mesh = ob.data
-            bm = bmesh.from_edit_mesh(mesh)
+
+            if obj.mode == 'EDIT':
+                bm = bmesh.from_edit_mesh(mesh)
+            else:
+                bm = bmesh.new()
+                bm.from_mesh(mesh)
 
             bm.verts.ensure_lookup_table()
             #bm.edges.ensure_lookup_table()
@@ -3099,7 +3272,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
             obj_vertex_indices[ob.name] = v_indices
 
-        bpy.ops.object.mode_set(mode = 'OBJECT')
+        if obj.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode = 'OBJECT')
         for ob in objs:
             try:
                 vcol = new_vertex_color(ob, TEMP_VCOL, color_fill=(0.0, 0.0, 0.0, 1.0))
@@ -3109,12 +3283,18 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         bpy.ops.mesh.y_vcol_fill(color_option ='WHITE')
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
+    # Get color alpha channel pair
+    root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+
     # Check if there's channel using alpha
     alpha_outp = None
     for c in yp.channels:
         if c.enable_alpha:
             alpha_outp = node.outputs.get(c.name + io_suffix['ALPHA'])
             if alpha_outp: break
+
+    if not alpha_outp and root_alpha_ch:
+        alpha_outp = node.outputs.get(root_alpha_ch.name)
 
     # Prepare bake settings
     if bprops.type == 'AO':
@@ -3226,30 +3406,14 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             if main_uv and straight_uv:
                 flow_vcol = get_flow_vcol(ob, main_uv, straight_uv)
 
+    # Check if doing actual flip normals operator is needed
+    need_flip_normals = bprops.flip_normals and (bprops.type != 'AO' or alpha_outp or not is_bl_newer_than(2, 80))
+
     # Flip normals setup
-    if bprops.flip_normals:
-        #ori_mode[obj.name] = obj.mode
-        if is_bl_newer_than(2, 80):
-            # Deselect other objects first
-            for o in other_objs:
-                o.select_set(False)
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.flip_normals()
-            bpy.ops.object.mode_set(mode='OBJECT')
-            # Reselect other objects
-            for o in other_objs:
-                o.select_set(True)
-        else:
-            for ob in objs:
-                if ob in other_objs: continue
-                scene.objects.active = ob
-                bpy.ops.object.mode_set(mode='EDIT')
-                bpy.ops.mesh.reveal()
-                bpy.ops.mesh.select_all(action='SELECT')
-                bpy.ops.mesh.flip_normals()
-                bpy.ops.object.mode_set(mode='OBJECT')
+    if need_flip_normals:
+        for ob in objs:
+            if ob in other_objs: continue
+            flip_mesh_normals(ob)
 
     # More setup
     ori_mods = {}
@@ -3279,9 +3443,6 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             for m in get_problematic_modifiers(ob):
                 m.show_render = False
 
-        ori_mat_ids[ob.name] = []
-        ori_loop_locs[ob.name] = []
-
         if bprops.subsurf_influence and not bprops.use_baked_disp and not bprops.type.startswith('MULTIRES_'):
             for m in ob.modifiers:
                 if m.type == 'MULTIRES':
@@ -3289,7 +3450,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     m.render_levels = m.total_levels
                     break
 
-        if len(ob.data.materials) > 1:
+        # NOTE: This code can freeze blender if there are too many polygons, but it's needed for Blender 2.83 and lower
+        ori_mat_ids[ob.name] = []
+        ori_loop_locs[ob.name] = []
+        if not is_bl_newer_than(2, 90) and len(ob.data.materials) > 1:
             active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat]
             if active_mat_id: active_mat_id = active_mat_id[0]
             else: continue
@@ -3366,6 +3530,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             else:
                 mat.node_tree.links.new(src.outputs['AO'], bsdf.inputs[0])
                 mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+                if bprops.flip_normals:
+                    src.inside = True
 
     elif bprops.type == 'POINTINESS':
         src = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
@@ -3473,7 +3640,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         # Get all other materials
         for oo in other_objs:
             for m in oo.data.materials:
-                if m == None or not m.use_nodes: continue
+                if m == None or not is_mat_use_nodes(m): continue
                 if m not in all_other_mats:
                     all_other_mats.append(m)
 
@@ -3555,6 +3722,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
             root_ch = yp.channels[idx]
             image_name += ' ' + yp.channels[idx].name
+
+            # Skip alpha channel since it will be included into color channel
+            if idx > 0  and root_ch == root_alpha_ch:
+                continue
 
             # Hide irrelevant objects
             for oo in other_objs:
@@ -3686,6 +3857,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         tex.image = image
         mat.node_tree.nodes.active = tex
 
+        print('BAKE TO LAYER: Baking "'+image_name+'"...')
+
         # Bake!
         try:
             if bprops.type.startswith('MULTIRES_'):
@@ -3730,53 +3903,71 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             alpha_found = False
             if bprops.type == 'OTHER_OBJECT_CHANNELS':
 
-                # Set emission connection
-                for j, m in enumerate(ch_other_mats[idx]):
-                    alpha_default = ch_other_alpha_defaults[idx][j]
-                    alpha_socket = ch_other_alpha_sockets[idx][j]
+                # Check the need for alpha baking
+                # NOTE: Only check for alpha with the main channel (commonly a color channel)
+                if idx == min(ch_ids):
+                    for j, m in enumerate(ch_other_mats[idx]):
+                        alpha_default = ch_other_alpha_defaults[idx][j]
+                        alpha_socket = ch_other_alpha_sockets[idx][j]
 
-                    temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
-                    if not temp_emi: continue
-
-                    if alpha_socket:
-                        alpha_found = True
-                        m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
-
-                    else:
-                        if alpha_default != 1.0:
+                        if alpha_socket or alpha_default != 1.0:
                             alpha_found = True
+                            break
 
-                        # Set alpha_default
-                        if type(alpha_default) == float:
-                            temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
-                        else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+                # Set emission connection
+                if alpha_found:
+                    for j, m in enumerate(ch_other_mats[idx]):
+                        alpha_default = ch_other_alpha_defaults[idx][j]
+                        alpha_socket = ch_other_alpha_sockets[idx][j]
 
-                        # Break link
-                        for l in temp_emi.inputs[0].links:
-                            m.node_tree.links.remove(l)
+                        temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                        if not temp_emi: continue
+
+                        if alpha_socket:
+                            m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+
+                        else:
+                            # Set alpha_default
+                            if type(alpha_default) == float:
+                                temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
+                            else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+
+                            # Break link
+                            for l in temp_emi.inputs[0].links:
+                                m.node_tree.links.remove(l)
 
             elif bprops.type == 'OTHER_OBJECT_EMISSION':
 
-                # Set emission connection
+                # Check the need for alpha baking
                 for i, m in enumerate(other_mats):
                     alpha_default = other_alpha_defaults[i]
                     alpha_socket = other_alpha_sockets[i]
 
-                    temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
-                    if not temp_emi: continue
-
-                    if alpha_socket:
+                    if alpha_socket or alpha_default != 1.0:
                         alpha_found = True
-                        m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+                        break
 
-                    else: 
-                        if alpha_default != 1.0:
-                            alpha_found = True
+                # Set emission connection
+                if alpha_found:
+                    for i, m in enumerate(other_mats):
+                        alpha_default = other_alpha_defaults[i]
+                        alpha_socket = other_alpha_sockets[i]
 
-                        # Set alpha_default
-                        if type(alpha_default) == float:
-                            temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
-                        else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+                        temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                        if not temp_emi: continue
+
+                        if alpha_socket:
+                            m.node_tree.links.new(alpha_socket, temp_emi.inputs[0])
+
+                        else: 
+                            # Set alpha_default
+                            if type(alpha_default) == float:
+                                temp_emi.inputs[0].default_value = (alpha_default, alpha_default, alpha_default, 1.0)
+                            else: temp_emi.inputs[0].default_value = (alpha_default[0], alpha_default[1], alpha_default[2], 1.0)
+
+                            # Break link
+                            for l in temp_emi.inputs[0].links:
+                                m.node_tree.links.remove(l)
 
             else:
                 alpha_found = bprops.use_transparent_for_missing_rays
@@ -4168,32 +4359,10 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             if vcol: vcols.remove(vcol)
 
     # Recover flip normals setup
-    if bprops.flip_normals:
-        #bpy.ops.object.mode_set(mode = 'EDIT')
-        #bpy.ops.mesh.flip_normals()
-        #bpy.ops.mesh.select_all(action='DESELECT')
-        #bpy.ops.object.mode_set(mode = ori_mode)
-        if is_bl_newer_than(2, 80):
-            # Deselect other objects first
-            for o in other_objs:
-                o.select_set(False)
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.flip_normals()
-            bpy.ops.object.mode_set(mode='OBJECT')
-            # Reselect other objects
-            for o in other_objs:
-                o.select_set(True)
-        else:
-            for ob in objs:
-                if ob in other_objs: continue
-                scene.objects.active = ob
-                bpy.ops.object.mode_set(mode='EDIT')
-                bpy.ops.mesh.reveal()
-                bpy.ops.mesh.select_all(action='SELECT')
-                bpy.ops.mesh.flip_normals()
-                bpy.ops.object.mode_set(mode='OBJECT')
+    if need_flip_normals:
+        for ob in objs:
+            if ob in other_objs: continue
+            flip_mesh_normals(ob)
 
     # Recover subdiv setup
     if height_root_ch and subdiv_setup_changes:
@@ -4213,12 +4382,20 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     # Hide other objects after baking
     if is_bl_newer_than(2, 79) and bprops.type.startswith('OTHER_OBJECT_') and other_objs and bprops.hide_source_objects:
         for oo in other_objs:
-            oo.hide_viewport = True
+            if is_bl_newer_than(2, 80):
+                oo.hide_viewport = True
+            else: set_object_hide(oo, True)
+            oo.hide_render = True
 
     # Remove temporary objects
     if temp_objs:
         for o in temp_objs:
             remove_mesh_obj(o)
+
+    # Remove instance temporary objects
+    if instanced_temp_objs:
+        for o in instanced_temp_objs:
+            remove_datablock(bpy.data.objects, o)
 
     # Check linear nodes becuse sometimes bake results can be linear or srgb
     check_yp_linear_nodes(yp, reconnect=True)
@@ -4437,10 +4614,14 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
         for m in get_problematic_modifiers(obj):
             m.show_render = False
 
+    # Check AO's "Only Local" from source
+    source = get_entity_source(entity)
+    hide_other_objs = entity.type != 'AO' or source.only_local
+
     prepare_bake_settings(
         book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
         uv_map=bprops.uv_map, bake_type='EMIT', bake_device=bprops.bake_device, 
-        margin_type = bprops.margin_type, use_osl=bprops.use_osl
+        margin_type=bprops.margin_type, use_osl=bprops.use_osl, hide_other_objs=hide_other_objs,
     )
 
     # Create bake nodes
@@ -4597,7 +4778,6 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
             bi.bevel_radius = get_entity_prop_value(entity, 'edge_detect_radius')
             bi.edge_detect_method = entity.edge_detect_method
         elif entity.type == 'AO':
-            source = get_entity_source(entity)
             bi.bake_type = 'AO'
             bi.ao_distance = get_entity_prop_value(entity, 'ao_distance')
             bi.only_local = source.only_local
@@ -4818,6 +4998,12 @@ def get_merged_mesh_objects(scene, objs, hide_original=False, disable_problemati
                     obj.data.attributes.active_index = i
                     bpy.ops.geometry.attribute_convert(domain='CORNER', data_type='FLOAT2')
 
+        # HACK: Remove string attributes for Blender 5.1 since it can cause crash
+        if is_bl_newer_than(5, 1) and not is_bl_newer_than(5, 2):
+            for attr in reversed(obj.data.attributes):
+                if attr.data_type == 'STRING':
+                    obj.data.attributes.remove(attr)
+
     # Set first index as merged object
     merged_obj = new_objs[0]
 
@@ -4866,14 +5052,12 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
-    # Create new plane
-    bpy.ops.object.mode_set(mode='OBJECT')
-    plane_obj = create_plane_on_object_mode()
-
+    # Create a plane for baking
+    plane_obj = create_plane_object()
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=margin, bake_device=bake_device)
 
     mat = bpy.data.materials.new('__TEMP__')
-    mat.use_nodes = True
+    if hasattr(mat, 'use_nodes'): mat.use_nodes = True
     plane_obj.active_material = mat
 
     output = get_material_output(mat, create_one=True)
@@ -5054,7 +5238,7 @@ def get_temp_default_material():
 
     if not mat: 
         mat = bpy.data.materials.new(TEMP_MATERIAL)
-        mat.use_nodes = True
+        if hasattr(mat, 'use_nodes'): mat.use_nodes = True
 
     return mat
 
@@ -5068,7 +5252,7 @@ def get_temp_emit_white_mat():
 
     if not mat: 
         mat = bpy.data.materials.new(TEMP_EMIT_WHITE)
-        mat.use_nodes = True
+        if hasattr(mat, 'use_nodes'): mat.use_nodes = True
 
         # Create nodes
         output = get_material_output(mat, create_one=True)
@@ -5167,8 +5351,30 @@ class BaseBakeOperator():
         if not self.use_custom_resolution:
             self.height = self.width = int(self.image_resolution)
 
+    def execute_operator_prep(self, context):
+        if not self.is_cycles_exist(context): return False
+
+        # Depsgraph update functions can cause crash or bake inconsistencies, so halt them before any baking operation
+        wmyp = bpy.context.window_manager.ypprops
+        wmyp.halt_last_object_update = True
+
+        return True
+
+    def execute_operator_recover(self, context):
+        # Recover depsgraph update functions
+        wmyp = bpy.context.window_manager.ypprops
+        wmyp.halt_last_object_update = False
+
+    def execute_operator_finished(self, context):
+        self.execute_operator_recover(context)
+        return {'FINISHED'}
+
+    def execute_operator_cancelled(self, context):
+        self.execute_operator_recover(context)
+        return {'CANCELLED'}
+
     def is_cycles_exist(self, context):
         if not hasattr(context.scene, 'cycles'):
-            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in user preferences!")
+            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in the user preferences!")
             return False
         return True

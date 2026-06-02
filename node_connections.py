@@ -162,8 +162,9 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
         # Get nodes inside modifier group tree and repoint it
         mod_tree = mod_group.node_tree
         start = mod_tree.nodes.get(MOD_TREE_START)
-        rgb = start.outputs[0]
-        alpha = start.outputs[1]
+        if start:
+            rgb = start.outputs[0]
+            alpha = start.outputs[1]
     else:
         mod_tree = tree
 
@@ -179,8 +180,9 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 
         # Connect to end node
         end = mod_tree.nodes.get(MOD_TREE_END)
-        create_link(mod_tree, rgb, end.inputs[0])
-        create_link(mod_tree, alpha, end.inputs[1])
+        if end:
+            create_link(mod_tree, rgb, end.inputs[0])
+            create_link(mod_tree, alpha, end.inputs[1])
 
         # Repoint rgb and alpha to mod group
         rgb = mod_group.outputs[0]
@@ -1958,7 +1960,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         root_ch = yp.channels[i]
 
         # Get main socket
-        outp = source.outputs.get(ch.socket_input_name)
+        # NOTE: Always use color socket if override is enabled and the layer is an image or color attribute
+        # This is to avoid solid alpha value if 'Alpha' socket is used.
+        if layer.type in {'IMAGE', 'VCOL'} and ch.override:
+            outp = source.outputs.get('Color')
+        else: outp = source.outputs.get(ch.socket_input_name)
         if outp not in available_outputs:
             outp = None
 
@@ -1974,7 +1980,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
             outp = normal_outp
 
-        # If not use whatever in the first index
+        # If not, use whatever in the first index
         if not outp and len(available_outputs) > 0:
             outp = available_outputs[0]
 
@@ -2064,8 +2070,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if trans_bump_ch:
         trans_bump_flip = trans_bump_ch.transition_bump_flip #or layer.type == 'BACKGROUND'
         trans_bump_crease = trans_bump_ch.transition_bump_crease and not trans_bump_flip
-        #trans_bump_flip = trans_bump_ch.transition_bump_flip
-        #fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
 
     compare_alpha = None
     bump_smooth_multiplier_value = None
@@ -2468,6 +2472,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else:
                 group_channel = source.outputs.get(root_ch.name + io_suffix['GROUP'])
                 if group_channel: rgb = group_channel
+                elif root_ch.type == 'NORMAL':
+                    # Get Geometry normal if normal from group doesn't exist
+                    rgb = get_essential_node(tree, GEOMETRY).get('Normal')
 
             if root_ch.type == 'NORMAL':
                 group_height_alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
@@ -3147,7 +3154,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if layer.type == 'GROUP':
 
-                if normal_proc: create_link(tree, normal, normal_proc.inputs['Normal'])
+                if normal_proc: 
+                    create_link(tree, normal, normal_proc.inputs['Normal'])
+                    if height_proc and 'Normal Alpha' in normal_proc.inputs and 'Normal Alpha' in height_proc.outputs:
+                        create_link(tree, height_proc.outputs['Normal Alpha'], normal_proc.inputs['Normal Alpha'])
 
                 height_group = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
                 if height_proc and height_group and 'Height' in height_proc.inputs: create_link(tree, height_group, height_proc.inputs['Height'])
@@ -3793,6 +3803,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if prev_rgb:
                     if 'Color1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Color1'])
                     elif 'Value1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Value1'])
+                    elif 'Vector1' in blend.inputs: create_link(tree, prev_rgb, blend.inputs['Vector1'])
                 if prev_alpha and 'Alpha1' in blend.inputs: create_link(tree, prev_alpha, blend.inputs['Alpha1'])
 
                 if prev_alpha_alpha and 'Alpha1 Alpha' in blend.inputs: 

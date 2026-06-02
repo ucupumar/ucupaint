@@ -680,6 +680,7 @@ def update_yp_tree(tree):
 
             # Set displacement method
             if not height_root_ch.subdiv_adaptive:
+                is_height_connected = False
                 mats = get_all_materials_with_tree(tree)
                 for mat in mats:
                     if hasattr(mat, 'displacement_method'):
@@ -689,8 +690,16 @@ def update_yp_tree(tree):
                         mat.cycles.displacement_method = 'BOTH'
                     else: mat.cycles.displacement_method = 'TRUE'
 
-                # Update displacement connection
-                Bake.check_subdiv_setup(height_root_ch)
+                    # Check if height output is connected to something
+                    yp_nodes = [node for node in mat.node_tree.nodes if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp]
+                    for yp_node in yp_nodes:
+                        outp = yp_node.outputs.get(height_root_ch.name + io_suffix['HEIGHT'])
+                        if outp and len(outp.links) > 0:
+                            is_height_connected = True
+
+                # Update displacement connection, make sure only setup with the height socket actually connected
+                if is_height_connected:
+                    Bake.check_subdiv_setup(height_root_ch)
 
                 updated_to_yp_200_displacement = True
 
@@ -895,8 +904,12 @@ def update_yp_tree(tree):
         # Also when preview mode is on, remember current scene if it uses compositing or not
         if yp.preview_mode or yp.layer_preview_mode:
             scene = bpy.context.scene
-            if scene.yp.ori_use_compositing != scene.use_nodes:
-                scene.yp.ori_use_compositing = scene.use_nodes
+            if is_bl_newer_than(5):
+                if scene.compositing_node_group:
+                    scene.yp.ori_compositing_node_name = scene.compositing_node_group.name
+            else:
+                if scene.yp.ori_use_compositing != scene.use_nodes:
+                    scene.yp.ori_use_compositing = scene.use_nodes
 
         # Collapse layer channel UI when there's no modifiers
         for layer in yp.layers:
@@ -1212,6 +1225,12 @@ def update_yp_tree(tree):
                     print('INFO: Unused image named \''+n.image.name+'\' is removed!')
                     simple_remove_node(ltree, n)
 
+        # HACK: Enable and reenable layer to make sure internal nodes connected correctly
+        for layer in yp.layers:
+            if layer.enable:
+                layer.enable = False
+                layer.enable = True
+
     # Version 2.4.1 has fix for inbetween invert modifier mask
     if version_tuple(yp.version) < (2, 4, 1):
 
@@ -1297,6 +1316,8 @@ def update_yp_tree(tree):
     # Update version
     if version_tuple(yp.version) < version_tuple(cur_version):
         yp.version = cur_version
+        # Update info nodes
+        create_info_nodes(tree) 
         print('INFO:', tree.name, 'is updated to version', cur_version)
 
     return updated_to_tangent_process_300, updated_to_yp_200_displacement
@@ -1309,11 +1330,11 @@ def update_routine(name):
     updated_to_tangent_process_300 = False
     updated_to_yp_200_displacement = False
 
-    for ng in bpy.data.node_groups:
-        if not hasattr(ng, 'yp'): continue
-        if not ng.yp.is_ypaint_node: continue
+    # Get all yp trees
+    yp_trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]
 
-        # Update yp trees
+    for ng in yp_trees:   
+        # Update yp tree
         flag1, flag2 = update_yp_tree(ng)
         if flag1: updated_to_tangent_process_300 = True
         if flag2: updated_to_yp_200_displacement = True
@@ -1869,6 +1890,96 @@ class YDisableLegacyAlpha(bpy.types.Operator):
 
         return {'FINISHED'}
 
+
+def remove_smooth_bump_setup(check_io=True):
+    # Get all yp trees
+    yp_trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]
+
+    for tree in yp_trees:
+        yp = tree.yp
+
+        # Get normal channel
+        norm_chs = [ch for ch in yp.channels if ch.type == 'NORMAL']
+        norm_ch = norm_chs[0] if any(norm_chs) else None
+
+        if norm_ch and norm_ch.enable_smooth_bump:
+            norm_ch_idx = get_channel_index(norm_ch)
+
+            # Get object dimension and volume
+            dimension = None
+            volume = None
+            mats = get_materials_using_yp(yp)
+            mat = mats[0] if len(mats) > 0 else None
+            if mat:
+                objs = get_all_objects_with_same_materials(mat)
+                if objs:
+                    dimensions = 0
+                    volumes = 0
+                    for obj in objs:
+                        volumes += (obj.dimensions.x + obj.dimensions.y + obj.dimensions.z) / 3
+                        dimensions += obj.dimensions.x * obj.dimensions.y * obj.dimensions.z
+                    dimension = dimensions / len(objs)
+                    volume = volumes / len(objs)
+
+                # Check if material use subsurface scattering
+                sss_enabled = False
+                outp = get_material_output(mat)
+                if outp:
+                    bsdf = get_closest_bsdf_backward(outp, ['BSDF_PRINCIPLED'])
+                    if bsdf:
+                        inp = bsdf.inputs.get('Subsurface Weight') if is_bl_newer_than(4) else bsdf.inputs.get('Subsurface')
+                        if inp and (inp.default_value > 0.0 or len(inp.links) > 0):
+                            sss_enabled = True
+            
+            for layer in yp.layers:
+                try: ch = layer.channels[norm_ch_idx]
+                except: continue
+                layer_tree = get_tree(layer)
+
+                if ch.normal_map_type not in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}: continue
+
+                if dimension != None and volume != None:
+
+                    # NOTE: Smooth bump is originally tested on default cube, which has volume of 8 blender units and dimension of 2
+                    # These values are fine tuned to closer results based on old models
+                    multiplier = 1
+                    if layer.type == 'COLOR' and ch.enable_transition_bump and sss_enabled:
+                        multiplier = volume / 16
+                    elif layer.type == 'IMAGE' and not norm_ch.enable_subdiv_setup:
+                        multiplier = dimension / 2
+                    elif layer.type == 'NOISE' and sss_enabled: 
+                        multiplier = volume / 32
+                    elif layer.type != 'IMAGE': 
+                        multiplier = volume / 8
+
+                    height = get_entity_prop_value(ch, 'bump_distance')
+                    set_entity_prop_value(ch, 'bump_distance', height * multiplier)
+                    height = get_entity_prop_value(ch, 'transition_bump_distance')
+                    set_entity_prop_value(ch, 'transition_bump_distance', height * multiplier)
+
+                # Move all sources out of source group
+                disable_layer_source_tree(layer)
+                disable_channel_source_tree(layer, norm_ch, ch, rearrange=False, force=True)
+
+                # Remove neighbor UV
+                remove_node(layer_tree, layer, 'uv_neighbor')
+                remove_node(layer_tree, ch, 'uv_neighbor')
+
+                for mask in layer.masks:
+                    disable_mask_source_tree(layer, mask)
+                    remove_node(layer_tree, mask, 'uv_neighbor')
+                    #check_mask_mix_nodes(layer, layer_tree, mask, ch)
+
+            # Disable smooth bump
+            yp.halt_update = True
+            norm_ch.enable_smooth_bump = False
+            yp.halt_update = False
+
+            if check_io:
+                check_all_channel_ios(yp)
+
+            print("INFO: Smooth bump on "+tree.name+" is now disabled!")
+
 class YUpdateRemoveSmoothBump(bpy.types.Operator):
     bl_idname = "wm.y_update_remove_smooth_bump"
     bl_label = "Remove Smooth Bump"
@@ -1880,68 +1991,7 @@ class YUpdateRemoveSmoothBump(bpy.types.Operator):
         return get_active_ypaint_node()
 
     def execute(self, context):
-        #update_node_tree_libs('')
-        #update_routine('')
-
-        for ng in bpy.data.node_groups:
-            if not hasattr(ng, 'yp'): continue
-            if not ng.yp.is_ypaint_node: continue
-
-            yp = ng.yp
-
-            height_root_ch = get_root_height_channel(yp)
-            if height_root_ch and height_root_ch.enable_smooth_bump:
-
-                # Get object dimension and volume
-                dimension = None
-                volume = None
-                mats = get_materials_using_yp(yp)
-                mat = mats[0] if len(mats) > 0 else None
-                if mat:
-                    objs = get_all_objects_with_same_materials(mat)
-                    if objs:
-                        dimensions = 0
-                        volumes = 0
-                        for obj in objs:
-                            volumes += (obj.dimensions.x + obj.dimensions.y + obj.dimensions.z) / 3
-                            dimensions += obj.dimensions.x * obj.dimensions.y * obj.dimensions.z
-                        dimension = dimensions / len(objs)
-                        volume = volumes / len(objs)
-
-                    # Check if material use subsurface scattering
-                    sss_enabled = False
-                    outp = get_material_output(mat)
-                    if outp:
-                        bsdf = get_closest_bsdf_backward(outp, ['BSDF_PRINCIPLED'])
-                        if bsdf:
-                            inp = bsdf.inputs.get('Subsurface Weight') if is_bl_newer_than(4) else bsdf.inputs.get('Subsurface')
-                            if inp and (inp.default_value > 0.0 or len(inp.links) > 0):
-                                sss_enabled = True
-                
-                for layer in yp.layers:
-                    height_ch = get_height_channel(layer)
-                    if height_ch and dimension != None and volume != None:
-
-                        # NOTE: Smooth bump is originally tested on default cube, which has volume of 8 blender units and dimension of 2
-                        # These values are fine tuned to closer results based on old models
-                        multiplier = 1
-                        if layer.type == 'COLOR' and height_ch.enable_transition_bump and sss_enabled:
-                            multiplier = volume / 16
-                        elif layer.type == 'IMAGE' and not height_root_ch.enable_subdiv_setup:
-                            multiplier = dimension / 2
-                        elif layer.type == 'NOISE' and sss_enabled: 
-                            multiplier = volume / 32
-                        elif layer.type != 'IMAGE': 
-                            multiplier = volume / 8
-
-                        height = get_entity_prop_value(height_ch, 'bump_distance')
-                        set_entity_prop_value(height_ch, 'bump_distance', height * multiplier)
-                        height = get_entity_prop_value(height_ch, 'transition_bump_distance')
-                        set_entity_prop_value(height_ch, 'transition_bump_distance', height * multiplier)
-
-                height_root_ch.enable_smooth_bump = False
-                print("INFO: Smooth bump on "+ng.name+" is now disabled!")
-
+        remove_smooth_bump_setup()
         return {'FINISHED'}
 
 def register():

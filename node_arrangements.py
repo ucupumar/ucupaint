@@ -1131,7 +1131,7 @@ def rearrange_layer_nodes(layer, tree=None):
 
         if loc.x > farthest_x: farthest_x = loc.x
 
-        if root_ch.type == 'NORMAL': #and ch.normal_map_type == 'FINE_BUMP_MAP' and offset_y < FINE_BUMP_Y_OFFSET:
+        if root_ch.type == 'NORMAL':
             if offset_y < FINE_BUMP_Y_OFFSET:
                 offset_y = FINE_BUMP_Y_OFFSET
 

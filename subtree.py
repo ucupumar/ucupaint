@@ -1,4 +1,4 @@
-import bpy, re
+import bpy, re, bmesh
 from . import lib, Modifier, MaskModifier
 from .common import *
 from .node_arrangements import *
@@ -142,6 +142,51 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
         # Rearrange nodes
         rearrange_layer_nodes(layer)
 
+def disable_layer_source_tree(layer, layer_tree=None, source_group=None):
+    if not layer_tree: layer_tree = get_tree(layer)
+    if not source_group: source_group = layer_tree.nodes.get(layer.source_group)
+
+    if source_group:
+        source_ref = source_group.node_tree.nodes.get(layer.source)
+        baked_source_ref = source_group.node_tree.nodes.get(layer.baked_source)
+        linear_ref = source_group.node_tree.nodes.get(layer.linear)
+        flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
+        divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
+
+        # Create new source
+        source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
+        copy_node_props(source_ref, source)
+
+        if baked_source_ref:
+            baked_source = new_node(layer_tree, layer, 'baked_source', baked_source_ref.bl_idname)
+            copy_node_props(baked_source_ref, baked_source)
+
+        if linear_ref:
+            linear = new_node(layer_tree, layer, 'linear', linear_ref.bl_idname)
+            copy_node_props(linear_ref, linear)
+
+        if flip_y_ref:
+            flip_y = new_node(layer_tree, layer, 'flip_y', flip_y_ref.bl_idname)
+            copy_node_props(flip_y_ref, flip_y)
+
+        if divider_alpha_ref:
+            divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
+            copy_node_props(divider_alpha_ref, divider_alpha)
+
+        # Bring back layer modifier to original tree
+        if len(layer.mod_groups) == 0:
+            for mod in layer.modifiers:
+                Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
+        else:
+            move_mod_groups(layer, source_group.node_tree, layer_tree)
+
+    # Remove previous source
+    remove_node(layer_tree, layer, 'source_group')
+    remove_node(layer_tree, layer, 'source_n')
+    remove_node(layer_tree, layer, 'source_s')
+    remove_node(layer_tree, layer, 'source_e')
+    remove_node(layer_tree, layer, 'source_w')
+
 def check_layer_source_tree(layer, smooth_bump_enabled):
 
     layer_tree = get_tree(layer)
@@ -226,45 +271,7 @@ def check_layer_source_tree(layer, smooth_bump_enabled):
 
     # Disable source group
     elif source_group:
-        source_ref = source_group.node_tree.nodes.get(layer.source)
-        baked_source_ref = source_group.node_tree.nodes.get(layer.baked_source)
-        linear_ref = source_group.node_tree.nodes.get(layer.linear)
-        flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
-        divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
-
-        # Create new source
-        source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
-        copy_node_props(source_ref, source)
-
-        if baked_source_ref:
-            baked_source = new_node(layer_tree, layer, 'baked_source', baked_source_ref.bl_idname)
-            copy_node_props(baked_source_ref, baked_source)
-
-        if linear_ref:
-            linear = new_node(layer_tree, layer, 'linear', linear_ref.bl_idname)
-            copy_node_props(linear_ref, linear)
-
-        if flip_y_ref:
-            flip_y = new_node(layer_tree, layer, 'flip_y', flip_y_ref.bl_idname)
-            copy_node_props(flip_y_ref, flip_y)
-
-        if divider_alpha_ref:
-            divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
-            copy_node_props(divider_alpha_ref, divider_alpha)
-
-        # Bring back layer modifier to original tree
-        if len(layer.mod_groups) == 0:
-            for mod in layer.modifiers:
-                Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
-        else:
-            move_mod_groups(layer, source_group.node_tree, layer_tree)
-
-        # Remove previous source
-        remove_node(layer_tree, layer, 'source_group')
-        remove_node(layer_tree, layer, 'source_n')
-        remove_node(layer_tree, layer, 'source_s')
-        remove_node(layer_tree, layer, 'source_e')
-        remove_node(layer_tree, layer, 'source_w')
+        disable_layer_source_tree(layer, layer_tree, source_group)
 
     # Create uv neighbor
     if smooth_bump_enabled:
@@ -882,16 +889,21 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                 bpy.context.scene.objects.link(temp_ob)
                 bpy.context.scene.objects.active = temp_ob
 
-            # Triangulate ngon faces on temp object
-            bpy.ops.object.select_all(action='DESELECT')
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_all(action='DESELECT')
-            bpy.ops.mesh.select_mode(type="FACE")
-            bpy.ops.mesh.select_face_by_sides(number=4, type='GREATER')
-            bpy.ops.mesh.quads_convert_to_tris()
-            bpy.ops.mesh.tris_convert_to_quads()
-            bpy.ops.object.mode_set(mode='OBJECT')
+            # Triangulate ngon faces on temp object using bmesh
+            bm = bmesh.new()
+            bm.from_mesh(temp_ob.data)
+            
+            # Triangulate faces with more than 4 vertices
+            faces_to_tri = [f for f in bm.faces if len(f.verts) > 4]
+            if faces_to_tri:
+                bmesh.ops.triangulate(bm, faces=faces_to_tri)
+            
+            # Convert back to quads
+            bmesh.ops.planar_faces(bm, faces=bm.faces[:])
+            
+            bm.to_mesh(temp_ob.data)
+            bm.free()
+            temp_ob.data.update()
 
             # Remove all modifiers on temp object
             for mod in temp_ob.modifiers:
