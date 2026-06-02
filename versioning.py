@@ -1485,6 +1485,9 @@ def update_yp_tree(tree):
                                 # Do setup
                                 Root.do_displacement_node_setup(mat, node, vdm_ch, is_vector_disp=True)
 
+        # Update list item since there's a new base layer
+        ListItem.refresh_list_items(yp)
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha
