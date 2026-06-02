@@ -1123,7 +1123,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                 alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
                 if col_preview:
-                    if ch.type == 'NORMAL' and start_normal_filter:
+                    if ch.special_channel_type == 'NORMAL' and start_normal_filter:
                         create_link(tree, start_normal_filter.outputs[0], col_preview)
                     else: create_link(tree, rgb, col_preview)
                 if alpha_preview:
