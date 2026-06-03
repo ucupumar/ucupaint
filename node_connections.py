@@ -3076,6 +3076,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             tb_crease_factor = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'transition_bump_crease_factor')) if trans_bump_crease else None
             tb_crease_power = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'transition_bump_crease_power')) if trans_bump_crease else None
                 
+            if height_proc or max_height_calc:
+
+                # Group layer uses child max height for bump distance
+                if layer.type in {'GROUP', 'PREV_LAYERS'} and root_ch.use_height_normalize:
+                    ch_bump_distance = source.outputs.get(root_ch.name + io_suffix['SCALE'] + io_suffix['GROUP'])
+
+                # Use default value if some sockets are not found
+                if not ch_bump_distance: ch_bump_distance = get_essential_node(tree, ZERO_VALUE)[0]
+                if not ch_bump_midlevel: ch_bump_midlevel = get_essential_node(tree, HALF_VALUE)[0]
+                
             # Connect height process
             if height_proc: 
                 if 'Value' in height_proc.inputs: rgb = create_link(tree, rgb, height_proc.inputs['Value'])[0]

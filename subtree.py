@@ -2043,7 +2043,7 @@ def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=Fa
         #if layer.type == 'GROUP':
         #    lib_name += ' Group'
 
-        if layer.type not in {'GROUP', 'PREV_LAYERS'}:
+        if layer.type not in {'GROUP', 'PREV_LAYERS'} or ch.enable_transition_bump:
             height_proc, need_reconnect = replace_new_node(
                 tree, ch, 'height_proc', 'ShaderNodeGroup', 'Height Process', 
                 lib_name, return_status=True, hard_replace=True, dirty=need_reconnect

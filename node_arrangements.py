@@ -998,6 +998,9 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, ONE_VALUE, loc):
         loc.y -= 90
 
+    if check_set_node_loc(tree, HALF_VALUE, loc):
+        loc.y -= 90
+
     if check_set_node_loc(tree, ZERO_VALUE, loc):
         loc.y -= 90
 
