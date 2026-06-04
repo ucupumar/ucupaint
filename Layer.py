@@ -3205,8 +3205,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
             for image in images:
                 psd_found = get_lowercase_extension(image.filepath) == 'psd'
                 if psd_found: any_psd_layers = True
-
-                if psd_found and psd_io and psd_io.is_psd_io_supported() and psd_io.is_psd_tools_found():
+                if psd_found and psd_io and psd_io.is_psd_io_supported() and psd_io.ensure_psd_tools():
                     extra_lds = psd_io.read_psd_image_layers(image, 
                         convert_image_to_solid_color=self.convert_image_to_solid_color
                     )
