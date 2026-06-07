@@ -6,71 +6,6 @@ from .common import *
 import time
 from . import UDIM, subtree, BaseOperator
 
-def preserve_float_color_hack_before_saving(image):
-    if not image.is_float or not is_bl_newer_than(2, 80): return
-
-    # HACK: Need more calculation for image saved using straight alpha
-    if image.alpha_mode == 'STRAIGHT':
-        if image.colorspace_settings.name == get_srgb_name():
-            multiply_image_rgb_by_alpha(image)
-        elif image.colorspace_settings.name == get_linear_color_name():
-            divide_image_rgb_by_alpha(image)
-
-    # TODO: Saved SRGB Straight still has black glitch around alpha transition
-    # and saved SRGB Premultiplied still looks horrible
-
-def save_float_image(image):
-
-    # NOTE: This hack function is probably not a good idea since it uses a lot of assumption
-    #preserve_float_color_hack_before_saving(image)
-
-    # Remembers
-    original_path = image.filepath
-    ori_colorspace = image.colorspace_settings.name
-
-    # Create temporary scene
-    tmpscene = bpy.data.scenes.new('Temp Scene')
-
-    # Set settings
-    settings = tmpscene.render.image_settings
-
-    # Check current extensions
-    for form, ext in format_extensions.items():
-        if image.filepath.endswith(ext):
-            if form == 'OPEN_EXR_MULTILAYER' and image.type != 'MULTILAYER': continue
-            settings.file_format = form
-            break
-    
-    if settings.file_format in {'OPEN_EXR', 'OPEN_EXR_MULTILAYER'}:
-        settings.exr_codec = 'ZIP'
-        settings.color_depth = '32'
-    elif settings.file_format in {'PNG', 'TIFF'}:
-        settings.color_depth = '16'
-
-    # Need to pack first to save the image
-    if is_bl_newer_than(2, 81) and image.is_dirty:
-        pack_image(image)
-    
-    full_path = bpy.path.abspath(image.filepath)
-    image.save_render(full_path, scene=tmpscene)
-    # HACK: If image still dirty after saving, save using standard save method
-    if image.is_dirty: image.save()
-    image.source = 'FILE'
-
-    # Delete temporary scene
-    remove_datablock(bpy.data.scenes, tmpscene)
-
-    # Set back colorspace
-    if image.colorspace_settings.name != ori_colorspace:
-        image.colorspace_settings.name = ori_colorspace
-
-    # Remove packed flag
-    if is_bl_newer_than(2, 81) and image.packed_file:
-        image.unpack(method='REMOVE')
-
-    # Reload image
-    image.reload()
-
 def pack_float_image_27x(image):
     original_path = image.filepath
 
@@ -127,27 +62,8 @@ def pack_float_image_27x(image):
     image.filepath = original_path
     os.remove(temp_filepath)
 
-def preserve_float_color_hack_before_packing(image):
-    if not image.is_float or not is_bl_newer_than(2, 80): return
-
-    # HACK: Divide by alpha if using straight alpha
-    if image.alpha_mode == 'STRAIGHT':
-        divide_image_rgb_by_alpha(image)
-
-    # Check if image is using srgb colorspace
-    if image.colorspace_settings.name == get_srgb_name():
-
-        # HACK: Multiply by alpha if using premultiplied alpha
-        if image.alpha_mode == 'PREMUL':
-            multiply_image_rgb_by_alpha(image)
-
-        # HACK: If float image use srgb colorspace, it need to be converted to srgb first before packing
-        set_image_pixels_to_srgb(image)
-
 def pack_image(image, reload_float=False):
-
-    # NOTE: This hack function is probably not a good idea since it uses a lot of assumption
-    #preserve_float_color_hack_before_packing(image)
+    T = time.time()
 
     if is_bl_newer_than(2, 80):
         image.pack()
@@ -159,6 +75,8 @@ def pack_image(image, reload_float=False):
     # HACK: Some operation need Float image to be reloaded to be showed correctly
     if image.is_float and reload_float:
         image.reload()
+
+    print('INFO:', image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def clean_object_references(image):
     removed_references = []
@@ -275,92 +193,13 @@ def save_pack_all(yp):
                 force_pack = True
 
         if not image.is_dirty and not force_pack: continue
-        T = time.time()
 
         if image.packed_file or image.filepath == '' or force_pack:
-            if is_bl_newer_than(2, 80):
-
-                # HACK: Some cases need images to be saved first before packing on Blender pre 4.1
-                temp_saved = False
-                if force_pack or (UDIM.is_udim_supported() and not is_bl_newer_than(4, 1) and image.source == 'TILED'):
-                    if not tmpscene: tmpscene = create_temp_scene()
-
-                    if image.filepath != '':
-                        path = bpy.path.abspath(image.filepath)
-                    else: path = bpy.path.abspath(UDIM.get_udim_filepath(image.name, temp_udim_dir))
-
-                    image.save_render(path, scene=tmpscene)
-
-                    # Set the filepath to the image
-                    image.filepath = path
-                    try: image.filepath = bpy.path.relpath(path)
-                    except: pass
-
-                    temp_saved = True
-                    
-                pack_image(image, reload_float=True)
-
-                if temp_saved:
-                    # Remove file if they are using temporary directory
-                    if UDIM.is_using_temp_dir(image):
-                        UDIM.remove_udim_files_from_disk(image, temp_udim_dir, True)
-
-            else:
-                pack_image(image, reload_float=True)
-                if image.is_float:
-                    packed_float_images.append(image)
-
-            print('INFO:', image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+            pack_image(image)
+            if not is_bl_newer_than(2, 80) and image.is_float:
+                packed_float_images.append(image)
         else:
-            if image.is_float:
-                save_float_image(image)
-            else:
-                # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
-                if is_bl_newer_than(3, 3) and image.colorspace_settings.name in {'Linear', get_noncolor_name()}:
-
-                    # Create temporary scene
-                    if not tmpscene: tmpscene = create_temp_scene()
-
-                    # Get image path
-                    path = bpy.path.abspath(image.filepath)
-
-                    # Pack image first
-                    image.pack()
-                    image.colorspace_settings.name = get_srgb_name()
-
-                    # Remove old files to avoid caching (?)
-                    try: os.remove(path)
-                    except Exception as e: print(e)
-                    
-                    # Then unpack
-                    default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
-
-                    # Save image
-                    image.save_render(path, scene=tmpscene)
-
-                    # Set the filepath to the image
-                    image.filepath = path
-                    if bpy.data.filepath != '':
-                        try: image.filepath = bpy.path.relpath(path)
-                        except: pass
-
-                    # Bring back linear
-                    image.colorspace_settings.name = get_noncolor_name()
-
-                    # Remove unpacked images in Blender 3.3 
-                    remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
-
-                    print('INFO:', image.name, 'image is saved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-
-                else:
-                    try:
-                        ori_colorspace = image.colorspace_settings.name
-                        image.save()
-                        image.colorspace_settings.name = ori_colorspace
-
-                        print('INFO:', image.name, 'image is saved in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-                    except Exception as e:
-                        print(e)
+            image.save()
 
     # Delete temporary scene
     if tmpscene:
@@ -369,15 +208,16 @@ def save_pack_all(yp):
 
     # HACK: For some reason active float image will glitch after auto save
     # This is only happen if active object is in texture paint mode
-    obj = bpy.context.object
-    if len(yp.layers) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
-        layer = yp.layers[yp.active_layer_index]
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            image = source.image
-            if image in packed_float_images:
-                ypui = bpy.context.window_manager.ypui
-                ypui.refresh_image_hack = True
+    if not is_bl_newer_than(2, 80):
+        obj = bpy.context.object
+        if len(yp.layers) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
+            layer = yp.layers[yp.active_layer_index]
+            if layer.type == 'IMAGE':
+                source = get_layer_source(layer)
+                image = source.image
+                if image in packed_float_images:
+                    ypui = bpy.context.window_manager.ypui
+                    ypui.refresh_image_hack = True
 
     # Clean object reference on images
     if is_bl_newer_than(2, 79):
@@ -543,10 +383,7 @@ class YSaveImage(bpy.types.Operator):
 
     def execute(self, context):
         ori_colorspace = context.image.colorspace_settings.name
-        if context.image.is_float:
-            save_float_image(context.image)
-        else:
-            context.image.save()
+        context.image.save()
         context.image.colorspace_settings.name = ori_colorspace
         return {'FINISHED'}
 
@@ -1205,57 +1042,6 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
         return change_ext
         #return True
 
-    def unpack_image(self, context):
-        image = self.image
-
-        # Get blender default unpack directory
-        self.default_dir = os.path.join(os.path.abspath(bpy.path.abspath('//')), 'textures')
-
-        # Check if default directory is available or not, delete later if not found now
-        self.default_dir_found = os.path.isdir(self.default_dir)
-
-        # Blender always unpack at \\textures\file.ext
-        if image.filepath == '':
-            self.default_filepath = os.path.join(self.default_dir, image.name)
-        else: self.default_filepath = os.path.join(self.default_dir, bpy.path.basename(image.filepath))
-
-        # Check if file with default path is already available
-        self.temp_path = ''
-        if os.path.isfile(self.default_filepath) and self.default_filepath != self.filepath:
-            self.temp_path = os.path.join(self.default_dir, '__TEMP__')
-            os.rename(self.default_filepath, self.temp_path)
-
-        # Unpack the file
-        image.unpack()
-        self.unpacked_path = bpy.path.abspath(image.filepath)
-
-        # HACK: Unpacked path sometimes has inconsistent backslash
-        folder, file = os.path.split(self.unpacked_path)
-        self.unpacked_path = os.path.join(folder, file)
-
-    def remove_unpacked_image(self, context):
-        image = self.image
-
-        # Remove unpacked file
-        if self.filepath != self.unpacked_path:
-            if image.source == 'TILED':
-                for tile in image.tiles:
-                    unpacked_path = self.unpacked_path.replace('<UDIM>', str(tile.number))
-                    try: os.remove(unpacked_path)
-                    except Exception as e: print(e)
-            else:
-                os.remove(self.unpacked_path)
-
-        # Rename back temporary file
-        if self.temp_path != '':
-            if self.temp_path != self.filepath:
-                os.rename(self.temp_path, self.default_filepath)
-            else: os.remove(self.temp_path)
-
-        # Delete default directory if not found before
-        if not self.default_dir_found:
-            os.rmdir(self.default_dir)
-
     def execute(self, context):
         image = self.image
 
@@ -1266,107 +1052,13 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpti
         if self.copy:
             image = self.image = duplicate_image(image, ondisk_duplicate=False)
 
-        # Remembers
-        ori_colorspace = image.colorspace_settings.name
-        ori_alpha_mode = image.alpha_mode
-        
-        if image.is_float:
-            # HACK: Set image color to linear first to save linear float image
-            if image.colorspace_settings.name == get_linear_color_name():
-                set_image_pixels_to_linear(image)
-
-            # HACK: Need to do image operation before saving srgb float image
-            if image.colorspace_settings.name == get_srgb_name():
-                if image.alpha_mode == 'STRAIGHT':
-                    multiply_image_rgb_by_alpha(image, power=2)
-
-        # Need to pack first to save the image
-        if image.is_dirty:
-            pack_image(image)
-
-        # Unpack image if image is packed (Only necessary for Blender 2.80 and lower)
-        # Packing and unpacking sometimes does not work if the blend file is not saved yet
-        unpacked_to_disk = False
-        if not is_bl_newer_than(2, 81) and bpy.data.filepath != '' and image.packed_file:
-            unpacked_to_disk = True
-            self.unpack_image(context)
-
-        if not image.is_dirty:
-            if not image.is_float:
-                # HACK: Non float image need to set to srgb when saving
-                image.colorspace_settings.name = get_srgb_name()
-
-            else:
-
-                # HACK: Need to change flip alpha mode before saving float image
-                if image.alpha_mode == 'PREMUL':
-                    image.alpha_mode = 'STRAIGHT'
-                elif image.alpha_mode == 'STRAIGHT':
-                    image.alpha_mode = 'PREMUL'
-        
         # Save image
-        if image.source == 'TILED':
-            override = bpy.context.copy()
-            override['edit_image'] = image
-            if is_bl_newer_than(4):
-                with bpy.context.temp_override(**override):
-                    bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
-            else: bpy.ops.image.save_as(override, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
-        else:
-            # Create temporary scene
-            tmpscene = bpy.data.scenes.new('Temp Save As Scene')
-
-            # Blender 2.80 has filmic as default color settings, change it to standard
-            if is_bl_newer_than(2, 80):
-                tmpscene.view_settings.view_transform = 'Standard'
-
-            # Set settings
-            settings = tmpscene.render.image_settings
-            settings.file_format = self.file_format
-            settings.color_mode = self.color_mode
-            settings.color_depth = self.color_depth
-            settings.compression = self.compression
-            settings.quality = self.quality
-            if hasattr(settings, 'tiff_codec'): settings.tiff_codec = self.tiff_codec
-            settings.exr_codec = self.exr_codec
-            settings.jpeg2k_codec = self.jpeg2k_codec
-            settings.use_jpeg2k_cinema_48 = self.use_jpeg2k_cinema_48
-            settings.use_jpeg2k_cinema_preset = self.use_jpeg2k_cinema_preset
-            settings.use_jpeg2k_ycc = self.use_jpeg2k_ycc
-            settings.use_cineon_log = self.use_cineon_log
-            if hasattr(settings, 'use_zbuffer'): settings.use_zbuffer = self.use_zbuffer
-
-            image.save_render(self.filepath, scene=tmpscene)
-
-            if not self.copy:
-                image.filepath = self.filepath
-
-                if self.relative and bpy.data.filepath != '':
-                    try: image.filepath = bpy.path.relpath(image.filepath)
-                    except Exception as e: print(e)
-                else: image.filepath = bpy.path.abspath(image.filepath)
-
-                image.source = 'FILE'
-                image.reload()
-
-            # Delete temporary scene
-            remove_datablock(bpy.data.scenes, tmpscene)
-
-        # Remove unpacked file
-        if unpacked_to_disk:
-            self.remove_unpacked_image(context)
-
-        # Remove packed flag
-        if is_bl_newer_than(2, 81) and image.packed_file:
-            image.unpack(method='REMOVE')
-
-        # Set back colorspace settings
-        if image.colorspace_settings.name != ori_colorspace:
-            image.colorspace_settings.name = ori_colorspace
-
-        # Set back alpha mode
-        if image.alpha_mode != ori_alpha_mode:
-            image.alpha_mode = ori_alpha_mode
+        override = bpy.context.copy()
+        override['edit_image'] = image
+        if is_bl_newer_than(4):
+            with bpy.context.temp_override(**override):
+                bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
+        else: bpy.ops.image.save_as(override, copy=self.copy, filepath=self.filepath, relative_path=self.relative)
 
         # Delete copied image
         if self.copy:
@@ -1450,7 +1142,7 @@ def toggle_image_bit_depth(image, no_copy=False, force_srgb=False, convert_color
 
     # Pack image
     if image.source != 'TILED' and image.packed_file:
-        pack_image(new_image, reload_float=True)
+        pack_image(new_image)
 
     # Replace image
     replace_image(image, new_image)
