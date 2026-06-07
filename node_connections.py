@@ -3079,7 +3079,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if height_proc or max_height_calc:
 
                 # Group layer uses child max height for bump distance
-                if layer.type in {'GROUP', 'PREV_LAYERS'} and root_ch.use_height_normalize:
+                if layer.type in {'GROUP', 'PREV_LAYERS'} and (root_ch.use_height_normalize or ch.enable_transition_bump):
                     ch_bump_distance = source.outputs.get(root_ch.name + io_suffix['SCALE'] + io_suffix['GROUP'])
 
                 # Use default value if some sockets are not found

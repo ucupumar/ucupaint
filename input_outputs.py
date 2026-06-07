@@ -1055,7 +1055,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if root_ch.special_channel_type == 'HEIGHT':
 
             #if channel_enabled and (root_ch.use_height_normalize or root_ch.use_height_as_bump):
-            if (channel_enabled and root_ch.use_height_normalize) or force_normal_input:
+            if (channel_enabled and root_ch.use_height_normalize) or force_normal_input or is_parent_using_transition_bump(layer):
                 name = root_ch.name + io_suffix['SCALE']
 
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
@@ -1185,7 +1185,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                     input_index += 1
 
             # Displacement Input
-            if root_ch.special_channel_type == 'HEIGHT' and layer.type == 'GROUP' and root_ch.use_height_normalize:
+            if root_ch.special_channel_type == 'HEIGHT' and layer.type == 'GROUP' and (root_ch.use_height_normalize or ch.enable_transition_bump):
                 name = root_ch.name + io_suffix['SCALE'] + io_suffix['GROUP']
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
                 input_index += 1

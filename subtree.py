@@ -1993,7 +1993,7 @@ def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=Fa
             if remove_node(tree, ch, 'tb_delta_calc'): need_reconnect = True
 
         # Max Height calculation node
-        if root_ch.use_height_normalize: #or root_ch.use_height_as_bump:
+        if root_ch.use_height_normalize or is_parent_using_transition_bump(layer): #or root_ch.use_height_as_bump:
 
             if ch.enable_transition_bump:
                 if ch.transition_bump_crease and not ch.transition_bump_flip:

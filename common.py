@@ -3418,6 +3418,17 @@ def is_valid_to_remove_bump_nodes(layer, ch):
 
     return False
 
+def is_parent_using_transition_bump(layer):
+    yp = layer.id_data.yp
+
+    for pid in get_list_of_parent_ids(layer):
+        parent = yp.layers[pid]
+        height_ch = get_height_channel(parent)
+        if height_ch and height_ch.enable_transition_bump:
+            return True
+
+    return False
+
 def get_correct_uv_neighbor_resolution(ch, image=None):
 
     res_x = image.size[0] if image else 1000
