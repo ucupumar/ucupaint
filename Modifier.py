@@ -861,8 +861,6 @@ def check_modifiers_trees(parent, rearrange=False):
     group_tree = parent.id_data
     yp = group_tree.yp
 
-    print('KKKKK', parent.name)
-
     enable_tree = False
     is_layer = False
 
