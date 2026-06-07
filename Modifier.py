@@ -793,19 +793,13 @@ def check_layer_modifier_tree(layer):
         if not ch.enable: continue
         root_ch = yp.channels[i]
 
-        # Normal map is using secondary input
-        secondary_input = root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP'
-        socket_name = get_channel_input_socket_name(layer, ch, secondary_input=secondary_input)
+        # Get channel socket name
+        if layer.type == 'PREV_LAYERS':
+            socket_name = root_ch.name
+        else: socket_name = get_channel_input_socket_name(layer, ch)
 
         if socket_name not in socket_names:
             socket_names.append(socket_name)
-
-        # Extra secondary input
-        if root_ch.type == 'NORMAL' and ch.normal_map_type in {'BUMP_NORMAL_MAP'}:
-            secondary_socket_name = get_channel_input_socket_name(layer, ch, secondary_input=True)
-
-            if secondary_socket_name not in socket_names:
-                socket_names.append(secondary_socket_name)
 
     num_groups = len(layer.mod_groups)
     num_socs = len(socket_names)
@@ -866,6 +860,8 @@ def check_layer_modifier_tree(layer):
 def check_modifiers_trees(parent, rearrange=False):
     group_tree = parent.id_data
     yp = group_tree.yp
+
+    print('KKKKK', parent.name)
 
     enable_tree = False
     is_layer = False

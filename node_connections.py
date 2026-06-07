@@ -2210,7 +2210,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     # Get pair of source output name with layer channel
     ch_socket_pairs = {}
-    ch_normal_socket_pairs = {}
     for i, ch in enumerate(layer.channels):
 
         # Alpha channel will get ignored if color channel is also enabled
@@ -2227,21 +2226,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # This is to avoid solid alpha value if 'Alpha' socket is used.
         if layer.type in {'IMAGE', 'VCOL'} and ch.override:
             outp = source.outputs.get('Color')
+        elif layer.type == 'PREV_LAYERS':
+            outp = source.outputs.get(root_ch.name)
         else: outp = source.outputs.get(ch.socket_input_name)
         if outp not in available_outputs:
             outp = None
-
-        # Get normal socket
-        normal_outp = None
-        if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-            socket_name = ch.socket_input_1_name
-            normal_outp = source.outputs.get(ch.socket_input_1_name)
-            if normal_outp not in available_outputs:
-                normal_outp = None
-        
-        # Use normal socket for normal map only channel
-        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
-            outp = normal_outp
 
         # If not, use whatever in the first index
         if not outp and len(available_outputs) > 0:
@@ -2250,18 +2239,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Pair the output name to the layer channel
         ch_socket_pairs[root_ch.name] = outp.name if outp else None
 
-        # When using both bump and normal, extra socket need to be remembered
-        if normal_outp and root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
-            ch_normal_socket_pairs[root_ch.name] = normal_outp.name
-
         # Set the output as used output
         if outp and outp.name not in used_output_names:
             used_output_names.append(outp.name)
-
-        # Set the normal output as used output
-        if normal_outp and normal_outp.name not in used_output_names:
-            used_output_names.append(normal_outp.name)
-
+    
     # Connection inside a source group (only relevant for smooth bump)
     if source_group:
         reconnect_source_internal_nodes(layer, used_output_names)
@@ -2730,57 +2711,26 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         prev_vdisp_alpha = None
         next_vdisp_alpha = None
 
-        group_vdisp = None
-        vdisp_alpha = None
-
         height_alpha = None
         normal_alpha = None
         group_alpha = None
 
         ch_uv_neighbor = nodes.get(ch.uv_neighbor)
 
-        if layer.type in {'GROUP', 'PREV_LAYERS'}:
+        if layer.type == 'GROUP':
 
-            if root_ch.type == 'NORMAL' and ch.enable_transition_bump:
+            soc_name = root_ch.name + io_suffix['GROUP']
 
-                soc_name = root_ch.name + io_suffix['HEIGHT']
-                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
+            group_channel = source.outputs.get(soc_name)
+            if group_channel: rgb = group_channel
+            elif root_ch.special_channel_type == 'NORMAL':
+                # Get Geometry normal if normal from group doesn't exist
+                rgb = get_essential_node(tree, GEOMETRY).get('Normal')
 
-                group_height = source.outputs.get(soc_name)
-                if group_height: rgb = group_height
+            soc_name = root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP']
 
-            else:
-                soc_name = root_ch.name
-                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
-
-                group_channel = source.outputs.get(soc_name)
-                if group_channel: rgb = group_channel
-                elif root_ch.special_channel_type == 'NORMAL':
-                    # Get Geometry normal if normal from group doesn't exist
-                    rgb = get_essential_node(tree, GEOMETRY).get('Normal')
-
-            if root_ch.type == 'NORMAL':
-                soc_name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
-                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
-
-                group_height_alpha = source.outputs.get(soc_name)
-                if group_height_alpha: alpha = group_height_alpha
-
-            else:
-                soc_name = root_ch.name + io_suffix['ALPHA']
-                if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
-
-                group_channel_alpha = source.outputs.get(soc_name)
-                if group_channel_alpha: alpha = group_channel_alpha
-
-            # Vector displacement from group
-            soc_name = root_ch.name + io_suffix['VDISP']
-            if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
-            group_vdisp = source.outputs.get(soc_name)
-
-            soc_name = root_ch.name + io_suffix['VDISP'] + io_suffix['ALPHA']
-            if layer.type == 'GROUP': soc_name += io_suffix['GROUP']
-            vdisp_alpha = source.outputs.get(soc_name)
+            group_channel_alpha = source.outputs.get(soc_name)
+            if group_channel_alpha: alpha = group_channel_alpha
 
             group_alpha = alpha
 

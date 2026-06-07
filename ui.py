@@ -1717,7 +1717,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     rcol = rbox.column(align=False)
 
     modcol = rcol.column()
-    modcol.active = layer.type not in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}
+    modcol.active = layer.type not in {'BACKGROUND', 'GROUP'}
     draw_modifier_stack(context, layer, 'RGB', modcol, lui, layer)
 
     #if layer.type not in {'VCOL', 'BACKGROUND'}:
@@ -7975,7 +7975,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
             return
 
-        if context.parent.type not in {'GROUP', 'PREV_LAYERS'}:
+        if context.parent.type not in {'GROUP'}:
             col = row.column()
             col.label(text='Add Modifier')
             ## List the modifiers

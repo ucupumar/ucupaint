@@ -5768,7 +5768,10 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
 
     channel_idx = get_channel_index(root_ch)
 
-    if layer.type in {'BACKGROUND', 'GROUP', 'PREV_LAYERS'}:
+    if layer.type == 'PREV_LAYERS':
+        return ch.enable
+
+    elif layer.type in {'BACKGROUND', 'GROUP'}:
         
         if layer.type == 'BACKGROUND':
             layer_idx = get_layer_index(layer)
