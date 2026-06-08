@@ -2289,6 +2289,8 @@ def create_layer_descriptor():
     l.pil_image = None
     l.mask_image = None
     l.mask_pil_image = None
+    l.segment = None
+    l.mask_segment = None
     l.masks = []
 
     return l
@@ -2380,14 +2382,19 @@ def get_mask_mapping(mask, get_baked=False, layer_tree=None):
     tree = get_mask_tree(mask, layer_tree=layer_tree, ignore_group=True)
     return tree.nodes.get(mask.mapping) if not get_baked else tree.nodes.get(mask.baked_mapping)
 
+def is_image_bright(image):
+    if not is_bl_newer_than(2, 83): return False
+
+    # Check average value of the image using numpy
+    pxs = numpy.empty(shape=image.size[0] * image.size[1] * 4, dtype=numpy.float32)
+    image.pixels.foreach_get(pxs)
+    return numpy.average(pxs) > 0.5
+
 def get_image_mask_base_color(mask, image, mask_index):
 
     color = (0, 0, 0, 1)
     if is_bl_newer_than(2, 83):
-        # Check average value of the image using numpy
-        pxs = numpy.empty(shape=image.size[0] * image.size[1] * 4, dtype=numpy.float32)
-        image.pixels.foreach_get(pxs)
-        if numpy.average(pxs) > 0.5:
+        if is_image_bright(image):
             color = (1, 1, 1, 1)
     else:
         # Set Mask color based on the index and blend type
