@@ -3139,7 +3139,38 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     # Prepare bake settings
     if bprops.type == 'AO':
-        if alpha_outp:
+        alpha_used = True if alpha_outp else False
+        if not alpha_used:
+            checked_mats = []
+            # Check if other objects are using alpha
+            for o in get_scene_objects():
+                if o in objs or not hasattr(o.data, 'materials'): continue
+                for m in o.data.materials:
+                    if m in checked_mats: continue
+                    checked_mats.append(m)
+
+                    otp = get_material_output(m)
+                    if not otp: continue
+
+                    # Check for principled bsdf
+                    bsd = get_closest_bsdf_backward(otp)
+                    if bsd and bsd.type == 'BSDF_PRINCIPLED':
+                        alpha_inp = bsd.inputs.get('Alpha')
+                        if alpha_inp and len(alpha_inp.links) > 0:
+                            alpha_used = True
+                            break
+
+                    # Check for transparent bsdf
+                    if not alpha_used:
+                        bsd = get_closest_bsdf_backward(otp, valid_types=['BSDF_TRANSPARENT'])
+                        if bsd:
+                            alpha_used = True
+                            break
+
+                    if alpha_used: break
+                if alpha_used: break
+
+        if alpha_used:
             # If there's alpha channel use standard AO bake, which has lesser quality denoising
             bake_type = 'AO'
         else: 
