@@ -45,7 +45,7 @@ def add_new_layer(
         blend_type, normal_blend_type, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, segment=None,
         solid_color=(1, 1, 1),
-        add_mask=False, mask_type='IMAGE', mask_image=None, mask_image_filepath='', mask_relative=True,
+        add_mask=False, mask_type='IMAGE', mask_image=None, mask_segment=None, mask_image_filepath='', mask_relative=True,
         mask_texcoord_type='UV', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name='', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space='WORLD', hemi_use_prev_normal=True,
@@ -227,9 +227,9 @@ def add_new_layer(
     if add_mask:
 
         #mask_name = 'Mask ' + layer.name
-        mask_name = Mask.get_new_mask_name(obj, layer, mask_type)
+        ignore_image_names = True if mask_segment else False
+        mask_name = Mask.get_new_mask_name(obj, layer, mask_type, ignore_images=ignore_image_names)
         mask_vcol_name = ''
-        mask_segment = None
 
         if not mask_image and mask_type == 'IMAGE':
             if not mask_image_filepath:
@@ -1044,7 +1044,7 @@ class YNewLayer(bpy.types.Operator):
 
     use_image_atlas : BoolProperty(
         name = 'Use Image Atlas',
-        description='Use Image Atlas',
+        description = 'Use shared image for multiple layers/masks, can save image slots for Blender with OpenGL',
         default = False
     )
 
@@ -3035,6 +3035,12 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         default = True
     )
 
+    use_image_atlas : BoolProperty(
+        name = 'Use Image Atlas',
+        description = 'Use shared image for multiple layers/masks, can save image slots for Blender with OpenGL',
+        default = False
+    )
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     file_browser_filepath : StringProperty(default='')
@@ -3120,6 +3126,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
 
         layout = col if self.file_browser_filepath != '' else self.layout
 
+        layout.prop(self, 'use_image_atlas')
         layout.prop(self, 'relative')
 
         if UDIM.is_udim_supported():
@@ -3165,6 +3172,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         wm = context.window_manager
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        obj = context.object
 
         if self.file_browser_filepath == '':
             import_list, directory = self.generate_paths()
@@ -3254,6 +3262,51 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
             elif active_layer.parent_idx != -1:
                 designated_parent_idx = active_layer.parent_idx
 
+        # Convert standalone images to atlas segments if needed
+        temp_images = []
+        if self.use_image_atlas:
+            transp_atlas = None
+            white_atlas = None
+            black_atlas = None
+
+            for ld in lds:
+                # TODO: UDIM atlas
+                if ld.image and ld.type == 'IMAGE' and ld.image.source != 'TILED':
+                    segment = ImageAtlas.get_set_image_atlas_segment(
+                        ld.image.size[0], ld.image.size[1],
+                        'TRANSPARENT', ld.image.is_float, yp=yp,
+                        predefined_atlas=transp_atlas
+                    )
+                    atlas = segment.id_data
+                    transp_atlas = atlas
+                    copy_image_pixels(ld.image, atlas, segment=segment)
+                    temp_images.append(ld.image)
+                    ld.image = atlas
+                    ld.segment = segment
+
+                if ld.mask_image:
+                    if is_image_bright(ld.mask_image):
+                        base_color = 'WHITE'
+                        predefined_atlas = white_atlas
+                    else:
+                        base_color = 'BLACK'
+                        predefined_atlas = black_atlas
+
+                    base_color = 'WHITE' if is_image_bright(ld.mask_image) else 'BLACK'
+                    mask_seg = ImageAtlas.get_set_image_atlas_segment(
+                        ld.mask_image.size[0], ld.mask_image.size[1],
+                        base_color, ld.mask_image.is_float, yp=yp,
+                        predefined_atlas=predefined_atlas
+
+                    )
+                    mask_atlas = mask_seg.id_data
+                    if base_color == 'WHITE': white_atlas = mask_atlas
+                    else: black_atlas = mask_atlas
+                    copy_image_pixels(ld.mask_image, mask_atlas, segment=mask_seg)
+                    temp_images.append(ld.mask_image)
+                    ld.mask_image = mask_atlas
+                    ld.mask_segment = mask_seg
+
         for ld in lds:
 
             if ld.image and ld.image.filepath != '' and self.relative and bpy.data.filepath != '':
@@ -3265,17 +3318,21 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
                 layer_type=ld.type, channel_idx=int(self.channel_idx),
                 blend_type=ld.blend_type, normal_blend_type=self.normal_blend_type,
                 normal_map_type=self.normal_map_type, texcoord_type=self.texcoord_type,
-                uv_name = self.uv_map, image=ld.image, vcol=None, segment=None,
+                uv_name = self.uv_map, image=ld.image, vcol=None, segment=ld.segment,
                 interpolation=self.interpolation, normal_space=self.normal_space,
                 height_blend_type=self.height_blend_type,
                 solid_color = ld.color,
                 add_mask = ld.mask_image != None,
-                mask_uv_name=self.uv_map, mask_image=ld.mask_image,
+                mask_uv_name=self.uv_map, mask_image=ld.mask_image, mask_segment=ld.mask_segment,
                 enable = ld.enable,
                 use_designated_idx = True,
                 designated_index = designated_index,
                 designated_parent_idx = designated_parent_idx
             )
+
+            if ld.segment:
+                ImageAtlas.set_segment_mapping(layer, ld.segment, ld.image)
+                refresh_temp_uv(obj, layer)
 
             # Repoint to correct name
             ld.name = layer.name
@@ -3313,6 +3370,10 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         # Reconnect and rearrange nodes
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
+
+        # Remove unused images
+        for temp_image in temp_images:
+            remove_datablock(bpy.data.images, temp_image)
 
         # Update UI
         wm.ypui.need_update = True
