@@ -3980,48 +3980,20 @@ def draw_layers_ui(context, layout, node):
                 else:
                     row.label(text='Baked '+get_vertex_color_label(00)+' is missing!' + title, icon='ERROR')
 
-            if root_ch.type == 'NORMAL':
+            if root_ch.special_channel_type == 'NORMAL':
 
-                baked_normal_overlay = nodes.get(root_ch.baked_normal_overlay)
-                if baked_normal_overlay and baked_normal_overlay.image:
+                baked_normal_no_disp = nodes.get(root_ch.baked_normal_no_disp)
+                if baked_normal_no_disp and baked_normal_no_disp.image:
                     row = bcol.row(align=True)
                     row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
-                    if baked_normal_overlay.image.is_dirty:
-                        title = baked_normal_overlay.image.name + ' *'
-                    else: title = baked_normal_overlay.image.name
+                    if baked_normal_no_disp.image.is_dirty:
+                        title = baked_normal_no_disp.image.name + ' *'
+                    else: title = baked_normal_no_disp.image.name
                     if root_ch.disable_global_baked and not yp.enable_baked_outside:
                         title += ' (Disabled)'
                     row.label(text=title, icon_value=lib.get_icon('image'))
 
-                    if baked_normal_overlay.image.packed_file:
-                        row.label(text='', icon='PACKAGE')
-
-                baked_disp = nodes.get(root_ch.baked_disp)
-                if baked_disp and baked_disp.image:
-                    row = bcol.row(align=True)
-                    row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
-                    if baked_disp.image.is_dirty:
-                        title = baked_disp.image.name + ' *'
-                    else: title = baked_disp.image.name
-                    if root_ch.disable_global_baked and not yp.enable_baked_outside:
-                        title += ' (Disabled)'
-                    row.label(text=title, icon_value=lib.get_icon('image'))
-
-                    if baked_disp.image.packed_file:
-                        row.label(text='', icon='PACKAGE')
-
-                baked_vdisp = nodes.get(root_ch.baked_vdisp)
-                if baked_vdisp and baked_vdisp.image:
-                    row = bcol.row(align=True)
-                    row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
-                    if baked_vdisp.image.is_dirty:
-                        title = baked_vdisp.image.name + ' *'
-                    else: title = baked_vdisp.image.name
-                    if root_ch.disable_global_baked and not yp.enable_baked_outside:
-                        title += ' (Disabled)'
-                    row.label(text=title, icon_value=lib.get_icon('image'))
-
-                    if baked_vdisp.image.packed_file:
+                    if baked_normal_no_disp.image.packed_file:
                         row.label(text='', icon='PACKAGE')
 
             btimages = []
