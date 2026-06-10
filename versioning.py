@@ -1485,6 +1485,18 @@ def update_yp_tree(tree):
                                 # Do setup
                                 Root.do_displacement_node_setup(mat, node, vdm_ch, is_vector_disp=True)
 
+                            # Hide base value since some older versions doesn't do that
+                            norm_chs = [c for c in yp.channels if c.special_channel_type == 'NORMAL']
+                            if norm_chs:
+                                norm_ch = norm_chs[0]
+                                inp = get_tree_input_by_name(node.node_tree, norm_ch.name)
+                                if inp and hasattr(inp, 'hide_value'):
+                                    inp.hide_value = True
+                                else:
+                                    inp = node.inputs.get(norm_ch.name)
+                                    if inp and hasattr(inp, 'hide_value'):
+                                        inp.hide_value = True
+
         # Update list item since there's a new base layer
         ListItem.refresh_list_items(yp)
 
@@ -1526,17 +1538,23 @@ def update_yp_tree(tree):
 
     # SECTION III: Updates based on the blender version and yp version
 
-    # Version 1.1.0 and Blender 2.90 can hide default normal input
-    if is_bl_newer_than(2, 90) and (is_created_before(2, 90) or 
-                                  version_tuple(yp.blender_version) < (2, 90, 0) or 
-                                  version_tuple(yp.version) < (1, 1, 0)
-                                  ):
-        height_root_ch = get_root_height_channel(yp)
-        if height_root_ch:
-            inp = get_tree_input_by_name(tree, height_root_ch.name)
-            if inp: 
+    # Version 1.1.0 or Blender 2.90 hide default normal input
+    if version_tuple(yp.version) < (1, 1, 0) or (is_created_before(2, 90) and is_bl_newer_than(2, 90)):
+
+        normal_root_ch = get_root_normal_channel(yp)
+        if normal_root_ch:
+            inp = get_tree_input_by_name(tree, normal_root_ch.name)
+            if inp and hasattr(inp, 'hide_value'): 
                 inp.hide_value = True
                 print("INFO: " + tree.name + " Normal input is hidden since Blender 2.90!")
+            else:
+                mats = get_materials_using_yp(yp)
+                for mat in mats:
+                    for node in mat.node_tree.nodes:
+                        if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
+                            inp = node.inputs.get(normal_root_ch.name)
+                            if inp and hasattr(inp, 'hide_value'):
+                                inp.hide_value = True
 
     # Blender 3.4 and version 1.0.9 will make sure all mix node using the newest type
     if version_tuple(yp.version) < (1, 0, 9) and is_bl_newer_than(3, 4):
