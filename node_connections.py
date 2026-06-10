@@ -388,8 +388,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         io_name = ch.name
         io_alpha_name = ch.name + io_suffix['ALPHA']
-        io_height_name = ch.name + io_suffix['HEIGHT']
-        io_height_alpha_name = ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
         io_max_height_name = ch.name + io_suffix['SCALE']
         io_midlevel_name = ch.name + io_suffix['MIDLEVEL']
         io_vdisp_name = ch.name + io_suffix['VDISP']
@@ -559,28 +557,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 if inp: 
                     create_link(tree, get_essential_node(tree, TEXCOORD)[tc], inp)
 
-            # Background layer
-            if layer.type == 'BACKGROUND':
-                # Offsets for background layer
-                inp = node.inputs.get(ch.name + io_suffix['BACKGROUND'])
-                inp_alpha = node.inputs.get(ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND'])
-                inp_height = node.inputs.get(ch.name + io_suffix['HEIGHT'] + io_suffix['BACKGROUND'])
-
-                if layer.parent_idx == -1:
-                    if inp: 
-                        create_link(tree, bg_rgb, inp)
-                    if inp_alpha:
-                        create_link(tree, bg_alpha, inp_alpha)
-                    if inp_height:
-                        create_link(tree, bg_height, inp_height)
-                else:
-                    if inp: 
-                        break_input_link(tree, inp)
-                    if inp_alpha:
-                        break_input_link(tree, inp_alpha)
-                    if inp_height:
-                        break_input_link(tree, inp_height)
-
             # Merge process doesn't care with parents
             if not merged_layer_ids and layer.parent_idx != -1: continue
 
@@ -591,13 +567,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             if ch.enable_alpha and io_alpha_name in node.inputs:
                 outputs = create_link(tree, alpha, node.inputs[io_alpha_name])
                 if io_alpha_name in outputs: alpha = outputs[io_alpha_name]
-
-            if height and io_height_name in node.inputs: 
-                outputs = create_link(tree, height, node.inputs[io_height_name])
-                if io_height_name in outputs: height = outputs[io_height_name]
-
-            if height_alpha and io_height_alpha_name in node.inputs:
-                height_alpha = create_link(tree, height_alpha, node.inputs[io_height_alpha_name])[io_height_alpha_name]
 
             if max_height and io_max_height_name in node.inputs:
                 outps = create_link(tree, max_height, node.inputs[io_max_height_name])
@@ -1113,7 +1082,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     #fine_bump_ch = False
     trans_bump_ch = get_transition_bump_channel(layer)
     if trans_bump_ch:
-        trans_bump_flip = trans_bump_ch.transition_bump_flip #or layer.type == 'BACKGROUND'
+        trans_bump_flip = trans_bump_ch.transition_bump_flip
         trans_bump_crease = trans_bump_ch.transition_bump_crease and not trans_bump_flip
 
     compare_alpha = None
@@ -1422,14 +1391,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if group_channel_alpha: alpha = group_channel_alpha
 
             group_alpha = alpha
-
-        elif layer.type == 'BACKGROUND':
-            source_rgb = source.outputs.get(root_ch.name + io_suffix['BACKGROUND'])
-            if source_rgb: rgb = source_rgb
-            alpha = get_essential_node(tree, ONE_VALUE)[0]
-
-            if root_ch.enable_alpha:
-                bg_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND'])
 
         rgb_before_override = rgb
 
@@ -1775,7 +1736,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Transition AO
         tao = nodes.get(ch.tao)
-        if tao and root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao: # and layer.type != 'BACKGROUND':
+        if tao and root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao:
 
             if ch_intensity:
                 create_link(tree, ch_intensity, tao.inputs['Intensity Channel'])
@@ -1803,10 +1764,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, rgb, tao.inputs[0])
                 rgb = tao.outputs[0]
 
-                # Get bump intensity multiplier of transition bump
-                #if trans_bump_ch.transition_bump_flip or layer.type == 'BACKGROUND':
-                #    trans_im = nodes.get(trans_bump_ch.intensity_multiplier)
-                #else: 
                 trans_im = nodes.get(trans_bump_ch.tb_intensity_multiplier)
 
                 if trans_im: create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
@@ -1963,15 +1920,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else: next_alpha = get_essential_node(tree, TREE_END).get(root_alpha_ch.name)
         else: next_alpha = get_essential_node(tree, TREE_END).get(root_ch.name + io_suffix['ALPHA'])
 
-        # Background layer only know mix
-        if layer.type == 'BACKGROUND':
-            blend_type = 'MIX'
-        else: 
-            if root_ch.special_channel_type == 'NORMAL':
-                blend_type = ch.normal_blend_type
-            elif root_ch.special_channel_type == 'HEIGHT':
-                blend_type = ch.height_blend_type
-            else: blend_type = ch.blend_type
+        if root_ch.special_channel_type == 'NORMAL':
+            blend_type = ch.normal_blend_type
+        elif root_ch.special_channel_type == 'HEIGHT':
+            blend_type = ch.height_blend_type
+        else: blend_type = ch.blend_type
 
         # Get output of alpha channel before blend node
         if ch == alpha_ch and not color_ch.unpair_alpha:
