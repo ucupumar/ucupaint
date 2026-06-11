@@ -906,6 +906,17 @@ def get_scene_objects():
         return bpy.context.view_layer.objects
     else: return bpy.context.scene.objects
 
+def get_scene_materials():
+    objs = get_scene_objects()
+    mats = []
+    for obj in objs:
+        if not hasattr(obj.data, 'materials'): continue
+        for mat in obj.data.materials:
+            if mat not in mats:
+                mats.append(mat)
+
+    return mats
+
 def remove_mesh_obj(obj):
     data = obj.data
     remove_datablock(bpy.data.objects, obj)
