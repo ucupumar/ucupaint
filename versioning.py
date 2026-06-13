@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake, ListItem, Modifier, Root, Layer
+from . import Bake, ListItem, modifier_common, Modifier, Root, Layer
 
 def flip_tangent_sign():
     meshes = []
@@ -1497,6 +1497,37 @@ def update_yp_tree(tree):
                                     if inp and hasattr(inp, 'hide_value'):
                                         inp.hide_value = True
 
+        # Convert root channel modifiers to 'PREV_LAYERS' layer
+        any_root_ch_modifiers = False
+        for i, root_ch in enumerate(yp.channels):
+            if any(root_ch.modifiers):
+                any_root_ch_modifiers = True
+
+                yp.halt_update = True
+
+                # Create new layer
+                layer = Layer.add_new_layer(
+                    tree, root_ch.name+' Adjustment', 'PREV_LAYERS', i,
+                    'MIX', 'MIX', 'BUMP_MAP',
+                    'UV')
+
+                # Copy modifiers
+                for mod in root_ch.modifiers:
+                    new_mod = layer.modifiers.add()
+                    copy_id_props(mod, new_mod)
+                    modifier_common.check_modifier_nodes(new_mod, get_tree(layer), tree)
+
+                # Uncollapse the UI
+                layer.expand_content = True
+
+                yp.halt_update = False
+
+                # Remove root channel modifiers
+                root_ch.modifiers.clear()
+
+        if any_root_ch_modifiers:
+            check_all_channel_ios(yp)
+
         # Update list item since there's a new base layer
         ListItem.refresh_list_items(yp)
 
@@ -1539,7 +1570,7 @@ def update_yp_tree(tree):
     # SECTION III: Updates based on the blender version and yp version
 
     # Version 1.1.0 or Blender 2.90 hide default normal input
-    if version_tuple(yp.version) < (1, 1, 0) or (is_created_before(2, 90) and is_bl_newer_than(2, 90)):
+    if version_tuple(yp.version) < (1, 1, 0) or (is_created_before(2, 90) and is_bl_newer_than(2, 90)) or (version_tuple(yp.version) < (3, 0, 0) and not is_bl_newer_than(2, 90)):
 
         normal_root_ch = get_root_normal_channel(yp)
         if normal_root_ch:

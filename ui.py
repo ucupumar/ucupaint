@@ -7544,20 +7544,9 @@ class YChannelSpecialMenu(bpy.types.Menu):
 
         col.operator('wm.y_bake_channels', text="Bake " + context.parent.name + " Channel", icon_value=lib.get_icon('bake')).only_active_channel = True
 
-        if context.parent.special_channel_type == 'VDISP':
-            if is_bl_newer_than(3, 2):
-                col.separator()
-                col.operator('object.y_remove_vdm_and_add_multires', text="Apply VDM layers to Multires", icon='SCULPTMODE_HLT')
-        else:
+        if context.parent.special_channel_type == 'VDISP' and is_bl_newer_than(3, 2):
             col.separator()
-            col.label(text='Add Modifier')
-
-            # List the items
-            for mt in Modifier.modifier_type_items:
-                # Override color and multiplier modifier are deprecated
-                if mt[0] == 'OVERRIDE_COLOR': continue
-                if mt[0] == 'MULTIPLIER': continue
-                col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
+            col.operator('object.y_remove_vdm_and_add_multires', text="Apply VDM layers to Multires", icon='SCULPTMODE_HLT')
 
         is_alpha_in_name = context.parent.type == 'VALUE' and 'Alpha' in context.parent.name
         is_unconnected = is_output_unconnected(node, context.parent)
@@ -7565,7 +7554,7 @@ class YChannelSpecialMenu(bpy.types.Menu):
         # Add extra section
         if is_alpha_in_name or is_unconnected:
             col.separator()
-            col.label(text='Extra')
+            #col.label(text='Extra')
 
         # NOTE: This menu is only visible if name of the channel has 'Alpha' on it
         if is_alpha_in_name:
@@ -7573,7 +7562,7 @@ class YChannelSpecialMenu(bpy.types.Menu):
             col.operator('wm.y_toggle_channel_as_alpha', text='Use as Alpha Channel', icon=icon)
         else:
             col.separator()
-            col.label(text='Extra')
+            #col.label(text='Extra')
             col.operator('wm.y_toggle_channel_as_special_channel', text='Use as Special Channel', icon_value=lib.get_icon('channels'))
 
         # NOTE: This menu is only visible when the channel output doesn't connect to anything
