@@ -3020,33 +3020,26 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     if bprops.type == 'AO':
         alpha_used = True if alpha_outp else False
         if not alpha_used:
-            checked_mats = []
-            # Check if other objects are using alpha
-            for o in get_scene_objects():
-                if o in objs or not hasattr(o.data, 'materials'): continue
-                for m in o.data.materials:
-                    if m in checked_mats: continue
-                    checked_mats.append(m)
+            # Check if there is a material that uses alpha
+            for m in get_scene_materials():
+                otp = get_material_output(m)
+                if not otp: continue
 
-                    otp = get_material_output(m)
-                    if not otp: continue
+                # Check for principled bsdf
+                bsd = get_closest_bsdf_backward(otp, valid_types=['BSDF_PRINCIPLED'])
+                if bsd:
+                    alpha_inp = bsd.inputs.get('Alpha')
+                    if alpha_inp and len(alpha_inp.links) > 0:
+                        alpha_used = True
+                        break
 
-                    # Check for principled bsdf
-                    bsd = get_closest_bsdf_backward(otp)
-                    if bsd and bsd.type == 'BSDF_PRINCIPLED':
-                        alpha_inp = bsd.inputs.get('Alpha')
-                        if alpha_inp and len(alpha_inp.links) > 0:
-                            alpha_used = True
-                            break
+                # Check for transparent bsdf
+                if not alpha_used:
+                    bsd = get_closest_bsdf_backward(otp, valid_types=['BSDF_TRANSPARENT'])
+                    if bsd:
+                        alpha_used = True
+                        break
 
-                    # Check for transparent bsdf
-                    if not alpha_used:
-                        bsd = get_closest_bsdf_backward(otp, valid_types=['BSDF_TRANSPARENT'])
-                        if bsd:
-                            alpha_used = True
-                            break
-
-                    if alpha_used: break
                 if alpha_used: break
 
         if alpha_used:

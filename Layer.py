@@ -3035,9 +3035,11 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         default = True
     )
 
+    extra_desc = '\nCurrently only works with opened non-UDIM images.' if UDIM.is_udim_supported() else ''
+
     use_image_atlas : BoolProperty(
         name = 'Use Image Atlas',
-        description = 'Use shared image for multiple layers/masks, can save image slots for Blender with OpenGL',
+        description = 'Use shared image for multiple layers/masks, can save image slots for Blender with OpenGL'+extra_desc,
         default = False
     )
 
@@ -3086,6 +3088,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         obj = context.object
+        params = context.space_data.params
 
         channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         
@@ -3127,7 +3130,15 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         layout = col if self.file_browser_filepath != '' else self.layout
 
         layout.prop(self, 'use_image_atlas')
-        layout.prop(self, 'relative')
+
+        # Detect for udim image
+        match = re.match(r'.+\.\d{4}\..+', params.filename)
+        udim_image_found = True if match else False
+
+        rrow = layout.row(align=True)
+        if self.use_image_atlas and (not UDIM.is_udim_supported() or not udim_image_found):
+            rrow.active = False
+        rrow.prop(self, 'relative')
 
         if UDIM.is_udim_supported():
             layout.prop(self, 'use_udim_detecting')
@@ -3135,7 +3146,6 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         # Detect for layered images
         layered_image_found = False
         ext = ''
-        params = context.space_data.params
         if get_lowercase_extension(params.filename) == 'psd':
             layered_image_found = True
             ext = 'psd'
