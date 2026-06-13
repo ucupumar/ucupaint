@@ -327,7 +327,7 @@ def apply_decal_constraint_transforms(op):
 def ypaint_decal_constraint_update(scene):
     # NOTE: Only apply constraint transformations when the active object enable the decal contstraint flag
     # This is to improve performance since there's no need to check every selected objects
-    obj = bpy.context.object
+    obj = bpy.context.object if hasattr(bpy.context, 'object') else None
     if obj and obj.yp_decal.enable_shrinkwrap and bpy.context.active_operator:
         op = bpy.context.active_operator
         # NOTE: Using depsgraph updates is slightly faster than using `startswith`, but only works on Blender 2.80+

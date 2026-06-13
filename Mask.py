@@ -283,13 +283,14 @@ def remove_mask(layer, mask, obj, refresh_list=True):
     if refresh_list:
         ListItem.refresh_list_items(yp)
 
-def get_new_mask_name(obj, layer, mask_type, modifier_type=''):
+def get_new_mask_name(obj, layer, mask_type, modifier_type='', ignore_images=False):
     surname = '(' + layer.name + ')'
     items = layer.masks
     if mask_type == 'IMAGE':
         name = 'Mask'
         name = get_unique_name(name, layer.masks, surname)
-        name = get_unique_name(name, bpy.data.images)
+        if not ignore_images:
+            name = get_unique_name(name, bpy.data.images)
         return name
     elif mask_type == 'VCOL' and obj.type == 'MESH':
         name = 'Mask Attribute' if is_bl_newer_than(3, 2) else 'Mask VCol'
@@ -664,7 +665,7 @@ class YNewLayerMask(bpy.types.Operator):
 
     use_image_atlas : BoolProperty(
         name = 'Use Image Atlas',
-        description = 'Use Image Atlas',
+        description = 'Use shared image for multiple layers/masks, can save image slots for Blender with OpenGL',
         default = False
     )
 
