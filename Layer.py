@@ -4420,7 +4420,7 @@ class YRemoveLayer(bpy.types.Operator):
     bl_options = {'UNDO'}
 
     remove_children : BoolProperty(name='Remove Children', description='Remove layer children', default=False)
-    remove_on_disk : BoolProperty(name='Remove Image on disk', description='Remove image file on disk', default=False)
+    remove_on_disk : BoolProperty(name='Delete Image from disk', description='Delete image file from disk', default=False)
 
     @classmethod
     def poll(cls, context):
@@ -4479,8 +4479,10 @@ class YRemoveLayer(bpy.types.Operator):
             col.prop(self, 'remove_on_disk')
 
             if self.remove_on_disk:
+                col.alert = True
                 col.label(text="WARNING!", icon='ERROR')
-                col.label(text="You cannot UNDO and the file will be gone forever", icon='ERROR')
+                col.label(text="You cannot UNDO and the file will be gone forever!", icon='BLANK1')
+                col.alert = False
 
     def check(self, context):
         return True
