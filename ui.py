@@ -1003,6 +1003,7 @@ def draw_bake_targets_ui(context, layout, node):
     rcol = row.column(align=True)
     #rcol.context_pointer_set('node', node)
 
+    rcol.operator("wm.y_bake_all_targets", text='', icon_value=lib.get_icon('bake'))
     if is_bl_newer_than(2, 80):
         rcol.operator("wm.y_new_bake_target", icon='ADD', text='')
         rcol.operator("wm.y_remove_bake_target", icon='REMOVE', text='')
@@ -1053,20 +1054,179 @@ def draw_bake_targets_ui(context, layout, node):
             for letter in rgba_letters:
                 draw_bake_target_channel(context, bcol, bt, letter)
 
-        row = col.row(align=True)
-        row.label(text='', icon='BLANK1')
-        image_name = image.name if image else '-'
-
-        row.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
-
-        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-        row.context_pointer_set('image', image)
-        row.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
-        
-        if not image:
+        if bt.data_type == 'IMAGE':
             row = col.row(align=True)
             row.label(text='', icon='BLANK1')
-            row.label(text="Do 'Bake All Channels' to get the image!", icon='ERROR')
+            image_name = image.name if image else '-'
+
+            info_col = row.column()
+            row_image = info_col.row(align=True)
+
+            row_image.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
+
+            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+            row_image.context_pointer_set('image', image)
+            row_image.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
+
+            #if not image:
+            #    row = col.row(align=True)
+            #    row.label(text='', icon='BLANK1')
+            #    row.label(text=f"Do 'Bake {bt.name}' to get the image!", icon='ERROR')
+
+        row_setting = col.row(align=True)
+
+        icon = get_collapse_arrow_icon(btui.expand_setting)
+
+        if is_bl_newer_than(2, 80):
+            row_setting.alignment = 'LEFT'
+            row_setting.scale_x = 0.95
+
+        row_setting.prop(btui, 'expand_setting', text='', emboss=False, icon=icon)
+
+        label_setting = "Bake Settings"
+        if is_bl_newer_than(2, 80):
+            row_setting.prop(btui, 'expand_setting', text=label_setting, emboss=False, icon='PREFERENCES')
+        else: 
+            row_setting.label(text=label_setting, icon_value=icon_value)
+
+
+        row_bake = col.row(align=True)
+        row_bake.label(text='', icon='BLANK1')
+
+        info_col = row_bake.column()
+        if btui.expand_setting:
+            draw_bake_target_settings(context, info_col, bt)
+        info_col.operator('wm.y_bake_single_target', text=f'Bake {bt.name}', icon_value=lib.get_icon('bake'))
+
+def draw_bake_target_settings(context, layout, bt):
+
+
+
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+    height_root_ch = get_root_height_channel(yp)
+    
+    obj = context.object
+
+    row = split_layout(layout, 0.4)
+    col = row.column() #align=True)
+
+    ccol = col.column(align=True)
+    ccol.label(text='')
+    if bt.use_custom_resolution == False:
+        ccol.label(text='Resolution:')
+    if bt.use_custom_resolution == True:
+        ccol.label(text='Width:')
+        ccol.label(text='Height:')
+
+    if height_root_ch:
+        ccol.separator()
+        # ccol.label(text='Use 32-bit Float:')
+        ccol.label(text='')
+        
+    ccol.separator()
+    ccol.label(text='Samples:')
+    ccol.label(text='AA Level:')
+
+    if is_bl_newer_than(3, 1):
+        ccol.separator()
+    ccol.label(text='Margin:')
+
+
+    col.separator()
+
+    # if is_bl_newer_than(2, 80):
+    #     col.label(text='Bake Device:')
+    col.label(text='Interpolation:')
+    col.label(text='UV Map:')
+
+    ccol = col.column(align=True)
+
+    # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+    active_channel = None
+    if bt.only_active_channel and not is_bl_equal(3, 2):
+        active_channel = bt.channels[0]
+        if active_channel.enable_bake_to_vcol:
+            ccol.separator()
+            ccol.label(text='')
+    elif bt.enable_bake_as_vcol and not is_bl_equal(3, 2):
+        ccol.separator()
+        ccol.label(text='Force First Vcol:')
+
+    col = row.column()
+
+    col.prop(bt, 'use_custom_resolution')
+    crow = col.row(align=True)
+    ccol = col.column(align=True)
+
+    if bt.use_custom_resolution == False:
+        crow.prop(bt, 'image_resolution', expand= True,)
+    elif bt.use_custom_resolution == True:
+        ccol.prop(bt, 'width', text='')
+        ccol.prop(bt, 'height', text='')
+
+    if height_root_ch:
+        ccol.separator()
+        ccol.prop(bt, 'use_float')
+
+    ccol.separator()
+    ccol.prop(bt, 'samples', text='')
+    ccol.prop(bt, 'aa_level', text='')
+
+    if is_bl_newer_than(3, 1):
+        ccol.separator()
+        split = split_layout(ccol, 0.4, align=True)
+        split.prop(bt, 'margin', text='')
+        split.prop(bt, 'margin_type', text='')
+    else:
+        ccol.prop(bt, 'margin', text='')
+
+        # splits = split_layout(ccol, 0.4)
+        # splits.prop(bt, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
+        # splits.prop(bt, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
+
+    col.separator()
+
+    # if is_bl_newer_than(2, 80):
+        # if bt.use_osl:
+        #     col.label(text='CPU (OSL)')
+        # else: col.prop(bt, 'bake_device', text='')
+        # col.prop(bt, 'bake_device', text='')
+
+    col.prop(bt, 'interpolation', text='')
+    col.prop_search(bt, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+
+    ccol = col.column(align=True)
+
+    # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+    if active_channel and active_channel.enable_bake_to_vcol:
+        ccol.separator()
+        ccol.prop(bt, 'vcol_force_first_ch_idx_bool', text='Force First Vcol')
+    elif bt.enable_bake_as_vcol and not is_bl_equal(3, 2):
+        ccol.separator()
+        ccol.prop(bt, 'vcol_force_first_ch_idx', text='')
+
+    ccol.separator()
+
+    if UDIM.is_udim_supported():
+        ccol.prop(bt, 'use_udim')
+    ccol.prop(bt, 'fxaa', text='Use FXAA')
+    if is_bl_newer_than(2, 81):
+        ccol.prop(bt, 'denoise', text='Use Denoise')
+
+    any_color_channel = any([c for c in bt.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+    if any_color_channel:
+        if not bt.use_dithering:
+            ccol.prop(bt, 'use_dithering', text='Use Dithering')
+        if bt.use_dithering:
+            row = split_layout(ccol, 0.55)
+            row.prop(bt, 'use_dithering', text='Use Dithering')
+            row.prop(bt, 'dither_intensity', text='')
+
+    # ccol.prop(bt, 'use_osl')
+
+    ccol.prop(bt, 'force_bake_all_polygons')
+    ccol.prop(bt, 'bake_disabled_layers')
 
 def draw_root_channels_ui(context, layout, node):
     scene = bpy.context.scene
@@ -4883,6 +5043,21 @@ def main_draw(self, context):
         if baked: 
             baked_found = True
 
+    # Custom Bake Targets
+    icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
+    row = layout.row(align=True)
+
+    if is_bl_newer_than(2, 80):
+        row.alignment = 'LEFT'
+        row.scale_x = 0.95
+        row.prop(ypui, 'show_bake_targets', emboss=False, text='Bake Targets', icon=icon)
+    else:
+        row.prop(ypui, 'show_bake_targets', emboss=False, text='', icon=icon)
+        row.label(text='Custom Bake Targets')
+
+    if ypui.show_bake_targets:
+        draw_bake_targets_ui(context, layout, node)
+
     # Channels
     icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -4963,21 +5138,6 @@ def main_draw(self, context):
             row.operator('sculpt.y_cancel_sculpt_to_image', icon='X', text='Cancel Sculpt')
         else:
             draw_layers_ui(context, layout, node)
-
-    # Custom Bake Targets
-    icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
-    row = layout.row(align=True)
-
-    if is_bl_newer_than(2, 80):
-        row.alignment = 'LEFT'
-        row.scale_x = 0.95
-        row.prop(ypui, 'show_bake_targets', emboss=False, text='Custom Bake Targets', icon=icon)
-    else:
-        row.prop(ypui, 'show_bake_targets', emboss=False, text='', icon=icon)
-        row.label(text='Custom Bake Targets')
-
-    if ypui.show_bake_targets:
-        draw_bake_targets_ui(context, layout, node)
 
     # Stats
     icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
@@ -8169,6 +8329,16 @@ class YBakeTargetUI(bpy.types.PropertyGroup):
         default = False,
         update = update_bake_target_ui
     )
+
+    expand_options : BoolProperty(
+        name = 'Bake Options',
+        description = 'Expand bake target options',
+        default = True,
+        # update = update_bake_target_ui
+    )
+
+    expand_setting : BoolProperty(default=False)
+
 
 class YModifierUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')

@@ -1,6 +1,8 @@
-import bpy
+import bpy, time
 from .common import *
 from bpy.props import *
+from .bake_common import *
+from .Bake import *
 
 rgba_items = (
     ('0', 'R', ''),
@@ -63,7 +65,7 @@ class YBakeTargetChannel(bpy.types.PropertyGroup):
         default = False
     )
 
-class YBakeTarget(bpy.types.PropertyGroup):
+class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
     name : StringProperty(
         name = 'Bake Target Name',
         description = 'Name of bake target name',
@@ -85,6 +87,113 @@ class YBakeTarget(bpy.types.PropertyGroup):
         description = 'Use 32-bit float image',
         default = False
     )
+
+    ########
+
+    uv_map : StringProperty(default='', update=update_bake_channel_uv_map)
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    channels : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    interpolation : EnumProperty(
+        name = 'Image Interpolation Type',
+        description = 'Image interpolation type',
+        items = interpolation_type_items,
+        default = 'Linear'
+    )
+
+    #hdr : BoolProperty(name='32 bit Float', default=False)
+
+    only_active_channel : BoolProperty(
+        name = 'Only Bake Active Channel',
+        description = 'Only bake active channel',
+        default = False
+    )
+
+    fxaa : BoolProperty(
+        name = 'Use FXAA', 
+        description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
+        default = True
+    )
+
+    aa_level : IntProperty(
+        name = 'Anti Aliasing Level',
+        description = 'Super Sample Anti Aliasing Level (1=off)',
+        default=1, min=1, max=2
+    )
+
+    denoise : BoolProperty(
+        name = 'Use Denoise', 
+        description = "Use Denoise on baked images",
+        default = False
+    )
+
+    force_bake_all_polygons : BoolProperty(
+        name = 'Force Bake all Polygons',
+        description = 'Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
+        default = False
+    )
+
+    enable_bake_as_vcol : BoolProperty(
+        name = 'Enable Bake As VCol',
+        description = 'Has any channel enabled Bake As Vertex Color',
+        default = False
+    )
+
+    vcol_force_first_ch_idx : EnumProperty(
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
+        items = bake_vcol_channel_items
+    )
+
+    vcol_force_first_ch_idx_bool : BoolProperty(
+        name = 'Force First Vertex Color Channel',
+        description = 'Force the first channel after baking the Vertex Color',
+        default = False
+    )
+
+    use_udim : BoolProperty(
+        name = 'Use UDIM Tiles',
+        description = 'Use UDIM Tiles',
+        default = False
+    )
+
+    use_float_for_normal : BoolProperty(
+        name = 'Use Float for Normal',
+        description = 'Use float image for baked normal',
+        default = False
+    )
+
+    use_float_for_displacement : BoolProperty(
+        name = 'Use Float for Displacement',
+        description = 'Use float image for baked displacement',
+        default = False
+    )
+
+    use_osl : BoolProperty(
+        name = 'Use OSL',
+        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
+        default = False
+    )
+
+    use_dithering : BoolProperty(
+        name = 'Use Dithering',
+        description = 'Use dithering for less banding color',
+        default = False
+    )
+
+    dither_intensity : FloatProperty(
+        name = 'Dither Intensity',
+        description = 'Amount of dithering noise added to the rendered image to break up banding',
+        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
+    )
+    
+    bake_disabled_layers : BoolProperty(
+        name = 'Bake Disabled Layers',  
+        description = 'Take disabled layers into account when baking',
+        default = False
+    )
+    ########
 
     r : PointerProperty(type=YBakeTargetChannel)
     g : PointerProperty(type=YBakeTargetChannel)
@@ -118,6 +227,48 @@ def update_new_bake_target_preset(self, context):
     #self.name = get_unique_name(tree_name + suffix, yp.bake_targets)
     self.name = get_unique_name(tree_name + suffix, bpy.data.images)
 
+def add_new_channel_bake_target(context, channel_name):
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+    bt = yp.bake_targets.add()
+    bt.name = "Channel Bake Target " + channel_name
+    bt.a.default_value = 1.0
+
+    bt.r.channel_name = channel_name
+    bt.g.channel_name = channel_name
+    bt.b.channel_name = channel_name
+
+    yp.active_bake_target_index = len(yp.bake_targets)-1
+
+    wm = context.window_manager
+    ypui = wm.ypui
+
+    ypui.bake_target_ui.expand_content = True
+    ypui.need_update = True
+
+class YNewChannelBakeTarget(bpy.types.Operator):
+    bl_idname = "wm.y_new_channel_bake_target"
+    bl_label = "New Channel Bake Target"
+    bl_description = "New bake target"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+    
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        print("Creating new bake target from channels..."+str(yp.active_channel_index))
+        channel = yp.channels[yp.active_channel_index]
+
+        add_new_channel_bake_target(context, channel.name)
+        
+        # Update panel
+        context.area.tag_redraw()
+        return {'FINISHED'}
+
 class YNewBakeTarget(bpy.types.Operator):
     bl_idname = "wm.y_new_bake_target"
     bl_label = "New Bake Target"
@@ -148,6 +299,16 @@ class YNewBakeTarget(bpy.types.Operator):
         default = False
     )
 
+    data_type : EnumProperty(
+        name = 'Bake Target Data Type',
+        description = 'Bake target data type',
+        items = (
+            ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
+            ('VCOL', get_vertex_color_label(), '', 'GROUP_VCOL', 1),
+        ),
+        default = 'IMAGE'
+    )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -169,10 +330,12 @@ class YNewBakeTarget(bpy.types.Operator):
         col = row.column(align=False)
         col.label(text='Name:')
         col.label(text='Preset:')
+        col.label(text='Type:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
         col.prop(self, 'preset', text='')
+        col.prop(self, 'data_type', text='')
         col.prop(self, 'use_float')
 
     def execute(self, context):
@@ -185,6 +348,9 @@ class YNewBakeTarget(bpy.types.Operator):
         bt.name = self.name
         bt.use_float = self.use_float
         bt.a.default_value = 1.0
+        bt.data_type = self.data_type
+
+        bt.uv_map = get_active_render_uv(context.object)
 
         if self.preset == 'ORM':
             for ch in yp.channels:
@@ -383,7 +549,8 @@ def register():
     bpy.utils.register_class(YBakeTarget)
     bpy.utils.register_class(YCopyBakeTarget)
     bpy.utils.register_class(YPasteBakeTarget)
-    
+    bpy.utils.register_class(YNewChannelBakeTarget)
+
 def unregister():
     bpy.utils.unregister_class(YNewBakeTarget)
     bpy.utils.unregister_class(YRemoveBakeTarget)
@@ -391,3 +558,4 @@ def unregister():
     bpy.utils.unregister_class(YBakeTarget)
     bpy.utils.unregister_class(YCopyBakeTarget)
     bpy.utils.unregister_class(YPasteBakeTarget)
+    bpy.utils.unregister_class(YNewChannelBakeTarget)

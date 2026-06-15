@@ -1099,7 +1099,7 @@ def update_yp_tree(tree):
         if color_ch_name != '':
 
             # Create alpha channel
-            alpha_ch = Root.create_new_yp_channel(tree, 'Alpha', 'VALUE', non_color=True)
+            alpha_ch = Root.create_new_yp_channel(tree, 'Alpha', 'VALUE', non_color=True, add_bake_target=False)
             alpha_ch.special_channel_type = 'ALPHA'
             if backface_mode != '':
                 alpha_ch.backface_mode = backface_mode

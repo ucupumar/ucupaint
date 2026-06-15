@@ -712,11 +712,10 @@ def load_contributors():
     else:
         reload_contributors = True
 
-    goal_ui = bpy.context.window_manager.ypui_credits
-
     if reload_contributors and is_online():
         timeout_seconds = 10
-        goal_ui.connection_status = "REQUESTING"
+
+        bpy.context.window_manager.ypui_credits.connection_status = "REQUESTING"
         data_url = "https://raw.githubusercontent.com/ucupumar/ucupaint-wiki/master/data/"
         
         try:
@@ -760,20 +759,20 @@ def load_contributors():
             with open(path_last_check, "w", encoding="utf-8") as f:
                 f.write(str(current_time))
 
-            goal_ui.connection_status = "SUCCESS"
+            bpy.context.window_manager.ypui_credits.connection_status = "SUCCESS"
         except requests.exceptions.ReadTimeout:
             print_info("timeout request")
             reload_contributors = False
-            goal_ui.connection_status = "FAILED"
+            bpy.context.window_manager.ypui_credits.connection_status = "FAILED"
         except requests.exceptions.ConnectionError:
             print_info("connection error")
             reload_contributors = False
-            goal_ui.connection_status = "FAILED"
+            bpy.context.window_manager.ypui_credits.connection_status = "FAILED"
     else:
-        goal_ui.connection_status = "FAILED"
+        bpy.context.window_manager.ypui_credits.connection_status = "FAILED"
         reload_contributors = False
 
-    print_info("cont status: " + goal_ui.connection_status)
+    print_info("cont status: " + bpy.context.window_manager.ypui_credits.connection_status)
 
     collaborators.contributors.clear()
     skip_header = True
@@ -820,7 +819,7 @@ def load_contributors():
     tiers = collaborators.sponsorships.get('tiers', [])
 
     # reset expand
-    for i in goal_ui.expand_tiers:
+    for i in bpy.context.window_manager.ypui_credits.expand_tiers:
         i = False
 
     total_tiers = len(tiers)
@@ -833,7 +832,7 @@ def load_contributors():
                 if item['tier'] == i and item['public']:
                     member_count += 1
             if member_count > 0:
-                goal_ui.expand_tiers[i] = True
+                bpy.context.window_manager.ypui_credits.expand_tiers[i] = True
                 expanding_top_tier -= 1
 
     refresh_image_caches()
@@ -843,7 +842,7 @@ def load_contributors():
     ypup = get_user_preferences()
     if ypup and ypup.developer_mode:
         # extra dummy
-        show_extra_dummy = goal_ui.use_dummy_users
+        show_extra_dummy = bpy.context.window_manager.ypui_credits.use_dummy_users
         empty_all_sponsors = False
 
         if show_extra_dummy:
