@@ -140,7 +140,7 @@ def create_new_group_tree(mat, name=None):
 
     return group_tree
 
-def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False):
+def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False, add_bake_target=True):
     yp = group_tree.yp
 
     yp.halt_reconnect = True
@@ -170,6 +170,24 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         # NOTE: Smooth bump is no longer enabled by default for realtime bump capable blender
         if is_bl_newer_than(2, 78): 
             channel.enable_smooth_bump = False
+
+    if add_bake_target:
+        bt = yp.bake_targets.add()
+        bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ' + name, bpy.data.images)
+
+        #bt.use_float = self.use_float
+        bt.a.default_value = 1.0
+
+        bt.r.channel_name = name
+        bt.r.subchannel_index = '0'
+
+        bt.g.channel_name = name
+        bt.g.subchannel_index = '1'
+
+        bt.b.channel_name = name
+        bt.b.subchannel_index = '2'
+
+        bt.data_type = 'IMAGE'
 
     yp.halt_reconnect = False
 

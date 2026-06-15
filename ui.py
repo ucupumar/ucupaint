@@ -1068,10 +1068,10 @@ def draw_bake_targets_ui(context, layout, node):
             row_image.context_pointer_set('image', image)
             row_image.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
 
-            if not image:
-                row = col.row(align=True)
-                row.label(text='', icon='BLANK1')
-                row.label(text=f"Do 'Bake {bt.name}' to get the image!", icon='ERROR')
+            #if not image:
+            #    row = col.row(align=True)
+            #    row.label(text='', icon='BLANK1')
+            #    row.label(text=f"Do 'Bake {bt.name}' to get the image!", icon='ERROR')
 
         row_setting = col.row(align=True)
 
@@ -4681,6 +4681,21 @@ def main_draw(self, context):
         if baked: 
             baked_found = True
 
+    # Custom Bake Targets
+    icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
+    row = layout.row(align=True)
+
+    if is_bl_newer_than(2, 80):
+        row.alignment = 'LEFT'
+        row.scale_x = 0.95
+        row.prop(ypui, 'show_bake_targets', emboss=False, text='Bake Targets', icon=icon)
+    else:
+        row.prop(ypui, 'show_bake_targets', emboss=False, text='', icon=icon)
+        row.label(text='Custom Bake Targets')
+
+    if ypui.show_bake_targets:
+        draw_bake_targets_ui(context, layout, node)
+
     # Channels
     icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -4761,21 +4776,6 @@ def main_draw(self, context):
             row.operator('sculpt.y_cancel_sculpt_to_image', icon='X', text='Cancel Sculpt')
         else:
             draw_layers_ui(context, layout, node)
-
-    # Custom Bake Targets
-    icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
-    row = layout.row(align=True)
-
-    if is_bl_newer_than(2, 80):
-        row.alignment = 'LEFT'
-        row.scale_x = 0.95
-        row.prop(ypui, 'show_bake_targets', emboss=False, text='Custom Bake Targets', icon=icon)
-    else:
-        row.prop(ypui, 'show_bake_targets', emboss=False, text='', icon=icon)
-        row.label(text='Custom Bake Targets')
-
-    if ypui.show_bake_targets:
-        draw_bake_targets_ui(context, layout, node)
 
     # Stats
     icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
