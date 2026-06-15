@@ -213,6 +213,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
         bt.data_type = 'IMAGE'
 
+        if hasattr(bpy.context, 'object'):
+            bt.uv_map = get_default_uv_name(bpy.context.object, yp)
+
     yp.halt_reconnect = False
 
     return channel

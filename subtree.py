@@ -1641,8 +1641,23 @@ def check_uv_nodes(yp, generate_missings=False):
     # Get active object
     obj = bpy.context.object
     mat = get_active_material()
+    tree = yp.id_data
 
     dirty = False
+
+    # Get bake target uv name
+    for bt in yp.bake_targets:
+        # Check for bake target image nodes
+        bt_node = tree.nodes.get(bt.image_node)
+        if bt_node:
+            uv = yp.uvs.get(bt.uv_map)
+            if not uv:
+                dirty = True
+                uv = yp.uvs.add()
+                uv.name = bt.uv_map
+
+            if uv.name not in uv_names: 
+                uv_names.append(uv.name)
 
     # Get baked uv name
     if yp.baked_uv_name != '':

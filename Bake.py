@@ -1251,6 +1251,12 @@ class YBakeSingleTarget(bpy.types.Operator):
         default = False
     )
 
+    bake_target_index : IntProperty(
+        name = 'Bake Target Index',
+        description = 'Bake target index',
+        default = 0
+    )
+
     @classmethod
     def poll(cls, context):
         node = get_active_ypaint_node()
@@ -1291,14 +1297,15 @@ class YBakeSingleTarget(bpy.types.Operator):
     def execute(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        self.bt = yp.bake_targets[yp.active_bake_target_index]
 
-        if self.bt.data_type == 'VCOL':
-            return self.bake_to_vcol(context)
-        else:
-            return self.bake_to_texture(context)
+        for i, bt in enumerate(yp.bake_targets):
+            if i != self.bake_target_index: continue
+            if bt.data_type == 'VCOL':
+                return self.bake_to_vcol(context, bt)
+            else:
+                return self.bake_to_texture(context, bt)
     
-    def bake_to_vcol(self, context):
+    def bake_to_vcol(self, context, bt):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         bake_target = yp.bake_targets[yp.active_bake_target_index]
@@ -1322,15 +1329,13 @@ class YBakeSingleTarget(bpy.types.Operator):
 
         return {'FINISHED'}
 
-    def bake_to_texture(self, context):
+    def bake_to_texture(self, context, bt):
         T = time.time()
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         
-        self.bt = yp.bake_targets[yp.active_bake_target_index]
-
-        if not self.bt.is_cycles_exist(context): return {'CANCELLED'}
+        if not bt.is_cycles_exist(context): return {'CANCELLED'}
 
         obj = self.obj = context.object
         scene = context.scene
@@ -1347,20 +1352,21 @@ class YBakeSingleTarget(bpy.types.Operator):
         if self.override_bake_device:
             ypup.default_bake_device = selected_bake_device
 
-        if not self.bt.use_custom_resolution:
-            self.bt.height = self.bt.width = int(self.bt.image_resolution)
+        if not bt.use_custom_resolution:
+            bt.height = bt.width = int(bt.image_resolution)
 
-        print("again resolution: " + str(self.bt.width) + "x" + str(self.bt.height))
+        print("again resolution: " + str(bt.width) + "x" + str(bt.height))
         self.channels = []
 
         for letter in rgba_letters:
-            btc = getattr(self.bt, letter)
+            btc = getattr(bt, letter)
             if btc.channel_name != '' and yp.channels.get(btc.channel_name):
                 ch = yp.channels.get(btc.channel_name)
-                self.channels.append(ch)
+                if ch not in self.channels:
+                    self.channels.append(ch)
 
         self.no_layer_using = False
-        self.enable_bake_as_vcol = self.bt.data_type == 'VCOL'
+        self.enable_bake_as_vcol = bt.data_type == 'VCOL'
         if len(self.channels) > 0:
 
             # Check if any layer is using the channels
@@ -1372,34 +1378,34 @@ class YBakeSingleTarget(bpy.types.Operator):
             if not layer_found:
                 self.no_layer_using = True
 
-            bi = None
-            for ch in self.channels:
-                baked = node.node_tree.nodes.get(ch.baked)
-                if baked and baked.image:
-                    if baked.image.y_bake_info.is_baked:
-                        bi = baked.image.y_bake_info
-                    self.width = baked.image.size[0] if baked.image.size[0] != 0 else ypup.default_new_image_size
-                    self.height = baked.image.size[1] if baked.image.size[1] != 0 else ypup.default_new_image_size
-                    break
-            
-            for ch in self.channels:
-                if ch.enable_bake_to_vcol:
-                    self.enable_bake_as_vcol = True
-                    break
+            #bi = None
+            #for ch in self.channels:
+            #    baked = node.node_tree.nodes.get(ch.baked)
+            #    if baked and baked.image:
+            #        if baked.image.y_bake_info.is_baked:
+            #            bi = baked.image.y_bake_info
+            #        self.width = baked.image.size[0] if baked.image.size[0] != 0 else ypup.default_new_image_size
+            #        self.height = baked.image.size[1] if baked.image.size[1] != 0 else ypup.default_new_image_size
+            #        break
+            #
+            #for ch in self.channels:
+            #    if ch.enable_bake_to_vcol:
+            #        self.enable_bake_as_vcol = True
+            #        break
 
         mat = obj.active_material
 
         if len(self.channels) == 0:
-            self.report({'ERROR'}, "This node has no channel!")
+            self.report({'ERROR'}, "No channel used for the bake target!")
             return {'CANCELLED'}
 
-        if self.bt.only_active_channel and self.no_layer_using:
-            self.report({'ERROR'}, "No layer is using '"+self.channels[0].name+"' channel!")
-            return {'CANCELLED'}
+        #if bt.only_active_channel and self.no_layer_using:
+        #    self.report({'ERROR'}, "No layer is using '"+self.channels[0].name+"' channel!")
+        #    return {'CANCELLED'}
 
-        if self.no_layer_using:
-            self.report({'ERROR'}, "No layer is using any channel!")
-            return {'CANCELLED'}
+        #if self.no_layer_using:
+        #    self.report({'ERROR'}, "No layer is using any channel!")
+        #    return {'CANCELLED'}
 
         if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
             self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
@@ -1445,7 +1451,7 @@ class YBakeSingleTarget(bpy.types.Operator):
         height_ch = get_root_height_channel(yp)
 
         tangent_sign_calculation = False
-        if BL28_HACK and height_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
+        if BL28_HACK and height_ch and height_ch in self.channels and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
 
             if len(yp.uvs) > MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
                 self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(yp.uvs)) + " vertex color(s) to bake proper normal!")
@@ -1468,6 +1474,10 @@ class YBakeSingleTarget(bpy.types.Operator):
         if yp.use_baked:
             yp.use_baked = False
 
+        # Set default uv map if it's empty
+        if bt.uv_map == '':
+            bt.uv_map = get_default_uv_name(obj, yp)
+
         # Multi materials setup
         ori_mat_ids = {}
         ori_loop_locs = {}
@@ -1481,7 +1491,7 @@ class YBakeSingleTarget(bpy.types.Operator):
 
                 # Get uv map
                 uv_layers = get_uv_layers(ob)
-                uvl = uv_layers.get(self.bt.uv_map)
+                uvl = uv_layers.get(bt.uv_map)
 
                 active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat][0]
                 for p in ob.data.polygons:
@@ -1520,28 +1530,28 @@ class YBakeSingleTarget(bpy.types.Operator):
             
         # AA setup
         #if self.aa_level > 1:
-        margin = self.bt.margin * self.bt.aa_level
-        width = self.bt.width * self.bt.aa_level
-        height = self.bt.height * self.bt.aa_level
+        margin = bt.margin * bt.aa_level
+        width = bt.width * bt.aa_level
+        height = bt.height * bt.aa_level
 
-        enable_bake_vcol = self.bt.data_type == 'VCOL'
+        enable_bake_vcol = bt.data_type == 'VCOL'
 
         if not enable_bake_vcol:
             # Prepare bake settings
             prepare_bake_settings(
-                book, objs, yp, self.bt.samples, margin, self.bt.uv_map, disable_problematic_modifiers=True, 
-                bake_device=selected_bake_device, margin_type=self.bt.margin_type, use_osl=self.use_osl
+                book, objs, yp, bt.samples, margin, bt.uv_map, disable_problematic_modifiers=True, 
+                bake_device=selected_bake_device, margin_type=bt.margin_type, use_osl=self.use_osl
             )
 
             # Get bake properties
             bprops = get_bake_properties_from_self(self)
 
             # Get tilenums
-            tilenums = UDIM.get_tile_numbers(objs, self.bt.uv_map) if self.bt.use_udim else [1001]
+            tilenums = UDIM.get_tile_numbers(objs, bt.uv_map) if bt.use_udim else [1001]
 
             # Enable disabled layers if needed
             disabled_layers = []
-            if self.bt.bake_disabled_layers:
+            if bt.bake_disabled_layers:
                 disabled_layers = [layer for layer in yp.layers if not layer.enable]
                 for layer in disabled_layers:
                     layer.enable = True 
@@ -1557,12 +1567,12 @@ class YBakeSingleTarget(bpy.types.Operator):
 
                 ch.no_layer_using = not is_any_layer_using_channel(ch, node)
                 if not ch.no_layer_using:
-                    use_hdr = not ch.use_clamp or (self.bt.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
+                    use_hdr = not ch.use_clamp or (bt.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
                     bake_channel(
-                        self.bt.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.bt.use_udim, 
-                        tilenums=tilenums, interpolation=self.bt.interpolation, 
-                        use_float_for_displacement=self.bt.use_float_for_displacement, 
-                        use_float_for_normal=self.bt.use_float_for_normal, bprops=bprops
+                        bt.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=bt.use_udim, 
+                        tilenums=tilenums, interpolation=bt.interpolation, 
+                        use_float_for_displacement=bt.use_float_for_displacement, 
+                        use_float_for_normal=bt.use_float_for_normal, bprops=bprops
                     )
 
             # Process baked images
@@ -1578,23 +1588,23 @@ class YBakeSingleTarget(bpy.types.Operator):
                         ch.expand_baked_data = True
 
                     # Dithering
-                    if ch.type == 'RGB' and ch.colorspace == 'SRGB' and self.bt.use_dithering and ch.use_clamp:
+                    if ch.type == 'RGB' and ch.colorspace == 'SRGB' and bt.use_dithering and ch.use_clamp:
                         dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=ch.enable_alpha)
 
                     # Denoise
-                    if self.bt.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':
+                    if bt.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':
                         denoise_image(baked.image)
 
                     # AA process
-                    if self.bt.aa_level > 1:
+                    if bt.aa_level > 1:
                         resize_image(
-                            baked.image, self.bt.width, self.bt.height, 
+                            baked.image, bt.width, bt.height, 
                             baked.image.colorspace_settings.name,
                             alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                         )
 
                     # FXAA doesn't work with hdr image
-                    if self.bt.fxaa and ch.use_clamp:
+                    if bt.fxaa and ch.use_clamp:
                         fxaa_image(baked.image, ch.enable_alpha, bake_device=selected_bake_device)
 
                     baked_images.append(baked.image)
@@ -1605,19 +1615,19 @@ class YBakeSingleTarget(bpy.types.Operator):
                     if baked_disp and baked_disp.image:
 
                         # Denoise
-                        if self.bt.denoise and is_bl_newer_than(2, 81):
+                        if bt.denoise and is_bl_newer_than(2, 81):
                             denoise_image(baked_disp.image)
 
                         # AA process
-                        if self.bt.aa_level > 1:
+                        if bt.aa_level > 1:
                             resize_image(
-                                baked_disp.image, self.bt.width, self.bt.height, 
+                                baked_disp.image, bt.width, bt.height, 
                                 baked.image.colorspace_settings.name,
                                 alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                             )
 
                         # FXAA
-                        if self.bt.fxaa and not baked_disp.image.is_float:
+                        if bt.fxaa and not baked_disp.image.is_float:
                             fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=selected_bake_device)
 
                         baked_images.append(baked_disp.image)
@@ -1626,14 +1636,14 @@ class YBakeSingleTarget(bpy.types.Operator):
                     if baked_normal_overlay and baked_normal_overlay.image:
 
                         # AA process
-                        if self.bt.aa_level > 1:
+                        if bt.aa_level > 1:
                             resize_image(
-                                baked_normal_overlay.image, self.bt.width, self.bt.height, 
+                                baked_normal_overlay.image, bt.width, bt.height, 
                                 baked.image.colorspace_settings.name,
                                 alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                             )
                         # FXAA
-                        if self.bt.fxaa:
+                        if bt.fxaa:
                             fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=selected_bake_device)
 
                         baked_images.append(baked_normal_overlay.image)
@@ -1642,9 +1652,9 @@ class YBakeSingleTarget(bpy.types.Operator):
                     if baked_vdisp and baked_vdisp.image:
 
                         # AA process
-                        if self.bt.aa_level > 1:
+                        if bt.aa_level > 1:
                             resize_image(
-                                baked_vdisp.image, self.bt.width, self.bt.height, 
+                                baked_vdisp.image, bt.width, bt.height, 
                                 baked.image.colorspace_settings.name,
                                 alpha_aware=ch.enable_alpha, bake_device=selected_bake_device
                             )
@@ -1666,7 +1676,7 @@ class YBakeSingleTarget(bpy.types.Operator):
 
             # Process custom bake target images
             # Can only happen when only active channel is off since require all baked images to have the same resolution
-            if not self.bt.only_active_channel:
+            if not bt.only_active_channel:
                 bt = yp.bake_targets[yp.active_bake_target_index]
 
                 print("INFO: Processing custom bake target '" + bt.name + "'...")
@@ -1676,13 +1686,13 @@ class YBakeSingleTarget(bpy.types.Operator):
                 old_img = None
                 filepath = ''
                 if btimg and (
-                        btimg.size[0] != self.bt.width or btimg.size[1] != self.bt.height or
-                        (btimg.source == 'TILED' and not self.bt.use_udim) or
-                        (btimg.source != 'TILED' and self.bt.use_udim) 
+                        btimg.size[0] != bt.width or btimg.size[1] != bt.height or
+                        (btimg.source == 'TILED' and not bt.use_udim) or
+                        (btimg.source != 'TILED' and bt.use_udim) 
                         ):
                     old_img = btimg
                     btimg = None
-                    if (old_img.source == 'TILED' and self.bt.use_udim) or (old_img.source != 'TILED' and not self.bt.use_udim):
+                    if (old_img.source == 'TILED' and bt.use_udim) or (old_img.source != 'TILED' and not bt.use_udim):
                         filepath = old_img.filepath
 
                 # Get default colors
@@ -1791,13 +1801,13 @@ class YBakeSingleTarget(bpy.types.Operator):
                     bt_node.image = btimg
 
             # Set baked uv
-            yp.baked_uv_name = self.bt.uv_map
+            yp.baked_uv_name = bt.uv_map
 
             # Recover bake settings
             recover_bake_settings(book, yp)
 
             # Recover disabled layers
-            if self.bt.bake_disabled_layers:
+            if bt.bake_disabled_layers:
                 for layer in disabled_layers:
                     layer.enable = False
 
@@ -1815,7 +1825,7 @@ class YBakeSingleTarget(bpy.types.Operator):
 
                     # Get uv map
                     uv_layers = get_uv_layers(ob)
-                    uvl = uv_layers.get(self.bt.uv_map)
+                    uvl = uv_layers.get(bt.uv_map)
 
                     # Recover uv locations
                     if uvl:
@@ -1827,17 +1837,17 @@ class YBakeSingleTarget(bpy.types.Operator):
         else:
             is_do_nothing = True
             is_sort_by_channel = False
-            if self.bt.only_active_channel:
+            if bt.only_active_channel:
                 active_channel = self.channels[0]
-                if active_channel.enable_bake_to_vcol and self.bt.vcol_force_first_ch_idx_bool:
+                if active_channel.enable_bake_to_vcol and bt.vcol_force_first_ch_idx_bool:
                     real_force_first_ch_idx = yp.active_channel_index
                     is_do_nothing = False
             else:
-                is_do_nothing = self.bt.vcol_force_first_ch_idx == 'Do Nothing'
-                is_sort_by_channel = self.bt.vcol_force_first_ch_idx == 'Sort By Channel Order'
+                is_do_nothing = bt.vcol_force_first_ch_idx == 'Do Nothing'
+                is_sort_by_channel = bt.vcol_force_first_ch_idx == 'Sort By Channel Order'
                 # check index, prevent crash
-                if not (is_do_nothing or is_sort_by_channel) and self.bt.vcol_force_first_ch_idx != '':
-                    real_force_first_ch_idx = int(self.bt.vcol_force_first_ch_idx) - 2
+                if not (is_do_nothing or is_sort_by_channel) and bt.vcol_force_first_ch_idx != '':
+                    real_force_first_ch_idx = int(bt.vcol_force_first_ch_idx) - 2
                     if real_force_first_ch_idx < len(self.channels) and real_force_first_ch_idx >= 0:
                         target_ch = self.channels[real_force_first_ch_idx]
                         if not (target_ch and target_ch.enable_bake_to_vcol):
@@ -1918,7 +1928,7 @@ class YBakeSingleTarget(bpy.types.Operator):
         yp.halt_update = False
 
         # Check subdiv Setup
-        if height_ch:
+        if height_ch and height_ch in self.channels:
             check_subdiv_setup(height_ch)
 
         # Update global uv
@@ -1928,7 +1938,7 @@ class YBakeSingleTarget(bpy.types.Operator):
         check_start_end_root_ch_nodes(tree)
 
         # Recover hack
-        if BL28_HACK and height_ch and tangent_sign_calculation and is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
+        if BL28_HACK and height_ch and height_ch in self.channels and tangent_sign_calculation and is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
             print('INFO: Recovering tangent sign after bake...')
             # Refresh tangent sign hacks
             update_enable_tangent_sign_hacks(yp, context)
@@ -1961,7 +1971,7 @@ class YBakeSingleTarget(bpy.types.Operator):
             for o in temp_objs:
                 remove_mesh_obj(o)
 
-        if self.bt.only_active_channel:
+        if bt.only_active_channel:
             self.report({'INFO'}, yp.channels[yp.active_channel_index].name+' channel is baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
         else: self.report({'INFO'}, tree.name+' channels are baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 

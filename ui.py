@@ -959,7 +959,7 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         split.prop_search(btc, "channel_name", yp, "channels", text='')
         split.prop(btc, 'default_value', text='')
     else:
-        if ch and (ch.type == 'RGB' or (ch.type == 'NORMAL' and btc.normal_type != 'DISPLACEMENT')):
+        if ch and ch.type in {'RGB', 'VECTOR'}: #or (ch.type == 'NORMAL' and btc.normal_type != 'DISPLACEMENT')):
             split = split_layout(row, 0.75, align=True)
             split.prop_search(btc, "channel_name", yp, "channels", text='')
             split.prop(btc, 'subchannel_index', text='')
@@ -1096,7 +1096,7 @@ def draw_bake_targets_ui(context, layout, node):
         info_col = row_bake.column()
         if btui.expand_setting:
             draw_bake_target_settings(context, info_col, bt)
-        info_col.operator('wm.y_bake_single_target', text=f'Bake {bt.name}', icon_value=lib.get_icon('bake'))
+        info_col.operator('wm.y_bake_single_target', text=f'Bake {bt.name}', icon_value=lib.get_icon('bake')).bake_target_index = yp.active_bake_target_index
 
 def draw_bake_target_settings(context, layout, bt):
 
