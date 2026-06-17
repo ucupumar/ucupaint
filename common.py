@@ -8621,3 +8621,16 @@ def set_scene_bake_margin(scene, value):
     if not is_bl_newer_than(5):
         scene.render.bake_margin = value
     else: scene.render.bake.margin = value
+
+def get_bake_target_channels(bt):
+    yp = bt.id_data.yp
+
+    channels = []
+    for letter in rgba_letters:
+        btc = getattr(bt, letter)
+        if btc.channel_name != '' and yp.channels.get(btc.channel_name):
+            ch = yp.channels.get(btc.channel_name)
+            if ch not in channels:
+                channels.append(ch)
+
+    return channels

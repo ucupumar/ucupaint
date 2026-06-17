@@ -1286,6 +1286,12 @@ class YBakeSingleTarget(bpy.types.Operator):
             row_ovr.label(text="Set as default" + ':')
             row_ovr.prop(self, "override_bake_device", text="")
 
+    def is_cycles_exist(self, context):
+        if not hasattr(context.scene, 'cycles'):
+            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in the user preferences!")
+            return False
+        return True
+
     def execute(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -1327,7 +1333,7 @@ class YBakeSingleTarget(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         
-        if not bt.is_cycles_exist(context): return {'CANCELLED'}
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
 
         obj = self.obj = context.object
         scene = context.scene
@@ -1347,32 +1353,7 @@ class YBakeSingleTarget(bpy.types.Operator):
         if not bt.use_custom_resolution:
             bt.height = bt.width = int(bt.image_resolution)
 
-        self.channels = []
-        for letter in rgba_letters:
-            btc = getattr(bt, letter)
-            if btc.channel_name != '' and yp.channels.get(btc.channel_name):
-                ch = yp.channels.get(btc.channel_name)
-                if ch not in self.channels:
-                    self.channels.append(ch)
-
-        self.no_layer_using = False
-        self.enable_bake_as_vcol = bt.data_type == 'VCOL'
-        if len(self.channels) > 0:
-
-            # Check if any layer is using the channels
-            layer_found = False
-            for ch in self.channels:
-                if is_any_layer_using_channel(ch, node):
-                    layer_found = True
-                    break
-            if not layer_found:
-                self.no_layer_using = True
-
         mat = obj.active_material
-
-        if len(self.channels) == 0:
-            self.report({'ERROR'}, "No channel used for the bake target!")
-            return {'CANCELLED'}
 
         if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
             self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
@@ -1413,34 +1394,15 @@ class YBakeSingleTarget(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
             ori_edit_mode = True
 
+        # Make sure uv map is not empty
+        if bt.uv_map == '':
+            bt.uv_map = get_default_uv_name(obj, yp)
+
         # Get bake properties
-        bprops = get_bake_properties_from_self(self)
+        btprops = get_bake_target_properties_from_bt_and_self(bt, self)
 
         # Bake bake target
-        image = bake_bake_target(mat, node, bt, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
-
-        # Process bake target images
-        alpha_enabled = yp.channels.get(bt.a.channel_name) != None
-
-        # Dithering
-        if bt.use_dithering and not image.is_float:
-            dither_image(image, dither_intensity=bt.dither_intensity, alpha_aware=alpha_enabled)
-
-        # Denoise
-        if bt.denoise and is_bl_newer_than(2, 81):
-            denoise_image(image)
-
-        # AA process
-        if bt.aa_level > 1:
-            image, _ = resize_image(
-                image, bt.width, bt.height, 
-                image.colorspace_settings.name,
-                alpha_aware=alpha_enabled, bake_device=selected_bake_device
-            )
-
-        # FXAA doesn't work with hdr image
-        if bt.fxaa and not image.is_float:
-            fxaa_image(image, alpha_enabled, bake_device=selected_bake_device)
+        image = bake_bake_target(mat, node, bt, btprops, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
 
         # Use bake results
         yp.halt_update = True

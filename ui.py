@@ -1059,7 +1059,7 @@ def draw_bake_targets_ui(context, layout, node):
         #    if image.is_float: bt_label += ' (Float)'
         #else: 
         #    bt_label = bt.name
-        #    if bt.use_float: bt_label += ' (Float)'
+        #    if bt.hdr: bt_label += ' (Float)'
         bt_label = 'Channel Source'
 
         if is_bl_newer_than(2, 80):
@@ -1149,7 +1149,7 @@ def draw_bake_target_settings(context, layout, bt):
         ccol.prop(bt, 'width', text='')
         ccol.prop(bt, 'height', text='')
 
-    ccol.prop(bt, 'use_float')
+    ccol.prop(bt, 'hdr')
 
     ccol.separator()
     ccol.prop(bt, 'samples', text='')
@@ -1182,7 +1182,8 @@ def draw_bake_target_settings(context, layout, bt):
     if is_bl_newer_than(2, 81):
         ccol.prop(bt, 'denoise', text='Use Denoise')
 
-    any_color_channel = any([c for c in bt.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+    channels = get_bake_target_channels(bt)
+    any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
     if any_color_channel:
         if not bt.use_dithering:
             ccol.prop(bt, 'use_dithering', text='Use Dithering')

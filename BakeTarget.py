@@ -2,6 +2,7 @@ import bpy, time
 from .common import *
 from bpy.props import *
 from .bake_common import *
+from . import BakeInfo
 
 rgba_items = (
     ('0', 'R', ''),
@@ -64,7 +65,7 @@ class YBakeTargetChannel(bpy.types.PropertyGroup):
         default = False
     )
 
-class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
+class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoProps):
     name : StringProperty(
         name = 'Bake Target Name',
         description = 'Name of bake target name',
@@ -81,82 +82,11 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
         default = 'IMAGE'
     )
 
-    use_float : BoolProperty(
-        name = '32-bit Image',
-        description = 'Use 32-bit float image',
-        default = False
-    )
-
-    ########
+    # Deprecated
+    use_float : BoolProperty(default=False)
 
     uv_map : StringProperty(default='', update=update_bake_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
-
-    channels : CollectionProperty(type=bpy.types.PropertyGroup)
-
-    interpolation : EnumProperty(
-        name = 'Image Interpolation Type',
-        description = 'Image interpolation type',
-        items = interpolation_type_items,
-        default = 'Linear'
-    )
-
-    #hdr : BoolProperty(name='32 bit Float', default=False)
-
-    fxaa : BoolProperty(
-        name = 'Use FXAA', 
-        description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
-        default = True
-    )
-
-    aa_level : IntProperty(
-        name = 'Anti Aliasing Level',
-        description = 'Super Sample Anti Aliasing Level (1=off)',
-        default=1, min=1, max=2
-    )
-
-    denoise : BoolProperty(
-        name = 'Use Denoise', 
-        description = "Use Denoise on baked images",
-        default = False
-    )
-
-    force_bake_all_polygons : BoolProperty(
-        name = 'Force Bake all Polygons',
-        description = 'Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
-        default = False
-    )
-
-    use_udim : BoolProperty(
-        name = 'Use UDIM Tiles',
-        description = 'Use UDIM Tiles',
-        default = False
-    )
-
-    use_osl : BoolProperty(
-        name = 'Use OSL',
-        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
-        default = False
-    )
-
-    use_dithering : BoolProperty(
-        name = 'Use Dithering',
-        description = 'Use dithering for less banding color',
-        default = False
-    )
-
-    dither_intensity : FloatProperty(
-        name = 'Dither Intensity',
-        description = 'Amount of dithering noise added to the rendered image to break up banding',
-        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
-    )
-    
-    bake_disabled_layers : BoolProperty(
-        name = 'Bake Disabled Layers',  
-        description = 'Take disabled layers into account when baking',
-        default = False
-    )
-    ########
 
     r : PointerProperty(type=YBakeTargetChannel)
     g : PointerProperty(type=YBakeTargetChannel)
@@ -259,7 +189,7 @@ class YNewBakeTarget(bpy.types.Operator):
         update = update_new_bake_target_preset
     )
 
-    use_float : BoolProperty(
+    hdr : BoolProperty(
         name = '32-bit Float',
         description = 'Use 32-bit float image',
         default = False
@@ -302,7 +232,7 @@ class YNewBakeTarget(bpy.types.Operator):
         col.prop(self, 'name', text='')
         col.prop(self, 'preset', text='')
         col.prop(self, 'data_type', text='')
-        col.prop(self, 'use_float')
+        col.prop(self, 'hdr')
 
     def execute(self, context):
         wm = context.window_manager
@@ -312,7 +242,7 @@ class YNewBakeTarget(bpy.types.Operator):
 
         bt = yp.bake_targets.add()
         bt.name = self.name
-        bt.use_float = self.use_float
+        bt.hdr = self.hdr
         bt.a.default_value = 1.0
         bt.data_type = self.data_type
 
@@ -412,7 +342,7 @@ class YCopyBakeTarget(bpy.types.Operator):
         cbt = wmp.clipboard_bake_target.add()
 
         cbt.name = bt.name
-        cbt.use_float = bt.use_float
+        cbt.hdr = bt.hdr
         cbt.data_type = bt.data_type
         
         cbt.r.channel_name = bt.r.channel_name
@@ -479,7 +409,7 @@ class YPasteBakeTarget(bpy.types.Operator):
         else:
             bt = yp.bake_targets[yp.active_bake_target_index]
             
-        bt.use_float = cbt.use_float
+        bt.hdr = cbt.hdr
         bt.data_type = cbt.data_type
         
         bt.r.channel_name = cbt.r.channel_name

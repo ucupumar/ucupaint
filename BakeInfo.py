@@ -17,7 +17,75 @@ class YBakeInfoSelectedObject(bpy.types.PropertyGroup):
 
     selected_vertex_indices : CollectionProperty(type=YBakeInfoSelectedVertex)
 
-class YBakeInfoProps(bpy.types.PropertyGroup):
+class BaseBakeInfoProps():
+    hdr : BoolProperty(
+        name='32-bit Float', 
+        description = 'Use 32-bit float image',
+        default=False
+    )
+
+    interpolation : EnumProperty(
+        name = 'Image Interpolation Type',
+        description = 'Image interpolation type',
+        items = interpolation_type_items,
+        default = 'Linear'
+    )
+
+    fxaa : BoolProperty(
+        name='Use FXAA', 
+        description = "Use FXAA on baked image (doesn't work with float images)",
+        default = False
+    )
+
+    ssaa : BoolProperty(
+        name = 'Use SSAA', 
+        description = "Use Supersample AA on baked image",
+        default = False
+    )
+
+    aa_level : IntProperty(
+        name = 'Anti Aliasing Level',
+        description = 'Super Sample Anti Aliasing Level (1=off)',
+        default=1, min=1, max=2
+    )
+
+    denoise : BoolProperty(
+        name = 'Use Denoise', 
+        description = "Use Denoise on baked image",
+        default = True
+    )
+
+    use_udim : BoolProperty(
+        name = 'Use UDIM Tiles',
+        description = 'Use UDIM Tiles',
+        default = False
+    )
+
+    use_dithering : BoolProperty(
+        name = 'Use Dithering',
+        description = 'Use dithering for less banding color',
+        default = False
+    )
+
+    dither_intensity : FloatProperty(
+        name = 'Dither Intensity',
+        description = 'Amount of dithering noise added to the rendered image to break up banding',
+        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
+    )
+
+    force_bake_all_polygons : BoolProperty(
+        name = 'Force Bake all Polygons',
+        description = 'Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
+        default = False
+    )
+
+    bake_disabled_layers : BoolProperty(
+        name = 'Bake Disabled Layers',  
+        description = 'Take disabled layers into account when baking',
+        default = False
+    )
+
+class YBakeInfoProps(bpy.types.PropertyGroup, BaseBakeInfoProps):
     is_baked : BoolProperty(default=False) # Flag to mark if the image is from baking or not
     is_baked_channel : BoolProperty(default=False) # Flag to mark if the image baked from main channel
     is_baked_entity : BoolProperty(default=False) # Flag to mark if the image baked from entity
@@ -76,30 +144,6 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         default = False
     )
     
-    force_bake_all_polygons : BoolProperty(
-        name = 'Force Bake all Polygons',
-        description = 'Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
-        default = False
-    )
-
-    fxaa : BoolProperty(
-        name='Use FXAA', 
-        description = "Use FXAA on baked image (doesn't work with float images)",
-        default = False
-    )
-
-    ssaa : BoolProperty(
-        name = 'Use SSAA', 
-        description = "Use Supersample AA on baked image",
-        default = False
-    )
-
-    denoise : BoolProperty(
-        name = 'Use Denoise', 
-        description = "Use Denoise on baked image",
-        default = True
-    )
-
     blur : BoolProperty(
         name = 'Use Blur', 
         description = "Use blur to baked image",
@@ -181,25 +225,6 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
         default = True
     )
 
-    use_udim : BoolProperty(
-        name = 'Use UDIM Tiles',
-        description = 'Use UDIM Tiles',
-        default = False
-    )
-
-    aa_level : IntProperty(
-        name = 'Anti Aliasing Level',
-        description = 'Super Sample Anti Aliasing Level (1=off)',
-        default=1, min=1, max=2
-    )
-
-    interpolation : EnumProperty(
-        name = 'Image Interpolation Type',
-        description = 'Image interpolation type',
-        items = interpolation_type_items,
-        default = 'Linear'
-    )
-
     use_float_for_normal : BoolProperty(
         name = 'Use Float for Normal',
         description = 'Use float image for baked normal',
@@ -215,24 +240,6 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     use_osl : BoolProperty(
         name = 'Use OSL',
         description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
-        default = False
-    )
-
-    use_dithering : BoolProperty(
-        name = 'Use Dithering',
-        description = 'Use dithering for less banding color',
-        default = False
-    )
-
-    dither_intensity : FloatProperty(
-        name = 'Dither Intensity',
-        description = 'Amount of dithering noise added to the rendered image to break up banding',
-        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
-    )
-
-    bake_disabled_layers : BoolProperty(
-        name = 'Bake Disabled Layers',  
-        description = 'Take disabled layers into account when baking',
         default = False
     )
 
@@ -252,8 +259,6 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     )
 
     multires_base : IntProperty(default=1, min=0, max=16)
-
-    hdr : BoolProperty(name='32 bit Float', default=False)
 
     # AO Props
     ao_distance : FloatProperty(default=1.0)

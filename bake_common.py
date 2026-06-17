@@ -2225,6 +2225,63 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
 
     return max_height_value
 
+def get_bake_target_properties_from_bt_and_self(bt, self):
+    btprops = dotdict()
+
+    # YBakeTarget
+    btprops.uv_map = bt.uv_map
+
+    # BaseBakeProps
+    btprops.width = bt.width
+    btprops.height = bt.height
+    btprops.image_resolution = bt.image_resolution
+    btprops.use_custom_resolution = bt.use_custom_resolution
+    btprops.samples = bt.samples
+    btprops.margin = bt.margin
+    btprops.margin_type = bt.margin_type
+
+    # BaseBakeInfoProps
+    btprops.hdr = bt.hdr
+    btprops.interpolation = bt.interpolation
+    btprops.fxaa = bt.fxaa
+    btprops.ssaa = bt.ssaa
+    btprops.aa_level = bt.aa_level
+    btprops.denoise = bt.denoise
+    btprops.use_udim = bt.use_udim
+    btprops.use_dithering = bt.use_dithering
+    btprops.dither_intensity = bt.dither_intensity
+    btprops.force_bake_all_polygons = bt.force_bake_all_polygons
+    btprops.bake_disabled_layers = bt.bake_disabled_layers
+
+    return btprops
+
+def set_back_props_from_btprops(bt, btprops):
+
+    # YBakeTarget
+    bt.uv_map = btprops.uv_map
+
+    # BaseBakeProps
+    bt.width = btprops.width
+    bt.height = btprops.height
+    bt.image_resolution = btprops.image_resolution
+    bt.use_custom_resolution = btprops.use_custom_resolution
+    bt.samples = btprops.samples
+    bt.margin = btprops.margin
+    bt.margin_type = btprops.margin_type
+
+    # BaseBakeInfoProps
+    bt.hdr = btprops.hdr
+    bt.interpolation = btprops.interpolation
+    bt.fxaa = btprops.fxaa
+    bt.ssaa = btprops.ssaa
+    bt.aa_level = btprops.aa_level
+    bt.denoise = btprops.denoise
+    bt.use_udim = btprops.use_udim
+    bt.use_dithering = btprops.use_dithering
+    bt.dither_intensity = btprops.dither_intensity
+    bt.force_bake_all_polygons = btprops.force_bake_all_polygons
+    bt.bake_disabled_layers = btprops.bake_disabled_layers
+
 def get_bake_properties_from_self(self):
 
     bprops = dotdict()
@@ -2385,7 +2442,7 @@ def prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons=Fa
 
     return objs, obook
 
-def recover_objs_after_baking(objs, obook):
+def recover_objs_after_baking(objs, obook, uv_map):
     # Return to original objects
     if any(obook.ori_objs): objs = ori_objs
 
@@ -2400,7 +2457,7 @@ def recover_objs_after_baking(objs, obook):
 
             # Get uv map
             uv_layers = get_uv_layers(ob)
-            uvl = uv_layers.get(bt.uv_map)
+            uvl = uv_layers.get(uv_map)
 
             # Recover uv locations
             if uvl:
@@ -2414,7 +2471,31 @@ def recover_objs_after_baking(objs, obook):
 
     return objs
 
-def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
+def do_image_post_process(image, bprops, alpha_enabled=False, bake_device='CPU'):
+
+    # Dithering
+    if bprops.use_dithering and not image.is_float:
+        dither_image(image, dither_intensity=bprops.dither_intensity, alpha_aware=alpha_enabled)
+
+    # Denoise
+    if bprops.denoise and is_bl_newer_than(2, 81):
+        denoise_image(image)
+
+    # AA process
+    if bprops.aa_level > 1:
+        image, _ = resize_image(
+            image, bprops.width, bprops.height, 
+            image.colorspace_settings.name,
+            alpha_aware=alpha_enabled, bake_device=bake_device
+        )
+
+    # FXAA doesn't work with hdr image
+    if bprops.fxaa and not image.is_float:
+        fxaa_image(image, alpha_enabled, bake_device=bake_device)
+
+    return image
+
+def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bake_device='CPU', use_osl=False):
 
     if not any(objs): objs = get_all_objects_with_same_materials(mat)
 
@@ -2429,21 +2510,8 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
     if yp.use_baked:
         yp.use_baked = False
 
-    # Enable disabled layers if needed
-    disabled_layers = []
-    if bt.bake_disabled_layers:
-        disabled_layers = [layer for layer in yp.layers if not layer.enable]
-        for layer in disabled_layers:
-            layer.enable = True 
-
     # Check used channels
-    channels = []
-    for letter in rgba_letters:
-        btc = getattr(bt, letter)
-        if btc.channel_name != '' and yp.channels.get(btc.channel_name):
-            ch = yp.channels.get(btc.channel_name)
-            if ch not in channels:
-                channels.append(ch)
+    channels = get_bake_target_channels(bt)
 
     # Normal and height channel
     normal_root_ch = get_root_normal_channel(yp)
@@ -2482,22 +2550,39 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
                     vcol = refresh_tangent_sign_vcol(obj, uv.name)
                     if vcol: tansign.attribute_name = vcol.name
 
-    # Set default uv map if it's empty
-    if bt.uv_map == '':
-        bt.uv_map = get_default_uv_name(obj, yp)
+    # Enable disabled layers if needed
+    disabled_layers = []
+    if btprops.bake_disabled_layers:
+        disabled_layers = [layer for layer in yp.layers if not layer.enable]
+        for layer in disabled_layers:
+            layer.enable = True 
+
+    ## Check if there no layer using the channels
+    #no_layer_using = False
+    #if len(channels) > 0:
+
+    #    # Check if any layer is using the channels
+    #    layer_found = False
+    #    for ch in channels:
+    #        if is_any_layer_using_channel(ch, node):
+    #            layer_found = True
+    #            break
+    #    if not layer_found:
+    #        no_layer_using = True
 
     # Objects setup
-    objs, obook = prepare_objs_before_baking(mat, yp, objs, bt.uv_map, bt.force_bake_all_polygons)
+    if do_objects_setup:
+        objs, obook = prepare_objs_before_baking(mat, yp, objs, btprops.uv_map, btprops.force_bake_all_polygons)
 
     # AA setup
-    margin = bt.margin * bt.aa_level
-    width = bt.width * bt.aa_level
-    height = bt.height * bt.aa_level
+    margin = btprops.margin * btprops.aa_level
+    width = btprops.width * btprops.aa_level
+    height = btprops.height * btprops.aa_level
 
     # Prepare bake settings
     prepare_bake_settings(
-        book, objs, yp, bt.samples, margin, bt.uv_map, disable_problematic_modifiers=True, 
-        bake_device=bake_device, margin_type=bt.margin_type, use_osl=use_osl
+        book, objs, yp, btprops.samples, margin, btprops.uv_map, disable_problematic_modifiers=True, 
+        bake_device=bake_device, margin_type=btprops.margin_type, use_osl=use_osl
     )
 
     ## Check if baking fake lighting is necessary
@@ -2531,8 +2616,8 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
 
     # Check if udim image is needed based on number of tiles
     tilenums = [1001]
-    if bt.use_udim:
-        tilenums = UDIM.get_tile_numbers(objs, bt.uv_map)
+    if btprops.use_udim:
+        tilenums = UDIM.get_tile_numbers(objs, btprops.uv_map)
 
     # Get output node and remember original bsdf input
     output = get_material_output(mat, create_one=True)
@@ -2557,12 +2642,12 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
     old_img = None
     if img and (
             img.size[0] != width or img.size[1] != height or
-            (img.source == 'TILED' and not bt.use_udim) or
-            (img.source != 'TILED' and bt.use_udim) 
+            (img.source == 'TILED' and not btprops.use_udim) or
+            (img.source != 'TILED' and btprops.use_udim) 
             ):
         old_img = img
         img = None
-        if (old_img.source == 'TILED' and not bt.use_udim) or (old_img.source != 'TILED' and bt.use_udim):
+        if (old_img.source == 'TILED' and not btprops.use_udim) or (old_img.source != 'TILED' and btprops.use_udim):
             filepath = ''
 
     if not image_node:
@@ -2573,14 +2658,14 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
             if any_linear_ch:
                 image_node.color_space = 'NONE'
             else: image_node.color_space = 'COLOR'
-        image_node.interpolation = bt.interpolation
+        image_node.interpolation = btprops.interpolation
         
         # Normal related nodes
         if any_normal_ch:
             normal_process = tree.nodes.get(bt.normal_process)
             if not normal_process:
                 normal_process = new_node(tree, bt, 'normal_process', 'ShaderNodeNormalMap', 'Normal Process')
-            normal_process.uv_map = bt.uv_map
+            normal_process.uv_map = btprops.uv_map
 
             normal_prep = tree.nodes.get(bt.normal_prep)
             if not normal_prep:
@@ -2643,13 +2728,13 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
 
     # Create new image
     if not img:
-        if bt.use_udim:
+        if btprops.use_udim:
 
             # Create new udim image
             img = bpy.data.images.new(
                 name=img_name, width=width, height=height,
                 alpha=True, tiled=True,
-                float_buffer = bt.use_float
+                float_buffer = btprops.hdr
             )
 
             # Fill tiles
@@ -2662,7 +2747,7 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
             # Create new standard image
             img = bpy.data.images.new(
                 name=img_name, width=width, height=height, alpha=True,
-                float_buffer = bt.use_float
+                float_buffer = btprops.hdr
             )
             img.generated_type = 'BLANK'
 
@@ -2673,8 +2758,8 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
 
         # Set filepath
         if filepath != '' and (
-                (bt.use_udim and '.<UDIM>.' in filepath) or 
-                (not bt.use_udim and '.<UDIM>.' not in filepath)
+                (btprops.use_udim and '.<UDIM>.' in filepath) or 
+                (not btprops.use_udim and '.<UDIM>.' not in filepath)
             ):
             img.filepath = filepath
 
@@ -2793,8 +2878,8 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
             if letter == 'a': continue
             btc = getattr(bt, letter)
             root_ch = yp.channels.get(btc.channel_name)
-            soc = node.outputs.get(root_ch.name)
-            if root_ch == normal_root_ch and norm_tex:
+            soc = node.outputs.get(root_ch.name) if root_ch else None
+            if root_ch and root_ch == normal_root_ch and norm_tex:
                 mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[i].inputs[0])
                 mat.node_tree.links.new(separate_xyzs[i].outputs[int(btc.subchannel_index)], combine_xyz.inputs[i])
             elif root_ch and soc:
@@ -2820,9 +2905,11 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
     # Set image to tex node
     tex.image = img
 
-    # Bake!
-    print('BAKE TARGET: Baking', bt.name + '... ' + 'Size=' + str(width) + 'x' + str(height))
-    bake_object_op(scene.cycles.bake_type)
+    # No need to bake if there is no channel used
+    if len(channels) > 0:
+        # Bake!
+        print('BAKE TARGET: Baking', bt.name + '... ' + 'Size=' + str(width) + 'x' + str(height))
+        bake_object_op(scene.cycles.bake_type)
 
     # Revert back the original bake settings
     scene.cycles.bake_type = 'EMIT'
@@ -2912,7 +2999,7 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
     # Recover disabled layers
-    if bt.bake_disabled_layers:
+    if btprops.bake_disabled_layers:
         for layer in disabled_layers:
             layer.enable = False
 
@@ -2923,10 +3010,16 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
         update_enable_tangent_sign_hacks(yp, bpy.context)
 
     # Recover objects setup
-    recover_objs_after_baking(objs, obook)
+    if do_objects_setup:
+        recover_objs_after_baking(objs, obook, btprops.uv_map)
 
     # Recover bake settings
     recover_bake_settings(book, yp)
+
+    # Post process
+    if len(channels) > 0:
+        alpha_enabled = yp.channels.get(bt.a.channel_name) != None
+        img = do_image_post_process(img, bt, alpha_enabled, bake_device=bake_device)
 
     return img
 
@@ -5790,18 +5883,22 @@ def update_bake_uv_map(self, context):
         objs = get_all_objects_with_same_materials(mat)
         self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
-class BaseBakeOperator():
-    bake_device : EnumProperty(
-        name = 'Bake Device',
-        description = 'Device to use for baking',
-        items = (
-            ('GPU', 'GPU Compute', ''),
-            ('CPU', 'CPU', ''),
-            ('OSL', 'CPU (OSL)', ''),
-        ),
-        default = 'CPU'
+class BaseBakeProps():
+    width : IntProperty(name='Width', default=1024, min=1, max=16384)
+    height : IntProperty(name='Height', default=1024, min=1, max=16384)
+
+    image_resolution : EnumProperty(
+        name = 'Image Resolution',
+        items = image_resolution_items,
+        default = '1024'
     )
     
+    use_custom_resolution : BoolProperty(
+        name = 'Custom Resolution',
+        description = 'Use custom Resolution to adjust the width and height individually',
+        default = False
+    )
+
     samples : IntProperty(
         name = 'Bake Samples', 
         description = 'Bake Samples, more means less jagged on generated textures', 
@@ -5825,21 +5922,18 @@ class BaseBakeOperator():
         default = 'ADJACENT_FACES'
     )
 
-    width : IntProperty(name='Width', default=1024, min=1, max=16384)
-    height : IntProperty(name='Height', default=1024, min=1, max=16384)
-
-    image_resolution : EnumProperty(
-        name = 'Image Resolution',
-        items = image_resolution_items,
-        default = '1024'
+class BaseBakeOperator(BaseBakeProps):
+    bake_device : EnumProperty(
+        name = 'Bake Device',
+        description = 'Device to use for baking',
+        items = (
+            ('GPU', 'GPU Compute', ''),
+            ('CPU', 'CPU', ''),
+            ('OSL', 'CPU (OSL)', ''),
+        ),
+        default = 'CPU'
     )
     
-    use_custom_resolution : BoolProperty(
-        name = 'Custom Resolution',
-        description = 'Use custom Resolution to adjust the width and height individually',
-        default = False
-    )
-
     def invoke_operator(self, context):
         ypup = get_user_preferences()
 

@@ -38,8 +38,8 @@ if "bpy" in locals():
     importlib.reload(vector_displacement)
     importlib.reload(vcol_editor)
     importlib.reload(transition)
-    importlib.reload(BakeTarget)
     importlib.reload(BakeInfo)
+    importlib.reload(BakeTarget)
     importlib.reload(UDIM)
     importlib.reload(ImageAtlas)
     importlib.reload(MaskModifier)
@@ -65,7 +65,7 @@ else:
     from . import Localization
     from . import image_ops, bake_common, modifier_common, Decal, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections
     from . import vector_displacement_lib, vector_displacement
-    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
+    from . import vcol_editor, transition, BakeInfo, BakeTarget, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
     if is_available('.addon_updater_ops'): from . import addon_updater_ops
     if is_available('.Test'): from . import Test
     if is_available('.psd_io'): from . import psd_io
@@ -98,8 +98,8 @@ def register():
     vcol_editor.register()
     transition.register()
     vector_displacement.register()
-    BakeTarget.register()
     BakeInfo.register()
+    BakeTarget.register()
     UDIM.register()
     ImageAtlas.register()
     MaskModifier.register()
@@ -130,8 +130,8 @@ def unregister():
     vcol_editor.unregister()
     transition.unregister()
     vector_displacement.unregister()
-    BakeTarget.unregister()
     BakeInfo.unregister()
+    BakeTarget.unregister()
     UDIM.unregister()
     ImageAtlas.unregister()
     MaskModifier.unregister()
