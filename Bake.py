@@ -1201,14 +1201,6 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def update_bake_channel_uv_map(self, context):
-    if not UDIM.is_udim_supported(): return
-
-    if get_user_preferences().enable_auto_udim_detection:
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
-
 def bake_vcol_channel_items(self, context):
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
@@ -1355,9 +1347,7 @@ class YBakeSingleTarget(bpy.types.Operator):
         if not bt.use_custom_resolution:
             bt.height = bt.width = int(bt.image_resolution)
 
-        print("again resolution: " + str(bt.width) + "x" + str(bt.height))
         self.channels = []
-
         for letter in rgba_letters:
             btc = getattr(bt, letter)
             if btc.channel_name != '' and yp.channels.get(btc.channel_name):
@@ -1539,7 +1529,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
     bl_description = "Bake all custom targets"
     bl_options = {'REGISTER', 'UNDO'}
 
-    uv_map : StringProperty(default='', update=update_bake_channel_uv_map)
+    uv_map : StringProperty(default='', update=update_bake_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     interpolation : EnumProperty(
@@ -2779,7 +2769,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     bl_label = "Bake channels to Image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    uv_map : StringProperty(default='', update=update_bake_channel_uv_map)
+    uv_map : StringProperty(default='', update=update_bake_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     interpolation : EnumProperty(

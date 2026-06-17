@@ -2418,8 +2418,6 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
 
     if not any(objs): objs = get_all_objects_with_same_materials(mat)
 
-    print('BAKE TARGET: Baking', bt.name + '... ' + 'Size=' + str(bt.width) + 'x' + str(bt.height))
-
     tree = node.node_tree
     yp = tree.yp
     ypup = get_user_preferences()
@@ -2823,7 +2821,7 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
     tex.image = img
 
     # Bake!
-    print('BAKE TARGET: Baking ' + bt.name + '...')
+    print('BAKE TARGET: Baking', bt.name + '... ' + 'Size=' + str(width) + 'x' + str(height))
     bake_object_op(scene.cycles.bake_type)
 
     # Revert back the original bake settings
@@ -2840,6 +2838,7 @@ def bake_bake_target(mat, node, bt, objs=[], bake_device='CPU', use_osl=False):
 
         # Create temp image
         alpha_img = img.copy()
+        alpha_img.source = 'GENERATED'
         alpha_img.generated_color = (color[3], color[3], color[3], 1.0)
         alpha_img.colorspace_settings.name = get_noncolor_name()
 
@@ -5782,6 +5781,14 @@ def get_output_uv_names_from_geometry_nodes(obj):
                     if uv: uv_names.append(uv.name)
 
     return uv_names
+
+def update_bake_uv_map(self, context):
+    if not UDIM.is_udim_supported(): return
+
+    if get_user_preferences().enable_auto_udim_detection:
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 class BaseBakeOperator():
     bake_device : EnumProperty(

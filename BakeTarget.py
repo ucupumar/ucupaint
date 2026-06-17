@@ -2,7 +2,6 @@ import bpy, time
 from .common import *
 from bpy.props import *
 from .bake_common import *
-from .Bake import *
 
 rgba_items = (
     ('0', 'R', ''),
@@ -90,7 +89,7 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
 
     ########
 
-    uv_map : StringProperty(default='', update=update_bake_channel_uv_map)
+    uv_map : StringProperty(default='', update=update_bake_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     channels : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -125,18 +124,6 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
     force_bake_all_polygons : BoolProperty(
         name = 'Force Bake all Polygons',
         description = 'Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
-        default = False
-    )
-
-    vcol_force_first_ch_idx : EnumProperty(
-        name = 'Force First Vertex Color Channel',
-        description = 'Force the first channel after baking the Vertex Color',
-        items = bake_vcol_channel_items
-    )
-
-    vcol_force_first_ch_idx_bool : BoolProperty(
-        name = 'Force First Vertex Color Channel',
-        description = 'Force the first channel after baking the Vertex Color',
         default = False
     )
 
