@@ -2232,6 +2232,12 @@ def rearrange_yp_nodes(group_tree):
         loc.x = ori_x
 
         if check_set_node_loc(group_tree, bt.image_node, loc):
+            loc.x += 270
+
+        if check_set_node_loc(group_tree, bt.normal_prep, loc):
+            loc.x += 200
+
+        if check_set_node_loc(group_tree, bt.normal_process, loc):
             loc.x += 200
 
         loc.y -= 270

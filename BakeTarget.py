@@ -104,12 +104,6 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
 
     #hdr : BoolProperty(name='32 bit Float', default=False)
 
-    only_active_channel : BoolProperty(
-        name = 'Only Bake Active Channel',
-        description = 'Only bake active channel',
-        default = False
-    )
-
     fxaa : BoolProperty(
         name = 'Use FXAA', 
         description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
@@ -134,12 +128,6 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
         default = False
     )
 
-    enable_bake_as_vcol : BoolProperty(
-        name = 'Enable Bake As VCol',
-        description = 'Has any channel enabled Bake As Vertex Color',
-        default = False
-    )
-
     vcol_force_first_ch_idx : EnumProperty(
         name = 'Force First Vertex Color Channel',
         description = 'Force the first channel after baking the Vertex Color',
@@ -155,18 +143,6 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
     use_udim : BoolProperty(
         name = 'Use UDIM Tiles',
         description = 'Use UDIM Tiles',
-        default = False
-    )
-
-    use_float_for_normal : BoolProperty(
-        name = 'Use Float for Normal',
-        description = 'Use float image for baked normal',
-        default = False
-    )
-
-    use_float_for_displacement : BoolProperty(
-        name = 'Use Float for Displacement',
-        description = 'Use float image for baked displacement',
         default = False
     )
 
@@ -204,8 +180,11 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeOperator):
     image_node : StringProperty(default='')
     image_node_outside : StringProperty(default='')
 
+    normal_prep : StringProperty(default='')
+    normal_process : StringProperty(default='')
+
     # UI
-    expand_content : BoolProperty(default=True)
+    expand_content : BoolProperty(default=False)
     expand_r : BoolProperty(default=False)
     expand_g : BoolProperty(default=False)
     expand_b : BoolProperty(default=False)

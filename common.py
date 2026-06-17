@@ -8491,7 +8491,7 @@ def get_normal_height_ch_pairs(yp):
     # Look for normal channel
     normal_ch = None
     chs = [ch for ch in yp.channels if ch.special_channel_type == 'NORMAL']
-    if len(chs): normal_ch = chs[0]
+    if any(chs): normal_ch = chs[0]
 
     if not normal_ch:
         return None, None

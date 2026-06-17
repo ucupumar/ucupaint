@@ -1018,42 +1018,6 @@ def draw_bake_targets_ui(context, layout, node):
         image_node = nodes.get(bt.image_node)
         image = image_node.image if image_node and image_node.image else None
 
-        icon_name = 'bake'
-        #if btui.expand_content:
-        #    icon_name = 'uncollapsed_' + icon_name
-        #else: icon_name = 'collapsed_' + icon_name
-        icon_value = lib.get_icon(icon_name)
-
-        row = col.row(align=True)
-
-        icon = get_collapse_arrow_icon(btui.expand_content)
-
-        if is_bl_newer_than(2, 80):
-            row.alignment = 'LEFT'
-            row.scale_x = 0.95
-
-        row.prop(btui, 'expand_content', text='', emboss=False, icon=icon)
-
-        #row.prop(btui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        if image: 
-            bt_label = image.name
-            if image.is_float: bt_label += ' (Float)'
-        else: 
-            bt_label = bt.name
-            if bt.use_float: bt_label += ' (Float)'
-
-        if is_bl_newer_than(2, 80):
-            row.prop(btui, 'expand_content', text=bt_label, emboss=False, icon_value=icon_value)
-        else: row.label(text=bt_label, icon_value=icon_value)
-
-        if btui.expand_content:
-            row = col.row(align=True)
-            row.label(text='', icon='BLANK1')
-            bcol = row.column()
-
-            for letter in rgba_letters:
-                draw_bake_target_channel(context, bcol, bt, letter)
-
         if bt.data_type == 'IMAGE':
             row = col.row(align=True)
             row.label(text='', icon='BLANK1')
@@ -1073,6 +1037,43 @@ def draw_bake_targets_ui(context, layout, node):
             #    row.label(text='', icon='BLANK1')
             #    row.label(text=f"Do 'Bake {bt.name}' to get the image!", icon='ERROR')
 
+        icon_name = 'bake'
+        #if btui.expand_content:
+        #    icon_name = 'uncollapsed_' + icon_name
+        #else: icon_name = 'collapsed_' + icon_name
+        icon_value = lib.get_icon('channels')
+
+        row = col.row(align=True)
+
+        icon = get_collapse_arrow_icon(btui.expand_content)
+
+        if is_bl_newer_than(2, 80):
+            row.alignment = 'LEFT'
+            row.scale_x = 0.95
+
+        row.prop(btui, 'expand_content', text='', emboss=False, icon=icon)
+
+        #row.prop(btui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        #if image: 
+        #    bt_label = image.name
+        #    if image.is_float: bt_label += ' (Float)'
+        #else: 
+        #    bt_label = bt.name
+        #    if bt.use_float: bt_label += ' (Float)'
+        bt_label = 'Channel Source'
+
+        if is_bl_newer_than(2, 80):
+            row.prop(btui, 'expand_content', text=bt_label, emboss=False, icon_value=icon_value)
+        else: row.label(text=bt_label, icon_value=icon_value)
+
+        if btui.expand_content:
+            row = col.row(align=True)
+            row.label(text='', icon='BLANK1')
+            bcol = row.column()
+
+            for letter in rgba_letters:
+                draw_bake_target_channel(context, bcol, bt, letter)
+
         row_setting = col.row(align=True)
 
         icon = get_collapse_arrow_icon(btui.expand_setting)
@@ -1089,7 +1090,6 @@ def draw_bake_targets_ui(context, layout, node):
         else: 
             row_setting.label(text=label_setting, icon_value=icon_value)
 
-
         row_bake = col.row(align=True)
         row_bake.label(text='', icon='BLANK1')
 
@@ -1100,29 +1100,28 @@ def draw_bake_targets_ui(context, layout, node):
 
 def draw_bake_target_settings(context, layout, bt):
 
-
-
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
-    height_root_ch = get_root_height_channel(yp)
     
     obj = context.object
 
     row = split_layout(layout, 0.4)
-    col = row.column() #align=True)
+
+    # ===========
+    col = row.column()
+    col.alignment = 'RIGHT'
 
     ccol = col.column(align=True)
+    ccol.alignment = 'RIGHT'
     ccol.label(text='')
+
     if bt.use_custom_resolution == False:
         ccol.label(text='Resolution:')
     if bt.use_custom_resolution == True:
         ccol.label(text='Width:')
         ccol.label(text='Height:')
 
-    if height_root_ch:
-        ccol.separator()
-        # ccol.label(text='Use 32-bit Float:')
-        ccol.label(text='')
+    ccol.label(text='')
         
     ccol.separator()
     ccol.label(text='Samples:')
@@ -1132,42 +1131,25 @@ def draw_bake_target_settings(context, layout, bt):
         ccol.separator()
     ccol.label(text='Margin:')
 
-
     col.separator()
 
-    # if is_bl_newer_than(2, 80):
-    #     col.label(text='Bake Device:')
     col.label(text='Interpolation:')
     col.label(text='UV Map:')
 
-    ccol = col.column(align=True)
-
-    # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-    active_channel = None
-    if bt.only_active_channel and not is_bl_equal(3, 2):
-        active_channel = bt.channels[0]
-        if active_channel.enable_bake_to_vcol:
-            ccol.separator()
-            ccol.label(text='')
-    elif bt.enable_bake_as_vcol and not is_bl_equal(3, 2):
-        ccol.separator()
-        ccol.label(text='Force First Vcol:')
-
+    # ===========
     col = row.column()
 
     col.prop(bt, 'use_custom_resolution')
-    crow = col.row(align=True)
     ccol = col.column(align=True)
 
     if bt.use_custom_resolution == False:
+        crow = ccol.row(align=True)
         crow.prop(bt, 'image_resolution', expand= True,)
     elif bt.use_custom_resolution == True:
         ccol.prop(bt, 'width', text='')
         ccol.prop(bt, 'height', text='')
 
-    if height_root_ch:
-        ccol.separator()
-        ccol.prop(bt, 'use_float')
+    ccol.prop(bt, 'use_float')
 
     ccol.separator()
     ccol.prop(bt, 'samples', text='')
@@ -1187,24 +1169,10 @@ def draw_bake_target_settings(context, layout, bt):
 
     col.separator()
 
-    # if is_bl_newer_than(2, 80):
-        # if bt.use_osl:
-        #     col.label(text='CPU (OSL)')
-        # else: col.prop(bt, 'bake_device', text='')
-        # col.prop(bt, 'bake_device', text='')
-
     col.prop(bt, 'interpolation', text='')
     col.prop_search(bt, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
     ccol = col.column(align=True)
-
-    # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-    if active_channel and active_channel.enable_bake_to_vcol:
-        ccol.separator()
-        ccol.prop(bt, 'vcol_force_first_ch_idx_bool', text='Force First Vcol')
-    elif bt.enable_bake_as_vcol and not is_bl_equal(3, 2):
-        ccol.separator()
-        ccol.prop(bt, 'vcol_force_first_ch_idx', text='')
 
     ccol.separator()
 
@@ -5366,8 +5334,15 @@ class NODE_UL_YPaint_bake_targets(bpy.types.UIList):
 
         row = layout.row()
 
+        icon_value = lib.get_icon('bake')
+        if item.data_type == 'IMAGE':
+            if image:
+                icon_value = lib.get_icon('image')
+        elif item.data_type == 'VCOL':
+            icon_value = lib.get_icon('vcol')
+
         if image:
-            row.prop(image, 'name', text='', emboss=False, icon_value=lib.get_icon('bake'))
+            row.prop(image, 'name', text='', emboss=False, icon_value=icon_value)
 
             # Asterisk icon to indicate dirty image
             if image.is_dirty:
@@ -5377,7 +5352,8 @@ class NODE_UL_YPaint_bake_targets(bpy.types.UIList):
             if image.packed_file:
                 row.label(text='', icon='PACKAGE')
             
-        else: row.prop(item, 'name', text='', emboss=False, icon_value=lib.get_icon('bake'))
+        else: 
+            row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
 
 class NODE_UL_YPaint_channels(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
