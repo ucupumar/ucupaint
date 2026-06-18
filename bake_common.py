@@ -2230,6 +2230,8 @@ def get_bake_target_properties_from_bt_and_self(bt, self):
 
     # YBakeTarget
     btprops.uv_map = bt.uv_map
+    btprops.fxaa = bt.fxaa
+    btprops.denoise = bt.denoise
 
     # BaseBakeProps
     btprops.width = bt.width
@@ -2243,10 +2245,8 @@ def get_bake_target_properties_from_bt_and_self(bt, self):
     # BaseBakeInfoProps
     btprops.hdr = bt.hdr
     btprops.interpolation = bt.interpolation
-    btprops.fxaa = bt.fxaa
     btprops.ssaa = bt.ssaa
     btprops.aa_level = bt.aa_level
-    btprops.denoise = bt.denoise
     btprops.use_udim = bt.use_udim
     btprops.use_dithering = bt.use_dithering
     btprops.dither_intensity = bt.dither_intensity
@@ -2471,15 +2471,16 @@ def recover_objs_after_baking(objs, obook, uv_map):
 
     return objs
 
-def do_image_post_process(image, bprops, alpha_enabled=False, bake_device='CPU'):
+def do_image_post_process(image, bprops, alpha_enabled=False, bake_device='CPU', force_denoise_off=False):
 
     # Dithering
     if bprops.use_dithering and not image.is_float:
         dither_image(image, dither_intensity=bprops.dither_intensity, alpha_aware=alpha_enabled)
 
     # Denoise
-    if bprops.denoise and is_bl_newer_than(2, 81):
-        denoise_image(image)
+    if not force_denoise_off:
+        if bprops.denoise and is_bl_newer_than(2, 81):
+            denoise_image(image)
 
     # AA process
     if bprops.aa_level > 1:
@@ -2520,6 +2521,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     any_linear_ch = any([c for c in channels if c.colorspace == 'LINEAR' or c.special_channel_type == 'NORMAL'])
     any_normal_ch = any([c for c in channels if c.special_channel_type == 'NORMAL'])
     any_height_ch = any([c for c in channels if c.special_channel_type == 'HEIGHT'])
+    any_non_clamped_ch = any([c for c in channels if c.use_clamp and c.special_channel_type not in {'HEIGHT', 'NORMAL'}])
 
     # Checking if all channel sources are from normal channel
     # NOTE: Assuming there's only one normal channel, which what's currently possible
@@ -2643,7 +2645,8 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     if img and (
             img.size[0] != width or img.size[1] != height or
             (img.source == 'TILED' and not btprops.use_udim) or
-            (img.source != 'TILED' and btprops.use_udim) 
+            (img.source != 'TILED' and btprops.use_udim) or
+            (img.is_float != btprops.hdr)
             ):
         old_img = img
         img = None
@@ -2688,7 +2691,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                     color.append(0.5)
                 else: color.append(1.0)
 
-            elif root_ch.special_channel_type == 'HEIGHT' and root_ch.use_height_normalize:
+            elif root_ch.special_channel_type == 'HEIGHT' and (root_ch.use_height_normalize or bt.height_normalize):
                 color.append(0.5)
 
             elif root_ch.type == 'VALUE':
@@ -2754,7 +2757,6 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         # Set image base color
         if hasattr(img, 'use_alpha'):
             img.use_alpha = True
-        img.generated_color = color
 
         # Set filepath
         if filepath != '' and (
@@ -2769,20 +2771,24 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
             img.colorspace_settings.name = get_noncolor_name()
         else: img.colorspace_settings.name = get_srgb_name()
 
+    # Reset image by the base color
+    img.source = 'GENERATED'
+    img.generated_color = color
+
     ## Original displacement connection
     ori_disp_from_node = ''
     ori_disp_from_socket = ''
 
     ## Remove displacement link early if displacement setup is enabled and the current channel is not normal channel
-    #if any_normal_ch and any_height_ch and not height_root_ch.use_height_as_bump:
-    #    #if root_ch != normal_root_ch:
-    #    if normal_root_ch not in channels:
-    #        # Disconnect displacement for non-normal channel
-    #        for link in output.inputs['Displacement'].links:
-    #            ori_disp_from_node = link.from_node.name
-    #            ori_disp_from_socket = link.from_socket.name
-    #            mat.node_tree.links.remove(link)
-    #            break
+    ##if normal_root_ch and any_height_ch and not height_root_ch.use_height_as_bump:
+    if normal_root_ch and not any_normal_ch:
+        #if root_ch != normal_root_ch:
+        # Disconnect displacement for non-normal channel
+        for link in output.inputs['Displacement'].links:
+            ori_disp_from_node = link.from_node.name
+            ori_disp_from_socket = link.from_socket.name
+            mat.node_tree.links.remove(link)
+            break
     #    else:
     #        # Reconnect displacement for normal channel
     #        from_node = mat.node_tree.nodes.get(ori_disp_from_node)
@@ -2792,6 +2798,13 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
 
     # Dealing with height channel 
     if any_height_ch:
+
+        ori_use_height_normalize = height_root_ch.use_height_normalize
+        ori_use_height_as_bump = height_root_ch.use_height_as_bump
+
+        # Normalize height option
+        if bt.height_normalize:
+            height_root_ch.use_height_normalize = True
 
         if height_root_ch.use_height_normalize:
             inp_height = node.inputs.get(height_root_ch.name)
@@ -2804,7 +2817,6 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 inp_scale.default_value = 0.0
 
         # Make sure height output exists by disabling use_height_as_bump
-        ori_use_height_as_bump = height_root_ch.use_height_as_bump
         if height_root_ch.use_height_as_bump:
             safely_set_use_height_as_bump(height_root_ch, False)
 
@@ -3003,6 +3015,13 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         for layer in disabled_layers:
             layer.enable = False
 
+    # Recover height channel
+    if any_height_ch:
+        if height_root_ch.use_height_as_bump != ori_use_height_as_bump:
+            safely_set_use_height_as_bump(height_root_ch, ori_use_height_as_bump)
+        if height_root_ch.use_height_normalize != ori_use_height_normalize:
+            height_root_ch.use_height_normalize = ori_use_height_normalize
+
     # Recover hack
     if BL28_HACK and any_normal_ch and tangent_sign_calculation and is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
         print('INFO: Recovering tangent sign after bake...')
@@ -3019,7 +3038,11 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Post process
     if len(channels) > 0:
         alpha_enabled = yp.channels.get(bt.a.channel_name) != None
-        img = do_image_post_process(img, bt, alpha_enabled, bake_device=bake_device)
+        # NOTE: Force denoise off for height and non-clamped channels since it can clamp the image
+        force_denoise_off = False
+        if (any_height_ch and not bt.height_normalize) or any_non_clamped_ch: 
+            force_denoise_off = True
+        img = do_image_post_process(img, bt, alpha_enabled, bake_device=bake_device, force_denoise_off=force_denoise_off)
 
     return img
 

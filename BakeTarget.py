@@ -30,6 +30,10 @@ def update_active_bake_target_index(self, context):
     else:
         update_image_editor_image(context, None)
 
+def update_bake_target_height_normalize(self, context):
+    if not self.height_normalize:
+        self.hdr = True
+
 class YBakeTargetChannel(bpy.types.PropertyGroup):
 
     channel_name : StringProperty(
@@ -80,6 +84,33 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
             ('VCOL', get_vertex_color_label(), '', 'GROUP_VCOL', 1),
         ),
         default = 'IMAGE'
+    )
+
+    # Channel specific settings
+    height_normalize : BoolProperty(
+        name = 'Normalize Height',
+        description = 'Normalize height channel output',
+        default = True,
+        update = update_bake_target_height_normalize
+    )
+
+    normal_includes_height : BoolProperty(
+        name = 'Normal includes Height',
+        description = 'Baked normal will includes normal from height',
+        default = True
+    )
+
+    # Available in BakeInfo but has different default values
+    fxaa : BoolProperty(
+        name='Use FXAA', 
+        description = "Use FXAA on baked image (doesn't work with float images)",
+        default = True
+    )
+
+    denoise : BoolProperty(
+        name = 'Use Denoise', 
+        description = "Use Denoise on baked image",
+        default = False
     )
 
     # Deprecated

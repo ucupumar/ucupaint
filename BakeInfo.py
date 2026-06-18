@@ -31,12 +31,6 @@ class BaseBakeInfoProps():
         default = 'Linear'
     )
 
-    fxaa : BoolProperty(
-        name='Use FXAA', 
-        description = "Use FXAA on baked image (doesn't work with float images)",
-        default = False
-    )
-
     ssaa : BoolProperty(
         name = 'Use SSAA', 
         description = "Use Supersample AA on baked image",
@@ -47,12 +41,6 @@ class BaseBakeInfoProps():
         name = 'Anti Aliasing Level',
         description = 'Super Sample Anti Aliasing Level (1=off)',
         default=1, min=1, max=2
-    )
-
-    denoise : BoolProperty(
-        name = 'Use Denoise', 
-        description = "Use Denoise on baked image",
-        default = True
     )
 
     use_udim : BoolProperty(
@@ -101,6 +89,18 @@ class YBakeInfoProps(bpy.types.PropertyGroup, BaseBakeInfoProps):
         name = 'Baked Entity Type',
         description = 'Baked entity type',
         default = ''
+    )
+
+    fxaa : BoolProperty(
+        name='Use FXAA', 
+        description = "Use FXAA on baked image (doesn't work with float images)",
+        default = False
+    )
+
+    denoise : BoolProperty(
+        name = 'Use Denoise', 
+        description = "Use Denoise on baked image",
+        default = True
     )
 
     samples : IntProperty(

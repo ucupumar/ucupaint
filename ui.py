@@ -1053,14 +1053,21 @@ def draw_bake_targets_ui(context, layout, node):
 
         row.prop(btui, 'expand_content', text='', emboss=False, icon=icon)
 
-        #row.prop(btui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        #if image: 
-        #    bt_label = image.name
-        #    if image.is_float: bt_label += ' (Float)'
-        #else: 
-        #    bt_label = bt.name
-        #    if bt.hdr: bt_label += ' (Float)'
-        bt_label = 'Channel Source'
+        bt_label = 'Channel'
+
+        channels = get_bake_target_channels(bt)
+        if len(channels) > 1:
+            bt_label += 's'
+
+        if not btui.expand_content:
+            bt_label += ': '
+            if len(channels) > 0:
+                for i, ch in enumerate(channels):
+                    if i > 0:
+                        bt_label += ', '
+                    bt_label += ch.name
+            else:
+                bt_label += '-'
 
         if is_bl_newer_than(2, 80):
             row.prop(btui, 'expand_content', text=bt_label, emboss=False, icon_value=icon_value)
@@ -1102,17 +1109,32 @@ def draw_bake_target_settings(context, layout, bt):
 
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
+    channels = get_bake_target_channels(bt)
+    any_normal_ch = any([c for c in channels if c.special_channel_type == 'NORMAL'])
+    any_height_ch = any([c for c in channels if c.special_channel_type == 'HEIGHT'])
+    any_non_clamped_ch = any([c for c in channels if not c.use_clamp and c.special_channel_type not in {'HEIGHT', 'NORMAL'}])
+    any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
     
     obj = context.object
 
-    row = split_layout(layout, 0.4)
+    box = layout.box()
+    bcol = box.column()
+
+    row = split_layout(bcol, 0.4)
 
     # ===========
     col = row.column()
     col.alignment = 'RIGHT'
 
+    if any_normal_ch:
+        col.label(text='')
+
+    if any_height_ch:
+        col.label(text='')
+
     ccol = col.column(align=True)
     ccol.alignment = 'RIGHT'
+
     ccol.label(text='')
 
     if bt.use_custom_resolution == False:
@@ -1138,6 +1160,12 @@ def draw_bake_target_settings(context, layout, bt):
 
     # ===========
     col = row.column()
+
+    if any_normal_ch:
+        col.prop(bt, 'normal_includes_height')
+
+    if any_height_ch:
+        col.prop(bt, 'height_normalize')
 
     col.prop(bt, 'use_custom_resolution')
     ccol = col.column(align=True)
@@ -1179,11 +1207,11 @@ def draw_bake_target_settings(context, layout, bt):
     if UDIM.is_udim_supported():
         ccol.prop(bt, 'use_udim')
     ccol.prop(bt, 'fxaa', text='Use FXAA')
-    if is_bl_newer_than(2, 81):
-        ccol.prop(bt, 'denoise', text='Use Denoise')
+    if is_bl_newer_than(2, 81) and (not any_height_ch or bt.height_normalize) and not any_non_clamped_ch: 
+        rrow = ccol.row()
+        #rrow.active = (not any_height_ch or bt.height_normalize) and not any_non_clamped_ch
+        rrow.prop(bt, 'denoise', text='Use Denoise')
 
-    channels = get_bake_target_channels(bt)
-    any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
     if any_color_channel:
         if not bt.use_dithering:
             ccol.prop(bt, 'use_dithering', text='Use Dithering')
