@@ -101,19 +101,6 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
         default = True
     )
 
-    # Available in BakeInfo but has different default values
-    fxaa : BoolProperty(
-        name='Use FXAA', 
-        description = "Use FXAA on baked image (doesn't work with float images)",
-        default = True
-    )
-
-    denoise : BoolProperty(
-        name = 'Use Denoise', 
-        description = "Use Denoise on baked image",
-        default = False
-    )
-
     # Deprecated
     use_float : BoolProperty(default=False)
 
@@ -126,8 +113,11 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     a : PointerProperty(type=YBakeTargetChannel)
 
     # Nodes
-    image_node : StringProperty(default='')
-    image_node_outside : StringProperty(default='')
+    image_node : StringProperty(default='') # Deprecated
+    image_node_outside : StringProperty(default='')# Deprecated
+
+    baked_node : StringProperty(default='')
+    baked_node_outside : StringProperty(default='')
 
     normal_prep : StringProperty(default='')
     normal_process : StringProperty(default='')
@@ -279,6 +269,10 @@ class YNewBakeTarget(bpy.types.Operator):
         bt.data_type = self.data_type
 
         bt.uv_map = get_active_render_uv(context.object)
+
+        # Set some default values
+        bt.fxaa = True
+        bt.denoise = False
 
         if self.preset == 'ORM':
             for ch in yp.channels:

@@ -224,6 +224,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         if hasattr(bpy.context, 'object'):
             bt.uv_map = get_default_uv_name(bpy.context.object, yp)
 
+        # Set denoise default values
+        bt.denoise = False
+
         if special_channel_type == 'NORMAL':
             bt.fxaa = False
 
@@ -250,6 +253,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
                 if hasattr(bpy.context, 'object'):
                     bt.uv_map = get_default_uv_name(bpy.context.object, yp)
+        else:
+            # FXAA is enabled by default
+            bt.fxaa = True
 
     yp.halt_reconnect = False
 

@@ -1103,127 +1103,15 @@ def draw_bake_targets_ui(context, layout, node):
         info_col = row_bake.column()
         if btui.expand_setting:
             draw_bake_target_settings(context, info_col, bt)
-        info_col.operator('wm.y_bake_single_target', text=f'Bake {bt.name}', icon_value=lib.get_icon('bake')).bake_target_index = yp.active_bake_target_index
+        op = info_col.operator('wm.y_bake_single_target', text=f'Bake {bt.name}', icon_value=lib.get_icon('bake'))
+        op.bake_target_index = yp.active_bake_target_index
 
 def draw_bake_target_settings(context, layout, bt):
-
-    node = get_active_ypaint_node()
-    yp = node.node_tree.yp
-    channels = get_bake_target_channels(bt)
-    any_normal_ch = any([c for c in channels if c.special_channel_type == 'NORMAL'])
-    any_height_ch = any([c for c in channels if c.special_channel_type == 'HEIGHT'])
-    any_non_clamped_ch = any([c for c in channels if not c.use_clamp and c.special_channel_type not in {'HEIGHT', 'NORMAL'}])
-    any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
-    
-    obj = context.object
 
     box = layout.box()
     bcol = box.column()
 
-    row = split_layout(bcol, 0.4)
-
-    # ===========
-    col = row.column()
-    col.alignment = 'RIGHT'
-
-    if any_normal_ch:
-        col.label(text='')
-
-    if any_height_ch:
-        col.label(text='')
-
-    ccol = col.column(align=True)
-    ccol.alignment = 'RIGHT'
-
-    ccol.label(text='')
-
-    if bt.use_custom_resolution == False:
-        ccol.label(text='Resolution:')
-    if bt.use_custom_resolution == True:
-        ccol.label(text='Width:')
-        ccol.label(text='Height:')
-
-    ccol.label(text='')
-        
-    ccol.separator()
-    ccol.label(text='Samples:')
-    ccol.label(text='AA Level:')
-
-    if is_bl_newer_than(3, 1):
-        ccol.separator()
-    ccol.label(text='Margin:')
-
-    col.separator()
-
-    col.label(text='Interpolation:')
-    col.label(text='UV Map:')
-
-    # ===========
-    col = row.column()
-
-    if any_normal_ch:
-        col.prop(bt, 'normal_includes_height')
-
-    if any_height_ch:
-        col.prop(bt, 'height_normalize')
-
-    col.prop(bt, 'use_custom_resolution')
-    ccol = col.column(align=True)
-
-    if bt.use_custom_resolution == False:
-        crow = ccol.row(align=True)
-        crow.prop(bt, 'image_resolution', expand= True,)
-    elif bt.use_custom_resolution == True:
-        ccol.prop(bt, 'width', text='')
-        ccol.prop(bt, 'height', text='')
-
-    ccol.prop(bt, 'hdr')
-
-    ccol.separator()
-    ccol.prop(bt, 'samples', text='')
-    ccol.prop(bt, 'aa_level', text='')
-
-    if is_bl_newer_than(3, 1):
-        ccol.separator()
-        split = split_layout(ccol, 0.4, align=True)
-        split.prop(bt, 'margin', text='')
-        split.prop(bt, 'margin_type', text='')
-    else:
-        ccol.prop(bt, 'margin', text='')
-
-        # splits = split_layout(ccol, 0.4)
-        # splits.prop(bt, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
-        # splits.prop(bt, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
-
-    col.separator()
-
-    col.prop(bt, 'interpolation', text='')
-    col.prop_search(bt, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-
-    ccol = col.column(align=True)
-
-    ccol.separator()
-
-    if UDIM.is_udim_supported():
-        ccol.prop(bt, 'use_udim')
-    ccol.prop(bt, 'fxaa', text='Use FXAA')
-    if is_bl_newer_than(2, 81) and (not any_height_ch or bt.height_normalize) and not any_non_clamped_ch: 
-        rrow = ccol.row()
-        #rrow.active = (not any_height_ch or bt.height_normalize) and not any_non_clamped_ch
-        rrow.prop(bt, 'denoise', text='Use Denoise')
-
-    if any_color_channel:
-        if not bt.use_dithering:
-            ccol.prop(bt, 'use_dithering', text='Use Dithering')
-        if bt.use_dithering:
-            row = split_layout(ccol, 0.55)
-            row.prop(bt, 'use_dithering', text='Use Dithering')
-            row.prop(bt, 'dither_intensity', text='')
-
-    # ccol.prop(bt, 'use_osl')
-
-    ccol.prop(bt, 'force_bake_all_polygons')
-    ccol.prop(bt, 'bake_disabled_layers')
+    draw_base_bake_target_settings(context, bcol, bt, bt, show_udim=UDIM.is_udim_supported())
 
 def draw_root_channels_ui(context, layout, node):
     scene = bpy.context.scene

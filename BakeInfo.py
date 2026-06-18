@@ -43,6 +43,18 @@ class BaseBakeInfoProps():
         default=1, min=1, max=2
     )
 
+    fxaa : BoolProperty(
+        name='Use FXAA', 
+        description = "Use FXAA on baked image (doesn't work with float images)",
+        default = False
+    )
+
+    denoise : BoolProperty(
+        name = 'Use Denoise', 
+        description = "Use Denoise on baked image",
+        default = True
+    )
+
     use_udim : BoolProperty(
         name = 'Use UDIM Tiles',
         description = 'Use UDIM Tiles',
@@ -89,18 +101,6 @@ class YBakeInfoProps(bpy.types.PropertyGroup, BaseBakeInfoProps):
         name = 'Baked Entity Type',
         description = 'Baked entity type',
         default = ''
-    )
-
-    fxaa : BoolProperty(
-        name='Use FXAA', 
-        description = "Use FXAA on baked image (doesn't work with float images)",
-        default = False
-    )
-
-    denoise : BoolProperty(
-        name = 'Use Denoise', 
-        description = "Use Denoise on baked image",
-        default = True
     )
 
     samples : IntProperty(

@@ -2230,8 +2230,6 @@ def get_bake_target_properties_from_bt_and_self(bt, self):
 
     # YBakeTarget
     btprops.uv_map = bt.uv_map
-    btprops.fxaa = bt.fxaa
-    btprops.denoise = bt.denoise
 
     # BaseBakeProps
     btprops.width = bt.width
@@ -2241,6 +2239,8 @@ def get_bake_target_properties_from_bt_and_self(bt, self):
     btprops.samples = bt.samples
     btprops.margin = bt.margin
     btprops.margin_type = bt.margin_type
+    btprops.fxaa = bt.fxaa
+    btprops.denoise = bt.denoise
 
     # BaseBakeInfoProps
     btprops.hdr = bt.hdr
@@ -2636,8 +2636,8 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Set tex as active node
     mat.node_tree.nodes.active = tex
 
-    image_node = tree.nodes.get(bt.image_node)
-    img = image_node.image if image_node and image_node.image else None
+    baked_node = tree.nodes.get(bt.baked_node)
+    img = baked_node.image if baked_node and baked_node.image else None
     img_name = img.name if img else bt.name
     filepath = img.filepath if img else ''
 
@@ -2653,15 +2653,15 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         if (old_img.source == 'TILED' and not btprops.use_udim) or (old_img.source != 'TILED' and btprops.use_udim):
             filepath = ''
 
-    if not image_node:
+    if not baked_node:
         # Set nodes
-        image_node = check_new_node(tree, bt, 'image_node', 'ShaderNodeTexImage')
+        baked_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
 
-        if hasattr(image_node, 'color_space'):
+        if hasattr(baked_node, 'color_space'):
             if any_linear_ch:
-                image_node.color_space = 'NONE'
-            else: image_node.color_space = 'COLOR'
-        image_node.interpolation = btprops.interpolation
+                baked_node.color_space = 'NONE'
+            else: baked_node.color_space = 'COLOR'
+        baked_node.interpolation = btprops.interpolation
         
         # Normal related nodes
         if any_normal_ch:
@@ -2994,7 +2994,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Replace old image
     if old_img: 
         replace_image(old_img, img)
-    else: image_node.image = img
+    else: baked_node.image = img
 
     # Remove nodes
     simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img)
