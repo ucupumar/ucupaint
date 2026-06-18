@@ -3563,7 +3563,6 @@ def bake_channel(
     simple_remove_node(mat.node_tree, emit)
     if bsdf: simple_remove_node(mat.node_tree, bsdf)
     if norm: simple_remove_node(mat.node_tree, norm)
-    if norm_tex: simple_remove_node(mat.node_tree, norm_tex)
 
     # Recover displacement link
     if ori_disp_from_node != '':

@@ -42,6 +42,7 @@ class YBakeTargetChannel(bpy.types.PropertyGroup):
         default = ''
     )
 
+    # TODO: Option to use entire luminosity value rather than using only one subchannel
     subchannel_index : EnumProperty(
         name = 'Subchannel',
         description = 'Channel source RGBA index',

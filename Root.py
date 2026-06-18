@@ -166,9 +166,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
     # Add new channel
     channel = yp.channels.add()
-    channel.name = name
+    channel.name = get_unique_name(name, yp.channels)
     channel.original_name = name
-    channel.bake_to_vcol_name = 'Baked ' + name
+    channel.bake_to_vcol_name = 'Baked ' + channel.name
     channel.type = channel_type
     channel.special_channel_type = special_channel_type
 
@@ -195,7 +195,15 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         if is_bl_newer_than(2, 78): 
             channel.enable_smooth_bump = False
 
-    if add_bake_target:
+    # Special Bake target setup
+    alpha_bt_setup = False
+    if special_channel_type == 'ALPHA':
+        color_chs = [c for c in yp.channels if c.type == 'RGB']
+        if any(color_chs): 
+            alpha_bt_setup = add_alpha_to_color_bt(color_chs[0], channel)
+
+    # Add bake_target
+    if add_bake_target and not alpha_bt_setup:
         bt = yp.bake_targets.add()
         bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ' + name, bpy.data.images)
 
@@ -213,11 +221,35 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
         bt.data_type = 'IMAGE'
 
+        if hasattr(bpy.context, 'object'):
+            bt.uv_map = get_default_uv_name(bpy.context.object, yp)
+
         if special_channel_type == 'NORMAL':
             bt.fxaa = False
 
-        if hasattr(bpy.context, 'object'):
-            bt.uv_map = get_default_uv_name(bpy.context.object, yp)
+            # Extra normal without bump if height channel exists
+            height_root_ch = get_root_height_channel(yp)
+            if height_root_ch:
+                bt = yp.bake_targets.add()
+                bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ' + name + ' without Height', bpy.data.images)
+
+                bt.a.default_value = 1.0
+
+                bt.r.channel_name = name
+                bt.r.subchannel_index = '0'
+
+                bt.g.channel_name = name
+                bt.g.subchannel_index = '1'
+
+                bt.b.channel_name = name
+                bt.b.subchannel_index = '2'
+
+                bt.data_type = 'IMAGE'
+
+                bt.normal_includes_height = False
+
+                if hasattr(bpy.context, 'object'):
+                    bt.uv_map = get_default_uv_name(bpy.context.object, yp)
 
     yp.halt_reconnect = False
 
@@ -1804,6 +1836,22 @@ class YConnectYPaintChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def add_alpha_to_color_bt(color_ch, alpha_ch):
+    success = False
+    yp = color_ch.id_data.yp
+
+    for bt in yp.bake_targets:
+        if (bt.r.channel_name == color_ch.name and bt.r.subchannel_index == '0' and
+            bt.g.channel_name == color_ch.name and bt.g.subchannel_index == '1' and
+            bt.b.channel_name == color_ch.name and bt.b.subchannel_index == '2' and
+            bt.a.channel_name == ''
+        ):
+            bt.a.channel_name = alpha_ch.name
+            success = True
+            break
+
+    return success
+
 def make_channel_as_alpha(mat, node, channel, do_setup=False, move_index=False, ch_pair_name=''):
     yp = channel.id_data.yp
     if channel.type != 'VALUE': return
@@ -1837,6 +1885,10 @@ def make_channel_as_alpha(mat, node, channel, do_setup=False, move_index=False, 
         # Set up alpha connections
         default_value = do_alpha_setup(mat, node, channel)
         node.inputs[channel.name].default_value = default_value
+
+    # Bake target setup with the color channel
+    color_ch = yp.channels.get(ch_pair_name)
+    if color_ch: add_alpha_to_color_bt(color_ch, channel)
 
 class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
     bl_idname = "wm.y_auto_setup_new_ypaint_channel"
@@ -1968,9 +2020,27 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         if self.mode in {'HEIGHT', 'NORMAL', 'VDISP'}:
             special_channel_type = self.mode
 
+        orm_bt = None
+        # Get ORM Bake target
+        if self.mode == 'AO':
+            for bt in yp.bake_targets:
+                img_node = node.node_tree.get(bt.image_node)
+                bt_name = img_node.image.name if img_node and img_node.image else bt.name
+                if bt_name.endswith(' ORM') and bt.r.channel_name == '':
+                    orm_bt = bt
+                    break
+
+        # Only add bake target when necessary
+        add_bake_target = self.mode not in {'ALPHA', 'AO'} or (self.mode == 'AO' and not orm_bt)
+
         # Create new channel
-        channel = create_new_yp_channel(group_tree, self.ch_name, self.ch_type, non_color=True, special_channel_type=special_channel_type)
+        channel = create_new_yp_channel(group_tree, self.ch_name, self.ch_type, non_color=True, special_channel_type=special_channel_type, add_bake_target=add_bake_target)
         actual_ch_name = channel.name
+
+        # Add AO to ORM bake target
+        if self.mode == 'AO' and orm_bt:
+            orm_bt.r.channel_name = channel.name
+            orm_bt.r.subchannel_index = '0'
 
         # Update io
         check_all_channel_ios(yp, yp_node=node)
@@ -2725,6 +2795,36 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         # Repoint channel index
         #repoint_channel_index(yp)
+
+        # Delete bake target channels
+        bt_names = [bt.name for bt in yp.bake_targets]
+        for bt_name in bt_names:
+            bt = yp.bake_targets.get(bt_name)
+            if not bt: continue
+            bt_index = [i for i, b in enumerate(yp.bake_targets) if b == bt][0]
+
+            # Delete channel names from bake targets
+            something_deleted = False
+            for letter in rgba_letters:
+                btc = getattr(bt, letter)
+                if btc and btc.channel_name == channel_name:
+                    btc.channel_name = ''
+                    something_deleted = True
+
+            # Check if the entire bake target channels already empty
+            if something_deleted:
+                theres_something = False
+                for letter in rgba_letters:
+                    btc = getattr(bt, letter)
+                    if btc and btc.channel_name != '':
+                        theres_something = True
+                        break
+
+                # Delete bake target if its entirely empty
+                if not theres_something:
+                    yp.bake_targets.remove(bt_index)
+                    if len(yp.bake_targets) > 0:
+                        yp.active_bake_target_index -= 1
 
         # Update UI
         wm.ypui.need_update = True
