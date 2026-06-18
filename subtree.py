@@ -1648,7 +1648,7 @@ def check_uv_nodes(yp, generate_missings=False):
     # Get bake target uv name
     for bt in yp.bake_targets:
         # Check for bake target image nodes
-        bt_node = tree.nodes.get(bt.image_node)
+        bt_node = tree.nodes.get(bt.baked_node)
         if bt_node:
             uv = yp.uvs.get(bt.uv_map)
             if not uv:

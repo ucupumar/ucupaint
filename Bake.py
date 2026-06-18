@@ -1487,7 +1487,7 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
         box = root_col.box()
         bcol = box.column()
         if self.override_all:
-            draw_base_bake_target_settings(context, bcol, self, bt=None, show_udim=UDIM.is_udim_supported())
+            draw_base_bake_target_settings(context, bcol, self, bt=None, show_hdr=False, show_udim=UDIM.is_udim_supported())
 
         else:
             # resolution
@@ -2619,7 +2619,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
                     bt.image_resolution = self.image_resolution
 
                 print("INFO: Processing custom bake target '" + bt.name + "'...")
-                bt_node = tree.nodes.get(bt.image_node)
+                bt_node = tree.nodes.get(bt.baked_node)
                 btimg = bt_node.image if bt_node and bt_node.image else None 
                 
                 old_img = None
@@ -2736,7 +2736,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
                 if old_img: 
                     replace_image(old_img, btimg)
                 else: 
-                    bt_node = check_new_node(tree, bt, 'image_node', 'ShaderNodeTexImage')
+                    bt_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
                     bt_node.image = btimg
 
         # Set baked uv
@@ -3596,7 +3596,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
         if not self.only_active_channel:
             for bt in yp.bake_targets:
                 print("INFO: Processing custom bake target '" + bt.name + "'...")
-                bt_node = tree.nodes.get(bt.image_node)
+                bt_node = tree.nodes.get(bt.baked_node)
                 btimg = bt_node.image if bt_node and bt_node.image else None 
                 
                 old_img = None
@@ -3730,7 +3730,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 if old_img: 
                     replace_image(old_img, btimg)
                 else: 
-                    bt_node = check_new_node(tree, bt, 'image_node', 'ShaderNodeTexImage')
+                    bt_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
                     bt_node.image = btimg
 
         # Set baked uv
@@ -5060,15 +5060,15 @@ def update_enable_baked_outside(self, context):
         # Bake targets
         first_bt_found = False
         for bt in yp.bake_targets:
-            image_node = tree.nodes.get(bt.image_node)
-            if image_node and image_node.image:
+            baked_node = tree.nodes.get(bt.baked_node)
+            if baked_node and baked_node.image:
 
                 if not first_bt_found:
                     loc_y -= 75
                     first_bt_found = True
 
                 tex = check_new_node(mtree, bt, 'image_node_outside', 'ShaderNodeTexImage')
-                tex.image = image_node.image
+                tex.image = baked_node.image
                 tex.location.x = loc_x
                 tex.location.y = loc_y
                 tex.parent = bt_frame

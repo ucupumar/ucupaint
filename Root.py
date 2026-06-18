@@ -2030,7 +2030,7 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         # Get ORM Bake target
         if self.mode == 'AO':
             for bt in yp.bake_targets:
-                img_node = node.node_tree.get(bt.image_node)
+                img_node = node.node_tree.get(bt.baked_node)
                 bt_name = img_node.image.name if img_node and img_node.image else bt.name
                 if bt_name.endswith(' ORM') and bt.r.channel_name == '':
                     orm_bt = bt

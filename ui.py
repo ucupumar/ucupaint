@@ -1015,8 +1015,8 @@ def draw_bake_targets_ui(context, layout, node):
 
     if len(yp.bake_targets) > 0:
         bt = yp.bake_targets[yp.active_bake_target_index]
-        image_node = nodes.get(bt.image_node)
-        image = image_node.image if image_node and image_node.image else None
+        baked_node = nodes.get(bt.baked_node)
+        image = baked_node.image if baked_node and baked_node.image else None
 
         if bt.data_type == 'IMAGE':
             row = col.row(align=True)
@@ -4046,7 +4046,7 @@ def draw_layers_ui(context, layout, node):
                 for letter in rgba_letters:
                     btc = getattr(bt, letter)
                     if getattr(btc, 'channel_name') == root_ch.name:
-                        bt_node = nodes.get(bt.image_node)
+                        bt_node = nodes.get(bt.baked_node)
                         btimg = bt_node.image if bt_node and bt_node.image else None
                         if btimg and btimg not in btimages:
 
@@ -5246,8 +5246,8 @@ def is_height_input_unconnected_but_has_start_process(node, root_ch):
 class NODE_UL_YPaint_bake_targets(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         tree = item.id_data
-        image_node = tree.nodes.get(item.image_node)
-        image = image_node.image if image_node else None
+        baked_node = tree.nodes.get(item.baked_node)
+        image = baked_node.image if baked_node else None
 
         row = layout.row()
 

@@ -677,11 +677,11 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
     # Bake target image nodes
     for bt in yp.bake_targets:
-        image_node = nodes.get(bt.image_node)
-        if image_node:
+        baked_node = nodes.get(bt.baked_node)
+        if baked_node:
             uv = yp.uvs.get(bt.uv_map)
             bt_uv_map = nodes.get(uv.uv_map) if uv else None
-            if bt_uv_map: create_link(tree, bt_uv_map.outputs[0], image_node.inputs[0])
+            if bt_uv_map: create_link(tree, bt_uv_map.outputs[0], baked_node.inputs[0])
 
     # Merge process doesn't care with parents
     if merged_layer_ids: return

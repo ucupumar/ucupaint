@@ -24,7 +24,7 @@ def update_active_bake_target_index(self, context):
     try: bt = yp.bake_targets[yp.active_bake_target_index]
     except: return
 
-    bt_node = tree.nodes.get(bt.image_node)
+    bt_node = tree.nodes.get(bt.baked_node)
     if bt_node and bt_node.image:
         update_image_editor_image(context, bt_node.image)
     else:
@@ -328,7 +328,7 @@ class YRemoveBakeTarget(bpy.types.Operator):
         except: return {'CANCELLED'}
 
         # Remove related nodes
-        remove_node(tree, bt, 'image_node')
+        remove_node(tree, bt, 'baked_node')
 
         # Remove bake target
         yp.bake_targets.remove(yp.active_bake_target_index)

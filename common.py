@@ -6284,9 +6284,9 @@ def get_yp_images(yp, udim_only=False, get_baked_channels=False, check_overlay_n
 
         # Custom bake target images
         for bt in yp.bake_targets:
-            image_node = tree.nodes.get(bt.image_node)
-            if image_node and image_node.image not in images:
-                images.append(image_node.image)
+            baked_node = tree.nodes.get(bt.baked_node)
+            if baked_node and baked_node.image not in images:
+                images.append(baked_node.image)
 
     return images
 
@@ -8635,7 +8635,7 @@ def get_bake_target_channels(bt):
 
     return channels
 
-def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_udim=True):
+def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_hdr=True, show_udim=True):
 
     any_normal_ch = False
     any_height_ch = False
@@ -8675,7 +8675,8 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_udim=
         ccol.label(text='Width:')
         ccol.label(text='Height:')
 
-    ccol.label(text='')
+    if show_hdr:
+        ccol.label(text='')
         
     ccol.separator()
     ccol.label(text='Samples:')
@@ -8709,7 +8710,8 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_udim=
         ccol.prop(btprops, 'width', text='')
         ccol.prop(btprops, 'height', text='')
 
-    ccol.prop(btprops, 'hdr')
+    if show_hdr:
+        ccol.prop(btprops, 'hdr')
 
     ccol.separator()
     ccol.prop(btprops, 'samples', text='')

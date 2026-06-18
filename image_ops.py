@@ -637,9 +637,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         # Custom bake target images
         for bt in yp.bake_targets:
-            image_node = tree.nodes.get(bt.image_node)
-            if image_node and image_node.image not in images:
-                images.append(image_node.image)
+            baked_node = tree.nodes.get(bt.baked_node)
+            if baked_node and baked_node.image not in images:
+                images.append(baked_node.image)
 
         original_image_names = []
         original_names = []
