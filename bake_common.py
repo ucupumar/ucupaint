@@ -2775,13 +2775,21 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     img.source = 'GENERATED'
     img.generated_color = color
 
+    # Check if normal need no bump
+    no_bump_normal = any_normal_ch and height_root_ch and not bt.normal_includes_height
+
+    # Remember height channel settings
+    if height_root_ch:
+        ori_use_height_normalize = height_root_ch.use_height_normalize
+        ori_use_height_as_bump = height_root_ch.use_height_as_bump
+
     ## Original displacement connection
     ori_disp_from_node = ''
     ori_disp_from_socket = ''
 
     ## Remove displacement link early if displacement setup is enabled and the current channel is not normal channel
     ##if normal_root_ch and any_height_ch and not height_root_ch.use_height_as_bump:
-    if normal_root_ch and not any_normal_ch:
+    if (normal_root_ch and not any_normal_ch) or no_bump_normal:
         #if root_ch != normal_root_ch:
         # Disconnect displacement for non-normal channel
         for link in output.inputs['Displacement'].links:
@@ -2796,11 +2804,13 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     #        if from_socket:
     #            mat.node_tree.links.new(from_socket, output.inputs['Displacement'])
 
+    # Disable use height as bump when baking normal not including height
+    if no_bump_normal:
+        if height_root_ch.use_height_as_bump:
+            safely_set_use_height_as_bump(height_root_ch, False)
+
     # Dealing with height channel 
     if any_height_ch:
-
-        ori_use_height_normalize = height_root_ch.use_height_normalize
-        ori_use_height_as_bump = height_root_ch.use_height_as_bump
 
         # Normalize height option
         if bt.height_normalize:
@@ -3016,7 +3026,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
             layer.enable = False
 
     # Recover height channel
-    if any_height_ch:
+    if height_root_ch:
         if height_root_ch.use_height_as_bump != ori_use_height_as_bump:
             safely_set_use_height_as_bump(height_root_ch, ori_use_height_as_bump)
         if height_root_ch.use_height_normalize != ori_use_height_normalize:
