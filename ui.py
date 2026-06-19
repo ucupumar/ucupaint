@@ -1016,26 +1016,34 @@ def draw_bake_targets_ui(context, layout, node):
     if len(yp.bake_targets) > 0:
         bt = yp.bake_targets[yp.active_bake_target_index]
         baked_node = nodes.get(bt.baked_node)
-        image = baked_node.image if baked_node and baked_node.image else None
+        image = None
+        vcol_name = ''
 
         if bt.data_type == 'IMAGE':
-            row = col.row(align=True)
-            row.label(text='', icon='BLANK1')
+            image = baked_node.image if baked_node and baked_node.type == 'TEX_IMAGE' and baked_node.image else None
+        else: vcol_name = baked_node.attribute_name if baked_node and baked_node.type == 'ATTRIBUTE' else ''
+
+        row = col.row(align=True)
+        row.label(text='', icon='BLANK1')
+
+        info_col = row.column()
+        row_image = info_col.row(align=True)
+
+        if bt.data_type == 'VCOL':
+            vcol_name = '-' if vcol_name == '' else vcol_name
+            row_image.label(text=get_vertex_color_label()+': ' + vcol_name, icon_value=lib.get_icon('vertex_color'))
+        elif bt.data_type == 'IMAGE':
             image_name = image.name if image else '-'
-
-            info_col = row.column()
-            row_image = info_col.row(align=True)
-
             row_image.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
 
             icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
             row_image.context_pointer_set('image', image)
             row_image.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
 
-            #if not image:
-            #    row = col.row(align=True)
-            #    row.label(text='', icon='BLANK1')
-            #    row.label(text=f"Do 'Bake {bt.name}' to get the image!", icon='ERROR')
+        #if not image:
+        #    row = col.row(align=True)
+        #    row.label(text='', icon='BLANK1')
+        #    row.label(text=f"Do 'Bake {bt.name}' to get the image!", icon='ERROR')
 
         icon_name = 'bake'
         #if btui.expand_content:
@@ -5256,7 +5264,7 @@ class NODE_UL_YPaint_bake_targets(bpy.types.UIList):
             if image:
                 icon_value = lib.get_icon('image')
         elif item.data_type == 'VCOL':
-            icon_value = lib.get_icon('vcol')
+            icon_value = lib.get_icon('vertex_color')
 
         if image:
             row.prop(image, 'name', text='', emboss=False, icon_value=icon_value)
