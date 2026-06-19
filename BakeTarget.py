@@ -346,9 +346,8 @@ class YNewBakeTarget(bpy.types.Operator):
         if self.channel_idx == '-1':
             col.label(text='Preset:')
 
-        col.separator()
-
         if self.data_type == 'IMAGE':
+            col.separator()
             col.label(text='')
 
         col = row.column(align=False)
@@ -360,9 +359,8 @@ class YNewBakeTarget(bpy.types.Operator):
         if self.channel_idx == '-1':
             col.prop(self, 'preset', text='')
 
-        col.separator()
-
         if self.data_type == 'IMAGE':
+            col.separator()
             col.prop(self, 'hdr')
 
         # Check for the already available bake target
@@ -406,10 +404,13 @@ class YNewBakeTarget(bpy.types.Operator):
         bt.denoise = False
 
         if root_ch:
-            for letter in rgba_letters:
+            for i, letter in enumerate(rgba_letters):
                 if letter == 'a': continue
                 btc = getattr(bt, letter)
-                if btc: btc.channel_name = root_ch.name
+                if btc: 
+                    btc.channel_name = root_ch.name
+                    if root_ch.type != 'VALUE':
+                        btc.subchannel_index = str(i)
         else:
             if self.preset == 'ORM':
                 for ch in yp.channels:

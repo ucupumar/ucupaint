@@ -5916,6 +5916,7 @@ def update_bake_uv_map(self, context):
         self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 class BaseBakeProps():
+    # Image related
     width : IntProperty(name='Width', default=1024, min=1, max=16384)
     height : IntProperty(name='Height', default=1024, min=1, max=16384)
 
@@ -5952,6 +5953,22 @@ class BaseBakeProps():
             ('EXTEND', 'Extend', 'Extend border pixels outwards')
         ),
         default = 'ADJACENT_FACES'
+    )
+
+    # Vertex color related
+
+    vcol_data_type : EnumProperty(
+        name = get_vertex_color_label()+' Data Type',
+        description = get_vertex_color_label(10)+' data type',
+        items = vcol_data_type_items,
+        default = 'BYTE_COLOR'
+    )
+
+    vcol_domain : EnumProperty(
+        name = get_vertex_color_label()+' Domain',
+        description = get_vertex_color_label(10)+' domain',
+        items = vcol_domain_items,
+        default = 'CORNER'
     )
 
 class BaseBakeOperator(BaseBakeProps):

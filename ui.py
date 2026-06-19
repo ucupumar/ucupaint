@@ -1119,7 +1119,11 @@ def draw_bake_target_settings(context, layout, bt):
     box = layout.box()
     bcol = box.column()
 
-    draw_base_bake_target_settings(context, bcol, bt, bt, show_udim=UDIM.is_udim_supported())
+    draw_base_bake_target_settings(context, bcol, bt, bt, 
+        show_image_props = bt.data_type == 'IMAGE',
+        show_vcol_props = bt.data_type == 'VCOL',
+        show_udim = UDIM.is_udim_supported()
+    )
 
 def draw_root_channels_ui(context, layout, node):
     scene = bpy.context.scene
@@ -5264,7 +5268,11 @@ class NODE_UL_YPaint_bake_targets(bpy.types.UIList):
             if image:
                 icon_value = lib.get_icon('image')
         elif item.data_type == 'VCOL':
-            icon_value = lib.get_icon('vertex_color')
+            obj = context.object
+            if obj:
+                vcols = get_vertex_colors(obj)
+                if item.name in vcols:
+                    icon_value = lib.get_icon('vertex_color')
 
         if image:
             row.prop(image, 'name', text='', emboss=False, icon_value=icon_value)

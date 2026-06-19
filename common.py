@@ -8635,7 +8635,7 @@ def get_bake_target_channels(bt):
 
     return channels
 
-def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_hdr=True, show_udim=True):
+def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image_props=True, show_vcol_props=True, show_hdr=True, show_udim=True):
 
     any_normal_ch = False
     any_height_ch = False
@@ -8651,108 +8651,140 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_hdr=T
         any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
 
     obj = context.object
-    
-    row = split_layout(layout, 0.4)
 
-    # ===========
-    col = row.column()
-    col.alignment = 'RIGHT'
+    factor = 0.4
 
-    if any_normal_ch:
-        col.label(text='')
+    # Channel related properties
 
-    if any_height_ch:
-        col.label(text='')
+    if bt:
+        if any_normal_ch or any_height_ch:
+            row = split_layout(layout, factor)
+            col = row.column(align=True)
+            # Empty column
 
-    ccol = col.column(align=True)
-    ccol.alignment = 'RIGHT'
+            col = row.column(align=True)
 
-    ccol.label(text='')
+        if any_normal_ch:
+            col.prop(bt, 'normal_includes_height')
 
-    if btprops.use_custom_resolution == False:
-        ccol.label(text='Resolution:')
-    if btprops.use_custom_resolution == True:
-        ccol.label(text='Width:')
-        ccol.label(text='Height:')
+        if any_height_ch:
+            col.prop(bt, 'height_normalize')
 
-    if show_hdr:
+    # Image properties
+    if show_image_props:
+
+        row = split_layout(layout, factor)
+
+        # ===========
+        col = row.column()
+        col.alignment = 'RIGHT'
+
+        ccol = col.column(align=True)
+        ccol.alignment = 'RIGHT'
+
         ccol.label(text='')
-        
-    ccol.separator()
-    ccol.label(text='Samples:')
-    ccol.label(text='AA Level:')
 
-    if is_bl_newer_than(3, 1):
+        if btprops.use_custom_resolution == False:
+            ccol.label(text='Resolution:')
+        if btprops.use_custom_resolution == True:
+            ccol.label(text='Width:')
+            ccol.label(text='Height:')
+
+        if show_hdr:
+            ccol.label(text='')
+            
         ccol.separator()
-    ccol.label(text='Margin:')
+        ccol.label(text='Samples:')
+        ccol.label(text='AA Level:')
 
-    col.separator()
+        if is_bl_newer_than(3, 1):
+            ccol.separator()
+        ccol.label(text='Margin:')
 
-    col.label(text='Interpolation:')
-    col.label(text='UV Map:')
+        col.separator()
 
-    # ===========
-    col = row.column()
+        col.label(text='Interpolation:')
+        col.label(text='UV Map:')
 
-    if bt and any_normal_ch:
-        col.prop(bt, 'normal_includes_height')
+        # ===========
+        col = row.column()
 
-    if bt and any_height_ch:
-        col.prop(bt, 'height_normalize')
+        col.prop(btprops, 'use_custom_resolution')
+        ccol = col.column(align=True)
 
-    col.prop(btprops, 'use_custom_resolution')
-    ccol = col.column(align=True)
+        if btprops.use_custom_resolution == False:
+            crow = ccol.row(align=True)
+            crow.prop(btprops, 'image_resolution', expand= True,)
+        elif btprops.use_custom_resolution == True:
+            ccol.prop(btprops, 'width', text='')
+            ccol.prop(btprops, 'height', text='')
 
-    if btprops.use_custom_resolution == False:
-        crow = ccol.row(align=True)
-        crow.prop(btprops, 'image_resolution', expand= True,)
-    elif btprops.use_custom_resolution == True:
-        ccol.prop(btprops, 'width', text='')
-        ccol.prop(btprops, 'height', text='')
+        if show_hdr:
+            ccol.prop(btprops, 'hdr')
 
-    if show_hdr:
-        ccol.prop(btprops, 'hdr')
-
-    ccol.separator()
-    ccol.prop(btprops, 'samples', text='')
-    ccol.prop(btprops, 'aa_level', text='')
-
-    if is_bl_newer_than(3, 1):
         ccol.separator()
-        split = split_layout(ccol, 0.4, align=True)
-        split.prop(btprops, 'margin', text='')
-        split.prop(btprops, 'margin_type', text='')
-    else:
-        ccol.prop(btprops, 'margin', text='')
+        ccol.prop(btprops, 'samples', text='')
+        ccol.prop(btprops, 'aa_level', text='')
 
-    col.separator()
+        if is_bl_newer_than(3, 1):
+            ccol.separator()
+            split = split_layout(ccol, factor, align=True)
+            split.prop(btprops, 'margin', text='')
+            split.prop(btprops, 'margin_type', text='')
+        else:
+            ccol.prop(btprops, 'margin', text='')
 
-    col.prop(btprops, 'interpolation', text='')
-    col.prop_search(btprops, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+        col.separator()
 
-    ccol = col.column(align=True)
+        col.prop(btprops, 'interpolation', text='')
+        col.prop_search(btprops, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
-    ccol.separator()
+        ccol = col.column(align=True)
 
-    if show_udim:
-        ccol.prop(btprops, 'use_udim')
+        ccol.separator()
 
-    ccol.prop(btprops, 'fxaa', text='Use FXAA')
-    if is_bl_newer_than(2, 81) and (not bt or 
-            ((not any_height_ch or bt.height_normalize) and not any_non_clamped_ch)
-    ): 
-        rrow = ccol.row()
-        #rrow.active = (not any_height_ch or bt.height_normalize) and not any_non_clamped_ch
-        rrow.prop(btprops, 'denoise', text='Use Denoise')
+        if show_udim:
+            ccol.prop(btprops, 'use_udim')
 
-    if not bt or any_color_channel:
-        if not btprops.use_dithering:
-            ccol.prop(btprops, 'use_dithering', text='Use Dithering')
-        if btprops.use_dithering:
-            row = split_layout(ccol, 0.55)
-            row.prop(btprops, 'use_dithering', text='Use Dithering')
-            row.prop(btprops, 'dither_intensity', text='')
+        ccol.prop(btprops, 'fxaa', text='Use FXAA')
+        if is_bl_newer_than(2, 81) and (not bt or 
+                ((not any_height_ch or bt.height_normalize) and not any_non_clamped_ch)
+        ): 
+            rrow = ccol.row()
+            #rrow.active = (not any_height_ch or bt.height_normalize) and not any_non_clamped_ch
+            rrow.prop(btprops, 'denoise', text='Use Denoise')
 
-    ccol.prop(btprops, 'force_bake_all_polygons')
-    ccol.prop(btprops, 'bake_disabled_layers')
+        if not bt or any_color_channel:
+            if not btprops.use_dithering:
+                ccol.prop(btprops, 'use_dithering', text='Use Dithering')
+            if btprops.use_dithering:
+                row = split_layout(ccol, 0.55)
+                row.prop(btprops, 'use_dithering', text='Use Dithering')
+                row.prop(btprops, 'dither_intensity', text='')
+
+    # Color attributes properties
+
+    if show_vcol_props and is_bl_newer_than(3, 2):
+        row = split_layout(layout, factor)
+
+        col = row.column()
+        col.alignment = 'RIGHT'
+        col.label(text='Domain:')
+        col.label(text='Data Type:')
+
+        col = row.column()
+        crow = col.row(align=True)
+        crow.prop(btprops, 'vcol_domain', expand=True)
+        crow = col.row(align=True)
+        crow.prop(btprops, 'vcol_data_type', expand=True)
+
+    # General properties
+
+    row = split_layout(layout, factor)
+    col = row.column(align=True)
+    # Empty column
+
+    col = row.column(align=True)
+    col.prop(btprops, 'force_bake_all_polygons')
+    col.prop(btprops, 'bake_disabled_layers')
 
