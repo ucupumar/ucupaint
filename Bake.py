@@ -1603,14 +1603,14 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
             bpy.ops.object.mode_set(mode='OBJECT')
             ori_edit_mode = True
 
-        if bt.data_type == 'IMAGE':
-            # Set image resolution
-            if not bt.use_custom_resolution:
-                bt.height = bt.width = int(bt.image_resolution)
+        #if bt.data_type == 'IMAGE':
+        # Set image resolution
+        if not bt.use_custom_resolution:
+            bt.height = bt.width = int(bt.image_resolution)
 
-            # Make sure uv map is not empty
-            if bt.uv_map == '':
-                bt.uv_map = get_default_uv_name(obj, yp)
+        # Make sure uv map is not empty
+        if bt.uv_map == '':
+            bt.uv_map = get_default_uv_name(obj, yp)
 
         # Get bake properties
         btprops = get_bake_target_properties_from_bt_and_self(bt, self)

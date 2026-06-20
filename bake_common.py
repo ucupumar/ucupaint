@@ -2496,6 +2496,57 @@ def do_image_post_process(image, bprops, alpha_enabled=False, bake_device='CPU',
 
     return image
 
+def get_bake_target_default_color(node, bt, any_linear_ch):
+    yp = node.node_tree.yp
+
+    color = []
+    for i, letter in enumerate(rgba_letters):
+        btc = getattr(bt, letter)
+        root_ch = yp.channels.get(btc.channel_name)
+        if root_ch:
+            if root_ch.special_channel_type == 'NORMAL':
+                if btc.subchannel_index in {'0', '1'}:
+                    color.append(0.5)
+                else: color.append(1.0)
+
+            elif root_ch.special_channel_type == 'HEIGHT' and (root_ch.use_height_normalize or bt.height_normalize):
+                color.append(0.5)
+
+            elif root_ch.type == 'VALUE':
+                val = node.inputs[root_ch.name].default_value
+                color.append(val)
+
+            else:
+                if btc.subchannel_index in {'0', '1', '2'}:
+                    channel_idx = get_channel_index(root_ch)
+
+                    # NOTE: Sometimes user like to add solid color as base color rather than edit the channel background color
+                    # So check the first layer that uses solid color that has no masks and use it as bake background color
+                    base_solid_color = None
+                    for layer in yp.layers:
+                        if not layer.enable or layer.type != 'COLOR' or len(layer.masks) > 0 or layer.parent_idx != -1: continue
+                        c = layer.channels[channel_idx]
+                        if not c.enable or c.override: continue
+                        source = get_layer_source(layer)
+                        if source:
+                            base_solid_color = source.outputs[0].default_value
+                            break
+
+                    if base_solid_color != None:
+                        col = base_solid_color
+                    else: col = node.inputs[root_ch.name].default_value
+
+                    val = col[i]
+                    if not any_linear_ch:
+                        val = linear_to_srgb_per_element(val)
+                    color.append(val)
+
+                else: color.append(1.0)
+        else:
+            color.append(btc.default_value)
+
+    return tuple(color)
+
 def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bake_device='CPU', use_osl=False):
 
     if not any(objs): objs = get_all_objects_with_same_materials(mat)
@@ -2572,8 +2623,13 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     #    if not layer_found:
     #        no_layer_using = True
 
+    is_vcol_baking = bt.data_type == 'VCOL'
+
+    # NOTE: Vertex color baking probably better off without merging objects
+    do_actual_objects_setup = do_objects_setup and not is_vcol_baking
+
     # Objects setup
-    if do_objects_setup:
+    if do_actual_objects_setup:
         objs, obook = prepare_objs_before_baking(mat, yp, objs, btprops.uv_map, btprops.force_bake_all_polygons)
 
     # AA setup
@@ -2616,9 +2672,12 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     #            reconnect_layer_nodes(lay)
     #            rearrange_layer_nodes(lay)
 
+    # Get default color
+    color = get_bake_target_default_color(node, bt, any_linear_ch)
+
     # Check if udim image is needed based on number of tiles
     tilenums = [1001]
-    if btprops.use_udim:
+    if btprops.use_udim and not is_vcol_baking:
         tilenums = UDIM.get_tile_numbers(objs, btprops.uv_map)
 
     # Get output node and remember original bsdf input
@@ -2636,147 +2695,115 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Set tex as active node
     mat.node_tree.nodes.active = tex
 
-    baked_node = tree.nodes.get(bt.baked_node)
-    img = baked_node.image if baked_node and baked_node.image else None
-    img_name = img.name if img else bt.name
-    filepath = img.filepath if img else ''
-
+    img = None
     old_img = None
-    if img and (
-            img.size[0] != width or img.size[1] != height or
-            (img.source == 'TILED' and not btprops.use_udim) or
-            (img.source != 'TILED' and btprops.use_udim) or
-            (img.is_float != btprops.hdr)
-            ):
-        old_img = img
-        img = None
-        if (old_img.source == 'TILED' and not btprops.use_udim) or (old_img.source != 'TILED' and btprops.use_udim):
-            filepath = ''
+
+    baked_node = tree.nodes.get(bt.baked_node)
+
+    if is_vcol_baking:
+        vcol_name = baked_node.attribute_name if baked_node and baked_node.type == 'ATTRIBUTE' else bt.name
+        for obj in objs:
+            vcols = get_vertex_colors(obj)
+            if vcols:
+                vcol = vcols.get(vcol_name)
+                if not vcol:
+                    vcol = new_vertex_color(obj, vcol_name, bt.vcol_data_type, bt.vcol_domain, color_fill=color)
+                set_active_vertex_color(obj, vcol)
+    else:
+        img = baked_node.image if baked_node and baked_node.image else None
+        img_name = img.name if img else bt.name
+        filepath = img.filepath if img else ''
+
+        if img and (
+                img.size[0] != width or img.size[1] != height or
+                (img.source == 'TILED' and not btprops.use_udim) or
+                (img.source != 'TILED' and btprops.use_udim) or
+                (img.is_float != btprops.hdr)
+                ):
+            old_img = img
+            img = None
+            if (old_img.source == 'TILED' and not btprops.use_udim) or (old_img.source != 'TILED' and btprops.use_udim):
+                filepath = ''
 
     if not baked_node:
         # Set nodes
-        baked_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
+        if is_vcol_baking:
+            baked_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeAttribute')
+        else:
+            baked_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
 
-        if hasattr(baked_node, 'color_space'):
-            if any_linear_ch:
-                baked_node.color_space = 'NONE'
-            else: baked_node.color_space = 'COLOR'
-        baked_node.interpolation = btprops.interpolation
+            if hasattr(baked_node, 'color_space'):
+                if any_linear_ch:
+                    baked_node.color_space = 'NONE'
+                else: baked_node.color_space = 'COLOR'
+            baked_node.interpolation = btprops.interpolation
         
-        # Normal related nodes
-        if any_normal_ch:
-            normal_process = tree.nodes.get(bt.normal_process)
-            if not normal_process:
-                normal_process = new_node(tree, bt, 'normal_process', 'ShaderNodeNormalMap', 'Normal Process')
-            normal_process.uv_map = btprops.uv_map
+            # Normal related nodes
+            if any_normal_ch:
+                normal_process = tree.nodes.get(bt.normal_process)
+                if not normal_process:
+                    normal_process = new_node(tree, bt, 'normal_process', 'ShaderNodeNormalMap', 'Normal Process')
+                normal_process.uv_map = btprops.uv_map
 
-            normal_prep = tree.nodes.get(bt.normal_prep)
-            if not normal_prep:
-                normal_prep = new_node(
-                    tree, bt, 'normal_prep',
-                    'ShaderNodeGroup', 'Baked Normal Preparation'
+                normal_prep = tree.nodes.get(bt.normal_prep)
+                if not normal_prep:
+                    normal_prep = new_node(
+                        tree, bt, 'normal_prep',
+                        'ShaderNodeGroup', 'Baked Normal Preparation'
+                    )
+                    if is_bl_newer_than(2, 80):
+                        normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
+                    else: normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP_LEGACY)
+
+    if not is_vcol_baking:
+        # Create new image
+        if not img:
+            if btprops.use_udim:
+
+                # Create new udim image
+                img = bpy.data.images.new(
+                    name=img_name, width=width, height=height,
+                    alpha=True, tiled=True,
+                    float_buffer = btprops.hdr
                 )
-                if is_bl_newer_than(2, 80):
-                    normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
-                else: normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP_LEGACY)
 
-    # Get default color
-    color = []
-    for i, letter in enumerate(rgba_letters):
-        btc = getattr(bt, letter)
-        root_ch = yp.channels.get(btc.channel_name)
-        if root_ch:
-            if root_ch.special_channel_type == 'NORMAL':
-                if btc.subchannel_index in {'0', '1'}:
-                    color.append(0.5)
-                else: color.append(1.0)
+                # Fill tiles
+                for tilenum in tilenums:
+                    UDIM.fill_tile(img, tilenum, color, width, height)
 
-            elif root_ch.special_channel_type == 'HEIGHT' and (root_ch.use_height_normalize or bt.height_normalize):
-                color.append(0.5)
-
-            elif root_ch.type == 'VALUE':
-                val = node.inputs[root_ch.name].default_value
-                color.append(val)
+                UDIM.initial_pack_udim(img, color)
 
             else:
-                if btc.subchannel_index in {'0', '1', '2'}:
-                    channel_idx = get_channel_index(root_ch)
+                # Create new standard image
+                img = bpy.data.images.new(
+                    name=img_name, width=width, height=height, alpha=True,
+                    float_buffer = btprops.hdr
+                )
+                img.generated_type = 'BLANK'
 
-                    # NOTE: Sometimes user like to add solid color as base color rather than edit the channel background color
-                    # So check the first layer that uses solid color that has no masks and use it as bake background color
-                    base_solid_color = None
-                    for layer in yp.layers:
-                        if not layer.enable or layer.type != 'COLOR' or len(layer.masks) > 0 or layer.parent_idx != -1: continue
-                        c = layer.channels[channel_idx]
-                        if not c.enable or c.override: continue
-                        source = get_layer_source(layer)
-                        if source:
-                            base_solid_color = source.outputs[0].default_value
-                            break
+            # Set image base color
+            if hasattr(img, 'use_alpha'):
+                img.use_alpha = True
 
-                    if base_solid_color != None:
-                        col = base_solid_color
-                    else: col = node.inputs[root_ch.name].default_value
+            # Set filepath
+            if filepath != '' and (
+                    (btprops.use_udim and '.<UDIM>.' in filepath) or 
+                    (not btprops.use_udim and '.<UDIM>.' not in filepath)
+                ):
+                img.filepath = filepath
 
-                    val = col[i]
-                    if not any_linear_ch:
-                        val = linear_to_srgb_per_element(val)
-                    color.append(val)
+            # Set colorspace to linear
+            #if root_ch.colorspace == 'LINEAR' or root_ch.special_channel_type == 'NORMAL' or (root_ch.special_channel_type != 'NORMAL' and use_hdr):
+            if any_linear_ch:
+                img.colorspace_settings.name = get_noncolor_name()
+            else: img.colorspace_settings.name = get_srgb_name()
 
-                else: color.append(1.0)
-        else:
-            color.append(btc.default_value)
-
-    color = tuple(color)
-
-    # Create new image
-    if not img:
-        if btprops.use_udim:
-
-            # Create new udim image
-            img = bpy.data.images.new(
-                name=img_name, width=width, height=height,
-                alpha=True, tiled=True,
-                float_buffer = btprops.hdr
-            )
-
-            # Fill tiles
-            for tilenum in tilenums:
-                UDIM.fill_tile(img, tilenum, color, width, height)
-
-            UDIM.initial_pack_udim(img, color)
-
-        else:
-            # Create new standard image
-            img = bpy.data.images.new(
-                name=img_name, width=width, height=height, alpha=True,
-                float_buffer = btprops.hdr
-            )
-            img.generated_type = 'BLANK'
-
-        # Set image base color
-        if hasattr(img, 'use_alpha'):
-            img.use_alpha = True
-
-        # Set filepath
-        if filepath != '' and (
-                (btprops.use_udim and '.<UDIM>.' in filepath) or 
-                (not btprops.use_udim and '.<UDIM>.' not in filepath)
-            ):
-            img.filepath = filepath
-
-        # Set colorspace to linear
-        #if root_ch.colorspace == 'LINEAR' or root_ch.special_channel_type == 'NORMAL' or (root_ch.special_channel_type != 'NORMAL' and use_hdr):
-        if any_linear_ch:
-            img.colorspace_settings.name = get_noncolor_name()
-        else: img.colorspace_settings.name = get_srgb_name()
-
-    # Reset image by the base color
-    img.source = 'GENERATED'
-    img.generated_color = color
+        # Reset image by the base color
+        img.source = 'GENERATED'
+        img.generated_color = color
 
     # Check if normal need no bump
-    no_bump_normal = any_normal_ch and height_root_ch and not bt.normal_includes_height
+    no_bump_normal = any_normal_ch and height_root_ch and not bt.normal_includes_height and not is_vcol_baking
 
     # Remember height channel settings
     if height_root_ch:
@@ -3039,7 +3066,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         update_enable_tangent_sign_hacks(yp, bpy.context)
 
     # Recover objects setup
-    if do_objects_setup:
+    if do_actual_objects_setup:
         recover_objs_after_baking(objs, obook, btprops.uv_map)
 
     # Recover bake settings
