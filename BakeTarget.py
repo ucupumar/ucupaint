@@ -24,11 +24,12 @@ def update_active_bake_target_index(self, context):
     try: bt = yp.bake_targets[yp.active_bake_target_index]
     except: return
 
-    bt_node = tree.nodes.get(bt.baked_node)
-    if bt_node and bt_node.image:
-        update_image_editor_image(context, bt_node.image)
-    else:
-        update_image_editor_image(context, None)
+    if bt.data_type == 'IMAGE':
+        bt_node = tree.nodes.get(bt.baked_node)
+        if bt_node and bt_node.image:
+            update_image_editor_image(context, bt_node.image)
+        else:
+            update_image_editor_image(context, None)
 
 def update_bake_target_height_normalize(self, context):
     if not self.height_normalize:

@@ -5259,7 +5259,7 @@ class NODE_UL_YPaint_bake_targets(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         tree = item.id_data
         baked_node = tree.nodes.get(item.baked_node)
-        image = baked_node.image if baked_node else None
+        image = baked_node.image if baked_node and baked_node.type == 'TEX_IMAGE' else None
 
         row = layout.row()
 

@@ -9,6 +9,7 @@ from . import lib, Layer, ImageAtlas, UDIM, image_ops, Mask, vector_displacement
 BL28_HACK = True
 
 TEMP_VCOL = '__temp__vcol__'
+TEMP_VCOL_1 = '__temp__vcol__1'
 TEMP_EMISSION = '_TEMP_EMI_'
 
 BAKE_PROBLEMATIC_MODIFIERS = {
@@ -2547,6 +2548,20 @@ def get_bake_target_default_color(node, bt, any_linear_ch):
 
     return tuple(color)
 
+def copy_vcol_channels(source, target, source_idx, target_idx):
+    dim_rgba = 4
+    temp_nvcol = numpy.zeros(len(source.data) * dim_rgba, dtype=numpy.float32)
+    target_nvcol = numpy.zeros(len(target.data) * dim_rgba, dtype=numpy.float32)
+    
+    source.data.foreach_get('color', temp_nvcol)
+    target.data.foreach_get('color', target_nvcol)
+    temp_nvcol2D = temp_nvcol.reshape(-1, dim_rgba)
+    target_nvcol2D = target_nvcol.reshape(-1, dim_rgba)
+
+    # Moves the alpha of the temp vertex color to the target vertex color
+    target_nvcol2D[:, target_idx] = temp_nvcol2D[:, source_idx]
+    target.data.foreach_set('color', target_nvcol)   
+
 def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bake_device='CPU', use_osl=False):
 
     if not any(objs): objs = get_all_objects_with_same_materials(mat)
@@ -2623,6 +2638,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     #    if not layer_found:
     #        no_layer_using = True
 
+    # Vertex color baking
     is_vcol_baking = bt.data_type == 'VCOL'
 
     # NOTE: Vertex color baking probably better off without merging objects
@@ -2640,7 +2656,8 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Prepare bake settings
     prepare_bake_settings(
         book, objs, yp, btprops.samples, margin, btprops.uv_map, disable_problematic_modifiers=True, 
-        bake_device=bake_device, margin_type=btprops.margin_type, use_osl=use_osl
+        bake_device=bake_device, margin_type=btprops.margin_type, use_osl=use_osl,
+        bake_target='VERTEX_COLORS' if is_vcol_baking else 'IMAGE_TEXTURES'
     )
 
     ## Check if baking fake lighting is necessary
@@ -2697,18 +2714,19 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
 
     img = None
     old_img = None
+    vcol_name = bt.name
 
     baked_node = tree.nodes.get(bt.baked_node)
 
     if is_vcol_baking:
-        vcol_name = baked_node.attribute_name if baked_node and baked_node.type == 'ATTRIBUTE' else bt.name
+        if baked_node and baked_node.type == 'ATTRIBUTE':
+            vcol_name = baked_node.attribute_name
         for obj in objs:
             vcols = get_vertex_colors(obj)
-            if vcols:
-                vcol = vcols.get(vcol_name)
-                if not vcol:
-                    vcol = new_vertex_color(obj, vcol_name, bt.vcol_data_type, bt.vcol_domain, color_fill=color)
-                set_active_vertex_color(obj, vcol)
+            vcol = vcols.get(vcol_name)
+            if not vcol:
+                vcol = new_vertex_color(obj, vcol_name, bt.vcol_data_type, bt.vcol_domain, color_fill=color)
+            set_active_vertex_color(obj, vcol)
     else:
         img = baked_node.image if baked_node and baked_node.image else None
         img_name = img.name if img else bt.name
@@ -2865,6 +2883,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     norm = None
     norm_tex = None
     norm_img = None
+    norm_attr = None
     ori_normal_space = scene.render.bake.normal_space
     if any_normal_ch:
 
@@ -2905,18 +2924,36 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
 
         if not all_normal_ch:
 
-            # Copy image
-            norm_img = img.copy()
+            if not is_vcol_baking:
+                # Copy image
+                norm_img = img.copy()
 
-            # Set normal image target
-            tex.image = norm_img
+                # Set normal image target
+                tex.image = norm_img
+            else:
+                for obj in objs:
+                    # Use temp vertex color for baking normal
+                    vcols = get_vertex_colors(obj)
+                    temp_vcol = vcols.get(TEMP_VCOL)
+                    if not temp_vcol: temp_vcol = new_vertex_color(obj, TEMP_VCOL)
+                    set_active_vertex_color(obj, temp_vcol)
 
             # Bake normal
             bake_object_op(scene.cycles.bake_type)
 
-            # Set baked normal to node
-            norm_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-            norm_tex.image = norm_img
+            if norm_img:
+                # Set baked normal to node
+                norm_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+                norm_tex.image = norm_img
+            else:
+                norm_attr = mat.node_tree.nodes.new('ShaderNodeAttribute')
+                norm_attr.attribute_name = TEMP_VCOL
+
+                # Set back to target vcol
+                for obj in objs:
+                    vcols = get_vertex_colors(obj)
+                    vcol = vcols.get(vcol_name)
+                    set_active_vertex_color(obj, vcol)
 
             # Set back bake type to 'EMIT'
             scene.cycles.bake_type = 'EMIT'
@@ -2928,8 +2965,9 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
             btc = getattr(bt, letter)
             root_ch = yp.channels.get(btc.channel_name)
             soc = node.outputs.get(root_ch.name) if root_ch else None
-            if root_ch and root_ch == normal_root_ch and norm_tex:
-                mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[i].inputs[0])
+            if root_ch and root_ch == normal_root_ch and (norm_tex or norm_attr):
+                if norm_tex: mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[i].inputs[0])
+                elif norm_attr: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[i].inputs[0])
                 mat.node_tree.links.new(separate_xyzs[i].outputs[int(btc.subchannel_index)], combine_xyz.inputs[i])
             elif root_ch and soc:
                 if root_ch.type == 'VALUE':
@@ -2952,12 +2990,15 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
     # Set image to tex node
-    tex.image = img
+    if img: tex.image = img
 
     # No need to bake if there is no channel used
     if len(channels) > 0:
         # Bake!
-        print('BAKE TARGET: Baking', bt.name + '... ' + 'Size=' + str(width) + 'x' + str(height))
+        extra_label = ''
+        if not is_vcol_baking: 
+            extra_label += ' Size='+str(width)+'x'+str(height)
+        print('BAKE TARGET: Baking', bt.name+'...'+extra_label)
         bake_object_op(scene.cycles.bake_type)
 
     # Revert back the original bake settings
@@ -2972,14 +3013,24 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Alpha pass
     if root_ch and soc:
 
-        # Create temp image
-        alpha_img = img.copy()
-        alpha_img.source = 'GENERATED'
-        alpha_img.generated_color = (color[3], color[3], color[3], 1.0)
-        alpha_img.colorspace_settings.name = get_noncolor_name()
+        alpha_img = None
+        if not is_vcol_baking:
+            # Create temp image
+            alpha_img = img.copy()
+            alpha_img.source = 'GENERATED'
+            alpha_img.generated_color = (color[3], color[3], color[3], 1.0)
+            alpha_img.colorspace_settings.name = get_noncolor_name()
+        else:
+            for obj in objs:
+                # Use temp vertex color for baking alpha
+                vcols = get_vertex_colors(obj)
+                temp_vcol = vcols.get(TEMP_VCOL_1)
+                if not temp_vcol: temp_vcol = new_vertex_color(obj, TEMP_VCOL_1)
+                set_active_vertex_color(obj, temp_vcol)
 
-        if root_ch == normal_root_ch and norm_tex:
-            mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[3].inputs[0])
+        if root_ch == normal_root_ch and (norm_tex or norm_attr):
+            if norm_tex: mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[3].inputs[0])
+            elif norm_attr: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[3].inputs[0])
             mat.node_tree.links.new(separate_xyzs[3].outputs[int(bt.a.subchannel_index)], emit.inputs[0])
         elif root_ch.type == 'VALUE':
             mat.node_tree.links.new(soc, emit.inputs[0])
@@ -2988,43 +3039,60 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
             mat.node_tree.links.new(soc, separate_xyzs[3].inputs[0])
             mat.node_tree.links.new(separate_xyzs[3].outputs[int(bt.a.subchannel_index)], emit.inputs[0])
 
-        tex.image = alpha_img
+        if alpha_img: 
+            tex.image = alpha_img
 
-        # Set temp filepath
-        if img.source == 'TILED':
-            alpha_img.name = '__TEMP__'
-            UDIM.initial_pack_udim(alpha_img)
+            # Set temp filepath
+            if img.source == 'TILED':
+                alpha_img.name = '__TEMP__'
+                UDIM.initial_pack_udim(alpha_img)
 
         # Bake
         print('BAKE CHANNEL: Baking alpha of ' + bt.name + ' channel...')
         bake_object_op()
 
-        # Set tile pixels
-        for tilenum in tilenums:
+        if alpha_img:
+            # Set tile pixels
+            for tilenum in tilenums:
 
-            # Swap tile
-            if tilenum != 1001:
-                UDIM.swap_tile(img, 1001, tilenum)
-                UDIM.swap_tile(alpha_img, 1001, tilenum)
+                # Swap tile
+                if tilenum != 1001:
+                    UDIM.swap_tile(img, 1001, tilenum)
+                    UDIM.swap_tile(alpha_img, 1001, tilenum)
 
-            # Copy alpha
-            copy_image_channel_pixels(alpha_img, img, 0, 3)
+                # Copy alpha
+                copy_image_channel_pixels(alpha_img, img, 0, 3)
 
-            # Swap tile again to recover
-            if tilenum != 1001:
-                UDIM.swap_tile(img, 1001, tilenum)
-                UDIM.swap_tile(alpha_img, 1001, tilenum)
+                # Swap tile again to recover
+                if tilenum != 1001:
+                    UDIM.swap_tile(img, 1001, tilenum)
+                    UDIM.swap_tile(alpha_img, 1001, tilenum)
 
-        # Remove temp image
-        remove_datablock(bpy.data.images, alpha_img, user=tex, user_prop='image')
+            # Remove temp image
+            remove_datablock(bpy.data.images, alpha_img, user=tex, user_prop='image')
+
+        else:
+            for obj in objs:
+                vcols = get_vertex_colors(obj)
+                temp_vcol = vcols.get(TEMP_VCOL_1)
+                vcol = vcols.get(vcol_name)
+
+                # Copy temp_vcol to vcol
+                copy_vcol_channels(temp_vcol, vcol, 0, 3)
+
+                # Back to baked vcol
+                set_active_vertex_color(obj, vcol)
+
+                # Remove temp vcol
+                vcols.remove(temp_vcol)
 
     # Replace old image
     if old_img: 
         replace_image(old_img, img)
-    else: baked_node.image = img
+    elif img: baked_node.image = img
 
     # Remove nodes
-    simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img)
+    simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img and img != None)
     simple_remove_node(mat.node_tree, emit)
     simple_remove_node(mat.node_tree, combine_xyz)
     for n in separate_xyzs:
@@ -3035,6 +3103,15 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         if norm_img:
             remove_datablock(bpy.data.images, norm_img, user=norm_tex, user_prop='image')
         simple_remove_node(mat.node_tree, norm_tex)
+
+    if norm_attr:
+        simple_remove_node(mat.node_tree, norm_attr)
+
+        # Remove temp vcol
+        for obj in objs:
+            vcols = get_vertex_colors(obj)
+            temp_vcol = vcols.get(TEMP_VCOL)
+            set_active_vertex_color(obj, temp_vcol)
 
     # Recover displacement link
     if ori_disp_from_node != '':
@@ -3073,7 +3150,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     recover_bake_settings(book, yp)
 
     # Post process
-    if len(channels) > 0:
+    if len(channels) > 0 and img:
         alpha_enabled = yp.channels.get(bt.a.channel_name) != None
         # NOTE: Force denoise off for height and non-clamped channels since it can clamp the image
         force_denoise_off = False

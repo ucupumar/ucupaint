@@ -681,7 +681,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         if baked_node:
             uv = yp.uvs.get(bt.uv_map)
             bt_uv_map = nodes.get(uv.uv_map) if uv else None
-            if bt_uv_map: create_link(tree, bt_uv_map.outputs[0], baked_node.inputs[0])
+            if bt_uv_map and baked_node.type == 'TEX_IMAGE': 
+                create_link(tree, bt_uv_map.outputs[0], baked_node.inputs[0])
 
     # Merge process doesn't care with parents
     if merged_layer_ids: return
