@@ -4237,6 +4237,7 @@ def draw_layers_ui(context, layout, node):
     colorid_vcol = None
     colorid_col = None
     entity = None
+    missing_source = False
 
     is_base_layer_selected = ypup.layer_list_mode in {'DYNAMIC', 'BOTH'} and yp.active_item_index == len(yp.list_items)-1
 
@@ -4283,6 +4284,7 @@ def draw_layers_ui(context, layout, node):
             # Use layer image if there is no mask image
             #if not mask:
             source = get_layer_source(layer, layer_tree)
+            if not source: missing_source = True
             if layer.type == 'IMAGE':
                 image = source.image
             elif layer.type == 'VCOL' and is_a_mesh:
@@ -4405,6 +4407,14 @@ def draw_layers_ui(context, layout, node):
         elif colorid_vcol: active_vcol = colorid_vcol
         elif vcol: active_vcol = vcol
         else: active_vcol = None
+
+        if missing_source:
+            bbox = col.box()
+            row = bbox.row(align=True)
+            row.alert = True
+            row.operator('wm.y_fix_missing_layer_source', text='Fix Missing Source', icon='ERROR')
+            row.alert = False
+            return
 
         mask_socket_input_name = ''
         if mask and source:
@@ -5764,9 +5774,10 @@ def layer_listing(layout, layer, show_expand=False):
 
     if layer.type == 'COLOR':
         src = get_layer_source(layer, layer_tree)
-        rrow = row.row()
-        rrow.prop(src.outputs[0], 'default_value', text='', icon='COLOR')
-        shortcut_found = True
+        if src is not None: 
+            rrow = row.row()
+            rrow.prop(src.outputs[0], 'default_value', text='', icon='COLOR')
+            shortcut_found = True
 
     if not shortcut_found:
 
