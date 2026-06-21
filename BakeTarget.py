@@ -24,12 +24,19 @@ def update_active_bake_target_index(self, context):
     try: bt = yp.bake_targets[yp.active_bake_target_index]
     except: return
 
+    bt_node = tree.nodes.get(bt.baked_node)
+
     if bt.data_type == 'IMAGE':
-        bt_node = tree.nodes.get(bt.baked_node)
         if bt_node and bt_node.image:
             update_image_editor_image(context, bt_node.image)
         else:
             update_image_editor_image(context, None)
+    elif bt.data_type == 'VCOL':
+        obj = context.object
+        if obj and obj.type == 'MESH' and bt_node:
+            vcols = get_vertex_colors(obj)
+            vcol = vcols.get(bt_node.attribute_name)
+            if vcol: set_active_vertex_color(obj, vcol)
 
 def update_bake_target_height_normalize(self, context):
     if not self.height_normalize:
@@ -472,7 +479,7 @@ class YRemoveBakeTarget(bpy.types.Operator):
         # Remove bake target
         yp.bake_targets.remove(yp.active_bake_target_index)
 
-        if len(yp.bake_targets) > 0:
+        if yp.active_bake_target_index >= len(yp.bake_targets):
             yp.active_bake_target_index = len(yp.bake_targets)-1
 
         # Update panel

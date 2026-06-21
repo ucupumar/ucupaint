@@ -1266,17 +1266,7 @@ def update_override_vars(self, context):
     if self.override_use_dithering != 'Default':
         self.use_dithering = self.override_use_dithering == 'Enable'
 
-class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoProps):
-    bl_idname = "wm.y_bake_single_target"
-    bl_label = "Bake A Single Bake Target"
-    bl_description = "Bake a single bake target"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    bake_target_index : IntProperty(
-        name = 'Bake Target Index',
-        description = 'Bake target index',
-        default = 0
-    )
+class BaseBakeBakeTargetOperator():
 
     bake_device : EnumProperty(
         name = 'Bake Device',
@@ -1297,6 +1287,241 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
 
     uv_map : StringProperty(default='', update=update_bake_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    def invoke_op(self, context, event):
+        ypup = get_user_preferences()
+        if ypup.default_bake_device != 'DEFAULT':
+            self.bake_device = ypup.default_bake_device
+
+        return context.window_manager.invoke_props_dialog(self, width=400)
+
+    def is_cycles_exist(self, context):
+        if not hasattr(context.scene, 'cycles'):
+            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in the user preferences!")
+            return False
+        return True
+
+    def execute_bake_bake_target(self, context, bts):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+        obj = context.object
+        mat = obj.active_material
+
+        # Bake Device
+        selected_bake_device = self.bake_device
+        use_osl = False
+        if selected_bake_device == 'OSL':
+            selected_bake_device = 'CPU'
+            use_osl = True
+        
+        #ypup = get_user_preferences()
+        #if self.override_bake_device:
+        #    ypup.default_bake_device = selected_bake_device
+
+        if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
+            self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
+            return {'CANCELLED'}
+
+        if not is_bl_newer_than(2, 80) and obj.hide_render:
+            self.report({'ERROR'}, "Please unhide render of the active object!")
+            return {'CANCELLED'}
+
+        # Get all objects using material
+        objs = [obj]
+        meshes = [obj.data]
+        mat = obj.active_material
+        if mat.users > 1:
+            # Emptying the lists again in case active object is problematic
+            objs = []
+            meshes = []
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if is_bl_newer_than(2, 80) and ob.hide_viewport: continue
+                if ob.hide_render: continue
+                #if not in_renderable_layer_collection(ob): continue
+                if len(get_uv_layers(ob)) == 0: continue
+                if len(ob.data.polygons) == 0: continue
+                for i, m in enumerate(ob.data.materials):
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs and ob.data not in meshes:
+                            objs.append(ob)
+                            meshes.append(ob.data)
+
+        if not objs:
+            self.report({'ERROR'}, "No valid objects to bake!")
+            return {'CANCELLED'}
+
+        # UV data should be accessible when there's multiple materials in single object, so object mode is necessary
+        ori_edit_mode = False
+        if len(obj.data.materials) > 1 and obj.mode == 'EDIT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+            ori_edit_mode = True
+
+        # Image targets loop
+        image_bts = [bt for bt in bts if bt.data_type == 'IMAGE']
+
+        # Default uv map
+        uv_map = get_default_uv_name(obj, yp)
+
+        # Make sure uv map is not empty
+        for bt in image_bts:
+            if bt.uv_map == '':
+                bt.uv_map = uv_map
+
+        # Check if objects setup is needed
+        obook = None
+        if any(image_bts):
+
+            uv_map = image_bts[0].uv_map
+            force_bake_all_polygons = image_bts[0].force_bake_all_polygons
+
+            # Check if some settings are the same
+            settings_difference = False
+            for i, bt in enumerate(image_bts):
+                if i == 0: continue
+                if (bt.uv_map != uv_map or
+                    bt.force_bake_all_polygons != force_bake_all_polygons
+                ):
+                    settings_difference = True
+                    break
+            
+            # If there's no settings difference, do objects setup
+            if not settings_difference:
+                objs, obook = prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons)
+
+        for bt in image_bts:
+            # Set image resolution
+            if not bt.use_custom_resolution:
+                bt.height = bt.width = int(bt.image_resolution)
+
+            # Make sure uv map is not empty
+            if bt.uv_map == '':
+                bt.uv_map = get_default_uv_name(obj, yp)
+
+            # Get bake properties
+            btprops = get_bake_target_properties_from_bt_and_self(bt, self)
+
+            # Bake bake target
+            bake_bake_target(mat, node, bt, btprops, objs=objs, do_objects_setup=obook==None, bake_device=selected_bake_device, use_osl=use_osl)
+
+        # Recover object setup
+        if obook != None:
+            recover_objs_after_baking(objs, obook, uv_map)
+
+        # Vertex color targets loop
+        vcol_bts = [bt for bt in bts if bt.data_type == 'VCOL']
+
+        for bt in vcol_bts:
+            # Get bake properties
+            btprops = get_bake_target_properties_from_bt_and_self(bt, self)
+
+            # Bake bake target
+            bake_bake_target(mat, node, bt, btprops, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
+
+        # Update global uv
+        check_uv_nodes(yp)
+
+        # Use bake results
+        yp.halt_update = True
+        yp.use_baked = True
+        yp.halt_update = False
+
+        # Check start and end nodes
+        check_start_end_root_ch_nodes(tree)
+
+        # Rearrange
+        reconnect_yp_nodes(tree)
+        rearrange_yp_nodes(tree)
+
+        # Revert back to edit mode
+        if ori_edit_mode:
+            bpy.ops.object.mode_set(mode='EDIT')
+        
+        # Refresh active channel index
+        yp.active_channel_index = yp.active_channel_index
+
+        # Update UI
+        ypui = context.window_manager.ypui
+        ypui.need_update = True
+
+        # If bake target ui is visible, refresh bake target index to show up the image result
+        if len(yp.bake_targets) > 0:
+            if ypui.show_bake_targets:
+                yp.active_bake_target_index = yp.active_bake_target_index
+
+        # Update baked outside nodes
+        update_enable_baked_outside(yp, context)
+
+        return {'FINISHED'}
+    
+class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoProps, BaseBakeBakeTargetOperator):
+    bl_idname = "wm.y_bake_single_target"
+    bl_label = "Bake A Single Bake Target"
+    bl_description = "Bake a single bake target"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    bake_target_index : IntProperty(
+        name = 'Bake Target Index',
+        description = 'Bake target index',
+        default = 0
+    )
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        if not node: return False
+
+        group_tree = node.node_tree
+        yp = group_tree.yp
+        
+        return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0
+
+    def invoke(self, context, event):
+        return self.invoke_op(context, event)
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        ypup = get_user_preferences()
+        obj = context.object
+
+        root_col = self.layout.column()
+
+        row_var = split_layout(root_col, 0.4, True)
+        row_var.alignment = 'RIGHT'
+        row_var.label(text="Bake Device" + ':')
+        row_var.prop(self, "bake_device", text="")
+
+        #if ypup.default_bake_device != self.bake_device:
+        #    row_ovr = split_layout(root_col, 0.4, align=True)
+        #    row_ovr.alignment = 'RIGHT'
+        #    row_ovr.label(text="Set as default" + ':')
+        #    row_ovr.prop(self, "override_bake_device", text="")
+
+        #label_all_vars = self.draw_label(root_col, "Override all variables")
+        #label_all_vars.prop(self, 'override_all', text='')
+
+    def execute(self, context):
+        if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        try: bt = yp.bake_targets[self.bake_target_index]
+        except: return {'CANCELLED'}
+
+        return self.execute_bake_bake_target(context, [bt])
+
+class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoProps, BaseBakeBakeTargetOperator):
+    bl_idname = "wm.y_bake_all_targets"
+    bl_label = "Bake All Custom Targets"
+    bl_description = "Bake all custom targets"
+    bl_options = {'REGISTER', 'UNDO'}
 
     override_all : BoolProperty(
         name = 'Override All Settings',  
@@ -1406,11 +1631,7 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
         return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0
 
     def invoke(self, context, event):
-        ypup = get_user_preferences()
-        if ypup.default_bake_device != 'DEFAULT':
-            self.bake_device = ypup.default_bake_device
-
-        return context.window_manager.invoke_props_dialog(self, width=400)
+        return self.invoke_op(context, event)
 
     def draw_label(self, layout, label):
         row_var = split_layout(layout, 0.4, True)
@@ -1535,1387 +1756,10 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
             self.draw_bool_field(bcol, 'override_force_bake_all_polygons', 'force_bake_all_polygons', 'Force Bake all Polygons')
             self.draw_bool_field(bcol, 'override_bake_disabled_layers', 'bake_disabled_layers', 'Bake Disabled Layers')
 
-    def is_cycles_exist(self, context):
-        if not hasattr(context.scene, 'cycles'):
-            self.report({'ERROR'}, "Cycles Render Engine need to be enabled in the user preferences!")
-            return False
-        return True
-
     def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-
-        node = get_active_ypaint_node()
-        tree = node.node_tree
-        yp = tree.yp
-        obj = context.object
-
-        try: bt = yp.bake_targets[self.bake_target_index]
-        except: return {'CANCELLED'}
-
-        # Bake Device
-        selected_bake_device = self.bake_device
-        use_osl = False
-        if selected_bake_device == 'OSL':
-            selected_bake_device = 'CPU'
-            use_osl = True
-        
-        #ypup = get_user_preferences()
-        #if self.override_bake_device:
-        #    ypup.default_bake_device = selected_bake_device
-
-        if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
-            self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
-            return {'CANCELLED'}
-
-        if not is_bl_newer_than(2, 80) and obj.hide_render:
-            self.report({'ERROR'}, "Please unhide render of the active object!")
-            return {'CANCELLED'}
-
-        # Get all objects using material
-        objs = [obj]
-        meshes = [obj.data]
-        mat = obj.active_material
-        if mat.users > 1:
-            # Emptying the lists again in case active object is problematic
-            objs = []
-            meshes = []
-            for ob in get_scene_objects():
-                if ob.type != 'MESH': continue
-                if is_bl_newer_than(2, 80) and ob.hide_viewport: continue
-                if ob.hide_render: continue
-                #if not in_renderable_layer_collection(ob): continue
-                if len(get_uv_layers(ob)) == 0: continue
-                if len(ob.data.polygons) == 0: continue
-                for i, m in enumerate(ob.data.materials):
-                    if m == mat:
-                        ob.active_material_index = i
-                        if ob not in objs and ob.data not in meshes:
-                            objs.append(ob)
-                            meshes.append(ob.data)
-
-        if not objs:
-            self.report({'ERROR'}, "No valid objects to bake!")
-            return {'CANCELLED'}
-
-        # UV data should be accessible when there's multiple materials in single object, so object mode is necessary
-        ori_edit_mode = False
-        if len(obj.data.materials) > 1 and obj.mode == 'EDIT':
-            bpy.ops.object.mode_set(mode='OBJECT')
-            ori_edit_mode = True
-
-        #if bt.data_type == 'IMAGE':
-        # Set image resolution
-        if not bt.use_custom_resolution:
-            bt.height = bt.width = int(bt.image_resolution)
-
-        # Make sure uv map is not empty
-        if bt.uv_map == '':
-            bt.uv_map = get_default_uv_name(obj, yp)
-
-        # Get bake properties
-        btprops = get_bake_target_properties_from_bt_and_self(bt, self)
-
-        # Bake bake target
-        image = bake_bake_target(mat, node, bt, btprops, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
-
-        # Update global uv
-        check_uv_nodes(yp)
-
-        # Use bake results
-        yp.halt_update = True
-        yp.use_baked = True
-        yp.halt_update = False
-
-        # Check start and end nodes
-        check_start_end_root_ch_nodes(tree)
-
-        # Rearrange
-        reconnect_yp_nodes(tree)
-        rearrange_yp_nodes(tree)
-
-        # Revert back to edit mode
-        if ori_edit_mode:
-            bpy.ops.object.mode_set(mode='EDIT')
-        
-        # Refresh active channel index
-        yp.active_channel_index = yp.active_channel_index
-
-        # Update UI
-        ypui = context.window_manager.ypui
-        ypui.need_update = True
-
-        # If bake target ui is visible, refresh bake target index to show up the image result
-        if len(yp.bake_targets) > 0:
-            if ypui.show_bake_targets:
-                yp.active_bake_target_index = yp.active_bake_target_index
-
-        # Update baked outside nodes
-        update_enable_baked_outside(yp, context)
-
-        return {'FINISHED'}
-    
-    #def bake_to_vcol(self, context, bt):
-    #    node = get_active_ypaint_node()
-    #    yp = node.node_tree.yp
-    #    bake_target = yp.bake_targets[yp.active_bake_target_index]
-
-    #    active_obj = context.object
-
-    #    # NORMAL check
-    #    for i, letter in enumerate(rgba_letters):
-    #        btc = getattr(bake_target, letter)
-    #        ch_name = btc.channel_name
-    #        ch = yp.channels.get(ch_name) if ch_name != '' else None
-
-    #        print("channel name "+ch_name+" : "+str(btc.default_value))
-
-    #        if ch != None and ch.type == 'NORMAL':
-    #            self.report({'ERROR'}, "Normal channel cannot be baked to Vertex Color")
-    #            return {'CANCELLED'}
-
-    #    vcol_name = bake_target.name
-    #    bake_target_vcol(active_obj, node, bake_target, vcol_name)
-
-    #    return {'FINISHED'}
-
-class YBakeAllTargets(bpy.types.Operator, BaseBakeOperator):
-    bl_idname = "wm.y_bake_all_targets"
-    bl_label = "Bake All Custom Targets"
-    bl_description = "Bake all custom targets"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    uv_map : StringProperty(default='', update=update_bake_uv_map)
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
-
-    interpolation : EnumProperty(
-        name = 'Image Interpolation Type',
-        description = 'Image interpolation type',
-        items = interpolation_type_items,
-        default = 'Linear'
-    )
-
-    #hdr : BoolProperty(name='32 bit Float', default=False)
-
-    only_active_channel : BoolProperty(
-        name = 'Only Bake Active Channel',
-        description = 'Only bake active channel',
-        default = False
-    )
-
-    fxaa : BoolProperty(
-        name = 'Use FXAA', 
-        description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
-        default = True
-    )
-
-    aa_level : IntProperty(
-        name = 'Anti Aliasing Level',
-        description = 'Super Sample Anti Aliasing Level (1=off)',
-        default=1, min=1, max=2
-    )
-
-    denoise : BoolProperty(
-        name = 'Use Denoise', 
-        description = "Use Denoise on baked images",
-        default = False
-    )
-
-    force_bake_all_polygons : BoolProperty(
-        name = 'Force Bake all Polygons',
-        description = 'Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
-        default = False
-    )
-
-    enable_bake_as_vcol : BoolProperty(
-        name = 'Enable Bake As VCol',
-        description = 'Has any channel enabled Bake As '+get_vertex_color_label(),
-        default = False
-    )
-
-    vcol_force_first_ch_idx : EnumProperty(
-        name = 'Force First '+get_vertex_color_label()+' Channel',
-        description = 'Force the first channel after baking the '+get_vertex_color_label(),
-        items = bake_vcol_channel_items
-    )
-
-    vcol_force_first_ch_idx_bool : BoolProperty(
-        name = 'Force First '+get_vertex_color_label()+' Channel',
-        description = 'Force the first channel after baking the '+get_vertex_color_label(),
-        default = False
-    )
-
-    use_udim : BoolProperty(
-        name = 'Use UDIM Tiles',
-        description = 'Use UDIM Tiles',
-        default = False
-    )
-
-    use_float_for_normal : BoolProperty(
-        name = 'Use Float for Normal',
-        description = 'Use float image for baked normal',
-        default = False
-    )
-
-    use_float_for_displacement : BoolProperty(
-        name = 'Use Float for Displacement',
-        description = 'Use float image for baked displacement',
-        default = False
-    )
-
-    use_osl : BoolProperty(
-        name = 'Use OSL',
-        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
-        default = False
-    )
-
-    use_dithering : BoolProperty(
-        name = 'Use Dithering',
-        description = 'Use dithering for less banding color',
-        default = False
-    )
-
-    dither_intensity : FloatProperty(
-        name = 'Dither Intensity',
-        description = 'Amount of dithering noise added to the rendered image to break up banding',
-        default=1.0, min=0.0, max=2.0, subtype='FACTOR'
-    )
-    
-    bake_disabled_layers : BoolProperty(
-        name = 'Bake Disabled Layers',  
-        description = 'Take disabled layers into account when baking',
-        default = False
-    )
-
-    override_all : BoolProperty(
-        name = 'Override All Settings',  
-        description = 'Override all settings to custom targets',
-        default = False
-    )
-
-    override_resolution : EnumProperty(
-        name = 'Override Resolution',  
-        description = 'Override resolution settings to custom targets',
-        items = bake_resolution_override_type,
-        update = update_bake_override_resolution,
-        #default = 'Default'
-    )
-
-    override_samples : EnumProperty(
-        name = 'Override Sample',
-        description = 'Override sample settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_aa_level : EnumProperty(
-        name = 'Override AA Level',
-        description = 'Override AA level settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_margin : EnumProperty(
-        name = 'Override Margin',  
-        description = 'Override margin settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_interpolation : EnumProperty(
-        name = 'Override Interpolation',
-        description = 'Override interpolation settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_uv_map : EnumProperty(
-        name = 'Override UV Map',
-        description = 'Override UV map settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_use_udim : EnumProperty(
-        name = 'Override UDIM Tiles',
-        description = 'Override UDIM tiles settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_fxaa : EnumProperty(
-        name = 'Override FXAA',
-        description = 'Override FXAA settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_denoise : EnumProperty(
-        name = 'Override Denoise',
-        description = 'Override Denoise settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_use_dithering : EnumProperty(
-        name = 'Override Dithering',
-        description = 'Override Dithering settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_force_bake_all_polygons : EnumProperty(
-        name = 'Override Force Bake all Polygons',
-        description = 'Override Force Bake all polygons settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_bake_disabled_layers : EnumProperty(
-        name = 'Override Bake Disabled Layers',
-        description = 'Override Bake Disabled Layers settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    @classmethod
-    def poll(cls, context):
-        node = get_active_ypaint_node()
-        if not node: return False
-
-        group_tree = node.node_tree
-        yp = group_tree.yp
-        
-        return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0 
-
-    def invoke(self, context, event):
-        self.invoke_operator(context)
-
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        obj = self.obj = context.object
-        scene = context.scene
-        ypup = get_user_preferences()
-
-        # Use active uv layer name by default
-        uv_layers = get_uv_layers(obj)
-
-        # Use active uv layer name by default
-        if obj.type == 'MESH' and len(uv_layers) > 0:
-            if uv_layers.get(yp.baked_uv_name):
-                self.uv_map = yp.baked_uv_name
-            else:
-                active_name = uv_layers.active.name
-                if active_name == TEMP_UV:
-                    self.uv_map = yp.layers[yp.active_layer_index].uv_name
-                else: self.uv_map = uv_layers.active.name
-
-            # UV Map collections update 
-            self.uv_map_coll.clear()
-            for uv in uv_layers:
-                if not uv.name.startswith(TEMP_UV):
-                    self.uv_map_coll.add().name = uv.name
-
-        # List of channels that will be baked
-        self.channels = []
-        if self.only_active_channel:
-            if yp.active_channel_index < len(yp.channels):
-                active_ch = yp.channels[yp.active_channel_index]
-                self.channels = [active_ch]
-
-                # Add alpha/color channel pair
-                color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
-                if active_ch == color_ch:
-                    self.channels.append(alpha_ch)
-                elif active_ch == alpha_ch:
-                    self.channels.append(color_ch)
-
-        else: self.channels = yp.channels
-
-        self.no_layer_using = False
-        self.enable_bake_as_vcol = False
-        if len(self.channels) > 0:
-
-            # Check if any layer is using the channels
-            layer_found = False
-            for ch in self.channels:
-                if is_any_layer_using_channel(ch, node):
-                    layer_found = True
-                    break
-            if not layer_found:
-                self.no_layer_using = True
-
-            bi = None
-            for ch in self.channels:
-                baked = node.node_tree.nodes.get(ch.baked)
-                if baked and baked.image:
-                    if baked.image.y_bake_info.is_baked:
-                        bi = baked.image.y_bake_info
-                    self.width = baked.image.size[0] if baked.image.size[0] != 0 else ypup.default_new_image_size
-                    self.height = baked.image.size[1] if baked.image.size[1] != 0 else ypup.default_new_image_size
-                    break
-            
-            for ch in self.channels:
-                if ch.enable_bake_to_vcol:
-                    self.enable_bake_as_vcol = True
-                    break
-
-            # Set some attributes from bake info
-            if bi:
-                for attr in dir(bi):
-                    if attr in {'other_objects', 'selected_objects'}: continue
-                    if attr.startswith('__'): continue
-                    if attr.startswith('bl_'): continue
-                    if attr in {'rna_type'}: continue
-                    #if attr in dir(self):
-                    try: setattr(self, attr, getattr(bi, attr))
-                    except: pass
-
-        if self.vcol_force_first_ch_idx == '':
-            self.vcol_force_first_ch_idx = 'Do Nothing'
-
-        if (get_user_preferences().skip_property_popups and not event.shift) or len(self.channels) == 0 or self.no_layer_using:
-            return self.execute(context)
-
-        return context.window_manager.invoke_props_dialog(self, width=400)
-
-    def check(self, context):
-        self.check_operator(context)
-        return True
-    
-    def draw_label(self, layout, label):
-        row_var = split_layout(layout, 0.4, True)
-        row_var.alignment = 'RIGHT'
-        row_var.label(text=label + ':')
-
-        return row_var
-
-    def draw_field(self, layout, field_override, field_name, label):
-
-        is_overriden = False
-        if field_override != '':
-            is_overriden = getattr(self, field_override) == 'Override'
-
-        row_var = self.draw_label(layout, label)
-
-        if is_overriden or self.override_all:
-
-            if self.override_all:
-                row_ovr = row_var
-            else:
-                row_ovr = split_layout(row_var, 0.3, align=True)
-                row_ovr.prop(self, field_override, text='')
-
-            if field_name == 'uv_map':
-                row_ovr.prop_search(self, field_name, self, "uv_map_coll", text='', icon='GROUP_UVS')
-            elif field_name == 'margin':
-                if is_bl_newer_than(3, 1):
-                    split = split_layout(row_ovr, 0.4, align=True)
-                    split.prop(self, field_name, text='')
-                    split.prop(self, 'margin_type', text='')
-                else:
-                    row_ovr.prop(self, field_name, text='')
-            else:
-                row_ovr.prop(self, field_name, text='')
-        else:
-            row_var.prop(self, field_override, text='')
-
-    def draw_bool_field(self, layout, field_override, field_name, label):
-
-        row_var = self.draw_label(layout, label)
-
-        if self.override_all:
-            row_var.prop(self, field_name, text='')
-        else:
-            row_var.prop(self, field_override, text='')
-
-    def draw_field_override_all(self, layout, field_name, label):
-
-        row_var = self.draw_label(layout, label)
-
-        if field_name == 'uv_map':
-            row_var.prop_search(self, field_name, self, "uv_map_coll", text='', icon='GROUP_UVS')
-        elif field_name == 'margin':
-            if is_bl_newer_than(3, 1):
-                split = split_layout(row_var, 0.4, align=True)
-                split.prop(self, field_name, text='')
-                split.prop(self, 'margin_type', text='')
-            else:
-                row_var.prop(self, field_name, text='')
-        else:
-            row_var.prop(self, field_name, text='')
-    
-
-    def draw(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        height_root_ch = get_root_height_channel(yp)
-        
-        obj = context.object
-        mat = obj.active_material
-
-        # row = split_layout(self.layout, 0.4)
-
-        root_col = self.layout.column()
-
-        label_all_vars = self.draw_label(root_col, "Override all variables")
-        label_all_vars.prop(self, 'override_all', text='')
-
-        # resolution
-        res_label = 'Resolution'
-        override_res = 'override_resolution'
-
-        res_override_type = getattr(self, override_res)
-
-        if not self.override_all:
-            row_var = self.draw_label(root_col, res_label)
-        else:
-            row_var = self.draw_label(root_col, "Custom Resolution")
-
-        if self.override_all:
-            row_var.prop(self, 'use_custom_resolution', text='')
-        else:
-            row_var.prop(self, override_res, text='')
-
-        if res_override_type == 'Template' or (self.override_all and not self.use_custom_resolution):
-            lbl = split_layout(root_col, 0.4, align=True)
-            if self.override_all and self.use_custom_resolution == False:
-                lbl.alignment = 'RIGHT'
-                lbl.label(text='Resolution:')
-            else:
-                lbl.label(text='')
-            row_res = lbl.row(align=True)
-            row_res.prop(self, 'image_resolution', expand= True,)
-        elif res_override_type == 'Custom' or (self.override_all and self.use_custom_resolution):
-
-            row_width = self.draw_label(root_col, "Width")
-            row_width.prop(self, 'width', text='')
-
-            row_height = self.draw_label(root_col, "Height")
-            row_height.prop(self, 'height', text='')
-
-        self.draw_field(root_col, 'override_samples', 'samples', 'Samples')
-        self.draw_field(root_col, 'override_aa_level', 'aa_level', 'AA Level')
-        self.draw_field(root_col, 'override_margin', 'margin', 'Margin')
-        self.draw_field(root_col, 'override_interpolation', 'interpolation', 'Interpolation')
-        self.draw_field(root_col, 'override_uv_map', 'uv_map', 'UV Map')
-        self.draw_bool_field(root_col, 'override_use_udim', 'use_udim', 'UDIM Tiles')
-        self.draw_bool_field(root_col, 'override_fxaa', 'fxaa', 'FXAA')
-        self.draw_bool_field(root_col, 'override_denoise', 'denoise', 'Denoise')
-        self.draw_bool_field(root_col, 'override_use_dithering', 'use_dithering', 'Dithering')
-        self.draw_bool_field(root_col, 'override_force_bake_all_polygons', 'force_bake_all_polygons', 'Force Bake all Polygons')
-        self.draw_bool_field(root_col, 'override_bake_disabled_layers', 'bake_disabled_layers', 'Bake Disabled Layers')
-
-    def draw_backup(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        height_root_ch = get_root_height_channel(yp)
-        
-        obj = context.object
-        mat = obj.active_material
-
-        row = split_layout(self.layout, 0.4)
-
-        ## ----------------------- LABEL ------------------------
-
-        col = row.column() #align=True)
-
-        ccol = col.column(align=True)
-        if self.override_resolution:
-            ccol.label(text='')
-        if self.use_custom_resolution:
-            ccol.label(text='Width:')
-            ccol.label(text='Height:')
-        else:
-            ccol.label(text='Resolution:')
-
-        ccol.separator()
-        ccol.label(text='Samples:')
-
-        ccol.label(text='AA Level:')
-
-        if is_bl_newer_than(3, 1):
-            ccol.separator()
-        ccol.label(text='Margin:')
-
-        # if height_root_ch:
-        #     ccol.separator()
-        #     ccol.prop(self, 'override_resolution', text='Use 32-bit Float:')
-
-        col.separator()
-
-        # if is_bl_newer_than(2, 80):
-        #     col.prop(self, 'override_resolution', text='Bake Device:')
-        col.label(text='Interpolation:')
-        col.label(text='UV Map:')
-
-        ccol = col.column(align=True)
-
-        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-        active_channel = None
-        if self.only_active_channel and not is_bl_equal(3, 2):
-            active_channel = self.channels[0]
-            if active_channel.enable_bake_to_vcol:
-                ccol.separator()
-                ccol.label(text='')
-        elif self.enable_bake_as_vcol and not is_bl_equal(3, 2):
-            ccol.separator()
-            ccol.label(text='Force First Vcol:')
-
-        ccol.separator()
-        
-        
-        ## ----------------------- PROPS ------------------------
-        col = row.column()
-
-        if self.override_resolution:
-            col.prop(self, 'use_custom_resolution')
-        crow = col.row(align=True)
-        ccol = col.column(align=True)
-
-        if self.override_resolution:
-            if self.use_custom_resolution == False:
-                crow.prop(self, 'image_resolution', expand= True,)
-            elif self.use_custom_resolution == True:
-                ccol.prop(self, 'width', text='')
-                ccol.prop(self, 'height', text='')
-        else:
-            ccol.label(text="Use resolution from custom targets")
-
-        ccol.separator()
-        
-        if self.override_samples:
-            ccol.prop(self, 'samples', text='')
-        else:
-            ccol.label(text='Use samples from custom targets')
-
-        if self.override_aa_level:
-            ccol.prop(self, 'aa_level', text='')
-        else:
-            ccol.label(text='Use AA level from custom targets')
-
-        ccol.separator()
-        if self.override_margin:
-            if is_bl_newer_than(3, 1):
-                split = split_layout(ccol, 0.4, align=True)
-                split.prop(self, 'margin', text='')
-                split.prop(self, 'margin_type', text='')
-            else:
-                ccol.prop(self, 'margin', text='')
-        else:
-            ccol.label(text='Use margin from custom targets')
-
-        # if height_root_ch:
-        #     ccol.separator()
-        #     splits = split_layout(ccol, 0.4)
-        #     splits.prop(self, 'use_float_for_normal', emboss=True, text='Normal') #, icon='IMAGE_DATA')
-        #     splits.prop(self, 'use_float_for_displacement', emboss=True, text='Displacement') #, icon='IMAGE_DATA')
-
-        col.separator()
-
-        # if is_bl_newer_than(2, 80):
-        #     if self.use_osl:
-        #         col.label(text='CPU (OSL)')
-        #     else: col.prop(self, 'bake_device', text='')
-        if self.override_interpolation:
-            col.prop(self, 'interpolation', text='')
-        else:
-            col.label(text='Use interpolation from custom targets')
-
-        if self.override_uv_map:
-            col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
-        else:
-            col.label(text='Use UV map from custom targets')
-
-        ccol = col.column(align=True)
-
-        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-        if active_channel and active_channel.enable_bake_to_vcol:
-            ccol.separator()
-            ccol.prop(self, 'vcol_force_first_ch_idx_bool', text='Force First Vcol')
-        elif self.enable_bake_as_vcol and not is_bl_equal(3, 2):
-            ccol.separator()
-            ccol.prop(self, 'vcol_force_first_ch_idx', text='')
-
-        ccol.separator()
-
-        if UDIM.is_udim_supported():
-            if self.override_use_udim:
-                ccol.prop(self, 'use_udim')
-            else:
-                ccol.label(text='Use UDIM tiles from custom targets')
-
-        if self.override_fxaa:
-            ccol.prop(self, 'fxaa', text='Override FXAA:')
-        else:
-            ccol.label(text='Use FXAA from custom targets')
-
-        if is_bl_newer_than(2, 81):
-            if self.override_denoise:
-                ccol.prop(self, 'denoise', text='Use Denoise')
-            else:
-                ccol.label(text='Use Denoise from custom targets')
-
-        if self.override_use_dithering:
-            any_color_channel = any([c for c in self.channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
-            if any_color_channel:
-                if not self.use_dithering:
-                    ccol.prop(self, 'use_dithering', text='Use Dithering')
-                if self.use_dithering:
-                    row = split_layout(ccol, 0.55)
-                    row.prop(self, 'use_dithering', text='Use Dithering')
-                    row.prop(self, 'dither_intensity', text='')
-        else:
-            ccol.label(text='Use Dithering from custom targets')
-
-        # ccol.prop(self, 'use_osl')
-        if self.override_force_bake_all_polygons:
-            ccol.prop(self, 'force_bake_all_polygons')
-        else:
-            ccol.label(text='Use Force Bake all Polygons from custom targets')
-
-        if self.override_bake_disabled_layers:
-            ccol.prop(self, 'bake_disabled_layers')
-        else:
-            ccol.label(text='Use Bake Disabled Layers from custom targets')
-
-    def execute(self, context):
-        if not self.is_cycles_exist(context): return {'CANCELLED'}
-
-        T = time.time()
-
-        node = get_active_ypaint_node()
-        tree = node.node_tree
-        yp = tree.yp
-        scene = context.scene
-        obj = context.object
-        mat = obj.active_material
-
-        if len(self.channels) == 0:
-            self.report({'ERROR'}, "This node has no channel!")
-            return {'CANCELLED'}
-
-        if self.only_active_channel and self.no_layer_using:
-            self.report({'ERROR'}, "No layer is using '"+self.channels[0].name+"' channel!")
-            return {'CANCELLED'}
-
-        if self.no_layer_using:
-            self.report({'ERROR'}, "No layer is using any channel!")
-            return {'CANCELLED'}
-
-        if is_bl_newer_than(2, 80) and (obj.hide_viewport or obj.hide_render):
-            self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
-            return {'CANCELLED'}
-
-        if not is_bl_newer_than(2, 80) and obj.hide_render:
-            self.report({'ERROR'}, "Please unhide render of the active object!")
-            return {'CANCELLED'}
-
-        # Get all objects using material
-        objs = [obj]
-        meshes = [obj.data]
-        if mat.users > 1:
-            # Emptying the lists again in case active object is problematic
-            objs = []
-            meshes = []
-            for ob in get_scene_objects():
-                if ob.type != 'MESH': continue
-                if is_bl_newer_than(2, 80) and ob.hide_viewport: continue
-                if ob.hide_render: continue
-                #if not in_renderable_layer_collection(ob): continue
-                if len(get_uv_layers(ob)) == 0: continue
-                if len(ob.data.polygons) == 0: continue
-                for i, m in enumerate(ob.data.materials):
-                    if m == mat:
-                        ob.active_material_index = i
-                        if ob not in objs and ob.data not in meshes:
-                            objs.append(ob)
-                            meshes.append(ob.data)
-
-        if not objs:
-            self.report({'ERROR'}, "No valid objects to bake!")
-            return {'CANCELLED'}
-
-        # UV data should be accessible when there's multiple materials in single object, so object mode is necessary
-        ori_edit_mode = False
-        if len(obj.data.materials) > 1 and obj.mode == 'EDIT':
-            bpy.ops.object.mode_set(mode='OBJECT')
-            ori_edit_mode = True
-
-        book = remember_before_bake(yp)
-
-        height_ch = get_root_height_channel(yp)
-
-        tangent_sign_calculation = False
-        if BL28_HACK and height_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
-
-            if len(yp.uvs) > MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
-                self.report({'WARNING'}, "Maximum "+get_vertex_color_label(00)+"s reached! Need at least " + str(len(yp.uvs)) + " "+get_vertex_color_label(00)+"(s) to bake proper normal!")
-            else:
-                print('INFO: Calculating tangent sign before bake...')
-                tangent_sign_calculation = True
-
-            if tangent_sign_calculation:
-                # Update tangent sign vertex color
-                for uv in yp.uvs:
-                    tangent_process = tree.nodes.get(uv.tangent_process)
-                    if tangent_process:
-                        tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
-                        #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
-                        tansign = tangent_process.node_tree.nodes.get('_tangent_sign')
-                        vcol = refresh_tangent_sign_vcol(obj, uv.name)
-                        if vcol: tansign.attribute_name = vcol.name
-
-        # Disable use baked first
-        if yp.use_baked:
-            yp.use_baked = False
-
-        # Multi materials setup
-        ori_mat_ids = {}
-        ori_loop_locs = {}
-        for ob in objs:
-
-            # Need to assign all polygon to active material if there are multiple materials
-            ori_mat_ids[ob.name] = []
-            ori_loop_locs[ob.name] = []
-
-            if len(ob.data.materials) > 1:
-
-                # Get uv map
-                uv_layers = get_uv_layers(ob)
-                uvl = uv_layers.get(self.uv_map)
-
-                active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat][0]
-                for p in ob.data.polygons:
-
-                    # Set uv location to (0,0) if not using current material
-                    if uvl and not self.force_bake_all_polygons:
-                        uv_locs = []
-                        for li in p.loop_indices:
-                            uv_locs.append(uvl.data[li].uv.copy())
-                            if p.material_index != active_mat_id:
-                                uvl.data[li].uv = Vector((0.0, 0.0))
-
-                        ori_loop_locs[ob.name].append(uv_locs)
-
-                    # Set active mat
-                    ori_mat_ids[ob.name].append(p.material_index)
-                    p.material_index = active_mat_id
-
-        # Check if any objects use geometry nodes to output uv
-        any_uv_geonodes = False
-        for o in objs:
-            if any(get_output_uv_names_from_geometry_nodes(o)):
-                any_uv_geonodes = True
-
-        # Join objects if the number of objects is higher than one 
-        # or if there are uvs generated by geometry nodes
-        temp_objs = []
-        ori_objs = []
-        if (len(objs) > 1 or any_uv_geonodes) and not is_join_objects_problematic(yp, mat):
-
-            # Make sure there's no missing vertex color on any objects
-            fix_missing_object_vcols(yp, objs, enabled_only=True)
-
-            ori_objs = objs
-            objs = temp_objs = [get_merged_mesh_objects(scene, objs)]
-            
-        # AA setup
-        #if self.aa_level > 1:
-        margin = self.margin * self.aa_level
-        width = self.width * self.aa_level
-        height = self.height * self.aa_level
-
-        # Prepare bake settings
-        prepare_bake_settings(
-            book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, 
-            bake_device=self.bake_device, margin_type=self.margin_type, use_osl=self.use_osl
-        )
-
-        # Get bake properties
-        bprops = get_bake_properties_from_self(self)
-
-        # Get tilenums
-        tilenums = UDIM.get_tile_numbers(objs, self.uv_map) if self.use_udim else [1001]
-
-        # Enable disabled layers if needed
-        disabled_layers = []
-        if self.bake_disabled_layers:
-            disabled_layers = [layer for layer in yp.layers if not layer.enable]
-            for layer in disabled_layers:
-                layer.enable = True 
-
-        # Get color and alpha channel
-        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
-
-        # Bake channels
-        baked_exists = []
-        for ch in self.channels:
-
-            # Remove baked node if alpha channel will be combined to color channel
-            if alpha_ch == ch and alpha_ch.alpha_combine_to_baked_color:
-                remove_node(tree, alpha_ch, 'baked')
-                ch.no_layer_using = False
-                baked_exists.append(False)
-                continue
-
-            # Check if baked node exists
-            baked = tree.nodes.get(ch.baked)
-            if baked: baked_exists.append(True)
-            else: baked_exists.append(False)
-
-            ch.no_layer_using = not is_any_layer_using_channel(ch, node)
-            if not ch.no_layer_using:
-                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB')
-                bake_channel(
-                    self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, 
-                    tilenums=tilenums, interpolation=self.interpolation, 
-                    use_float_for_displacement=self.use_float_for_displacement, 
-                    use_float_for_normal=self.use_float_for_normal, bprops=bprops
-                )
-
-        # Process baked images
-        baked_images = []
-        for i, ch in enumerate(self.channels):
-            if ch.no_layer_using: continue
-
-            baked = tree.nodes.get(ch.baked)
-            if baked and baked.image:
-
-                # Only expand baked data when baked is just created
-                if not baked_exists[i]:
-                    ch.expand_baked_data = True
-
-                alpha_enabled = ch.enable_alpha or (ch == color_ch and alpha_ch.alpha_combine_to_baked_color)
-
-                # Dithering
-                if ch.type == 'RGB' and ch.colorspace == 'SRGB' and self.use_dithering and ch.use_clamp:
-                    dither_image(baked.image, dither_intensity=self.dither_intensity, alpha_aware=alpha_enabled)
-
-                # Denoise
-                if self.denoise and is_bl_newer_than(2, 81) and ch.type != 'NORMAL':
-                    denoise_image(baked.image)
-
-                # AA process
-                if self.aa_level > 1:
-                    resize_image(
-                        baked.image, self.width, self.height, 
-                        baked.image.colorspace_settings.name,
-                        alpha_aware=alpha_enabled, bake_device=self.bake_device
-                    )
-
-                # FXAA doesn't work with hdr image
-                if self.fxaa and ch.use_clamp:
-                    fxaa_image(baked.image, alpha_enabled, bake_device=self.bake_device)
-
-                baked_images.append(baked.image)
-
-            if ch.type == 'NORMAL':
-
-                baked_disp = tree.nodes.get(ch.baked_disp)
-                if baked_disp and baked_disp.image:
-
-                    # Denoise
-                    if self.denoise and is_bl_newer_than(2, 81):
-                        denoise_image(baked_disp.image)
-
-                    # AA process
-                    if self.aa_level > 1:
-                        resize_image(
-                            baked_disp.image, self.width, self.height, 
-                            baked.image.colorspace_settings.name,
-                            alpha_aware=alpha_enabled, bake_device=self.bake_device
-                        )
-
-                    # FXAA
-                    if self.fxaa and not baked_disp.image.is_float:
-                        fxaa_image(baked_disp.image, alpha_enabled, bake_device=self.bake_device)
-
-                    baked_images.append(baked_disp.image)
-
-                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                if baked_normal_overlay and baked_normal_overlay.image:
-
-                    # AA process
-                    if self.aa_level > 1:
-                        resize_image(
-                            baked_normal_overlay.image, self.width, self.height, 
-                            baked.image.colorspace_settings.name,
-                            alpha_aware=alpha_enabled, bake_device=self.bake_device
-                        )
-                    # FXAA
-                    if self.fxaa:
-                        fxaa_image(baked_normal_overlay.image, alpha_enabled, bake_device=self.bake_device)
-
-                    baked_images.append(baked_normal_overlay.image)
-
-                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
-                if baked_vdisp and baked_vdisp.image:
-
-                    # AA process
-                    if self.aa_level > 1:
-                        resize_image(
-                            baked_vdisp.image, self.width, self.height, 
-                            baked.image.colorspace_settings.name,
-                            alpha_aware=alpha_enabled, bake_device=self.bake_device
-                        )
-
-                    baked_images.append(baked_vdisp.image)
-
-        # Set bake info to baked images
-        for img in baked_images:
-            bi = img.y_bake_info
-            for attr in dir(bi):
-                #if attr in dir(self):
-                if attr.startswith('__'): continue
-                if attr.startswith('bl_'): continue
-                if attr in {'rna_type'}: continue
-                try: setattr(bi, attr, getattr(self, attr))
-                except: pass
-            bi.is_baked = True
-            bi.is_baked_channel = True
-
-        # Process custom bake target images
-        # Can only happen when only active channel is off since require all baked images to have the same resolution
-        if not self.only_active_channel:
-            for bt in yp.bake_targets:
-                for attr in dir(bt):
-                    if attr.startswith('__'): continue
-                    if attr.startswith('bl_'): continue
-                    if attr in {'rna_type', 'name'}: continue
-                    try: 
-                        if not hasattr(self, attr):
-                            continue
-
-                        if self.override_all:
-                            pass
-                        else:
-                            override_var = 'override_' + attr
-                            if hasattr(self, override_var):
-                                override_val = getattr(self, override_var)
-                                if override_val == 'Default':
-                                    print("Skip overriding attribute '" + attr + "' to bake target '" + bt.name + "'")
-                                    continue
-                            else:
-                                print("Skip overriding attribute '" + attr + "' to bake target '" + bt.name + "' because override property not found")
-                                continue
-                        
-                        att_val = getattr(self, attr)
-                        setattr(bt, attr, att_val)
-                        print("Set attribute '" + attr + "' to bake target '" + bt.name + "' = " + str(att_val))
-                    except: 
-                        print("Could not set attribute '" + attr + "' to bake target '" + bt.name + "'")
-
-                # check override_resolution
-                if self.override_resolution != 'Default' or self.override_all:
-                    bt.use_custom_resolution = self.use_custom_resolution
-                    bt.width = self.width
-                    bt.height = self.height
-                    bt.image_resolution = self.image_resolution
-
-                print("INFO: Processing custom bake target '" + bt.name + "'...")
-                bt_node = tree.nodes.get(bt.baked_node)
-                btimg = bt_node.image if bt_node and bt_node.image else None 
-                
-                old_img = None
-                filepath = ''
-                if btimg and (
-                        btimg.size[0] != self.width or btimg.size[1] != self.height or
-                        (btimg.source == 'TILED' and not self.use_udim) or
-                        (btimg.source != 'TILED' and self.use_udim) 
-                        ):
-                    old_img = btimg
-                    btimg = None
-                    if (old_img.source == 'TILED' and self.use_udim) or (old_img.source != 'TILED' and not self.use_udim):
-                        filepath = old_img.filepath
-
-                # Get default colors
-                color = []
-                for letter in rgba_letters:
-                    btc = getattr(bt, letter)
-                    ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
-                    if ch: ch = ch[0]
-                    if ch and ch.type == 'NORMAL':
-                        if btc.normal_type in {'COMBINED', 'OVERLAY_ONLY'}:
-                            # Normal RG default value
-                            if btc.subchannel_index in {'0', '1'}:
-                                color.append(0.5)
-                            else: 
-                                # Normal BA default value
-                                color.append(1.0)
-                        else: 
-                            # Displacement default value
-                            color.append(0.5)
-                    else:
-                        color.append(btc.default_value)
-
-                if not btimg:
-                    # Set new bake target image
-                    if len(tilenums) > 1:
-                        btimg = bpy.data.images.new(
-                            name=bt.name, width=self.width, height=self.height, 
-                            alpha=True, tiled=True, float_buffer=bt.use_float
-                        )
-                        btimg.colorspace_settings.name = get_noncolor_name()
-                        btimg.filepath = filepath
-
-                        # Fill tiles
-                        for tilenum in tilenums:
-                            UDIM.fill_tile(btimg, tilenum, color, self.width, self.height)
-
-                        UDIM.initial_pack_udim(btimg, color)
-                    else:
-                        btimg = bpy.data.images.new(
-                            name=bt.name, width=self.width, height=self.height,
-                            alpha=True, float_buffer=bt.use_float
-                        )
-                        btimg.colorspace_settings.name = get_noncolor_name()
-                        btimg.filepath = filepath
-                        btimg.generated_color = color
-                else:
-                    for tilenum in tilenums:
-
-                        # Swap tile
-                        if tilenum != 1001:
-                            UDIM.swap_tile(btimg, 1001, tilenum)
-
-                        # Only set image color if image is already found
-                        set_image_pixels(btimg, color)
-
-                        # Swap tile again to recover
-                        if tilenum != 1001:
-                            UDIM.swap_tile(btimg, 1001, tilenum)
-
-                # Copy image channels
-                for i, letter in enumerate(rgba_letters):
-                    btc = getattr(bt, letter)
-                    ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
-                    if ch:
-                        ch = ch[0]
-
-                        # Get image channel
-                        subidx = 0
-                        if ch.type in {'RGB', 'NORMAL'}:
-                            subidx = int(getattr(btc, 'subchannel_index'))
-
-                        # Get baked node
-                        baked = None
-                        if ch.type == 'NORMAL' and btc.normal_type == 'OVERLAY_ONLY':
-                            baked = tree.nodes.get(ch.baked_normal_overlay)
-                        elif ch.type == 'NORMAL' and btc.normal_type == 'DISPLACEMENT':
-                            baked = tree.nodes.get(ch.baked_disp)
-                            subidx = 0
-                        elif ch.type == 'NORMAL' and btc.normal_type == 'VECTOR_DISPLACEMENT':
-                            baked = tree.nodes.get(ch.baked_vdisp)
-                        else: baked = tree.nodes.get(ch.baked)
-
-                        if baked and baked.image:
-                            for tilenum in tilenums:
-                                # Swap tile
-                                if tilenum != 1001:
-                                    UDIM.swap_tile(btimg, 1001, tilenum)
-                                    UDIM.swap_tile(baked.image, 1001, tilenum)
-
-                                # Copy pixels
-                                copy_image_channel_pixels(
-                                    baked.image, btimg, src_idx=subidx,
-                                    dest_idx=i, invert_value=btc.invert_value
-                                )
-
-                                # Swap tile again to recover
-                                if tilenum != 1001:
-                                    UDIM.swap_tile(btimg, 1001, tilenum)
-                                    UDIM.swap_tile(baked.image, 1001, tilenum)
-
-                # Set bake target image
-                if old_img: 
-                    replace_image(old_img, btimg)
-                else: 
-                    bt_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
-                    bt_node.image = btimg
-
-        # Set baked uv
-        yp.baked_uv_name = self.uv_map
-
-        # Recover bake settings
-        recover_bake_settings(book, yp)
-
-        # Recover disabled layers
-        if self.bake_disabled_layers:
-            for layer in disabled_layers:
-                layer.enable = False
-
-        # Return to original objects
-        if ori_objs: objs = ori_objs
-
-        for ob in objs:
-            # Recover material index
-            if ori_mat_ids[ob.name]:
-                for i, p in enumerate(ob.data.polygons):
-                    if ori_mat_ids[ob.name][i] != p.material_index:
-                        p.material_index = ori_mat_ids[ob.name][i]
-
-            if ori_loop_locs[ob.name]:
-
-                # Get uv map
-                uv_layers = get_uv_layers(ob)
-                uvl = uv_layers.get(self.uv_map)
-
-                # Recover uv locations
-                if uvl:
-                    for i, p in enumerate(ob.data.polygons):
-                        for j, li in enumerate(p.loop_indices):
-                            uvl.data[li].uv = ori_loop_locs[ob.name][i][j]
-
-        # Bake vcol
-        if is_bl_newer_than(2, 92):
-            is_do_nothing = True
-            is_sort_by_channel = False
-            if self.only_active_channel:
-                active_channel = self.channels[0]
-                if active_channel.enable_bake_to_vcol and self.vcol_force_first_ch_idx_bool:
-                    real_force_first_ch_idx = yp.active_channel_index
-                    is_do_nothing = False
-            else:
-                is_do_nothing = self.vcol_force_first_ch_idx == 'Do Nothing'
-                is_sort_by_channel = self.vcol_force_first_ch_idx == 'Sort By Channel Order'
-                # check index, prevent crash
-                if not (is_do_nothing or is_sort_by_channel) and self.vcol_force_first_ch_idx != '':
-                    real_force_first_ch_idx = int(self.vcol_force_first_ch_idx) - 2
-                    if real_force_first_ch_idx < len(self.channels) and real_force_first_ch_idx >= 0:
-                        target_ch = self.channels[real_force_first_ch_idx]
-                        if not (target_ch and target_ch.enable_bake_to_vcol):
-                            real_force_first_ch_idx = -1
-                    else: real_force_first_ch_idx = -1
-                else:
-                    real_force_first_ch_idx = -1
-            # used to sort by channel
-            current_vcol_order = 0
-            prepare_bake_settings(
-                book, objs, yp, disable_problematic_modifiers=True,
-                bake_device=self.bake_device, bake_target='VERTEX_COLORS'
-            )
-            for ch in self.channels:
-                if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
-
-                    # Get vcol name
-                    vcol_name = 'Baked ' + ch.name if ch.bake_to_vcol_name == '' else ch.bake_to_vcol_name
-
-                    # Check vertex color
-                    for ob in objs:
-                        vcols = get_vertex_colors(ob)
-                        vcol = vcols.get(vcol_name)
-
-                        # Set index to first so new vcol will copy their value
-                        if len(vcols) > 0:
-                            first_vcol = vcols[0]
-                            set_active_vertex_color(ob, first_vcol)
-
-                        if not vcol:
-                            try: 
-                                vcol = new_vertex_color(ob, vcol_name)
-                            except Exception as e: print(e)
-
-                        # Get newly created vcol name
-                        vcol_name = vcol.name
-
-                        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-                        if not is_bl_equal(3, 2) and not is_do_nothing:
-                            if is_sort_by_channel or (real_force_first_ch_idx >= 0 and yp.channels[real_force_first_ch_idx] == ch):
-                                move_vcol(ob, get_vcol_index(ob, vcol.name), current_vcol_order)
-
-                        # Get the newly created vcol to avoid pointer error
-                        vcol = vcols.get(vcol_name)
-                        set_active_vertex_color(ob, vcol)
-                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, vcol_name)
-                    baked = tree.nodes.get(ch.baked_vcol)
-                    if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
-                        baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
-                        # Set channel to use baked vertex color only when baked_vcol is just created
-                        ch.use_baked_vcol = True
-
-                    set_source_vcol_name(baked, vcol_name)
-                    for ob in objs:
-                        # Recover material index
-                        if ori_mat_ids[ob.name]:
-                            for i, p in enumerate(ob.data.polygons):
-                                if ori_mat_ids[ob.name][i] != p.material_index:
-                                    p.material_index = ori_mat_ids[ob.name][i]
-                    if is_sort_by_channel:
-                        current_vcol_order += 1
-
-                    # Set back vcol name to channel baked vcol name
-                    if ch.bake_to_vcol_name != vcol_name:
-                        ch.bake_to_vcol_name = vcol_name
-
-                else:
-                    # If has baked vcol node, remove it
-                    baked = tree.nodes.get(ch.baked_vcol)
-                    if baked:
-                        simple_remove_node(tree, baked)
-
-            # Sort vcols by channel order
-            # Recover bake settings
-            recover_bake_settings(book, yp)
-        # Use bake results
-        yp.halt_update = True
-        yp.use_baked = True
-        yp.halt_update = False
-
-        # Check subdiv Setup
-        if height_ch:
-            check_subdiv_setup(height_ch)
-
-        # Update global uv
-        check_uv_nodes(yp)
-
-        # Check start and end nodes
-        check_start_end_root_ch_nodes(tree)
-
-        # Recover hack
-        if BL28_HACK and height_ch and tangent_sign_calculation and is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
-            print('INFO: Recovering tangent sign after bake...')
-            # Refresh tangent sign hacks
-            update_enable_tangent_sign_hacks(yp, context)
-
-        # Rearrange
-        reconnect_yp_nodes(tree)
-        rearrange_yp_nodes(tree)
-
-        # Revert back to edit mode
-        if ori_edit_mode:
-            bpy.ops.object.mode_set(mode='EDIT')
-        
-        # Refresh active channel index
-        yp.active_channel_index = yp.active_channel_index
-
-        # Update UI
-        ypui = context.window_manager.ypui
-        ypui.need_update = True
-
-        # If bake target ui is visible, refresh bake target index to show up the image result
-        if len(yp.bake_targets) > 0:
-            if ypui.show_bake_targets:
-                yp.active_bake_target_index = yp.active_bake_target_index
-
-        # Update baked outside nodes
-        update_enable_baked_outside(yp, context)
-
-        # Remove temporary objects
-        if temp_objs:
-            for o in temp_objs:
-                remove_mesh_obj(o)
-
-        if self.only_active_channel:
-            self.report({'INFO'}, yp.channels[yp.active_channel_index].name+' channel is baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
-        else: self.report({'INFO'}, tree.name+' channels are baked in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
-
-        return {'FINISHED'}
+        return self.execute_bake_bake_target(context, yp.bake_targets)
 
 class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     """Bake Channels to Image(s)"""

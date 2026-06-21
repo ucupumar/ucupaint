@@ -2229,14 +2229,16 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
 def get_bake_target_properties_from_bt_and_self(bt, self):
     btprops = dotdict()
 
+    if self.override_all: bt = self
+
     # YBakeTarget
-    btprops.uv_map = bt.uv_map
+    btprops.uv_map = bt.uv_map if not self.override_uv_map else self.uv_map
 
     # BaseBakeProps
+    btprops.use_custom_resolution = bt.use_custom_resolution
+    btprops.image_resolution = bt.image_resolution
     btprops.width = bt.width
     btprops.height = bt.height
-    btprops.image_resolution = bt.image_resolution
-    btprops.use_custom_resolution = bt.use_custom_resolution
     btprops.samples = bt.samples
     btprops.margin = bt.margin
     btprops.margin_type = bt.margin_type
@@ -3090,6 +3092,9 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     if old_img: 
         replace_image(old_img, img)
     elif img: baked_node.image = img
+
+    if is_vcol_baking:
+        baked_node.attribute_name = vcol_name
 
     # Remove nodes
     simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img and img != None)
