@@ -1854,7 +1854,6 @@ def add_alpha_to_color_bt(color_ch, alpha_ch):
         ):
             bt.a.channel_name = alpha_ch.name
             success = True
-            break
 
     return success
 
