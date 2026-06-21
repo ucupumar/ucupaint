@@ -31,6 +31,44 @@ def get_normal_map_type_items(self, context):
 
     return items
 
+def check_layer_source(layer, tree=None, image=None, vcol=None, setup_edge_detect=True):
+    if tree == None: tree = get_tree(layer)
+
+    # Add source
+    if layer.type == 'VCOL':
+        source, dirty = check_new_node(tree, layer, 'source', get_vcol_bl_idname(), 'Source', True)
+    else: source, dirty = check_new_node(tree, layer, 'source', layer_node_bl_idnames[layer.type], 'Source', True)
+
+    if dirty:
+        if layer.type == 'IMAGE':
+            # Always set non color to image node because of linear pipeline
+            #if hasattr(source, 'color_space'):
+            #    source.color_space = 'NONE'
+
+            # Add default image if it's image layer
+            if not image: image = bpy.data.images.new(layer.name)
+
+            # Set image to source
+            source.image = image
+
+        elif layer.type == 'VCOL':
+            if vcol: set_source_vcol_name(source, vcol.name)
+            else: set_source_vcol_name(source, layer.name)
+
+        elif layer.type == 'HEMI':
+            source.node_tree = get_node_tree_lib(lib.HEMI)
+            duplicate_lib_node_tree(source)
+            load_hemi_props(layer, source)
+
+        elif layer.type == 'EDGE_DETECT':
+            if setup_edge_detect:
+                Mask.setup_edge_detect_source(layer, source)
+
+        elif layer.type == 'AO':
+            enable_eevee_ao()
+
+    return source
+
 def add_new_layer(
         group_tree, layer_name, layer_type, channel_idx, 
         blend_type, normal_blend_type, normal_map_type, 
@@ -154,45 +192,29 @@ def add_new_layer(
         layer.enable_uniform_scale = ypup.enable_uniform_uv_scale_by_default
 
     # Add source
-    if layer_type == 'VCOL':
-        source = new_node(tree, layer, 'source', get_vcol_bl_idname(), 'Source')
-    else: source = new_node(tree, layer, 'source', layer_node_bl_idnames[layer_type], 'Source')
+    source = check_layer_source(layer, tree, image, vcol, setup_edge_detect=False)
 
+    # Set some props
     if layer_type == 'IMAGE':
-        # Always set non color to image node because of linear pipeline
-        #if hasattr(source, 'color_space'):
-        #    source.color_space = 'NONE'
-
-        # Add new image if it's image layer
-        source.image = image
-
         # Set interpolation
         source.interpolation = interpolation
-
-    elif layer_type == 'VCOL':
-        if vcol: set_source_vcol_name(source, vcol.name)
-        else: set_source_vcol_name(source, layer_name)
 
     elif layer_type == 'COLOR':
         col = (solid_color[0], solid_color[1], solid_color[2], 1.0)
         source.outputs[0].default_value = col
 
     elif layer_type == 'HEMI':
-        source.node_tree = get_node_tree_lib(lib.HEMI)
-        duplicate_lib_node_tree(source)
-
-        load_hemi_props(layer, source)
         layer.hemi_space = hemi_space
         layer.hemi_use_prev_normal = hemi_use_prev_normal
 
     elif layer_type == 'EDGE_DETECT':
         layer.hemi_use_prev_normal = hemi_use_prev_normal
+        # Edge detect setup happens here
         Mask.setup_edge_detect_source(layer, source, edge_detect_radius, edge_detect_method)
 
     elif layer_type == 'AO':
         layer.hemi_use_prev_normal = hemi_use_prev_normal
         layer.ao_distance = ao_distance
-        enable_eevee_ao()
 
     # Add texcoord node
     #texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
@@ -421,6 +443,22 @@ class YUseLinearColorSpace(bpy.types.Operator):
         yp = context.layer.id_data.yp
         check_yp_linear_nodes(yp)
 
+        return {'FINISHED'}
+
+class YFixMissingSource(bpy.types.Operator):
+    """Fix missing source of the layer"""
+    bl_idname = "wm.y_fix_missing_layer_source"
+    bl_label = "Fix Missing Layer Source"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'layer') #and hasattr(context, 'channel') and hasattr(context, 'image') and context.image
+
+    def execute(self, context):
+        check_layer_source(context.layer)
+        reconnect_layer_nodes(context.layer)
+        rearrange_layer_nodes(context.layer)
         return {'FINISHED'}
 
 class YNewVcolToOverrideChannel(bpy.types.Operator):
@@ -6127,6 +6165,9 @@ def update_channel_enable(self, context):
 
     tree = get_tree(layer)
 
+    # Check layer source just to make sure
+    check_layer_source(layer, tree)
+
     if root_ch.type == 'NORMAL' and self.enable:
         update_layer_images_interpolation(layer, 'Cubic') #, from_interpolation='Linear')
 
@@ -6559,6 +6600,7 @@ def update_layer_enable(self, context):
     if height_root_ch:
         update_displacement_height_ratio(height_root_ch)
 
+    check_layer_source(layer, tree)
     check_uv_nodes(yp)
     check_all_layer_channel_io_and_nodes(layer, tree)
     check_start_end_root_ch_nodes(layer.id_data)
@@ -7687,6 +7729,7 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
 def register():
     bpy.utils.register_class(YRefreshNeighborUV)
     bpy.utils.register_class(YUseLinearColorSpace)
+    bpy.utils.register_class(YFixMissingSource)
     bpy.utils.register_class(YNewLayer)
     bpy.utils.register_class(YNewVDMLayer)
     bpy.utils.register_class(YNewVcolToOverrideChannel)
@@ -7722,6 +7765,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(YRefreshNeighborUV)
     bpy.utils.unregister_class(YUseLinearColorSpace)
+    bpy.utils.unregister_class(YFixMissingSource)
     bpy.utils.unregister_class(YNewLayer)
     bpy.utils.unregister_class(YNewVDMLayer)
     bpy.utils.unregister_class(YNewVcolToOverrideChannel)

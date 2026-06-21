@@ -1589,7 +1589,7 @@ def is_vcol_being_used(tree, vcol_name, exception_node=None):
             return True
         elif node.type == 'ATTRIBUTE' and node.attribute_name == vcol_name and node != exception_node:
             return True
-        elif node.type == 'GROUP' and is_vcol_being_used(node.node_tree, vcol_name, exception_node):
+        elif node.type == 'GROUP' and node.node_tree and is_vcol_being_used(node.node_tree, vcol_name, exception_node):
             return True
 
     return False
