@@ -716,7 +716,8 @@ def draw_solid_color_props(entity, source, layout):
     col = layout.column()
     row = col.row()
     row.label(text='Color:')
-    row.prop(source.outputs[0], 'default_value', text='')
+    if source is not None:
+        row.prop(source.outputs[0], 'default_value', text='')
 
 def draw_edge_detect_props(entity, source, layout, layer=None):
     col = layout.column()
@@ -5324,9 +5325,10 @@ def layer_listing(layout, layer, show_expand=False):
 
     if layer.type == 'COLOR':
         src = get_layer_source(layer, layer_tree)
-        rrow = row.row()
-        rrow.prop(src.outputs[0], 'default_value', text='', icon='COLOR')
-        shortcut_found = True
+        if src is not None: 
+            rrow = row.row()
+            rrow.prop(src.outputs[0], 'default_value', text='', icon='COLOR')
+            shortcut_found = True
 
     if not shortcut_found:
 
