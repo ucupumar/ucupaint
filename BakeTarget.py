@@ -543,6 +543,51 @@ class YCopyBakeTarget(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YMoveBakeTarget(bpy.types.Operator):
+    bl_idname = "wm.y_move_bake_target"
+    bl_label = "Move Bake Target"
+    bl_description = "Move bake target"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    direction : EnumProperty(
+        name = 'Direction',
+        items = (
+            ('UP', 'Up', ''),
+            ('DOWN', 'Down', ''),
+        ),
+        default = 'UP'
+    )
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        if not node: return False
+
+        yp = node.node_tree.yp
+        return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        index = yp.active_bake_target_index
+        if index < 0 or index >= len(yp.bake_targets):
+            return {'CANCELLED'}
+
+        if self.direction == 'UP':
+            new_index = index - 1
+        else:
+            new_index = index + 1
+
+        if new_index < 0 or new_index >= len(yp.bake_targets):
+            return {'CANCELLED'}
+
+        yp.bake_targets.move(index, new_index)
+        yp.active_bake_target_index = new_index
+
+        context.area.tag_redraw()
+        return {'FINISHED'}
+
 class YPasteBakeTarget(bpy.types.Operator):
     bl_idname = "wm.y_paste_bake_target"
     bl_label = "Paste Bake Target As New"
@@ -617,6 +662,7 @@ def register():
     bpy.utils.register_class(YBakeTarget)
     bpy.utils.register_class(YCopyBakeTarget)
     bpy.utils.register_class(YPasteBakeTarget)
+    bpy.utils.register_class(YMoveBakeTarget)
     bpy.utils.register_class(YNewChannelBakeTarget)
 
 def unregister():
@@ -626,4 +672,5 @@ def unregister():
     bpy.utils.unregister_class(YBakeTarget)
     bpy.utils.unregister_class(YCopyBakeTarget)
     bpy.utils.unregister_class(YPasteBakeTarget)
+    bpy.utils.unregister_class(YMoveBakeTarget)
     bpy.utils.unregister_class(YNewChannelBakeTarget)

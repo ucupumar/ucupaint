@@ -6285,7 +6285,7 @@ def get_yp_images(yp, udim_only=False, get_baked_channels=False, check_overlay_n
         # Custom bake target images
         for bt in yp.bake_targets:
             baked_node = tree.nodes.get(bt.baked_node)
-            if baked_node and baked_node.image not in images:
+            if baked_node and baked_node.type == 'TEX_IMAGE' and baked_node.image and baked_node.image not in images:
                 images.append(baked_node.image)
 
     return images

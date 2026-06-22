@@ -997,7 +997,7 @@ def draw_bake_targets_ui(context, layout, node):
     rcol = row.column()
     rcol.template_list(
         "NODE_UL_YPaint_bake_targets", "", yp, "bake_targets", yp,
-        "active_bake_target_index", rows=2, maxrows=5
+        "active_bake_target_index", rows=4, maxrows=5
     )
 
     rcol = row.column(align=True)
@@ -1011,6 +1011,8 @@ def draw_bake_targets_ui(context, layout, node):
         rcol.operator("wm.y_new_bake_target", icon='ZOOMIN', text='')
         rcol.operator("wm.y_remove_bake_target", icon='ZOOMOUT', text='')
 
+    rcol.operator("wm.y_move_bake_target", text='', icon='TRIA_UP').direction = 'UP'
+    rcol.operator("wm.y_move_bake_target", text='', icon='TRIA_DOWN').direction = 'DOWN'
     rcol.menu("NODE_MT_y_bake_list_special_menu", text='', icon='DOWNARROW_HLT')
 
     if len(yp.bake_targets) > 0:
