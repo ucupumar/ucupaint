@@ -3911,7 +3911,7 @@ def update_layer_preview_mode(self, context):
             # Set channel layer blending
             #mix = preview.node_tree.nodes.get('Mix')
             #mix.blend_type = ch.blend_type
-            blend_type = ch.blend_type if ch else 'Mix'
+            blend_type = ch.blend_type if ch else 'MIX'
             update_preview_mix(blend_type, preview)
 
             if ch:

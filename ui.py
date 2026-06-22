@@ -1617,34 +1617,34 @@ def draw_root_channels_ui(context, layout, node):
                     split.label(text='Space:')
                     split.prop(channel, 'colorspace', text='')
 
-                # Bake to vertex color settings
-                if is_bl_newer_than(2, 92):
-                    brow = bcol.row(align=True)
+                ## Bake to vertex color settings
+                #if is_bl_newer_than(2, 92):
+                #    brow = bcol.row(align=True)
 
-                    vcols = get_vertex_colors(context.object)
-                    label_text = 'Bake To '+get_vertex_color_label()+':'
+                #    vcols = get_vertex_colors(context.object)
+                #    label_text = 'Bake To '+get_vertex_color_label()+':'
 
-                    rrow = brow.row(align=True)
-                    inbox_dropdown_button(rrow, chui, 'expand_bake_to_vcol_settings', label_text, scale_override=0.95)
+                #    rrow = brow.row(align=True)
+                #    inbox_dropdown_button(rrow, chui, 'expand_bake_to_vcol_settings', label_text, scale_override=0.95)
 
-                    rrow = brow.row(align=True)
-                    rrow.alignment = 'RIGHT'
-                    brow.prop(channel, 'enable_bake_to_vcol', text='')
+                #    rrow = brow.row(align=True)
+                #    rrow.alignment = 'RIGHT'
+                #    brow.prop(channel, 'enable_bake_to_vcol', text='')
 
-                    if chui.expand_bake_to_vcol_settings:
-                        brow = bcol.row(align=True)
-                        brow.label(text='', icon='BLANK1')
-                        bbox = brow.box()
-                        bbcol = bbox.column() #align=True)
-                        bbcol.active = channel.enable_bake_to_vcol
-                        brow = bbcol.row(align=True)
-                        if channel.type == 'VALUE':
-                            brow.label(text='Bake to Alpha Only:')
-                            brow.prop(channel, 'bake_to_vcol_alpha', text='')
+                #    if chui.expand_bake_to_vcol_settings:
+                #        brow = bcol.row(align=True)
+                #        brow.label(text='', icon='BLANK1')
+                #        bbox = brow.box()
+                #        bbcol = bbox.column() #align=True)
+                #        bbcol.active = channel.enable_bake_to_vcol
+                #        brow = bbcol.row(align=True)
+                #        if channel.type == 'VALUE':
+                #            brow.label(text='Bake to Alpha Only:')
+                #            brow.prop(channel, 'bake_to_vcol_alpha', text='')
 
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Target '+get_vertex_color_label()+':')
-                        brow.prop(channel, 'bake_to_vcol_name', text='')
+                #        brow = bbcol.row(align=True)
+                #        brow.label(text='Target '+get_vertex_color_label()+':')
+                #        brow.prop(channel, 'bake_to_vcol_name', text='')
 
 def draw_base_layer_ui(context, layout, yp, node):
     ypui = context.window_manager.ypui
