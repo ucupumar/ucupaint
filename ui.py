@@ -4948,10 +4948,16 @@ def main_draw(self, context):
 
     # Check for baked node
     baked_found = False
-    for ch in yp.channels:
-        baked = nodes.get(ch.baked)
-        if baked: 
+    #for ch in yp.channels:
+    #    baked = nodes.get(ch.baked)
+    #    if baked: 
+    #        baked_found = True
+    #        break
+    for bt in yp.bake_targets:
+        baked_node = nodes.get(bt.baked_node)
+        if baked_node: 
             baked_found = True
+            break
 
     # Custom Bake Targets
     icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'

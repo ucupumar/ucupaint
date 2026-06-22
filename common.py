@@ -8788,3 +8788,27 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
     col.prop(btprops, 'force_bake_all_polygons')
     col.prop(btprops, 'bake_disabled_layers')
 
+def get_channel_bake_target_pairs(yp):
+
+    ch_bts = {}
+    
+    # Check for exact channel
+    for bt in yp.bake_targets:
+        if bt.r.channel_name == bt.g.channel_name == bt.b.channel_name:
+            root_ch = yp.channels.get(bt.r.channel_name)
+            if root_ch: 
+                if root_ch.type == 'VALUE' or (
+                    bt.r.subchannel_index == '0' and
+                    bt.g.subchannel_index == '1' and
+                    bt.b.subchannel_index == '2'
+                ):
+                    if root_ch.name not in ch_bts:
+                        ch_bts[root_ch.name] = bt.name
+
+    # Check for channel that has no exact match
+    for ch in yp.channels:
+        if ch not in ch_bts:
+            pass
+
+    return ch_bts
+

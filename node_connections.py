@@ -369,6 +369,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     baked_uv_map = nodes.get(baked_uv.uv_map) if baked_uv else None
     if baked_uv_map: baked_uv_map = baked_uv_map.outputs[0]
 
+    ch_bts = get_channel_bake_target_pairs(yp)
+
     for i, ch in enumerate(yp.channels):
         #if ch_idx != -1 and i != ch_idx: continue
 
@@ -598,49 +600,65 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     if ch.use_height_normalize:
                         rgb = get_essential_node(tree, HALF_VALUE)[0]
                     else: rgb = get_essential_node(tree, ZERO_VALUE)[0]
+        
+        if yp.use_baked:
 
-        if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked and not ch.use_baked_vcol: # and baked_uv:
-            baked = nodes.get(ch.baked)
-            if baked:
-                rgb = baked.outputs[0]
+            baked_soc = None
 
-                #if ch.type == 'RGB' and ch.enable_alpha:
-                if ch.enable_alpha:
-                    alpha = baked.outputs[1]
+            if ch.name in ch_bts:
+                bt = yp.bake_targets.get(ch_bts[ch.name])
+            
+                baked_node = nodes.get(bt.baked_node)
+                if baked_node:
+                    if baked_node.type == 'TEX_IMAGE':
+                        baked_soc = baked_node.outputs[0]
+                    elif baked_node.type == 'ATTRIBUTE':
+                        baked_soc = baked_node.outputs['Color']
 
-                if baked_uv_map: create_link(tree, baked_uv_map, baked.inputs[0])
+            if baked_soc: rgb = baked_soc
 
-            # Use baked color alpha if baked alpha is not found
-            elif alpha_ch == ch:
+        #if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked and not ch.use_baked_vcol: # and baked_uv:
+        #    baked = nodes.get(ch.baked)
+        #    if baked:
+        #        rgb = baked.outputs[0]
 
-                baked_color = nodes.get(color_ch.baked)
-                if baked_color:
-                    rgb = baked_color.outputs[1]
+        #        #if ch.type == 'RGB' and ch.enable_alpha:
+        #        if ch.enable_alpha:
+        #            alpha = baked.outputs[1]
 
-            if ch.special_channel_type == 'NORMAL':
-                baked_normal = nodes.get(ch.baked_normal)
-                baked_normal_prep = nodes.get(ch.baked_normal_prep)
-                baked_normal_no_disp = nodes.get(ch.baked_normal_no_disp)
+        #        if baked_uv_map: create_link(tree, baked_uv_map, baked.inputs[0])
 
-                if baked_normal_no_disp and height_ch and not height_ch.use_height_as_bump:
-                    rgb = baked_normal_no_disp.outputs[0]
+        #    # Use baked color alpha if baked alpha is not found
+        #    elif alpha_ch == ch:
 
-                if baked_normal_prep:
-                    if rgb:
-                        rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
-                    else:
-                        rgb = baked_normal_prep.outputs[0]
-                        break_input_link(tree, baked_normal_prep.inputs[0])
+        #        baked_color = nodes.get(color_ch.baked)
+        #        if baked_color:
+        #            rgb = baked_color.outputs[1]
 
-                    #HACK: Some earlier nodes have wrong default colot input
-                    baked_normal_prep.inputs[0].default_value = (0.5, 0.5, 1.0, 1.0)
+        #    if ch.special_channel_type == 'NORMAL':
+        #        baked_normal = nodes.get(ch.baked_normal)
+        #        baked_normal_prep = nodes.get(ch.baked_normal_prep)
+        #        baked_normal_no_disp = nodes.get(ch.baked_normal_no_disp)
 
-                if baked_normal:
-                    rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
+        #        if baked_normal_no_disp and height_ch and not height_ch.use_height_as_bump:
+        #            rgb = baked_normal_no_disp.outputs[0]
 
-            if ch.special_channel_type == 'HEIGHT':
-                if end_max_height:
-                    max_height = end_max_height.outputs[0]
+        #        if baked_normal_prep:
+        #            if rgb:
+        #                rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
+        #            else:
+        #                rgb = baked_normal_prep.outputs[0]
+        #                break_input_link(tree, baked_normal_prep.inputs[0])
+
+        #            #HACK: Some earlier nodes have wrong default colot input
+        #            baked_normal_prep.inputs[0].default_value = (0.5, 0.5, 1.0, 1.0)
+
+        #        if baked_normal:
+        #            rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
+
+        #    if ch.special_channel_type == 'HEIGHT':
+        #        if end_max_height:
+        #            max_height = end_max_height.outputs[0]
 
         if end_backface:
             if alpha_ch and alpha_ch == ch:
