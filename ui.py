@@ -1029,11 +1029,12 @@ def draw_bake_targets_ui(context, layout, node):
         info_col = row.column()
         row_image = info_col.row(align=True)
 
+        empty_label = '- (not baked yet)'
         if bt.data_type == 'VCOL':
-            vcol_name = '-' if vcol_name == '' else vcol_name
+            vcol_name = empty_label if vcol_name == '' else vcol_name
             row_image.label(text=get_vertex_color_label()+': ' + vcol_name, icon_value=lib.get_icon('vertex_color'))
         elif bt.data_type == 'IMAGE':
-            image_name = image.name if image else '-'
+            image_name = image.name if image else empty_label
             row_image.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
 
             icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'

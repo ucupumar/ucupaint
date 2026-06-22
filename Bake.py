@@ -1267,7 +1267,6 @@ def update_override_vars(self, context):
         self.use_dithering = self.override_use_dithering == 'Enable'
 
 class BaseBakeBakeTargetOperator():
-
     bake_device : EnumProperty(
         name = 'Bake Device',
         description = 'Device to use for baking',
@@ -1293,6 +1292,17 @@ class BaseBakeBakeTargetOperator():
         if ypup.default_bake_device != 'DEFAULT':
             self.bake_device = ypup.default_bake_device
 
+        # UV Map collections update
+        obj = context.object
+        if obj.type == 'MESH':
+            uv_layers = get_uv_layers(obj)
+            self.uv_map_coll.clear()
+            for uv in uv_layers:
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
+            if self.uv_map == '' or self.uv_map not in uv_layers:
+                self.uv_map = get_default_uv_name(obj)
+
         return context.window_manager.invoke_props_dialog(self, width=400)
 
     def is_cycles_exist(self, context):
@@ -1303,6 +1313,8 @@ class BaseBakeBakeTargetOperator():
 
     def execute_bake_bake_target(self, context, bts):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
+
+        T = time.time()
 
         node = get_active_ypaint_node()
         tree = node.node_tree
@@ -1361,16 +1373,16 @@ class BaseBakeBakeTargetOperator():
             bpy.ops.object.mode_set(mode='OBJECT')
             ori_edit_mode = True
 
-        # Image targets loop
-        image_bts = [bt for bt in bts if bt.data_type == 'IMAGE']
-
         # Default uv map
         uv_map = get_default_uv_name(obj, yp)
 
         # Make sure uv map is not empty
-        for bt in image_bts:
+        for bt in bts:
             if bt.uv_map == '':
                 bt.uv_map = uv_map
+
+        # Image targets loop
+        image_bts = [bt for bt in bts if bt.data_type == 'IMAGE']
 
         # Check if objects setup is needed
         obook = None
@@ -1394,16 +1406,8 @@ class BaseBakeBakeTargetOperator():
                 objs, obook = prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons)
 
         for bt in image_bts:
-            # Set image resolution
-            if not bt.use_custom_resolution:
-                bt.height = bt.width = int(bt.image_resolution)
-
-            # Make sure uv map is not empty
-            if bt.uv_map == '':
-                bt.uv_map = get_default_uv_name(obj, yp)
-
             # Get bake properties
-            btprops = get_bake_target_properties_from_bt_and_self(bt, self)
+            btprops = get_set_bake_target_properties_from_bt_and_self(bt, self)
 
             # Bake bake target
             bake_bake_target(mat, node, bt, btprops, objs=objs, do_objects_setup=obook==None, bake_device=selected_bake_device, use_osl=use_osl)
@@ -1417,7 +1421,7 @@ class BaseBakeBakeTargetOperator():
 
         for bt in vcol_bts:
             # Get bake properties
-            btprops = get_bake_target_properties_from_bt_and_self(bt, self)
+            btprops = get_set_bake_target_properties_from_bt_and_self(bt, self)
 
             # Bake bake target
             bake_bake_target(mat, node, bt, btprops, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
@@ -1455,6 +1459,10 @@ class BaseBakeBakeTargetOperator():
 
         # Update baked outside nodes
         update_enable_baked_outside(yp, context)
+
+        if hasattr(self, 'override_all'):
+            self.report({'INFO'}, 'Baking bake targets are done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
+        else: self.report({'INFO'}, ' Baking bake target is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
     
@@ -1503,7 +1511,6 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
         #    row_ovr.prop(self, "override_bake_device", text="")
 
         #label_all_vars = self.draw_label(root_col, "Override all variables")
-        #label_all_vars.prop(self, 'override_all', text='')
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
@@ -1678,6 +1685,9 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
             row_var.prop(self, field_name, text='')
         else:
             row_var.prop(self, field_override, text='')
+
+            if field_name == 'use_dithering' and self.override_use_dithering == 'Enable':
+                row_var.prop(self, 'dither_intensity', text='')
 
     def draw(self, context):
         node = get_active_ypaint_node()
