@@ -2325,35 +2325,6 @@ def get_set_bake_target_properties_from_bt_and_self(bt, self):
 
     return btprops
 
-def set_back_props_from_btprops(bt, btprops, self):
-    if not hasattr(self, 'override_all'): return
-
-    # YBakeTarget
-    bt.uv_map = btprops.uv_map
-
-    # BaseBakeProps
-    if self.override_all: pass
-    bt.use_custom_resolution = btprops.use_custom_resolution
-    bt.image_resolution = btprops.image_resolution
-    bt.width = btprops.width
-    bt.height = btprops.height
-    bt.samples = btprops.samples
-    bt.margin = btprops.margin
-    bt.margin_type = btprops.margin_type
-
-    # BaseBakeInfoProps
-    #bt.hdr = btprops.hdr
-    bt.interpolation = btprops.interpolation
-    bt.fxaa = btprops.fxaa
-    #bt.ssaa = btprops.ssaa
-    bt.aa_level = btprops.aa_level
-    bt.denoise = btprops.denoise
-    bt.use_udim = btprops.use_udim
-    bt.use_dithering = btprops.use_dithering
-    bt.dither_intensity = btprops.dither_intensity
-    bt.force_bake_all_polygons = btprops.force_bake_all_polygons
-    bt.bake_disabled_layers = btprops.bake_disabled_layers
-
 def get_bake_properties_from_self(self):
 
     bprops = dotdict()
@@ -2795,8 +2766,18 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         for obj in objs:
             vcols = get_vertex_colors(obj)
             vcol = vcols.get(vcol_name)
+
+            # Check if the attribute has correct data type and domain
+            if vcol and (vcol.data_type != bt.vcol_data_type or vcol.domain != bt.vcol_domain):
+                # Remove vcol
+                vcols.remove(vcol)
+                vcol = None
+
+            # Create new vcol
             if not vcol:
                 vcol = new_vertex_color(obj, vcol_name, bt.vcol_data_type, bt.vcol_domain, color_fill=color)
+
+            # Make sure it has the corect data type
             set_active_vertex_color(obj, vcol)
     else:
         img = baked_node.image if baked_node and baked_node.image else None
@@ -3006,7 +2987,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                     # Use temp vertex color for baking normal
                     vcols = get_vertex_colors(obj)
                     temp_vcol = vcols.get(TEMP_VCOL)
-                    if not temp_vcol: temp_vcol = new_vertex_color(obj, TEMP_VCOL)
+                    if not temp_vcol: temp_vcol = new_vertex_color(obj, TEMP_VCOL, bt.vcol_data_type, bt.vcol_domain)
                     set_active_vertex_color(obj, temp_vcol)
 
             # Bake normal
@@ -3096,7 +3077,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 # Use temp vertex color for baking alpha
                 vcols = get_vertex_colors(obj)
                 temp_vcol = vcols.get(TEMP_VCOL_1)
-                if not temp_vcol: temp_vcol = new_vertex_color(obj, TEMP_VCOL_1)
+                if not temp_vcol: temp_vcol = new_vertex_color(obj, TEMP_VCOL_1, bt.vcol_data_type, bt.vcol_domain)
                 set_active_vertex_color(obj, temp_vcol)
 
         if root_ch == normal_root_ch and (norm_tex or norm_attr):

@@ -1460,9 +1460,9 @@ class BaseBakeBakeTargetOperator():
         # Update baked outside nodes
         update_enable_baked_outside(yp, context)
 
-        if hasattr(self, 'override_all'):
+        if len(bts) > 1:
             self.report({'INFO'}, 'Baking bake targets are done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
-        else: self.report({'INFO'}, ' Baking bake target is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
+        else: self.report({'INFO'}, ' Baking '+bts[0].name+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         return {'FINISHED'}
     
@@ -1708,61 +1708,61 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
         #    row_ovr.label(text="Set as default" + ':')
         #    row_ovr.prop(self, "override_bake_device", text="")
 
-        #label_all_vars = self.draw_label(root_col, "Override all variables")
-        #label_all_vars.prop(self, 'override_all', text='')
-
         row_var = split_layout(root_col, 0.4, True)
         row_var.label(text='')
         row_var.prop(self, 'override_all', text='Override All Variables')
 
+        any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
+
         box = root_col.box()
         bcol = box.column()
         if self.override_all:
-            draw_base_bake_target_settings(context, bcol, self, bt=None, show_hdr=False, show_udim=UDIM.is_udim_supported())
+            draw_base_bake_target_settings(context, bcol, self, bt=None, show_image_props=any_image_bts, show_vcol_props=False, show_hdr=False, show_udim=UDIM.is_udim_supported())
 
         else:
-            # resolution
-            res_label = 'Resolution'
-            override_res = 'override_resolution'
+            if any_image_bts:
+                # resolution
+                res_label = 'Resolution'
+                override_res = 'override_resolution'
 
-            res_override_type = getattr(self, override_res)
+                res_override_type = getattr(self, override_res)
 
-            if not self.override_all:
-                row_var = self.draw_label(bcol, res_label)
-            else:
-                row_var = self.draw_label(bcol, "Custom Resolution")
-
-            if self.override_all:
-                row_var.prop(self, 'use_custom_resolution', text='')
-            else:
-                row_var.prop(self, override_res, text='')
-
-            if res_override_type == 'Template' or (self.override_all and not self.use_custom_resolution):
-                lbl = split_layout(bcol, 0.4, align=True)
-                if self.override_all and self.use_custom_resolution == False:
-                    lbl.alignment = 'RIGHT'
-                    lbl.label(text='Resolution:')
+                if not self.override_all:
+                    row_var = self.draw_label(bcol, res_label)
                 else:
-                    lbl.label(text='')
-                row_res = lbl.row(align=True)
-                row_res.prop(self, 'image_resolution', expand= True,)
-            elif res_override_type == 'Custom' or (self.override_all and self.use_custom_resolution):
+                    row_var = self.draw_label(bcol, "Custom Resolution")
 
-                row_width = self.draw_label(bcol, "Width")
-                row_width.prop(self, 'width', text='')
+                if self.override_all:
+                    row_var.prop(self, 'use_custom_resolution', text='')
+                else:
+                    row_var.prop(self, override_res, text='')
 
-                row_height = self.draw_label(bcol, "Height")
-                row_height.prop(self, 'height', text='')
+                if res_override_type == 'Template' or (self.override_all and not self.use_custom_resolution):
+                    lbl = split_layout(bcol, 0.4, align=True)
+                    if self.override_all and self.use_custom_resolution == False:
+                        lbl.alignment = 'RIGHT'
+                        lbl.label(text='Resolution:')
+                    else:
+                        lbl.label(text='')
+                    row_res = lbl.row(align=True)
+                    row_res.prop(self, 'image_resolution', expand= True,)
+                elif res_override_type == 'Custom' or (self.override_all and self.use_custom_resolution):
 
-            self.draw_field(bcol, 'override_samples', 'samples', 'Samples')
-            self.draw_field(bcol, 'override_aa_level', 'aa_level', 'AA Level')
-            self.draw_field(bcol, 'override_margin', 'margin', 'Margin')
-            self.draw_field(bcol, 'override_interpolation', 'interpolation', 'Interpolation')
-            self.draw_field(bcol, 'override_uv_map', 'uv_map', 'UV Map')
-            self.draw_bool_field(bcol, 'override_use_udim', 'use_udim', 'Use UDIM Tiles')
-            self.draw_bool_field(bcol, 'override_fxaa', 'fxaa', 'Use FXAA')
-            self.draw_bool_field(bcol, 'override_denoise', 'denoise', 'Use Denoise')
-            self.draw_bool_field(bcol, 'override_use_dithering', 'use_dithering', 'Use Dithering')
+                    row_width = self.draw_label(bcol, "Width")
+                    row_width.prop(self, 'width', text='')
+
+                    row_height = self.draw_label(bcol, "Height")
+                    row_height.prop(self, 'height', text='')
+
+                self.draw_field(bcol, 'override_samples', 'samples', 'Samples')
+                self.draw_field(bcol, 'override_aa_level', 'aa_level', 'AA Level')
+                self.draw_field(bcol, 'override_margin', 'margin', 'Margin')
+                self.draw_field(bcol, 'override_interpolation', 'interpolation', 'Interpolation')
+                self.draw_field(bcol, 'override_uv_map', 'uv_map', 'UV Map')
+                self.draw_bool_field(bcol, 'override_use_udim', 'use_udim', 'Use UDIM Tiles')
+                self.draw_bool_field(bcol, 'override_fxaa', 'fxaa', 'Use FXAA')
+                self.draw_bool_field(bcol, 'override_denoise', 'denoise', 'Use Denoise')
+                self.draw_bool_field(bcol, 'override_use_dithering', 'use_dithering', 'Use Dithering')
             self.draw_bool_field(bcol, 'override_force_bake_all_polygons', 'force_bake_all_polygons', 'Force Bake all Polygons')
             self.draw_bool_field(bcol, 'override_bake_disabled_layers', 'bake_disabled_layers', 'Bake Disabled Layers')
 
