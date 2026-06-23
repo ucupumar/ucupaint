@@ -4062,7 +4062,7 @@ def draw_layers_ui(context, layout, node):
                     btc = getattr(bt, letter)
                     if getattr(btc, 'channel_name') == root_ch.name:
                         bt_node = nodes.get(bt.baked_node)
-                        btimg = bt_node.image if bt_node and bt_node.image else None
+                        btimg = bt_node.image if bt_node and bt_node.type == 'TEX_IMAGE' and bt_node.image else None
                         if btimg and btimg not in btimages:
 
                             title = btimg.name

@@ -1266,6 +1266,70 @@ def update_override_vars(self, context):
     if self.override_use_dithering != 'Default':
         self.use_dithering = self.override_use_dithering == 'Enable'
 
+def validate_channels_bake_targets(yp):
+    tree = yp.id_data
+    validated_chs = []
+
+    # Check if channel has proper bake target
+    for ch in yp.channels:
+        bt = yp.bake_targets.get(ch.bake_target_name)
+
+        # Bake target found
+        if bt:
+            # Check for exact channel bake target
+            if is_bake_target_using_exact_channel(bt, ch):
+                validated_chs.append(ch)
+                break
+
+            # Check if the bake target uses non-standard layout
+            if ch.type == 'VALUE':
+                index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                if index != -1:
+                    if index != 3:
+                        separate_xyz = check_new_node(tree, bt, 'separate_xyz', 'ShaderNodeSeparateXYZ')
+                    validated_chs.append(ch)
+            else:
+                ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
+                if -1 not in ids:
+                    separate_xyz = check_new_node(tree, bt, 'separate_xyz', 'ShaderNodeSeparateXYZ')
+                    baked_combine_xyz = check_new_node(tree, ch, 'baked_combine_xyz', 'ShaderNodeCombineXYZ')
+                    validated_chs.append(ch)
+
+        # If bake target is not found or not valid
+        if ch not in validated_chs:
+
+            # Look for bake target that uses the channel
+            for bt in yp.bake_targets:
+
+                # Check for exact channel bake target
+                if is_bake_target_using_exact_channel(bt, ch):
+                    validated_chs.append(ch)
+                    ch.bake_target_name = bt.name
+                    break
+
+        if ch not in validated_chs:
+
+            # Check if the bake target uses non-standard layout
+            for bt in yp.bake_targets:
+                if ch.type == 'VALUE':
+                    index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                    if index != -1:
+                        if index != 3:
+                            separate_xyz = check_new_node(tree, bt, 'separate_xyz', 'ShaderNodeSeparateXYZ')
+                        validated_chs.append(ch)
+                        ch.bake_target_name = bt.name
+                        break
+                else:
+                    ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
+                    if -1 not in ids:
+                        separate_xyz = check_new_node(tree, bt, 'separate_xyz', 'ShaderNodeSeparateXYZ')
+                        baked_combine_xyz = check_new_node(tree, ch, 'baked_combine_xyz', 'ShaderNodeCombineXYZ')
+                        validated_chs.append(ch)
+                        ch.bake_target_name = bt.name
+                        break
+
+    return validated_chs
+
 class BaseBakeBakeTargetOperator():
     bake_device : EnumProperty(
         name = 'Bake Device',
@@ -1425,6 +1489,9 @@ class BaseBakeBakeTargetOperator():
 
             # Bake bake target
             bake_bake_target(mat, node, bt, btprops, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
+
+        # Validate channels with bake targets
+        validate_channels_bake_targets(yp)
 
         # Update global uv
         check_uv_nodes(yp)
@@ -2451,7 +2518,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
             for bt in yp.bake_targets:
                 print("INFO: Processing custom bake target '" + bt.name + "'...")
                 bt_node = tree.nodes.get(bt.baked_node)
-                btimg = bt_node.image if bt_node and bt_node.image else None 
+                btimg = bt_node.image if bt_node and bt_node.type == 'TEX_IMAGE' and bt_node.image else None 
                 
                 old_img = None
                 filepath = ''
@@ -2583,7 +2650,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 # Set bake target image
                 if old_img: 
                     replace_image(old_img, btimg)
-                else: 
+                elif bt_node.type == 'TEX_IMAGE': 
                     bt_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
                     bt_node.image = btimg
 

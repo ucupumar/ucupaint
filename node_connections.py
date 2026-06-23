@@ -369,8 +369,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     baked_uv_map = nodes.get(baked_uv.uv_map) if baked_uv else None
     if baked_uv_map: baked_uv_map = baked_uv_map.outputs[0]
 
-    ch_bts = get_channel_bake_target_pairs(yp)
-
     for i, ch in enumerate(yp.channels):
         #if ch_idx != -1 and i != ch_idx: continue
 
@@ -605,17 +603,48 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             baked_soc = None
 
-            if ch.name in ch_bts:
-                bt = yp.bake_targets.get(ch_bts[ch.name])
-            
+            bt = yp.bake_targets.get(ch.bake_target_name)
+            if bt:
                 baked_node = nodes.get(bt.baked_node)
                 if baked_node:
-                    if baked_node.type == 'TEX_IMAGE':
-                        baked_soc = baked_node.outputs[0]
-                    elif baked_node.type == 'ATTRIBUTE':
-                        baked_soc = baked_node.outputs['Color']
+                    if is_bake_target_using_exact_channel(bt, ch):
+                        if baked_node.type == 'TEX_IMAGE':
+                            baked_soc = baked_node.outputs[0]
+                        elif baked_node.type == 'ATTRIBUTE':
+                            baked_soc = baked_node.outputs['Color']
+
+                    elif ch.type == 'VALUE':
+                        index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                        if index != -1:
+                            if index == 3:
+                                if baked_node.type == 'TEX_IMAGE':
+                                    baked_soc = baked_node.outputs[1]
+                                elif baked_node.type == 'ATTRIBUTE':
+                                    baked_soc = baked_node.outputs['Alpha']
+                            else:
+                                separate_xyz = nodes.get(bt.separate_xyz)
+                                if separate_xyz:
+                                    create_link(tree, baked_node.outputs[0], separate_xyz.inputs[0])
+                                    baked_soc = separate_xyz.outputs[index]
+                    else:
+                        ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
+                        if -1 not in ids:
+                            separate_xyz = nodes.get(bt.separate_xyz)
+                            baked_combine_xyz = nodes.get(ch.baked_combine_xyz)
+                            if separate_xyz and baked_combine_xyz:
+                                create_link(tree, baked_node.outputs[0], separate_xyz.inputs[0])
+
+                                create_link(tree, separate_xyz.outputs[ids[0]], baked_combine_xyz.inputs[0])
+                                create_link(tree, separate_xyz.outputs[ids[1]], baked_combine_xyz.inputs[1])
+                                create_link(tree, separate_xyz.outputs[ids[2]], baked_combine_xyz.inputs[2])
+
+                                baked_soc = baked_combine_xyz.outputs[0]
 
             if baked_soc: rgb = baked_soc
+
+            # TODO: Baked normal setup
+            if ch.special_channel_type:
+                pass
 
         #if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked and not ch.use_baked_vcol: # and baked_uv:
         #    baked = nodes.get(ch.baked)

@@ -130,6 +130,8 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     normal_prep : StringProperty(default='')
     normal_process : StringProperty(default='')
 
+    separate_xyz : StringProperty(default='')
+
     # UI
     expand_content : BoolProperty(default=False)
     expand_r : BoolProperty(default=False)
@@ -259,19 +261,6 @@ class YNewChannelBakeTarget(bpy.types.Operator):
         # Update panel
         context.area.tag_redraw()
         return {'FINISHED'}
-
-def is_bake_target_using_exact_channel(bt, root_ch):
-
-    matched = True
-
-    for i, letter in enumerate(rgba_letters):
-        if letter == 'a': continue
-        btc = getattr(bt, letter)
-        if btc.channel_name != root_ch.name or (root_ch.type != 'VALUE' and int(btc.subchannel_index) != i):
-            matched = False
-            break
-
-    return matched
 
 class YNewBakeTarget(bpy.types.Operator):
     bl_idname = "wm.y_new_bake_target"
@@ -475,6 +464,9 @@ class YRemoveBakeTarget(bpy.types.Operator):
 
         # Remove related nodes
         remove_node(tree, bt, 'baked_node')
+        remove_node(tree, bt, 'normal_prep')
+        remove_node(tree, bt, 'normal_process')
+        remove_node(tree, bt, 'separate_xyz')
 
         # Remove bake target
         yp.bake_targets.remove(yp.active_bake_target_index)

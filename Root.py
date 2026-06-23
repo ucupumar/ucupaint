@@ -2764,6 +2764,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'baked_disp')
         remove_node(group_tree, channel, 'baked_normal_overlay')
         remove_node(group_tree, channel, 'baked_normal_no_disp')
+        remove_node(group_tree, channel, 'baked_combine_xyz')
 
         for mod in channel.modifiers:
             Modifier.delete_modifier_nodes(group_tree, mod)
@@ -4971,6 +4972,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
     modifiers : CollectionProperty(type=Modifier.YPaintModifier)
     active_modifier_index : IntProperty(default=0)
 
+    bake_target_name : StringProperty(
+        name = 'Bake Target Name',
+        description = "Bake target name that will be used for the baked version of the channel",
+        default=''
+    )
+
     # Node names
     start_linear : StringProperty(default='')
     end_linear : StringProperty(default='')
@@ -4998,6 +5005,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_vdisp : StringProperty(default='')
     baked_normal_overlay : StringProperty(default='')
     baked_normal_no_disp : StringProperty(default='')
+
+    baked_combine_xyz : StringProperty(default='')
 
     # Outside baked nodes
     baked_outside : StringProperty(default='')
