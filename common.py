@@ -8835,3 +8835,35 @@ def get_bake_target_subchannel_ids_of_rgb_channel(bt, root_ch):
 
     return ids
 
+def get_channel_bake_target_dict(yp):
+
+    chbts = {}
+    for ch in yp.channels:
+        chbts[ch.name] = []
+
+    for bt in yp.bake_targets:
+
+        r_found = False
+        g_found = False
+        b_found = False
+        rgb_ch = None
+
+        for letter in rgba_letters:
+            btc = getattr(bt, letter)
+            ch = yp.channels.get(btc.channel_name)
+            if ch:
+                if ch.type == 'VALUE':
+                    if bt not in chbts[ch.name]: chbts[ch.name].append(bt)
+                else:
+                    # NOTE: Currently only bake target that has the full RGB will be considered
+                    if rgb_ch == None: rgb_ch = ch
+                    if rgb_ch == ch:
+                        if btc.subchannel_index == '0': r_found = True
+                        elif btc.subchannel_index == '1': g_found = True
+                        elif btc.subchannel_index == '2': b_found = True
+
+        if rgb_ch and r_found and g_found and b_found:
+            if bt not in chbts[rgb_ch.name]: chbts[rgb_ch.name].append(bt)
+    
+    return chbts
+

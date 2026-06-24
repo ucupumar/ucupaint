@@ -3942,6 +3942,9 @@ def draw_layers_ui(context, layout, node):
 
         root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
 
+        # Get channel bake target dictionary
+        chbts = get_channel_bake_target_dict(yp)
+
         for i, root_ch in enumerate(yp.channels):
 
             try: nchui = ypui.channels[i]
@@ -3952,10 +3955,13 @@ def draw_layers_ui(context, layout, node):
             baked = nodes.get(root_ch.baked)
             baked_vcol_node = nodes.get(root_ch.baked_vcol)
 
+            baked_image = get_active_baked_channel_image(root_ch)
+
             icon_name = lib.channel_custom_icon_dict[root_ch.type]
             icon_value = lib.get_icon(icon_name)
 
-            no_baked_data = not baked or not baked.image or root_ch.no_layer_using
+            #no_baked_data = not baked or not baked.image or root_ch.no_layer_using
+            no_baked_data = not baked_image
             bake_disabled = root_ch.disable_global_baked and not yp.enable_baked_outside
 
             #if not baked or not baked.image or root_ch.no_layer_using:
@@ -3963,7 +3969,8 @@ def draw_layers_ui(context, layout, node):
             #else:
             row = col.row(align=True)
             row.context_pointer_set('root_ch', root_ch)
-            if baked: row.context_pointer_set('image', baked.image)
+            #if baked: row.context_pointer_set('image', baked.image)
+            if baked_image: row.context_pointer_set('image', baked_image)
 
             rrow = row.row(align=True)
             icon = get_collapse_arrow_icon(getattr(nchui, 'expand_baked_data'))
@@ -4003,16 +4010,16 @@ def draw_layers_ui(context, layout, node):
             row = bcol.row(align=True)
             row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
             #row.label(text='', icon='BLANK1')
-            if baked.image.is_dirty:
-                title = baked.image.name + ' *'
-            else: title = baked.image.name
+            if baked_image.is_dirty:
+                title = baked_image.name + ' *'
+            else: title = baked_image.name
             if root_ch.disable_global_baked and not yp.enable_baked_outside:
                 title += ' (Disabled)'
             elif not root_ch.use_baked_vcol and baked_vcol_node:
                 title += pgettext_iface(' (Active)')
             row.label(text=title, icon_value=lib.get_icon('image'))
 
-            if baked.image.packed_file:
+            if baked_image.packed_file:
                 row.label(text='', icon='PACKAGE')
                 #row.label(text='', icon='BLANK1')
 
@@ -4055,27 +4062,50 @@ def draw_layers_ui(context, layout, node):
 
                     if baked_normal_no_disp.image.packed_file:
                         row.label(text='', icon='PACKAGE')
-
-            btimages = []
-            for bt in yp.bake_targets:
-                for letter in rgba_letters:
-                    btc = getattr(bt, letter)
-                    if getattr(btc, 'channel_name') == root_ch.name:
-                        bt_node = nodes.get(bt.baked_node)
-                        btimg = bt_node.image if bt_node and bt_node.type == 'TEX_IMAGE' and bt_node.image else None
-                        if btimg and btimg not in btimages:
-
-                            title = btimg.name
-                            if btimg.is_dirty:
+            
+            if root_ch.name in chbts:
+                for bt in chbts[root_ch.name]:
+                    if bt.name == root_ch.bake_target_name: continue
+                    baked_node = nodes.get(bt.baked_node)
+                    if baked_node:
+                        if baked_node.type == 'TEX_IMAGE' and baked_node.image:
+                            title = baked_node.image.name
+                            if baked_node.image.is_dirty:
                                 title += ' *'
 
                             row = bcol.row(align=True)
                             row.label(text=title, icon_value=lib.get_icon('image'))
 
-                            if btimg.packed_file:
+                            if baked_node.image.packed_file:
                                 row.label(text='', icon='PACKAGE')
 
-                            btimages.append(btimg)
+                            #btimages.append(baked_node.image)
+                        elif baked_node.type == 'ATTRIBUTE':
+                            title = bt.name
+
+                            row = bcol.row(align=True)
+                            row.label(text=title, icon_value=lib.get_icon('vertex_color'))
+
+            #btimages = []
+            #for bt in yp.bake_targets:
+            #    for letter in rgba_letters:
+            #        btc = getattr(bt, letter)
+            #        if getattr(btc, 'channel_name') == root_ch.name:
+            #            bt_node = nodes.get(bt.baked_node)
+            #            btimg = bt_node.image if bt_node and bt_node.type == 'TEX_IMAGE' and bt_node.image else None
+            #            if btimg and btimg not in btimages:
+
+            #                title = btimg.name
+            #                if btimg.is_dirty:
+            #                    title += ' *'
+
+            #                row = bcol.row(align=True)
+            #                row.label(text=title, icon_value=lib.get_icon('image'))
+
+            #                if btimg.packed_file:
+            #                    row.label(text='', icon='PACKAGE')
+
+            #                btimages.append(btimg)
 
         row = box.row(align=True)
         icon = 'FILE_TICK'

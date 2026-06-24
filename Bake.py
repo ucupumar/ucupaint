@@ -1573,7 +1573,13 @@ class BaseBakeBakeTargetOperator():
             bake_bake_target(mat, node, bt, btprops, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
 
         # Validate channels with bake targets
-        validate_channels_bake_targets(yp)
+        validated_chs = validate_channels_bake_targets(yp)
+
+        # Expand baked data
+        for ch in validated_chs:
+            image = get_active_baked_channel_image(ch)
+            if image and image.is_dirty:
+                ch.expand_baked_data = True
 
         # Update global uv
         check_uv_nodes(yp)
