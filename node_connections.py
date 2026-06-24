@@ -668,29 +668,29 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                                 baked_soc = baked_combine_xyz.outputs[0]
 
-            if baked_soc: rgb = baked_soc
+            if baked_soc:
+                rgb = baked_soc
 
-            # TODO: Baked normal setup
-            if ch.special_channel_type == 'NORMAL':
+                if ch.special_channel_type == 'NORMAL':
 
-                #baked_normal_no_disp = nodes.get(ch.baked_normal_no_disp)
-                #if baked_normal_no_disp and height_ch and not height_ch.use_height_as_bump:
-                #    rgb = baked_normal_no_disp.outputs[0]
+                    #baked_normal_no_disp = nodes.get(ch.baked_normal_no_disp)
+                    #if baked_normal_no_disp and height_ch and not height_ch.use_height_as_bump:
+                    #    rgb = baked_normal_no_disp.outputs[0]
 
-                baked_normal_prep = nodes.get(ch.baked_normal_prep)
-                if baked_normal_prep:
-                    if rgb:
-                        rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
-                    else:
-                        rgb = baked_normal_prep.outputs[0]
-                        break_input_link(tree, baked_normal_prep.inputs[0])
+                    baked_normal_prep = nodes.get(ch.baked_normal_prep)
+                    if baked_normal_prep:
+                        if rgb:
+                            rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
+                        else:
+                            rgb = baked_normal_prep.outputs[0]
+                            break_input_link(tree, baked_normal_prep.inputs[0])
 
-                    #HACK: Some earlier nodes have wrong default colot input
-                    baked_normal_prep.inputs[0].default_value = (0.5, 0.5, 1.0, 1.0)
+                        #HACK: Some earlier nodes have wrong default colot input
+                        baked_normal_prep.inputs[0].default_value = (0.5, 0.5, 1.0, 1.0)
 
-                baked_normal = nodes.get(ch.baked_normal)
-                if baked_normal:
-                    rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
+                    baked_normal = nodes.get(ch.baked_normal)
+                    if baked_normal:
+                        rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
 
         #if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked and not ch.use_baked_vcol: # and baked_uv:
         #    baked = nodes.get(ch.baked)

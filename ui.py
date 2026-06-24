@@ -1003,7 +1003,7 @@ def draw_bake_targets_ui(context, layout, node):
     rcol = row.column(align=True)
     #rcol.context_pointer_set('node', node)
 
-    rcol.operator("wm.y_bake_all_targets", text='', icon_value=lib.get_icon('bake'))
+    #rcol.operator("wm.y_bake_all_targets", text='', icon_value=lib.get_icon('bake'))
     if is_bl_newer_than(2, 80):
         rcol.operator("wm.y_new_bake_target", icon='ADD', text='')
         rcol.operator("wm.y_remove_bake_target", icon='REMOVE', text='')
@@ -4995,7 +4995,7 @@ def main_draw(self, context):
     #if (baked_found or yp.use_baked) and not group_tree.users > 1:
     #    rrow = row.row(align=True)
     #    rrow.alignment = 'RIGHT'
-    #    rrow.operator('wm.y_bake_channels', text='Rebake', icon_value=lib.get_icon('bake')).only_active_channel = False
+    #    rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
     #    rrow.separator()
     #    rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
     #    rrow.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
@@ -5030,7 +5030,7 @@ def main_draw(self, context):
         rrow = row.row(align=True)
         if is_bl_newer_than(2, 80):
             rrow.alignment = 'RIGHT'
-        rrow.operator('wm.y_bake_channels', text='Rebake', icon_value=lib.get_icon('bake')).only_active_channel = False
+        rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
         rrow.separator()
         rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
         rrow.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
@@ -6284,7 +6284,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
 
-        col.operator('wm.y_bake_channels', text='Bake All Channels', icon_value=lib.get_icon('bake')).only_active_channel = False
+        col.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake'))
         col.operator('wm.y_rename_ypaint_tree', text='Rename Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()

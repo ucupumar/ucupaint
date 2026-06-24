@@ -1286,13 +1286,13 @@ def validate_channels_bake_targets(yp):
 
         # Bake target found
         if bt and baked_node:
+
             # Check for exact channel bake target
             if is_bake_target_using_exact_channel(bt, ch):
                 validated_chs.append(ch)
-                break
 
             # Check if the bake target uses non-standard layout
-            if ch.type == 'VALUE':
+            elif ch.type == 'VALUE':
                 index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
                 if index != -1:
                     if index != 3:
@@ -1340,6 +1340,7 @@ def validate_channels_bake_targets(yp):
                         break
                 else:
                     ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
+                    print(ch.name, bt.name, ids)
                     if -1 not in ids:
                         need_separate_xyzs.append(bt)
                         need_combine_xyzs.append(ch)
@@ -1675,8 +1676,8 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
 
 class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoProps, BaseBakeBakeTargetOperator):
     bl_idname = "wm.y_bake_all_targets"
-    bl_label = "Bake All Custom Targets"
-    bl_description = "Bake all custom targets"
+    bl_label = "Bake All Bake Targets"
+    bl_description = "Bake all bake targets"
     bl_options = {'REGISTER', 'UNDO'}
 
     override_all : BoolProperty(

@@ -2191,7 +2191,7 @@ def rearrange_yp_nodes(group_tree):
 
         if check_set_node_loc(group_tree, ch.baked_combine_xyz, loc):
             any_node = True
-            loc.x -= 200
+            loc.x += 200
 
         #if check_set_node_loc(group_tree, ch.baked, loc):
         #    loc.x += 270

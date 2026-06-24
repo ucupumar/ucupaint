@@ -5285,6 +5285,18 @@ def check_other_mats_to_use_temp_image(obj):
                     mat.paint_active_slot = idx
                     break
 
+def get_active_baked_channel_image(root_ch):
+    tree = root_ch.id_data
+    yp = tree.yp
+
+    bt = yp.bake_targets.get(root_ch.bake_target_name)
+    baked_node = tree.nodes.get(bt.baked_node) if bt else None
+
+    if baked_node and baked_node.type == 'TEX_IMAGE':
+        return baked_node.image
+
+    return None
+
 def set_active_paint_slot_entity(yp):
     image = None
     mat = get_active_material()
@@ -5306,37 +5318,38 @@ def set_active_paint_slot_entity(yp):
     if yp.use_baked and len(yp.channels) > 0:
 
         ch = yp.channels[yp.active_channel_index]
-        if ch.special_channel_type == 'NORMAL':
-            cur_image = get_active_paint_slot_image()
+        image = get_active_baked_channel_image(ch)
+        #if ch.special_channel_type == 'NORMAL':
+        #    cur_image = get_active_paint_slot_image()
 
-            # Cycle through all baked normal images
-            #orders = ['baked', 'baked_normal_overlay', 'baked_disp', 'baked_vdisp']
-            orders = ['baked', 'baked_normal_no_disp']
-            for i, prop in enumerate(orders):
-                cur_baked = root_tree.nodes.get(getattr(ch, prop))
-                if cur_baked and cur_baked.image == cur_image:
-                    next_i = i
-                    for j in range(len(orders)):
-                        if next_i == len(orders)-1:
-                            next_i = 0
-                        else: next_i += 1
+        #    # Cycle through all baked normal images
+        #    #orders = ['baked', 'baked_normal_overlay', 'baked_disp', 'baked_vdisp']
+        #    orders = ['baked', 'baked_normal_no_disp']
+        #    for i, prop in enumerate(orders):
+        #        cur_baked = root_tree.nodes.get(getattr(ch, prop))
+        #        if cur_baked and cur_baked.image == cur_image:
+        #            next_i = i
+        #            for j in range(len(orders)):
+        #                if next_i == len(orders)-1:
+        #                    next_i = 0
+        #                else: next_i += 1
 
-                        next_prop = orders[next_i]
-                        next_baked = root_tree.nodes.get(getattr(ch, next_prop))
+        #                next_prop = orders[next_i]
+        #                next_baked = root_tree.nodes.get(getattr(ch, next_prop))
 
-                        if next_baked:
-                            next_baked.select = True
-                            image = next_baked.image
-                            root_tree.nodes.active = next_baked
-                            break
-                    break
+        #                if next_baked:
+        #                    next_baked.select = True
+        #                    image = next_baked.image
+        #                    root_tree.nodes.active = next_baked
+        #                    break
+        #            break
 
-        if not image:
-            baked = root_tree.nodes.get(ch.baked)
-            if baked and baked.image:
-                baked.select = True
-                root_tree.nodes.active = baked
-                image = baked.image
+        #if not image:
+        #    baked = root_tree.nodes.get(ch.baked)
+        #    if baked and baked.image:
+        #        baked.select = True
+        #        root_tree.nodes.active = baked
+        #        image = baked.image
 
     elif len(yp.layers) > 0:
         
