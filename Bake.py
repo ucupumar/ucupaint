@@ -1340,7 +1340,6 @@ def validate_channels_bake_targets(yp):
                         break
                 else:
                     ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
-                    print(ch.name, bt.name, ids)
                     if -1 not in ids:
                         need_separate_xyzs.append(bt)
                         need_combine_xyzs.append(ch)

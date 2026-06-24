@@ -2635,13 +2635,28 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # NOTE: Assuming there's only one normal channel, which what's currently possible
     all_normal_ch = True
     if any_normal_ch:
+
+        r_found = False
+        g_found = False
+        b_found = False
+
         for letter in rgba_letters:
             if letter == 'a': continue
+
+            # Check if all the channels are used
             btc = getattr(bt, letter)
+            if btc.subchannel_index == '0': r_found = True
+            elif btc.subchannel_index == '1': g_found = True
+            elif btc.subchannel_index == '2': b_found = True
+
+            # Check if there's other channel
             root_ch = yp.channels.get(btc.channel_name)
             if not root_ch or root_ch != normal_root_ch:
                 all_normal_ch = False
                 break
+
+        if not r_found or not g_found or not b_found:
+            all_normal_ch = False
 
     tangent_sign_calculation = False
     if BL28_HACK and any_normal_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
@@ -2940,6 +2955,20 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
             # Baking normal from diffuse bsdf
             scene.cycles.bake_type = 'NORMAL'
             scene.render.bake.normal_space = 'TANGENT'
+
+            # Map the channels
+            if all_normal_ch:
+                for i, letter in enumerate(rgba_letters):
+                    if letter == 'a': continue
+                    btc = getattr(bt, letter)
+                    subch = 'POS_' if not btc.invert_value else 'NEG_'
+                    if btc.subchannel_index == '0': subch += 'X'
+                    elif btc.subchannel_index == '1': subch += 'Y'
+                    elif btc.subchannel_index == '2': subch += 'Z'
+
+                    if i == 0: scene.render.bake.normal_r = subch
+                    elif i == 1: scene.render.bake.normal_g = subch
+                    elif i == 2: scene.render.bake.normal_b = subch
 
             # Connect bsdf node to output
             if rgb: mat.node_tree.links.new(rgb, bsdf.inputs['Normal'])
