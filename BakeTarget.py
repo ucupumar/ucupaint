@@ -127,10 +127,11 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     baked_node : StringProperty(default='')
     baked_node_outside : StringProperty(default='')
 
-    normal_prep : StringProperty(default='')
-    normal_process : StringProperty(default='')
-
     separate_xyz : StringProperty(default='')
+    invert_r : StringProperty(default='')
+    invert_g : StringProperty(default='')
+    invert_b : StringProperty(default='')
+    invert_a : StringProperty(default='')
 
     # UI
     expand_content : BoolProperty(default=False)

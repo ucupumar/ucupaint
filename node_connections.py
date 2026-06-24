@@ -607,44 +607,90 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             if bt:
                 baked_node = nodes.get(bt.baked_node)
                 if baked_node:
+                    # Separate XYZ
+                    separate_xyz = nodes.get(bt.separate_xyz)
+                    if separate_xyz: create_link(tree, baked_node.outputs[0], separate_xyz.inputs[0])
+
+                    # Invert values
+                    invert_r = nodes.get(bt.invert_r)
+                    invert_g = nodes.get(bt.invert_g)
+                    invert_b = nodes.get(bt.invert_b)
+                    invert_a = nodes.get(bt.invert_a)
+
+                    # Connect invert nodes
+                    if separate_xyz:
+                        if invert_r: create_link(tree, separate_xyz.outputs[0], invert_r.inputs[1])
+                        if invert_g: create_link(tree, separate_xyz.outputs[1], invert_g.inputs[1])
+                        if invert_b: create_link(tree, separate_xyz.outputs[2], invert_b.inputs[1])
+                    if invert_a:
+                        if baked_node.type == 'TEX_IMAGE': create_link(tree, baked_node.outputs[1], invert_a.inputs[1])
+                        elif baked_node.type == 'ATTRIBUTE': create_link(tree, baked_node.outputs['Alpha'], invert_a.inputs[1])
+
                     if is_bake_target_using_exact_channel(bt, ch):
-                        if baked_node.type == 'TEX_IMAGE':
-                            baked_soc = baked_node.outputs[0]
-                        elif baked_node.type == 'ATTRIBUTE':
-                            baked_soc = baked_node.outputs['Color']
+                        if baked_node.type == 'TEX_IMAGE': baked_soc = baked_node.outputs[0]
+                        elif baked_node.type == 'ATTRIBUTE': baked_soc = baked_node.outputs['Color']
 
                     elif ch.type == 'VALUE':
                         index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
                         if index != -1:
                             if index == 3:
-                                if baked_node.type == 'TEX_IMAGE':
-                                    baked_soc = baked_node.outputs[1]
-                                elif baked_node.type == 'ATTRIBUTE':
-                                    baked_soc = baked_node.outputs['Alpha']
-                            else:
-                                separate_xyz = nodes.get(bt.separate_xyz)
-                                if separate_xyz:
-                                    create_link(tree, baked_node.outputs[0], separate_xyz.inputs[0])
-                                    baked_soc = separate_xyz.outputs[index]
+                                if bt.a.invert_value and invert_a: baked_soc = invert_a.outputs[0]
+                                elif baked_node.type == 'TEX_IMAGE': baked_soc = baked_node.outputs[1]
+                                elif baked_node.type == 'ATTRIBUTE': baked_soc = baked_node.outputs['Alpha']
+                            else: 
+                                if index == 0 and bt.r.invert_value and invert_r: baked_soc = invert_r.outputs[0]
+                                elif index == 1 and bt.g.invert_value and invert_g: baked_soc = invert_g.outputs[0]
+                                elif index == 2 and bt.b.invert_value and invert_b: baked_soc = invert_b.outputs[0]
+                                elif separate_xyz: baked_soc = separate_xyz.outputs[index]
                     else:
                         ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
                         if -1 not in ids:
-                            separate_xyz = nodes.get(bt.separate_xyz)
                             baked_combine_xyz = nodes.get(ch.baked_combine_xyz)
                             if separate_xyz and baked_combine_xyz:
-                                create_link(tree, baked_node.outputs[0], separate_xyz.inputs[0])
+                                # Get base socket
+                                socs = []
+                                for i in range(len(ids)):
+                                    if ids[i] == 3:
+                                        if baked_node.type == 'TEX_IMAGE': socs.append(baked_node.outputs[1])
+                                        elif baked_node.type == 'ATTRIBUTE': socs.append(baked_node.outputs['Alpha'])
+                                    else: socs.append(separate_xyz.outputs[ids[i]])
 
-                                create_link(tree, separate_xyz.outputs[ids[0]], baked_combine_xyz.inputs[0])
-                                create_link(tree, separate_xyz.outputs[ids[1]], baked_combine_xyz.inputs[1])
-                                create_link(tree, separate_xyz.outputs[ids[2]], baked_combine_xyz.inputs[2])
+                                # Check for inverted value
+                                for i, index in enumerate(ids):
+                                    if index == 0 and bt.r.invert_value and invert_r: socs[i] = invert_r.outputs[0]
+                                    elif index == 1 and bt.g.invert_value and invert_g: socs[i] = invert_g.outputs[0]
+                                    elif index == 2 and bt.b.invert_value and invert_b: socs[i] = invert_b.outputs[0]
+                                    elif index == 3 and bt.a.invert_value and invert_a: socs[i] = invert_a.outputs[0]
+
+                                # Connect to combine xyz
+                                for i, soc in enumerate(socs):
+                                    create_link(tree, soc, baked_combine_xyz.inputs[i])
 
                                 baked_soc = baked_combine_xyz.outputs[0]
 
             if baked_soc: rgb = baked_soc
 
             # TODO: Baked normal setup
-            if ch.special_channel_type:
-                pass
+            if ch.special_channel_type == 'NORMAL':
+
+                #baked_normal_no_disp = nodes.get(ch.baked_normal_no_disp)
+                #if baked_normal_no_disp and height_ch and not height_ch.use_height_as_bump:
+                #    rgb = baked_normal_no_disp.outputs[0]
+
+                baked_normal_prep = nodes.get(ch.baked_normal_prep)
+                if baked_normal_prep:
+                    if rgb:
+                        rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
+                    else:
+                        rgb = baked_normal_prep.outputs[0]
+                        break_input_link(tree, baked_normal_prep.inputs[0])
+
+                    #HACK: Some earlier nodes have wrong default colot input
+                    baked_normal_prep.inputs[0].default_value = (0.5, 0.5, 1.0, 1.0)
+
+                baked_normal = nodes.get(ch.baked_normal)
+                if baked_normal:
+                    rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
 
         #if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked and not ch.use_baked_vcol: # and baked_uv:
         #    baked = nodes.get(ch.baked)

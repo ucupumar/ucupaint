@@ -2151,105 +2151,90 @@ def rearrange_yp_nodes(group_tree):
 
     farthest_x = ori_x = loc.x
 
-    for i, ch in enumerate(yp.channels):
-
-        loc.x = ori_x
-
-        if check_set_node_loc(group_tree, ch.baked, loc):
-            loc.x += 270
-
-        if yp.use_baked and check_set_node_loc(group_tree, channel.end_normal_engine_filter, loc):
-            loc.x += 200
-
-        if check_set_node_loc(group_tree, ch.baked_normal_prep, loc):
-            loc.x += 200
-
-        if check_set_node_loc(group_tree, ch.baked_normal, loc):
-            loc.x += 200
-
-        #if check_set_node_loc(group_tree, ch.baked_normal_flip, loc):
-        #    loc.x += 200
-
-        loc.y -= 270
-        save_x = loc.x
-
-        loc.x = ori_x
-
-        if check_set_node_loc(group_tree, ch.baked_normal_overlay, loc):
-            loc.y -= 270
-
-        if check_set_node_loc(group_tree, ch.baked_normal_no_disp, loc):
-            loc.y -= 270
-
-        if check_set_node_loc(group_tree, ch.baked_disp, loc):
-            loc.y -= 270
-
-        if check_set_node_loc(group_tree, ch.end_max_height, loc):
-            loc.y -= 110
-
-        if check_set_node_loc(group_tree, ch.baked_vdisp, loc):
-            loc.y -= 270
-
-        if check_set_node_loc(group_tree, ch.baked_vcol, loc):
-            loc.y -= 270
-
-        if check_set_node_loc(group_tree, ch.baked_combine_xyz, loc):
-            loc.y -= 270
-
-        loc.x = save_x
-
-        if loc.x > farthest_x: farthest_x = loc.x
-
-        #if i == num_channels-1:
-        #    loc.x = ori_x
-
-        #    check_set_node_loc(group_tree, BAKED_PARALLAX, loc)
-        #    loc.y -= 190
-
-        #    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-        #    if baked_parallax:
-        #        rearrange_parallax_layer_nodes(yp, baked_parallax)
-
-            #check_set_node_loc(group_tree, BAKED_UV, loc)
-            #loc.y -= 120
-
-            #check_set_node_loc(group_tree, BAKED_TANGENT_FLIP, loc)
-            #loc.y -= 170
-
-            #check_set_node_loc(group_tree, BAKED_TANGENT, loc)
-            #loc.y -= 170
-
-            #check_set_node_loc(group_tree, BAKED_BITANGENT_FLIP, loc)
-            #loc.y -= 120
-
-            #check_set_node_loc(group_tree, BAKED_BITANGENT, loc)
-            #loc.y -= 170
-
-            #check_set_node_loc(group_tree, BAKED_NORMAL_FLIP, loc)
-            #if check_set_node_loc(group_tree, BAKED_UV, loc):
-                #loc.y -= 120
-                #loc.x += 200
-
     for bt in yp.bake_targets:
 
         loc.x = ori_x
 
+        # Deprecated
         if check_set_node_loc(group_tree, bt.image_node, loc):
             loc.x += 270
 
         if check_set_node_loc(group_tree, bt.baked_node, loc):
             loc.x += 270
 
-        if check_set_node_loc(group_tree, bt.normal_prep, loc):
-            loc.x += 200
-
-        if check_set_node_loc(group_tree, bt.normal_process, loc):
-            loc.x += 200
-
         if check_set_node_loc(group_tree, bt.separate_xyz, loc):
             loc.x += 200
 
+        if bt.invert_r != '' or bt.invert_g != '' or bt.invert_b != '' or bt.invert_a != '':
+            if check_set_node_loc(group_tree, bt.invert_r, loc, True):
+                loc.y -= 40
+            if check_set_node_loc(group_tree, bt.invert_g, loc, True):
+                loc.y -= 40
+            if check_set_node_loc(group_tree, bt.invert_b, loc, True):
+                loc.y -= 40
+            if check_set_node_loc(group_tree, bt.invert_a, loc, True):
+                loc.y -= 40
+            loc.x += 200
+
         loc.y -= 270
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
+    loc.x = ori_x = farthest_x
+    loc.y = 0
+
+    for i, ch in enumerate(yp.channels):
+
+        loc.x = ori_x
+
+        any_node = False
+
+        if check_set_node_loc(group_tree, ch.baked_combine_xyz, loc):
+            any_node = True
+            loc.x -= 200
+
+        #if check_set_node_loc(group_tree, ch.baked, loc):
+        #    loc.x += 270
+
+        #if yp.use_baked and check_set_node_loc(group_tree, channel.end_normal_engine_filter, loc):
+        #    loc.x += 200
+
+        if check_set_node_loc(group_tree, ch.baked_normal_prep, loc):
+            any_node = True
+            loc.x += 200
+
+        if check_set_node_loc(group_tree, ch.baked_normal, loc):
+            any_node = True
+            loc.x += 200
+
+        #if check_set_node_loc(group_tree, ch.baked_normal_flip, loc):
+        #    loc.x += 200
+
+        if any_node:
+            loc.y -= 270
+        #save_x = loc.x
+
+        #loc.x = ori_x
+
+        #if check_set_node_loc(group_tree, ch.baked_normal_overlay, loc):
+        #    loc.y -= 270
+
+        #if check_set_node_loc(group_tree, ch.baked_normal_no_disp, loc):
+        #    loc.y -= 270
+
+        #if check_set_node_loc(group_tree, ch.baked_disp, loc):
+        #    loc.y -= 270
+
+        #if check_set_node_loc(group_tree, ch.end_max_height, loc):
+        #    loc.y -= 110
+
+        #if check_set_node_loc(group_tree, ch.baked_vdisp, loc):
+        #    loc.y -= 270
+
+        #if check_set_node_loc(group_tree, ch.baked_vcol, loc):
+        #    loc.y -= 270
+
+        #loc.x = save_x
 
         if loc.x > farthest_x: farthest_x = loc.x
 

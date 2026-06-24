@@ -2747,9 +2747,17 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
     combine_xyz = mat.node_tree.nodes.new('ShaderNodeCombineXYZ')
+
     separate_xyzs = []
     for i in range(4):
         separate_xyzs.append(mat.node_tree.nodes.new('ShaderNodeSeparateXYZ'))
+
+    inverts = []
+    for i in range(4):
+        inv = mat.node_tree.nodes.new('ShaderNodeMath')
+        inv.operation = 'SUBTRACT'
+        inv.inputs[0].default_value = 1.0
+        inverts.append(inv)
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex
@@ -2808,23 +2816,6 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 else: baked_node.color_space = 'COLOR'
             baked_node.interpolation = btprops.interpolation
         
-            # Normal related nodes
-            if any_normal_ch:
-                normal_process = tree.nodes.get(bt.normal_process)
-                if not normal_process:
-                    normal_process = new_node(tree, bt, 'normal_process', 'ShaderNodeNormalMap', 'Normal Process')
-                normal_process.uv_map = btprops.uv_map
-
-                normal_prep = tree.nodes.get(bt.normal_prep)
-                if not normal_prep:
-                    normal_prep = new_node(
-                        tree, bt, 'normal_prep',
-                        'ShaderNodeGroup', 'Baked Normal Preparation'
-                    )
-                    if is_bl_newer_than(2, 80):
-                        normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
-                    else: normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP_LEGACY)
-
     if not is_vcol_baking:
         # Create new image
         if not img:
@@ -3017,16 +3008,25 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
             btc = getattr(bt, letter)
             root_ch = yp.channels.get(btc.channel_name)
             soc = node.outputs.get(root_ch.name) if root_ch else None
-            if root_ch and root_ch == normal_root_ch and (norm_tex or norm_attr):
-                if norm_tex: mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[i].inputs[0])
-                elif norm_attr: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[i].inputs[0])
-                mat.node_tree.links.new(separate_xyzs[i].outputs[int(btc.subchannel_index)], combine_xyz.inputs[i])
-            elif root_ch and soc:
-                if root_ch.type == 'VALUE':
-                    mat.node_tree.links.new(soc, combine_xyz.inputs[i])
-                else:
+
+            if root_ch:
+                if root_ch == normal_root_ch and (norm_tex or norm_attr):
+
+                    if norm_tex:
+                        mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[i].inputs[0])
+                    else: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[i].inputs[0])
+                    soc = separate_xyzs[i].outputs[int(btc.subchannel_index)]
+                    
+                elif soc and root_ch.type != 'VALUE':
                     mat.node_tree.links.new(soc, separate_xyzs[i].inputs[0])
-                    mat.node_tree.links.new(separate_xyzs[i].outputs[int(btc.subchannel_index)], combine_xyz.inputs[i])
+                    soc = separate_xyzs[i].outputs[int(btc.subchannel_index)]
+                
+            if soc:
+                if btc.invert_value:
+                    mat.node_tree.links.new(soc, inverts[i].inputs[1])
+                    soc = inverts[i].outputs[0]
+
+                mat.node_tree.links.new(soc, combine_xyz.inputs[i])
             else:
                 inp = combine_xyz.inputs[i]
                 if inp:
@@ -3082,14 +3082,17 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
 
         if root_ch == normal_root_ch and (norm_tex or norm_attr):
             if norm_tex: mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[3].inputs[0])
-            elif norm_attr: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[3].inputs[0])
-            mat.node_tree.links.new(separate_xyzs[3].outputs[int(bt.a.subchannel_index)], emit.inputs[0])
-        elif root_ch.type == 'VALUE':
-            mat.node_tree.links.new(soc, emit.inputs[0])
-            inp = node.inputs.get(root_ch.name).default_value
-        else:
+            else: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[3].inputs[0])
+            soc = separate_xyzs[3].outputs[int(bt.a.subchannel_index)]
+        elif root_ch.type != 'VALUE':
             mat.node_tree.links.new(soc, separate_xyzs[3].inputs[0])
-            mat.node_tree.links.new(separate_xyzs[3].outputs[int(bt.a.subchannel_index)], emit.inputs[0])
+            soc = separate_xyzs[3].outputs[int(bt.a.subchannel_index)]
+
+        if bt.a.invert_value:
+            mat.node_tree.links.new(soc, inverts[3].inputs[1])
+            soc = inverts[3].outputs[0]
+
+        mat.node_tree.links.new(soc, emit.inputs[0])
 
         if alpha_img: 
             tex.image = alpha_img
@@ -3151,6 +3154,8 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     simple_remove_node(mat.node_tree, emit)
     simple_remove_node(mat.node_tree, combine_xyz)
     for n in separate_xyzs:
+        simple_remove_node(mat.node_tree, n)
+    for n in inverts:
         simple_remove_node(mat.node_tree, n)
     if bsdf: simple_remove_node(mat.node_tree, bsdf)
     if norm: simple_remove_node(mat.node_tree, norm)

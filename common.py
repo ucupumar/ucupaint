@@ -8792,9 +8792,9 @@ def is_bake_target_using_exact_channel(bt, root_ch):
 
     if bt.r.channel_name == bt.g.channel_name == bt.b.channel_name == root_ch.name:
         if root_ch.type == 'VALUE' or (
-            bt.r.subchannel_index == '0' and
-            bt.g.subchannel_index == '1' and
-            bt.b.subchannel_index == '2'
+            bt.r.subchannel_index == '0' and not bt.r.invert_value and
+            bt.g.subchannel_index == '1' and not bt.g.invert_value and
+            bt.b.subchannel_index == '2' and not bt.b.invert_value
         ):
             return True
 
