@@ -8191,6 +8191,9 @@ def update_mask_ui(self, context):
     mask.expand_vector = self.expand_vector
 
 def update_bake_target_ui(self, context):
+    ypui = context.window_manager.ypui
+    if ypui.halt_prop_update: return
+
     group_node =  get_active_ypaint_node()
     if not group_node: return
     yp = group_node.node_tree.yp
