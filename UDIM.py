@@ -699,7 +699,7 @@ def refresh_udim_segment_base_tilenums(segment, tilenums):
         if btile.number not in tilenums:
             segment.base_tiles.remove(i)
 
-def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0, 0, 0, 0), source_image=None, source_tilenums=[], yp=None):
+def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0, 0, 0, 0), source_image=None, source_tilenums=[], yp=None, copy_only_size=False):
 
     #if yp: refresh_udim_atlas(image, yp)
 
@@ -734,7 +734,7 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
         fill_tile(image, tilenum, color, width, height, empty_only=False)
 
     # Copy from source image
-    if source_image:
+    if source_image and not copy_only_size:
         copy_tiles(source_image, image, copy_dict)
 
     # Pack image
@@ -757,7 +757,8 @@ def get_set_udim_atlas_segment(
         tilenums, 
         width=1024, height=1024, color=(0, 0, 0, 0), colorspace='', hdr=False, yp=None, 
         source_image=None, source_tilenums=[], 
-        image_exception=None, image_inclusions=[]
+        image_exception=None, image_inclusions=[],
+        copy_only_size=False,
     ):
 
     ypup = get_user_preferences()
@@ -782,7 +783,8 @@ def get_set_udim_atlas_segment(
             if colorspace != '' and image.colorspace_settings.name != colorspace: continue
             segment = create_udim_atlas_segment(
                 image, tilenums, width, height, color, 
-                source_image=source_image, source_tilenums=source_tilenums, yp=yp
+                source_image=source_image, source_tilenums=source_tilenums, yp=yp,
+                copy_only_size=copy_only_size
             )
         if segment:
             break
@@ -792,7 +794,8 @@ def get_set_udim_atlas_segment(
         image = create_udim_atlas(tilenums, name, width, height, color, colorspace, hdr)
         segment = create_udim_atlas_segment(
             image, tilenums, width, height, color, 
-            source_image=source_image, source_tilenums=source_tilenums, yp=yp
+            source_image=source_image, source_tilenums=source_tilenums, yp=yp,
+            copy_only_size=copy_only_size
         )
 
     return segment

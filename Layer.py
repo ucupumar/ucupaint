@@ -5466,7 +5466,9 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
                 new_segment = UDIM.get_set_udim_atlas_segment(
                     tilenums, color=img.yui.base_color,
                     colorspace = img.colorspace_settings.name,
-                    hdr=img.is_float, yp=yp
+                    hdr=img.is_float, yp=yp,
+                    source_image=img, source_tilenums=segment_tilenums,
+                    copy_only_size = True
                 )
 
             # If using different image atlas per yp, just copy the image (unless specific layer is on)
