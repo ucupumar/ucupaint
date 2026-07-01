@@ -390,9 +390,8 @@ class VIEW3D_PT_YPaint_support_ui(bpy.types.Panel):
 
                 for cl, item in enumerate(paged_items):
                     counter_member += 1
-                    thumb = item['thumb']
-                    if not thumb:
-                        thumb = collaborators.loading_pic
+                    icon_path = os.path.join(credits_path, "icons", "contributors", item['id'] + '.png')
+                    thumb = get_cached_preview_icon(item, item['id'], icon_path, collaborators.loading_pic)
 
                     id = item["name"]
                     if id == '':
@@ -591,6 +590,20 @@ def load_preview(key:str, file_name:str):
     else:
         img = previews_users.load(key, file_name, 'IMAGE', True)
     return img
+
+
+def get_cached_preview_icon(entry, key:str, file_name:str, fallback_icon=None):
+    thumb = entry.get('thumb')
+    if thumb is not None:
+        return thumb
+
+    if os.path.exists(file_name):
+        img = load_preview(key, file_name)
+        entry['thumb'] = img.icon_id
+        return entry['thumb']
+
+    return fallback_icon
+
 
 def check_contributors():
     goal_ui = bpy.context.window_manager.ypui_credits
@@ -959,13 +972,6 @@ def download_stream(links, file_names, ids, timeout:int = 10):
         else:
             continue
 
-        k = ids[idx]
-        img = load_preview(k, file_name)
-        if k in collaborators.contributors:
-            collaborators.contributors[k]['thumb'] = img.icon_id
-        if k in collaborators.sponsors:
-            collaborators.sponsors[k]['thumb'] = img.icon_id
-        
         refresh_ui()
         
     collaborators.load_thread = None
@@ -1020,10 +1026,8 @@ def draw_contributors(context, layout):
         for cl, item in enumerate(paged_contributors):
             rw = grid.column(align=True)
 
-            thumb = item['thumb']
-            if not thumb:
-                thumb = collaborators.loading_pic
-                
+            icon_path = os.path.join(credits_path, "icons", "contributors", item['id'] + '.png')
+            thumb = get_cached_preview_icon(item, item['id'], icon_path, collaborators.loading_pic)
             rw.template_icon(icon_value = thumb, scale = 3.0)
 
             user_name = item["name"].strip()
