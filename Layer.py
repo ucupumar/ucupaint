@@ -614,13 +614,37 @@ def update_new_layer_mask_uv_map(self, context):
         objs = get_all_objects_with_same_materials(mat)
         self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
 
+def is_self_channel_idx_accessible(self):
+    # NOTE: Check if self.channel_idx is accessible or not since Blender Debug build always returns invalid pointer
+    try:
+        channel_idx = int(self.channel_idx)
+        return True
+    except: pass
+
+    return False
+
+def get_self_channel_idx(self):
+    # NOTE: This function is workaround for Blender Debug build since it always returns invalid pointer from self.channel_idx
+    try: return int(self.channel_idx)
+    except Exception as e: print('EXCEPTIION:', e)
+
+    return 0
+
+def draw_self_channel_idx(self, layout, yp=None):
+    if is_self_channel_idx_accessible(self):
+        layout.prop(self, 'channel_idx', text='')
+    elif yp and len(yp.channels) > 0:
+        first_ch = yp.channels[0]
+        icon_name = lib.channel_custom_icon_dict[first_ch.type]
+        layout.label(text=first_ch.name, icon_value=lib.get_icon(icon_name))
+
 def update_channel_idx_new_layer(self, context):
 
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
 
     # Bump map will use cubic interpolation
-    channel_idx = int(self.channel_idx)
+    channel_idx = get_self_channel_idx(self)
     if channel_idx != -1 and channel_idx < len(yp.channels):
         channel = yp.channels[channel_idx]
     else: channel = None
@@ -1339,7 +1363,7 @@ class YNewLayer(bpy.types.Operator):
             return
 
         try:
-            channel_idx = int(self.channel_idx)
+            channel_idx = get_self_channel_idx(self)
             if channel_idx != -1:
                 channel = yp.channels[channel_idx]
             else: channel = None
@@ -1446,7 +1470,7 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type not in {'GROUP', 'BACKGROUND'}:
             rrow = col.row(align=True)
-            rrow.prop(self, 'channel_idx', text='')
+            draw_self_channel_idx(self, rrow, yp)
             if channel:
                 if channel.type == 'NORMAL':
                     rrow.prop(self, 'normal_blend_type', text='')
@@ -1631,7 +1655,7 @@ class YNewLayer(bpy.types.Operator):
         if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
         # Get channel index
-        try: channel_idx = int(self.channel_idx)
+        try: channel_idx = get_self_channel_idx(self)
         except: channel_idx = 0
 
         # Default colorspace
@@ -1755,9 +1779,9 @@ class YNewLayer(bpy.types.Operator):
             ypui.layer_ui.expand_source = False
         ypui.layer_ui.expand_vector = False
 
-        if self.channel_idx != '-1':
+        if get_self_channel_idx(self) != -1:
             ypui.layer_ui.expand_channels = False
-            if yp.channels[channel_idx].type == 'NORMAL':
+            if len(yp.channels) > 0 and yp.channels[channel_idx].type == 'NORMAL':
                 layer.channels[channel_idx].expand_content = True
         else:
             ypui.layer_ui.expand_channels = True
@@ -2549,7 +2573,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
 
         #col.label(text='')
         #rrow = col.row(align=True)
-        #rrow.prop(self, 'channel_idx', text='')
+        #draw_self_channel_idx(self, rrow, yp)
         #if channel:
         #    if channel.type == 'NORMAL':
         #        rrow.prop(self, 'normal_blend_type', text='')
@@ -3120,7 +3144,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         obj = context.object
         params = context.space_data.params
 
-        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        channel = yp.channels[get_self_channel_idx(self)] if get_self_channel_idx(self) != -1 else None
         
         row = self.layout.row()
 
@@ -3145,7 +3169,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         rrow = col.row(align=True)
-        rrow.prop(self, 'channel_idx', text='')
+        draw_self_channel_idx(self, rrow, yp)
         if channel:
             if channel.type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
@@ -3353,7 +3377,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
 
             layer = add_new_layer(
                 group_tree=node.node_tree, layer_name=ld.name,
-                layer_type=ld.type, channel_idx=int(self.channel_idx),
+                layer_type=ld.type, channel_idx=get_self_channel_idx(self),
                 blend_type=ld.blend_type, normal_blend_type=self.normal_blend_type,
                 normal_map_type=self.normal_map_type, texcoord_type=self.texcoord_type,
                 uv_name = self.uv_map, image=ld.image, vcol=None, segment=ld.segment,
@@ -3853,7 +3877,7 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
         yp = node.node_tree.yp
         obj = context.object
 
-        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        channel = yp.channels[get_self_channel_idx(self)] if get_self_channel_idx(self) != -1 else None
 
         row = self.layout.row()
 
@@ -3890,7 +3914,7 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
 
         #col.label(text='')
         rrow = col.row(align=True)
-        rrow.prop(self, 'channel_idx', text='')
+        draw_self_channel_idx(self, rrow, yp)
         if channel:
             if channel.type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
@@ -3949,7 +3973,7 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
 
         add_new_layer(
             group_tree=node.node_tree, layer_name=name,
-            layer_type=self.type, channel_idx=int(self.channel_idx),
+            layer_type=self.type, channel_idx=get_self_channel_idx(self),
             blend_type=self.blend_type, normal_blend_type=self.normal_blend_type,
             normal_map_type=self.normal_map_type, texcoord_type=self.texcoord_type,
             uv_name=self.uv_map, image=image, vcol=vcol, segment=None,
