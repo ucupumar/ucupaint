@@ -796,7 +796,7 @@ class YExportLayers(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpt
         col.label(text='Channel:')
 
         col = row.column()
-        col.prop(self, 'channel_idx', text='')
+        BaseOperator.draw_self_channel_idx(self, col)
 
         col = self.layout.column()
         col.prop(self, 'convert_solid_colors_to_pixels')
@@ -820,7 +820,7 @@ class YExportLayers(bpy.types.Operator, ExportHelper, BaseOperator.FileSelectOpt
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        status, message = psd_io.export_layers_to_psd(node, self.filepath, ch_idx=int(self.channel_idx),
+        status, message = psd_io.export_layers_to_psd(node, self.filepath, ch_idx=BaseOperator.get_self_channel_idx(self),
             convert_solid_colors_to_pixels=self.convert_solid_colors_to_pixels)
 
         if status:
