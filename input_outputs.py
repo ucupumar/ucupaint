@@ -467,7 +467,11 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
         # Displacement IO
         if ch.special_channel_type == 'HEIGHT':
-            if ch.use_height_normalize:
+
+            # Check if the bake target is normalized
+            is_baked_normalize = is_baked_channel_normalized(ch)
+
+            if ch.use_height_normalize or is_baked_normalize:
                 name = ch.name + io_suffix['MIDLEVEL']
 
                 if ch.use_height_normalize:

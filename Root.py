@@ -1517,30 +1517,7 @@ def update_channel_use_height_normalize(self, context):
     check_all_channel_ios(yp, reconnect=True)
 
     # Reconnect outside nodes
-    if self.use_height_normalize:
-        mat = get_active_material()
-
-        # Get connected node
-        outp = node.outputs.get(self.name)
-        if outp and len(outp.links) > 0:
-            for link in outp.links:
-                to_node = link.to_node
-
-                # Connect max height output
-                if 'Scale' in to_node.inputs:
-                    inp = to_node.inputs['Scale']
-                    if len(inp.links) == 0:
-                        max_height_outp = node.outputs.get(self.name + io_suffix['SCALE'])
-                        if max_height_outp:
-                            mat.node_tree.links.new(max_height_outp, inp)
-
-                # Connect midlevel output
-                if 'Midlevel' in to_node.inputs:
-                    inp = to_node.inputs['Midlevel']
-                    if len(inp.links) == 0:
-                        midlevel_outp = node.outputs.get(self.name + io_suffix['MIDLEVEL'])
-                        if midlevel_outp:
-                            mat.node_tree.links.new(midlevel_outp, inp)
+    connect_outside_displacement_node(yp, self, node)
 
 def do_displacement_node_setup(mat, node, channel, is_vector_disp=False):
 

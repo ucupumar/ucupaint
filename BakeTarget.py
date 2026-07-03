@@ -126,6 +126,7 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
 
     baked_node : StringProperty(default='')
     baked_node_outside : StringProperty(default='')
+    max_value_node : StringProperty(default='')
 
     separate_xyz : StringProperty(default='')
     invert_r : StringProperty(default='')
@@ -465,9 +466,12 @@ class YRemoveBakeTarget(bpy.types.Operator):
 
         # Remove related nodes
         remove_node(tree, bt, 'baked_node')
-        remove_node(tree, bt, 'normal_prep')
-        remove_node(tree, bt, 'normal_process')
+        remove_node(tree, bt, 'max_value_node')
         remove_node(tree, bt, 'separate_xyz')
+        remove_node(tree, bt, 'invert_r')
+        remove_node(tree, bt, 'invert_g')
+        remove_node(tree, bt, 'invert_b')
+        remove_node(tree, bt, 'invert_a')
 
         # Remove bake target
         yp.bake_targets.remove(yp.active_bake_target_index)

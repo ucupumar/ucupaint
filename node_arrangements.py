@@ -2155,6 +2155,9 @@ def rearrange_yp_nodes(group_tree):
 
         loc.x = ori_x
 
+        if check_set_node_loc(group_tree, bt.max_value_node, loc):
+            loc.y -= 80
+
         # Deprecated
         if check_set_node_loc(group_tree, bt.image_node, loc):
             loc.x += 270

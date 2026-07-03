@@ -8867,3 +8867,52 @@ def get_channel_bake_target_dict(yp):
     
     return chbts
 
+def is_baked_channel_normalized(root_ch):
+    tree = root_ch.id_data
+    yp = tree.yp
+
+    is_baked_normalize = False
+    if yp.use_baked:
+        bt = yp.bake_targets.get(root_ch.bake_target_name)
+        if bt and bt.height_normalize:
+            max_value_node = tree.nodes.get(bt.max_value_node)
+            if max_value_node:
+                is_baked_normalize = True
+
+    return is_baked_normalize
+
+def connect_outside_displacement_node(yp, height_root_ch=None, node=None):
+    if yp.enable_baked_outside: return
+
+    if height_root_ch == None: height_root_ch = get_root_height_channel(yp)
+    if not height_root_ch: return
+
+    is_baked_normalize = is_baked_channel_normalized(height_root_ch)
+
+    # Reconnect outside nodes
+    if height_root_ch.use_height_normalize or is_baked_normalize:
+        mat = get_active_material()
+        if node == None: node = get_active_ypaint_node()
+
+        # Get connected node
+        outp = node.outputs.get(height_root_ch.name)
+        if outp and len(outp.links) > 0:
+            for link in outp.links:
+                to_node = link.to_node
+
+                # Connect max height output
+                if 'Scale' in to_node.inputs:
+                    inp = to_node.inputs['Scale']
+                    if len(inp.links) == 0:
+                        max_height_outp = node.outputs.get(height_root_ch.name + io_suffix['SCALE'])
+                        if max_height_outp:
+                            mat.node_tree.links.new(max_height_outp, inp)
+
+                # Connect midlevel output
+                if 'Midlevel' in to_node.inputs:
+                    inp = to_node.inputs['Midlevel']
+                    if len(inp.links) == 0:
+                        midlevel_outp = node.outputs.get(height_root_ch.name + io_suffix['MIDLEVEL'])
+                        if midlevel_outp:
+                            mat.node_tree.links.new(midlevel_outp, inp)
+

@@ -3178,6 +3178,19 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     if is_vcol_baking:
         baked_node.attribute_name = vcol_name
 
+    # Max height pass
+    if any_height_ch and height_root_ch and height_root_ch.use_height_normalize:
+        # Bake maximum height / height scale
+        max_height_value = get_bake_max_height(height_root_ch, mat, node, tex, emit)
+        max_value_node = check_new_node(tree, bt, 'max_value_node', 'ShaderNodeValue', 'Max '+height_root_ch.name+' Value')
+        max_value_node.outputs[0].default_value = max_height_value
+
+        # Recover default height scale value
+        inp_height = node.inputs.get(height_root_ch.name)
+        inp_scale = node.inputs.get(height_root_ch.name + io_suffix['SCALE'])
+        if len(inp_height.links) == 0 and inp_height.default_value == 0.0 and inp_scale: 
+            inp_scale.default_value = ori_default_height_scale
+
     # Remove nodes
     simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img and img != None)
     simple_remove_node(mat.node_tree, emit)

@@ -606,6 +606,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             bt = yp.bake_targets.get(ch.bake_target_name)
             if bt:
                 baked_node = nodes.get(bt.baked_node)
+
+                if ch.special_channel_type == 'HEIGHT':
+                    if bt.height_normalize:
+                        max_value_node = nodes.get(bt.max_value_node)
+                        if max_value_node:
+                            max_height = max_value_node.outputs[0]
+
                 if baked_node:
                     # Separate XYZ
                     separate_xyz = nodes.get(bt.separate_xyz)

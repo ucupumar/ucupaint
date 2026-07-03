@@ -1589,12 +1589,11 @@ class BaseBakeBakeTargetOperator():
         yp.use_baked = True
         yp.halt_update = False
 
-        # Check start and end nodes
-        check_start_end_root_ch_nodes(tree)
+        # Check input and outputs
+        check_all_channel_ios(yp, yp_node=node, do_process_layers=False)
 
-        # Rearrange
-        reconnect_yp_nodes(tree)
-        rearrange_yp_nodes(tree)
+        # Connect to outside displacement node
+        connect_outside_displacement_node(yp)
 
         # Revert back to edit mode
         if ori_edit_mode:
@@ -4250,12 +4249,10 @@ def update_use_baked(self, context):
     # Check uv nodes
     check_uv_nodes(yp)
 
-    # Check start and end nodes
-    check_start_end_root_ch_nodes(tree)
+    # Check input and outputs
+    check_all_channel_ios(yp, do_process_layers=False)
 
-    # Reconnect nodes
-    reconnect_yp_nodes(tree)
-    rearrange_yp_nodes(tree)
+    connect_outside_displacement_node(yp)
 
     # Trigger active image update
     if yp.use_baked:
