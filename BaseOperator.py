@@ -98,3 +98,36 @@ def channel_items(self, context):
 
     return items
 
+def is_self_channel_idx_accessible(self):
+    # NOTE: Check if self.channel_idx is accessible or not since Blender Debug build always returns invalid pointer
+    try:
+        channel_idx = int(self.channel_idx)
+        return True
+    except: pass
+
+    return False
+
+def get_self_channel_idx(self):
+    # NOTE: This function is workaround for Blender Debug build since it always returns invalid pointer from self.channel_idx
+    try: return int(self.channel_idx)
+    except Exception as e:
+        ypup = get_user_preferences()
+        if ypup.developer_mode: print('EXCEPTIION:', e)
+
+    return 0
+
+def draw_self_channel_idx(self, layout, yp=None):
+    if is_self_channel_idx_accessible(self):
+        layout.prop(self, 'channel_idx', text='')
+    else:
+        if yp == None:
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp if node else None
+
+        if yp and len(yp.channels) > 0:
+            from . import lib
+
+            first_ch = yp.channels[0]
+            icon_name = lib.channel_custom_icon_dict[first_ch.type]
+            layout.label(text=first_ch.name, icon_value=lib.get_icon(icon_name))
+

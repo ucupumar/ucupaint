@@ -521,6 +521,10 @@ class YConvertToImageAtlas(bpy.types.Operator):
                 self.report({'ERROR'}, "Cannot convert transformed image!")
                 return {'CANCELLED'}
 
+            if context.entity.texcoord_type != 'UV' and not context.entity.use_baked:
+                self.report({'ERROR'}, "Cannot convert non-UV image!")
+                return {'CANCELLED'}
+
             images = [context.image]
             entities = [[context.entity]]
             segment_name_prop = 'segment_name' if not context.entity.use_baked else 'baked_segment_name'
@@ -544,7 +548,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
                 # Transformed mapping on entity is not valid for conversion
                 mapping = get_entity_mapping(entity)
-                if use_baked or not is_transformed(mapping, entity):
+                if use_baked or (not is_transformed(mapping, entity) and entity.texcoord_type == 'UV'):
                     valid_entities.append(entity)
 
             if not any(valid_entities):
