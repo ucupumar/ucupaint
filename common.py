@@ -8881,6 +8881,17 @@ def is_baked_channel_normalized(root_ch):
 
     return is_baked_normalize
 
+def get_normal_bake_target_without_height(yp, normal_root_ch=None):
+    if not normal_root_ch: normal_root_ch = get_root_normal_channel(yp)
+    if not normal_root_ch: return None
+    
+    # Check for normal bake target that has no height data
+    for bt in yp.bake_targets:
+        if is_bake_target_using_exact_channel(bt, normal_root_ch) and not bt.normal_includes_height:
+            return bt
+
+    return None
+
 def connect_outside_displacement_node(yp, height_root_ch=None, node=None):
     if yp.enable_baked_outside: return
 

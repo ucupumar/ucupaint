@@ -349,15 +349,19 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             tangents[uv.name] = tangent_process.outputs['Tangent']
             bitangents[uv.name] = tangent_process.outputs['Bitangent']
 
-    # Get main tangent and bitangent
+    # Get normal and height channel
+    root_normal_ch = get_root_normal_channel(yp)
     root_height_ch = get_root_height_channel(yp)
+
+    # Get main UV
     main_uv = None
-    if root_height_ch and root_height_ch.main_uv != '':
-        main_uv = yp.uvs.get(root_height_ch.main_uv)
+    if root_normal_ch and root_normal_ch.main_uv != '':
+        main_uv = yp.uvs.get(root_normal_ch.main_uv)
 
     if not main_uv and len(yp.uvs) > 0:
         main_uv = yp.uvs[0]
 
+    # Get main tangent and bitangent
     if main_uv and main_uv.name in tangents and main_uv.name in bitangents:
         tangent = tangents[main_uv.name]
         bitangent = bitangents[main_uv.name]
@@ -604,6 +608,14 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             baked_soc = None
 
             bt = yp.bake_targets.get(ch.bake_target_name)
+
+            # Check if the baked height is not used as bump only
+            if root_height_ch and ch == root_normal_ch:
+                if not root_height_ch.use_height_as_bump:
+                    # Check for normal bake target that has no height data
+                    b = get_normal_bake_target_without_height(yp, root_normal_ch)
+                    if b: bt = b
+
             if bt:
                 baked_node = nodes.get(bt.baked_node)
 

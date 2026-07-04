@@ -3940,7 +3940,9 @@ def draw_layers_ui(context, layout, node):
             row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
             row.alert = False
 
+        # Get paired channels
         root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+        root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
 
         # Get channel bake target dictionary
         chbts = get_channel_bake_target_dict(yp)
@@ -4065,6 +4067,14 @@ def draw_layers_ui(context, layout, node):
             #            row.label(text='', icon='PACKAGE')
             
             if root_ch.name in chbts:
+
+                # Check if bake target is chosen not by choice
+                forced_bt = None
+                if root_height_ch and not root_height_ch.use_height_as_bump and root_ch == root_normal_ch:
+                    forced_bt = get_normal_bake_target_without_height(yp, root_normal_ch)
+
+                has_multiple_bts = len(chbts[root_ch.name]) > 1
+
                 for bt in chbts[root_ch.name]:
                     #if bt.name == root_ch.bake_target_name: continue
                     baked_node = nodes.get(bt.baked_node)
@@ -4075,8 +4085,10 @@ def draw_layers_ui(context, layout, node):
                             if baked_node.image.is_dirty:
                                 title += ' *'
 
-                            #if bt.name == root_ch.bake_target_name:
-                            #    title += ' (Active)'
+                            if has_multiple_bts and (
+                                bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
+                            ):
+                                title += ' (Active)'
 
                             row.label(text=title, icon_value=lib.get_icon('image'))
 
@@ -4087,16 +4099,19 @@ def draw_layers_ui(context, layout, node):
                         elif baked_node.type == 'ATTRIBUTE':
                             title = bt.name
 
-                            #if bt.name == root_ch.bake_target_name:
-                            #    title += ' (Active)'
+                            if has_multiple_bts and (
+                                bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
+                            ):
+                                title += ' (Active)'
 
                             row = bcol.row(align=True)
                             row.label(text=title, icon_value=lib.get_icon('vertex_color'))
                         
-                        row.context_pointer_set('channel', root_ch)
-                        icon = 'RADIOBUT_ON' if bt.name == root_ch.bake_target_name else 'RADIOBUT_OFF'
-                        op = row.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
-                        op.bake_target_name = bt.name
+                        if forced_bt == None and has_multiple_bts:
+                            row.context_pointer_set('channel', root_ch)
+                            icon = 'RADIOBUT_ON' if bt.name == root_ch.bake_target_name else 'RADIOBUT_OFF'
+                            op = row.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
+                            op.bake_target_name = bt.name
 
 
             #btimages = []
