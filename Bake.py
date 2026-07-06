@@ -10,6 +10,8 @@ from .node_arrangements import *
 from .input_outputs import *
 from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem, BakeInfo
 
+UV_OUTSIDE_PREFIX = '__BAKE_TARGET_UV__'
+
 # todo : 
 # show all setting bake di bake target, setelah baked ambil dari bakeinfo
 # override vars, variable yang ga perlu : use 32 bit float, bake device (check channel use_clamp, new image layer dibawah resolution)
@@ -3614,14 +3616,17 @@ def update_enable_baked_outside(self, context):
         for n in mtree.nodes:
             if n.location.x > node.location.x:
                 shift_nodes.append(n)
+        
+        no_shift_nodes = []
 
         # Baked outside nodes should be contained inside of frame
-        frame = mtree.nodes.get(yp.baked_outside_frame)
-        if not frame:
-            frame = mtree.nodes.new('NodeFrame')
-            frame.label = tree.name + ' Baked Textures'
-            frame.name = tree.name + ' Baked Textures'
-            yp.baked_outside_frame = frame.name
+        #frame = mtree.nodes.get(yp.baked_outside_frame)
+        #if not frame:
+        #    frame = mtree.nodes.new('NodeFrame')
+        #    frame.label = tree.name + ' Baked Textures'
+        #    frame.name = tree.name + ' Baked Textures'
+        #    yp.baked_outside_frame = frame.name
+        #else: no_shift_nodes.append(frame)
 
         # Custom bake target images also have their own frame
         bt_frame = mtree.nodes.get(yp.bake_target_outside_frame)
@@ -3630,21 +3635,212 @@ def update_enable_baked_outside(self, context):
             bt_frame.label = tree.name + ' Custom Bake Targets'
             bt_frame.name = tree.name + ' Custom Bake Targets'
             yp.bake_target_outside_frame = bt_frame.name
+        else: no_shift_nodes.append(bt_frame)
 
         loc_x = node.location.x + 180
         loc_y = node.location.y
 
-        uv = check_new_node(mtree, yp, 'baked_outside_uv', 'ShaderNodeUVMap')
-        uv.uv_map = yp.baked_uv_name
-        uv.location.x = loc_x
-        uv.location.y = loc_y
-        uv.parent = frame
+        #uv = check_new_node(mtree, yp, 'baked_outside_uv', 'ShaderNodeUVMap')
+        #uv.uv_map = yp.baked_uv_name
+        #uv.location.x = loc_x
+        #uv.location.y = loc_y
+        #uv.parent = frame
 
         color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
 
         loc_x += 180
+        ori_y = loc_y
+
+        # Bake target uvs
+        for bt in yp.bake_targets:
+            if bt.data_type == 'IMAGE':
+                uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + bt.uv_map)
+                if not uv:
+                    uv = mtree.nodes.new('ShaderNodeUVMap')
+                    uv.name = UV_OUTSIDE_PREFIX + bt.uv_map
+                    uv.location.x = loc_x
+                    uv.location.y = loc_y
+                    uv.parent = bt_frame
+                    loc_y -= 100
+                else: no_shift_nodes.append(uv)
+                uv.uv_map = bt.uv_map
+
+        loc_y = ori_y
+        loc_x += 250
+        max_x = loc_x
+        ori_x = loc_x
+        ori_y = loc_y
+
+        # Bake target outside nodes
+        #first_bt_found = False
+        for bt in yp.bake_targets:
+            baked_node = tree.nodes.get(bt.baked_node)
+            if baked_node:
+
+                loc_x = ori_x
+
+                #if not first_bt_found:
+                #    #loc_y -= 75
+                #    first_bt_found = True
+
+                baked_node_outside, dirty = check_new_node(mtree, bt, 'baked_node_outside', baked_node.bl_idname, return_dirty=True)
+                if dirty:
+                    baked_node_outside.location.x = loc_x
+                    baked_node_outside.location.y = loc_y
+                    baked_node_outside.parent = bt_frame
+                else: no_shift_nodes.append(baked_node_outside)
+
+                if not is_bl_newer_than(2, 80):
+                    baked_node_outside.color_space = baked_node.color_space
+
+                if baked_node_outside.type == 'ATTRIBUTE':
+                    baked_node_outside.attribute_name = baked_node.attribute_name
+
+                elif baked_node_outside.type == 'TEX_IMAGE':
+                    baked_node_outside.image = baked_node.image
+
+                    # Connect uv 
+                    uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + bt.uv_map)
+                    if uv: mtree.links.new(uv.outputs[0], baked_node_outside.inputs[0])
+
+                separate_xyz = tree.nodes.get(bt.separate_xyz)
+                if separate_xyz:
+                    loc_x += 270
+                    separate_xyz_outside, dirty = check_new_node(mtree, bt, 'separate_xyz_outside', separate_xyz.bl_idname, return_dirty=True)
+                    if dirty:
+                        separate_xyz_outside.location.x = loc_x
+                        separate_xyz_outside.location.y = loc_y
+                        separate_xyz_outside.parent = bt_frame
+                    else: no_shift_nodes.append(separate_xyz_outside)
+
+                    mtree.links.new(baked_node_outside.outputs['Color'], separate_xyz_outside.inputs[0])
+
+                invert_r = tree.nodes.get(bt.invert_r)
+                invert_g = tree.nodes.get(bt.invert_g)
+                invert_b = tree.nodes.get(bt.invert_b)
+                invert_a = tree.nodes.get(bt.invert_a)
+
+                if invert_r or invert_g or invert_b or invert_a:
+                    loc_x += 180
+
+                if invert_r:
+                    invert_r_outside, dirty = check_new_node(mtree, bt, 'invert_r_outside', invert_r.bl_idname, return_dirty=True)
+                    invert_r_outside.operation = 'SUBTRACT'
+                    invert_r_outside.inputs[0].default_value = 1.0
+                    invert_r_outside.hide = True
+                    if dirty:
+                        invert_r_outside.location.x = loc_x
+                        invert_r_outside.location.y = loc_y
+                        invert_r_outside.parent = bt_frame
+                        loc_y -= 40
+                    else: no_shift_nodes.append(invert_r_outside)
+
+                    if separate_xyz_outside:
+                        mtree.links.new(separate_xyz_outside.outputs[0], invert_r_outside.inputs[1])
+
+                if invert_g:
+                    invert_g_outside, dirty = check_new_node(mtree, bt, 'invert_g_outside', invert_g.bl_idname, return_dirty=True)
+                    invert_g_outside.operation = 'SUBTRACT'
+                    invert_g_outside.inputs[0].default_value = 1.0
+                    invert_g_outside.hide = True
+                    if dirty:
+                        invert_g_outside.location.x = loc_x
+                        invert_g_outside.location.y = loc_y
+                        invert_g_outside.parent = bt_frame
+                        loc_y -= 40
+                    else: no_shift_nodes.append(invert_g_outside)
+
+                    if separate_xyz_outside:
+                        mtree.links.new(separate_xyz_outside.outputs[1], invert_g_outside.inputs[1])
+
+                if invert_b:
+                    invert_b_outside, dirty = check_new_node(mtree, bt, 'invert_b_outside', invert_b.bl_idname, return_dirty=True)
+                    invert_b_outside.operation = 'SUBTRACT'
+                    invert_b_outside.inputs[0].default_value = 1.0
+                    invert_b_outside.hide = True
+                    if dirty:
+                        invert_b_outside.location.x = loc_x
+                        invert_b_outside.location.y = loc_y
+                        invert_b_outside.parent = bt_frame
+                        loc_y -= 40
+                    else: no_shift_nodes.append(invert_b_outside)
+
+                    if separate_xyz_outside:
+                        mtree.links.new(separate_xyz_outside.outputs[2], invert_b_outside.inputs[1])
+
+                if invert_a:
+                    invert_a_outside, dirty = check_new_node(mtree, bt, 'invert_a_outside', invert_a.bl_idname, return_dirty=True)
+                    invert_a_outside.operation = 'SUBTRACT'
+                    invert_a_outside.inputs[0].default_value = 1.0
+                    invert_a_outside.hide = True
+                    if dirty:
+                        invert_a_outside.location.x = loc_x
+                        invert_a_outside.location.y = loc_y
+                        invert_a_outside.parent = bt_frame
+                        loc_y -= 40
+                    else: no_shift_nodes.append(invert_a_outside)
+
+                    mtree.links.new(baked_node_outside.outputs['Alpha'], invert_a_outside.inputs[1])
+
+                if loc_x > max_x: max_x = loc_x
+
+                loc_y -= 300
+
+        loc_y = ori_y
+        loc_x = max_x
+        loc_x += 250
+        ori_x = loc_x
         max_x = loc_x
 
+        # Channel outside nodes
+        for ch in yp.channels:
+            loc_x = ori_x
+            baked_combine_xyz = tree.nodes.get(ch.baked_combine_xyz)
+            if baked_combine_xyz:
+                baked_combine_xyz_outside, dirty = check_new_node(mtree, ch, 'baked_combine_xyz_outside', baked_combine_xyz.bl_idname, return_dirty=True)
+                if dirty:
+                    baked_combine_xyz_outside.location.x = loc_x
+                    baked_combine_xyz_outside.location.y = loc_y
+                    baked_combine_xyz_outside.parent = bt_frame
+                    loc_y -= 300
+                else: no_shift_nodes.append(baked_combine_xyz_outside)
+
+            if ch.special_channel_type == 'NORMAL':
+                baked_normal_prep = tree.nodes.get(ch.baked_normal_prep)
+                baked_normal_prep_outside = None
+                #if baked_normal_prep:
+                #    baked_normal_prep_outside, dirty = check_new_node(mtree, ch, 'baked_normal_prep_outside', baked_normal_prep.bl_idname, return_dirty=True)
+                #    baked_normal_prep_outside.node_tree = baked_normal_prep.node_tree
+                #    if dirty:
+                #        baked_normal_prep_outside.location.x = loc_x
+                #        baked_normal_prep_outside.location.y = loc_y
+                #        baked_normal_prep_outside.parent = bt_frame
+                #        loc_x += 180
+                #    else: no_shift_nodes.append(baked_normal_prep_outside)
+
+                baked_normal = tree.nodes.get(ch.baked_normal)
+                if baked_normal:
+                    baked_normal_outside, dirty = check_new_node(mtree, ch, 'baked_normal_outside', baked_normal.bl_idname, return_dirty=True)
+                    baked_normal_outside.uv_map = baked_normal.uv_map
+                    if dirty:
+                        baked_normal_outside.location.x = loc_x
+                        baked_normal_outside.location.y = loc_y
+                        baked_normal_outside.parent = bt_frame
+                        loc_y -= 300
+                    else: no_shift_nodes.append(baked_normal_outside)
+
+                    if baked_normal_prep_outside:
+                        mtree.links.new(baked_normal_prep_outside.outputs[0], baked_normal_outside.inputs['Color'])
+
+            if loc_x > max_x: max_x = loc_x
+
+        loc_y = ori_y
+        loc_x = max_x
+
+        #if not first_bt_found:
+        #    remove_node(mtree, yp, 'bake_target_outside_frame')
+
+        # Channel connection
         for ch in yp.channels:
 
             # Remember current connection
@@ -3687,8 +3883,88 @@ def update_enable_baked_outside(self, context):
                     con.socket = l.to_socket.name
                     con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
+            bt = yp.bake_targets.get(ch.bake_target_name)
+            baked_soc = None
+            if bt:
+                baked_node = mtree.nodes.get(bt.baked_node_outside)
+                separate_xyz = mtree.nodes.get(bt.separate_xyz_outside)
+                invert_r = mtree.nodes.get(bt.invert_r_outside)
+                invert_g = mtree.nodes.get(bt.invert_g_outside)
+                invert_b = mtree.nodes.get(bt.invert_b_outside)
+                invert_a = mtree.nodes.get(bt.invert_a_outside)
+
+                baked_combine_xyz = mtree.nodes.get(ch.baked_combine_xyz_outside)
+
+                if is_bake_target_using_exact_channel(bt, ch):
+                    baked_soc = baked_node.outputs['Color']
+                elif ch.type == 'VALUE':
+                    index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                    if index != -1:
+                        if index == 3:
+                            if bt.a.invert_value and invert_a: baked_soc = invert_a.outputs[0]
+                            elif baked_node.type == 'TEX_IMAGE': baked_soc = baked_node.outputs[1]
+                            elif baked_node.type == 'ATTRIBUTE': baked_soc = baked_node.outputs['Alpha']
+                        else: 
+                            if index == 0 and bt.r.invert_value and invert_r: baked_soc = invert_r.outputs[0]
+                            elif index == 1 and bt.g.invert_value and invert_g: baked_soc = invert_g.outputs[0]
+                            elif index == 2 and bt.b.invert_value and invert_b: baked_soc = invert_b.outputs[0]
+                            elif separate_xyz: baked_soc = separate_xyz.outputs[index]
+                else:
+                    ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
+                    if -1 not in ids:
+                        if separate_xyz and baked_combine_xyz:
+                            # Get base socket
+                            socs = []
+                            for i in range(len(ids)):
+                                if ids[i] == 3:
+                                    if baked_node.type == 'TEX_IMAGE': socs.append(baked_node.outputs[1])
+                                    elif baked_node.type == 'ATTRIBUTE': socs.append(baked_node.outputs['Alpha'])
+                                else: socs.append(separate_xyz.outputs[ids[i]])
+
+                            # Check for inverted value
+                            for i, index in enumerate(ids):
+                                if index == 0 and bt.r.invert_value and invert_r: socs[i] = invert_r.outputs[0]
+                                elif index == 1 and bt.g.invert_value and invert_g: socs[i] = invert_g.outputs[0]
+                                elif index == 2 and bt.b.invert_value and invert_b: socs[i] = invert_b.outputs[0]
+                                elif index == 3 and bt.a.invert_value and invert_a: socs[i] = invert_a.outputs[0]
+
+                            # Connect to combine xyz
+                            for i, soc in enumerate(socs):
+                                mtree.links.new(soc, baked_combine_xyz.inputs[i])
+
+                            baked_soc = baked_combine_xyz.outputs[0]
+
+            if baked_soc and ch.special_channel_type == 'NORMAL':
+
+                #baked_normal_prep = mtree.nodes.get(ch.baked_normal_prep_outside)
+                #if baked_normal_prep:
+                #    if rgb:
+                #        mtree.links.new(baked_soc, baked_normal_prep.inputs[0])
+                #        baked_soc = baked_normal_prep.outputs[0]
+                #    else:
+                #        rgb = baked_normal_prep.outputs[0]
+                #        break_input_link(tree, baked_normal_prep.inputs[0])
+                #        for link in baked_normal_prep.inputs[0].links:
+                #            mtree.links.remove(link)
+
+                #    #HACK: Some earlier nodes have wrong default colot input
+                #    baked_normal_prep.inputs[0].default_value = (0.5, 0.5, 1.0, 1.0)
+
+                baked_normal = mtree.nodes.get(ch.baked_normal_outside)
+                if baked_normal:
+                    mtree.links.new(baked_soc, baked_normal.inputs[1])
+                    baked_soc = baked_normal.outputs[0]
+
+            if baked_soc and outp:
+                for l in outp.links:
+                    #if vcol and ch.enable_bake_to_vcol:
+                    #    outp_name = 'Alpha' if ch.bake_to_vcol_alpha else 'Color'
+                    #    mtree.links.new(vcol.outputs[outp_name], l.to_socket)
+                    #else:
+                    mtree.links.new(baked_soc, l.to_socket)
+            
             baked = tree.nodes.get(ch.baked)
-            if baked and baked.image and not ch.no_layer_using:
+            if False and baked and baked.image and not ch.no_layer_using:
                 tex = check_new_node(mtree, ch, 'baked_outside', 'ShaderNodeTexImage')
                 tex.image = baked.image
                 tex.location.x = loc_x
@@ -3919,28 +4195,6 @@ def update_enable_baked_outside(self, context):
                     for l in outp_midlevel.links:
                         copy_default_value(inp_height, l.to_socket)
 
-        # Bake targets
-        first_bt_found = False
-        for bt in yp.bake_targets:
-            baked_node = tree.nodes.get(bt.baked_node)
-            if baked_node and baked_node.image:
-
-                if not first_bt_found:
-                    loc_y -= 75
-                    first_bt_found = True
-
-                tex = check_new_node(mtree, bt, 'image_node_outside', 'ShaderNodeTexImage')
-                tex.image = baked_node.image
-                tex.location.x = loc_x
-                tex.location.y = loc_y
-                tex.parent = bt_frame
-                mtree.links.new(uv.outputs[0], tex.inputs[0])
-
-                loc_y -= 300
-
-        if not first_bt_found:
-            remove_node(mtree, yp, 'bake_target_outside_frame')
-
         # Remove links
         for outp in node.outputs:
             for l in outp.links:
@@ -3966,6 +4220,7 @@ def update_enable_baked_outside(self, context):
         yp.baked_outside_x_shift = int(loc_x - node.location.x)
 
         for n in shift_nodes:
+            if n in no_shift_nodes: continue
             n.location.x += yp.baked_outside_x_shift
 
     else:
@@ -4017,6 +4272,10 @@ def update_enable_baked_outside(self, context):
                 remove_node(mtree, ch, 'baked_outside_vdisp_process', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_disp_addition', parent=baked_outside_frame)
 
+            remove_node(mtree, ch, 'baked_combine_xyz_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, ch, 'baked_normal_prep_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, ch, 'baked_normal_outside', parent=bake_target_outside_frame)
+
         # Recover displacement midlevel and scale
         if height_root_ch and height_root_ch.special_channel_type == 'HEIGHT':
             disp = get_closest_disp_node_backward(output_mat, 'Displacement', False)
@@ -4031,7 +4290,17 @@ def update_enable_baked_outside(self, context):
 
         # Bake targets
         for bt in yp.bake_targets:
-            remove_node(mtree, bt, 'image_node_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'baked_node_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'max_value_node_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'separate_xyz_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'invert_r_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'invert_g_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'invert_b_outside', parent=bake_target_outside_frame)
+            remove_node(mtree, bt, 'invert_a_outside', parent=bake_target_outside_frame)
+
+            # Remove uv
+            uv = mtree.nodes.get(UV_OUTSIDE_PREFIX + bt.uv_map)
+            if uv: mtree.nodes.remove(uv)
 
         if baked_outside_frame:
             remove_node(mtree, yp, 'baked_outside_uv', parent=baked_outside_frame)

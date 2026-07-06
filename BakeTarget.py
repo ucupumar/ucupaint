@@ -125,7 +125,6 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     image_node_outside : StringProperty(default='')# Deprecated
 
     baked_node : StringProperty(default='')
-    baked_node_outside : StringProperty(default='')
     max_value_node : StringProperty(default='')
 
     separate_xyz : StringProperty(default='')
@@ -133,6 +132,14 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     invert_g : StringProperty(default='')
     invert_b : StringProperty(default='')
     invert_a : StringProperty(default='')
+
+    baked_node_outside : StringProperty(default='')
+    max_value_node_outside : StringProperty(default='')
+    separate_xyz_outside : StringProperty(default='')
+    invert_r_outside : StringProperty(default='')
+    invert_g_outside : StringProperty(default='')
+    invert_b_outside : StringProperty(default='')
+    invert_a_outside : StringProperty(default='')
 
     # UI
     expand_content : BoolProperty(default=False)
@@ -414,6 +421,10 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
 
         reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
+
+        # Refresh enable baked outside
+        if yp.enable_baked_outside:
+            yp.enable_baked_outside = True
 
         return {'FINISHED'}
 

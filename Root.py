@@ -4986,21 +4986,25 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_combine_xyz : StringProperty(default='')
 
     # Outside baked nodes
-    baked_outside : StringProperty(default='')
-    baked_outside_disp : StringProperty(default='')
-    baked_outside_vdisp : StringProperty(default='')
+    baked_outside : StringProperty(default='') # Deprecated
+    baked_outside_disp : StringProperty(default='') # Deprecated
+    baked_outside_vdisp : StringProperty(default='') # Deprecated
     baked_outside_normal_overlay : StringProperty(default='') # Deprecated
-    baked_outside_normal_no_disp : StringProperty(default='')
+    baked_outside_normal_no_disp : StringProperty(default='') # Deprecated
 
-    baked_outside_disp_process : StringProperty(default='')
-    baked_outside_vdisp_process : StringProperty(default='')
-    baked_outside_disp_addition : StringProperty(default='')
-    baked_outside_normal_process : StringProperty(default='')
+    baked_outside_disp_process : StringProperty(default='') # Deprecated
+    baked_outside_vdisp_process : StringProperty(default='') # Deprecated
+    baked_outside_disp_addition : StringProperty(default='') # Deprecated
+    baked_outside_normal_process : StringProperty(default='') # Deprecated
 
-    baked_outside_ori_disp_from_node : StringProperty(default='')
-    baked_outside_ori_disp_from_socket : StringProperty(default='')
+    baked_outside_ori_disp_from_node : StringProperty(default='') # Deprecated
+    baked_outside_ori_disp_from_socket : StringProperty(default='') # Deprecated
 
-    baked_outside_vcol : StringProperty(default='')
+    baked_outside_vcol : StringProperty(default='') # Deprecated
+
+    baked_combine_xyz_outside : StringProperty(default='')
+    baked_normal_prep_outside : StringProperty(default='')
+    baked_normal_outside : StringProperty(default='')
 
     # UI related
     expand_content : BoolProperty(default=False)
