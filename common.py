@@ -399,6 +399,7 @@ bake_type_items = (
     ('CAVITY', 'Cavity', ''),
     ('DUST', 'Dust', ''),
     ('PAINT_BASE', 'Paint Base', ''),
+    ('THICKNESS', 'Thickness', ''),
 
     ('BEVEL_NORMAL', 'Bevel Normal', ''),
     ('BEVEL_MASK', 'Bevel Grayscale', ''),
@@ -446,6 +447,7 @@ bake_type_labels = {
     'CAVITY': 'Cavity',
     'DUST': 'Dust',
     'PAINT_BASE': 'Paint Base',
+    'THICKNESS': 'Thickness',
 
     'BEVEL_NORMAL': 'Bevel Normal',
     'BEVEL_MASK': 'Bevel Grayscale',
@@ -470,6 +472,7 @@ bake_type_suffixes = {
     'CAVITY': 'Cavity',
     'DUST': 'Dust',
     'PAINT_BASE': 'Paint Base',
+    'THICKNESS': 'Thickness',
 
     'BEVEL_NORMAL': 'Bevel Normal',
     'BEVEL_MASK': 'Bevel Grayscale',

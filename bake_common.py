@@ -2880,7 +2880,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         rdict['message'] = "Mask need active layer!"
         return rdict
 
-    if bprops.type in {'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
+    if bprops.type in {'THICKNESS', 'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
         rdict['message'] = "Blender 2.80+ is needed to use this feature!"
         return rdict
 
@@ -3003,7 +3003,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     use_ssaa = bprops.ssaa and bprops.type.startswith('OTHER_OBJECT_')
 
     # Denoising only available for AO bake for now
-    use_denoise = bprops.denoise and bprops.type in {'AO', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81)
+    use_denoise = bprops.denoise and bprops.type in {'AO', 'THICKNESS', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81)
 
     # SSAA will multiply size by 2 then resize it back
     if use_ssaa:
@@ -3179,7 +3179,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         bake_type = 'EMIT'
 
     # If use only local, hide other objects
-    hide_other_objs = bprops.type != 'AO' or bprops.only_local
+    hide_other_objs = bprops.type not in {'AO', 'THICKNESS'} or bprops.only_local
 
     # Fit tilesize to bake resolution if samples is equal 1
     if bprops.samples <= 1:
@@ -3346,6 +3346,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     bsdf = None
     map_range = None
+    invert = None
     geometry = None
     vector_math = None
     vector_math_1 = None
@@ -3398,6 +3399,21 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
                 if bprops.flip_normals:
                     src.inside = True
+
+    elif bprops.type == 'THICKNESS':
+        src = mat.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
+        src.inside = True
+        src.only_local = bprops.only_local
+        src.inputs['Distance'].default_value = bprops.ao_distance
+
+        # Invert the inside ambient occlusion to get the thickness
+        invert = mat.node_tree.nodes.new('ShaderNodeMath')
+        invert.operation = 'SUBTRACT'
+        invert.inputs[0].default_value = 1.0
+
+        mat.node_tree.links.new(src.outputs['AO'], invert.inputs[1])
+        mat.node_tree.links.new(invert.outputs[0], bsdf.inputs[0])
+        mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
     elif bprops.type == 'POINTINESS':
         src = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
@@ -4176,6 +4192,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     if src: simple_remove_node(mat.node_tree, src)
     if geometry: simple_remove_node(mat.node_tree, geometry)
     if map_range: simple_remove_node(mat.node_tree, map_range)
+    if invert: simple_remove_node(mat.node_tree, invert)
     if vector_math: simple_remove_node(mat.node_tree, vector_math)
     if vector_math_1: simple_remove_node(mat.node_tree, vector_math_1)
 
