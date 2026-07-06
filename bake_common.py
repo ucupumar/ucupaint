@@ -2082,6 +2082,7 @@ def get_bake_properties_from_self(self):
         'bevel_samples',
         'bevel_radius',
         'edge_detect_method',
+        'wireframe_size',
         'multires_base',
         'target_type',
         'fxaa',
@@ -3415,6 +3416,14 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         mat.node_tree.links.new(invert.outputs[0], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
+    elif bprops.type == 'WIREFRAME':
+        src = mat.node_tree.nodes.new('ShaderNodeWireframe')
+        src.use_pixel_size = True
+        src.inputs[0].default_value = bprops.wireframe_size
+
+        mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
+        mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
     elif bprops.type == 'POINTINESS':
         src = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
 
@@ -3678,7 +3687,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             color = [0.5, 0.5, 1.0, 1.0] 
         elif bprops.type == 'FLOW':
             color = [0.5, 0.5, 0.0, 1.0]
-        elif bprops.type == 'BEVEL_MASK':
+        elif bprops.type in {'WIREFRAME', 'BEVEL_MASK'}:
             color = [0.0, 0.0, 0.0, 1.0]
         else:
             color = [0.5, 0.5, 0.5, 1.0]

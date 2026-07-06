@@ -263,6 +263,13 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default='DOT'
     )
 
+    # Wireframe Props
+    wireframe_size : FloatProperty(
+        name = 'Wireframe Size',
+        description = 'Wireframe thickness in pixels',
+        default=1.0, min=0.1, max=10.0
+    )
+
     multires_base : IntProperty(
         name = 'Multires Base',
         description = 'Baking will use the difference between the base level and max level,\nand after baking, base level will be used in the multires modifier',
@@ -452,6 +459,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             self.blend_type = 'MIX'
             self.samples = 32
             self.only_local = True
+        elif self.type == 'WIREFRAME':
+            self.blend_type = 'MIX'
         elif self.type == 'BEVEL_NORMAL':
             self.blend_type = 'MIX'
             self.normal_blend_type = 'OVERLAY'
@@ -726,6 +735,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         elif self.type == 'THICKNESS':
             col.label(text='Distance:')
             col.label(text='')
+        elif self.type == 'WIREFRAME':
+            col.label(text='Wireframe Size:')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.label(text='Bevel Samples:')
             col.label(text='Bevel Radius:')
@@ -819,6 +830,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         elif self.type == 'THICKNESS':
             col.prop(self, 'ao_distance', text='')
             col.prop(self, 'only_local')
+        elif self.type == 'WIREFRAME':
+            col.prop(self, 'wireframe_size', text='')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.prop(self, 'bevel_samples', text='')
             col.prop(self, 'bevel_radius', text='')

@@ -417,6 +417,7 @@ bake_type_items = (
     ('OBJECT_SPACE_NORMAL', 'Object Space Normal', ''),
 
     ('THICKNESS', 'Thickness', ''),
+    ('WIREFRAME', 'Wireframe', ''),
 )
 
 image_resolution_items = (
@@ -465,7 +466,8 @@ bake_type_labels = {
 
     'OBJECT_SPACE_NORMAL' : 'Object Space Normal',
 
-    'THICKNESS': 'Thickness'
+    'THICKNESS': 'Thickness',
+    'WIREFRAME': 'Wireframe'
 }
 
 bake_type_suffixes = {
@@ -491,7 +493,8 @@ bake_type_suffixes = {
 
     'OBJECT_SPACE_NORMAL' : 'Object Space Normal',
 
-    'THICKNESS': 'Thickness'
+    'THICKNESS': 'Thickness',
+    'WIREFRAME': 'Wireframe'
 }
 
 texcoord_lists = [

@@ -262,6 +262,9 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     bevel_samples : IntProperty(default=4, min=2, max=16)
     bevel_radius : FloatProperty(default=0.05, min=0.0, max=1000.0)
 
+    # Wireframe Props
+    wireframe_size : FloatProperty(default=1.0, min=0.1, max=10.0)
+
     edge_detect_method : EnumProperty(
         name = 'Edge Detection Method',
         description = 'Edge detection method',
