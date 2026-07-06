@@ -263,6 +263,13 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default='DOT'
     )
 
+    # Curvature Props
+    curvature_distance : FloatProperty(
+        name = 'Curvature Distance',
+        description = 'Curvature sampling distance',
+        default=0.05, min=0.0, max=1000.0
+    )
+
     multires_base : IntProperty(
         name = 'Multires Base',
         description = 'Baking will use the difference between the base level and max level,\nand after baking, base level will be used in the multires modifier',
@@ -452,6 +459,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             self.blend_type = 'MIX'
             self.samples = 32
             self.only_local = True
+        elif self.type == 'CURVATURE':
+            self.blend_type = 'MIX'
+            self.samples = 32
         elif self.type == 'BEVEL_NORMAL':
             self.blend_type = 'MIX'
             self.normal_blend_type = 'OVERLAY'
@@ -726,6 +736,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         elif self.type == 'THICKNESS':
             col.label(text='Distance:')
             col.label(text='')
+        elif self.type == 'CURVATURE':
+            col.label(text='Distance:')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.label(text='Bevel Samples:')
             col.label(text='Bevel Radius:')
@@ -819,6 +831,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         elif self.type == 'THICKNESS':
             col.prop(self, 'ao_distance', text='')
             col.prop(self, 'only_local')
+        elif self.type == 'CURVATURE':
+            col.prop(self, 'curvature_distance', text='')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.prop(self, 'bevel_samples', text='')
             col.prop(self, 'bevel_radius', text='')
@@ -862,7 +876,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'ssaa')
         else: col.prop(self, 'fxaa')
 
-        if self.type in {'AO', 'THICKNESS', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81):
+        if self.type in {'AO', 'THICKNESS', 'CURVATURE', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81):
             col.prop(self, 'denoise')
 
         col.separator()

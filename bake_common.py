@@ -2082,6 +2082,7 @@ def get_bake_properties_from_self(self):
         'bevel_samples',
         'bevel_radius',
         'edge_detect_method',
+        'curvature_distance',
         'multires_base',
         'target_type',
         'fxaa',
@@ -2880,7 +2881,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         rdict['message'] = "Mask need active layer!"
         return rdict
 
-    if bprops.type in {'THICKNESS', 'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
+    if bprops.type in {'THICKNESS', 'CURVATURE', 'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
         rdict['message'] = "Blender 2.80+ is needed to use this feature!"
         return rdict
 
@@ -3003,7 +3004,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     use_ssaa = bprops.ssaa and bprops.type.startswith('OTHER_OBJECT_')
 
     # Denoising only available for AO bake for now
-    use_denoise = bprops.denoise and bprops.type in {'AO', 'THICKNESS', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81)
+    use_denoise = bprops.denoise and bprops.type in {'AO', 'THICKNESS', 'CURVATURE', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81)
 
     # SSAA will multiply size by 2 then resize it back
     if use_ssaa:
@@ -3451,6 +3452,14 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     elif bprops.type == 'PAINT_BASE':
         src = mat.node_tree.nodes.new('ShaderNodeGroup')
         src.node_tree = get_node_tree_lib(lib.PAINT_BASE)
+
+        mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
+        mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+    elif bprops.type == 'CURVATURE':
+        src = mat.node_tree.nodes.new('ShaderNodeGroup')
+        src.node_tree = get_node_tree_lib(lib.CURVATURE)
+        src.inputs['Distance'].default_value = bprops.curvature_distance
 
         mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])

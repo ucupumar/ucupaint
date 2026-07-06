@@ -103,6 +103,7 @@ FXAA = '~yPL FXAA'
 CAVITY = '~yPL Cavity'
 DUST = '~yPL Dust'
 PAINT_BASE = '~yPL Paint Base'
+CURVATURE = '~yPL Curvature'
 
 BLUR_VECTOR = '~yPL Blur Vector'
 
