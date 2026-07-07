@@ -34,6 +34,9 @@ def get_normal_map_type_items(self, context):
 def check_layer_source(layer, tree=None, image=None, vcol=None, setup_edge_detect=True):
     if tree == None: tree = get_tree(layer)
 
+    # Source can be inside a group
+    tree = get_source_tree(layer, tree)
+
     # Add source
     if layer.type == 'VCOL':
         source, dirty = check_new_node(tree, layer, 'source', get_vcol_bl_idname(), 'Source', True)
@@ -4680,7 +4683,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         setattr(layer, 'cache_' + layer.type.lower(), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
-            tree.links.remove(source.inputs[0].links[0])
+            source_tree.links.remove(source.inputs[0].links[0])
         source.label = ''
     else:
         remove_node(source_tree, layer, 'source', remove_data=remove_data)
