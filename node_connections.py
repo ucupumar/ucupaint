@@ -603,7 +603,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                         rgb = get_essential_node(tree, HALF_VALUE)[0]
                     else: rgb = get_essential_node(tree, ZERO_VALUE)[0]
         
-        if yp.use_baked:
+        if yp.use_baked and not ch.disable_global_baked:
 
             baked_soc = None
 

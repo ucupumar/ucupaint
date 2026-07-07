@@ -3954,25 +3954,18 @@ def draw_layers_ui(context, layout, node):
                 ypui.need_update = True
                 return
 
-            #baked = nodes.get(root_ch.baked)
-            #baked_vcol_node = nodes.get(root_ch.baked_vcol)
-
             baked_image = get_active_baked_channel_image(root_ch)
 
             icon_name = lib.channel_custom_icon_dict[root_ch.type]
             icon_value = lib.get_icon(icon_name)
 
-            #no_baked_data = not baked or not baked.image or root_ch.no_layer_using
             no_baked_data = root_ch.name not in chbts or len(chbts[root_ch.name]) == 0
             bake_disabled = root_ch.disable_global_baked and not yp.enable_baked_outside
 
-            #if not baked or not baked.image or root_ch.no_layer_using:
-            #    col.label(text=root_ch.name + " channel hasn't been baked yet!", icon_value=icon_value)
-            #else:
             row = col.row(align=True)
             row.context_pointer_set('root_ch', root_ch)
-            #if baked: row.context_pointer_set('image', baked.image)
             if baked_image: row.context_pointer_set('image', baked_image)
+            else: row.context_pointer_set('image', None)
 
             rrow = row.row(align=True)
             icon = get_collapse_arrow_icon(getattr(nchui, 'expand_baked_data'))
@@ -3989,12 +3982,12 @@ def draw_layers_ui(context, layout, node):
             else:
                 rrow.label(text=title, icon_value=icon_value)
 
-            if baked_image:
-                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-                rrow = row.row(align=True)
-                if is_bl_newer_than(2, 80):
-                    rrow.alignment = 'RIGHT'
-                rrow.menu("NODE_MT_y_baked_image_menu", text='', icon=icon)
+            #if baked_image:
+            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+            rrow = row.row(align=True)
+            if is_bl_newer_than(2, 80):
+                rrow.alignment = 'RIGHT'
+            rrow.menu("NODE_MT_y_baked_image_menu", text='', icon=icon)
 
             if not nchui.expand_baked_data: continue
 
@@ -4004,68 +3997,10 @@ def draw_layers_ui(context, layout, node):
             bcol = bbox.column(align=True)
 
             if no_baked_data:
-                #if root_ch == root_alpha_ch:
-                #    bcol.label(text=root_ch.name + " channel is combined to "+root_color_ch.name+" bake result!", icon='INFO')
-                #else: 
                 bcol.label(text=root_ch.name + " channel hasn't been baked yet!", icon='ERROR')
                 continue
 
-            #row = bcol.row(align=True)
-            #row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
-            ##row.label(text='', icon='BLANK1')
-            #if baked_image.is_dirty:
-            #    title = baked_image.name + ' *'
-            #else: title = baked_image.name
-            #if root_ch.disable_global_baked and not yp.enable_baked_outside:
-            #    title += ' (Disabled)'
-            ##elif not root_ch.use_baked_vcol and baked_vcol_node:
-            ##    title += pgettext_iface(' (Active)')
-            #row.label(text=title, icon_value=lib.get_icon('image'))
-
-            #if baked_image.packed_file:
-            #    row.label(text='', icon='PACKAGE')
-            #    #row.label(text='', icon='BLANK1')
-
-            # If enabled or a baked vertex color is found
-            #if root_ch.use_baked_vcol or baked_vcol_node:
-            #    obj = context.object
-            #    vcol_name = root_ch.bake_to_vcol_name
-            #    vcol = vcols.get(vcol_name)
-
-            #    row = bcol.row(align=True)
-            #    #row.label(text='', icon='BLANK1')
-
-            #    row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
-            #    title = ''
-            #    if root_ch.disable_global_baked and not yp.enable_baked_outside:
-            #        title += pgettext_iface(' (Disabled)')
-            #    elif root_ch.use_baked_vcol and baked_vcol_node:
-            #        title += pgettext_iface(' (Active)')
-
-            #    if baked_vcol_node and vcol:
-            #        row.label(text=vcol_name + title, icon_value=lib.get_icon('vertex_color'))
-
-            #        icon = 'CHECKBOX_HLT' if root_ch.use_baked_vcol else 'CHECKBOX_DEHLT'
-            #        row.prop(root_ch, 'use_baked_vcol', icon=icon, text='', toggle=True, emboss=False)
-            #    else:
-            #        row.label(text='Baked '+get_vertex_color_label(00)+' is missing!' + title, icon='ERROR')
-
-            #if root_ch.special_channel_type == 'NORMAL':
-
-            #    baked_normal_no_disp = nodes.get(root_ch.baked_normal_no_disp)
-            #    if baked_normal_no_disp and baked_normal_no_disp.image:
-            #        row = bcol.row(align=True)
-            #        row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
-            #        if baked_normal_no_disp.image.is_dirty:
-            #            title = baked_normal_no_disp.image.name + ' *'
-            #        else: title = baked_normal_no_disp.image.name
-            #        if root_ch.disable_global_baked and not yp.enable_baked_outside:
-            #            title += ' (Disabled)'
-            #        row.label(text=title, icon_value=lib.get_icon('image'))
-
-            #        if baked_normal_no_disp.image.packed_file:
-            #            row.label(text='', icon='PACKAGE')
-            
+            # Show list of bake targets of the channel
             if root_ch.name in chbts:
 
                 # Check if bake target is chosen not by choice
@@ -4076,70 +4011,53 @@ def draw_layers_ui(context, layout, node):
                 has_multiple_bts = len(chbts[root_ch.name]) > 1
 
                 for bt in chbts[root_ch.name]:
-                    #if bt.name == root_ch.bake_target_name: continue
                     baked_node = nodes.get(bt.baked_node)
+
                     if baked_node:
+
                         row = bcol.row(align=True)
+                        row.active = not bake_disabled or yp.enable_baked_outside
+
+                        # Get bake target name and icons
+                        packed = False
                         if baked_node.type == 'TEX_IMAGE' and baked_node.image:
                             title = baked_node.image.name
-                            if baked_node.image.is_dirty:
-                                title += ' *'
+                            if baked_node.image.is_dirty: title += ' *'
 
-                            if has_multiple_bts and (
-                                bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
-                            ):
-                                title += ' (Active)'
+                            icon_value = lib.get_icon('image')
 
-                            row.label(text=title, icon_value=lib.get_icon('image'))
+                            if baked_node.image.packed_file: packed = True
 
-                            if baked_node.image.packed_file:
-                                row.label(text='', icon='PACKAGE')
-
-                            #btimages.append(baked_node.image)
                         elif baked_node.type == 'ATTRIBUTE':
                             title = bt.name
+                            icon_value = lib.get_icon('vertex_color')
 
-                            if has_multiple_bts and (
-                                bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
-                            ):
-                                title += ' (Active)'
+                        # Extra '(Active)' label
+                        if not bake_disabled and has_multiple_bts and (
+                            bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
+                        ):
+                            title += ' (Active)'
 
-                            row = bcol.row(align=True)
-                            row.label(text=title, icon_value=lib.get_icon('vertex_color'))
+                        # Bake target entry
+                        row.label(text=title, icon_value=icon_value)
+
+                        # Packed icon
+                        if packed: row.label(text='', icon='PACKAGE')
                         
+                        # Bake target selection
                         if forced_bt == None and has_multiple_bts:
                             row.context_pointer_set('channel', root_ch)
                             icon = 'RADIOBUT_ON' if bt.name == root_ch.bake_target_name else 'RADIOBUT_OFF'
                             op = row.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
                             op.bake_target_name = bt.name
 
-
-            #btimages = []
-            #for bt in yp.bake_targets:
-            #    for letter in rgba_letters:
-            #        btc = getattr(bt, letter)
-            #        if getattr(btc, 'channel_name') == root_ch.name:
-            #            bt_node = nodes.get(bt.baked_node)
-            #            btimg = bt_node.image if bt_node and bt_node.type == 'TEX_IMAGE' and bt_node.image else None
-            #            if btimg and btimg not in btimages:
-
-            #                title = btimg.name
-            #                if btimg.is_dirty:
-            #                    title += ' *'
-
-            #                row = bcol.row(align=True)
-            #                row.label(text=title, icon_value=lib.get_icon('image'))
-
-            #                if btimg.packed_file:
-            #                    row.label(text='', icon='PACKAGE')
-
-            #                btimages.append(btimg)
-
+        # Save buttons
         row = box.row(align=True)
         icon = 'FILE_TICK'
         row.operator('wm.y_save_all_baked_images', text='Save As All...', icon=icon).copy = False
         row.operator('wm.y_save_all_baked_images', text='Save Copies All...', icon=icon).copy = True
 
+        # Remove baked data button
         icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
         row.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
 
@@ -6683,25 +6601,23 @@ class YBakedImageMenu(bpy.types.Menu):
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        #try:
-        #    root_ch = yp.channels[yp.active_channel_index]
         root_ch = context.root_ch
 
         row = col.row()
         row.active = not yp.enable_baked_outside
         label = 'Disable Baked ' + root_ch.name
         row.prop(context.root_ch, 'disable_global_baked', text=label, icon='RESTRICT_RENDER_ON')
-        col.separator()
-        #except Exception as e: 
-        #    print(e)
 
-        col.operator('wm.y_pack_image', icon='PACKAGE')
-        col.operator('wm.y_save_image', icon='FILE_TICK')
+        if context.image:
+            col.separator()
 
-        if context.image.packed_file:
-            col.operator('wm.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').copy = False
-        else: col.operator('wm.y_save_as_image', text='Save As Image').copy = False
-        col.operator('wm.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
+            col.operator('wm.y_pack_image', icon='PACKAGE')
+            col.operator('wm.y_save_image', icon='FILE_TICK')
+
+            if context.image.packed_file:
+                col.operator('wm.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').copy = False
+            else: col.operator('wm.y_save_as_image', text='Save As Image').copy = False
+            col.operator('wm.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
 
 class YLayerChannelNormalBlendMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_channel_normal_blend_menu"
