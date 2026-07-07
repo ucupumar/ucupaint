@@ -134,7 +134,6 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     invert_a : StringProperty(default='')
 
     baked_node_outside : StringProperty(default='')
-    max_value_node_outside : StringProperty(default='')
     separate_xyz_outside : StringProperty(default='')
     invert_r_outside : StringProperty(default='')
     invert_g_outside : StringProperty(default='')

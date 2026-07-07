@@ -4583,6 +4583,7 @@ class YNodeConnections(bpy.types.PropertyGroup):
     node : StringProperty(default='')
     socket : StringProperty(default='')
     socket_index : IntProperty(default=-1)
+    original_value : FloatProperty(default=0.0)
 
 class YPaintChannel(bpy.types.PropertyGroup):
     name : StringProperty(
