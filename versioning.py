@@ -1269,6 +1269,36 @@ def update_yp_tree(tree):
                 ch.special_channel_type = 'ALPHA'
                 yp.halt_update = False
 
+        # Create new bake targets matching the available channels
+        for ch in yp.channels:
+            baked = tree.nodes.get(ch.baked)
+
+            # Create bake target name
+            bt_name = baked.image.name if baked and baked.image else yp.id_data.name+' '+ch.name
+            bt_name = get_unique_name(bt_name, yp.bake_targets)
+
+            bt = yp.bake_targets.add()
+            bt.name = bt_name
+
+            bt.r.channel_name = ch.name
+            bt.r.subchannel_index = '0'
+
+            bt.g.channel_name = ch.name
+            bt.g.subchannel_index = '1'
+
+            bt.b.channel_name = ch.name
+            bt.b.subchannel_index = '2'
+
+            bt.a.default_value = 1.0
+
+            bt.data_type = 'IMAGE'
+
+            bt.uv_map = yp.baked_uv_name
+
+            bt.baked_node = ch.baked
+            ch.baked = ''
+            
+            ch.bake_target_name = bt.name
 
         if normal_ch != None:
 
