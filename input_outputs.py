@@ -1,5 +1,5 @@
 import bpy, re
-from . import lib, Decal
+from . import lib, Decal, Triplanar
 from .common import *
 from .transition_common import *
 from .subtree import *
@@ -575,6 +575,13 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
         Decal.check_entity_decal_nodes(mask, tree)
         #check_mask_image_linear_node(mask)
 
+    # Triplanar wrappers need source trees, which are only checked on normal channel updates
+    check_layer_source_tree(layer)
+    check_mask_source_tree(layer)
+    Triplanar.check_entity_triplanar_nodes(layer, tree)
+    for mask in layer.masks:
+        Triplanar.check_entity_triplanar_nodes(mask, tree)
+
     # Linear nodes
     check_yp_linear_nodes(yp, layer, False)
 
@@ -744,7 +751,12 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if layer.texcoord_type == 'Decal':
             dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
-        
+
+        elif layer.texcoord_type == 'Triplanar':
+            for prop_name in triplanar_input_props.values():
+                dirty = create_prop_input(layer, prop_name, valid_inputs, input_index, dirty, float_factor_input_names)
+                input_index += 1
+
         if is_bl_newer_than(2, 81) and layer.enable_uniform_scale and is_layer_using_vector(layer) and layer.segment_name == '':
             dirty = create_prop_input(layer, 'uniform_scale_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
@@ -893,6 +905,12 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             if mask.texcoord_type == 'Decal':
                 dirty = create_prop_input(mask, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
+
+            # Mask triplanar
+            elif mask.texcoord_type == 'Triplanar':
+                for prop_name in triplanar_input_props.values():
+                    dirty = create_prop_input(mask, prop_name, valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
 
             # Color ID
             if mask.type == 'COLOR_ID':

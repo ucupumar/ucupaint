@@ -28,6 +28,7 @@ if "bpy" in locals():
     importlib.reload(bake_common)
     importlib.reload(modifier_common)
     importlib.reload(Decal)
+    importlib.reload(Triplanar)
     importlib.reload(ui)
     importlib.reload(subtree)
     importlib.reload(transition_common)
@@ -63,7 +64,7 @@ else:
     from . import lib
     from . import BaseOperator
     from . import Localization
-    from . import image_ops, bake_common, modifier_common, Decal, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections
+    from . import image_ops, bake_common, modifier_common, Decal, Triplanar, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections
     from . import vector_displacement_lib, vector_displacement
     from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
     if is_available('.addon_updater_ops'): from . import addon_updater_ops

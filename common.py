@@ -51,6 +51,33 @@ BUMP_MULTIPLY_TWEAK = 5
 TEMP_ACTIVE_IMAGE_NAME = '.YP_TEMP_ACTIVE_IMAGE'
 TEMP_ACTIVE_IMAGE_NODE_NAME = '.YP_TEMP_ACTIVE_IMAGE_NODE'
 
+TRIPLANAR_PREP = 'Triplanar Prep'
+TRIPLANAR_BLEND_PREFIX = 'Triplanar Blend '
+TRIPLANAR_SOURCE_PREFIX = 'Triplanar Source '
+triplanar_axes = ['X', 'Y', 'Z']
+triplanar_side_props = {
+    '+X' : 'triplanar_show_pos_x',
+    '-X' : 'triplanar_show_neg_x',
+    '+Y' : 'triplanar_show_pos_y',
+    '-Y' : 'triplanar_show_neg_y',
+    '+Z' : 'triplanar_show_pos_z',
+    '-Z' : 'triplanar_show_neg_z',
+}
+
+# Triplanar wrapper input socket names paired with their entity properties
+triplanar_input_props = {
+    'Blend' : 'triplanar_blend',
+    'Expand' : 'triplanar_expand',
+}
+for side, prop in triplanar_side_props.items():
+    triplanar_input_props['Show ' + side] = prop
+
+# Show side inputs default to 1.0
+triplanar_input_defaults = {
+    'Blend' : 0.2,
+    'Expand' : 0.0,
+}
+
 def is_bl_newer_than(major, minor=0, patch=0):
     return bpy.app.version >= (major, minor, patch)
 
@@ -507,6 +534,7 @@ texcoord_type_items = (
     ('Window', 'Window', ''),
     ('Reflection', 'Reflection', ''),
     ('Decal', 'Decal', ''),
+    ('Triplanar', 'Triplanar', ''),
 )
 
 mask_texcoord_type_items = (
@@ -518,6 +546,7 @@ mask_texcoord_type_items = (
     ('Window', 'Window', ''),
     ('Reflection', 'Reflection', ''),
     ('Decal', 'Decal', ''),
+    ('Triplanar', 'Triplanar', ''),
     ('Layer', 'Use Layer Vector', ''),
 )
 
@@ -617,6 +646,7 @@ io_names = {
     'Window' : 'Texcoord Window',
     'Reflection' : 'Texcoord Reflection',
     'Decal' : 'Texcoord Object',
+    'Triplanar' : 'Texcoord Object',
 }
 
 math_method_items = (
@@ -2360,6 +2390,14 @@ def get_mod_tree(entity):
 
         return tree
 
+def get_triplanar_source_tree(tree):
+    ''' Get the actual source tree if the passed tree is a triplanar wrapper '''
+    if not tree: return None
+    source_x = tree.nodes.get(TRIPLANAR_SOURCE_PREFIX + 'X')
+    if source_x and source_x.type == 'GROUP' and source_x.node_tree:
+        return source_x.node_tree
+    return None
+
 def get_mask_tree(mask, layer_tree=None, ignore_group=False):
 
     if not layer_tree:
@@ -2379,6 +2417,8 @@ def get_mask_tree(mask, layer_tree=None, ignore_group=False):
     else: return None
 
     if not group_node or group_node.type != 'GROUP': return layer_tree
+    inner_tree = get_triplanar_source_tree(group_node.node_tree)
+    if inner_tree: return inner_tree
     return group_node.node_tree
 
 def get_mask_source(mask, get_baked=False, layer_tree=None):
@@ -2428,6 +2468,8 @@ def get_channel_source_tree(ch, layer=None, tree=None):
     if ch.source_group != '':
         source_group = tree.nodes.get(ch.source_group)
         if source_group:
+            inner_tree = get_triplanar_source_tree(source_group.node_tree)
+            if inner_tree: return inner_tree
             return source_group.node_tree
 
     return tree
@@ -2468,6 +2510,8 @@ def get_source_tree(layer, tree=None):
 
     if layer.source_group != '':
         source_group = tree.nodes.get(layer.source_group)
+        inner_tree = get_triplanar_source_tree(source_group.node_tree)
+        if inner_tree: return inner_tree
         return source_group.node_tree
 
     return tree
@@ -3441,7 +3485,10 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}
+
+def is_entity_using_triplanar(entity):
+    return entity.texcoord_type == 'Triplanar' and not entity.use_baked and is_mapping_possible(entity.type)
 
 def clear_mapping(entity, use_baked=False):
 

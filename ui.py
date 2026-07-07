@@ -1771,6 +1771,11 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     split = split_layout(rrow, 0.4, align=True)
                     split.prop(layer, 'texcoord_type', text='')
                     split.prop(texcoord, 'object', text='')
+            elif layer.texcoord_type == 'Triplanar' and not lui.expand_vector:
+                rrow.scale_x = 0.5
+                split = split_layout(rrow, 0.5, align=True)
+                split.prop(layer, 'texcoord_type', text='')
+                draw_input_prop(split, layer, 'triplanar_blend', layer=layer)
             else:
                 rrow.prop(layer, 'texcoord_type', text='')
 
@@ -1853,7 +1858,29 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rrow.operator('wm.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
-                
+
+            if layer.texcoord_type == 'Triplanar':
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                splits = split_layout(rrow, 0.5, align=True)
+                splits.label(text='Projection Blend:')
+                draw_input_prop(splits, layer, 'triplanar_blend', layer=layer)
+
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                splits = split_layout(rrow, 0.5, align=True)
+                splits.label(text='Expand:')
+                draw_input_prop(splits, layer, 'triplanar_expand', layer=layer)
+
+                for axis in triplanar_axes:
+                    rrow = boxcol.row(align=True)
+                    rrow.label(text='', icon='BLANK1')
+                    splits = split_layout(rrow, 0.5, align=True)
+                    splits.label(text='Show Sides:' if axis == 'X' else '')
+                    rrrow = splits.row(align=True)
+                    draw_input_prop(rrrow, layer, triplanar_side_props['+' + axis], None, '+' + axis, layer=layer)
+                    draw_input_prop(rrrow, layer, triplanar_side_props['-' + axis], None, '-' + axis, layer=layer)
+
             if layer.texcoord_type != 'Decal' and not is_using_image_atlas:
                 mapping = get_layer_mapping(layer)
 
@@ -3161,6 +3188,10 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                 if texcoord:
                     ssplit.prop(mask, 'texcoord_type', text='')
                     ssplit.prop(texcoord, 'object', text='')
+            elif mask.texcoord_type == 'Triplanar' and not maskui.expand_vector:
+                rrrow = split_layout(rrow, 0.5, align=True)
+                rrrow.prop(mask, 'texcoord_type', text='')
+                draw_input_prop(rrrow, mask, 'triplanar_blend', layer=layer)
             else:
                 rrow.prop(mask, 'texcoord_type', text='')
 
@@ -3221,6 +3252,22 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                         boxcol.operator('wm.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
                     else: boxcol.operator('wm.y_select_decal_object', icon='EMPTY_DATA')
                     boxcol.operator('wm.y_set_decal_object_position_to_sursor', text='Set Position to Cursor', icon='CURSOR')
+
+                if mask.texcoord_type == 'Triplanar':
+                    splits = split_layout(boxcol, 0.5, align=True)
+                    splits.label(text='Projection Blend:')
+                    draw_input_prop(splits, mask, 'triplanar_blend', layer=layer)
+
+                    splits = split_layout(boxcol, 0.5, align=True)
+                    splits.label(text='Expand:')
+                    draw_input_prop(splits, mask, 'triplanar_expand', layer=layer)
+
+                    for axis in triplanar_axes:
+                        splits = split_layout(boxcol, 0.5, align=True)
+                        splits.label(text='Show Sides:' if axis == 'X' else '')
+                        rrrow = splits.row(align=True)
+                        draw_input_prop(rrrow, mask, triplanar_side_props['+' + axis], None, '+' + axis, layer=layer)
+                        draw_input_prop(rrrow, mask, triplanar_side_props['-' + axis], None, '-' + axis, layer=layer)
 
                 if mask.texcoord_type != 'Decal' and not is_using_image_atlas:
                     mapping = get_mask_mapping(mask)
