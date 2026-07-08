@@ -227,6 +227,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         # Set denoise default values
         bt.denoise = False
 
+        if special_channel_type == 'HEIGHT':
+            bt.interpolation = 'Cubic'
+
         if special_channel_type == 'NORMAL':
             bt.fxaa = False
 

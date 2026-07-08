@@ -2825,11 +2825,15 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         else:
             baked_node = check_new_node(tree, bt, 'baked_node', 'ShaderNodeTexImage')
 
-            if hasattr(baked_node, 'color_space'):
-                if any_linear_ch:
-                    baked_node.color_space = 'NONE'
-                else: baked_node.color_space = 'COLOR'
-            baked_node.interpolation = btprops.interpolation
+    # Set legacy colorspace
+    if hasattr(baked_node, 'color_space'):
+        if any_linear_ch:
+            baked_node.color_space = 'NONE'
+        else: baked_node.color_space = 'COLOR'
+
+    # Set interpolation
+    if not is_vcol_baking:
+        baked_node.interpolation = btprops.interpolation
         
     if not is_vcol_baking:
         # Create new image

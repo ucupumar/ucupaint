@@ -287,6 +287,10 @@ def create_bake_target_from_channel(ch, baked_node=None, bt_name='', rename_imag
         else:
             bt.use_custom_resolution = True
 
+    # Make sure height bake target uses cubic by default
+    if ch.special_channel_type == 'HEIGHT':
+        bt.interpolation = 'Cubic' if not baked_node else baked_node.interpolation
+
     return bt
 
 def update_yp_tree(tree):
