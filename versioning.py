@@ -232,6 +232,7 @@ def create_bake_target_from_channel(ch, baked_node=None, bt_name='', rename_imag
 
     if baked_image and rename_image:
         new_image_name = baked_image.name.replace(get_addon_title()+' ', '')
+        new_image_name = new_image_name.replace('Normal Displacement', 'Height')
         new_image_name = get_unique_name(new_image_name, bpy.data.images)
         baked_image.name = new_image_name
 
@@ -264,6 +265,27 @@ def create_bake_target_from_channel(ch, baked_node=None, bt_name='', rename_imag
 
     if baked_channel_used:
         ch.baked = ''
+
+    # Copy bake info to bake target
+    if baked_image:
+        bi = baked_image.y_bake_info
+        for attr in dir(bt):
+            if attr in {'name', 'rna_type'}: continue
+            if attr.startswith('__'): continue
+            if attr.startswith('bl_'): continue
+            if attr in dir(bi):
+                try: setattr(self, attr, getattr(bi, attr))
+                except: pass
+
+        bt.use_float = baked_image.is_float
+        bt.width = baked_image.size[0]
+        bt.height = baked_image.size[1]
+
+        if bt.width == bt.height and bt.width in {512, 1024, 2048, 4096}:
+            bt.use_custom_resolution = False
+            bt.image_resolution = str(bt.width)
+        else:
+            bt.use_custom_resolution = True
 
     return bt
 
@@ -1373,9 +1395,11 @@ def update_yp_tree(tree):
                 height_bt = create_bake_target_from_channel(height_ch, baked_node=height_baked_node)
                 height_bt.baked_node_outside = normal_ch.baked_outside_disp
                 if height_baked_node:
-                    height_bt.height_normalize = True
                     height_bt.max_value_node = normal_ch.end_max_height
                     height_ch.bake_target_name = height_bt.name
+
+                # The default height channel will normalize the bake
+                height_bt.height_normalize = True
 
                 # Create normal without height bake target
                 norm_woh_baked_node = tree.nodes.get(normal_ch.baked_normal_overlay)
