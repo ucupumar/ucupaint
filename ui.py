@@ -3959,7 +3959,16 @@ def draw_layers_ui(context, layout, node):
             icon_name = lib.channel_custom_icon_dict[root_ch.type]
             icon_value = lib.get_icon(icon_name)
 
-            no_baked_data = root_ch.name not in chbts or len(chbts[root_ch.name]) == 0
+            # Check if channel has any baked node
+            any_baked_node = False
+            if root_ch.name in chbts:
+                for bt in chbts[root_ch.name]:
+                    baked_node = nodes.get(bt.baked_node)
+                    if baked_node:
+                        any_baked_node = True
+                        break
+
+            no_baked_data = root_ch.name not in chbts or len(chbts[root_ch.name]) == 0 or not any_baked_node
             bake_disabled = root_ch.disable_global_baked and not yp.enable_baked_outside
 
             row = col.row(align=True)

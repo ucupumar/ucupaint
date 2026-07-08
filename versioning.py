@@ -216,6 +216,57 @@ def update_bake_info_use_cages(yp):
             if bi.cage_object_name != '':
                 bi.use_cage = True
 
+def create_bake_target_from_channel(ch, baked_node=None, bt_name='', rename_image=True):
+    tree = ch.id_data
+    yp = tree.yp
+
+    # Get baked node
+    baked_image = None
+    baked_channel_used = False
+    if baked_node == None:
+        baked_node = tree.nodes.get(ch.baked)
+        baked_channel_used = True
+
+    if baked_node and baked_node.image:
+        baked_image = baked_node.image
+
+    if baked_image and rename_image:
+        new_image_name = baked_image.name.replace(get_addon_title()+' ', '')
+        new_image_name = get_unique_name(new_image_name, bpy.data.images)
+        baked_image.name = new_image_name
+
+    # Create bake target name
+    if bt_name == '':
+        bt_name = baked_image.name if baked_image else yp.id_data.name+' '+ch.name
+    bt_name = bt_name.replace(get_addon_title()+' ', '')
+    bt_name = get_unique_name(bt_name, yp.bake_targets)
+
+    bt = yp.bake_targets.add()
+    bt.name = bt_name
+
+    bt.r.channel_name = ch.name
+    bt.r.subchannel_index = '0'
+
+    bt.g.channel_name = ch.name
+    bt.g.subchannel_index = '1'
+
+    bt.b.channel_name = ch.name
+    bt.b.subchannel_index = '2'
+
+    bt.a.default_value = 1.0
+
+    bt.data_type = 'IMAGE'
+
+    bt.uv_map = yp.baked_uv_name
+
+    if baked_node:
+        bt.baked_node = baked_node.name
+
+    if baked_channel_used:
+        ch.baked = ''
+
+    return bt
+
 def update_yp_tree(tree):
     cur_version = get_current_version_str()
     yp = tree.yp
@@ -1272,33 +1323,9 @@ def update_yp_tree(tree):
         # Create new bake targets matching the available channels
         for ch in yp.channels:
             baked = tree.nodes.get(ch.baked)
-
-            # Create bake target name
-            bt_name = baked.image.name if baked and baked.image else yp.id_data.name+' '+ch.name
-            bt_name = get_unique_name(bt_name, yp.bake_targets)
-
-            bt = yp.bake_targets.add()
-            bt.name = bt_name
-
-            bt.r.channel_name = ch.name
-            bt.r.subchannel_index = '0'
-
-            bt.g.channel_name = ch.name
-            bt.g.subchannel_index = '1'
-
-            bt.b.channel_name = ch.name
-            bt.b.subchannel_index = '2'
-
-            bt.a.default_value = 1.0
-
-            bt.data_type = 'IMAGE'
-
-            bt.uv_map = yp.baked_uv_name
-
-            bt.baked_node = ch.baked
-            ch.baked = ''
-            
-            ch.bake_target_name = bt.name
+            bt = create_bake_target_from_channel(ch)
+            if baked:
+                ch.bake_target_name = bt.name
 
         if normal_ch != None:
 
@@ -1326,7 +1353,7 @@ def update_yp_tree(tree):
                 height_ch_name = get_unique_name('Height', yp.channels)
 
                 # Create height channel
-                height_ch = Root.create_new_yp_channel(tree, height_ch_name, 'VALUE', non_color=True, special_channel_type='HEIGHT')
+                height_ch = Root.create_new_yp_channel(tree, height_ch_name, 'VALUE', non_color=True, special_channel_type='HEIGHT', add_bake_target=False)
                 height_ch.use_height_as_bump = not displacement_setup_needed
                 height_ch.enable_smooth_bump = False
 
@@ -1341,28 +1368,45 @@ def update_yp_tree(tree):
                 height_ch = yp.channels[height_ch_idx]
                 normal_ch = yp.channels[normal_ch_idx]
 
+                # Create height bake target
+                height_baked_node = tree.nodes.get(normal_ch.baked_disp)
+                height_bt = create_bake_target_from_channel(height_ch, baked_node=height_baked_node)
+                height_bt.baked_node_outside = normal_ch.baked_outside_disp
+                if height_baked_node:
+                    height_bt.height_normalize = True
+                    height_bt.max_value_node = normal_ch.end_max_height
+                    height_ch.bake_target_name = height_bt.name
+
+                # Create normal without height bake target
+                norm_woh_baked_node = tree.nodes.get(normal_ch.baked_normal_overlay)
+                norm_woh_bt_name = tree.name+' '+normal_ch.name+' without Height'
+                norm_woh_bt = create_bake_target_from_channel(normal_ch, baked_node=norm_woh_baked_node, bt_name=norm_woh_bt_name)
+                norm_woh_bt.normal_includes_height = False
+                norm_woh_bt.baked_node_outside = normal_ch.baked_outside_normal_overlay
+
                 # Repoint some nodes
-                height_ch.baked = normal_ch.baked_disp
-                normal_ch.baked_disp = ''
+                #height_ch.baked = normal_ch.baked_disp
+                #normal_ch.baked_disp = ''
                 if height_ch.baked != '':
                     height_ch.no_layer_using = False
                     # NOTE: Normalize height is enabled if height is baked before version 3.0
-                    height_ch.use_height_normalize = True
+                    #height_ch.use_height_normalize = True
 
-                height_ch.end_max_height = normal_ch.end_max_height
-                normal_ch.end_max_height = ''
+                #height_ch.end_max_height = normal_ch.end_max_height
+                #normal_ch.end_max_height = ''
 
-                height_ch.baked_outside = normal_ch.baked_outside_disp
-                height_ch.baked_outside_disp = ''
+                #height_ch.baked_outside = normal_ch.baked_outside_disp
+                #height_ch.baked_outside_disp = ''
 
-                normal_ch.baked_normal_no_disp = normal_ch.baked_normal_overlay
-                normal_ch.baked_normal_overlay = ''
+                #normal_ch.baked_normal_no_disp = normal_ch.baked_normal_overlay
+                #normal_ch.baked_normal_overlay = ''
 
-                normal_ch.baked_outside_normal_no_disp = normal_ch.baked_outside_normal_overlay
-                normal_ch.baked_outside_normal_overlay = ''
+                #normal_ch.baked_outside_normal_no_disp = normal_ch.baked_outside_normal_overlay
+                #normal_ch.baked_outside_normal_overlay = ''
 
                 # Update bake target
                 for bt in yp.bake_targets:
+                    if bt in {height_bt, norm_woh_bt}: continue
                     for letter in rgba_letters:
                         btc = getattr(bt, letter)
                         if btc.channel_name == normal_ch.name and btc.normal_type == 'DISPLACEMENT':
@@ -1374,7 +1418,7 @@ def update_yp_tree(tree):
                 vdm_ch_name = get_unique_name('Vector Displacement', yp.channels)
 
                 # Create vdm channel
-                vdm_ch = Root.create_new_yp_channel(tree, vdm_ch_name, 'RGB', non_color=True, special_channel_type='VDISP')
+                vdm_ch = Root.create_new_yp_channel(tree, vdm_ch_name, 'RGB', non_color=True, special_channel_type='VDISP', add_bake_target=False)
 
                 # Swap index
                 vdm_ch_idx = get_channel_index(vdm_ch)
@@ -1382,17 +1426,25 @@ def update_yp_tree(tree):
                     Root.set_channel_index(vdm_ch, normal_ch_idx+1)
                     vdm_ch_idx = normal_ch_idx + 1
 
+                # Create vdm bake target
+                baked_node = tree.nodes.get(normal_ch.baked_vdisp)
+                vdm_bt = create_bake_target_from_channel(vdm_ch, baked_node=baked_node)
+                vdm_bt.baked_node_outside = normal_ch.baked_outside_vdisp
+                if baked_node:
+                    vdm_ch.bake_target_name = vdm_bt.name
+
                 # Repoint some nodes
-                vdm_ch.baked = normal_ch.baked_vdisp
-                normal_ch.baked_vdisp = ''
+                #vdm_ch.baked = normal_ch.baked_vdisp
+                #normal_ch.baked_vdisp = ''
                 if vdm_ch.baked != '':
                     vdm_ch.no_layer_using = False
 
-                vdm_ch.baked_outside = normal_ch.baked_outside_vdisp
-                vdm_ch.baked_outside_vdisp = ''
+                #vdm_ch.baked_outside = normal_ch.baked_outside_vdisp
+                #vdm_ch.baked_outside_vdisp = ''
 
                 # Update bake target
                 for bt in yp.bake_targets:
+                    if bt == vdm_bt: continue
                     for letter in rgba_letters:
                         btc = getattr(bt, letter)
                         if btc.channel_name == normal_ch.name and btc.normal_type == 'VECTOR_DISPLACEMENT':
