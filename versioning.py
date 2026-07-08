@@ -216,19 +216,24 @@ def update_bake_info_use_cages(yp):
             if bi.cage_object_name != '':
                 bi.use_cage = True
 
-def create_bake_target_from_channel(ch, baked_node=None, bt_name='', rename_image=True):
+def create_bake_target_from_channel(ch, baked_node=None, use_vcol=False, bt_name='', rename_image=True):
     tree = ch.id_data
     yp = tree.yp
 
-    # Get baked node
     baked_image = None
-    baked_channel_used = False
-    if baked_node == None:
-        baked_node = tree.nodes.get(ch.baked)
-        baked_channel_used = True
 
-    if baked_node and baked_node.image:
-        baked_image = baked_node.image
+    # Get baked node
+    if use_vcol:
+        baked_node = tree.nodes.get(ch.baked_vcol)
+        bt_name = baked_node.attribute_name if baked_node else ''
+        ch.baked_vcol = ''
+    else:
+        if baked_node == None:
+            baked_node = tree.nodes.get(ch.baked)
+            ch.baked = ''
+
+        if baked_node and baked_node.image:
+            baked_image = baked_node.image
 
     if baked_image and rename_image:
         new_image_name = baked_image.name.replace(get_addon_title()+' ', '')
@@ -239,6 +244,12 @@ def create_bake_target_from_channel(ch, baked_node=None, bt_name='', rename_imag
     # Create bake target name
     if bt_name == '':
         bt_name = baked_image.name if baked_image else yp.id_data.name+' '+ch.name
+
+        if use_vcol:
+            if is_bl_newer_than(3, 2):
+                bt_name += ' Attribute'
+            else: bt_name += ' VCol'
+
     bt_name = bt_name.replace(get_addon_title()+' ', '')
     bt_name = get_unique_name(bt_name, yp.bake_targets)
 
@@ -256,15 +267,12 @@ def create_bake_target_from_channel(ch, baked_node=None, bt_name='', rename_imag
 
     bt.a.default_value = 1.0
 
-    bt.data_type = 'IMAGE'
+    bt.data_type = 'IMAGE' if not use_vcol else 'VCOL'
 
     bt.uv_map = yp.baked_uv_name
 
     if baked_node:
         bt.baked_node = baked_node.name
-
-    if baked_channel_used:
-        ch.baked = ''
 
     # Copy bake info to bake target
     if baked_image:
@@ -1352,6 +1360,13 @@ def update_yp_tree(tree):
             bt = create_bake_target_from_channel(ch)
             if baked:
                 ch.bake_target_name = bt.name
+
+            # Vertex color bake target
+            if ch.enable_bake_to_vcol:
+                vbt = create_bake_target_from_channel(ch, use_vcol=True)
+                if ch.use_baked_vcol:
+                    ch.bake_target_name = vbt.name
+                vbt.baked_node_outside = ch.baked_outside_vcol
 
         if normal_ch != None:
 
