@@ -3490,8 +3490,19 @@ class YRemoveYPaintNode(bpy.types.Operator):
             group_node = get_active_ypaint_node()
             tree = group_node.node_tree
             yp = tree.yp
+        else:
+            tree = yp.id_data
 
-        return any([c.baked for c in yp.channels if c.baked != ''])
+        baked_found = False
+        for ch in yp.channels:
+            bt = yp.bake_targets.get(ch.bake_target_name)
+            if bt:
+                baked_node = tree.nodes.get(bt.baked_node)
+                if baked_node:
+                    baked_found = True
+                    break
+
+        return baked_found
 
     def invoke(self, context, event):
         if self.is_baked():

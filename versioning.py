@@ -301,6 +301,13 @@ def create_bake_target_from_channel(ch, baked_node=None, use_vcol=False, bt_name
 
     return bt
 
+def switch_frame(source_frame, dest_frame, tree):
+    for n in tree.nodes:
+        if n.parent == source_frame:
+            n.parent = dest_frame
+
+    tree.nodes.remove(source_frame)
+
 def update_yp_tree(tree):
     cur_version = get_current_version_str()
     yp = tree.yp
@@ -1365,6 +1372,10 @@ def update_yp_tree(tree):
             if baked:
                 ch.bake_target_name = bt.name
 
+            # Outside nodes
+            bt.baked_node_outside = ch.baked_outside
+            ch.baked_normal_outside = ch.baked_outside_normal_process
+
             # Vertex color bake target
             if ch.enable_bake_to_vcol:
                 vbt = create_bake_target_from_channel(ch, use_vcol=True)
@@ -1629,6 +1640,40 @@ def update_yp_tree(tree):
                                     inp = node.inputs.get(norm_ch.name)
                                     if inp and hasattr(inp, 'hide_value'):
                                         inp.hide_value = True
+
+        # Convert some outside nodes
+        mats = get_materials_using_yp(yp)
+        for mat in mats:
+
+            # Frame nodes
+            frame = mat.node_tree.nodes.get(yp.baked_outside_frame)
+            if frame:
+                bt_frame = Bake.get_bake_target_outside_frame(yp, mat)
+                switch_frame(frame, bt_frame, mat.node_tree)
+
+            # UV nodes
+            uv = mat.node_tree.nodes.get(yp.baked_outside_uv)
+            if uv: uv.name = Bake.UV_OUTSIDE_PREFIX + uv.uv_map
+            yp.baked_outside_uv = ''
+
+            # Channel related nodes
+            for ch in yp.channels:
+
+                # Remove outsde displacement nodes
+                baked_disp_proc = mat.node_tree.nodes.get(ch.baked_outside_disp_process)
+                baked_vdisp_proc = mat.node_tree.nodes.get(ch.baked_outside_vdisp_process)
+
+                disp_nodes = [baked_disp_proc, baked_vdisp_proc]
+
+                for n in disp_nodes:
+                    if n != None:
+                        do_remove = True
+                        for outp in n.outputs:
+                            if len(outp.links) > 0:
+                                do_remove = False
+                                break
+                        if do_remove:
+                            mat.node_tree.nodes.remove(n)
 
         # Convert root channel modifiers to 'PREV_LAYERS' layer
         any_root_ch_modifiers = False

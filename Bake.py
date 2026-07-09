@@ -3599,6 +3599,18 @@ def set_outside_loc(node, loc_x, loc_y, frame):
     node.location.y = loc_y
     node.parent = frame
 
+def get_bake_target_outside_frame(yp, mat):
+    tree = yp.id_data
+
+    bt_frame = mat.node_tree.nodes.get(yp.bake_target_outside_frame)
+    if not bt_frame:
+        bt_frame = mat.node_tree.nodes.new('NodeFrame')
+        bt_frame.label = tree.name + ' Bake Targets'
+        bt_frame.name = tree.name + ' Bake Targets'
+        yp.bake_target_outside_frame = bt_frame.name
+
+    return bt_frame
+
 def update_enable_baked_outside(self, context):
     tree = self.id_data
     yp = tree.yp
@@ -3616,26 +3628,20 @@ def update_enable_baked_outside(self, context):
 
     if yp.enable_baked_outside and yp.use_baked:
 
+        # Get channel pairs
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
         # Get nodes that will be shifted to the right
         shift_nodes = []
         for n in mtree.nodes:
             if n.location.x > node.location.x:
                 shift_nodes.append(n)
 
-        # Custom bake target images also have their own frame
-        bt_frame = mtree.nodes.get(yp.bake_target_outside_frame)
-        if not bt_frame:
-            bt_frame = mtree.nodes.new('NodeFrame')
-            bt_frame.label = tree.name + ' Bake Targets'
-            bt_frame.name = tree.name + ' Bake Targets'
-            yp.bake_target_outside_frame = bt_frame.name
+        # Bake target outside frames
+        bt_frame = get_bake_target_outside_frame(yp, mat)
 
         loc_x = node.location.x + 180
         loc_y = node.location.y
-
-        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
-
-        loc_x += 180
         ori_y = loc_y
 
         # Bake target uvs
