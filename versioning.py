@@ -1334,6 +1334,7 @@ def update_yp_tree(tree):
         normal_ch = None
         normal_ch_idx = -1
         displacement_setup_needed = False 
+        alpha_ch = None
 
         # Check if there's legacy special channels
         for i, ch in enumerate(yp.channels):
@@ -1352,10 +1353,13 @@ def update_yp_tree(tree):
             if ch.is_alpha:
                 yp.halt_update = True
                 ch.special_channel_type = 'ALPHA'
+                alpha_ch = ch
                 yp.halt_update = False
 
         # Create new bake targets matching the available channels
         for ch in yp.channels:
+            if ch == alpha_ch and alpha_ch.alpha_combine_to_baked_color: continue
+
             baked = tree.nodes.get(ch.baked)
             bt = create_bake_target_from_channel(ch)
             if baked:
@@ -1367,6 +1371,10 @@ def update_yp_tree(tree):
                 if ch.use_baked_vcol:
                     ch.bake_target_name = vbt.name
                 vbt.baked_node_outside = ch.baked_outside_vcol
+
+            # Alpha bake target
+            if alpha_ch and alpha_ch.alpha_pair_name == ch.name and alpha_ch.alpha_combine_to_baked_color:
+                bt.a.channel_name = alpha_ch.name
 
         if normal_ch != None:
 
