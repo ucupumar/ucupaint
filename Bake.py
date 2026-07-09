@@ -1645,7 +1645,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
         group_tree = node.node_tree
         yp = group_tree.yp
         
-        return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0
+        return context.object and len(yp.bake_targets) > 0
 
     def invoke(self, context, event):
         return self.invoke_op(context, event)

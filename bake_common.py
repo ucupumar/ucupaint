@@ -1857,134 +1857,6 @@ def bake_alpha_to_vcol(obj, vcol_name):
     vcols.remove(temp_vcol)
     set_active_vertex_color(obj, target_vcol)
 
-def bake_target_vcol(obj, node, bake_target, vcol_name):
-    yp = node.node_tree.yp
-    mat = obj.active_material
-    ntree = mat.node_tree
-
-    emit = ntree.nodes.new('ShaderNodeEmission')
-    combine_xyz = ntree.nodes.new('ShaderNodeCombineXYZ')
-    ntree.links.new(combine_xyz.outputs[0], emit.inputs[0])
-
-    vcols = get_vertex_colors(obj)
-    vcol = vcols.get(vcol_name)
-
-    # Set index to first so new vcol will copy their value
-    if len(vcols) > 0:
-        first_vcol = vcols[0]
-        set_active_vertex_color(obj, first_vcol)
-
-    if not vcol:
-        try: 
-            vcol = new_vertex_color(obj, vcol_name)
-        except Exception as e: print(e)
-
-
-    output = get_material_output(mat, create_one=True)
-    ori_bsdf = output.inputs[0].links[0].from_socket
-
-    ntree.links.new(emit.outputs[0], output.inputs[0])
-
-    alpha_channel = None
-
-    for i, letter in enumerate(rgba_letters):
-
-        btc = getattr(bake_target, letter)
-        ch_name = btc.channel_name
-        ch = yp.channels.get(ch_name) if ch_name != '' else None
-
-        # print("channel name "+ch_name+" : "+str(btc.default_value))
-
-        if ch:
-            ch_node = node.outputs[btc.channel_name]
-            print("channel type "+ch_name+" : "+ch.type)
-
-            if ch.type == 'VALUE':
-                output_ch = ch_node
-                # ntree.links.new(ch_node, combine_xyz.inputs[i])
-            elif ch.type == 'RGB':
-                sep_ch = ntree.nodes.get('sep_'+btc.channel_name)
-                if not sep_ch:
-                    sep_ch = ntree.nodes.new('ShaderNodeSeparateXYZ')
-                    sep_ch.name = 'sep_'+btc.channel_name
-                    ntree.links.new(ch_node, sep_ch.inputs[0])
-
-                sub_idx = int(btc.subchannel_index)
-                output_ch = sep_ch.outputs[sub_idx]
-                # ntree.links.new(sep_ch.outputs[sub_idx], combine_xyz.inputs[i])
-
-            if i == 3: # alpha
-                # ntree.links.new(output_ch, combine_alp_xyz.inputs[0])
-                alpha_channel = output_ch
-            else:
-                ntree.links.new(output_ch, combine_xyz.inputs[i])
-
-        elif i < 3:
-            combine_xyz.inputs[i].default_value = btc.default_value
-        else:
-            # combine_alp_xyz.inputs[0].default_value = btc.default_value
-            pass
-
-    bake_object_op()
-
-    # alpha node
-    if alpha_channel:
-
-        temp_vcol_alpha_name = '__temp__ucupaint_vertex_color_for_alpha_bake'
-
-        combine_alp_xyz = ntree.nodes.new('ShaderNodeCombineXYZ')
-        ntree.links.new(combine_alp_xyz.outputs[0], emit.inputs[0])
-
-        ntree.links.new(alpha_channel, combine_alp_xyz.inputs[0])
-
-        temp_vcol = new_vertex_color(obj, temp_vcol_alpha_name)
-        set_active_vertex_color(obj, temp_vcol)
-
-        bake_object_op()
-
-        vcols = get_vertex_colors(obj)
-        temp_vcol = vcols.get(temp_vcol_alpha_name)
-        target_vcol = vcols.get(vcol_name)
-        
-        # Speed up the process with numpy
-        dim_rgba = 4
-        temp_nvcol = numpy.zeros(len(temp_vcol.data) * dim_rgba, dtype=numpy.float32)
-        target_nvcol = numpy.zeros(len(target_vcol.data) * dim_rgba, dtype=numpy.float32)
-        
-        temp_vcol.data.foreach_get('color', temp_nvcol)
-        target_vcol.data.foreach_get('color', target_nvcol)
-        temp_nvcol2D = temp_nvcol.reshape(-1, dim_rgba)
-        target_nvcol2D = target_nvcol.reshape(-1, dim_rgba)
-
-        # Moves the alpha of the temp vertex color to the target vertex color
-        target_nvcol2D[:, 3] = temp_nvcol2D[:, 0]
-        target_vcol.data.foreach_set('color', target_nvcol)   
-
-        # Deletes the temp vertex color and resets the active vertex color
-        vcols.remove(temp_vcol)
-        set_active_vertex_color(obj, target_vcol)
-
-        simple_remove_node(mat.node_tree, combine_alp_xyz)
-
-
-    # Recover original 
-    for i, letter in enumerate(rgba_letters):
-        btc = getattr(bake_target, letter)
-        ch_name = btc.channel_name
-        ch = yp.channels.get(ch_name) if ch_name != '' else None
-        print("channel name "+ch_name+" : "+str(btc.default_value))
-
-        if ch and ch.type == 'RGB':
-            sep_ch = ntree.nodes.get('sep_'+btc.channel_name)
-            if sep_ch:
-                simple_remove_node(mat.node_tree, sep_ch)
-
-    simple_remove_node(mat.node_tree, emit)
-    simple_remove_node(mat.node_tree, combine_xyz)
-    
-    mat.node_tree.links.new(ori_bsdf, output.inputs[0])
-
-
 def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=1.0, bake_alpha=False, vcol_name=''):
 
     yp = node.node_tree.yp
@@ -2762,6 +2634,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
     combine_xyz = mat.node_tree.nodes.new('ShaderNodeCombineXYZ')
+    rgb_to_bw = mat.node_tree.nodes.new('ShaderNodeRGBToBW')
 
     separate_xyzs = []
     for i in range(4):
@@ -3045,14 +2918,24 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
             if root_ch:
                 if root_ch == normal_root_ch and (norm_tex or norm_attr):
 
-                    if norm_tex:
-                        mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[i].inputs[0])
-                    else: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[i].inputs[0])
-                    soc = separate_xyzs[i].outputs[int(btc.subchannel_index)]
+                    if btc.subchannel_index == '3':
+                        if norm_tex:
+                            mat.node_tree.links.new(norm_tex.outputs[0], rgb_to_bw.inputs[0])
+                        else: mat.node_tree.links.new(norm_attr.outputs['Color'], rgb_to_bw.inputs[0])
+                        soc = rgb_to_bw.outputs[0]
+                    else:
+                        if norm_tex:
+                            mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[i].inputs[0])
+                        else: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[i].inputs[0])
+                        soc = separate_xyzs[i].outputs[int(btc.subchannel_index)]
                     
                 elif soc and root_ch.type != 'VALUE':
-                    mat.node_tree.links.new(soc, separate_xyzs[i].inputs[0])
-                    soc = separate_xyzs[i].outputs[int(btc.subchannel_index)]
+                    if btc.subchannel_index == '3':
+                        mat.node_tree.links.new(soc, rgb_to_bw.inputs[0])
+                        soc = rgb_to_bw.outputs[0]
+                    else:
+                        mat.node_tree.links.new(soc, separate_xyzs[i].inputs[0])
+                        soc = separate_xyzs[i].outputs[int(btc.subchannel_index)]
                 
             if soc:
                 if btc.invert_value:
@@ -3114,12 +2997,21 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 set_active_vertex_color(obj, temp_vcol)
 
         if root_ch == normal_root_ch and (norm_tex or norm_attr):
-            if norm_tex: mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[3].inputs[0])
-            else: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[3].inputs[0])
-            soc = separate_xyzs[3].outputs[int(bt.a.subchannel_index)]
+            if bt.a.subchannel_index == '3':
+                if norm_tex: mat.node_tree.links.new(norm_tex.outputs[0], rgb_to_bw.inputs[0])
+                else: mat.node_tree.links.new(norm_attr.outputs['Color'], rgb_to_bw.inputs[0])
+                soc = rgb_to_bw.outputs[0]
+            else:
+                if norm_tex: mat.node_tree.links.new(norm_tex.outputs[0], separate_xyzs[3].inputs[0])
+                else: mat.node_tree.links.new(norm_attr.outputs['Color'], separate_xyzs[3].inputs[0])
+                soc = separate_xyzs[3].outputs[int(bt.a.subchannel_index)]
         elif root_ch.type != 'VALUE':
-            mat.node_tree.links.new(soc, separate_xyzs[3].inputs[0])
-            soc = separate_xyzs[3].outputs[int(bt.a.subchannel_index)]
+            if bt.a.subchannel_index == '3':
+                mat.node_tree.links.new(soc, rgb_to_bw.inputs[0])
+                soc = rgb_to_bw.outputs[0]
+            else:
+                mat.node_tree.links.new(soc, separate_xyzs[3].inputs[0])
+                soc = separate_xyzs[3].outputs[int(bt.a.subchannel_index)]
 
         if bt.a.invert_value:
             mat.node_tree.links.new(soc, inverts[3].inputs[1])
@@ -3199,6 +3091,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     simple_remove_node(mat.node_tree, tex, remove_data = tex.image != img and img != None)
     simple_remove_node(mat.node_tree, emit)
     simple_remove_node(mat.node_tree, combine_xyz)
+    simple_remove_node(mat.node_tree, rgb_to_bw)
     for n in separate_xyzs:
         simple_remove_node(mat.node_tree, n)
     for n in inverts:

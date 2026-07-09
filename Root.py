@@ -1982,6 +1982,11 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
                 self.report({'ERROR'}, "Need at least one existing color channel!")
                 return {'CANCELLED'}
 
+        ori_use_baked = yp.use_baked
+        if yp.use_baked and yp.enable_baked_outside:
+            yp.use_baked = False
+            ori_use_baked = True
+
         # Check for normal input
         normal_inp = None
         if self.mode == 'NORMAL':
@@ -2025,7 +2030,7 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         # Add AO to ORM bake target
         if self.mode == 'AO' and orm_bt:
             orm_bt.r.channel_name = channel.name
-            orm_bt.r.subchannel_index = '0'
+            orm_bt.r.subchannel_index = '3'
 
         # Update io
         check_all_channel_ios(yp, yp_node=node)
@@ -2050,6 +2055,9 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         # Set active channel to the newly created one
         channel = yp.channels.get(actual_ch_name)
         yp.active_channel_index = get_channel_index(channel)
+
+        if yp.use_baked != ori_use_baked:
+            yp.use_baked = True
 
         # Automatically enable new layer channel for group and background layers
         for layer in yp.layers:

@@ -4,11 +4,11 @@ from bpy.props import *
 from .bake_common import *
 from . import BakeInfo, BaseOperator
 
-rgba_items = (
+rgbw_items = (
     ('0', 'R', ''),
     ('1', 'G', ''),
     ('2', 'B', ''),
-    ('3', 'A', ''),
+    ('3', 'RGB to BW', ''),
 )
 
 normal_type_items = (
@@ -54,7 +54,7 @@ class YBakeTargetChannel(bpy.types.PropertyGroup):
     subchannel_index : EnumProperty(
         name = 'Subchannel',
         description = 'Channel source RGBA index',
-        items = rgba_items,
+        items = rgbw_items,
         default = '0'
     )
 
@@ -601,6 +601,7 @@ class YNewBakeTarget(bpy.types.Operator):
                 for ch in yp.channels:
                     if ch.name in {'Ambient Occlusion', 'AO'}:
                         bt.r.channel_name = ch.name
+                        bt.r.subchannel_index = '3'
                     elif ch.name in {'Roughness', 'R'}:
                         bt.g.channel_name = ch.name
                     elif ch.name in {'Metallic', 'Metalness', 'M'}:
@@ -650,6 +651,11 @@ class YRemoveBakeTarget(bpy.types.Operator):
         try: bt = yp.bake_targets[yp.active_bake_target_index]
         except: return {'CANCELLED'}
 
+        ori_use_baked = yp.use_baked
+        if yp.use_baked and yp.enable_baked_outside:
+            yp.use_baked = False
+            ori_use_baked = True
+
         # Remove related nodes
         remove_node(tree, bt, 'baked_node')
         remove_node(tree, bt, 'max_value_node')
@@ -664,6 +670,9 @@ class YRemoveBakeTarget(bpy.types.Operator):
 
         if yp.active_bake_target_index >= len(yp.bake_targets):
             yp.active_bake_target_index = len(yp.bake_targets)-1
+
+        if yp.use_baked != ori_use_baked:
+            yp.use_baked = True
 
         # Update panel
         context.area.tag_redraw()
