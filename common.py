@@ -8813,6 +8813,15 @@ def is_bake_target_using_exact_channel(bt, root_ch):
 
     return False
 
+def get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, root_ch):
+    for i, letter in enumerate(rgba_letters):
+        btc = getattr(bt, letter)
+        if not btc: continue
+        if btc.channel_name == root_ch.name and btc.subchannel_index == '3':
+            return i
+
+    return -1
+
 def get_bake_target_subchannel_ids_of_value_channel(bt, root_ch):
 
     for i, letter in enumerate(rgba_letters):
@@ -8852,10 +8861,10 @@ def get_channel_bake_target_dict(yp):
             btc = getattr(bt, letter)
             ch = yp.channels.get(btc.channel_name)
             if ch:
-                if ch.type == 'VALUE':
+                if ch.type == 'VALUE' or btc.subchannel_index == '3':
                     if bt not in chbts[ch.name]: chbts[ch.name].append(bt)
                 else:
-                    # NOTE: Currently only bake target that has the full RGB will be considered
+                    # NOTE: Currently only bake target that has the full RGB or RGB to BW will be considered
                     if rgb_ch == None: rgb_ch = ch
                     if rgb_ch == ch:
                         if btc.subchannel_index == '0': r_found = True

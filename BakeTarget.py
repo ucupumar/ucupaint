@@ -273,14 +273,14 @@ def validate_channels_bake_targets(yp):
                 validated_chs.append(ch)
 
             # Check if the bake target uses non-standard layout
-            elif ch.type == 'VALUE':
-                index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+            elif ch.type == 'VALUE' or get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch) != -1:
+                if ch.type == 'VALUE': index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                else: index = get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch)
                 if index != -1:
                     if index != 3:
                         need_separate_xyzs.append(bt)
                     validated_chs.append(ch)
                     ids = [index]
-
             else:
                 ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
                 if -1 not in ids:
@@ -309,8 +309,9 @@ def validate_channels_bake_targets(yp):
                 baked_node = tree.nodes.get(bt.baked_node)
                 if not baked_node: continue
 
-                if ch.type == 'VALUE':
-                    index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                if ch.type == 'VALUE' or get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch) != -1:
+                    if ch.type == 'VALUE': index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                    else: index = get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch)
                     if index != -1:
                         if index != 3:
                             need_separate_xyzs.append(bt)
@@ -671,8 +672,15 @@ class YRemoveBakeTarget(bpy.types.Operator):
         if yp.active_bake_target_index >= len(yp.bake_targets):
             yp.active_bake_target_index = len(yp.bake_targets)-1
 
+        # Validate bake targets
+        validate_channels_bake_targets(yp)
+
         if yp.use_baked != ori_use_baked:
             yp.use_baked = True
+        else:
+            # Reconnect
+            reconnect_yp_nodes(tree)
+            rearrange_yp_nodes(tree)
 
         # Update panel
         context.area.tag_redraw()

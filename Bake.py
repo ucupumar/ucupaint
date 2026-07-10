@@ -3887,8 +3887,9 @@ def update_enable_baked_outside(self, context):
 
                 if is_bake_target_using_exact_channel(bt, ch):
                     baked_soc = baked_node.outputs['Color']
-                elif ch.type == 'VALUE':
-                    index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                elif ch.type == 'VALUE' or get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch) != -1:
+                    if ch.type == 'VALUE': index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                    else: index = get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch)
                     if index != -1:
                         if index == 3:
                             if bt.a.invert_value and invert_a: baked_soc = invert_a.outputs[0]
