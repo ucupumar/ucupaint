@@ -264,6 +264,7 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
 
     # Wireframe Props
     wireframe_size : FloatProperty(default=1.0, min=0.1, max=10.0)
+    wireframe_triangulated : BoolProperty(default=False)
 
     edge_detect_method : EnumProperty(
         name = 'Edge Detection Method',
