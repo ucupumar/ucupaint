@@ -1143,10 +1143,10 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
         self.any_channel_use_baked_vcol = False
 
         if not get_user_preferences().skip_property_popups or event.shift:
-            for ch in yp.channels:
-                baked_vcol_node = tree.nodes.get(ch.baked_vcol)
-                self.baked_vcol_name = baked_vcol_node.attribute_name if baked_vcol_node else ''
-                if self.baked_vcol_name != '':
+            for bt in yp.bake_targets:
+                if bt.data_type != 'VCOL': continue
+                baked_node = tree.nodes.get(bt.baked_node)
+                if baked_node:
                     self.any_channel_use_baked_vcol = True
                     return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -1171,31 +1171,39 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
         # Remove baked nodes
         for root_ch in yp.channels:
 
-            # Delete baked vertex color
-            if self.also_del_vcol:
+            # Deprecated
+            remove_node(tree, root_ch, 'baked')
+            remove_node(tree, root_ch, 'baked_vcol')
+            remove_node(tree, root_ch, 'baked_disp')
+            remove_node(tree, root_ch, 'baked_vdisp')
+            remove_node(tree, root_ch, 'baked_normal_overlay')
+            remove_node(tree, root_ch, 'baked_normal_no_disp')
+            remove_node(tree, root_ch, 'end_max_height')
+
+            remove_node(tree, root_ch, 'combine_xyz')
+            remove_node(tree, root_ch, 'baked_normal_prep')
+            remove_node(tree, root_ch, 'baked_normal')
+
+        # Remove bake target nodes
+        for bt in yp.bake_targets:
+
+            if self.also_del_vcol and bt.data_type == 'VCOL':
                 for ob in get_all_objects_with_same_materials(mat):
                     vcols = get_vertex_colors(ob)
                     if len(vcols) == 0: continue
-                    baked_vcol_node = tree.nodes.get(root_ch.baked_vcol)
-                    if baked_vcol_node:
-                        vcol = vcols.get(baked_vcol_node.attribute_name)
+                    baked_node = tree.nodes.get(bt.baked_node)
+                    if baked_node:
+                        vcol = vcols.get(baked_node.attribute_name)
                         if vcol:
                             vcols.remove(vcol)
 
-            remove_node(tree, root_ch, 'baked')
-            remove_node(tree, root_ch, 'baked_vcol')
-
-            if root_ch.special_channel_type == 'NORMAL':
-                remove_node(tree, root_ch, 'baked_disp')
-                remove_node(tree, root_ch, 'baked_vdisp')
-                remove_node(tree, root_ch, 'baked_normal_overlay')
-                remove_node(tree, root_ch, 'baked_normal_prep')
-                remove_node(tree, root_ch, 'baked_normal')
-                #remove_node(tree, root_ch, 'end_max_height')
-                remove_node(tree, root_ch, 'baked_normal_no_disp')
-
-            elif root_ch.special_channel_type == 'HEIGHT':
-                remove_node(tree, root_ch, 'end_max_height')
+            remove_node(tree, bt, 'baked_node')
+            remove_node(tree, bt, 'max_value_node')
+            remove_node(tree, bt, 'separate_xyz')
+            remove_node(tree, bt, 'invert_r')
+            remove_node(tree, bt, 'invert_g')
+            remove_node(tree, bt, 'invert_b')
+            remove_node(tree, bt, 'invert_a')
 
         # Reconnect
         reconnect_yp_nodes(tree)
@@ -1432,10 +1440,17 @@ class BaseBakeBakeTargetOperator():
         validated_chs = validate_channels_bake_targets(yp)
 
         # Expand baked data
-        for ch in validated_chs:
-            image = get_active_baked_channel_image(ch)
-            if image and image.is_dirty:
-                ch.expand_baked_data = True
+        chbts = get_channel_bake_target_dict(yp)
+        for ch in yp.channels:
+            expand_baked_data = False
+            if ch.name in chbts:
+                for bt in chbts[ch.name]:
+                    #if bt in bts:
+                    baked_node = tree.nodes.get(bt.baked_node)
+                    if baked_node:
+                        expand_baked_data = True
+                
+            ch.expand_baked_data = expand_baked_data
 
         # Update global uv
         check_uv_nodes(yp)
@@ -1539,6 +1554,12 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
     bl_label = "Bake All Bake Targets"
     bl_description = "Bake all bake targets"
     bl_options = {'REGISTER', 'UNDO'}
+
+    necessary_only : BoolProperty(
+        name = 'Only Bake Necessary Channels',  
+        description = 'Enabling this will only bake the channels that at least has one layer (unconnected base layer is not counted)',
+        default = True
+    )
 
     override_all : BoolProperty(
         name = 'Override All Settings',  
@@ -1720,6 +1741,10 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
 
         row_var = split_layout(root_col, 0.4, True)
         row_var.label(text='')
+        row_var.prop(self, 'necessary_only')
+
+        row_var = split_layout(root_col, 0.4, True)
+        row_var.label(text='')
         row_var.prop(self, 'override_all', text='Override All Variables')
 
         any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
@@ -1779,7 +1804,48 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
     def execute(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        return self.execute_bake_bake_target(context, yp.bake_targets)
+        if not self.necessary_only:
+            bts = yp.bake_targets
+        else:
+            # Get normal and height channel pair
+            normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
+            # Get necessary channels
+            ch_names = []
+            for i, root_ch in enumerate(yp.channels):
+
+                # Check for connected input
+                inp = node.inputs.get(root_ch.name)
+                if inp and len(inp.links) > 0:
+                    if root_ch.name not in ch_names:
+                        ch_names.append(root_ch.name)
+                    continue
+
+                # Check for any layer
+                for layer in yp.layers:
+                    try: ch = layer.channels[i]
+                    except: pass
+                    if get_channel_enabled(ch, layer, root_ch):
+
+                        # NOTE: Currently height will also be baked even though it's only used as bump
+                        if root_ch.name not in ch_names:
+                            ch_names.append(root_ch.name)
+                        if normal_ch and height_ch and height_ch.use_height_as_bump and root_ch == height_ch:
+                            if  normal_ch.name not in ch_names:
+                                ch_names.append(normal_ch.name)
+
+                        break
+            
+            # Get bake target that uses the necessary channels:
+            bts = []
+            for bt in yp.bake_targets:
+                for letter in rgba_letters:
+                    btc = getattr(bt, letter)
+                    if btc and btc.channel_name in ch_names and bt not in bts:
+                        bts.append(bt)
+                        break
+
+        return self.execute_bake_bake_target(context, bts)
 
 class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     """Bake Channels to Image(s)"""

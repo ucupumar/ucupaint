@@ -712,49 +712,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     if baked_normal:
                         rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
 
-        #if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked and not ch.use_baked_vcol: # and baked_uv:
-        #    baked = nodes.get(ch.baked)
-        #    if baked:
-        #        rgb = baked.outputs[0]
-
-        #        #if ch.type == 'RGB' and ch.enable_alpha:
-        #        if ch.enable_alpha:
-        #            alpha = baked.outputs[1]
-
-        #        if baked_uv_map: create_link(tree, baked_uv_map, baked.inputs[0])
-
-        #    # Use baked color alpha if baked alpha is not found
-        #    elif alpha_ch == ch:
-
-        #        baked_color = nodes.get(color_ch.baked)
-        #        if baked_color:
-        #            rgb = baked_color.outputs[1]
-
-        #    if ch.special_channel_type == 'NORMAL':
-        #        baked_normal = nodes.get(ch.baked_normal)
-        #        baked_normal_prep = nodes.get(ch.baked_normal_prep)
-        #        baked_normal_no_disp = nodes.get(ch.baked_normal_no_disp)
-
-        #        if baked_normal_no_disp and height_ch and not height_ch.use_height_as_bump:
-        #            rgb = baked_normal_no_disp.outputs[0]
-
-        #        if baked_normal_prep:
-        #            if rgb:
-        #                rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
-        #            else:
-        #                rgb = baked_normal_prep.outputs[0]
-        #                break_input_link(tree, baked_normal_prep.inputs[0])
-
-        #            #HACK: Some earlier nodes have wrong default colot input
-        #            baked_normal_prep.inputs[0].default_value = (0.5, 0.5, 1.0, 1.0)
-
-        #        if baked_normal:
-        #            rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
-
-        #    if ch.special_channel_type == 'HEIGHT':
-        #        if end_max_height:
-        #            max_height = end_max_height.outputs[0]
-
         if end_backface:
             if alpha_ch and alpha_ch == ch:
                 rgb = create_link(tree, rgb, end_backface.inputs[0])[0]

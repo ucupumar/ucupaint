@@ -1447,24 +1447,10 @@ def update_yp_tree(tree):
                 norm_woh_bt.baked_node_outside = normal_ch.baked_outside_normal_overlay
 
                 # Repoint some nodes
-                #height_ch.baked = normal_ch.baked_disp
-                #normal_ch.baked_disp = ''
                 if height_ch.baked != '':
                     height_ch.no_layer_using = False
                     # NOTE: Normalize height is enabled if height is baked before version 3.0
                     #height_ch.use_height_normalize = True
-
-                #height_ch.end_max_height = normal_ch.end_max_height
-                #normal_ch.end_max_height = ''
-
-                #height_ch.baked_outside = normal_ch.baked_outside_disp
-                #height_ch.baked_outside_disp = ''
-
-                #normal_ch.baked_normal_no_disp = normal_ch.baked_normal_overlay
-                #normal_ch.baked_normal_overlay = ''
-
-                #normal_ch.baked_outside_normal_no_disp = normal_ch.baked_outside_normal_overlay
-                #normal_ch.baked_outside_normal_overlay = ''
 
                 # Update bake target
                 for bt in yp.bake_targets:
