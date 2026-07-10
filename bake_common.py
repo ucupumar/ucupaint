@@ -162,7 +162,7 @@ def is_join_objects_problematic(yp, mat=None):
 
     return False
 
-def get_pointiness_image_minmax_value(image):
+def get_image_minmax_value(image):
     
     if is_bl_newer_than(2, 83):
         pxs = numpy.empty(shape=image.size[0] * image.size[1] * 4, dtype=numpy.float32)
@@ -2083,6 +2083,7 @@ def get_bake_properties_from_self(self):
         'bevel_radius',
         'edge_detect_method',
         'curvature_distance',
+        'curvature_method',
         'multires_base',
         'target_type',
         'fxaa',
@@ -3458,10 +3459,26 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
     elif bprops.type == 'CURVATURE':
         src = mat.node_tree.nodes.new('ShaderNodeGroup')
-        src.node_tree = get_node_tree_lib(lib.CURVATURE)
-        src.inputs['Distance'].default_value = bprops.curvature_distance
+        # Raycast based curvature handles overlapped surfaces better, but requires Blender 5.1+
+        if is_bl_newer_than(5, 1) and bprops.curvature_method == 'RAYCAST':
+            src.node_tree = get_node_tree_lib(lib.CURVATURE_RAYCAST)
+        else: src.node_tree = get_node_tree_lib(lib.CURVATURE)
 
-        mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
+        if 'Distance' in src.inputs:
+            src.inputs['Distance'].default_value = bprops.curvature_distance
+
+        curvature = src.outputs[0]
+
+        # Map range node
+        if is_bl_newer_than(2, 83) and bprops.normalize:
+            map_range = mat.node_tree.nodes.new('ShaderNodeMapRange')
+            # Clamping happens per sample which biases noisy texels, so keep the remap linear
+            map_range.clamp = False
+            mat.node_tree.links.new(curvature, map_range.inputs[0])
+            curvature = map_range.outputs[0]
+
+        # Links
+        mat.node_tree.links.new(curvature, bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
     elif bprops.type == 'BEVEL_NORMAL':
@@ -3776,9 +3793,9 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
         if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
 
-        if bprops.type == 'POINTINESS' and bprops.normalize and is_bl_newer_than(2, 83):
+        if bprops.type in {'POINTINESS', 'CURVATURE'} and bprops.normalize and is_bl_newer_than(2, 83):
             # Check for highest and lowest value of the baked image
-            min_val, max_val = get_pointiness_image_minmax_value(image)
+            min_val, max_val = get_image_minmax_value(image)
 
             # Set map range
             map_range.inputs[1].default_value = min_val

@@ -270,6 +270,16 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default=0.05, min=0.0, max=1000.0
     )
 
+    curvature_method : EnumProperty(
+        name = 'Curvature Method',
+        description = 'Curvature method',
+        items = (
+            ('RAYCAST', 'Raycast', 'Raycast the surrounding surfaces, accurate but slower'),
+            ('AO', 'AO (Less Accurate)', 'Double ambient occlusion, fast but inaccurate')
+        ),
+        default = 'RAYCAST'
+    )
+
     multires_base : IntProperty(
         name = 'Multires Base',
         description = 'Baking will use the difference between the base level and max level,\nand after baking, base level will be used in the multires modifier',
@@ -429,7 +439,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         height_root_ch = get_root_height_channel(yp)
 
         # Set default float image
-        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT'}:
+        # Curvature uses float so it stays a data map with 0.5 as the flat value
+        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT', 'CURVATURE'}:
             self.hdr = True
         else:
             self.hdr = False
@@ -738,6 +749,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text='')
         elif self.type == 'CURVATURE':
             col.label(text='Distance:')
+            if is_bl_newer_than(5, 1):
+                col.label(text='Method:')
+            if is_bl_newer_than(2, 83):
+                col.label(text='')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.label(text='Bevel Samples:')
             col.label(text='Bevel Radius:')
@@ -833,6 +848,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'only_local')
         elif self.type == 'CURVATURE':
             col.prop(self, 'curvature_distance', text='')
+            if is_bl_newer_than(5, 1):
+                col.prop(self, 'curvature_method', text='')
+            if is_bl_newer_than(2, 83):
+                col.prop(self, 'normalize', text='Normalize Curvature')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.prop(self, 'bevel_samples', text='')
             col.prop(self, 'bevel_radius', text='')

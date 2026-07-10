@@ -160,6 +160,9 @@ EDGE_DETECT_CUSTOM_NORMAL = '~yPL Edge Detect Custom Normal'
 EDGE_DETECT_DOT = '~yPL Edge Detect Dot'
 EDGE_DETECT_CUSTOM_NORMAL_DOT = '~yPL Edge Detect Custom Normal Dot'
 
+# Nodes that require Blender 5.1 at minimum
+CURVATURE_RAYCAST = '~yPL Curvature Raycast'
+
 # Legacy nodes for Blender 2.79
 FLIP_BACKFACE_NORMAL_LEGACY = '~yPL Flip Backface Normal Legacy'
 FLIP_BACKFACE_BUMP_LEGACY = '~yPL Flip Backface Bump Legacy'

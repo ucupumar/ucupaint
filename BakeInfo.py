@@ -265,6 +265,16 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     # Curvature Props
     curvature_distance : FloatProperty(default=0.05, min=0.0, max=1000.0)
 
+    curvature_method : EnumProperty(
+        name = 'Curvature Method',
+        description = 'Curvature method',
+        items = (
+            ('RAYCAST', 'Raycast', 'Raycast the surrounding surfaces, accurate but slower'),
+            ('AO', 'AO (Less Accurate)', 'Double ambient occlusion, fast but inaccurate')
+        ),
+        default = 'RAYCAST'
+    )
+
     edge_detect_method : EnumProperty(
         name = 'Edge Detection Method',
         description = 'Edge detection method',
