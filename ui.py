@@ -4042,23 +4042,36 @@ def draw_layers_ui(context, layout, node):
                             icon_value = lib.get_icon('vertex_color')
 
                         # Extra '(Active)' label
-                        if not bake_disabled and has_multiple_bts and (
-                            bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
-                        ):
-                            title += ' (Active)'
+                        #if not bake_disabled and has_multiple_bts and (
+                        #    bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
+                        #):
+                        #    title += ' (Active)'
 
                         # Bake target entry
-                        row.label(text=title, icon_value=icon_value)
+                        #row.label(text=title, icon_value=icon_value)
+                        rrow = row.row(align=True)
+                        rrow.context_pointer_set('channel', root_ch)
+                        rrow.alignment = 'LEFT'
+                        #rrow.scale_x = 0.95
 
-                        # Packed icon
-                        if packed: row.label(text='', icon='PACKAGE')
-                        
                         # Bake target selection
                         if forced_bt == None and has_multiple_bts:
-                            row.context_pointer_set('channel', root_ch)
+                            #rrow.context_pointer_set('channel', root_ch)
                             icon = 'RADIOBUT_ON' if bt.name == root_ch.bake_target_name else 'RADIOBUT_OFF'
-                            op = row.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
+                            op = rrow.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
                             op.bake_target_name = bt.name
+                        else:
+                            rrow.label(text='', icon='BLANK1')
+
+                        op = rrow.operator('wm.y_set_channel_active_bake_target', text=title, emboss=False, icon_value=icon_value)
+                        op.bake_target_name = bt.name
+
+                        rrow = row.row(align=True)
+                        rrow = row.row(align=True)
+                        rrow.alignment = 'RIGHT'
+
+                        # Packed icon
+                        if packed: rrow.label(text='', icon='PACKAGE')
 
         # Save buttons
         row = box.row(align=True)
