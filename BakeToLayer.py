@@ -266,8 +266,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     # Wireframe Props
     wireframe_size : FloatProperty(
         name = 'Wireframe Size',
-        description = 'Wireframe thickness in pixels, or relative to the polygon size when polygons are enabled',
-        default=1.0, min=0.1, max=10.0
+        description = 'Wireframe thickness in Blender units',
+        default=0.001, min=0.0, max=100.0, precision=4
     )
 
     wireframe_triangulated : BoolProperty(

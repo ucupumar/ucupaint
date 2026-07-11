@@ -263,7 +263,7 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     bevel_radius : FloatProperty(default=0.05, min=0.0, max=1000.0)
 
     # Wireframe Props
-    wireframe_size : FloatProperty(default=1.0, min=0.1, max=10.0)
+    wireframe_size : FloatProperty(default=0.001, min=0.0, max=100.0, precision=4)
     wireframe_triangulated : BoolProperty(default=False)
 
     edge_detect_method : EnumProperty(
