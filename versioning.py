@@ -1377,6 +1377,7 @@ def update_yp_tree(tree):
             ch.baked_normal_outside = ch.baked_outside_normal_process
 
             # Vertex color bake target
+            vbt = None
             if ch.enable_bake_to_vcol:
                 vbt = create_bake_target_from_channel(ch, use_vcol=True)
                 if ch.use_baked_vcol:
@@ -1386,6 +1387,7 @@ def update_yp_tree(tree):
             # Alpha bake target
             if alpha_ch and alpha_ch.alpha_pair_name == ch.name and alpha_ch.alpha_combine_to_baked_color:
                 bt.a.channel_name = alpha_ch.name
+                if vbt: vbt.a.channel_name = alpha_ch.name
 
         if normal_ch != None:
 
@@ -1482,13 +1484,8 @@ def update_yp_tree(tree):
                     vdm_ch.bake_target_name = vdm_bt.name
 
                 # Repoint some nodes
-                #vdm_ch.baked = normal_ch.baked_vdisp
-                #normal_ch.baked_vdisp = ''
                 if vdm_ch.baked != '':
                     vdm_ch.no_layer_using = False
-
-                #vdm_ch.baked_outside = normal_ch.baked_outside_vdisp
-                #vdm_ch.baked_outside_vdisp = ''
 
                 # Update bake target
                 for bt in yp.bake_targets:

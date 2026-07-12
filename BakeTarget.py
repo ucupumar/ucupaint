@@ -416,15 +416,47 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
         tree = root_ch.id_data
         yp = tree.yp
 
-        root_ch.bake_target_name = self.bake_target_name
-        validated_chs = validate_channels_bake_targets(yp)
+        # Get color and alpha channel pair
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
 
-        reconnect_yp_nodes(tree)
-        rearrange_yp_nodes(tree)
+        # Get bake target
+        bt = yp.bake_targets.get(self.bake_target_name)
 
-        # Refresh enable baked outside
-        if yp.enable_baked_outside:
-            yp.enable_baked_outside = True
+        # Rename channel bake target name
+        do_reconnect = False
+        if root_ch.bake_target_name != self.bake_target_name:
+            root_ch.bake_target_name = self.bake_target_name
+
+            # Automatically set paired channel bake target
+            if color_ch and alpha_ch:
+                if root_ch == color_ch:
+                    if bt.a.channel_name == alpha_ch.name:
+                        alpha_ch.bake_target_name = self.bake_target_name
+                elif root_ch == alpha_ch:
+                    if (bt.r.channel_name == color_ch.name and bt.r.subchannel_index == '0' and
+                        bt.g.channel_name == color_ch.name and bt.g.subchannel_index == '1' and
+                        bt.b.channel_name == color_ch.name and bt.b.subchannel_index == '2'
+                    ):
+                        color_ch.bake_target_name = self.bake_target_name
+
+            validated_chs = validate_channels_bake_targets(yp)
+            do_reconnect = True
+
+        # Set image editor image
+        image = None
+        if bt and bt.data_type == 'IMAGE':
+            baked_node = tree.nodes.get(bt.baked_node)
+            if baked_node:
+                image = baked_node.image
+        update_image_editor_image(context, image)
+
+        if do_reconnect:
+            reconnect_yp_nodes(tree)
+            rearrange_yp_nodes(tree)
+
+            # Refresh enable baked outside
+            if yp.enable_baked_outside:
+                yp.enable_baked_outside = True
 
         return {'FINISHED'}
 
