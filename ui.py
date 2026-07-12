@@ -3991,12 +3991,12 @@ def draw_layers_ui(context, layout, node):
             else:
                 rrow.label(text=title, icon_value=icon_value)
 
-            #if baked_image:
-            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-            rrow = row.row(align=True)
-            if is_bl_newer_than(2, 80):
-                rrow.alignment = 'RIGHT'
-            rrow.menu("NODE_MT_y_baked_image_menu", text='', icon=icon)
+            if baked_image:
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                rrow = row.row(align=True)
+                if is_bl_newer_than(2, 80):
+                    rrow.alignment = 'RIGHT'
+                rrow.menu("NODE_MT_y_baked_image_menu", text='', icon=icon)
 
             if not nchui.expand_baked_data: continue
 
@@ -4025,7 +4025,7 @@ def draw_layers_ui(context, layout, node):
                     if baked_node:
 
                         row = bcol.row(align=True)
-                        row.active = not bake_disabled or yp.enable_baked_outside
+                        row.active = (not bake_disabled or yp.enable_baked_outside) and bt.name == root_ch.bake_target_name
 
                         # Get bake target name and icons
                         packed = False
@@ -4055,13 +4055,13 @@ def draw_layers_ui(context, layout, node):
                         #rrow.scale_x = 0.95
 
                         # Bake target selection
-                        if forced_bt == None and has_multiple_bts:
-                            #rrow.context_pointer_set('channel', root_ch)
-                            icon = 'RADIOBUT_ON' if bt.name == root_ch.bake_target_name else 'RADIOBUT_OFF'
-                            op = rrow.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
-                            op.bake_target_name = bt.name
-                        else:
-                            rrow.label(text='', icon='BLANK1')
+                        #if forced_bt == None and has_multiple_bts:
+                        #rrow.context_pointer_set('channel', root_ch)
+                        icon = 'RADIOBUT_ON' if bt.name == root_ch.bake_target_name and (not root_ch.disable_global_baked or yp.enable_baked_outside) else 'RADIOBUT_OFF'
+                        op = rrow.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
+                        op.bake_target_name = bt.name
+                        #else:
+                        #    rrow.label(text='', icon='BLANK1')
 
                         op = rrow.operator('wm.y_set_channel_active_bake_target', text=title, emboss=False, icon_value=icon_value)
                         op.bake_target_name = bt.name
@@ -4072,6 +4072,24 @@ def draw_layers_ui(context, layout, node):
 
                         # Packed icon
                         if packed: rrow.label(text='', icon='PACKAGE')
+
+                # Disable baked
+                if not yp.enable_baked_outside:
+                    row = bcol.row(align=True)
+                    #row.active = not yp.enable_baked_outside
+                    row.active = root_ch.disable_global_baked
+                    rrow = row.row(align=True)
+                    rrow.alignment = 'LEFT'
+                    icon = 'RADIOBUT_ON' if root_ch.disable_global_baked and not yp.enable_baked_outside else 'RADIOBUT_OFF'
+                    rrow.label(text='', icon=icon)
+                    #title = 'Disable Baked '+root_ch.name
+                    title = 'Use Layer Stack'
+                    if yp.enable_baked_outside:
+                        rrow.label(text=title, icon='COLLAPSEMENU')
+                    else:
+                        rrow.context_pointer_set('channel', root_ch)
+                        rrow.operator('wm.y_toggle_channel_use_baked', text=title, icon='COLLAPSEMENU', emboss=False)
+                    rrow = row.row(align=True)
 
         # Save buttons
         row = box.row(align=True)
@@ -6625,12 +6643,15 @@ class YBakedImageMenu(bpy.types.Menu):
         yp = node.node_tree.yp
         root_ch = context.root_ch
 
-        row = col.row()
-        row.active = not yp.enable_baked_outside
-        label = 'Disable Baked ' + root_ch.name
-        row.prop(context.root_ch, 'disable_global_baked', text=label, icon='RESTRICT_RENDER_ON')
+        #row = col.row()
+        #row.active = not yp.enable_baked_outside
+        #label = 'Disable Baked ' + root_ch.name
+        #row.prop(context.root_ch, 'disable_global_baked', text=label, icon='RESTRICT_RENDER_ON')
+
 
         if context.image:
+            col.label(text='Active Image: '+context.image.name, icon='IMAGE_DATA')
+
             col.separator()
 
             col.operator('wm.y_pack_image', icon='PACKAGE')

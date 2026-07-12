@@ -424,6 +424,7 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
 
         # Rename channel bake target name
         do_reconnect = False
+        #is_paired = False
         if root_ch.bake_target_name != self.bake_target_name:
             root_ch.bake_target_name = self.bake_target_name
 
@@ -432,12 +433,14 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
                 if root_ch == color_ch:
                     if bt.a.channel_name == alpha_ch.name:
                         alpha_ch.bake_target_name = self.bake_target_name
+                        #is_paired = True
                 elif root_ch == alpha_ch:
                     if (bt.r.channel_name == color_ch.name and bt.r.subchannel_index == '0' and
                         bt.g.channel_name == color_ch.name and bt.g.subchannel_index == '1' and
                         bt.b.channel_name == color_ch.name and bt.b.subchannel_index == '2'
                     ):
                         color_ch.bake_target_name = self.bake_target_name
+                        #is_paired = True
 
             validated_chs = validate_channels_bake_targets(yp)
             do_reconnect = True
@@ -450,6 +453,17 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
                 image = baked_node.image
         update_image_editor_image(context, image)
 
+        # Use baked data
+        if root_ch.disable_global_baked:
+            root_ch.disable_global_baked = False
+
+            #if is_paired:
+            #    if root_ch == color_ch and alpha_ch.disable_global_baked: alpha_ch.disable_global_baked = False
+            #    if root_ch == alpha_ch and color_ch.disable_global_baked: color_ch.disable_global_baked = False
+
+            if root_ch == color_ch and alpha_ch.disable_global_baked: alpha_ch.disable_global_baked = False
+            if root_ch == alpha_ch and color_ch.disable_global_baked: color_ch.disable_global_baked = False
+
         if do_reconnect:
             reconnect_yp_nodes(tree)
             rearrange_yp_nodes(tree)
@@ -457,6 +471,38 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
             # Refresh enable baked outside
             if yp.enable_baked_outside:
                 yp.enable_baked_outside = True
+
+        return {'FINISHED'}
+
+class YToggleChannelUseBaked(bpy.types.Operator):
+    bl_idname = "wm.y_toggle_channel_use_baked"
+    bl_label = "Toggle Channel Use Baked"
+    bl_description = "Toggle channel use baked"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+
+        root_ch = context.channel
+        tree = root_ch.id_data
+        yp = tree.yp
+
+        # Get color and alpha channel pair
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
+        root_ch.disable_global_baked = not root_ch.disable_global_baked
+
+        pair_channel = None
+        if root_ch == color_ch:
+            pair_channel = alpha_ch
+        elif root_ch == alpha_ch:
+            pair_channel = color_ch
+
+        if pair_channel and pair_channel.disable_global_baked != root_ch.disable_global_baked:
+            pair_channel.disable_global_baked = root_ch.disable_global_baked
 
         return {'FINISHED'}
 
@@ -897,6 +943,7 @@ def register():
     bpy.utils.register_class(YMoveBakeTarget)
     bpy.utils.register_class(YNewChannelBakeTarget)
     bpy.utils.register_class(YSetChannelActiveBakeTarget)
+    bpy.utils.register_class(YToggleChannelUseBaked)
 
 def unregister():
     bpy.utils.unregister_class(YNewBakeTarget)
@@ -908,3 +955,4 @@ def unregister():
     bpy.utils.unregister_class(YMoveBakeTarget)
     bpy.utils.unregister_class(YNewChannelBakeTarget)
     bpy.utils.unregister_class(YSetChannelActiveBakeTarget)
+    bpy.utils.unregister_class(YToggleChannelUseBaked)
