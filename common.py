@@ -416,6 +416,8 @@ bake_type_items = (
     ('FLOW', 'Flow Map based on straight UVMap', ''),
 
     ('OBJECT_SPACE_NORMAL', 'Object Space Normal', ''),
+
+    ('THICKNESS', 'Thickness', ''),
 )
 
 image_resolution_items = (
@@ -463,7 +465,9 @@ bake_type_labels = {
 
     'FLOW': 'Flow',
 
-    'OBJECT_SPACE_NORMAL' : 'Object Space Normal'
+    'OBJECT_SPACE_NORMAL' : 'Object Space Normal',
+
+    'THICKNESS': 'Thickness'
 }
 
 bake_type_suffixes = {
@@ -488,7 +492,9 @@ bake_type_suffixes = {
 
     'FLOW': 'Flow',
 
-    'OBJECT_SPACE_NORMAL' : 'Object Space Normal'
+    'OBJECT_SPACE_NORMAL' : 'Object Space Normal',
+
+    'THICKNESS': 'Thickness'
 }
 
 texcoord_lists = [
