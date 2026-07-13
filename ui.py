@@ -4975,83 +4975,92 @@ def main_draw(self, context):
             baked_found = True
             break
 
-    # Custom Bake Targets
-    icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
-    row = layout.row(align=True)
-
-    if is_bl_newer_than(2, 80):
-        row.alignment = 'LEFT'
-        row.scale_x = 0.95
-        row.prop(ypui, 'show_bake_targets', emboss=False, text='Bake Targets', icon=icon)
-    else:
-        row.prop(ypui, 'show_bake_targets', emboss=False, text='', icon=icon)
-        row.label(text='Custom Bake Targets')
-
-    if ypui.show_bake_targets:
-        draw_bake_targets_ui(context, layout, node)
-
-    # Channels
-    icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
-    row = layout.row(align=True)
-    rrow = row.row(align=True)
-
-    label = pgettext_iface('Channels')
-
-    if yp.layer_preview_mode and not ypui.show_channels and yp.active_channel_index < len(yp.channels):
-        label += ' (Active: '+yp.channels[yp.active_channel_index].name+')'
-
-    if is_bl_newer_than(2, 80):
-        rrow.alignment = 'LEFT'
-        rrow.scale_x = 0.95
-        rrow.prop(ypui, 'show_channels', emboss=False, text=label, icon=icon)
-    else:
-        rrow.prop(ypui, 'show_channels', emboss=False, text='', icon=icon)
-        rrow.label(text=label)
-
-    #if (baked_found or yp.use_baked) and not group_tree.users > 1:
-    #    rrow = row.row(align=True)
-    #    rrow.alignment = 'RIGHT'
-    #    rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
-    #    rrow.separator()
-    #    rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
-    #    rrow.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
-
-    if ypui.show_channels:
-        draw_root_channels_ui(context, layout, node)
-
-    # Layers
-    icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
-    row = layout.row(align=True)
-    rrow = row.row(align=True)
-
-    if is_bl_newer_than(2, 80):
-        rrow.alignment = 'LEFT'
-        rrow.scale_x = 0.95
-        rrow.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
-    else:
-        rrow.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
-        rrow.label(text='Layers')
-
-    height_root_ch = get_root_height_channel(yp)
-
-    scenario_1 = (is_tangent_sign_hacks_needed(yp) and area.type == 'VIEW_3D' and 
-            area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
-
-    if scenario_1:
-        rrow = row.row(align=True)
-        rrow.alignment = 'RIGHT'
-        rrow.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
-
     if (baked_found or yp.use_baked) and not group_tree.users > 1:
-        rrow = row.row(align=True)
-        if is_bl_newer_than(2, 80):
-            rrow.alignment = 'RIGHT'
+        rrow = layout.row(align=True)
+        #if is_bl_newer_than(2, 80):
+        #    rrow.alignment = 'RIGHT'
         rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
         rrow.separator()
         rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
         rrow.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
 
-    if ypui.show_layers :
+    if not yp.use_baked:
+        row = layout.row(align=True)
+        row.prop(ypui, 'active_tab', expand=True) 
+
+    if ypui.active_tab == 'CHANNELS' and not yp.use_baked:
+
+        ## Channels
+        #icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
+        #row = layout.row(align=True)
+        #rrow = row.row(align=True)
+
+        #label = pgettext_iface('Channels')
+
+        #if yp.layer_preview_mode and not ypui.show_channels and yp.active_channel_index < len(yp.channels):
+        #    label += ' (Active: '+yp.channels[yp.active_channel_index].name+')'
+
+        #if is_bl_newer_than(2, 80):
+        #    rrow.alignment = 'LEFT'
+        #    rrow.scale_x = 0.95
+        #    rrow.prop(ypui, 'show_channels', emboss=False, text=label, icon=icon)
+        #else:
+        #    rrow.prop(ypui, 'show_channels', emboss=False, text='', icon=icon)
+        #    rrow.label(text=label)
+
+        #if (baked_found or yp.use_baked) and not group_tree.users > 1:
+        #    rrow = row.row(align=True)
+        #    rrow.alignment = 'RIGHT'
+        #    rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
+        #    rrow.separator()
+        #    rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
+        #    rrow.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
+
+        #if ypui.show_channels:
+        draw_root_channels_ui(context, layout, node)
+    
+    elif ypui.active_tab == 'BAKE_TARGETS' and not yp.use_baked:
+        ## Bake Targets
+        #icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
+        #row = layout.row(align=True)
+
+        #if is_bl_newer_than(2, 80):
+        #    row.alignment = 'LEFT'
+        #    row.scale_x = 0.95
+        #    row.prop(ypui, 'show_bake_targets', emboss=False, text='Bake Targets', icon=icon)
+        #else:
+        #    row.prop(ypui, 'show_bake_targets', emboss=False, text='', icon=icon)
+        #    row.label(text='Custom Bake Targets')
+
+        #if ypui.show_bake_targets:
+        draw_bake_targets_ui(context, layout, node)
+
+    else:
+
+        # Layers
+        #icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
+        row = layout.row(align=True)
+        #rrow = row.row(align=True)
+
+        #if is_bl_newer_than(2, 80):
+        #    rrow.alignment = 'LEFT'
+        #    rrow.scale_x = 0.95
+        #    rrow.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
+        #else:
+        #    rrow.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
+        #    rrow.label(text='Layers')
+
+        height_root_ch = get_root_height_channel(yp)
+
+        scenario_1 = (is_tangent_sign_hacks_needed(yp) and area.type == 'VIEW_3D' and 
+                area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
+
+        if scenario_1:
+            rrow = row.row(align=True)
+            #rrow.alignment = 'RIGHT'
+            rrow.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
+
+        #if ypui.show_layers :
         if yp.sculpt_mode:
 
             layer = yp.layers[yp.active_layer_index]
@@ -5071,134 +5080,135 @@ def main_draw(self, context):
         else:
             draw_layers_ui(context, layout, node)
 
-    # Stats
-    icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
-    row = layout.row(align=True)
+        if not yp.use_baked:
+            # Stats
+            icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
+            row = layout.row(align=True)
 
-    if is_bl_newer_than(2, 80):
-        row.alignment = 'LEFT'
-        row.scale_x = 0.95
-        row.prop(ypui, 'show_stats', emboss=False, text='Stats', icon=icon)
-    else:
-        row.prop(ypui, 'show_stats', emboss=False, text='', icon=icon)
-        row.label(text='Stats')
+            if is_bl_newer_than(2, 80):
+                row.alignment = 'LEFT'
+                row.scale_x = 0.95
+                row.prop(ypui, 'show_stats', emboss=False, text='Stats', icon=icon)
+            else:
+                row.prop(ypui, 'show_stats', emboss=False, text='', icon=icon)
+                row.label(text='Stats')
 
-    if ypui.show_stats:
+            if ypui.show_stats:
 
-        images = []
-        vcols = []
-        num_ramps = 0
-        num_curves = 0
-        num_gen_texs = 0
+                images = []
+                vcols = []
+                num_ramps = 0
+                num_curves = 0
+                num_gen_texs = 0
 
-        for root_ch in yp.channels:
-            for mod in root_ch.modifiers:
-                if not mod.enable: continue
-                if mod.type == 'COLOR_RAMP':
-                    num_ramps += 1
-                elif mod.type == 'RGB_CURVE':
-                    num_curves += 1
-
-        for layer in yp.layers:
-            if not layer.enable: continue
-            layer_tree = get_tree(layer)
-            if layer.type == 'IMAGE':
-                src = get_layer_source(layer, layer_tree)
-                if src.image and src.image not in images:
-                    images.append(src.image)
-            elif layer.type == 'VCOL':
-                src = get_layer_source(layer, layer_tree)
-                vcol_name = get_source_vcol_name(src)
-                if vcol_name != '' and vcol_name not in vcols:
-                    vcols.append(vcol_name)
-            elif layer.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
-                num_gen_texs += 1
-
-            for ch in layer.channels:
-                if ch.enable:
-                    if ch.override:
-                        if ch.override_type == 'IMAGE':
-                            src = get_channel_source(ch, layer)
-                            if src.image and src.image not in images:
-                                images.append(src.image)
-                        elif ch.override_type == 'VCOL':
-                            src = get_channel_source(ch, layer)
-                            vcol_name = get_source_vcol_name(src)
-                            if vcol_name != '' and vcol_name not in vcols:
-                                vcols.append(vcol_name)
-                        elif ch.override_type not in {'DEFAULT'}:
-                            num_gen_texs += 1
-                    if ch.override_1:
-                        if ch.override_1_type == 'IMAGE':
-                            src = layer_tree.nodes.get(ch.source_1)
-                            if src.image and src.image not in images:
-                                images.append(src.image)
-
-                    for mod in ch.modifiers:
+                for root_ch in yp.channels:
+                    for mod in root_ch.modifiers:
                         if not mod.enable: continue
                         if mod.type == 'COLOR_RAMP':
                             num_ramps += 1
                         elif mod.type == 'RGB_CURVE':
                             num_curves += 1
 
-                    if ch.enable_transition_ramp:
-                        num_ramps += 1
+                for layer in yp.layers:
+                    if not layer.enable: continue
+                    layer_tree = get_tree(layer)
+                    if layer.type == 'IMAGE':
+                        src = get_layer_source(layer, layer_tree)
+                        if src.image and src.image not in images:
+                            images.append(src.image)
+                    elif layer.type == 'VCOL':
+                        src = get_layer_source(layer, layer_tree)
+                        vcol_name = get_source_vcol_name(src)
+                        if vcol_name != '' and vcol_name not in vcols:
+                            vcols.append(vcol_name)
+                    elif layer.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
+                        num_gen_texs += 1
 
-                    if ch.enable_transition_bump and ch.transition_bump_falloff and ch.transition_bump_falloff_type == 'CURVE':
-                        num_curves += 1
+                    for ch in layer.channels:
+                        if ch.enable:
+                            if ch.override:
+                                if ch.override_type == 'IMAGE':
+                                    src = get_channel_source(ch, layer)
+                                    if src.image and src.image not in images:
+                                        images.append(src.image)
+                                elif ch.override_type == 'VCOL':
+                                    src = get_channel_source(ch, layer)
+                                    vcol_name = get_source_vcol_name(src)
+                                    if vcol_name != '' and vcol_name not in vcols:
+                                        vcols.append(vcol_name)
+                                elif ch.override_type not in {'DEFAULT'}:
+                                    num_gen_texs += 1
+                            if ch.override_1:
+                                if ch.override_1_type == 'IMAGE':
+                                    src = layer_tree.nodes.get(ch.source_1)
+                                    if src.image and src.image not in images:
+                                        images.append(src.image)
 
-            for mod in layer.modifiers:
-                if not mod.enable: continue
-                if mod.type == 'COLOR_RAMP':
-                    num_ramps += 1
-                elif mod.type == 'RGB_CURVE':
-                    num_curves += 1
+                            for mod in ch.modifiers:
+                                if not mod.enable: continue
+                                if mod.type == 'COLOR_RAMP':
+                                    num_ramps += 1
+                                elif mod.type == 'RGB_CURVE':
+                                    num_curves += 1
 
-            if not layer.enable_masks: continue
+                            if ch.enable_transition_ramp:
+                                num_ramps += 1
 
-            for mask in layer.masks:
-                if not mask.enable: continue
-                mask_tree = get_mask_tree(mask, layer_tree)
-                if mask.use_baked:
-                    src = mask_tree.nodes.get(mask.baked_source)
-                    if src.image and src.image not in images:
-                        images.append(src.image)
-                elif mask.type == 'IMAGE':
-                    src = mask_tree.nodes.get(mask.source)
-                    if src.image and src.image not in images:
-                        images.append(src.image)
-                elif mask.type == 'VCOL':
-                    src = mask_tree.nodes.get(mask.source)
-                    vcol_name = get_source_vcol_name(src)
-                    if vcol_name != '' and vcol_name not in vcols:
-                        vcols.append(vcol_name)
-                elif mask.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
-                    num_gen_texs += 1
+                            if ch.enable_transition_bump and ch.transition_bump_falloff and ch.transition_bump_falloff_type == 'CURVE':
+                                num_curves += 1
 
-                if mask.type == 'MODIFIER':
-                    if mask.modifier_type == 'RAMP':
-                        num_ramps += 1
-                    elif mask.modifier_type == 'CURVE':
-                        num_curves += 1
+                    for mod in layer.modifiers:
+                        if not mod.enable: continue
+                        if mod.type == 'COLOR_RAMP':
+                            num_ramps += 1
+                        elif mod.type == 'RGB_CURVE':
+                            num_curves += 1
 
-                for mod in mask.modifiers:
-                    if not mod.enable: continue
-                    if mod.type == 'RAMP':
-                        num_ramps += 1
-                    elif mod.type == 'CURVE':
-                        num_curves += 1
+                    if not layer.enable_masks: continue
 
-        box = layout.box()
-        col = box.column()
-        col.label(text=pgettext_iface('Number of Images: ') + str(len(images)), icon_value=lib.get_icon('image'))
-        col.label(text=pgettext_iface('Number of '+get_vertex_color_label()+': ') + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
-        col.label(text=pgettext_iface('Number of Generated Textures: ') + str(num_gen_texs), icon_value=lib.get_icon('texture'))
-        col.label(text=pgettext_iface('Number of Color Ramps: ') + str(num_ramps), icon_value=lib.get_icon('modifier'))
-        col.label(text=pgettext_iface('Number of RGB Curves: ') + str(num_curves), icon_value=lib.get_icon('modifier'))
+                    for mask in layer.masks:
+                        if not mask.enable: continue
+                        mask_tree = get_mask_tree(mask, layer_tree)
+                        if mask.use_baked:
+                            src = mask_tree.nodes.get(mask.baked_source)
+                            if src.image and src.image not in images:
+                                images.append(src.image)
+                        elif mask.type == 'IMAGE':
+                            src = mask_tree.nodes.get(mask.source)
+                            if src.image and src.image not in images:
+                                images.append(src.image)
+                        elif mask.type == 'VCOL':
+                            src = mask_tree.nodes.get(mask.source)
+                            vcol_name = get_source_vcol_name(src)
+                            if vcol_name != '' and vcol_name not in vcols:
+                                vcols.append(vcol_name)
+                        elif mask.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
+                            num_gen_texs += 1
 
-        #col.operator('wm.y_new_image_atlas_segment_test', icon_value=lib.get_icon('image'))
-        #col.operator('wm.y_new_udim_atlas_segment_test', icon_value=lib.get_icon('image'))
-        #col.operator('wm.y_uv_transform_test', icon_value=lib.get_icon('uv'))
+                        if mask.type == 'MODIFIER':
+                            if mask.modifier_type == 'RAMP':
+                                num_ramps += 1
+                            elif mask.modifier_type == 'CURVE':
+                                num_curves += 1
+
+                        for mod in mask.modifiers:
+                            if not mod.enable: continue
+                            if mod.type == 'RAMP':
+                                num_ramps += 1
+                            elif mod.type == 'CURVE':
+                                num_curves += 1
+
+                box = layout.box()
+                col = box.column()
+                col.label(text=pgettext_iface('Number of Images: ') + str(len(images)), icon_value=lib.get_icon('image'))
+                col.label(text=pgettext_iface('Number of '+get_vertex_color_label()+': ') + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
+                col.label(text=pgettext_iface('Number of Generated Textures: ') + str(num_gen_texs), icon_value=lib.get_icon('texture'))
+                col.label(text=pgettext_iface('Number of Color Ramps: ') + str(num_ramps), icon_value=lib.get_icon('modifier'))
+                col.label(text=pgettext_iface('Number of RGB Curves: ') + str(num_curves), icon_value=lib.get_icon('modifier'))
+
+                #col.operator('wm.y_new_image_atlas_segment_test', icon_value=lib.get_icon('image'))
+                #col.operator('wm.y_new_udim_atlas_segment_test', icon_value=lib.get_icon('image'))
+                #col.operator('wm.y_uv_transform_test', icon_value=lib.get_icon('uv'))
 
     # Test
     draw_test_ui(context=context, layout=layout)
@@ -8514,6 +8524,18 @@ class YMaterialUI(bpy.types.PropertyGroup):
     expand_content : BoolProperty(default=False)
 
 class YPaintUI(bpy.types.PropertyGroup):
+
+    active_tab : EnumProperty(
+        name = 'Active Tab',
+        description = 'Select tab',
+        items = (
+            ('LAYERS', 'Layers', ''),
+            ('CHANNELS', 'Channels', ''),
+            ('BAKE_TARGETS', 'Bake Targets', ''),
+        ),
+        default = 'LAYERS'
+    )
+
     show_object : BoolProperty(
         name = 'Active Object',
         description = 'Show active object options',
