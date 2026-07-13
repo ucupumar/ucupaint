@@ -294,6 +294,10 @@ def create_bake_target_from_channel(ch, baked_node=None, use_vcol=False, bt_name
             bt.image_resolution = str(bt.width)
         else:
             bt.use_custom_resolution = True
+    else:
+        # Set some default props
+        bt.fxaa = ch.special_channel_type != 'NORMAL'
+        bt.denoise = False
 
     # Make sure height bake target uses cubic by default
     if ch.special_channel_type == 'HEIGHT':
