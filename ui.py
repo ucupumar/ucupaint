@@ -1146,18 +1146,18 @@ def draw_root_channels_ui(context, layout, node):
     row = col.row()
 
     rcol = row.column()
-    if len(yp.channels) > 0:
+    #if len(yp.channels) > 0:
 
-        if channel and channel.special_channel_type == 'NORMAL':
-            prow = split_layout(rcol, 0.667, align=True)
-        else: prow = rcol.row()
+    #    if channel and channel.special_channel_type == 'NORMAL':
+    #        prow = split_layout(rcol, 0.667, align=True)
+    #    else: prow = rcol.row()
 
-        if yp.preview_mode: prow.alert = True
-        icon = 'HIDE_OFF' if is_bl_newer_than(2, 80) else 'RESTRICT_VIEW_OFF'
-        prow.prop(yp, 'preview_mode', text='Preview Mode', icon=icon)
+    #    if yp.preview_mode: prow.alert = True
+    #    icon = 'HIDE_OFF' if is_bl_newer_than(2, 80) else 'RESTRICT_VIEW_OFF'
+    #    prow.prop(yp, 'preview_mode', text='Preview Mode', icon=icon)
 
-        if channel and channel.special_channel_type == 'NORMAL':
-            prow.prop(yp, 'preview_mode_normal_space', text='')
+    #    if channel and channel.special_channel_type == 'NORMAL':
+    #        prow.prop(yp, 'preview_mode_normal_space', text='')
 
     rcol.template_list("NODE_UL_YPaint_channels", "", yp,
             "channels", yp, "active_channel_index", rows=3, maxrows=5)  
@@ -4323,18 +4323,18 @@ def draw_layers_ui(context, layout, node):
 
     row = col.row()
     rcol = row.column()
-    if True: #len(yp.layers) > 0:
-        #prow = rcol.row(align=True)
+    #if True: #len(yp.layers) > 0:
+    #    #prow = rcol.row(align=True)
 
-        prow = split_layout(rcol, 0.667, align=True)
+    #    prow = split_layout(rcol, 0.667, align=True)
 
-        if yp.layer_preview_mode: prow.alert = True
-        if not is_bl_newer_than(2, 80):
-            prow.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-        else: prow.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='HIDE_OFF')
-        #prow.alert = yp.mask_preview_mode and yp.layer_preview_mode
-        #icon_value = lib.get_icon("mask)"
-        prow.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
+    #    if yp.layer_preview_mode: prow.alert = True
+    #    if not is_bl_newer_than(2, 80):
+    #        prow.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
+    #    else: prow.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='HIDE_OFF')
+    #    #prow.alert = yp.mask_preview_mode and yp.layer_preview_mode
+    #    #icon_value = lib.get_icon("mask)"
+    #    prow.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
 
     if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
         rcol.template_list("NODE_UL_YPaint_layers", "", yp,
@@ -5037,9 +5037,10 @@ def main_draw(self, context):
 
     else:
 
+        col = layout.column(align=True)
         # Layers
         #icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
-        row = layout.row(align=True)
+        row = col.row(align=True)
         #rrow = row.row(align=True)
 
         #if is_bl_newer_than(2, 80):
@@ -5049,6 +5050,38 @@ def main_draw(self, context):
         #else:
         #    rrow.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
         #    rrow.label(text='Layers')
+        
+        row.label(text='Preview Mode:')
+        row.alert = yp.layer_preview_mode
+        row.prop(yp, 'layer_preview_mode', text='Layer', icon='HIDE_OFF')
+        row.alert = yp.preview_mode
+        row.prop(yp, 'preview_mode', text='Channel', icon='HIDE_OFF')
+
+        if yp.layer_preview_mode or yp.preview_mode:
+            cbox = col.box()
+            bcol = cbox.column(align=True)
+
+            split_val = 0.3
+
+            try: root_ch = yp.channels[yp.active_channel_index]
+            except: root_ch = None
+
+            if yp.layer_preview_mode:
+                row = split_layout(bcol, split_val)
+                row.label(text='Type:')
+                row.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
+
+            if root_ch: 
+                row = bcol.row(align=True)
+                row = split_layout(bcol, split_val)
+                row.label(text='Channel:')
+                icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
+                row.menu("NODE_MT_y_active_channel_menu", text=root_ch.name, icon_value=icon_value)
+
+                if root_ch.special_channel_type == 'NORMAL':
+                    row = split_layout(bcol, split_val)
+                    row.label(text='Normal:')
+                    row.prop(yp, 'preview_mode_normal_space', text='')
 
         height_root_ch = get_root_height_channel(yp)
 
@@ -7765,6 +7798,27 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
                 col.operator('wm.y_show_transition_ramp', text='Transition Ramp', icon_value=lib.get_icon('background'))
                 col.operator('wm.y_show_transition_ao', text='Transition AO', icon_value=lib.get_icon('background'))
 
+class YActiveChannelMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_active_channel_menu"
+    bl_label = "Active Channel Menu"
+    bl_description = 'Active channel'
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        col = self.layout.column()
+
+        for i, ch in enumerate(yp.channels):
+            if i == yp.active_channel_index:
+                col.label(text=ch.name, icon='RADIOBUT_ON')
+            else: col.operator('wm.y_select_ypaint_channel', text=ch.name, icon='RADIOBUT_OFF').channel_idx = i
+
 class YLayerTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_type_menu"
     bl_label = "Layer Type Menu"
@@ -8869,6 +8923,7 @@ def register():
     bpy.utils.register_class(YLayerChannelSpecialMenu)
     bpy.utils.register_class(YReplaceChannelOverrideMenu)
     bpy.utils.register_class(YReplaceChannelOverride1Menu)
+    bpy.utils.register_class(YActiveChannelMenu)
     bpy.utils.register_class(YLayerSpecialMenu)
     bpy.utils.register_class(YLayerTypeMenu)
     bpy.utils.register_class(YMaskTypeMenu)
@@ -8958,6 +9013,7 @@ def unregister():
     bpy.utils.unregister_class(YLayerChannelSpecialMenu)
     bpy.utils.unregister_class(YReplaceChannelOverrideMenu)
     bpy.utils.unregister_class(YReplaceChannelOverride1Menu)
+    bpy.utils.unregister_class(YActiveChannelMenu)
     bpy.utils.unregister_class(YLayerSpecialMenu)
     bpy.utils.unregister_class(YLayerTypeMenu)
     bpy.utils.unregister_class(YMaskTypeMenu)
