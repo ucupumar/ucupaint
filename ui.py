@@ -6055,6 +6055,11 @@ class YNewLayerMenu(bpy.types.Menu):
             c.target_type = 'LAYER'
             c.overwrite_current = False
 
+            c = col.operator("wm.y_bake_to_layer", text='Curvature')
+            c.type = 'CURVATURE'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
+
             c = col.operator("wm.y_bake_to_layer", text='Bevel Normal')
             c.type = 'BEVEL_NORMAL'
             c.target_type = 'LAYER'
@@ -6856,6 +6861,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         new_mask_button(col, 'wm.y_bake_to_layer', 'Paint Base', otype='PAINT_BASE', target_type='MASK', overwrite_current=False)
         new_mask_button(col, 'wm.y_bake_to_layer', 'Thickness', otype='THICKNESS', target_type='MASK', overwrite_current=False)
         new_mask_button(col, 'wm.y_bake_to_layer', 'Wireframe', otype='WIREFRAME', target_type='MASK', overwrite_current=False)
+        new_mask_button(col, 'wm.y_bake_to_layer', 'Curvature', otype='CURVATURE', target_type='MASK', overwrite_current=False)
         new_mask_button(col, 'wm.y_bake_to_layer', 'Bevel Grayscale', otype='BEVEL_MASK', target_type='MASK', overwrite_current=False)
         new_mask_button(col, 'wm.y_bake_to_layer', 'Selected Vertices', otype='SELECTED_VERTICES', target_type='MASK', overwrite_current=False)
         if is_bl_newer_than(2, 77):

@@ -10,6 +10,7 @@ BL28_HACK = True
 TEMP_VCOL = '__temp__vcol__'
 TEMP_WIRE_UV = '__temp__wire_uv__'
 TEMP_WIRE_SCALE_UV = '__temp__wire_scale_uv__'
+TEMP_CURV_VCOL = '__temp__curvature_vcol__'
 TEMP_EMISSION = '_TEMP_EMI_'
 
 BAKE_PROBLEMATIC_MODIFIERS = {
@@ -164,7 +165,114 @@ def is_join_objects_problematic(yp, mat=None):
 
     return False
 
-def get_pointiness_image_minmax_value(image):
+def fill_curvature_vcol(obj, distance, vcol_name):
+    # Discrete mean curvature per vertex from the signed dihedral angles of
+    # its edges, so the baked interpolation is smooth like other bakers'
+    # from mesh curvature. The distance is the radius where it saturates
+    me = obj.data
+    nv, ne, npf, nl = len(me.vertices), len(me.edges), len(me.polygons), len(me.loops)
+    if nv == 0 or ne == 0 or npf == 0: return
+
+    fn = numpy.empty(npf * 3, dtype=numpy.float32); me.polygons.foreach_get('normal', fn); fn.shape = (-1, 3)
+    fc = numpy.empty(npf * 3, dtype=numpy.float32); me.polygons.foreach_get('center', fc); fc.shape = (-1, 3)
+    area = numpy.empty(npf, dtype=numpy.float32); me.polygons.foreach_get('area', area)
+    lt = numpy.empty(npf, dtype=numpy.int64); me.polygons.foreach_get('loop_total', lt)
+    ev = numpy.empty(ne * 2, dtype=numpy.int64); me.edges.foreach_get('vertices', ev); ev.shape = (-1, 2)
+    co = numpy.empty(nv * 3, dtype=numpy.float32); me.vertices.foreach_get('co', co); co.shape = (-1, 3)
+    le = numpy.empty(nl, dtype=numpy.int64); me.loops.foreach_get('edge_index', le)
+    lv = numpy.empty(nl, dtype=numpy.int64); me.loops.foreach_get('vertex_index', lv)
+    lp = numpy.repeat(numpy.arange(npf), lt)
+
+    # Weld coincident vertices first, meshes stitched from unwelded pieces
+    # (like clothing panels) would otherwise read as flat along their seams
+    key = numpy.round(co.astype(numpy.float64) * 1e5).astype(numpy.int64)
+    uniq, weld = numpy.unique(key, axis=0, return_inverse=True)
+    nw = len(uniq)
+    first_orig = numpy.zeros(nw, dtype=numpy.int64)
+    first_orig[weld[::-1]] = numpy.arange(nv - 1, -1, -1)
+    cow = co[first_orig]
+
+    # Pair up the two faces meeting at each welded edge
+    epair = numpy.sort(weld[ev], axis=1)[le]
+    order = numpy.lexsort((epair[:, 1], epair[:, 0]))
+    ep_sorted = epair[order]
+    lp_sorted = lp[order]
+    le_sorted = le[order]
+    change = numpy.empty(nl, dtype=bool)
+    change[0] = True
+    change[1:] = (ep_sorted[1:] != ep_sorted[:-1]).any(axis=1)
+    starts = numpy.flatnonzero(change)
+    lens = numpy.diff(numpy.append(starts, nl))
+    s2 = starts[lens == 2]
+    f1 = lp_sorted[s2]
+    f2 = lp_sorted[s2 + 1]
+    valid = f1 != f2
+    f1, f2, s2 = f1[valid], f2[valid], s2[valid]
+    v1 = ep_sorted[s2, 0]
+    v2 = ep_sorted[s2, 1]
+
+    # Signed dihedral angle, convex positive, weighted by edge length
+    d = (fn[f1] * fn[f2]).sum(-1).clip(-1.0, 1.0)
+    angle = numpy.arccos(d)
+    convex = ((fc[f2] - fc[f1]) * fn[f1]).sum(-1) < 0.0
+    sign = numpy.where(convex, 1.0, -1.0)
+    elen = numpy.linalg.norm(cow[v1] - cow[v2], axis=1)
+    w = sign * angle * elen
+
+    # Edges that only meet through the weld are either sewn junctions or
+    # shading splits along sharp edges: junctions crease inward, so only
+    # their concave side counts, while splits stay with the shading intent
+    same_edge = le_sorted[s2] == le_sorted[s2 + 1]
+    w = numpy.where(same_edge | ~convex, w, 0.0)
+
+    # Half of each edge goes to both of its endpoints, normalized by the
+    # vertex share of the surrounding area so the units are one per length
+    acc = numpy.zeros(nw, dtype=numpy.float64)
+    numpy.add.at(acc, v1, w * 0.5)
+    numpy.add.at(acc, v2, w * 0.5)
+    varea = numpy.zeros(nw, dtype=numpy.float64)
+    numpy.add.at(varea, weld[lv], numpy.repeat(area / lt, lt))
+    varea = numpy.maximum(varea / 3.0, 1e-12)
+
+    k = acc / (4.0 * varea)
+    signal = numpy.clip(k * distance, -1.0, 1.0)
+
+    # One relaxation pass with the neighbors evens out the response of
+    # coarse meshes whose vertices are far apart
+    nbr = numpy.zeros(nw, dtype=numpy.float64)
+    cnt = numpy.zeros(nw, dtype=numpy.float64)
+    numpy.add.at(nbr, v1, signal[v2])
+    numpy.add.at(nbr, v2, signal[v1])
+    numpy.add.at(cnt, v1, 1.0)
+    numpy.add.at(cnt, v2, 1.0)
+    has_nbr = cnt > 0
+    signal[has_nbr] = 0.5 * signal[has_nbr] + 0.5 * (nbr[has_nbr] / cnt[has_nbr])
+
+    vals = (0.5 + 0.5 * signal[weld]).astype(numpy.float32)
+
+    vcol = new_vertex_color(obj, vcol_name, data_type='FLOAT_COLOR', domain='POINT')
+    if not vcol: return
+    num_data = len(vcol.data)
+    arr = vals if num_data == nv else vals[lv]
+    rgba = numpy.empty((num_data, 4), dtype=numpy.float32)
+    rgba[:, 0] = rgba[:, 1] = rgba[:, 2] = arr
+    rgba[:, 3] = 1.0
+    vcol.data.foreach_set('color', rgba.ravel())
+
+def normalize_image_values(image):
+    pxs = numpy.empty(shape=image.size[0] * image.size[1] * 4, dtype=numpy.float32)
+    image.pixels.foreach_get(pxs)
+
+    pxs.shape = (-1, 4)
+    min_val = pxs[:, :3].min()
+    max_val = pxs[:, :3].max()
+
+    if max_val - min_val > 0.00001:
+        pxs[:, :3] = (pxs[:, :3] - min_val) / (max_val - min_val)
+        image.pixels.foreach_set(pxs.ravel())
+        image.update()
+
+def get_image_minmax_value(image):
     
     if is_bl_newer_than(2, 83):
         pxs = numpy.empty(shape=image.size[0] * image.size[1] * 4, dtype=numpy.float32)
@@ -2086,6 +2194,7 @@ def get_bake_properties_from_self(self):
         'edge_detect_method',
         'wireframe_size',
         'wireframe_triangulated',
+        'curvature_distance',
         'multires_base',
         'target_type',
         'fxaa',
@@ -2928,7 +3037,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         rdict['message'] = "Mask need active layer!"
         return rdict
 
-    if bprops.type in {'THICKNESS', 'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
+    if bprops.type in {'THICKNESS', 'CURVATURE', 'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_bl_newer_than(2, 80):
         rdict['message'] = "Blender 2.80+ is needed to use this feature!"
         return rdict
 
@@ -3126,6 +3235,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     elif not bprops.type.startswith('MULTIRES_') and bprops.type not in {'SELECTED_VERTICES'} and len(objs) > 1 and not is_join_objects_problematic(yp):
         temp_objs.extend([get_merged_mesh_objects(scene, objs, True)])
         objs = temp_objs
+
+    # Compute the per vertex curvature for the from mesh method
+    if bprops.type == 'CURVATURE':
+        for ob in objs:
+            fill_curvature_vcol(ob, bprops.curvature_distance, TEMP_CURV_VCOL)
 
     fill_mode = 'FACE'
     obj_vertex_indices = {}
@@ -3447,6 +3561,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     wire_min = None
     wire_border = None
     wire_extras = []
+    contact_ao = None
+    contact_mix = None
     if bprops.type == 'BEVEL_NORMAL':
         bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
     elif bprops.type == 'BEVEL_MASK':
@@ -3654,6 +3770,30 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         src.node_tree = get_node_tree_lib(lib.PAINT_BASE)
 
         mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
+        mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+    elif bprops.type == 'CURVATURE':
+        # Bake the smooth interpolation of the per vertex curvature that
+        # was computed into a temporary color attribute
+        src = mat.node_tree.nodes.new('ShaderNodeVertexColor')
+        src.layer_name = TEMP_CURV_VCOL
+
+        # Disconnected pieces resting on the surface leave no shared edges
+        # for the vertex pass to see, and vertices are too coarse to draw
+        # their junction thinly, so a short ambient occlusion multiplies in
+        # the per pixel contact shadow where another surface hangs within a
+        # quarter of the distance
+        contact_ao = mat.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
+        contact_ao.samples = 16
+        contact_ao.only_local = True
+        contact_ao.inputs['Distance'].default_value = bprops.curvature_distance * 0.25
+        contact_mix = simple_new_mix_node(mat.node_tree)
+        cmixcol0, cmixcol1, cmixout = get_mix_color_indices(contact_mix)
+        contact_mix.blend_type = 'MULTIPLY'
+        contact_mix.inputs[0].default_value = 1.0
+        mat.node_tree.links.new(src.outputs['Color'], contact_mix.inputs[cmixcol0])
+        mat.node_tree.links.new(contact_ao.outputs['Color'], contact_mix.inputs[cmixcol1])
+        mat.node_tree.links.new(contact_mix.outputs[cmixout], bsdf.inputs[0])
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
     elif bprops.type == 'BEVEL_NORMAL':
@@ -3968,9 +4108,16 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
 
         if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
 
-        if bprops.type == 'POINTINESS' and bprops.normalize and is_bl_newer_than(2, 83):
+        # Curvature is always normalized so the result spans the full black to
+        # white range. Stretching the pixels directly also covers rebakes onto
+        # an image whose float setting no longer matches the operator
+        if bprops.type == 'CURVATURE':
+            if is_bl_newer_than(2, 83):
+                normalize_image_values(image)
+
+        elif bprops.type == 'POINTINESS' and bprops.normalize and is_bl_newer_than(2, 83):
             # Check for highest and lowest value of the baked image
-            min_val, max_val = get_pointiness_image_minmax_value(image)
+            min_val, max_val = get_image_minmax_value(image)
 
             # Set map range
             map_range.inputs[1].default_value = min_val
@@ -4402,6 +4549,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     if wire_min: simple_remove_node(mat.node_tree, wire_min)
     if wire_border: simple_remove_node(mat.node_tree, wire_border)
     for wn in wire_extras: simple_remove_node(mat.node_tree, wn)
+    if contact_ao: simple_remove_node(mat.node_tree, contact_ao)
+    if contact_mix: simple_remove_node(mat.node_tree, contact_mix)
 
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
@@ -4462,6 +4611,14 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     # Recover subdiv setup
     if height_root_ch and subdiv_setup_changes:
         height_root_ch.enable_subdiv_setup = not height_root_ch.enable_subdiv_setup
+
+    # Remove temp curvature vcols
+    if bprops.type == 'CURVATURE':
+        for ob in objs:
+            vcols = get_vertex_colors(ob)
+            curv_vcol = vcols.get(TEMP_CURV_VCOL)
+            if curv_vcol:
+                vcols.remove(curv_vcol)
 
     # Remove flow vcols
     if bprops.type == 'FLOW':

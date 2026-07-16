@@ -418,6 +418,7 @@ bake_type_items = (
 
     ('THICKNESS', 'Thickness', ''),
     ('WIREFRAME', 'Wireframe', ''),
+    ('CURVATURE', 'Curvature', ''),
 )
 
 image_resolution_items = (
@@ -467,7 +468,8 @@ bake_type_labels = {
     'OBJECT_SPACE_NORMAL' : 'Object Space Normal',
 
     'THICKNESS': 'Thickness',
-    'WIREFRAME': 'Wireframe'
+    'WIREFRAME': 'Wireframe',
+    'CURVATURE': 'Curvature'
 }
 
 bake_type_suffixes = {
@@ -494,7 +496,8 @@ bake_type_suffixes = {
     'OBJECT_SPACE_NORMAL' : 'Object Space Normal',
 
     'THICKNESS': 'Thickness',
-    'WIREFRAME': 'Wireframe'
+    'WIREFRAME': 'Wireframe',
+    'CURVATURE': 'Curvature'
 }
 
 texcoord_lists = [

@@ -276,6 +276,13 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
 
+    # Curvature Props
+    curvature_distance : FloatProperty(
+        name = 'Curvature Distance',
+        description = 'Curvature sampling distance',
+        default=0.05, min=0.0, max=1000.0
+    )
+
     multires_base : IntProperty(
         name = 'Multires Base',
         description = 'Baking will use the difference between the base level and max level,\nand after baking, base level will be used in the multires modifier',
@@ -435,7 +442,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         height_root_ch = get_root_height_channel(yp)
 
         # Set default float image
-        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT'}:
+        # Curvature uses float so it stays a data map with 0.5 as the flat value
+        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT', 'CURVATURE'}:
             self.hdr = True
         else:
             self.hdr = False
@@ -468,6 +476,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         elif self.type == 'WIREFRAME':
             self.blend_type = 'MIX'
             self.ssaa = True
+        elif self.type == 'CURVATURE':
+            self.blend_type = 'MIX'
+            self.samples = 8
         elif self.type == 'BEVEL_NORMAL':
             self.blend_type = 'MIX'
             self.normal_blend_type = 'OVERLAY'
@@ -746,6 +757,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.label(text='Wireframe Size:')
             if is_bl_newer_than(2, 81):
                 col.label(text='')
+        elif self.type == 'CURVATURE':
+            col.label(text='Distance:')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.label(text='Bevel Samples:')
             col.label(text='Bevel Radius:')
@@ -843,6 +856,8 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             col.prop(self, 'wireframe_size', text='')
             if is_bl_newer_than(2, 81):
                 col.prop(self, 'wireframe_triangulated')
+        elif self.type == 'CURVATURE':
+            col.prop(self, 'curvature_distance', text='')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.prop(self, 'bevel_samples', text='')
             col.prop(self, 'bevel_radius', text='')
