@@ -982,6 +982,390 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         brow.label(text='Invert Value:')
         brow.prop(btc, 'invert_value', text='')
 
+def draw_preview_mode_ui(context, layout, node):
+    yp = node.node_tree.yp
+
+    col = layout.column(align=True)
+
+    row = col.row(align=True)
+    #row.label(text='Preview Mode:')
+    row.alert = yp.layer_preview_mode
+    row.prop(yp, 'layer_preview_mode', text='Layer Preview', icon='HIDE_OFF')
+    row.alert = yp.preview_mode
+    row.prop(yp, 'preview_mode', text='Channel Preview', icon='HIDE_OFF')
+
+    if yp.layer_preview_mode or yp.preview_mode:
+        cbox = col.box()
+        bcol = cbox.column(align=True)
+
+        split_val = 0.3
+
+        try: root_ch = yp.channels[yp.active_channel_index]
+        except: root_ch = None
+
+        if yp.layer_preview_mode:
+            row = split_layout(bcol, split_val)
+            row.label(text='Type:')
+            row.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
+
+        if root_ch: 
+            row = bcol.row(align=True)
+            row = split_layout(bcol, split_val)
+            row.label(text='Channel:')
+            icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
+            row.menu("NODE_MT_y_active_channel_menu", text=root_ch.name, icon_value=icon_value)
+
+            if root_ch.special_channel_type == 'NORMAL':
+                row = split_layout(bcol, split_val)
+                row.label(text='Normal:')
+                row.prop(yp, 'preview_mode_normal_space', text='')
+
+def draw_main_layers_ui(context, layout):
+    wm = context.window_manager
+    area = context.area
+    scene = context.scene
+    node = get_active_ypaint_node()
+    obj = context.object
+    mat = obj.active_material if obj else None
+    ypui = wm.ypui
+    ypup = get_user_preferences()
+
+    # Timer
+    #if wm.yptimer.time != '':
+    #    print('INFO: Scene is updated in', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
+    #    wm.yptimer.time = ''
+
+    ## NOTE: [HACK] Disable cache if delta time already pass the limit
+    #if ypui.use_cache:
+    #    delta = get_node_slider_delta_ms()
+    #    if delta > USE_CACHE_DELTA_MS:
+    #        ypui.use_cache = False
+
+    ## Update ui props first
+    #update_yp_ui()
+
+    addon_updater_ops = get_package_module('.addon_updater_ops')
+    if addon_updater_ops:
+        need_restart = addon_updater_ops.draw_top_ui_panel(context, layout)
+        if need_restart: return
+
+    # Extension platform update notification
+    if is_online() and not ypup.hide_update_notification and ypui.extension_update_state == 'AVAILABLE':
+        col = layout.column()
+        row_alert = col.row(align=True)
+        row_alert.alert = True
+        row_alert.operator("extensions.userpref_show_for_update", icon='ERROR', text='New version is available!') # + ypui.latest_version)
+        row_alert.alert = False
+        row_alert.operator("ext.pending_update", icon='PANEL_CLOSE', text='')
+
+    # Check if Mio3 UV checker found
+    if obj and any([m for m in obj.modifiers if m.type == 'NODES' and m.node_group and m.node_group.name == 'Mio3MaterialOverride' and (m.show_viewport or m.show_render)]):
+        row = layout.row(align=True)
+        row.alert = True
+        op = row.operator("wm.y_remove_mio3_uv_checker", icon='ERROR')
+        row.alert = False
+        return
+
+    if not node:
+        #layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
+        layout.operator("wm.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
+
+        # Test
+        draw_test_ui(context=context, layout=layout)
+
+        return
+
+    group_tree = node.node_tree
+    nodes = group_tree.nodes
+    yp = group_tree.yp
+
+    if version_tuple(yp.version) < version_tuple(get_current_version_str()):
+        col = layout.column()
+        col.alert = True
+        col.label(text=group_tree.name + ' (' + yp.version + ')', icon_value=lib.get_icon('nodetree'))
+        col.operator("wm.y_update_yp_trees", text='Update node to version ' + get_current_version_str(), icon='ERROR')
+        return
+
+    # Message will appear when opening file with newer node version
+    if version_tuple(yp.version) > version_tuple(get_current_version_str()):
+        col = layout.column()
+        col.alert = True
+        col.label(text='This node uses newer version!', icon='ERROR')
+        if is_installed_through_extension_platform():
+            # Extension platform releases link
+            col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://extensions.blender.org/add-ons/ucupaint/'
+        else: 
+            if is_online():
+                # Blender with online access already has the update button
+                col.label(text='Please update the addon!', icon='BLANK1')
+            else:
+                # Github releases link
+                col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://github.com/ucupumar/ucupaint/releases'
+
+    # Message will appear when legacy alpha toggle is enabled by accident
+    legacy_alpha_found = False
+    if not ypup.developer_mode:
+        for ch in yp.channels:
+            if ch.enable_alpha:
+                legacy_alpha_found = True
+                break
+
+        if legacy_alpha_found:
+            col = layout.column()
+            col.alert = True
+            col.label(text='Legacy alpha accidentally enabled!', icon='ERROR')
+            col.operator("wm.y_disable_legacy_channel_alpha", text='Disable Legacy Alpha')
+
+    if ypup.developer_mode and is_bl_newer_than(2, 78):
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and height_root_ch.enable_smooth_bump:
+            col = layout.column()
+            col.alert = True
+            col.label(text='Smooth(er) bump is no longer supported!', icon='ERROR')
+            col.operator("wm.y_update_remove_smooth_bump", text='Remove Smooth Bump')
+            #return
+
+    ##layout.label(text='Active: ' + node.node_tree.name, icon_value=lib.get_icon('nodetree'))
+    #row = layout.row(align=True)
+    #row.label(text='', icon_value=lib.get_icon('nodetree'))
+    ##row.label(text='Active: ' + node.node_tree.name)
+    #row.label(text=node.node_tree.name)
+    ##row.prop(node.node_tree, 'name', text='')
+
+    #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+    #row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
+
+    # Check for baked node
+    baked_found = False
+    #for ch in yp.channels:
+    #    baked = nodes.get(ch.baked)
+    #    if baked: 
+    #        baked_found = True
+    #        break
+    for bt in yp.bake_targets:
+        baked_node = nodes.get(bt.baked_node)
+        if baked_node: 
+            baked_found = True
+            break
+
+    if (baked_found or yp.use_baked) and not group_tree.users > 1:
+        rrow = layout.row(align=True)
+        #if is_bl_newer_than(2, 80):
+        #    rrow.alignment = 'RIGHT'
+        rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
+        rrow.separator()
+        rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
+        rrrow = rrow.row(align=True)
+        rrrow.active = yp.use_baked
+        rrrow.prop(yp, 'enable_baked_outside', toggle=True, text='Outside', icon='NODETREE')
+
+        #rrow.separator()
+
+        #icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
+        #rrow.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
+
+    #col = layout.column(align=True)
+    # Layers
+    #icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
+    #row = col.row(align=True)
+    #rrow = row.row(align=True)
+
+    #if is_bl_newer_than(2, 80):
+    #    rrow.alignment = 'LEFT'
+    #    rrow.scale_x = 0.95
+    #    rrow.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
+    #else:
+    #    rrow.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
+    #    rrow.label(text='Layers')
+    
+    #row = col.row(align=True)
+    #row.label(text='Preview Mode:')
+    #row.alert = yp.layer_preview_mode
+    #row.prop(yp, 'layer_preview_mode', text='Layer', icon='HIDE_OFF')
+    #row.alert = yp.preview_mode
+    #row.prop(yp, 'preview_mode', text='Channel', icon='HIDE_OFF')
+
+    #if yp.layer_preview_mode or yp.preview_mode:
+    #    cbox = col.box()
+    #    bcol = cbox.column(align=True)
+
+    #    split_val = 0.3
+
+    #    try: root_ch = yp.channels[yp.active_channel_index]
+    #    except: root_ch = None
+
+    #    if yp.layer_preview_mode:
+    #        row = split_layout(bcol, split_val)
+    #        row.label(text='Type:')
+    #        row.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
+
+    #    if root_ch: 
+    #        row = bcol.row(align=True)
+    #        row = split_layout(bcol, split_val)
+    #        row.label(text='Channel:')
+    #        icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
+    #        row.menu("NODE_MT_y_active_channel_menu", text=root_ch.name, icon_value=icon_value)
+
+    #        if root_ch.special_channel_type == 'NORMAL':
+    #            row = split_layout(bcol, split_val)
+    #            row.label(text='Normal:')
+    #            row.prop(yp, 'preview_mode_normal_space', text='')
+
+    if not yp.use_baked:
+        draw_preview_mode_ui(context, layout, node)
+
+    height_root_ch = get_root_height_channel(yp)
+
+    scenario_1 = (is_tangent_sign_hacks_needed(yp) and area.type == 'VIEW_3D' and 
+            area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
+
+    if scenario_1:
+        rrow = row.row(align=True)
+        #rrow.alignment = 'RIGHT'
+        rrow.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
+
+    #if ypui.show_layers :
+    if yp.sculpt_mode:
+
+        layer = yp.layers[yp.active_layer_index]
+        source = get_layer_source(layer)
+
+        box = layout.box()
+
+        if source and source.image:
+            row = box.row()
+            row.label(text='Sculpting: ' + source.image.name, icon_value=lib.get_icon('image'))
+
+        row = box.row()
+        row.alert = True
+        row.operator('sculpt.y_apply_sculpt_to_image', icon='SCULPTMODE_HLT', text='Apply Sculpt to Image')
+        row = box.row(align=True)
+        row.operator('sculpt.y_cancel_sculpt_to_image', icon='X', text='Cancel Sculpt')
+    else:
+        draw_layers_ui(context, layout, node)
+
+def draw_stats_ui(context, layout, node):
+    group_tree = node.node_tree
+    nodes = group_tree.nodes
+    yp = group_tree.yp
+    ypui = context.window_manager.ypui
+
+    images = []
+    vcols = []
+    num_ramps = 0
+    num_curves = 0
+    num_gen_texs = 0
+
+    for root_ch in yp.channels:
+        for mod in root_ch.modifiers:
+            if not mod.enable: continue
+            if mod.type == 'COLOR_RAMP':
+                num_ramps += 1
+            elif mod.type == 'RGB_CURVE':
+                num_curves += 1
+
+    for layer in yp.layers:
+        if not layer.enable: continue
+        layer_tree = get_tree(layer)
+        if layer.type == 'IMAGE':
+            src = get_layer_source(layer, layer_tree)
+            if src.image and src.image not in images:
+                images.append(src.image)
+        elif layer.type == 'VCOL':
+            src = get_layer_source(layer, layer_tree)
+            vcol_name = get_source_vcol_name(src)
+            if vcol_name != '' and vcol_name not in vcols:
+                vcols.append(vcol_name)
+        elif layer.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
+            num_gen_texs += 1
+
+        for ch in layer.channels:
+            if ch.enable:
+                if ch.override:
+                    if ch.override_type == 'IMAGE':
+                        src = get_channel_source(ch, layer)
+                        if src.image and src.image not in images:
+                            images.append(src.image)
+                    elif ch.override_type == 'VCOL':
+                        src = get_channel_source(ch, layer)
+                        vcol_name = get_source_vcol_name(src)
+                        if vcol_name != '' and vcol_name not in vcols:
+                            vcols.append(vcol_name)
+                    elif ch.override_type not in {'DEFAULT'}:
+                        num_gen_texs += 1
+                if ch.override_1:
+                    if ch.override_1_type == 'IMAGE':
+                        src = layer_tree.nodes.get(ch.source_1)
+                        if src.image and src.image not in images:
+                            images.append(src.image)
+
+                for mod in ch.modifiers:
+                    if not mod.enable: continue
+                    if mod.type == 'COLOR_RAMP':
+                        num_ramps += 1
+                    elif mod.type == 'RGB_CURVE':
+                        num_curves += 1
+
+                if ch.enable_transition_ramp:
+                    num_ramps += 1
+
+                if ch.enable_transition_bump and ch.transition_bump_falloff and ch.transition_bump_falloff_type == 'CURVE':
+                    num_curves += 1
+
+        for mod in layer.modifiers:
+            if not mod.enable: continue
+            if mod.type == 'COLOR_RAMP':
+                num_ramps += 1
+            elif mod.type == 'RGB_CURVE':
+                num_curves += 1
+
+        if not layer.enable_masks: continue
+
+        for mask in layer.masks:
+            if not mask.enable: continue
+            mask_tree = get_mask_tree(mask, layer_tree)
+            if mask.use_baked:
+                src = mask_tree.nodes.get(mask.baked_source)
+                if src.image and src.image not in images:
+                    images.append(src.image)
+            elif mask.type == 'IMAGE':
+                src = mask_tree.nodes.get(mask.source)
+                if src.image and src.image not in images:
+                    images.append(src.image)
+            elif mask.type == 'VCOL':
+                src = mask_tree.nodes.get(mask.source)
+                vcol_name = get_source_vcol_name(src)
+                if vcol_name != '' and vcol_name not in vcols:
+                    vcols.append(vcol_name)
+            elif mask.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
+                num_gen_texs += 1
+
+            if mask.type == 'MODIFIER':
+                if mask.modifier_type == 'RAMP':
+                    num_ramps += 1
+                elif mask.modifier_type == 'CURVE':
+                    num_curves += 1
+
+            for mod in mask.modifiers:
+                if not mod.enable: continue
+                if mod.type == 'RAMP':
+                    num_ramps += 1
+                elif mod.type == 'CURVE':
+                    num_curves += 1
+
+    #box = layout.box()
+    box = layout
+    col = box.column()
+    col.label(text=pgettext_iface('Number of Images: ') + str(len(images)), icon_value=lib.get_icon('image'))
+    col.label(text=pgettext_iface('Number of '+get_vertex_color_label()+': ') + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
+    col.label(text=pgettext_iface('Number of Generated Textures: ') + str(num_gen_texs), icon_value=lib.get_icon('texture'))
+    col.label(text=pgettext_iface('Number of Color Ramps: ') + str(num_ramps), icon_value=lib.get_icon('modifier'))
+    col.label(text=pgettext_iface('Number of RGB Curves: ') + str(num_curves), icon_value=lib.get_icon('modifier'))
+
+    #col.operator('wm.y_new_image_atlas_segment_test', icon_value=lib.get_icon('image'))
+    #col.operator('wm.y_new_udim_atlas_segment_test', icon_value=lib.get_icon('image'))
+    #col.operator('wm.y_uv_transform_test', icon_value=lib.get_icon('uv'))
+
 def draw_bake_targets_ui(context, layout, node):
     group_tree = node.node_tree
     nodes = group_tree.nodes
@@ -990,7 +1374,8 @@ def draw_bake_targets_ui(context, layout, node):
     ypui = context.window_manager.ypui
     btui = ypui.bake_target_ui
 
-    box = layout.box()
+    #box = layout.box()
+    box = layout
     col = box.column()
     row = col.row()
 
@@ -1141,7 +1526,8 @@ def draw_root_channels_ui(context, layout, node):
 
     channel = yp.channels[yp.active_channel_index] if len(yp.channels) > 0 and yp.active_channel_index < len(yp.channels) else None 
 
-    box = layout.box()
+    #box = layout.box()
+    box = layout
     col = box.column()
     row = col.row()
 
@@ -1916,7 +2302,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
         icon_value = lib.get_icon('uv')
         rrow = row.row(align=True)
         icon = get_collapse_arrow_icon(lui.expand_vector)
-        label = 'Vector'
+        label = 'Mapping'
         if not lui.expand_vector: label += ':'
         rrow.prop(lui, 'expand_vector', text='', emboss=False, icon=icon)
         if is_bl_newer_than(2, 80):
@@ -3571,7 +3957,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
             srow.active = not mask.use_baked
             rrow = srow.row(align=True)
 
-            label_text = 'Vector:'
+            label_text = 'Mapping:'
             if mask.texcoord_type != 'Layer':
                 inbox_dropdown_button(rrow, maskui, 'expand_vector', label_text)
             else: 
@@ -3892,9 +4278,187 @@ def any_yp_problems(yp, vcols=[]):
 
     return linear_problem, ao_problem, missing_data
 
+def draw_baked_ui(context, layout, node):
+    group_tree = node.node_tree
+    nodes = group_tree.nodes
+    yp = group_tree.yp
+    ypui = context.window_manager.ypui
+    ypup = get_user_preferences()
+
+    col = layout.column(align=False)
+
+    if is_not_in_material_view() and ypup.enable_material_view_warning:
+        bbox = col.box()
+        row = bbox.row(align=True)
+        row.alert = True
+        row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
+        row.alert = False
+
+    # Get paired channels
+    root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
+    root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
+
+    # Get channel bake target dictionary
+    chbts = get_channel_bake_target_dict(yp)
+
+    for i, root_ch in enumerate(yp.channels):
+
+        try: nchui = ypui.channels[i]
+        except: 
+            ypui.need_update = True
+            return
+
+        baked_image = get_active_baked_channel_image(root_ch)
+
+        icon_name = lib.channel_custom_icon_dict[root_ch.type]
+        icon_value = lib.get_icon(icon_name)
+
+        # Check if channel has any baked node
+        any_baked_node = False
+        if root_ch.name in chbts:
+            for bt in chbts[root_ch.name]:
+                baked_node = nodes.get(bt.baked_node)
+                if baked_node:
+                    any_baked_node = True
+                    break
+
+        no_baked_data = root_ch.name not in chbts or len(chbts[root_ch.name]) == 0 or not any_baked_node
+        bake_disabled = root_ch.disable_global_baked and not yp.enable_baked_outside
+
+        row = col.row(align=True)
+        row.context_pointer_set('root_ch', root_ch)
+        if baked_image: row.context_pointer_set('image', baked_image)
+        else: row.context_pointer_set('image', None)
+
+        rrow = row.row(align=True)
+        icon = get_collapse_arrow_icon(getattr(nchui, 'expand_baked_data'))
+        rrow.prop(nchui, 'expand_baked_data', text='', emboss=False, icon=icon)
+        rrow = row.row(align=True)
+        rrow.active = not (bake_disabled or no_baked_data)
+        title = 'Baked ' + root_ch.name
+        if bake_disabled:
+            title += ' (Disabled)'
+        if is_bl_newer_than(2, 80):
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+            rrow.prop(nchui, 'expand_baked_data', text=title, icon_value=icon_value, emboss=False)
+        else:
+            rrow.label(text=title, icon_value=icon_value)
+
+        if baked_image:
+            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+            rrow = row.row(align=True)
+            if is_bl_newer_than(2, 80):
+                rrow.alignment = 'RIGHT'
+            rrow.menu("NODE_MT_y_baked_image_menu", text='', icon=icon)
+
+        if not nchui.expand_baked_data: continue
+
+        row = col.row(align=True)
+        row.label(text='', icon='BLANK1')
+        bbox = row.box()
+        bcol = bbox.column(align=True)
+
+        if no_baked_data:
+            bcol.label(text=root_ch.name + " channel hasn't been baked yet!", icon='ERROR')
+            continue
+
+        # Show list of bake targets of the channel
+        if root_ch.name in chbts:
+
+            # Check if bake target is chosen not by choice
+            forced_bt = None
+            if root_height_ch and not root_height_ch.use_height_as_bump and root_ch == root_normal_ch:
+                forced_bt = get_normal_bake_target_without_height(yp, root_normal_ch)
+
+            has_multiple_bts = len(chbts[root_ch.name]) > 1
+
+            for bt in chbts[root_ch.name]:
+                baked_node = nodes.get(bt.baked_node)
+
+                if baked_node:
+
+                    row = bcol.row(align=True)
+                    row.active = (not bake_disabled or yp.enable_baked_outside) and bt.name == root_ch.bake_target_name
+
+                    # Get bake target name and icons
+                    packed = False
+                    if baked_node.type == 'TEX_IMAGE' and baked_node.image:
+                        title = baked_node.image.name
+                        if baked_node.image.is_dirty: title += ' *'
+
+                        icon_value = lib.get_icon('image')
+
+                        if baked_node.image.packed_file: packed = True
+
+                    elif baked_node.type == 'ATTRIBUTE':
+                        title = bt.name
+                        icon_value = lib.get_icon('vertex_color')
+
+                    # Extra '(Active)' label
+                    #if not bake_disabled and has_multiple_bts and (
+                    #    bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
+                    #):
+                    #    title += ' (Active)'
+
+                    # Bake target entry
+                    #row.label(text=title, icon_value=icon_value)
+                    rrow = row.row(align=True)
+                    rrow.context_pointer_set('channel', root_ch)
+                    rrow.alignment = 'LEFT'
+                    #rrow.scale_x = 0.95
+
+                    # Bake target selection
+                    #if forced_bt == None and has_multiple_bts:
+                    #rrow.context_pointer_set('channel', root_ch)
+                    icon = 'RADIOBUT_ON' if bt.name == root_ch.bake_target_name and (not root_ch.disable_global_baked or yp.enable_baked_outside) else 'RADIOBUT_OFF'
+                    op = rrow.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
+                    op.bake_target_name = bt.name
+                    #else:
+                    #    rrow.label(text='', icon='BLANK1')
+
+                    op = rrow.operator('wm.y_set_channel_active_bake_target', text=title, emboss=False, icon_value=icon_value)
+                    op.bake_target_name = bt.name
+
+                    rrow = row.row(align=True)
+                    rrow = row.row(align=True)
+                    rrow.alignment = 'RIGHT'
+
+                    # Packed icon
+                    if packed: rrow.label(text='', icon='PACKAGE')
+
+            # Disable baked
+            if not yp.enable_baked_outside:
+                row = bcol.row(align=True)
+                #row.active = not yp.enable_baked_outside
+                row.active = root_ch.disable_global_baked
+                rrow = row.row(align=True)
+                rrow.alignment = 'LEFT'
+                icon = 'RADIOBUT_ON' if root_ch.disable_global_baked and not yp.enable_baked_outside else 'RADIOBUT_OFF'
+                rrow.label(text='', icon=icon)
+                #title = 'Disable Baked '+root_ch.name
+                title = 'Use Layer Stack'
+                if yp.enable_baked_outside:
+                    rrow.label(text=title, icon='COLLAPSEMENU')
+                else:
+                    rrow.context_pointer_set('channel', root_ch)
+                    rrow.operator('wm.y_toggle_channel_use_baked', text=title, icon='COLLAPSEMENU', emboss=False)
+                rrow = row.row(align=True)
+
+    # Save buttons
+    row = layout.row(align=True)
+    icon = 'FILE_TICK'
+    row.operator('wm.y_save_all_baked_images', text='Save As All...', icon=icon).copy = False
+    row.operator('wm.y_save_all_baked_images', text='Save Copies All...', icon=icon).copy = True
+
+    # Remove baked data button
+    icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
+    row.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
+
+    return
+
 def draw_layers_ui(context, layout, node):
     #T = time.time()
-
     scene = context.scene
     group_tree = node.node_tree
     nodes = group_tree.nodes
@@ -3916,7 +4480,8 @@ def draw_layers_ui(context, layout, node):
     if is_a_mesh and len(uv_layers) > 0: 
         uv_found = True
 
-    box = layout.box()
+    #box = layout.box()
+    box = layout
 
     # Check duplicated yp node (indicated by more than one users)
     if group_tree.users > 1:
@@ -3931,176 +4496,7 @@ def draw_layers_ui(context, layout, node):
         return
 
     if yp.use_baked:
-        col = box.column(align=False)
-
-        if is_not_in_material_view() and ypup.enable_material_view_warning:
-            bbox = col.box()
-            row = bbox.row(align=True)
-            row.alert = True
-            row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
-            row.alert = False
-
-        # Get paired channels
-        root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
-        root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
-
-        # Get channel bake target dictionary
-        chbts = get_channel_bake_target_dict(yp)
-
-        for i, root_ch in enumerate(yp.channels):
-
-            try: nchui = ypui.channels[i]
-            except: 
-                ypui.need_update = True
-                return
-
-            baked_image = get_active_baked_channel_image(root_ch)
-
-            icon_name = lib.channel_custom_icon_dict[root_ch.type]
-            icon_value = lib.get_icon(icon_name)
-
-            # Check if channel has any baked node
-            any_baked_node = False
-            if root_ch.name in chbts:
-                for bt in chbts[root_ch.name]:
-                    baked_node = nodes.get(bt.baked_node)
-                    if baked_node:
-                        any_baked_node = True
-                        break
-
-            no_baked_data = root_ch.name not in chbts or len(chbts[root_ch.name]) == 0 or not any_baked_node
-            bake_disabled = root_ch.disable_global_baked and not yp.enable_baked_outside
-
-            row = col.row(align=True)
-            row.context_pointer_set('root_ch', root_ch)
-            if baked_image: row.context_pointer_set('image', baked_image)
-            else: row.context_pointer_set('image', None)
-
-            rrow = row.row(align=True)
-            icon = get_collapse_arrow_icon(getattr(nchui, 'expand_baked_data'))
-            rrow.prop(nchui, 'expand_baked_data', text='', emboss=False, icon=icon)
-            rrow = row.row(align=True)
-            rrow.active = not (bake_disabled or no_baked_data)
-            title = 'Baked ' + root_ch.name
-            if bake_disabled:
-                title += ' (Disabled)'
-            if is_bl_newer_than(2, 80):
-                rrow.alignment = 'LEFT'
-                rrow.scale_x = 0.95
-                rrow.prop(nchui, 'expand_baked_data', text=title, icon_value=icon_value, emboss=False)
-            else:
-                rrow.label(text=title, icon_value=icon_value)
-
-            if baked_image:
-                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-                rrow = row.row(align=True)
-                if is_bl_newer_than(2, 80):
-                    rrow.alignment = 'RIGHT'
-                rrow.menu("NODE_MT_y_baked_image_menu", text='', icon=icon)
-
-            if not nchui.expand_baked_data: continue
-
-            row = col.row(align=True)
-            row.label(text='', icon='BLANK1')
-            bbox = row.box()
-            bcol = bbox.column(align=True)
-
-            if no_baked_data:
-                bcol.label(text=root_ch.name + " channel hasn't been baked yet!", icon='ERROR')
-                continue
-
-            # Show list of bake targets of the channel
-            if root_ch.name in chbts:
-
-                # Check if bake target is chosen not by choice
-                forced_bt = None
-                if root_height_ch and not root_height_ch.use_height_as_bump and root_ch == root_normal_ch:
-                    forced_bt = get_normal_bake_target_without_height(yp, root_normal_ch)
-
-                has_multiple_bts = len(chbts[root_ch.name]) > 1
-
-                for bt in chbts[root_ch.name]:
-                    baked_node = nodes.get(bt.baked_node)
-
-                    if baked_node:
-
-                        row = bcol.row(align=True)
-                        row.active = (not bake_disabled or yp.enable_baked_outside) and bt.name == root_ch.bake_target_name
-
-                        # Get bake target name and icons
-                        packed = False
-                        if baked_node.type == 'TEX_IMAGE' and baked_node.image:
-                            title = baked_node.image.name
-                            if baked_node.image.is_dirty: title += ' *'
-
-                            icon_value = lib.get_icon('image')
-
-                            if baked_node.image.packed_file: packed = True
-
-                        elif baked_node.type == 'ATTRIBUTE':
-                            title = bt.name
-                            icon_value = lib.get_icon('vertex_color')
-
-                        # Extra '(Active)' label
-                        #if not bake_disabled and has_multiple_bts and (
-                        #    bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
-                        #):
-                        #    title += ' (Active)'
-
-                        # Bake target entry
-                        #row.label(text=title, icon_value=icon_value)
-                        rrow = row.row(align=True)
-                        rrow.context_pointer_set('channel', root_ch)
-                        rrow.alignment = 'LEFT'
-                        #rrow.scale_x = 0.95
-
-                        # Bake target selection
-                        #if forced_bt == None and has_multiple_bts:
-                        #rrow.context_pointer_set('channel', root_ch)
-                        icon = 'RADIOBUT_ON' if bt.name == root_ch.bake_target_name and (not root_ch.disable_global_baked or yp.enable_baked_outside) else 'RADIOBUT_OFF'
-                        op = rrow.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
-                        op.bake_target_name = bt.name
-                        #else:
-                        #    rrow.label(text='', icon='BLANK1')
-
-                        op = rrow.operator('wm.y_set_channel_active_bake_target', text=title, emboss=False, icon_value=icon_value)
-                        op.bake_target_name = bt.name
-
-                        rrow = row.row(align=True)
-                        rrow = row.row(align=True)
-                        rrow.alignment = 'RIGHT'
-
-                        # Packed icon
-                        if packed: rrow.label(text='', icon='PACKAGE')
-
-                # Disable baked
-                if not yp.enable_baked_outside:
-                    row = bcol.row(align=True)
-                    #row.active = not yp.enable_baked_outside
-                    row.active = root_ch.disable_global_baked
-                    rrow = row.row(align=True)
-                    rrow.alignment = 'LEFT'
-                    icon = 'RADIOBUT_ON' if root_ch.disable_global_baked and not yp.enable_baked_outside else 'RADIOBUT_OFF'
-                    rrow.label(text='', icon=icon)
-                    #title = 'Disable Baked '+root_ch.name
-                    title = 'Use Layer Stack'
-                    if yp.enable_baked_outside:
-                        rrow.label(text=title, icon='COLLAPSEMENU')
-                    else:
-                        rrow.context_pointer_set('channel', root_ch)
-                        rrow.operator('wm.y_toggle_channel_use_baked', text=title, icon='COLLAPSEMENU', emboss=False)
-                    rrow = row.row(align=True)
-
-        # Save buttons
-        row = box.row(align=True)
-        icon = 'FILE_TICK'
-        row.operator('wm.y_save_all_baked_images', text='Save As All...', icon=icon).copy = False
-        row.operator('wm.y_save_all_baked_images', text='Save Copies All...', icon=icon).copy = True
-
-        # Remove baked data button
-        icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
-        row.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
-
+        draw_baked_ui(context, box, node)
         return
 
     if is_a_mesh and not uv_found:
@@ -4712,52 +5108,52 @@ def main_draw(self, context):
     #slot = context.material_slot
     #space = context.space_data
 
-    # Timer
-    if wm.yptimer.time != '':
-        print('INFO: Scene is updated in', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
-        wm.yptimer.time = ''
-
-    # NOTE: [HACK] Disable cache if delta time already pass the limit
-    if ypui.use_cache:
-        delta = get_node_slider_delta_ms()
-        if delta > USE_CACHE_DELTA_MS:
-            ypui.use_cache = False
-
-    # Update ui props first
-    update_yp_ui()
-
-    node = get_active_ypaint_node()
-
     layout = self.layout
 
-    addon_updater_ops = get_package_module('.addon_updater_ops')
-    if addon_updater_ops:
-        need_restart = addon_updater_ops.draw_top_ui_panel(context, layout)
-        if need_restart: return
+    ## Timer
+    #if wm.yptimer.time != '':
+    #    print('INFO: Scene is updated in', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
+    #    wm.yptimer.time = ''
 
-    # Extension platform update notification
-    if is_online() and not ypup.hide_update_notification and ypui.extension_update_state == 'AVAILABLE':
-        col = layout.column()
-        row_alert = col.row(align=True)
-        row_alert.alert = True
-        row_alert.operator("extensions.userpref_show_for_update", icon='ERROR', text='New version is available!') # + ypui.latest_version)
-        row_alert.alert = False
-        row_alert.operator("ext.pending_update", icon='PANEL_CLOSE', text='')
+    ## NOTE: [HACK] Disable cache if delta time already pass the limit
+    #if ypui.use_cache:
+    #    delta = get_node_slider_delta_ms()
+    #    if delta > USE_CACHE_DELTA_MS:
+    #        ypui.use_cache = False
 
-    icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
+    ## Update ui props first
+    #update_yp_ui()
+
+    #node = get_active_ypaint_node()
+
+    #addon_updater_ops = get_package_module('.addon_updater_ops')
+    #if addon_updater_ops:
+    #    need_restart = addon_updater_ops.draw_top_ui_panel(context, layout)
+    #    if need_restart: return
+
+    ## Extension platform update notification
+    #if is_online() and not ypup.hide_update_notification and ypui.extension_update_state == 'AVAILABLE':
+    #    col = layout.column()
+    #    row_alert = col.row(align=True)
+    #    row_alert.alert = True
+    #    row_alert.operator("extensions.userpref_show_for_update", icon='ERROR', text='New version is available!') # + ypui.latest_version)
+    #    row_alert.alert = False
+    #    row_alert.operator("ext.pending_update", icon='PANEL_CLOSE', text='')
+
+    #icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    rrow = row.row(align=True)
-    text_object = pgettext_iface('Object: ')
-    if obj: text_object += obj.name
-    else: text_object += '-'
+    #rrow = row.row(align=True)
+    #text_object = pgettext_iface('Object: ')
+    #if obj: text_object += obj.name
+    #else: text_object += '-'
 
-    if is_bl_newer_than(2, 80):
-        rrow.alignment = 'LEFT'
-        rrow.scale_x = 0.95
-        rrow.prop(ypui, 'show_object', emboss=False, text=text_object, icon=icon)
-    else:
-        rrow.prop(ypui, 'show_object', emboss=False, text='', icon=icon)
-        rrow.label(text=text_object)
+    #if is_bl_newer_than(2, 80):
+    #    rrow.alignment = 'LEFT'
+    #    rrow.scale_x = 0.95
+    #    rrow.prop(ypui, 'show_object', emboss=False, text=text_object, icon=icon)
+    #else:
+    #    rrow.prop(ypui, 'show_object', emboss=False, text='', icon=icon)
+    #    rrow.label(text=text_object)
 
     rrow = row.row(align=True)
     rrow.alignment = 'RIGHT'
@@ -4768,33 +5164,34 @@ def main_draw(self, context):
         if is_package_module_exists('.credits_ui'):
             row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
 
-    if ypui.show_object:
-        box = layout.box()
-        col = box.column()
-        row = split_layout(col, 0.6)
-        row.label(text='Object Index:')
-        row.prop(obj, 'pass_index', text='')
+    #if ypui.show_object:
+    #    box = layout.box()
+    #    col = box.column()
+    #    row = split_layout(col, 0.6)
+    #    row.label(text='Object Index:')
+    #    row.prop(obj, 'pass_index', text='')
 
     # HACK: Create split layout to load all icons (Only for Blender 3.2+)
-    if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
-        split = split_layout(layout, 1.0)
-        row = split.row(align=True)
-    else:
-        row = layout.row(align=True)
+    #if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
+    #    split = split_layout(layout, 1.0)
+    #    row = split.row(align=True)
+    #else:
+    #    row = layout.row(align=True)
+    #    row = layout.row(align=True)
 
-    icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
-    rrow = row.row(align=True)
-    text_material = pgettext_iface('Material: ')
-    if mat: text_material += mat.name
-    else: text_material += '-'
+    #icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
+    #rrow = row.row(align=True)
+    #text_material = pgettext_iface('Material: ')
+    #if mat: text_material += mat.name
+    #else: text_material += '-'
 
-    if is_bl_newer_than(2, 80):
-        rrow.alignment = 'LEFT'
-        rrow.scale_x = 0.95
-        rrow.prop(ypui, 'show_materials', emboss=False, text=text_material, icon=icon)
-    else:
-        rrow.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
-        rrow.label(text=text_material)
+    #if is_bl_newer_than(2, 80):
+    #    rrow.alignment = 'LEFT'
+    #    rrow.scale_x = 0.95
+    #    rrow.prop(ypui, 'show_materials', emboss=False, text=text_material, icon=icon)
+    #else:
+    #    rrow.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
+    #    rrow.label(text=text_material)
 
     # HACK: Load all icons earlier so no missing icons possible (Only for Blender 3.2+)
     if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
@@ -4813,182 +5210,182 @@ def main_draw(self, context):
                 icon_name = f.replace('_icon.png', '')
                 invisible_row.label(text='', icon_value=lib.get_icon(icon_name))
 
-    if ypui.show_materials:
-        is_sortable = len(obj.material_slots) > 1
-        rows = 2
-        if (is_sortable):
-            rows = 4
-        box = layout.box()
-        row = box.row()
-        row.template_list("MATERIAL_UL_matslots", "", obj, "material_slots", obj, "active_material_index", rows=rows)
-        col = row.column(align=True)
-        if is_bl_newer_than(2, 80):
-            col.operator("object.material_slot_add", icon='ADD', text="")
-            col.operator("object.material_slot_remove", icon='REMOVE', text="")
-        else:
-            col.operator("object.material_slot_add", icon='ZOOMIN', text="")
-            col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
+    #if ypui.show_materials:
+    #    is_sortable = len(obj.material_slots) > 1
+    #    rows = 2
+    #    if (is_sortable):
+    #        rows = 4
+    #    box = layout.box()
+    #    row = box.row()
+    #    row.template_list("MATERIAL_UL_matslots", "", obj, "material_slots", obj, "active_material_index", rows=rows)
+    #    col = row.column(align=True)
+    #    if is_bl_newer_than(2, 80):
+    #        col.operator("object.material_slot_add", icon='ADD', text="")
+    #        col.operator("object.material_slot_remove", icon='REMOVE', text="")
+    #    else:
+    #        col.operator("object.material_slot_add", icon='ZOOMIN', text="")
+    #        col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
 
-        col.menu("MATERIAL_MT_y_special_menu", icon='DOWNARROW_HLT', text="")
+    #    col.menu("MATERIAL_MT_y_special_menu", icon='DOWNARROW_HLT', text="")
 
-        if is_sortable:
-            col.separator()
+    #    if is_sortable:
+    #        col.separator()
 
-            col.operator("object.material_slot_move", icon='TRIA_UP', text="").direction = 'UP'
-            col.operator("object.material_slot_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+    #        col.operator("object.material_slot_move", icon='TRIA_UP', text="").direction = 'UP'
+    #        col.operator("object.material_slot_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
-        if obj.mode == 'EDIT':
-            row = box.row(align=True)
-            row.operator("object.material_slot_assign", text="Assign")
-            row.operator("object.material_slot_select", text="Select")
-            row.operator("object.material_slot_deselect", text="Deselect")
+    #    if obj.mode == 'EDIT':
+    #        row = box.row(align=True)
+    #        row.operator("object.material_slot_assign", text="Assign")
+    #        row.operator("object.material_slot_select", text="Select")
+    #        row.operator("object.material_slot_deselect", text="Deselect")
 
-        row = box.row(align=True)
-        mat = get_active_material()
-        mui = get_material_ui(mat)
-        if mui:
-            icon = 'DOWNARROW_HLT' if mui.expand_content else 'RIGHTARROW'
-            row.prop(mui, 'expand_content', emboss=False, text='', icon=icon)
-        row.template_ID(obj, "active_material", new="material.new")
+    #    row = box.row(align=True)
+    #    mat = get_active_material()
+    #    mui = get_material_ui(mat)
+    #    if mui:
+    #        icon = 'DOWNARROW_HLT' if mui.expand_content else 'RIGHTARROW'
+    #        row.prop(mui, 'expand_content', emboss=False, text='', icon=icon)
+    #    row.template_ID(obj, "active_material", new="material.new")
 
-        if mui and mui.expand_content:
-            row = box.row(align=True)
-            row.label(text='', icon='BLANK1')
-            col = row.column(align=False)
+    #    if mui and mui.expand_content:
+    #        row = box.row(align=True)
+    #        row.label(text='', icon='BLANK1')
+    #        col = row.column(align=False)
 
-            if not is_bl_newer_than(2, 80):
-                rrow = col.row(align=True)
-                rrow.label(text='Alpha Blend:')
-                rrow.prop(mat.game_settings, 'alpha_blend', text='')
+    #        if not is_bl_newer_than(2, 80):
+    #            rrow = col.row(align=True)
+    #            rrow.label(text='Alpha Blend:')
+    #            rrow.prop(mat.game_settings, 'alpha_blend', text='')
 
-            elif not is_bl_newer_than(4, 2):
+    #        elif not is_bl_newer_than(4, 2):
 
-                rrow = col.row(align=True)
-                rrow.label(text='Blend Mode:')
-                rrow.prop(mat, 'blend_method', text='')
+    #            rrow = col.row(align=True)
+    #            rrow.label(text='Blend Mode:')
+    #            rrow.prop(mat, 'blend_method', text='')
 
-                rrow = col.row(align=True)
-                rrow.label(text='Shadow Mode:')
-                rrow.prop(mat, 'shadow_method', text='')
-            else:
+    #            rrow = col.row(align=True)
+    #            rrow.label(text='Shadow Mode:')
+    #            rrow.prop(mat, 'shadow_method', text='')
+    #        else:
 
-                # NOTE: Displacement setup probably need to be rethinked again before showing this option
-                #rrow = col.row(align=True)
-                #rrow.label(text='Displacement:')
-                #rrow.prop(mat, 'displacement_method', text='')
+    #            # NOTE: Displacement setup probably need to be rethinked again before showing this option
+    #            #rrow = col.row(align=True)
+    #            #rrow.label(text='Displacement:')
+    #            #rrow.prop(mat, 'displacement_method', text='')
 
-                rrow = col.row(align=True)
-                rrow.label(text='Render Method:')
-                rrow.prop(mat, 'surface_render_method', text='')
+    #            rrow = col.row(align=True)
+    #            rrow.label(text='Render Method:')
+    #            rrow.prop(mat, 'surface_render_method', text='')
 
-                rrow = col.row(align=True)
-                rrow.label(text='Transparent Shadows:')
-                rrow.prop(mat, 'use_transparent_shadow', text='')
+    #            rrow = col.row(align=True)
+    #            rrow.label(text='Transparent Shadows:')
+    #            rrow.prop(mat, 'use_transparent_shadow', text='')
 
     # Check if Mio3 UV checker found
-    if obj and any([m for m in obj.modifiers if m.type == 'NODES' and m.node_group and m.node_group.name == 'Mio3MaterialOverride' and (m.show_viewport or m.show_render)]):
-        row = layout.row(align=True)
-        row.alert = True
-        op = row.operator("wm.y_remove_mio3_uv_checker", icon='ERROR')
-        row.alert = False
-        return
+    #if obj and any([m for m in obj.modifiers if m.type == 'NODES' and m.node_group and m.node_group.name == 'Mio3MaterialOverride' and (m.show_viewport or m.show_render)]):
+    #    row = layout.row(align=True)
+    #    row.alert = True
+    #    op = row.operator("wm.y_remove_mio3_uv_checker", icon='ERROR')
+    #    row.alert = False
+    #    return
 
-    if not node:
-        layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
-        layout.operator("wm.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
+    #if not node:
+    #    layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
+    #    layout.operator("wm.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
 
-        # Test
-        draw_test_ui(context=context, layout=layout)
+    #    # Test
+    #    draw_test_ui(context=context, layout=layout)
 
-        return
+    #    return
 
-    group_tree = node.node_tree
-    nodes = group_tree.nodes
-    yp = group_tree.yp
+    #group_tree = node.node_tree
+    #nodes = group_tree.nodes
+    #yp = group_tree.yp
 
-    if version_tuple(yp.version) < version_tuple(get_current_version_str()):
-        col = layout.column()
-        col.alert = True
-        col.label(text=group_tree.name + ' (' + yp.version + ')', icon_value=lib.get_icon('nodetree'))
-        col.operator("wm.y_update_yp_trees", text='Update node to version ' + get_current_version_str(), icon='ERROR')
-        return
+    #if version_tuple(yp.version) < version_tuple(get_current_version_str()):
+    #    col = layout.column()
+    #    col.alert = True
+    #    col.label(text=group_tree.name + ' (' + yp.version + ')', icon_value=lib.get_icon('nodetree'))
+    #    col.operator("wm.y_update_yp_trees", text='Update node to version ' + get_current_version_str(), icon='ERROR')
+    #    return
 
-    # Message will appear when opening file with newer node version
-    if version_tuple(yp.version) > version_tuple(get_current_version_str()):
-        col = layout.column()
-        col.alert = True
-        col.label(text='This node uses newer version!', icon='ERROR')
-        if is_installed_through_extension_platform():
-            # Extension platform releases link
-            col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://extensions.blender.org/add-ons/ucupaint/'
-        else: 
-            if is_online():
-                # Blender with online access already has the update button
-                col.label(text='Please update the addon!', icon='BLANK1')
-            else:
-                # Github releases link
-                col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://github.com/ucupumar/ucupaint/releases'
+    ## Message will appear when opening file with newer node version
+    #if version_tuple(yp.version) > version_tuple(get_current_version_str()):
+    #    col = layout.column()
+    #    col.alert = True
+    #    col.label(text='This node uses newer version!', icon='ERROR')
+    #    if is_installed_through_extension_platform():
+    #        # Extension platform releases link
+    #        col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://extensions.blender.org/add-ons/ucupaint/'
+    #    else: 
+    #        if is_online():
+    #            # Blender with online access already has the update button
+    #            col.label(text='Please update the addon!', icon='BLANK1')
+    #        else:
+    #            # Github releases link
+    #            col.operator('wm.url_open', text='Update '+get_addon_title(), icon='ERROR').url = 'https://github.com/ucupumar/ucupaint/releases'
 
-    # Message will appear when legacy alpha toggle is enabled by accident
-    legacy_alpha_found = False
-    if not ypup.developer_mode:
-        for ch in yp.channels:
-            if ch.enable_alpha:
-                legacy_alpha_found = True
-                break
+    ## Message will appear when legacy alpha toggle is enabled by accident
+    #legacy_alpha_found = False
+    #if not ypup.developer_mode:
+    #    for ch in yp.channels:
+    #        if ch.enable_alpha:
+    #            legacy_alpha_found = True
+    #            break
 
-        if legacy_alpha_found:
-            col = layout.column()
-            col.alert = True
-            col.label(text='Legacy alpha accidentally enabled!', icon='ERROR')
-            col.operator("wm.y_disable_legacy_channel_alpha", text='Disable Legacy Alpha')
+    #    if legacy_alpha_found:
+    #        col = layout.column()
+    #        col.alert = True
+    #        col.label(text='Legacy alpha accidentally enabled!', icon='ERROR')
+    #        col.operator("wm.y_disable_legacy_channel_alpha", text='Disable Legacy Alpha')
 
-    if ypup.developer_mode and is_bl_newer_than(2, 78):
-        height_root_ch = get_root_height_channel(yp)
-        if height_root_ch and height_root_ch.enable_smooth_bump:
-            col = layout.column()
-            col.alert = True
-            col.label(text='Smooth(er) bump is no longer supported!', icon='ERROR')
-            col.operator("wm.y_update_remove_smooth_bump", text='Remove Smooth Bump')
-            #return
+    #if ypup.developer_mode and is_bl_newer_than(2, 78):
+    #    height_root_ch = get_root_height_channel(yp)
+    #    if height_root_ch and height_root_ch.enable_smooth_bump:
+    #        col = layout.column()
+    #        col.alert = True
+    #        col.label(text='Smooth(er) bump is no longer supported!', icon='ERROR')
+    #        col.operator("wm.y_update_remove_smooth_bump", text='Remove Smooth Bump')
+    #        #return
 
-    #layout.label(text='Active: ' + node.node_tree.name, icon_value=lib.get_icon('nodetree'))
-    row = layout.row(align=True)
-    row.label(text='', icon_value=lib.get_icon('nodetree'))
-    #row.label(text='Active: ' + node.node_tree.name)
-    row.label(text=node.node_tree.name)
-    #row.prop(node.node_tree, 'name', text='')
+    ##layout.label(text='Active: ' + node.node_tree.name, icon_value=lib.get_icon('nodetree'))
+    #row = layout.row(align=True)
+    #row.label(text='', icon_value=lib.get_icon('nodetree'))
+    ##row.label(text='Active: ' + node.node_tree.name)
+    #row.label(text=node.node_tree.name)
+    ##row.prop(node.node_tree, 'name', text='')
 
-    icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-    row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
+    #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+    #row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
 
-    # Check for baked node
-    baked_found = False
-    #for ch in yp.channels:
-    #    baked = nodes.get(ch.baked)
-    #    if baked: 
+    ## Check for baked node
+    #baked_found = False
+    ##for ch in yp.channels:
+    ##    baked = nodes.get(ch.baked)
+    ##    if baked: 
+    ##        baked_found = True
+    ##        break
+    #for bt in yp.bake_targets:
+    #    baked_node = nodes.get(bt.baked_node)
+    #    if baked_node: 
     #        baked_found = True
     #        break
-    for bt in yp.bake_targets:
-        baked_node = nodes.get(bt.baked_node)
-        if baked_node: 
-            baked_found = True
-            break
 
-    if (baked_found or yp.use_baked) and not group_tree.users > 1:
-        rrow = layout.row(align=True)
-        #if is_bl_newer_than(2, 80):
-        #    rrow.alignment = 'RIGHT'
-        rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
-        rrow.separator()
-        rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
-        rrow.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
+    #if (baked_found or yp.use_baked) and not group_tree.users > 1:
+    #    rrow = layout.row(align=True)
+    #    #if is_bl_newer_than(2, 80):
+    #    #    rrow.alignment = 'RIGHT'
+    #    rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
+    #    rrow.separator()
+    #    rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
+    #    rrow.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
 
-    if not yp.use_baked:
-        row = layout.row(align=True)
-        row.prop(ypui, 'active_tab', expand=True) 
+    #if not yp.use_baked:
+    #    row = layout.row(align=True)
+    #    row.prop(ypui, 'active_tab', expand=True) 
 
-    if ypui.active_tab == 'CHANNELS' and not yp.use_baked:
+    if False and ypui.active_tab == 'CHANNELS' and not yp.use_baked:
 
         ## Channels
         #icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
@@ -5019,7 +5416,7 @@ def main_draw(self, context):
         #if ypui.show_channels:
         draw_root_channels_ui(context, layout, node)
     
-    elif ypui.active_tab == 'BAKE_TARGETS' and not yp.use_baked:
+    elif False and ypui.active_tab == 'BAKE_TARGETS' and not yp.use_baked:
         ## Bake Targets
         #icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
         #row = layout.row(align=True)
@@ -5036,212 +5433,8 @@ def main_draw(self, context):
         draw_bake_targets_ui(context, layout, node)
 
     else:
-
-        col = layout.column(align=True)
-        # Layers
-        #icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
-        row = col.row(align=True)
-        #rrow = row.row(align=True)
-
-        #if is_bl_newer_than(2, 80):
-        #    rrow.alignment = 'LEFT'
-        #    rrow.scale_x = 0.95
-        #    rrow.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
-        #else:
-        #    rrow.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
-        #    rrow.label(text='Layers')
-        
-        row.label(text='Preview Mode:')
-        row.alert = yp.layer_preview_mode
-        row.prop(yp, 'layer_preview_mode', text='Layer', icon='HIDE_OFF')
-        row.alert = yp.preview_mode
-        row.prop(yp, 'preview_mode', text='Channel', icon='HIDE_OFF')
-
-        if yp.layer_preview_mode or yp.preview_mode:
-            cbox = col.box()
-            bcol = cbox.column(align=True)
-
-            split_val = 0.3
-
-            try: root_ch = yp.channels[yp.active_channel_index]
-            except: root_ch = None
-
-            if yp.layer_preview_mode:
-                row = split_layout(bcol, split_val)
-                row.label(text='Type:')
-                row.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
-
-            if root_ch: 
-                row = bcol.row(align=True)
-                row = split_layout(bcol, split_val)
-                row.label(text='Channel:')
-                icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
-                row.menu("NODE_MT_y_active_channel_menu", text=root_ch.name, icon_value=icon_value)
-
-                if root_ch.special_channel_type == 'NORMAL':
-                    row = split_layout(bcol, split_val)
-                    row.label(text='Normal:')
-                    row.prop(yp, 'preview_mode_normal_space', text='')
-
-        height_root_ch = get_root_height_channel(yp)
-
-        scenario_1 = (is_tangent_sign_hacks_needed(yp) and area.type == 'VIEW_3D' and 
-                area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
-
-        if scenario_1:
-            rrow = row.row(align=True)
-            #rrow.alignment = 'RIGHT'
-            rrow.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
-
-        #if ypui.show_layers :
-        if yp.sculpt_mode:
-
-            layer = yp.layers[yp.active_layer_index]
-            source = get_layer_source(layer)
-
-            box = layout.box()
-
-            if source and source.image:
-                row = box.row()
-                row.label(text='Sculpting: ' + source.image.name, icon_value=lib.get_icon('image'))
-
-            row = box.row()
-            row.alert = True
-            row.operator('sculpt.y_apply_sculpt_to_image', icon='SCULPTMODE_HLT', text='Apply Sculpt to Image')
-            row = box.row(align=True)
-            row.operator('sculpt.y_cancel_sculpt_to_image', icon='X', text='Cancel Sculpt')
-        else:
-            draw_layers_ui(context, layout, node)
-
-        if not yp.use_baked:
-            # Stats
-            icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
-            row = layout.row(align=True)
-
-            if is_bl_newer_than(2, 80):
-                row.alignment = 'LEFT'
-                row.scale_x = 0.95
-                row.prop(ypui, 'show_stats', emboss=False, text='Stats', icon=icon)
-            else:
-                row.prop(ypui, 'show_stats', emboss=False, text='', icon=icon)
-                row.label(text='Stats')
-
-            if ypui.show_stats:
-
-                images = []
-                vcols = []
-                num_ramps = 0
-                num_curves = 0
-                num_gen_texs = 0
-
-                for root_ch in yp.channels:
-                    for mod in root_ch.modifiers:
-                        if not mod.enable: continue
-                        if mod.type == 'COLOR_RAMP':
-                            num_ramps += 1
-                        elif mod.type == 'RGB_CURVE':
-                            num_curves += 1
-
-                for layer in yp.layers:
-                    if not layer.enable: continue
-                    layer_tree = get_tree(layer)
-                    if layer.type == 'IMAGE':
-                        src = get_layer_source(layer, layer_tree)
-                        if src.image and src.image not in images:
-                            images.append(src.image)
-                    elif layer.type == 'VCOL':
-                        src = get_layer_source(layer, layer_tree)
-                        vcol_name = get_source_vcol_name(src)
-                        if vcol_name != '' and vcol_name not in vcols:
-                            vcols.append(vcol_name)
-                    elif layer.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
-                        num_gen_texs += 1
-
-                    for ch in layer.channels:
-                        if ch.enable:
-                            if ch.override:
-                                if ch.override_type == 'IMAGE':
-                                    src = get_channel_source(ch, layer)
-                                    if src.image and src.image not in images:
-                                        images.append(src.image)
-                                elif ch.override_type == 'VCOL':
-                                    src = get_channel_source(ch, layer)
-                                    vcol_name = get_source_vcol_name(src)
-                                    if vcol_name != '' and vcol_name not in vcols:
-                                        vcols.append(vcol_name)
-                                elif ch.override_type not in {'DEFAULT'}:
-                                    num_gen_texs += 1
-                            if ch.override_1:
-                                if ch.override_1_type == 'IMAGE':
-                                    src = layer_tree.nodes.get(ch.source_1)
-                                    if src.image and src.image not in images:
-                                        images.append(src.image)
-
-                            for mod in ch.modifiers:
-                                if not mod.enable: continue
-                                if mod.type == 'COLOR_RAMP':
-                                    num_ramps += 1
-                                elif mod.type == 'RGB_CURVE':
-                                    num_curves += 1
-
-                            if ch.enable_transition_ramp:
-                                num_ramps += 1
-
-                            if ch.enable_transition_bump and ch.transition_bump_falloff and ch.transition_bump_falloff_type == 'CURVE':
-                                num_curves += 1
-
-                    for mod in layer.modifiers:
-                        if not mod.enable: continue
-                        if mod.type == 'COLOR_RAMP':
-                            num_ramps += 1
-                        elif mod.type == 'RGB_CURVE':
-                            num_curves += 1
-
-                    if not layer.enable_masks: continue
-
-                    for mask in layer.masks:
-                        if not mask.enable: continue
-                        mask_tree = get_mask_tree(mask, layer_tree)
-                        if mask.use_baked:
-                            src = mask_tree.nodes.get(mask.baked_source)
-                            if src.image and src.image not in images:
-                                images.append(src.image)
-                        elif mask.type == 'IMAGE':
-                            src = mask_tree.nodes.get(mask.source)
-                            if src.image and src.image not in images:
-                                images.append(src.image)
-                        elif mask.type == 'VCOL':
-                            src = mask_tree.nodes.get(mask.source)
-                            vcol_name = get_source_vcol_name(src)
-                            if vcol_name != '' and vcol_name not in vcols:
-                                vcols.append(vcol_name)
-                        elif mask.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'GABOR', 'VORONOI', 'WAVE'}:
-                            num_gen_texs += 1
-
-                        if mask.type == 'MODIFIER':
-                            if mask.modifier_type == 'RAMP':
-                                num_ramps += 1
-                            elif mask.modifier_type == 'CURVE':
-                                num_curves += 1
-
-                        for mod in mask.modifiers:
-                            if not mod.enable: continue
-                            if mod.type == 'RAMP':
-                                num_ramps += 1
-                            elif mod.type == 'CURVE':
-                                num_curves += 1
-
-                box = layout.box()
-                col = box.column()
-                col.label(text=pgettext_iface('Number of Images: ') + str(len(images)), icon_value=lib.get_icon('image'))
-                col.label(text=pgettext_iface('Number of '+get_vertex_color_label()+': ') + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
-                col.label(text=pgettext_iface('Number of Generated Textures: ') + str(num_gen_texs), icon_value=lib.get_icon('texture'))
-                col.label(text=pgettext_iface('Number of Color Ramps: ') + str(num_ramps), icon_value=lib.get_icon('modifier'))
-                col.label(text=pgettext_iface('Number of RGB Curves: ') + str(num_curves), icon_value=lib.get_icon('modifier'))
-
-                #col.operator('wm.y_new_image_atlas_segment_test', icon_value=lib.get_icon('image'))
-                #col.operator('wm.y_new_udim_atlas_segment_test', icon_value=lib.get_icon('image'))
-                #col.operator('wm.y_uv_transform_test', icon_value=lib.get_icon('uv'))
+        #draw_main_layers_ui(context, layout)
+        pass
 
     # Test
     draw_test_ui(context=context, layout=layout)
@@ -5295,7 +5488,7 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     #bl_context = "object"
     bl_region_type = 'UI'
     bl_category = get_addon_title()
-    #bl_options = {'DEFAULT_CLOSED'} 
+    bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
     def poll(cls, context):
@@ -5303,6 +5496,296 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
 
     def draw(self, context):
         main_draw(self, context)
+
+class VIEW3D_PT_YPaint_preview_mode_ui(bpy.types.Panel):
+    bl_label = 'Preview Mode'
+    bl_space_type = 'VIEW_3D'
+    #bl_context = "object"
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+    #bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        #return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+        return get_active_ypaint_node() and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+        draw_preview_mode_ui(context, self.layout, get_active_ypaint_node())
+
+def update_ui_and_timer(context):
+    wm = context.window_manager
+    ypui = wm.ypui
+
+    # Timer
+    if wm.yptimer.time != '':
+        print('INFO: Scene is updated in', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
+        wm.yptimer.time = ''
+
+    # NOTE: [HACK] Disable cache if delta time already pass the limit
+    if ypui.use_cache:
+        delta = get_node_slider_delta_ms()
+        if delta > USE_CACHE_DELTA_MS:
+            ypui.use_cache = False
+
+    # Update ui props first
+    update_yp_ui()
+
+class VIEW3D_PT_YPaint_main_ui(bpy.types.Panel):
+    bl_label = ''
+    bl_space_type = 'VIEW_3D'
+    #bl_context = "object"
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+    #bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        #return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw_header(self, context):
+        layout = self.layout
+        node = get_active_ypaint_node()
+        if not node:
+            #layout.label(text="Layers")
+            layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
+        else:
+            layout.label(text=node.node_tree.name, icon='NODETREE')
+
+        # Update timer and UI here
+        update_ui_and_timer(context)
+
+    def draw_header_preset(self, context):
+        node = get_active_ypaint_node()
+        if not node: return
+
+        layout = self.layout
+        row = layout.row(align=True)
+
+        #yp = node.node_tree.yp
+        #nodes = node.node_tree.nodes
+
+        ## Check for baked node
+        #baked_found = False
+        #for bt in yp.bake_targets:
+        #    baked_node = nodes.get(bt.baked_node)
+        #    if baked_node: 
+        #        baked_found = True
+        #        break
+
+        #row.operator('wm.y_bake_all_targets', text='Bake', icon_value=lib.get_icon('bake'))
+
+        #if (baked_found or yp.use_baked) and not node.node_tree.users > 1:
+        #    rrow = row.row(align=True)
+        #    rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
+        #    rrow.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
+        #    #rrow.separator()
+
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
+
+    def draw(self, context):
+        draw_main_layers_ui(context, self.layout)
+
+class VIEW3D_PT_YPaint_settings_ui(bpy.types.Panel):
+    bl_label = 'Settings'
+    bl_space_type = 'VIEW_3D'
+    #bl_context = "object"
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+
+        obj = context.object
+        mat = obj.active_material
+
+        ### Object settings
+
+        #icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
+        #row = layout.row(align=True)
+        #rrow = row.row(align=True)
+        text_object = pgettext_iface('Object: ')
+        if obj: text_object += obj.name
+        else: text_object += '-'
+
+        #if is_bl_newer_than(2, 80):
+        #    rrow.alignment = 'LEFT'
+        #    rrow.scale_x = 0.95
+        #    rrow.prop(ypui, 'show_object', emboss=False, text=text_object, icon=icon)
+        #else:
+        #    rrow.prop(ypui, 'show_object', emboss=False, text='', icon=icon)
+        #    rrow.label(text=text_object)
+
+        #rrow = row.row(align=True)
+        #rrow.alignment = 'RIGHT'
+        #if not is_bl_newer_than(2, 80):
+        #    rrow.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
+        #else: 
+        #    row.popover("NODE_PT_ypaint_about_popover", text='', icon='HELP')
+        #    if is_package_module_exists('.credits_ui'):
+        #        row.popover('VIEW3D_PT_ypaint_support_ui', text='', icon='FUND')
+
+        header, panel = self.layout.panel("MAT_YP_ObjectSettingsPanel", default_closed=True)
+        header.label(text=text_object, icon_value=lib.get_icon('object_data'))
+        if panel:
+            #box = layout.box()
+            box = panel
+            col = box.column()
+            row = split_layout(col, 0.6)
+            row.label(text='Object Index:')
+            row.prop(obj, 'pass_index', text='')
+
+        ### Material settings
+
+        #icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
+        #rrow = row.row(align=True)
+        text_material = pgettext_iface('Material: ')
+        if mat: text_material += mat.name
+        else: text_material += '-'
+
+        #if is_bl_newer_than(2, 80):
+        #    rrow.alignment = 'LEFT'
+        #    rrow.scale_x = 0.95
+        #    rrow.prop(ypui, 'show_materials', emboss=False, text=text_material, icon=icon)
+        #else:
+        #    rrow.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
+        #    rrow.label(text=text_material)
+
+        header, panel = self.layout.panel("MAT_YP_MaterialSettingsPanel", default_closed=True)
+        header.label(text=text_material, icon_value=lib.get_icon('material'))
+
+        #if ypui.show_materials:
+        if panel:
+            is_sortable = len(obj.material_slots) > 1
+            rows = 2
+            if (is_sortable):
+                rows = 4
+            #box = layout.box()
+            box = panel
+            row = box.row()
+            row.template_list("MATERIAL_UL_matslots", "", obj, "material_slots", obj, "active_material_index", rows=rows)
+            col = row.column(align=True)
+            if is_bl_newer_than(2, 80):
+                col.operator("object.material_slot_add", icon='ADD', text="")
+                col.operator("object.material_slot_remove", icon='REMOVE', text="")
+            else:
+                col.operator("object.material_slot_add", icon='ZOOMIN', text="")
+                col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
+
+            col.menu("MATERIAL_MT_y_special_menu", icon='DOWNARROW_HLT', text="")
+
+            if is_sortable:
+                col.separator()
+
+                col.operator("object.material_slot_move", icon='TRIA_UP', text="").direction = 'UP'
+                col.operator("object.material_slot_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+
+            if obj.mode == 'EDIT':
+                row = box.row(align=True)
+                row.operator("object.material_slot_assign", text="Assign")
+                row.operator("object.material_slot_select", text="Select")
+                row.operator("object.material_slot_deselect", text="Deselect")
+
+            row = box.row(align=True)
+            mat = get_active_material()
+            mui = get_material_ui(mat)
+            if mui:
+                icon = 'DOWNARROW_HLT' if mui.expand_content else 'RIGHTARROW'
+                row.prop(mui, 'expand_content', emboss=False, text='', icon=icon)
+            row.template_ID(obj, "active_material", new="material.new")
+
+            if mui and mui.expand_content:
+                row = box.row(align=True)
+                row.label(text='', icon='BLANK1')
+                col = row.column(align=False)
+
+                if not is_bl_newer_than(2, 80):
+                    rrow = col.row(align=True)
+                    rrow.label(text='Alpha Blend:')
+                    rrow.prop(mat.game_settings, 'alpha_blend', text='')
+
+                elif not is_bl_newer_than(4, 2):
+
+                    rrow = col.row(align=True)
+                    rrow.label(text='Blend Mode:')
+                    rrow.prop(mat, 'blend_method', text='')
+
+                    rrow = col.row(align=True)
+                    rrow.label(text='Shadow Mode:')
+                    rrow.prop(mat, 'shadow_method', text='')
+                else:
+
+                    # NOTE: Displacement setup probably need to be rethinked again before showing this option
+                    #rrow = col.row(align=True)
+                    #rrow.label(text='Displacement:')
+                    #rrow.prop(mat, 'displacement_method', text='')
+
+                    rrow = col.row(align=True)
+                    rrow.label(text='Render Method:')
+                    rrow.prop(mat, 'surface_render_method', text='')
+
+                    rrow = col.row(align=True)
+                    rrow.label(text='Transparent Shadows:')
+                    rrow.prop(mat, 'use_transparent_shadow', text='')
+
+        node = get_active_ypaint_node()
+        if not node: return
+
+        ### Channel Settings
+
+        header, panel = self.layout.panel("MAT_YP_ChannelSettingsPanel", default_closed=True)
+        header.label(text="Channels", icon_value=lib.get_icon('channels'))
+        if panel:
+            #panel = self.layout
+            #panel.label(text='Settings')
+            draw_root_channels_ui(context, panel, node)
+
+        ### Bake Target Settings Settings
+
+        header, panel = self.layout.panel("MAT_YP_ChannelBakeTargetsPanel", default_closed=True)
+        header.label(text="Bake Targets", icon_value=lib.get_icon('bake'))
+        if panel:
+            #self.layout.label(text='Bake Targets')
+            draw_bake_targets_ui(context, panel, node)
+
+class VIEW3D_PT_YPaint_bake_targets_ui(bpy.types.Panel):
+    bl_label = 'Channel Bake Targets'
+    bl_space_type = 'VIEW_3D'
+    #bl_context = "object"
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+        draw_bake_targets_ui(context, self.layout, get_active_ypaint_node())
+
+class VIEW3D_PT_YPaint_stats_ui(bpy.types.Panel):
+    bl_label = 'Stats'
+    bl_space_type = 'VIEW_3D'
+    #bl_context = "object"
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        use_baked = yp.use_baked if yp else False
+        return yp and not use_baked and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+        draw_stats_ui(context, self.layout, get_active_ypaint_node())
 
 def is_output_unconnected(node, root_ch):
     yp = node.node_tree.yp
@@ -6343,8 +6826,8 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
 
-        col.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake'))
-        col.operator('wm.y_rename_ypaint_tree', text='Rename Tree', icon_value=lib.get_icon('rename'))
+        col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake'))
+        col.operator('wm.y_rename_ypaint_tree', text='Rename '+get_addon_title()+' Node Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()
 
@@ -6356,7 +6839,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        op = col.operator('wm.y_duplicate_yp_nodes', text='Duplicate Material and ' + get_addon_title() + ' nodes', icon='COPY_ID')
+        op = col.operator('wm.y_duplicate_yp_nodes', text='Duplicate Material and ' + get_addon_title() + ' Nodes', icon='COPY_ID')
         op.duplicate_material = True
 
         col.separator()
@@ -7691,10 +8174,10 @@ class YChannelSpecialMenu(bpy.types.Menu):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
             return
 
-        col.operator('wm.y_bake_channels', text="Bake " + context.parent.name + " Channel", icon_value=lib.get_icon('bake')).only_active_channel = True
+        #col.operator('wm.y_bake_channels', text="Bake " + context.parent.name + " Channel", icon_value=lib.get_icon('bake')).only_active_channel = True
 
         if context.parent.special_channel_type == 'VDISP' and is_bl_newer_than(3, 2):
-            col.separator()
+            #col.separator()
             col.operator('object.y_remove_vdm_and_add_multires', text="Apply VDM layers to Multires", icon='SCULPTMODE_HLT')
 
         is_alpha_in_name = context.parent.type == 'VALUE' and 'Alpha' in context.parent.name
@@ -7702,7 +8185,8 @@ class YChannelSpecialMenu(bpy.types.Menu):
 
         # Add extra section
         if is_alpha_in_name or is_unconnected:
-            col.separator()
+            #col.separator()
+            pass
             #col.label(text='Extra')
 
         # NOTE: This menu is only visible if name of the channel has 'Alpha' on it
@@ -7710,7 +8194,7 @@ class YChannelSpecialMenu(bpy.types.Menu):
             icon = 'CHECKBOX_HLT' if context.parent.special_channel_type == 'ALPHA' else 'CHECKBOX_DEHLT'
             col.operator('wm.y_toggle_channel_as_alpha', text='Use as Alpha Channel', icon=icon)
         else:
-            col.separator()
+            #col.separator()
             #col.label(text='Extra')
             col.operator('wm.y_toggle_channel_as_special_channel', text='Use as Special Channel', icon_value=lib.get_icon('channels'))
 
@@ -8950,6 +9434,12 @@ def register():
         bpy.utils.register_class(NODE_PT_YPaintUI)
 
     bpy.utils.register_class(VIEW3D_PT_YPaint_ui)
+    #bpy.utils.register_class(VIEW3D_PT_YPaint_preview_mode_ui)
+    bpy.utils.register_class(VIEW3D_PT_YPaint_settings_ui)
+    bpy.utils.register_class(VIEW3D_PT_YPaint_main_ui)
+    #bpy.utils.register_class(VIEW3D_PT_YPaint_bake_targets_ui)
+    bpy.utils.register_class(VIEW3D_PT_YPaint_stats_ui)
+
     bpy.utils.register_class(YPaintUI)
 
     bpy.types.Scene.ypui = PointerProperty(type=YPaintUI)
@@ -9040,6 +9530,12 @@ def unregister():
         bpy.utils.unregister_class(NODE_PT_YPaintUI)
 
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_ui)
+    #bpy.utils.unregister_class(VIEW3D_PT_YPaint_preview_mode_ui)
+    bpy.utils.unregister_class(VIEW3D_PT_YPaint_settings_ui)
+    bpy.utils.unregister_class(VIEW3D_PT_YPaint_main_ui)
+    #bpy.utils.unregister_class(VIEW3D_PT_YPaint_bake_targets_ui)
+    bpy.utils.unregister_class(VIEW3D_PT_YPaint_stats_ui)
+
     bpy.utils.unregister_class(YPaintUI)
 
     # Remove add yPaint node ui
