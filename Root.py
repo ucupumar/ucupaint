@@ -2066,105 +2066,56 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
 
         return {'FINISHED'}
 
-class YToggleChannelAsSpecialChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
-    bl_idname = "wm.y_toggle_channel_as_special_channel"
-    bl_label = "Toggle "+get_addon_title()+" Channel as a special Channel"
-    bl_description = "Toggle "+get_addon_title()+" channel as a special channel"
+class YSetChannelSpecialType(bpy.types.Operator, BaseOperator.BlendMethodOptions):
+    bl_idname = "wm.y_set_channel_special_type"
+    bl_label = "Set "+get_addon_title()+" Channel special type"
+    bl_description = "Set "+get_addon_title()+" channel special type"
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
         name = 'Type',
         items = (
+            ('NONE', 'None', 'Not a special channel'),
             ('ALPHA', 'Alpha', 'Alpha channel (can be paired with color channel)'),
             ('NORMAL', 'Normal', 'Normal channel'),
             ('HEIGHT', 'Height', 'Height channel for bump or displacement (can be paired with normal channel)'),
             ('VDISP', 'Vector Displacement', 'Vector Displacement channel (can be paired with normal channel')
         ),
-        default = 'ALPHA'
+        default = 'NONE'
     )
 
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
 
-    def invoke(self, context, event):
-        self.channel = context.parent
-        return context.window_manager.invoke_props_dialog(self)
-
-    def draw(self, context):
-        row = split_layout(self.layout, 0.5)
-        row.label(text='Special Channel Type:')
-        row.prop(self, 'type', text='')
-
     def execute(self, context):
-        yp = self.channel.id_data.yp
+        channel = context.channel
+        yp = channel.id_data.yp
 
-        if self.type == 'ALPHA':
-            ch_label = 'Alpha'
-        elif self.type == 'HEIGHT':
-            ch_label = 'Height'
-        elif self.type == 'VDISP':
-            ch_label = 'Vector Displacement'
+        if self.type == channel.special_channel_type:
+            return {'CANCELLED'}
+
+        rna_property = channel.bl_rna.properties['special_channel_type']
+        enum_item = rna_property.enum_items[self.type]
+        ch_label = enum_item.name
 
         # Check if there's other alpha channel
         existing_special_ch_name = ''
-        for ch in yp.channels:
-            if ch == self.channel: continue
-            if ch.special_channel_type == self.type:
-                existing_special_ch_name = ch.name
+        if self.type != 'NONE':
+            for ch in yp.channels:
+                if ch == channel: continue
+                if ch.special_channel_type == self.type:
+                    existing_special_ch_name = ch.name
 
         if existing_special_ch_name != '':
             self.report({'ERROR'}, ch_label+" channel is already enabled in '"+existing_special_ch_name+"'!")
             return {'CANCELLED'}
 
         # Disable smooth bump by default
-        if self.type == 'HEIGHT' and self.channel.special_channel_type != 'HEIGHT':
+        if self.type == 'HEIGHT' and channel.special_channel_type != 'HEIGHT':
             set_default_height_channel_prop(channel)
 
-        self.channel.special_channel_type = self.type
-
-        check_all_channel_ios(yp)
-
-        return {'FINISHED'}
-
-class YToggleChannelAsAlpha(bpy.types.Operator, BaseOperator.BlendMethodOptions):
-    bl_idname = "wm.y_toggle_channel_as_alpha"
-    bl_label = "Toggle " + get_addon_title() + " Channel as Alpha"
-    bl_description = "Toggle " + get_addon_title() + " channel as alpha channel"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def invoke(self, context, event):
-        node = get_active_ypaint_node()
-        channel = context.parent
-        self.channel = channel
-        yp = channel.id_data.yp
-
-        # Check if there's other alpha channel
-        self.existing_alpha_ch_name = ''
-        for ch in yp.channels:
-            if ch == channel: continue
-            if ch.special_channel_type == 'ALPHA':
-                self.existing_alpha_ch_name = ch.name
-
-        if 'Alpha' in channel.name or self.channel.special_channel_type == 'ALPHA' or (self.channel.special_channel_type != 'ALPHA' and self.existing_alpha_ch_name != ''):
-            return self.execute(context)
-
-        return context.window_manager.invoke_props_dialog(self)
-
-    def draw(self, context):
-        self.layout.label(text='Are you sure to use \''+self.channel.name+'\' as alpha channel?', icon='ERROR')
-
-    def execute(self, context):
-        yp = self.channel.id_data.yp
-        if self.channel.special_channel_type != 'ALPHA' and self.existing_alpha_ch_name != '':
-            self.report({'ERROR'}, "Alpha channel is already enabled in '"+self.existing_alpha_ch_name+"'!")
-            return {'CANCELLED'}
-
-        self.channel.special_channel_type = 'ALPHA' if self.channel.special_channel_type != 'ALPHA' else 'NONE'
+        channel.special_channel_type = self.type
 
         check_all_channel_ios(yp)
 
@@ -5057,7 +5008,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_normal_outside : StringProperty(default='')
 
     # UI related
-    expand_content : BoolProperty(default=False)
+    expand_content : BoolProperty(default=True)
     expand_base_vector : BoolProperty(default=True)
     expand_subdiv_settings : BoolProperty(default=False)
     expand_parallax_settings : BoolProperty(default=False)
@@ -5681,8 +5632,7 @@ def register():
     bpy.utils.register_class(YConnectYPaintChannel)
     bpy.utils.register_class(YConnectYPaintChannelAlpha)
     bpy.utils.register_class(YNewYPaintChannel)
-    bpy.utils.register_class(YToggleChannelAsSpecialChannel)
-    bpy.utils.register_class(YToggleChannelAsAlpha)
+    bpy.utils.register_class(YSetChannelSpecialType)
     bpy.utils.register_class(YAutoSetupNewYPaintChannel)
     bpy.utils.register_class(YMoveYPaintChannel)
     bpy.utils.register_class(YRemoveYPaintChannel)
@@ -5752,8 +5702,7 @@ def unregister():
     bpy.utils.unregister_class(YConnectYPaintChannel)
     bpy.utils.unregister_class(YConnectYPaintChannelAlpha)
     bpy.utils.unregister_class(YNewYPaintChannel)
-    bpy.utils.unregister_class(YToggleChannelAsSpecialChannel)
-    bpy.utils.unregister_class(YToggleChannelAsAlpha)
+    bpy.utils.unregister_class(YSetChannelSpecialType)
     bpy.utils.unregister_class(YAutoSetupNewYPaintChannel)
     bpy.utils.unregister_class(YMoveYPaintChannel)
     bpy.utils.unregister_class(YRemoveYPaintChannel)
