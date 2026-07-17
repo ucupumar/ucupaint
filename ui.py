@@ -1672,7 +1672,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
             if channel.type == 'VALUE':
                 height_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'HEIGHT' and c != channel])
                 alpha_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'ALPHA' and c != channel])
-                special_type_available = not height_ch_exists or not alpha_ch_exists
+                special_type_available = not height_ch_exists or (channel.name == 'Alpha' and not alpha_ch_exists)
             elif channel.type == 'VECTOR':
                 normal_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'NORMAL' and c != channel])
                 # NOTE: Do not show vector displacement option for channel called normal to avoid confusion
@@ -6726,7 +6726,7 @@ class YChannelSpecialTypeMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if channel.special_channel_type == 'NONE' else 'RADIOBUT_OFF'
         col.operator('wm.y_set_channel_special_type', text='None', icon=icon).type = 'NONE'
 
-        if channel.type == 'VALUE':
+        if channel.type == 'VALUE' and channel.name == 'Alpha':
             alpha_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'ALPHA' and c != channel])
             if not alpha_ch_exists:
                 icon = 'RADIOBUT_ON' if channel.special_channel_type == 'ALPHA' else 'RADIOBUT_OFF'
