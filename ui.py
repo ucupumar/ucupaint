@@ -4814,13 +4814,13 @@ def draw_layers_ui(context, layout, node):
 
     if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
         rcol.template_list("NODE_UL_YPaint_layers", "", yp,
-                "layers", yp, "active_layer_index", rows=5, maxrows=5)  
+                "layers", yp, "active_layer_index", rows=6, maxrows=6)  
 
     if ypup.layer_list_mode in {'DYNAMIC', 'BOTH'}:
         if ypup.layer_list_mode == 'BOTH':
             rcol.operator('wm.y_refresh_list_items', icon='FILE_REFRESH', text='Refresh Items')
         rcol.template_list("NODE_UL_YPaint_list_items", "", yp,
-                "list_items", yp, "active_item_index", rows=5, maxrows=5)  
+                "list_items", yp, "active_item_index", rows=6, maxrows=6)  
 
     rcol = row.column(align=True)
     if is_bl_newer_than(2, 80):
