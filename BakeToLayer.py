@@ -698,7 +698,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
 
         row = split_layout(self.layout, 0.4)
 
-        show_subsurf_influence = not self.type.startswith('MULTIRES_') and self.type not in {'SELECTED_VERTICES'}
+        show_subsurf_influence = not self.type.startswith('MULTIRES_') and (self.type not in {'SELECTED_VERTICES', 'WIREFRAME'} or (self.type == 'WIREFRAME' and is_bl_newer_than(2, 81) and not self.wireframe_triangulated))
         show_use_baked_disp = height_root_ch and not self.type.startswith('MULTIRES_') and self.type not in {'SELECTED_VERTICES'}
 
         col = row.column(align=False)
