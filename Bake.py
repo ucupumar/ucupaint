@@ -1845,6 +1845,10 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
                         bts.append(bt)
                         break
 
+        if len(bts) == 0:
+            self.report({'ERROR'}, "No valid bake targets to bake!")
+            return {'CANCELLED'}
+
         return self.execute_bake_bake_target(context, bts)
 
 class YBakeChannels(bpy.types.Operator, BaseBakeOperator):

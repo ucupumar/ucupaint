@@ -1615,7 +1615,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
         draw_blank = True
 
         if is_bl_newer_than(4, 1):
-            header, panel = mcol.panel("MAT_YP_ChannelSettingsPanel", default_closed=False)
+            header, panel = mcol.panel("MAT_YP_ActiveChannelSettingsPanel", default_closed=False)
             header.label(text=text, icon_value=ch_icon_value)
 
             if ypup.show_experimental:
@@ -2061,12 +2061,21 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                 if draw_blank: brow.label(text='', icon='BLANK1')
                 brow.operator('object.y_remove_vdm_and_add_multires', text="Apply VDM layers to Multires", icon='SCULPTMODE_HLT')
 
-        text = channel.name + ' Channel Bake Target'
+        bt = yp.bake_targets.get(channel.bake_target_name)
+        bt_label = get_bake_target_label(bt)
+
+        text = 'Bake Target:'
         icon_value = lib.get_icon('bake')
         expand_content = False
         if is_bl_newer_than(4, 1):
             header, panel = mcol.panel("MAT_YP_ChannelActiveBakeTargetPanel", default_closed=True)
-            header.label(text=text, icon_value=icon_value)
+            if panel:
+                text = channel.name + ' Channel Bake Target'
+                header.label(text=text) #, icon_value=icon_value)
+            if not panel: 
+                split = split_layout(header, 0.35, align=False)
+                split.label(text=text) #, icon_value=icon_value)
+                split.menu("NODE_MT_y_channel_active_bake_target_menu", text=bt_label, icon_value=icon_value)
 
             if panel:
                 expand_content = True
@@ -2080,19 +2089,19 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
             icon = get_collapse_arrow_icon(ypui.expand_channel_bake_target_settings)
             rrow.prop(ypui, 'expand_channel_bake_target_settings', text='', emboss=False, icon=icon)
 
-            if is_bl_newer_than(2, 80):
-                rrow.prop(ypui, 'expand_channel_bake_target_settings', text=text, emboss=False, icon_value=icon_value)
-            else: rrow.label(text=text, icon_value=icon_value)
+            expand_content = ypui.expand_channel_bake_target_settings
+            if expand_content: text = channel.name + ' Channel Bake Target'
 
-            if ypup.show_experimental:
+            if is_bl_newer_than(2, 80):
+                rrow.prop(ypui, 'expand_channel_bake_target_settings', text=text, emboss=False) #, icon_value=icon_value)
+            else: rrow.label(text=text) #, icon_value=icon_value)
+
+            if not expand_content:
                 rrow = row.row(align=True)
                 rrow.alignment = 'RIGHT'
-                rrow.context_pointer_set('parent', channel)
-                rrow.context_pointer_set('channel_ui', ypui)
-                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-                rrow.menu("NODE_MT_y_channel_experimental_menu", icon=icon, text='')
+                rrow.scale_x = 1.2
+                rrow.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
 
-            expand_content = ypui.expand_channel_bake_target_settings
             if expand_content:
                 #row = mcol.row(align=True)
                 #row.label(text='', icon='BLANK1')
@@ -2104,11 +2113,9 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
         if expand_content:
             brow = bcol.row(align=True)
             if draw_blank: brow.label(text='', icon='BLANK1')
-            bt = yp.bake_targets.get(channel.bake_target_name)
-            bt_label = get_bake_target_label(bt)
             split = split_layout(brow, 0.35, align=False)
             split.label(text='Bake Target:') #+label)
-            split.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
+            split.menu("NODE_MT_y_channel_active_bake_target_menu", text=bt_label, icon_value=icon_value)
 
             if bt:
                 brow = bcol.row(align=True)
@@ -5298,6 +5305,13 @@ class VIEW3D_PT_YPaint_main_ui(bpy.types.Panel):
         # Update timer and UI here
         update_ui_and_timer(context)
 
+        # HACK: Create split layout to load all icons (Only for Blender 3.2+)
+        if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
+            split = split_layout(layout, 1.0)
+            row = split.row(align=True)
+        else:
+            row = layout.row(align=True)
+
         # HACK: Load all icons earlier so no missing icons possible (Only for Blender 3.2+)
         if is_bl_newer_than(3, 2) and not wm.ypprops.all_icons_loaded:
             wm.ypprops.all_icons_loaded = True
@@ -5517,7 +5531,7 @@ class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel):
     def draw(self, context):
         node = get_active_ypaint_node()
 
-        if True or not is_bl_newer_than(4, 1):
+        if False and not is_bl_newer_than(4, 1):
             draw_root_channels_ui(context, self.layout, node)
         else:
             ## Channel Settings
@@ -9310,8 +9324,8 @@ def register():
     bpy.utils.register_class(VIEW3D_PT_YPaint_main_ui)
     #bpy.utils.register_class(VIEW3D_PT_YPaint_stats_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_channel_settings_ui)
-    #if not is_bl_newer_than(4, 1):
-    bpy.utils.register_class(VIEW3D_PT_YPaint_bake_targets_ui)
+    if not is_bl_newer_than(4, 1):
+        bpy.utils.register_class(VIEW3D_PT_YPaint_bake_targets_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_test_ui)
 
     bpy.utils.register_class(YPaintUI)
@@ -9413,8 +9427,8 @@ def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_main_ui)
     #bpy.utils.unregister_class(VIEW3D_PT_YPaint_stats_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_channel_settings_ui)
-    #if not is_bl_newer_than(4, 1):
-    bpy.utils.unregister_class(VIEW3D_PT_YPaint_bake_targets_ui)
+    if not is_bl_newer_than(4, 1):
+        bpy.utils.unregister_class(VIEW3D_PT_YPaint_bake_targets_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_test_ui)
 
     bpy.utils.unregister_class(YPaintUI)
