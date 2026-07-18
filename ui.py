@@ -1671,7 +1671,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
             if channel.type == 'VALUE':
                 height_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'HEIGHT' and c != channel])
                 alpha_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'ALPHA' and c != channel])
-                special_type_available = not height_ch_exists or (channel.name == 'Alpha' and not alpha_ch_exists)
+                special_type_available = not height_ch_exists or ((channel.name == 'Alpha' or channel.special_channel_type == 'ALPHA') and not alpha_ch_exists)
             elif channel.type == 'VECTOR':
                 normal_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'NORMAL' and c != channel])
                 # NOTE: Do not show vector displacement option for channel called normal to avoid confusion
@@ -2069,13 +2069,9 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
         expand_content = False
         if is_bl_newer_than(4, 1):
             header, panel = mcol.panel("MAT_YP_ChannelActiveBakeTargetPanel", default_closed=True)
-            if panel:
-                text = channel.name + ' Channel Bake Target'
-                header.label(text=text) #, icon_value=icon_value)
-            if not panel: 
-                split = split_layout(header, 0.35, align=False)
-                split.label(text=text) #, icon_value=icon_value)
-                split.menu("NODE_MT_y_channel_active_bake_target_menu", text=bt_label, icon_value=icon_value)
+            split = split_layout(header, 0.35, align=False)
+            split.label(text=text) #, icon_value=icon_value)
+            split.menu("NODE_MT_y_channel_active_bake_target_menu", text=bt_label, icon_value=icon_value)
 
             if panel:
                 expand_content = True
@@ -2090,32 +2086,21 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
             rrow.prop(ypui, 'expand_channel_bake_target_settings', text='', emboss=False, icon=icon)
 
             expand_content = ypui.expand_channel_bake_target_settings
-            if expand_content: text = channel.name + ' Channel Bake Target'
 
             if is_bl_newer_than(2, 80):
                 rrow.prop(ypui, 'expand_channel_bake_target_settings', text=text, emboss=False) #, icon_value=icon_value)
             else: rrow.label(text=text) #, icon_value=icon_value)
 
-            if not expand_content:
-                rrow = row.row(align=True)
-                rrow.alignment = 'RIGHT'
-                rrow.scale_x = 1.2
-                rrow.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
+            rrow = row.row(align=True)
+            rrow.alignment = 'RIGHT'
+            rrow.scale_x = 1.2
+            rrow.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
 
             if expand_content:
-                #row = mcol.row(align=True)
-                #row.label(text='', icon='BLANK1')
-                #box = row.box()
-                #bcol = box.column()
                 bcol = mcol
                 draw_blank = True
         
         if expand_content:
-            brow = bcol.row(align=True)
-            if draw_blank: brow.label(text='', icon='BLANK1')
-            split = split_layout(brow, 0.35, align=False)
-            split.label(text='Bake Target:') #+label)
-            split.menu("NODE_MT_y_channel_active_bake_target_menu", text=bt_label, icon_value=icon_value)
 
             if bt:
                 brow = bcol.row(align=True)
@@ -5530,21 +5515,17 @@ class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel):
 
     def draw(self, context):
         node = get_active_ypaint_node()
+        ypui = bpy.context.window_manager.ypui
 
-        if False and not is_bl_newer_than(4, 1):
-            draw_root_channels_ui(context, self.layout, node)
-        else:
-            ## Channel Settings
-            header, panel = self.layout.panel("MAT_YP_ChannelSettingsPanel", default_closed=True)
-            header.label(text="Channels", icon_value=lib.get_icon('channels'))
-            if panel:
-                draw_root_channels_ui(context, panel, node)
+        layout = self.layout
 
-            ## Bake Target Settings
-            header, panel = self.layout.panel("MAT_YP_ChannelBakeTargetsPanel", default_closed=True)
-            header.label(text="Bake Targets", icon_value=lib.get_icon('bake'))
-            if panel:
-                draw_bake_targets_ui(context, panel, node)
+        row = layout.row(align=True)
+        row.prop(ypui, 'active_settings', expand=True)
+
+        if ypui.active_settings == 'CHANNELS':
+            draw_root_channels_ui(context, layout, node)
+        elif ypui.active_settings == 'BAKE_TARGETS':
+            draw_bake_targets_ui(context, layout, node)
 
 class VIEW3D_PT_YPaint_bake_targets_ui(bpy.types.Panel):
     bl_label = 'Bake Targets'
@@ -6769,7 +6750,7 @@ class YChannelSpecialTypeMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if channel.special_channel_type == 'NONE' else 'RADIOBUT_OFF'
         col.operator('wm.y_set_channel_special_type', text='None', icon=icon).type = 'NONE'
 
-        if channel.type == 'VALUE' and channel.name == 'Alpha':
+        if channel.type == 'VALUE' and (channel.name == 'Alpha' or channel.special_channel_type == 'ALPHA'):
             alpha_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'ALPHA' and c != channel])
             if not alpha_ch_exists:
                 icon = 'RADIOBUT_ON' if channel.special_channel_type == 'ALPHA' else 'RADIOBUT_OFF'
@@ -8931,17 +8912,24 @@ class YMaterialUI(bpy.types.PropertyGroup):
 
     expand_content : BoolProperty(default=False)
 
+if is_bl_newer_than(2, 83):
+    setting_items = (
+       ('CHANNELS', 'Channels', 'Channel Settings', 'OUTLINER_OB_POINTCLOUD', 0),
+       ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings', 'OUTPUT', 1),
+    )
+else:
+    setting_items = (
+       ('CHANNELS', 'Channels', 'Channel Settings'),
+       ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings'),
+    )
+
 class YPaintUI(bpy.types.PropertyGroup):
 
-    active_tab : EnumProperty(
-        name = 'Active Tab',
-        description = 'Select tab',
-        items = (
-            ('LAYERS', 'Layers', ''),
-            ('CHANNELS', 'Channels', ''),
-            ('BAKE_TARGETS', 'Bake Targets', ''),
-        ),
-        default = 'LAYERS'
+    active_settings : EnumProperty(
+        name = 'Active Settings',
+        description = 'Select settings',
+        items = setting_items,
+        default = 'CHANNELS'
     )
 
     show_object : BoolProperty(
@@ -9324,8 +9312,8 @@ def register():
     bpy.utils.register_class(VIEW3D_PT_YPaint_main_ui)
     #bpy.utils.register_class(VIEW3D_PT_YPaint_stats_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_channel_settings_ui)
-    if not is_bl_newer_than(4, 1):
-        bpy.utils.register_class(VIEW3D_PT_YPaint_bake_targets_ui)
+    #if not is_bl_newer_than(4, 1):
+    #    bpy.utils.register_class(VIEW3D_PT_YPaint_bake_targets_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_test_ui)
 
     bpy.utils.register_class(YPaintUI)
@@ -9427,8 +9415,8 @@ def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_main_ui)
     #bpy.utils.unregister_class(VIEW3D_PT_YPaint_stats_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_channel_settings_ui)
-    if not is_bl_newer_than(4, 1):
-        bpy.utils.unregister_class(VIEW3D_PT_YPaint_bake_targets_ui)
+    #if not is_bl_newer_than(4, 1):
+    #    bpy.utils.unregister_class(VIEW3D_PT_YPaint_bake_targets_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_test_ui)
 
     bpy.utils.unregister_class(YPaintUI)
