@@ -443,7 +443,8 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
                         #is_paired = True
 
             validated_chs = validate_channels_bake_targets(yp)
-            do_reconnect = True
+            #do_reconnect = True
+            do_reconnect = yp.use_baked
 
         # Set image editor image
         image = None
@@ -454,7 +455,7 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
         update_image_editor_image(context, image)
 
         # Use baked data
-        if root_ch.disable_global_baked:
+        if yp.use_baked and root_ch.disable_global_baked:
             root_ch.disable_global_baked = False
 
             #if is_paired:

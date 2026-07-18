@@ -2105,8 +2105,10 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
             brow = bcol.row(align=True)
             if draw_blank: brow.label(text='', icon='BLANK1')
             bt = yp.bake_targets.get(channel.bake_target_name)
-            label = bt.name if bt else '-'
-            brow.label(text='Bake Target: '+label)
+            bt_label = get_bake_target_label(bt)
+            split = split_layout(brow, 0.35, align=False)
+            split.label(text='Bake Target:') #+label)
+            split.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
 
             if bt:
                 brow = bcol.row(align=True)
@@ -2115,7 +2117,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
 
                 brow = bcol.row(align=True)
                 if draw_blank: brow.label(text='', icon='BLANK1')
-                op = brow.operator('wm.y_bake_single_target', text='Bake '+bt.name, icon_value=lib.get_icon('bake'))
+                op = brow.operator('wm.y_bake_single_target', text='Bake '+bt_label, icon_value=lib.get_icon('bake'))
                 op.bake_target_index = get_bake_target_index(bt)
 
 def draw_base_layer_ui(context, layout, yp, node):
@@ -6774,6 +6776,28 @@ class YChannelSpecialTypeMenu(bpy.types.Menu):
             icon = 'RADIOBUT_ON' if channel.special_channel_type == 'VDISP' else 'RADIOBUT_OFF'
             col.operator('wm.y_set_channel_special_type', text='Vector Displacement', icon=icon).type = 'VDISP'
 
+class YChannelActiveBakeTargetMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_channel_active_bake_target_menu"
+    bl_description = 'Channel active bake target menu'
+    bl_label = 'Channel Active Bake Target Menu'
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        channel = context.channel
+        yp = channel.id_data.yp
+        col = self.layout.column()
+
+        chbts = get_channel_bake_target_dict(yp)
+
+        if channel.name in chbts:
+            for bt in chbts[channel.name]:
+                bt_label = get_bake_target_label(bt)
+                icon = 'RADIOBUT_ON' if channel.bake_target_name == bt.name else 'RADIOBUT_OFF'
+                col.operator('wm.y_set_channel_active_bake_target', text=bt_label, icon=icon).bake_target_name = bt.name
+
 class YNewChannelMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_channel_menu"
     bl_description = 'Add New Channel'
@@ -9226,6 +9250,7 @@ def register():
 
     bpy.utils.register_class(YPaintSpecialMenu)
     bpy.utils.register_class(YChannelSpecialTypeMenu)
+    bpy.utils.register_class(YChannelActiveBakeTargetMenu)
     bpy.utils.register_class(YNewChannelMenu)
     bpy.utils.register_class(YNewLayerMenu)
     bpy.utils.register_class(YBakeTargetMenu)
@@ -9328,6 +9353,7 @@ def unregister():
 
     bpy.utils.unregister_class(YPaintSpecialMenu)
     bpy.utils.unregister_class(YChannelSpecialTypeMenu)
+    bpy.utils.unregister_class(YChannelActiveBakeTargetMenu)
     bpy.utils.unregister_class(YNewChannelMenu)
     bpy.utils.unregister_class(YNewLayerMenu)
     bpy.utils.unregister_class(YBakeTargetMenu)

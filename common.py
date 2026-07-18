@@ -5300,11 +5300,25 @@ def get_active_baked_channel_image(root_ch):
 def get_bake_target_index(bt):
     yp = bt.id_data.yp
 
-    for i, b in yp.bake_targets:
+    for i, b in enumerate(yp.bake_targets):
         if b == bt:
             return i
 
     return -1
+
+def get_bake_target_label(bt=None):
+    if bt == None: return '-'
+
+    tree = bt.id_data
+    yp = tree.yp
+
+    label = bt.name
+    if bt.data_type == 'IMAGE':
+        baked_node = tree.nodes.get(bt.baked_node)
+        if baked_node and baked_node.image:
+            label = baked_node.image.name
+
+    return label
 
 def set_active_paint_slot_entity(yp):
     image = None
