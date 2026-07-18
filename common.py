@@ -5297,6 +5297,15 @@ def get_active_baked_channel_image(root_ch):
 
     return None
 
+def get_bake_target_index(bt):
+    yp = bt.id_data.yp
+
+    for i, b in yp.bake_targets:
+        if b == bt:
+            return i
+
+    return -1
+
 def set_active_paint_slot_entity(yp):
     image = None
     mat = get_active_material()

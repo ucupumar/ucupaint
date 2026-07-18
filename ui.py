@@ -1507,7 +1507,7 @@ def draw_bake_targets_ui(context, layout, node, show_header=False):
         info_col = row_bake.column()
         if btui.expand_setting:
             draw_bake_target_settings(context, info_col, bt)
-        op = info_col.operator('wm.y_bake_single_target', text=f'Bake {bt.name}', icon_value=lib.get_icon('bake'))
+        op = info_col.operator('wm.y_bake_single_target', text='Bake '+bt.name, icon_value=lib.get_icon('bake'))
         op.bake_target_index = yp.active_bake_target_index
 
 def draw_bake_target_settings(context, layout, bt):
@@ -1608,15 +1608,15 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                 row.operator('wm.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
 
         icon_name = lib.channel_custom_icon_dict[channel.type]
-        icon_value = lib.get_icon(icon_name)
+        ch_icon_value = lib.get_icon(icon_name)
         text=channel.name + ' ' + pgettext_iface('Channel') + ' Settings'
 
         expand_content = False
-        draw_blank = False
+        draw_blank = True
 
         if is_bl_newer_than(4, 1):
             header, panel = mcol.panel("MAT_YP_ChannelSettingsPanel", default_closed=False)
-            header.label(text=text, icon_value=icon_value)
+            header.label(text=text, icon_value=ch_icon_value)
 
             if ypup.show_experimental:
                 header.context_pointer_set('parent', channel)
@@ -1626,35 +1626,34 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
             if panel:
                 expand_content = True
                 bcol = panel.column(align=True)
-                draw_blank = True
         else:
             row = mcol.row(align=True)
             rrow = row.row(align=True)
             rrow.alignment = 'LEFT'
             rrow.scale_x = 0.95
 
-            icon = get_collapse_arrow_icon(chui.expand_content)
-            rrow.prop(chui, 'expand_content', text='', emboss=False, icon=icon)
+            icon = get_collapse_arrow_icon(ypui.expand_channel_settings)
+            rrow.prop(ypui, 'expand_channel_settings', text='', emboss=False, icon=icon)
 
             if is_bl_newer_than(2, 80):
-                rrow.prop(chui, 'expand_content', text=text, emboss=False, icon_value=icon_value)
-            else: rrow.label(text=text, icon_value=icon_value)
+                rrow.prop(ypui, 'expand_channel_settings', text=text, emboss=False, icon_value=ch_icon_value)
+            else: rrow.label(text=text, icon_value=ch_icon_value)
 
             if ypup.show_experimental:
                 rrow = row.row(align=True)
                 rrow.alignment = 'RIGHT'
                 rrow.context_pointer_set('parent', channel)
-                rrow.context_pointer_set('channel_ui', chui)
+                rrow.context_pointer_set('channel_ui', ypui)
                 icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
                 rrow.menu("NODE_MT_y_channel_experimental_menu", icon=icon, text='')
 
-            expand_content = chui.expand_content
+            expand_content = ypui.expand_channel_settings
             if expand_content:
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 box = row.box()
                 bcol = box.column()
-                draw_blank = True
+                draw_blank = False
 
         if expand_content:
 
@@ -2056,40 +2055,68 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                     split.label(text='Space:')
                     split.prop(channel, 'colorspace', text='')
 
-                ## Bake to vertex color settings
-                #if is_bl_newer_than(2, 92):
-                #    brow = bcol.row(align=True)
-
-                #    vcols = get_vertex_colors(context.object)
-                #    label_text = 'Bake To '+get_vertex_color_label()+':'
-
-                #    rrow = brow.row(align=True)
-                #    inbox_dropdown_button(rrow, chui, 'expand_bake_to_vcol_settings', label_text, scale_override=0.95)
-
-                #    rrow = brow.row(align=True)
-                #    rrow.alignment = 'RIGHT'
-                #    brow.prop(channel, 'enable_bake_to_vcol', text='')
-
-                #    if chui.expand_bake_to_vcol_settings:
-                #        brow = bcol.row(align=True)
-                #        brow.label(text='', icon='BLANK1')
-                #        bbox = brow.box()
-                #        bbcol = bbox.column() #align=True)
-                #        bbcol.active = channel.enable_bake_to_vcol
-                #        brow = bbcol.row(align=True)
-                #        if channel.type == 'VALUE':
-                #            brow.label(text='Bake to Alpha Only:')
-                #            brow.prop(channel, 'bake_to_vcol_alpha', text='')
-
-                #        brow = bbcol.row(align=True)
-                #        brow.label(text='Target '+get_vertex_color_label()+':')
-                #        brow.prop(channel, 'bake_to_vcol_name', text='')
-
             if channel.special_channel_type == 'VDISP' and is_bl_newer_than(3, 2):
                 #bcol.separator()
                 brow = bcol.row(align=True)
                 if draw_blank: brow.label(text='', icon='BLANK1')
                 brow.operator('object.y_remove_vdm_and_add_multires', text="Apply VDM layers to Multires", icon='SCULPTMODE_HLT')
+
+        text = channel.name + ' Channel Bake Target'
+        icon_value = lib.get_icon('bake')
+        expand_content = False
+        if is_bl_newer_than(4, 1):
+            header, panel = mcol.panel("MAT_YP_ChannelActiveBakeTargetPanel", default_closed=True)
+            header.label(text=text, icon_value=icon_value)
+
+            if panel:
+                expand_content = True
+                bcol = panel.column(align=True)
+        else:
+            row = mcol.row(align=True)
+            rrow = row.row(align=True)
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+
+            icon = get_collapse_arrow_icon(ypui.expand_channel_bake_target_settings)
+            rrow.prop(ypui, 'expand_channel_bake_target_settings', text='', emboss=False, icon=icon)
+
+            if is_bl_newer_than(2, 80):
+                rrow.prop(ypui, 'expand_channel_bake_target_settings', text=text, emboss=False, icon_value=icon_value)
+            else: rrow.label(text=text, icon_value=icon_value)
+
+            if ypup.show_experimental:
+                rrow = row.row(align=True)
+                rrow.alignment = 'RIGHT'
+                rrow.context_pointer_set('parent', channel)
+                rrow.context_pointer_set('channel_ui', ypui)
+                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+                rrow.menu("NODE_MT_y_channel_experimental_menu", icon=icon, text='')
+
+            expand_content = ypui.expand_channel_bake_target_settings
+            if expand_content:
+                #row = mcol.row(align=True)
+                #row.label(text='', icon='BLANK1')
+                #box = row.box()
+                #bcol = box.column()
+                bcol = mcol
+                draw_blank = True
+        
+        if expand_content:
+            brow = bcol.row(align=True)
+            if draw_blank: brow.label(text='', icon='BLANK1')
+            bt = yp.bake_targets.get(channel.bake_target_name)
+            label = bt.name if bt else '-'
+            brow.label(text='Bake Target: '+label)
+
+            if bt:
+                brow = bcol.row(align=True)
+                if draw_blank: brow.label(text='', icon='BLANK1')
+                draw_bake_target_settings(context, brow, bt)
+
+                brow = bcol.row(align=True)
+                if draw_blank: brow.label(text='', icon='BLANK1')
+                op = brow.operator('wm.y_bake_single_target', text='Bake '+bt.name, icon_value=lib.get_icon('bake'))
+                op.bake_target_index = get_bake_target_index(bt)
 
 def draw_base_layer_ui(context, layout, yp, node):
     ypui = context.window_manager.ypui
@@ -5504,7 +5531,7 @@ class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel):
                 draw_bake_targets_ui(context, panel, node)
 
 class VIEW3D_PT_YPaint_bake_targets_ui(bpy.types.Panel):
-    bl_label = 'Channel Bake Targets'
+    bl_label = 'Bake Targets'
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
     bl_region_type = 'UI'
@@ -8943,6 +8970,18 @@ class YPaintUI(bpy.types.PropertyGroup):
         name = 'Expand channel base values',
         description = 'Expand channel base values',
         default = True
+    )
+
+    expand_channel_settings : BoolProperty(
+        name = 'Expand Channel Settings',
+        description = 'Expand channel settings',
+        default = True
+    )
+
+    expand_channel_bake_target_settings : BoolProperty(
+        name = 'Expand Channel Bake Target Settings',
+        description = 'Expand channel bake target settings',
+        default = False
     )
 
     # To store active node and tree

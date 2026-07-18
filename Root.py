@@ -203,6 +203,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             alpha_bt_setup = add_alpha_to_color_bt(color_chs[0], channel)
 
     # Add bake_target
+    bt = None
     if add_bake_target and not alpha_bt_setup:
         bt = yp.bake_targets.add()
         bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ' + name, bpy.data.images)
@@ -260,6 +261,8 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             # FXAA is enabled by default
             bt.fxaa = True
 
+    if bt: channel.bake_target_name = bt.name
+        
     yp.halt_reconnect = False
 
     return channel
