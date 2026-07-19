@@ -716,14 +716,53 @@ class YRemoveBakeTarget(bpy.types.Operator):
     bl_idname = "wm.y_remove_bake_target"
     bl_label = "Remove Bake Target"
     bl_description = "Remove bake target"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
 
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
 
+    def invoke(self, context, event):
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        try: bt = yp.bake_targets[yp.active_bake_target_index]
+        except: bt = None
+
+        # Check if the bake target is the only bake target used for a channel
+        if bt:
+            for ch in yp.channels:
+                if ch.bake_target_name == bt.name:
+                    return context.window_manager.invoke_props_dialog(self, width=400)
+
+        return self.execute(context)
+    
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        try: bt = yp.bake_targets[yp.active_bake_target_index]
+        except: bt = None
+
+        ch_name = ''
+        bt_name = ''
+        if bt:
+            bt_name = bt.name
+            for ch in yp.channels:
+                if ch.bake_target_name == bt.name:
+                    ch_name = ch.name
+                    break
+
+        col = self.layout.column()
+        col.alert = True
+
+        col.label(text='\''+bt_name+'\' is the active bake target for \''+ch_name+'\' channel', icon='ERROR')
+        col.alert = False
+        col.label(text='Are you sure you want to delete it?', icon='BLANK1')
+
     def execute(self, context):
-        wm = context.window_manager
         node = get_active_ypaint_node()
         tree = node.node_tree
         yp = tree.yp

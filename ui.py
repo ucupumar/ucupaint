@@ -5221,7 +5221,7 @@ class NODE_PT_YPaint_about_ui(bpy.types.Panel):
     def draw(self, context):
         draw_about_ui(self, context)
 
-class VIEW3D_PT_YPaint_legacy_tools(bpy.types.Panel):
+class VIEW3D_PT_YPaint_legacy_about_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_region_type = 'TOOLS'
@@ -9430,7 +9430,7 @@ def register():
         bpy.utils.register_class(NODE_PT_YPaint_legacy_main_ui)
         bpy.utils.register_class(NODE_PT_YPaint_legacy_channel_settings_ui)
 
-        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_tools)
+        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_about_tools)
         bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
         bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_main_tools)
         bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
@@ -9539,7 +9539,7 @@ def unregister():
         bpy.utils.unregister_class(NODE_PT_YPaint_legacy_main_ui)
         bpy.utils.unregister_class(NODE_PT_YPaint_legacy_channel_settings_ui)
 
-        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_tools)
+        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_about_tools)
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_main_tools)
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_channel_settings_tools)

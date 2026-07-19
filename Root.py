@@ -200,7 +200,8 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     if special_channel_type == 'ALPHA':
         color_chs = [c for c in yp.channels if c.type == 'RGB']
         if any(color_chs): 
-            alpha_bt_setup = add_alpha_to_color_bt(color_chs[0], channel)
+            color_bt = add_alpha_to_color_bt(color_chs[0], channel)
+            if color_bt != None: alpha_bt_setup = True
 
     # Add bake_target
     bt = None
@@ -237,26 +238,29 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
             # Extra normal without bump if height channel exists
             height_root_ch = get_root_height_channel(yp)
             if height_root_ch:
-                bt = yp.bake_targets.add()
-                bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ' + name + ' without Height', bpy.data.images)
+                extra_bt = yp.bake_targets.add()
+                extra_bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ' + name + ' without Height', bpy.data.images)
 
-                bt.a.default_value = 1.0
+                extra_bt.a.default_value = 1.0
 
-                bt.r.channel_name = name
-                bt.r.subchannel_index = '0'
+                extra_bt.r.channel_name = name
+                extra_bt.r.subchannel_index = '0'
 
-                bt.g.channel_name = name
-                bt.g.subchannel_index = '1'
+                extra_bt.g.channel_name = name
+                extra_bt.g.subchannel_index = '1'
 
-                bt.b.channel_name = name
-                bt.b.subchannel_index = '2'
+                extra_bt.b.channel_name = name
+                extra_bt.b.subchannel_index = '2'
 
-                bt.data_type = 'IMAGE'
+                extra_bt.data_type = 'IMAGE'
 
-                bt.normal_includes_height = False
+                extra_bt.normal_includes_height = False
+
+                extra_bt.fxaa = False
+                extra_bt.denoise  = False
 
                 if hasattr(bpy.context, 'object'):
-                    bt.uv_map = get_default_uv_name(bpy.context.object, yp)
+                    extra_bt.uv_map = get_default_uv_name(bpy.context.object, yp)
         else:
             # FXAA is enabled by default
             bt.fxaa = True
@@ -1826,7 +1830,6 @@ class YConnectYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 def add_alpha_to_color_bt(color_ch, alpha_ch):
-    success = False
     yp = color_ch.id_data.yp
 
     for bt in yp.bake_targets:
@@ -1836,9 +1839,10 @@ def add_alpha_to_color_bt(color_ch, alpha_ch):
             bt.a.channel_name == ''
         ):
             bt.a.channel_name = alpha_ch.name
-            success = True
+            alpha_ch.bake_target_name = bt.name
+            return bt
 
-    return success
+    return None
 
 def make_channel_as_alpha(mat, node, channel, do_setup=False, move_index=False, ch_pair_name=''):
     yp = channel.id_data.yp
