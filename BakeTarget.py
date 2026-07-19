@@ -220,24 +220,43 @@ def update_new_bake_target_data_type(self, context):
 
     self.channel_idx = get_channel_idx_that_has_no_bake_target_yet(yp, self.data_type)
 
-def add_new_channel_bake_target(context, channel_name):
-    node = get_active_ypaint_node()
-    yp = node.node_tree.yp
+def add_new_channel_bake_target(context, channel, name='', data_type='IMAGE'):
+    tree = channel.id_data
+    yp = tree.yp
+
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
+    # Get unique name
+    if name == '': name = tree.name.replace(get_addon_title() + ' ', '') + channel.name
+    name = get_unique_name(name, yp.bake_targets)
+
     bt = yp.bake_targets.add()
-    bt.name = "Channel Bake Target " + channel_name
+    bt.name = name
+    bt.data_type = data_type
+
+    # Set channel names
+    bt.r.channel_name = channel.name
+    bt.r.subchannel_index = '0'
+    bt.g.channel_name = channel.name
+    bt.g.subchannel_index = '1'
+    bt.b.channel_name = channel.name
+    bt.b.subchannel_index = '2'
+
+    if channel == color_ch and alpha_ch:
+        bt.a.channel_name = alpha_ch.name
+
     bt.a.default_value = 1.0
 
-    bt.r.channel_name = channel_name
-    bt.g.channel_name = channel_name
-    bt.b.channel_name = channel_name
+    # Set default props
+    if channel.special_channel_type != 'NORMAL':
+        bt.fxaa = True
+    bt.denoise = False
 
-    yp.active_bake_target_index = len(yp.bake_targets)-1
+    # Set UV Map
+    obj = context.object
+    if obj: bt.uv_map = get_default_uv_name(obj, yp)
 
-    wm = context.window_manager
-    ypui = wm.ypui
-
-    ypui.bake_target_ui.expand_content = True
-    ypui.need_update = True
+    return bt
 
 def new_bake_target_channel_items(self, context):
     from . import lib
@@ -247,26 +266,16 @@ def new_bake_target_channel_items(self, context):
 
     return items
 
-def validate_channels_bake_targets(yp):
-    tree = yp.id_data
-    validated_chs = []
+def validate_channel_bake_targets(yp):
 
-    need_separate_xyzs = []
-    need_combine_xyzs = []
-    need_invert_r = []
-    need_invert_g = []
-    need_invert_b = []
-    need_invert_a = []
-    uv_map_dict = {}
+    validated_chs = []
 
     # Check if channel has proper bake target
     for ch in yp.channels:
         bt = yp.bake_targets.get(ch.bake_target_name)
-        baked_node = tree.nodes.get(bt.baked_node) if bt else None
-        ids = []
 
         # Bake target found
-        if bt and baked_node:
+        if bt:
 
             # Check for exact channel bake target
             if is_bake_target_using_exact_channel(bt, ch):
@@ -277,15 +286,10 @@ def validate_channels_bake_targets(yp):
                 if ch.type == 'VALUE': index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
                 else: index = get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch)
                 if index != -1:
-                    if index != 3:
-                        need_separate_xyzs.append(bt)
                     validated_chs.append(ch)
-                    ids = [index]
             else:
                 ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
                 if -1 not in ids:
-                    need_separate_xyzs.append(bt)
-                    need_combine_xyzs.append(ch)
                     validated_chs.append(ch)
             
         # If bake target is not found or not valid
@@ -293,8 +297,6 @@ def validate_channels_bake_targets(yp):
 
             # Look for bake target that uses the channel
             for bt in yp.bake_targets:
-                baked_node = tree.nodes.get(bt.baked_node)
-                if not baked_node: continue
 
                 # Check for exact channel bake target
                 if is_bake_target_using_exact_channel(bt, ch):
@@ -306,31 +308,69 @@ def validate_channels_bake_targets(yp):
 
             # Check if the bake target uses non-standard layout
             for bt in yp.bake_targets:
-                baked_node = tree.nodes.get(bt.baked_node)
-                if not baked_node: continue
 
                 if ch.type == 'VALUE' or get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch) != -1:
                     if ch.type == 'VALUE': index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
                     else: index = get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch)
                     if index != -1:
-                        if index != 3:
-                            need_separate_xyzs.append(bt)
                         validated_chs.append(ch)
                         ch.bake_target_name = bt.name
-                        ids = [index]
-
                         break
                 else:
                     ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
                     if -1 not in ids:
-                        need_separate_xyzs.append(bt)
-                        need_combine_xyzs.append(ch)
                         validated_chs.append(ch)
                         ch.bake_target_name = bt.name
                         break
 
-        if bt and ch in validated_chs:
+    # Set bake target name to blank if there's no proper bake target
+    for ch in yp.channels:
+        if ch not in validated_chs:
+            ch.bake_target_name = ''
 
+    return validated_chs
+
+def check_channel_bake_target_nodes(yp):
+    tree = yp.id_data
+
+    need_separate_xyzs = []
+    need_combine_xyzs = []
+    need_invert_r = []
+    need_invert_g = []
+    need_invert_b = []
+    need_invert_a = []
+    uv_map_dict = {}
+
+    # Validate all channel bake targets first
+    validated_chs = validate_channel_bake_targets(yp)
+
+    # Check if channel has baked node
+    for ch in validated_chs:
+        bt = yp.bake_targets.get(ch.bake_target_name)
+        baked_node = tree.nodes.get(bt.baked_node) if bt else None
+        ids = []
+
+        # Bake target found
+        if bt and baked_node:
+
+            # Check for exact channel bake target
+            if is_bake_target_using_exact_channel(bt, ch):
+                pass
+
+            # Check if the bake target uses non-standard layout
+            elif ch.type == 'VALUE' or get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch) != -1:
+                if ch.type == 'VALUE': index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
+                else: index = get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch)
+                if index != -1:
+                    if index != 3:
+                        need_separate_xyzs.append(bt)
+                    ids = [index]
+            else:
+                ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
+                if -1 not in ids:
+                    need_separate_xyzs.append(bt)
+                    need_combine_xyzs.append(ch)
+            
             # Check for invert value
             if len(ids) > 0:
                 for index in ids:
@@ -346,7 +386,7 @@ def validate_channels_bake_targets(yp):
             # Fill the uv map dictionary
             uv_map_dict[ch.name] = bt.uv_map
 
-    # Check necessary nodes
+    # Check necessary bake target nodes
     for bt in yp.bake_targets:
         if bt in need_separate_xyzs:
             separate_xyz = check_new_node(tree, bt, 'separate_xyz', 'ShaderNodeSeparateXYZ')
@@ -376,23 +416,23 @@ def validate_channels_bake_targets(yp):
             invert_a.inputs[0].default_value = 1.0
         else: remove_node(tree, bt, 'invert_a')
 
+    # Check necessary channel nodes
     for ch in yp.channels:
         if ch in need_combine_xyzs:
             baked_combine_xyz = check_new_node(tree, ch, 'baked_combine_xyz', 'ShaderNodeCombineXYZ')
         else: remove_node(tree, ch, 'baked_combine_xyz')
 
-        if ch in validated_chs and ch.special_channel_type == 'NORMAL':
+        if ch in validated_chs and ch.special_channel_type == 'NORMAL' and ch.name in uv_map_dict:
+            baked_normal = check_new_node(tree, ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
+            baked_normal.uv_map = uv_map_dict[ch.name]
 
-            if ch.name in uv_map_dict:
-                baked_normal = check_new_node(tree, ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
-                baked_normal.uv_map = uv_map_dict[ch.name]
-
-                baked_normal_prep = check_new_node(tree, ch, 'baked_normal_prep', 'ShaderNodeGroup', 'Baked Normal Preparation')
-                lib_name = lib.NORMAL_MAP_PREP if is_bl_newer_than(2, 80) else lib.NORMAL_MAP_PREP_LEGACY
-                if not baked_normal_prep.node_tree or baked_normal_prep.node_tree.name != lib_name:
-                    baked_normal_prep.node_tree = get_node_tree_lib(lib_name)
-
-    return validated_chs
+            baked_normal_prep = check_new_node(tree, ch, 'baked_normal_prep', 'ShaderNodeGroup', 'Baked Normal Preparation')
+            lib_name = lib.NORMAL_MAP_PREP if is_bl_newer_than(2, 80) else lib.NORMAL_MAP_PREP_LEGACY
+            if not baked_normal_prep.node_tree or baked_normal_prep.node_tree.name != lib_name:
+                baked_normal_prep.node_tree = get_node_tree_lib(lib_name)
+        else:
+            remove_node(tree, ch, 'baked_normal')
+            remove_node(tree, ch, 'baked_normal_prep')
 
 class YSetChannelActiveBakeTarget(bpy.types.Operator):
     bl_idname = "wm.y_set_channel_active_bake_target"
@@ -442,7 +482,7 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
                         color_ch.bake_target_name = self.bake_target_name
                         #is_paired = True
 
-            validated_chs = validate_channels_bake_targets(yp)
+            check_channel_bake_target_nodes(yp)
             #do_reconnect = True
             do_reconnect = yp.use_baked
 
@@ -507,27 +547,105 @@ class YToggleChannelUseBaked(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def update_new_channel_bake_target_data_type(self, context):
+
+    node = get_active_ypaint_node()
+    if not node: return
+
+    tree = node.node_tree
+    yp = tree.yp
+    try: channel = yp.channels[yp.active_channel_index]
+    except: return
+
+    tree_name = tree.name.replace(get_addon_title() + ' ', '')
+    self.name = tree_name + ' ' + channel.name
+
+    if is_bl_newer_than(3, 2):
+        extra_name = ' Attribute'
+    else: extra_name = ' VCol'
+
+    if self.data_type == 'VCOL':
+        self.name += extra_name
+
+    self.name = get_unique_name(self.name, yp.bake_targets)
+
 class YNewChannelBakeTarget(bpy.types.Operator):
     bl_idname = "wm.y_new_channel_bake_target"
     bl_label = "New Channel Bake Target"
     bl_description = "New bake target"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'UNDO'}
+
+    name : StringProperty(
+        name = 'New Bake Target Name',
+        description = 'New bake target name',
+        default = ''
+    )
+
+    data_type : EnumProperty(
+        name = 'Bake Target Data Type',
+        description = 'Bake target data type',
+        items = (
+            ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
+            ('VCOL', get_vertex_color_label(), '', 'GROUP_VCOL', 1),
+        ),
+        default = 'IMAGE',
+        update = update_new_channel_bake_target_data_type
+    )
 
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        channel = context.channel
+        self.channel = channel
+        tree = channel.id_data
+        yp = tree.yp
+
+        #tree_name = tree.name.replace(get_addon_title() + ' ', '')
+        #self.name = get_unique_name(tree_name + ' ' + channel.name, yp.bake_targets)
+        update_new_channel_bake_target_data_type(self, context)
+
+        return context.window_manager.invoke_props_dialog(self, width=300)
     
-    def execute(self, context):
+    def draw(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        print("Creating new bake target from channels..."+str(yp.active_channel_index))
-        channel = yp.channels[yp.active_channel_index]
+        row = split_layout(self.layout, 0.3)
 
-        add_new_channel_bake_target(context, channel.name)
+        col = row.column(align=False)
+        col.label(text='Name:')
+        col.label(text='Type:')
+
+        col = row.column(align=False)
+        col.prop(self, 'name', text='')
+        rrow = col.row(align=True)
+        rrow.prop(self, 'data_type', expand=True) #, text='')
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        channel = self.channel
+
+        # Add new bake target
+        bt = add_new_channel_bake_target(context, channel, self.name, self.data_type)
+
+        # Set channel bake target name
+        channel.bake_target_name = bt.name
+
+        # Set active bake target
+        yp.active_bake_target_index = len(yp.bake_targets)-1
+
+        # Refresh UI
+        wm = context.window_manager
+        ypui = wm.ypui
+        ypui.bake_target_ui.expand_content = True
+        ypui.need_update = True
         
         # Update panel
         context.area.tag_redraw()
+
         return {'FINISHED'}
 
 class YNewBakeTarget(bpy.types.Operator):
@@ -669,13 +787,18 @@ class YNewBakeTarget(bpy.types.Operator):
         bt.denoise = False
 
         if root_ch:
+            color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
             for i, letter in enumerate(rgba_letters):
-                if letter == 'a': continue
                 btc = getattr(bt, letter)
                 if btc: 
-                    btc.channel_name = root_ch.name
-                    if root_ch.type != 'VALUE':
-                        btc.subchannel_index = str(i)
+                    if letter == 'a':
+                        if root_ch == color_ch and alpha_ch:
+                            btc.channel_name = alpha_ch.name
+                    else:
+                        btc.channel_name = root_ch.name
+                        if root_ch.type != 'VALUE':
+                            btc.subchannel_index = str(i)
         else:
             if self.preset == 'ORM':
                 for ch in yp.channels:
@@ -726,8 +849,9 @@ class YRemoveBakeTarget(bpy.types.Operator):
         node = get_active_ypaint_node()
         tree = node.node_tree
         yp = tree.yp
+        self.bake_target = context.bake_target
 
-        try: bt = yp.bake_targets[yp.active_bake_target_index]
+        try: bt = self.bake_target
         except: bt = None
 
         # Check if the bake target is the only bake target used for a channel
@@ -743,7 +867,7 @@ class YRemoveBakeTarget(bpy.types.Operator):
         tree = node.node_tree
         yp = tree.yp
 
-        try: bt = yp.bake_targets[yp.active_bake_target_index]
+        try: bt = self.bake_target
         except: bt = None
 
         ch_name = ''
@@ -767,7 +891,7 @@ class YRemoveBakeTarget(bpy.types.Operator):
         tree = node.node_tree
         yp = tree.yp
 
-        try: bt = yp.bake_targets[yp.active_bake_target_index]
+        try: bt = self.bake_target
         except: return {'CANCELLED'}
 
         ori_use_baked = yp.use_baked
@@ -791,7 +915,7 @@ class YRemoveBakeTarget(bpy.types.Operator):
             yp.active_bake_target_index = len(yp.bake_targets)-1
 
         # Validate bake targets
-        validate_channels_bake_targets(yp)
+        check_channel_bake_target_nodes(yp)
 
         if yp.use_baked != ori_use_baked:
             yp.use_baked = True
@@ -975,24 +1099,24 @@ class YPasteBakeTarget(bpy.types.Operator):
 
 def register():
     bpy.utils.register_class(YNewBakeTarget)
+    bpy.utils.register_class(YNewChannelBakeTarget)
     bpy.utils.register_class(YRemoveBakeTarget)
     bpy.utils.register_class(YBakeTargetChannel)
     bpy.utils.register_class(YBakeTarget)
     bpy.utils.register_class(YCopyBakeTarget)
     bpy.utils.register_class(YPasteBakeTarget)
     bpy.utils.register_class(YMoveBakeTarget)
-    bpy.utils.register_class(YNewChannelBakeTarget)
     bpy.utils.register_class(YSetChannelActiveBakeTarget)
     bpy.utils.register_class(YToggleChannelUseBaked)
 
 def unregister():
     bpy.utils.unregister_class(YNewBakeTarget)
+    bpy.utils.unregister_class(YNewChannelBakeTarget)
     bpy.utils.unregister_class(YRemoveBakeTarget)
     bpy.utils.unregister_class(YBakeTargetChannel)
     bpy.utils.unregister_class(YBakeTarget)
     bpy.utils.unregister_class(YCopyBakeTarget)
     bpy.utils.unregister_class(YPasteBakeTarget)
     bpy.utils.unregister_class(YMoveBakeTarget)
-    bpy.utils.unregister_class(YNewChannelBakeTarget)
     bpy.utils.unregister_class(YSetChannelActiveBakeTarget)
     bpy.utils.unregister_class(YToggleChannelUseBaked)

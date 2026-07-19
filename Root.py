@@ -2747,7 +2747,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             check_mask_mix_nodes(t)
 
         # Validate bake targets
-        BakeTarget.validate_channels_bake_targets(yp)
+        BakeTarget.check_channel_bake_target_nodes(yp)
 
         # Rearrange and reconnect nodes
         check_all_channel_ios(yp)

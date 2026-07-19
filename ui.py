@@ -1387,16 +1387,22 @@ def draw_bake_targets_ui(context, layout, node, show_header=False):
 
     row = col.row()
 
-    rcol = row.column()
+    rcol = row.column(align=True)
+    #rcol.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake'))
+
     rcol.template_list(
         "NODE_UL_YPaint_bake_targets", "", yp, "bake_targets", yp,
         "active_bake_target_index", rows=4, maxrows=5
     )
 
     rcol = row.column(align=True)
-    #rcol.context_pointer_set('node', node)
 
-    #rcol.operator("wm.y_bake_all_targets", text='', icon_value=lib.get_icon('bake'))
+    try: bt = yp.bake_targets[yp.active_bake_target_index]
+    except: bt = None
+
+
+    if bt: rcol.context_pointer_set('bake_target', bt)
+
     if is_bl_newer_than(2, 80):
         rcol.operator("wm.y_new_bake_target", icon='ADD', text='')
         rcol.operator("wm.y_remove_bake_target", icon='REMOVE', text='')
@@ -1408,8 +1414,7 @@ def draw_bake_targets_ui(context, layout, node, show_header=False):
     rcol.operator("wm.y_move_bake_target", text='', icon='TRIA_DOWN').direction = 'DOWN'
     rcol.menu("NODE_MT_y_bake_list_special_menu", text='', icon='DOWNARROW_HLT')
 
-    if len(yp.bake_targets) > 0:
-        bt = yp.bake_targets[yp.active_bake_target_index]
+    if bt and len(yp.bake_targets) > 0:
         baked_node = nodes.get(bt.baked_node)
         image = None
         vcol_name = ''
@@ -2064,14 +2069,18 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
         bt = yp.bake_targets.get(channel.bake_target_name)
         bt_label = get_bake_target_label(bt)
 
-        text = 'Bake Target:'
+        chbts = get_channel_bake_target_dict(yp)
+
+        text = 'Active Bake Target:'
         icon_value = lib.get_icon('bake')
         expand_content = False
         if is_bl_newer_than(4, 1):
             header, panel = mcol.panel("MAT_YP_ChannelActiveBakeTargetPanel", default_closed=True)
-            split = split_layout(header, 0.35, align=False)
+            split = split_layout(header, 0.45, align=False)
             split.label(text=text) #, icon_value=icon_value)
-            split.menu("NODE_MT_y_channel_active_bake_target_menu", text=bt_label, icon_value=icon_value)
+            if channel.name in chbts:
+                split.menu("NODE_MT_y_channel_active_bake_target_menu", text=bt_label, icon_value=icon_value)
+            else: split.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
 
             if panel:
                 expand_content = True
@@ -2091,26 +2100,31 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                 rrow.prop(ypui, 'expand_channel_bake_target_settings', text=text, emboss=False) #, icon_value=icon_value)
             else: rrow.label(text=text) #, icon_value=icon_value)
 
-            rrow = row.row(align=True)
-            rrow.alignment = 'RIGHT'
-            rrow.scale_x = 1.2
-            rrow.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
+            if channel.name in chbts:
+                rrow = row.row(align=True)
+                rrow.alignment = 'RIGHT'
+                rrow.scale_x = 1.2
+                rrow.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
+
+            else:
+                rrow = row.row(align=True)
+                rrow.alignment = 'RIGHT'
+                rrow.scale_x = 1.2
+                rrow.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
 
             if expand_content:
                 bcol = mcol
                 draw_blank = True
         
-        if expand_content:
+        if expand_content and bt:
+            brow = bcol.row(align=True)
+            if draw_blank: brow.label(text='', icon='BLANK1')
+            draw_bake_target_settings(context, brow, bt)
 
-            if bt:
-                brow = bcol.row(align=True)
-                if draw_blank: brow.label(text='', icon='BLANK1')
-                draw_bake_target_settings(context, brow, bt)
-
-                brow = bcol.row(align=True)
-                if draw_blank: brow.label(text='', icon='BLANK1')
-                op = brow.operator('wm.y_bake_single_target', text='Bake '+bt_label, icon_value=lib.get_icon('bake'))
-                op.bake_target_index = get_bake_target_index(bt)
+            brow = bcol.row(align=True)
+            if draw_blank: brow.label(text='', icon='BLANK1')
+            op = brow.operator('wm.y_bake_single_target', text='Bake '+bt_label, icon_value=lib.get_icon('bake'))
+            op.bake_target_index = get_bake_target_index(bt)
 
 def draw_base_layer_ui(context, layout, yp, node):
     ypui = context.window_manager.ypui
@@ -6907,15 +6921,35 @@ class YChannelActiveBakeTargetMenu(bpy.types.Menu):
     def draw(self, context):
         channel = context.channel
         yp = channel.id_data.yp
-        col = self.layout.column()
 
         chbts = get_channel_bake_target_dict(yp)
 
+        show_remove = channel.name in chbts and len(chbts[channel.name]) > 1
+
+        if show_remove:
+            row = self.layout.row()
+            col = row.column()
+        else:
+            col = self.layout.column()
+
         if channel.name in chbts:
+
             for bt in chbts[channel.name]:
                 bt_label = get_bake_target_label(bt)
                 icon = 'RADIOBUT_ON' if channel.bake_target_name == bt.name else 'RADIOBUT_OFF'
                 col.operator('wm.y_set_channel_active_bake_target', text=bt_label, icon=icon).bake_target_name = bt.name
+
+            col.separator()
+
+        col.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
+
+        if show_remove:
+            col = row.column()
+
+            icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
+            for bt in chbts[channel.name]:
+                col.context_pointer_set('bake_target', bt)
+                col.operator('wm.y_remove_bake_target', text='Remove', icon=icon)
 
 class YNewChannelMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_channel_menu"

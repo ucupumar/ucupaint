@@ -1437,7 +1437,7 @@ class BaseBakeBakeTargetOperator():
             bake_bake_target(mat, node, bt, btprops, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
 
         # Validate channels with bake targets
-        validated_chs = validate_channels_bake_targets(yp)
+        check_channel_bake_target_nodes(yp)
 
         # Expand baked data
         chbts = get_channel_bake_target_dict(yp)
