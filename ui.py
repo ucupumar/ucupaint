@@ -5192,11 +5192,11 @@ def draw_about_ui(self, context):
 
     #print(get_addon_title()+': UI is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-class NODE_PT_YPaint(bpy.types.Panel):
+class NODE_PT_YPaint_legacy_about_ui(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_region_type = 'TOOLS'
-    #bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
     def poll(cls, context):
@@ -5206,11 +5206,12 @@ class NODE_PT_YPaint(bpy.types.Panel):
     def draw(self, context):
         draw_about_ui(self, context)
 
-class NODE_PT_YPaintUI(bpy.types.Panel):
+class NODE_PT_YPaint_about_ui(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_region_type = 'UI'
     bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
     def poll(cls, context):
@@ -5220,7 +5221,7 @@ class NODE_PT_YPaintUI(bpy.types.Panel):
     def draw(self, context):
         draw_about_ui(self, context)
 
-class VIEW3D_PT_YPaint_tools(bpy.types.Panel):
+class VIEW3D_PT_YPaint_legacy_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_region_type = 'TOOLS'
@@ -5266,19 +5267,8 @@ def update_ui_and_timer(context):
     # Update ui props first
     update_yp_ui()
 
-class VIEW3D_PT_YPaint_main_ui(bpy.types.Panel):
-    bl_label = ' '
-    bl_space_type = 'VIEW_3D'
-    #bl_context = "object"
-    bl_region_type = 'UI'
-    bl_category = get_addon_title()
-    #bl_options = {'DEFAULT_CLOSED'} 
-
-    @classmethod
-    def poll(cls, context):
-        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
-
-    def draw_header(self, context):
+class BaseMainUI():
+    def base_draw_header(self, context):
         wm = context.window_manager
         layout = self.layout
         node = get_active_ypaint_node()
@@ -5314,7 +5304,7 @@ class VIEW3D_PT_YPaint_main_ui(bpy.types.Panel):
                     icon_name = f.replace('_icon.png', '')
                     invisible_row.label(text='', icon_value=lib.get_icon(icon_name))
 
-    def draw_header_preset(self, context):
+    def base_draw_header_preset(self, context):
         node = get_active_ypaint_node()
         if not node: return
 
@@ -5328,22 +5318,91 @@ class VIEW3D_PT_YPaint_main_ui(bpy.types.Panel):
         icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
 
-    def draw(self, context):
+    def base_draw(self, context):
         draw_main_layers_ui(context, self.layout)
 
-class VIEW3D_PT_YPaint_obj_mat_settings_ui(bpy.types.Panel):
-    bl_label = 'Object & Material'
+class VIEW3D_PT_YPaint_main_ui(bpy.types.Panel, BaseMainUI):
+    bl_label = ' '
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
     bl_region_type = 'UI'
     bl_category = get_addon_title()
-    bl_options = {'DEFAULT_CLOSED'} 
+    #bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
     def poll(cls, context):
         return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
+
     def draw(self, context):
+        self.base_draw(context)
+
+class NODE_PT_YPaint_main_ui(bpy.types.Panel, BaseMainUI):
+    bl_space_type = 'NODE_EDITOR'
+    bl_label = ' '
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+
+    @classmethod
+    def poll(cls, context):
+        return (context.object and context.object.type in possible_object_types 
+                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
+
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class NODE_PT_YPaint_legacy_main_ui(bpy.types.Panel, BaseMainUI):
+    bl_space_type = 'NODE_EDITOR'
+    bl_label = ' '
+    bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        return (context.object and context.object.type in possible_object_types 
+                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
+
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class VIEW3D_PT_YPaint_legacy_main_tools(bpy.types.Panel, BaseMainUI):
+    bl_space_type = 'VIEW_3D'
+    bl_label = ' '
+    bl_region_type = 'TOOLS'
+    bl_category = get_addon_title()
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class BaseObjectMaterialSettingsUI():
+    def base_draw(self, context):
 
         obj = context.object
         mat = obj.active_material
@@ -5498,7 +5557,51 @@ class VIEW3D_PT_YPaint_obj_mat_settings_ui(bpy.types.Panel):
         #if panel:
         #    draw_bake_targets_ui(context, panel, node)
 
-class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel):
+class VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools(bpy.types.Panel, BaseObjectMaterialSettingsUI):
+    bl_space_type = 'VIEW_3D'
+    bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
+    bl_region_type = 'TOOLS'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class VIEW3D_PT_YPaint_obj_mat_settings_ui(bpy.types.Panel, BaseObjectMaterialSettingsUI):
+    bl_label = 'Object & Material'
+    bl_space_type = 'VIEW_3D'
+    #bl_context = "object"
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class BaseChannelSettingsUI():
+    def base_draw(self, context):
+        node = get_active_ypaint_node()
+        ypui = bpy.context.window_manager.ypui
+
+        layout = self.layout
+
+        row = layout.row(align=True)
+        row.prop(ypui, 'active_settings', expand=True)
+
+        if ypui.active_settings == 'CHANNELS':
+            draw_root_channels_ui(context, layout, node)
+        elif ypui.active_settings == 'BAKE_TARGETS':
+            draw_bake_targets_ui(context, layout, node)
+
+class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI):
     bl_label = 'Channel Settings'
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
@@ -5514,23 +5617,11 @@ class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel):
         return yp and not use_baked and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
     def draw(self, context):
-        node = get_active_ypaint_node()
-        ypui = bpy.context.window_manager.ypui
+        self.base_draw(context)
 
-        layout = self.layout
-
-        row = layout.row(align=True)
-        row.prop(ypui, 'active_settings', expand=True)
-
-        if ypui.active_settings == 'CHANNELS':
-            draw_root_channels_ui(context, layout, node)
-        elif ypui.active_settings == 'BAKE_TARGETS':
-            draw_bake_targets_ui(context, layout, node)
-
-class VIEW3D_PT_YPaint_bake_targets_ui(bpy.types.Panel):
-    bl_label = 'Bake Targets'
-    bl_space_type = 'VIEW_3D'
-    #bl_context = "object"
+class NODE_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI):
+    bl_space_type = 'NODE_EDITOR'
+    bl_label = 'Channel Settings'
     bl_region_type = 'UI'
     bl_category = get_addon_title()
     bl_options = {'DEFAULT_CLOSED'} 
@@ -5543,7 +5634,40 @@ class VIEW3D_PT_YPaint_bake_targets_ui(bpy.types.Panel):
         return yp and not use_baked and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
     def draw(self, context):
-        draw_bake_targets_ui(context, self.layout, get_active_ypaint_node())
+        self.base_draw(context)
+
+class NODE_PT_YPaint_legacy_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI):
+    bl_space_type = 'NODE_EDITOR'
+    bl_label = 'Channel Settings'
+    bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        use_baked = yp.use_baked if yp else False
+        return yp and not use_baked and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class VIEW3D_PT_YPaint_legacy_channel_settings_tools(bpy.types.Panel, BaseChannelSettingsUI):
+    bl_space_type = 'VIEW_3D'
+    bl_label = 'Channel Settings'
+    bl_region_type = 'TOOLS'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        use_baked = yp.use_baked if yp else False
+        return yp and not use_baked and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+        self.base_draw(context)
 
 class VIEW3D_PT_YPaint_stats_ui(bpy.types.Panel):
     bl_label = 'Stats'
@@ -9302,18 +9426,24 @@ def register():
     bpy.utils.register_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
-        bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
-        bpy.utils.register_class(NODE_PT_YPaint)
+        bpy.utils.register_class(NODE_PT_YPaint_legacy_about_ui)
+        bpy.utils.register_class(NODE_PT_YPaint_legacy_main_ui)
+        bpy.utils.register_class(NODE_PT_YPaint_legacy_channel_settings_ui)
+
+        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_tools)
+        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
+        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_main_tools)
+        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
     else: 
-        bpy.utils.register_class(NODE_PT_YPaintUI)
+        bpy.utils.register_class(NODE_PT_YPaint_about_ui)
+        bpy.utils.register_class(NODE_PT_YPaint_main_ui)
+        bpy.utils.register_class(NODE_PT_YPaint_channel_settings_ui)
 
     bpy.utils.register_class(VIEW3D_PT_YPaint_about_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_obj_mat_settings_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_main_ui)
     #bpy.utils.register_class(VIEW3D_PT_YPaint_stats_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_channel_settings_ui)
-    #if not is_bl_newer_than(4, 1):
-    #    bpy.utils.register_class(VIEW3D_PT_YPaint_bake_targets_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_test_ui)
 
     bpy.utils.register_class(YPaintUI)
@@ -9405,18 +9535,24 @@ def unregister():
     bpy.utils.unregister_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
-        bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
-        bpy.utils.unregister_class(NODE_PT_YPaint)
+        bpy.utils.unregister_class(NODE_PT_YPaint_legacy_about_ui)
+        bpy.utils.unregister_class(NODE_PT_YPaint_legacy_main_ui)
+        bpy.utils.unregister_class(NODE_PT_YPaint_legacy_channel_settings_ui)
+
+        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_tools)
+        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
+        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_main_tools)
+        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
     else: 
-        bpy.utils.unregister_class(NODE_PT_YPaintUI)
+        bpy.utils.unregister_class(NODE_PT_YPaint_about_ui)
+        bpy.utils.unregister_class(NODE_PT_YPaint_main_ui)
+        bpy.utils.unregister_class(NODE_PT_YPaint_channel_settings_ui)
 
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_about_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_obj_mat_settings_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_main_ui)
     #bpy.utils.unregister_class(VIEW3D_PT_YPaint_stats_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_channel_settings_ui)
-    #if not is_bl_newer_than(4, 1):
-    #    bpy.utils.unregister_class(VIEW3D_PT_YPaint_bake_targets_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_test_ui)
 
     bpy.utils.unregister_class(YPaintUI)
