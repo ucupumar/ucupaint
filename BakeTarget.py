@@ -78,10 +78,27 @@ class YBakeTargetChannel(bpy.types.PropertyGroup):
         default = False
     )
 
+def update_bake_target_name(self, context):
+    yp = self.id_data.yp
+
+    # Check for channel that uses the bake target
+    for ch in yp.channels:
+        if ch.bake_target_name == self.original_name:
+            ch.bake_target_name = self.name
+
+    self.original_name = self.name
+
 class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoProps):
     name : StringProperty(
         name = 'Bake Target Name',
         description = 'Name of bake target name',
+        default = '',
+        update = update_bake_target_name
+    )
+
+    original_name : StringProperty(
+        name = 'Original Bake Target Name',
+        description = 'Original bake target name for updating',
         default = ''
     )
 

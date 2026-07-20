@@ -1555,6 +1555,12 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
     bl_description = "Bake all bake targets"
     bl_options = {'REGISTER', 'UNDO'}
 
+    show_necessary_only_option : BoolProperty(
+        name = 'Show \'Only Bake Necessary Channels\' Option',  
+        description = 'Show an option to bake only necessary channels',
+        default = False
+    )
+
     necessary_only : BoolProperty(
         name = 'Only Bake Necessary Channels',  
         description = 'Enabling this will only bake the channels that at least has one layer (unconnected base layer is not counted)',
@@ -1739,9 +1745,10 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
         #    row_ovr.label(text="Set as default" + ':')
         #    row_ovr.prop(self, "override_bake_device", text="")
 
-        row_var = split_layout(root_col, 0.4, True)
-        row_var.label(text='')
-        row_var.prop(self, 'necessary_only')
+        if self.show_necessary_only_option:
+            row_var = split_layout(root_col, 0.4, True)
+            row_var.label(text='')
+            row_var.prop(self, 'necessary_only')
 
         row_var = split_layout(root_col, 0.4, True)
         row_var.label(text='')
@@ -1804,7 +1811,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
     def execute(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        if not self.necessary_only:
+        if not self.necessary_only or not self.show_necessary_only_option:
             bts = yp.bake_targets
         else:
             # Get normal and height channel pair
@@ -3945,8 +3952,8 @@ def update_enable_baked_outside(self, context):
                             scale_inp.default_value = max_height if bt.height_normalize else 1.0
 
             baked_soc = None
-            if bt:
-                baked_node = mtree.nodes.get(bt.baked_node_outside)
+            baked_node = mtree.nodes.get(bt.baked_node_outside) if bt else None
+            if bt and baked_node:
                 separate_xyz = mtree.nodes.get(bt.separate_xyz_outside)
                 invert_r = mtree.nodes.get(bt.invert_r_outside)
                 invert_g = mtree.nodes.get(bt.invert_g_outside)

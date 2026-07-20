@@ -1020,6 +1020,17 @@ def draw_preview_mode_ui(context, layout, node):
                 row.label(text='Normal:')
                 row.prop(yp, 'preview_mode_normal_space', text='')
 
+def is_baked_node_found(yp):
+    nodes = yp.id_data.nodes
+
+    # Check for baked node
+    for bt in yp.bake_targets:
+        baked_node = nodes.get(bt.baked_node)
+        if baked_node: 
+            return True
+
+    return False
+
 def draw_main_layers_ui(context, layout):
     wm = context.window_manager
     area = context.area
@@ -1029,6 +1040,8 @@ def draw_main_layers_ui(context, layout):
     mat = obj.active_material if obj else None
     ypui = wm.ypui
     ypup = get_user_preferences()
+
+    ypui.expanded_main_ui = True
 
     # Timer
     #if wm.yptimer.time != '':
@@ -1056,7 +1069,7 @@ def draw_main_layers_ui(context, layout):
         row_alert.alert = True
         row_alert.operator("extensions.userpref_show_for_update", icon='ERROR', text='New version is available!') # + ypui.latest_version)
         row_alert.alert = False
-        row_alert.operator("ext.pending_update", icon='PANEL_CLOSE', text='')
+        row_alert.operator("ext.y_pending_update", icon='PANEL_CLOSE', text='')
 
     # Check if Mio3 UV checker found
     if obj and any([m for m in obj.modifiers if m.type == 'NODES' and m.node_group and m.node_group.name == 'Mio3MaterialOverride' and (m.show_viewport or m.show_render)]):
@@ -1136,17 +1149,7 @@ def draw_main_layers_ui(context, layout):
     #row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
 
     # Check for baked node
-    baked_found = False
-    #for ch in yp.channels:
-    #    baked = nodes.get(ch.baked)
-    #    if baked: 
-    #        baked_found = True
-    #        break
-    for bt in yp.bake_targets:
-        baked_node = nodes.get(bt.baked_node)
-        if baked_node: 
-            baked_found = True
-            break
+    baked_found = is_baked_node_found(yp)
 
     if (baked_found or yp.use_baked) and not group_tree.users > 1:
         rrow = layout.row(align=True)
@@ -1381,14 +1384,14 @@ def draw_bake_targets_ui(context, layout, node, show_header=False):
     #box = layout.box()
     box = layout
     col = box.column()
+    col.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).show_necessary_only_option = False
 
     if show_header:
         col.label(text='Bake Target Settings')
 
     row = col.row()
 
-    rcol = row.column(align=True)
-    #rcol.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake'))
+    rcol = row.column(align=False)
 
     rcol.template_list(
         "NODE_UL_YPaint_bake_targets", "", yp, "bake_targets", yp,
@@ -1506,14 +1509,16 @@ def draw_bake_targets_ui(context, layout, node, show_header=False):
         else: 
             row_setting.label(text=label_setting, icon_value=icon_value)
 
-        row_bake = col.row(align=True)
-        row_bake.label(text='', icon='BLANK1')
-
-        info_col = row_bake.column()
         if btui.expand_setting:
+            row_bake = col.row(align=True)
+            row_bake.label(text='', icon='BLANK1')
+
+            info_col = row_bake.column()
             draw_bake_target_settings(context, info_col, bt)
-        op = info_col.operator('wm.y_bake_single_target', text='Bake '+bt.name, icon_value=lib.get_icon('bake'))
-        op.bake_target_index = yp.active_bake_target_index
+            op = info_col.operator('wm.y_bake_single_target', text='Bake '+bt.name, icon_value=lib.get_icon('bake'))
+            op.bake_target_index = yp.active_bake_target_index
+
+        #info_col.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).show_necessary_only_option = False
 
 def draw_bake_target_settings(context, layout, bt):
 
@@ -1525,6 +1530,69 @@ def draw_bake_target_settings(context, layout, bt):
         show_vcol_props = bt.data_type == 'VCOL',
         show_udim = UDIM.is_udim_supported()
     )
+
+def draw_channel_bake_target_dropdown(context, channel, layout, draw_blank=True):
+    yp = channel.id_data.yp
+
+    bt = yp.bake_targets.get(channel.bake_target_name)
+    bt_label = get_bake_target_label(bt)
+
+    chbts = get_channel_bake_target_dict(yp)
+
+    text = 'Active Bake Target:'
+    icon_value = lib.get_icon('bake')
+    expand_content = False
+    if is_bl_newer_than(4, 1):
+        header, panel = layout.panel("MAT_YP_ChannelActiveBakeTargetPanel", default_closed=True)
+        split = split_layout(header, 0.45, align=False)
+        split.label(text=text) #, icon_value=icon_value)
+        if channel.name in chbts:
+            split.menu("NODE_MT_y_channel_active_bake_target_menu", text=bt_label, icon_value=icon_value)
+        else: split.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
+
+        if panel:
+            expand_content = True
+            bcol = panel.column(align=True)
+    else:
+        row = layout.row(align=True)
+        rrow = row.row(align=True)
+        rrow.alignment = 'LEFT'
+        rrow.scale_x = 0.95
+
+        icon = get_collapse_arrow_icon(ypui.expand_channel_bake_target_settings)
+        rrow.prop(ypui, 'expand_channel_bake_target_settings', text='', emboss=False, icon=icon)
+
+        expand_content = ypui.expand_channel_bake_target_settings
+
+        if is_bl_newer_than(2, 80):
+            rrow.prop(ypui, 'expand_channel_bake_target_settings', text=text, emboss=False) #, icon_value=icon_value)
+        else: rrow.label(text=text) #, icon_value=icon_value)
+
+        if channel.name in chbts:
+            rrow = row.row(align=True)
+            rrow.alignment = 'RIGHT'
+            rrow.scale_x = 1.2
+            rrow.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
+
+        else:
+            rrow = row.row(align=True)
+            rrow.alignment = 'RIGHT'
+            rrow.scale_x = 1.2
+            rrow.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
+
+        if expand_content:
+            bcol = layout
+            draw_blank = True
+    
+    if expand_content and bt:
+        brow = bcol.row(align=True)
+        if draw_blank: brow.label(text='', icon='BLANK1')
+        draw_bake_target_settings(context, brow, bt)
+
+        brow = bcol.row(align=True)
+        if draw_blank: brow.label(text='', icon='BLANK1')
+        op = brow.operator('wm.y_bake_single_target', text='Bake '+bt_label, icon_value=lib.get_icon('bake'))
+        op.bake_target_index = get_bake_target_index(bt)
 
 def draw_root_channels_ui(context, layout, node, show_header=False):
     scene = bpy.context.scene
@@ -2066,65 +2134,36 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                 if draw_blank: brow.label(text='', icon='BLANK1')
                 brow.operator('object.y_remove_vdm_and_add_multires', text="Apply VDM layers to Multires", icon='SCULPTMODE_HLT')
 
-        bt = yp.bake_targets.get(channel.bake_target_name)
-        bt_label = get_bake_target_label(bt)
+            bt = yp.bake_targets.get(channel.bake_target_name)
+            bt_label = get_bake_target_label(bt)
+            icon_value = lib.get_icon('bake')
 
-        chbts = get_channel_bake_target_dict(yp)
+            chbts = get_channel_bake_target_dict(yp)
+            valid_bts_exist = channel.name in chbts and len(chbts[channel.name]) > 0
 
-        text = 'Active Bake Target:'
-        icon_value = lib.get_icon('bake')
-        expand_content = False
-        if is_bl_newer_than(4, 1):
-            header, panel = mcol.panel("MAT_YP_ChannelActiveBakeTargetPanel", default_closed=True)
-            split = split_layout(header, 0.45, align=False)
-            split.label(text=text) #, icon_value=icon_value)
-            if channel.name in chbts:
-                split.menu("NODE_MT_y_channel_active_bake_target_menu", text=bt_label, icon_value=icon_value)
-            else: split.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
+            brow = bcol.row(align=True)
+            if draw_blank: brow.label(text='', icon='BLANK1')
+            split = split_layout(brow, 0.375, align=False)
+            label = 'Bake Target:'
+            #if not bt or not valid_bts_exist:
+            #    label += ' -'
+            split.label(text=label)
 
-            if panel:
-                expand_content = True
-                bcol = panel.column(align=True)
-        else:
-            row = mcol.row(align=True)
-            rrow = row.row(align=True)
-            rrow.alignment = 'LEFT'
-            rrow.scale_x = 0.95
-
-            icon = get_collapse_arrow_icon(ypui.expand_channel_bake_target_settings)
-            rrow.prop(ypui, 'expand_channel_bake_target_settings', text='', emboss=False, icon=icon)
-
-            expand_content = ypui.expand_channel_bake_target_settings
-
-            if is_bl_newer_than(2, 80):
-                rrow.prop(ypui, 'expand_channel_bake_target_settings', text=text, emboss=False) #, icon_value=icon_value)
-            else: rrow.label(text=text) #, icon_value=icon_value)
-
-            if channel.name in chbts:
-                rrow = row.row(align=True)
-                rrow.alignment = 'RIGHT'
-                rrow.scale_x = 1.2
-                rrow.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
-
+            if bt and valid_bts_exist:
+                icon_value = lib.get_icon('image') if bt.data_type == 'IMAGE' else lib.get_icon('vertex_color')
+                srow = split.row(align=True)
+                srow.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
+                srow.context_pointer_set('bake_target', bt)
+                srow.operator('wm.y_go_to_bake_target_settings', text='', icon='FORWARD')
             else:
-                rrow = row.row(align=True)
-                rrow.alignment = 'RIGHT'
-                rrow.scale_x = 1.2
-                rrow.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
 
-            if expand_content:
-                bcol = mcol
-                draw_blank = True
-        
-        if expand_content and bt:
-            brow = bcol.row(align=True)
-            if draw_blank: brow.label(text='', icon='BLANK1')
-            draw_bake_target_settings(context, brow, bt)
+                if valid_bts_exist:
+                    split.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
+                else: 
+                    split.alert = True
+                    split.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
 
-            brow = bcol.row(align=True)
-            if draw_blank: brow.label(text='', icon='BLANK1')
-            op = brow.operator('wm.y_bake_single_target', text='Bake '+bt_label, icon_value=lib.get_icon('bake'))
-            op.bake_target_index = get_bake_target_index(bt)
+        #draw_channel_bake_target_dropdown(context, channel, mcol, draw_blank)
 
 def draw_base_layer_ui(context, layout, yp, node):
     ypui = context.window_manager.ypui
@@ -5284,8 +5323,11 @@ def update_ui_and_timer(context):
 class BaseMainUI():
     def base_draw_header(self, context):
         wm = context.window_manager
+        ypui = wm.ypui
         layout = self.layout
         node = get_active_ypaint_node()
+
+        ypui.expanded_main_ui = False
 
         if not node:
             layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
@@ -5319,15 +5361,24 @@ class BaseMainUI():
                     invisible_row.label(text='', icon_value=lib.get_icon(icon_name))
 
     def base_draw_header_preset(self, context):
+        ypui = context.window_manager.ypui
         node = get_active_ypaint_node()
         if not node: return
+        yp = node.node_tree.yp
 
         layout = self.layout
 
         row = layout.row(align=True)
 
-        #row.popover("NODE_PT_ypaint_channel_popover", text='', icon_value=lib.get_icon('channels'))
-        #row.popover("NODE_PT_ypaint_bake_target_popover", text='', icon_value=lib.get_icon('bake'))
+        if not ypui.expanded_main_ui:
+            baked_found = is_baked_node_found(yp)
+            if baked_found:
+                row.prop(yp, 'use_baked', text='Use Baked', toggle=True)
+                row.separator()
+        #elif not yp.use_baked:
+
+        #    row.popover("NODE_PT_ypaint_channel_popover", text='', icon_value=lib.get_icon('channels'))
+        #    row.popover("NODE_PT_ypaint_bake_target_popover", text='', icon_value=lib.get_icon('bake'))
 
         icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
         row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
@@ -5601,9 +5652,21 @@ class VIEW3D_PT_YPaint_obj_mat_settings_ui(bpy.types.Panel, BaseObjectMaterialSe
         self.base_draw(context)
 
 class BaseChannelSettingsUI():
+    def base_draw_header(self, context):
+        ypui = bpy.context.window_manager.ypui
+        ypui.expanded_settings_ui = False
+
+    def base_draw_header_preset(self, context):
+        ypui = bpy.context.window_manager.ypui
+
+        #if ypui.expanded_settings_ui:
+        #    row = self.layout.row(align=True)
+        #    row.prop(ypui, 'active_settings', expand=True)
+
     def base_draw(self, context):
         node = get_active_ypaint_node()
         ypui = bpy.context.window_manager.ypui
+        ypui.expanded_settings_ui = True
 
         layout = self.layout
 
@@ -5625,10 +5688,19 @@ class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsU
 
     @classmethod
     def poll(cls, context):
+        #ypui = context.window_manager.ypui
+        #if not ypui.expanded_main_ui: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
-        return yp and not use_baked and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+        sculpt_mode = yp.sculpt_mode if yp else False
+        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
 
     def draw(self, context):
         self.base_draw(context)
@@ -5642,10 +5714,19 @@ class NODE_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI)
 
     @classmethod
     def poll(cls, context):
+        #ypui = context.window_manager.ypui
+        #if not ypui.expanded_main_ui: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
-        return yp and not use_baked and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+        sculpt_mode = yp.sculpt_mode if yp else False
+        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
 
     def draw(self, context):
         self.base_draw(context)
@@ -5658,10 +5739,19 @@ class NODE_PT_YPaint_legacy_channel_settings_ui(bpy.types.Panel, BaseChannelSett
 
     @classmethod
     def poll(cls, context):
+        #ypui = context.window_manager.ypui
+        #if not ypui.expanded_main_ui: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
-        return yp and not use_baked and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+        sculpt_mode = yp.sculpt_mode if yp else False
+        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
 
     def draw(self, context):
         self.base_draw(context)
@@ -5678,7 +5768,8 @@ class VIEW3D_PT_YPaint_legacy_channel_settings_tools(bpy.types.Panel, BaseChanne
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
-        return yp and not use_baked and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+        sculpt_mode = yp.sculpt_mode if yp else False
+        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
 
     def draw(self, context):
         self.base_draw(context)
@@ -6786,7 +6877,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
 
-        col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake'))
+        col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
         col.operator('wm.y_rename_ypaint_tree', text='Rename '+get_addon_title()+' Node Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()
@@ -6924,7 +7015,8 @@ class YChannelActiveBakeTargetMenu(bpy.types.Menu):
 
         chbts = get_channel_bake_target_dict(yp)
 
-        show_remove = channel.name in chbts and len(chbts[channel.name]) > 1
+        #show_remove = channel.name in chbts and len(chbts[channel.name]) > 1
+        show_remove = False
 
         if show_remove:
             row = self.layout.row()
@@ -6939,9 +7031,9 @@ class YChannelActiveBakeTargetMenu(bpy.types.Menu):
                 icon = 'RADIOBUT_ON' if channel.bake_target_name == bt.name else 'RADIOBUT_OFF'
                 col.operator('wm.y_set_channel_active_bake_target', text=bt_label, icon=icon).bake_target_name = bt.name
 
-            col.separator()
+            #col.separator()
 
-        col.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
+        #col.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
 
         if show_remove:
             col = row.column()
@@ -9240,6 +9332,9 @@ class YPaintUI(bpy.types.PropertyGroup):
         default= ''
     )
 
+    expanded_main_ui : BoolProperty(default=True)
+    expanded_settings_ui : BoolProperty(default=False)
+
 def add_new_ypaint_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}: return
     l = self.layout
@@ -9384,8 +9479,27 @@ def check_latest_extension_version():
     else:
         ypui.extension_update_state = 'UNAVAILABLE'
 
+class YGoToBakeTargetSettings(bpy.types.Operator):
+    bl_idname = "wm.y_go_to_bake_target_settings"
+    bl_label = "Go to Bake Target Settings"
+    bl_description = "Go to bake target settings"
+    #bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        ypui = context.window_manager.ypui
+        ypui.active_settings = 'BAKE_TARGETS'
+
+        bt = context.bake_target
+        yp = bt.id_data.yp
+
+        for i, b in enumerate(yp.bake_targets):
+            if b == bt:
+                yp.active_bake_target_index = i
+
+        return {'FINISHED'}
+
 class YPendingUpdate(bpy.types.Operator):
-    bl_idname = "ext.pending_update"
+    bl_idname = "ext.y_pending_update"
     bl_label = "Pending Update"
     bl_description = "Pending update"
     bl_options = {'REGISTER', 'UNDO'}
@@ -9457,6 +9571,7 @@ def register():
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
     bpy.utils.register_class(NODE_MT_copy_image_path_menu)
+    bpy.utils.register_class(YGoToBakeTargetSettings)
     bpy.utils.register_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
@@ -9566,6 +9681,7 @@ def unregister():
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
     bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
+    bpy.utils.unregister_class(YGoToBakeTargetSettings)
     bpy.utils.unregister_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
