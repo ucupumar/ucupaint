@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake, ListItem, modifier_common, Modifier, Root, Layer
+from . import Bake, ListItem, modifier_common, Modifier, Layer, channel_common
 
 def flip_tangent_sign():
     meshes = []
@@ -1195,7 +1195,7 @@ def update_yp_tree(tree):
         if color_ch_name != '':
 
             # Create alpha channel
-            alpha_ch = Root.create_new_yp_channel(tree, 'Alpha', 'VALUE', non_color=True, add_bake_target=False)
+            alpha_ch = channel_common.create_new_yp_channel(tree, 'Alpha', 'VALUE', non_color=True, add_bake_target=False)
             alpha_ch.special_channel_type = 'ALPHA'
             if backface_mode != '':
                 alpha_ch.backface_mode = backface_mode
@@ -1206,7 +1206,7 @@ def update_yp_tree(tree):
             # Move index
             color_ch = yp.channels.get(color_ch_name)
             color_idx = get_channel_index(color_ch)
-            Root.set_channel_index(alpha_ch, color_idx+1)
+            channel_common.set_channel_index(alpha_ch, color_idx+1)
 
             # Repoint after creating new data
             color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
@@ -1419,12 +1419,12 @@ def update_yp_tree(tree):
                 height_ch_name = get_unique_name('Height', yp.channels)
 
                 # Create height channel
-                height_ch = Root.create_new_yp_channel(tree, height_ch_name, 'VALUE', non_color=True, special_channel_type='HEIGHT', add_bake_target=False)
+                height_ch = channel_common.create_new_yp_channel(tree, height_ch_name, 'VALUE', non_color=True, special_channel_type='HEIGHT', add_bake_target=False)
                 height_ch.use_height_as_bump = not displacement_setup_needed
                 height_ch.enable_smooth_bump = False
 
                 # Move index
-                Root.set_channel_index(height_ch, normal_ch_idx, move_fcurves=False)
+                channel_common.set_channel_index(height_ch, normal_ch_idx, move_fcurves=False)
 
                 # Get correct indices for normal and height channel
                 height_ch_idx = normal_ch_idx
@@ -1472,12 +1472,12 @@ def update_yp_tree(tree):
                 vdm_ch_name = get_unique_name('Vector Displacement', yp.channels)
 
                 # Create vdm channel
-                vdm_ch = Root.create_new_yp_channel(tree, vdm_ch_name, 'RGB', non_color=True, special_channel_type='VDISP', add_bake_target=False)
+                vdm_ch = channel_common.create_new_yp_channel(tree, vdm_ch_name, 'RGB', non_color=True, special_channel_type='VDISP', add_bake_target=False)
 
                 # Swap index
                 vdm_ch_idx = get_channel_index(vdm_ch)
                 if vdm_ch_idx != normal_ch_idx+1:
-                    Root.set_channel_index(vdm_ch, normal_ch_idx+1)
+                    channel_common.set_channel_index(vdm_ch, normal_ch_idx+1)
                     vdm_ch_idx = normal_ch_idx + 1
 
                 # Create vdm bake target
@@ -1596,7 +1596,7 @@ def update_yp_tree(tree):
                                 height_ch = [c for c in yp.channels if c.special_channel_type == 'HEIGHT'][0]
 
                                 # Do setup
-                                disp = Root.do_displacement_node_setup(mat, node, height_ch)
+                                disp = channel_common.do_displacement_node_setup(mat, node, height_ch)
 
                                 # Update displacement node to use 1.0  scale and 0.0 midlevel
                                 if disp:
@@ -1614,7 +1614,7 @@ def update_yp_tree(tree):
                                 vdm_ch = [c for c in yp.channels if c.special_channel_type == 'VDISP'][0]
 
                                 # Do setup
-                                Root.do_displacement_node_setup(mat, node, vdm_ch, is_vector_disp=True)
+                                channel_common.do_displacement_node_setup(mat, node, vdm_ch, is_vector_disp=True)
 
                             # Hide base value since some older versions doesn't do that
                             norm_chs = [c for c in yp.channels if c.special_channel_type == 'NORMAL']

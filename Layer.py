@@ -1,7 +1,7 @@
 import bpy, time, re, os, random, numpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, BaseOperator, Decal
+from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, BaseOperator, Decal, channel_common
 from .common import *
 #from . import bake_common
 from .node_arrangements import *
@@ -807,8 +807,11 @@ class YNewVDMLayer(bpy.types.Operator):
 
         vdisp_root_ch = get_root_vdisp_channel(yp)
         if not vdisp_root_ch:
-            self.report({'ERROR'}, "There should be a Vector Displacement channel!")
-            return {'CANCELLED'}
+            #self.report({'ERROR'}, "There should be a Vector Displacement channel!")
+            #return {'CANCELLED'}
+            #bpy.ops.wm.y_auto_setup_new_ypaint_channel(mode='VDISP')
+            channel_common.auto_setup_active_yp_new_channel('VDISP')
+            vdisp_root_ch = get_root_vdisp_channel(yp)
         channel_idx = get_channel_index(vdisp_root_ch)
 
         alpha = True

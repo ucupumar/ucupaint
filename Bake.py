@@ -8,7 +8,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem, BakeInfo
+from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem, BakeInfo, channel_common
 
 UV_OUTSIDE_PREFIX = '__BAKE_TARGET_UV__'
 
@@ -3938,7 +3938,7 @@ def update_enable_baked_outside(self, context):
                             l.to_socket.default_value = max_value_node.outputs[0].default_value
 
                 if bt:
-                    disp = get_closest_disp_node_backward(output_mat, 'Displacement', False)
+                    disp = channel_common.get_closest_disp_node_backward(output_mat, 'Displacement', False)
                     if disp:
 
                         max_height = max_value_node.outputs[0].default_value if max_value_node else 1.0
@@ -4106,7 +4106,7 @@ def update_enable_baked_outside(self, context):
 
         # Recover displacement midlevel and scale
         if height_root_ch and height_root_ch.special_channel_type == 'HEIGHT':
-            disp = get_closest_disp_node_backward(output_mat, 'Displacement', False)
+            disp = channel_common.get_closest_disp_node_backward(output_mat, 'Displacement', False)
             if disp:
                 midlevel_inp = disp.inputs.get('Midlevel')
                 if midlevel_inp:
@@ -4230,62 +4230,6 @@ def update_enable_bake_to_vcol(self, context):
         yp['enable_baked_outside'] = True
     update_use_baked(self, context)
 
-def is_node_a_displacement(node, is_vector_disp=False):
-    if not is_bl_newer_than(2, 80):
-        if is_vector_disp: return None
-        return node.type == 'GROUP' and node.node_tree and node.node_tree.name == lib.BL27_DISP
-
-    if is_vector_disp: return node.type == 'VECTOR_DISPLACEMENT'
-    return node.type == 'DISPLACEMENT'
-
-def get_closest_disp_node_backward(node, socket_name='', is_vector_disp=False):
-
-    # Get input list
-    if socket_name != '':
-        inp = node.inputs.get(socket_name)
-        if not inp: return None
-        inputs = [inp]
-    else: inputs = node.inputs
-
-    # Search for displacement node
-    for inp in inputs:
-        for link in inp.links:
-            n = link.from_node
-            if is_node_a_displacement(n, is_vector_disp=is_vector_disp):
-                return n
-            else:
-                n = get_closest_disp_node_backward(n, is_vector_disp=is_vector_disp)
-                if n: return n
-
-    return None
-
-def create_displacement_node(tree, connect_to=None):
-    if is_bl_newer_than(2, 80):
-        disp = tree.nodes.new('ShaderNodeDisplacement')
-    else:
-        # Set displacement mode
-        disp = tree.nodes.new('ShaderNodeGroup')
-        disp.node_tree = get_node_tree_lib(lib.BL27_DISP)
-
-    if connect_to:
-        create_link(tree, disp.outputs[0], connect_to)
-
-    return disp
-
-def create_vector_displacement_node(tree, connect_to=None):
-    vdisp = None
-    if is_bl_newer_than(2, 80):
-        vdisp = tree.nodes.new('ShaderNodeVectorDisplacement')
-
-        # Make sure vector displacement node has 1.0 scale
-        if 'Scale' in vdisp.inputs:
-            vdisp.inputs['Scale'].default_value = 1.0
-
-    if vdisp and connect_to:
-        create_link(tree, vdisp.outputs[0], connect_to)
-
-    return vdisp
-
 def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outside=False):
 
     output_mat = get_material_output(mat)
@@ -4301,8 +4245,8 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
     vdisp_outp = node.outputs.get(height_ch.name + io_suffix['VDISP'])
     disp_mat_inp = output_mat.inputs['Displacement']
 
-    disp = get_closest_disp_node_backward(output_mat, 'Displacement')
-    vdisp = get_closest_disp_node_backward(output_mat, 'Displacement', is_vector_disp=True)
+    disp = channel_common.get_closest_disp_node_backward(output_mat, 'Displacement')
+    vdisp = channel_common.get_closest_disp_node_backward(output_mat, 'Displacement', is_vector_disp=True)
     add_disp = None
 
     if set_one or set_outside:
@@ -4319,7 +4263,7 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
         if not disp:
 
             # Create displacement node
-            disp = create_displacement_node(mat.node_tree) #, disp_mat_inp)
+            disp = channel_common.create_displacement_node(mat.node_tree) #, disp_mat_inp)
 
             disp.location.x = output_mat.location.x
             disp.location.y = node.location.y - 220
@@ -4348,7 +4292,7 @@ def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outsi
         if not vdisp:
 
             # Create displacement node
-            vdisp = create_vector_displacement_node(mat.node_tree) #, disp_mat_inp)
+            vdisp = channel_common.create_vector_displacement_node(mat.node_tree) #, disp_mat_inp)
 
             if vdisp:
                 vdisp.location.x = output_mat.location.x
