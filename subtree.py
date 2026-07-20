@@ -2091,7 +2091,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         else:
             if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
 
-        # NOTE: Normal flip node is kinda unecessary since non smooth bump don't support backface up for now
+        # NOTE: Normal flip node is kinda unnecessary since non smooth bump don't support backface up for now
         # Normal flip
         if False and not root_ch.enable_smooth_bump and not write_height:
             if is_bl_newer_than(2, 80): lib_name = lib.FLIP_BACKFACE_BUMP
