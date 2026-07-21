@@ -2395,12 +2395,12 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
                 ch.no_layer_using = not is_any_layer_using_channel(height_ch, node)
 
             if not ch.no_layer_using:
-                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB') or ch.special_channel_type in {'HEIGHT', 'VDISP'}
+                use_hdr = not ch.use_clamp or (self.use_dithering and ch.type == 'RGB' and ch.colorspace == 'SRGB') or ch.special_type in {'HEIGHT', 'VDISP'}
 
                 # NOTE: Since normal channel only bake to tangent space for now, make sure all used armature objects are in rest pose
                 armature_objs = set_related_armatures_to_rest_pose(objs) if ch.type == 'NORMAL' else []
 
-                if ch.special_channel_type == 'HEIGHT' and not self.only_active_channel:
+                if ch.special_type == 'HEIGHT' and not self.only_active_channel:
                     interpolation = 'Cubic'
                 else: interpolation = self.interpolation
 
@@ -2450,7 +2450,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
                 baked_images.append(baked.image)
 
-            if ch.special_channel_type == 'NORMAL':
+            if ch.special_type == 'NORMAL':
                 baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
                 if baked_normal_no_disp and baked_normal_no_disp.image:
 
@@ -3108,9 +3108,9 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         main_ch = yp.channels[int(self.channel_idx)]
         ch = self.layer.channels[int(self.channel_idx)]
-        if main_ch.special_channel_type == 'HEIGHT':
+        if main_ch.special_type == 'HEIGHT':
             blend_type = ch.height_blend_type
-        elif main_ch.special_channel_type == 'NORMAL':
+        elif main_ch.special_type == 'NORMAL':
             blend_type = ch.normal_blend_type
         else: blend_type = ch.blend_type
 
@@ -3173,15 +3173,15 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         merge_success = False
 
-        if layer.type == 'IMAGE' and main_ch.special_channel_type == 'VECTOR_DISPLACEMENT_MAP':
+        if layer.type == 'IMAGE' and main_ch.special_type == 'VECTOR_DISPLACEMENT_MAP':
             self.report({'ERROR'}, "Merging VDM layers is not supported yet!")
             return self.execute_operator_cancelled(context)
 
-        if layer.type == 'IMAGE' and main_ch.special_channel_type == 'HEIGHT' and (ch.use_height_as_normal or neighbor_ch.use_height_as_normal):
+        if layer.type == 'IMAGE' and main_ch.special_type == 'HEIGHT' and (ch.use_height_as_normal or neighbor_ch.use_height_as_normal):
             self.report({'ERROR'}, "Merging converted normal from height is not supported yet!")
             return self.execute_operator_cancelled(context)
 
-        if layer.type == 'IMAGE' and main_ch.special_channel_type == 'NORMAL' and ch.normal_space != 'TANGENT':
+        if layer.type == 'IMAGE' and main_ch.special_type == 'NORMAL' and ch.normal_space != 'TANGENT':
             self.report({'ERROR'}, "Merging non-tangent normal is not supported yet!")
             return self.execute_operator_cancelled(context)
 
@@ -3220,10 +3220,10 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             # Force to use mix on layer channel
             if self.force_mix_blending:
-                if main_ch.special_channel_type == 'HEIGHT':
+                if main_ch.special_type == 'HEIGHT':
                     ori_blend_type = ch.height_blend_type
                     ch.height_blend_type = 'MIX'
-                elif main_ch.special_channel_type == 'NORMAL':
+                elif main_ch.special_type == 'NORMAL':
                     ori_blend_type = ch.normal_blend_type
                     ch.normal_blend_type = 'MIX'
                 else:
@@ -3244,7 +3244,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
             # Enable normalize height for height channel
             ori_use_height_normalize = False
-            if main_ch.special_channel_type == 'HEIGHT':
+            if main_ch.special_type == 'HEIGHT':
                 ori_use_height_normalize = main_ch.use_height_normalize
                 main_ch.use_height_normalize = True
 
@@ -3276,16 +3276,16 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             #yp.alpha_auto_setup = True
 
             # Recover height normalize
-            if main_ch.special_channel_type == 'HEIGHT':
+            if main_ch.special_type == 'HEIGHT':
                 main_ch.use_height_normalize = ori_use_height_normalize
 
             if alpha_ch and ori_alpha_pair != '':
                 alpha_ch.alpha_pair_name = ori_alpha_pair
 
             if self.force_mix_blending:
-                if main_ch.special_channel_type == 'HEIGHT':
+                if main_ch.special_type == 'HEIGHT':
                     ch.height_blend_type = ori_blend_type
-                elif main_ch.special_channel_type == 'NORMAL':
+                elif main_ch.special_type == 'NORMAL':
                     ch.normal_blend_type = ori_blend_type
                 else: ch.blend_type = ori_blend_type
 
@@ -3842,7 +3842,7 @@ def update_enable_baked_outside(self, context):
                 loc_x += 200
 
             baked_normal = None
-            if ch.special_channel_type == 'NORMAL':
+            if ch.special_type == 'NORMAL':
                 baked_normal = tree.nodes.get(ch.baked_normal)
                 if baked_normal:
                     baked_normal_outside = check_new_node(mtree, ch, 'baked_normal_outside', baked_normal.bl_idname)
@@ -3905,7 +3905,7 @@ def update_enable_baked_outside(self, context):
                     con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
             # Special height sockets
-            if ch.special_channel_type == 'HEIGHT':
+            if ch.special_type == 'HEIGHT':
 
                 # Get max value node
                 max_value_node = tree.nodes.get(bt.max_value_node) if bt else None
@@ -4002,7 +4002,7 @@ def update_enable_baked_outside(self, context):
 
                             baked_soc = baked_combine_xyz.outputs[0]
 
-            if baked_soc and ch.special_channel_type == 'NORMAL':
+            if baked_soc and ch.special_type == 'NORMAL':
 
                 baked_normal = mtree.nodes.get(ch.baked_normal_outside)
                 if baked_normal:
@@ -4105,7 +4105,7 @@ def update_enable_baked_outside(self, context):
             remove_node(mtree, ch, 'baked_normal_outside', parent=bake_target_outside_frame)
 
         # Recover displacement midlevel and scale
-        if height_root_ch and height_root_ch.special_channel_type == 'HEIGHT':
+        if height_root_ch and height_root_ch.special_type == 'HEIGHT':
             disp = channel_common.get_closest_disp_node_backward(output_mat, 'Displacement', False)
             if disp:
                 midlevel_inp = disp.inputs.get('Midlevel')

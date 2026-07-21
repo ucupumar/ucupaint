@@ -132,7 +132,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
     for channel in yp.channels:
         if specific_channel and channel != specific_channel: continue
 
-        if channel.special_channel_type == 'HEIGHT':
+        if channel.special_type == 'HEIGHT':
             
             normal_ch, height_ch = get_normal_height_ch_pairs(yp)
 
@@ -164,7 +164,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
             # NOTE: Remove old node from old files
             remove_node(group_tree, channel, 'end_linear')
 
-        elif channel.special_channel_type == 'NORMAL':
+        elif channel.special_type == 'NORMAL':
             lib_name = lib.CHECK_INPUT_NORMAL
 
             start_normal_filter = replace_new_node(
@@ -193,7 +193,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 else:
                     remove_node(group_tree, channel, 'end_linear')
 
-                if channel.special_channel_type != 'VDISP' and channel.use_clamp and any_layers_using_channel(channel):
+                if channel.special_type != 'VDISP' and channel.use_clamp and any_layers_using_channel(channel):
                     clamp = group_tree.nodes.get(channel.clamp)
                     if not clamp:
                         clamp = new_mix_node(group_tree, channel, 'clamp', 'Clamp')
@@ -418,8 +418,8 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 valid_inputs, input_index, default_value=(999, 999, 999), hide_value=True, node=yp_node
             )
         elif ch.type == 'VECTOR':
-            default_value = (999, 999, 999) if ch.special_channel_type == 'NORMAL' else (0, 0, 0)
-            hide_value = ch.special_channel_type == 'NORMAL'
+            default_value = (999, 999, 999) if ch.special_type == 'NORMAL' else (0, 0, 0)
+            hide_value = ch.special_type == 'NORMAL'
             create_input(
                 group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
                 valid_inputs, input_index, default_value=default_value, hide_value=hide_value, node=yp_node
@@ -466,7 +466,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
             remove_node(group_tree, ch, 'end_backface')
 
         # Displacement IO
-        if ch.special_channel_type == 'HEIGHT':
+        if ch.special_type == 'HEIGHT':
 
             # Check if the bake target is normalized
             is_baked_normalize = is_baked_channel_normalized(ch)
@@ -883,7 +883,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 input_index += 1
 
             if layer.type != 'GROUP':
-                if root_ch.special_channel_type == 'HEIGHT':
+                if root_ch.special_type == 'HEIGHT':
                     # Height/bump distance input
                     dirty = create_prop_input(ch, 'bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
@@ -892,13 +892,13 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                     dirty = create_prop_input(ch, 'bump_midlevel', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
-                if root_ch.special_channel_type == 'NORMAL':
+                if root_ch.special_type == 'NORMAL':
 
                     # Normal map strength input
                     dirty = create_prop_input(ch, 'normal_strength', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
-                if root_ch.special_channel_type == 'VDISP':
+                if root_ch.special_type == 'VDISP':
                     dirty = create_prop_input(ch, 'vdisp_strength', valid_inputs, input_index, dirty, float_factor_input_names)
                     input_index += 1
 
@@ -935,7 +935,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 #    dirty = create_prop_input( ch, 'normal_bump_distance', valid_inputs, input_index, dirty, float_factor_input_names)
                 #    input_index += 1
 
-            if root_ch.special_channel_type == 'HEIGHT':
+            if root_ch.special_type == 'HEIGHT':
 
                 # Transition bump inputs
                 if ch.enable_transition_bump:
@@ -1030,7 +1030,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         channel_enabled = get_channel_enabled(ch, layer, root_ch) or (ch == alpha_ch and get_channel_enabled(color_ch)) or (ch == normal_ch and height_ch and height_ch.enable and height_ch.use_height_as_normal)
 
         #force_normal_input = root_ch.type == 'NORMAL' and need_prev_normal and layer_enabled
-        force_normal_input = root_ch.special_channel_type in {'NORMAL', 'HEIGHT'} and need_prev_normal and layer_enabled
+        force_normal_input = root_ch.special_type in {'NORMAL', 'HEIGHT'} and need_prev_normal and layer_enabled
 
         if channel_enabled or force_normal_input:
             dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
@@ -1056,7 +1056,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 output_index += 1
 
         # Displacement IO
-        if root_ch.special_channel_type == 'HEIGHT':
+        if root_ch.special_type == 'HEIGHT':
 
             #if channel_enabled and (root_ch.use_height_normalize or root_ch.use_height_as_bump):
             if (channel_enabled and root_ch.use_height_normalize) or force_normal_input or is_parent_using_transition_bump(layer):
@@ -1189,7 +1189,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                     input_index += 1
 
             # Displacement Input
-            if root_ch.special_channel_type == 'HEIGHT' and layer.type == 'GROUP' and (root_ch.use_height_normalize or ch.enable_transition_bump):
+            if root_ch.special_type == 'HEIGHT' and layer.type == 'GROUP' and (root_ch.use_height_normalize or ch.enable_transition_bump):
                 name = root_ch.name + io_suffix['SCALE'] + io_suffix['GROUP']
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
                 input_index += 1

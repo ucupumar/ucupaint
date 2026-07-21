@@ -202,7 +202,7 @@ def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
         root_ch = yp.channels[i]
         if has_previous_layer_channels(layer, root_ch): continue
 
-        if root_ch.special_channel_type == 'HEIGHT':
+        if root_ch.special_type == 'HEIGHT':
             io_name = root_ch.name + io_suffix['SCALE']
             if io_name in node.inputs:
                 break_input_link(tree, node.inputs[io_name])
@@ -212,7 +212,7 @@ def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
         io_name = root_ch.name
         if io_name in node.inputs:
             # Should always fill normal input
-            if root_ch.special_channel_type == 'NORMAL':
+            if root_ch.special_type == 'NORMAL':
                 create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], node.inputs[io_name])
             else:
                 break_input_link(tree, node.inputs[io_name])
@@ -405,7 +405,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                 alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
                 if col_preview:
-                    if ch.special_channel_type == 'NORMAL' and start_normal_filter:
+                    if ch.special_type == 'NORMAL' and start_normal_filter:
                         create_link(tree, start_normal_filter.outputs[0], col_preview)
                     else: create_link(tree, rgb, col_preview)
                 if alpha_preview:
@@ -418,7 +418,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         midlevel = None
         max_height = None
 
-        if ch.special_channel_type == 'HEIGHT':
+        if ch.special_type == 'HEIGHT':
             if io_max_height_name in get_essential_node(tree, TREE_START):
                 max_height = get_essential_node(tree, TREE_START)[io_max_height_name]
             else: max_height = get_essential_node(tree, ONE_VALUE)[0]
@@ -493,7 +493,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             need_prev_normal = check_need_prev_normal(layer)
 
-            if not (ch.special_channel_type in {'NORMAL', 'HEIGHT'} and need_prev_normal) and not layer_ch_enable:
+            if not (ch.special_type in {'NORMAL', 'HEIGHT'} and need_prev_normal) and not layer_ch_enable:
                 continue
 
             # UV inputs
@@ -566,7 +566,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         if end_linear and (end_linear.type != 'GROUP' or end_linear.node_tree):
             rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
 
-        if ch.special_channel_type == 'HEIGHT':
+        if ch.special_type == 'HEIGHT':
 
             end_height_normalize = nodes.get(ch.end_height_normalize)
             if end_height_normalize:
@@ -590,7 +590,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             rgb = create_link(tree, rgb, clamp.inputs[mixcol0])[mixout]
 
         # Check if height channel use bump only
-        if ch.special_channel_type in {'NORMAL', 'HEIGHT'}:
+        if ch.special_type in {'NORMAL', 'HEIGHT'}:
             normal_ch, height_ch = get_normal_height_ch_pairs(yp)
             if height_ch and height_ch.use_height_as_bump:
                 height_end_bump_process = nodes.get(height_ch.end_bump_process)
@@ -619,7 +619,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             if bt:
                 baked_node = nodes.get(bt.baked_node)
 
-                if ch.special_channel_type == 'HEIGHT':
+                if ch.special_type == 'HEIGHT':
                     if bt.height_normalize:
                         max_value_node = nodes.get(bt.max_value_node)
                         if max_value_node:
@@ -691,7 +691,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             if baked_soc:
                 rgb = baked_soc
 
-                if ch.special_channel_type == 'NORMAL':
+                if ch.special_type == 'NORMAL':
 
                     #baked_normal_no_disp = nodes.get(ch.baked_normal_no_disp)
                     #if baked_normal_no_disp and height_ch and not height_ch.use_height_as_bump:
@@ -740,7 +740,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         #if ch.type == 'RGB' and ch.enable_alpha:
         if ch.enable_alpha:
             create_link(tree, alpha, get_essential_node(tree, TREE_END)[io_alpha_name])
-        if ch.special_channel_type == 'HEIGHT':
+        if ch.special_type == 'HEIGHT':
             if max_height and io_max_height_name in get_essential_node(tree, TREE_END): create_link(tree, max_height, get_essential_node(tree, TREE_END)[io_max_height_name])
             if io_midlevel_name in get_essential_node(tree, TREE_END): 
                 create_link(tree, get_essential_node(tree, HALF_VALUE)[0], get_essential_node(tree, TREE_END)[io_midlevel_name])
@@ -1410,7 +1410,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             group_channel = source.outputs.get(soc_name)
             if group_channel: rgb = group_channel
-            elif root_ch.special_channel_type == 'NORMAL':
+            elif root_ch.special_type == 'NORMAL':
                 # Get Geometry normal if normal from group doesn't exist
                 rgb = get_essential_node(tree, GEOMETRY).get('Normal')
 
@@ -1569,7 +1569,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if ch_intensity:
                 create_link(tree, ch_intensity, intensity.inputs[1])
 
-        if root_ch.special_channel_type == 'NORMAL':
+        if root_ch.special_type == 'NORMAL':
 
             if normal_proc:
                 ch_normal_strength = get_essential_node(tree, TREE_START).get(get_entity_input_name(ch, 'normal_strength'))
@@ -1620,7 +1620,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     if bitangent and 'Bitangent' in blend.inputs: create_link(tree, bitangent, blend.inputs['Bitangent'])
 
         # Special height channel
-        if root_ch.special_channel_type == 'HEIGHT':
+        if root_ch.special_type == 'HEIGHT':
             prev_max_height = get_essential_node(tree, TREE_START).get(root_ch.name + io_suffix['SCALE'])
             next_max_height = get_essential_node(tree, TREE_END).get(root_ch.name + io_suffix['SCALE'])
 
@@ -1746,7 +1746,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if tb_crease_factor and 'Crease Factor' in max_height_calc.inputs:
                     create_link(tree, tb_crease_factor, max_height_calc.inputs['Crease Factor'])
 
-        if root_ch.special_channel_type == 'VDISP':
+        if root_ch.special_type == 'VDISP':
 
             vdisp_flip_yz = tree.nodes.get(ch.vdisp_flip_yz)
             if vdisp_flip_yz:
@@ -1917,9 +1917,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else: next_alpha = get_essential_node(tree, TREE_END).get(root_alpha_ch.name)
         else: next_alpha = get_essential_node(tree, TREE_END).get(root_ch.name + io_suffix['ALPHA'])
 
-        if root_ch.special_channel_type == 'NORMAL':
+        if root_ch.special_type == 'NORMAL':
             blend_type = ch.normal_blend_type
-        elif root_ch.special_channel_type == 'HEIGHT':
+        elif root_ch.special_type == 'HEIGHT':
             blend_type = ch.height_blend_type
         else: blend_type = ch.blend_type
 
@@ -2027,11 +2027,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             elif root_ch == yp.channels[yp.active_channel_index]:
                 col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                 if col_preview:
-                    if root_ch.special_channel_type == 'NORMAL' and normal_proc: 
+                    if root_ch.special_type == 'NORMAL' and normal_proc: 
                         create_link(tree, normal_proc.outputs[0], col_preview)
-                    elif root_ch.special_channel_type == 'HEIGHT' and height_proc: 
+                    elif root_ch.special_type == 'HEIGHT' and height_proc: 
                         create_link(tree, height_proc.outputs[0], col_preview)
-                    elif root_ch.special_channel_type == 'VDISP' and vdisp_proc: 
+                    elif root_ch.special_type == 'VDISP' and vdisp_proc: 
                         _, _, mixout = get_mix_color_indices(vdisp_proc)
                         create_link(tree, vdisp_proc.outputs[mixout], col_preview)
                     else: create_link(tree, rgb, col_preview)

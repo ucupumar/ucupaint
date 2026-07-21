@@ -2783,7 +2783,7 @@ def get_transition_bump_channel(layer):
     bump_ch = None
     for i, ch in enumerate(layer.channels):
         #if yp.channels[i].type == 'NORMAL' and ch.enable and ch.enable_transition_bump:
-        if yp.channels[i].special_channel_type == 'HEIGHT' and ch.enable and ch.enable_transition_bump:
+        if yp.channels[i].special_type == 'HEIGHT' and ch.enable and ch.enable_transition_bump:
             bump_ch = ch
             break
 
@@ -2795,7 +2795,7 @@ def get_showed_transition_bump_channel(layer):
 
     bump_ch = None
     for i, ch in enumerate(layer.channels):
-        if yp.channels[i].special_channel_type == 'HEIGHT' and ch.show_transition_bump:
+        if yp.channels[i].special_type == 'HEIGHT' and ch.show_transition_bump:
             bump_ch = ch
             break
 
@@ -3330,7 +3330,7 @@ def has_channel_children(layer, root_ch):
     # Get normal height channel pair index
     normal_ch_idx = -1
     height_ch_idx = -1
-    if root_ch.special_channel_type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
         normal_ch, height_ch = get_normal_height_ch_pairs(yp)
         
         normal_ch_idx = get_channel_index(normal_ch) if normal_ch else -1
@@ -4123,21 +4123,21 @@ def get_root_parallax_channel(yp):
 
 def get_root_normal_channel(yp):
     for ch in yp.channels:
-        if ch.special_channel_type == 'NORMAL':
+        if ch.special_type == 'NORMAL':
             return ch
 
     return None
 
 def get_root_height_channel(yp):
     for ch in yp.channels:
-        if ch.special_channel_type == 'HEIGHT':
+        if ch.special_type == 'HEIGHT':
             return ch
 
     return None
 
 def get_root_vdisp_channel(yp):
     for ch in yp.channels:
-        if ch.special_channel_type == 'VDISP':
+        if ch.special_type == 'VDISP':
             return ch
 
     return None
@@ -4148,7 +4148,7 @@ def get_height_channel(layer):
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        if root_ch.special_channel_type == 'HEIGHT':
+        if root_ch.special_type == 'HEIGHT':
             return ch
 
     return None
@@ -4158,7 +4158,7 @@ def get_normal_channel(layer):
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        if root_ch.special_channel_type == 'NORMAL':
+        if root_ch.special_type == 'NORMAL':
             return ch
 
     return None
@@ -4169,7 +4169,7 @@ def get_vdisp_channel(layer):
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        if root_ch.special_channel_type == 'VDISP':
+        if root_ch.special_type == 'VDISP':
             return ch
 
     return None
@@ -5342,7 +5342,7 @@ def set_active_paint_slot_entity(yp):
 
         ch = yp.channels[yp.active_channel_index]
         image = get_active_baked_channel_image(ch)
-        #if ch.special_channel_type == 'NORMAL':
+        #if ch.special_type == 'NORMAL':
         #    cur_image = get_active_paint_slot_image()
 
         #    # Cycle through all baked normal images
@@ -6761,7 +6761,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
         if ( 
             not ch.override
             and ch.gamma_space 
-            and root_ch.special_channel_type != 'NORMAL' 
+            and root_ch.special_type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
             and socket_input_name == 'Color' 
             and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'}
@@ -6772,7 +6772,7 @@ def get_layer_channel_gamma_value(ch, layer=None, root_ch=None, channel_source=N
         #if not ch.override_1 and image and is_image_source_srgb(image, source) and root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
         #    return 1.0 / GAMMA
 
-        if image and is_image_source_srgb(image, source) and root_ch.special_channel_type == 'NORMAL' and (not ch.override or ch.override_type == 'IMAGE'):
+        if image and is_image_source_srgb(image, source) and root_ch.special_type == 'NORMAL' and (not ch.override or ch.override_type == 'IMAGE'):
             return 1.0 / GAMMA
 
         # NOTE: These two gamma correction are unused yet for simplicity and older file compatibility
@@ -7555,7 +7555,7 @@ def remove_channel_fcurves(root_ch):
         idx = get_tree_input_index_by_name(tree, root_ch.name + io_suffix['ALPHA'])
         if idx != -1: indices.append(idx)
 
-    if root_ch.special_channel_type == 'HEIGHT' and root_ch.use_height_normalize:
+    if root_ch.special_type == 'HEIGHT' and root_ch.use_height_normalize:
         idx = get_tree_input_index_by_name(tree, root_ch.name + io_suffix['MIDLEVEL'])
         if idx != -1: indices.append(idx)
 
@@ -7675,7 +7675,7 @@ def shift_channel_fcurves(yp, start_index=1, direction='UP', remove_ch_mode=True
     if remove_ch_mode and start_index < len(yp.channels) and shifter < 0:
         if yp.channels[start_index].enable_alpha:
             shifter -= 1
-        #if yp.channels[start_index].special_channel_type == 'HEIGHT' and yp.channels[start_index].use_height_normalize:
+        #if yp.channels[start_index].special_type == 'HEIGHT' and yp.channels[start_index].use_height_normalize:
         #    shifter -= 1
 
     for mat in bpy.data.materials:
@@ -8472,7 +8472,7 @@ def get_alpha_channel_pair(root_ch):
     # Look for alpha channel
     alpha_channel = None
     for ch in yp.channels:
-        if ch.special_channel_type == 'ALPHA' and ch.alpha_pair_name == root_ch.name:
+        if ch.special_type == 'ALPHA' and ch.alpha_pair_name == root_ch.name:
             return ch
 
     return None
@@ -8482,7 +8482,7 @@ def is_channel_alpha_enabled(root_ch):
 
 def get_alpha_channel(yp):
     for ch in yp.channels:
-        if ch.special_channel_type == 'ALPHA' and yp.channels.get(ch.alpha_pair_name):
+        if ch.special_type == 'ALPHA' and yp.channels.get(ch.alpha_pair_name):
             return ch
 
     return None
@@ -8526,7 +8526,7 @@ def get_normal_height_ch_pairs(yp):
     height_ch = get_root_height_channel(yp)
     # Look for normal channel
     normal_ch = None
-    chs = [ch for ch in yp.channels if ch.special_channel_type == 'NORMAL']
+    chs = [ch for ch in yp.channels if ch.special_type == 'NORMAL']
     if any(chs): normal_ch = chs[0]
 
     if not normal_ch:
@@ -8681,9 +8681,9 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         channels = get_bake_target_channels(bt)
-        any_normal_ch = any([c for c in channels if c.special_channel_type == 'NORMAL'])
-        any_height_ch = any([c for c in channels if c.special_channel_type == 'HEIGHT'])
-        any_non_clamped_ch = any([c for c in channels if not c.use_clamp and c.special_channel_type not in {'HEIGHT', 'NORMAL'}])
+        any_normal_ch = any([c for c in channels if c.special_type == 'NORMAL'])
+        any_height_ch = any([c for c in channels if c.special_type == 'HEIGHT'])
+        any_non_clamped_ch = any([c for c in channels if not c.use_clamp and c.special_type not in {'HEIGHT', 'NORMAL'}])
         any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
 
     obj = context.object

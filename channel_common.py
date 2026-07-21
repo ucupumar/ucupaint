@@ -57,7 +57,7 @@ def check_yp_channel_nodes(yp, reconnect=False):
         reconnect_yp_nodes(yp.id_data)
         rearrange_yp_nodes(yp.id_data)
 
-def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False, special_channel_type='NONE', add_bake_target=True):
+def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False, special_type='NONE', add_bake_target=True):
     yp = group_tree.yp
 
     yp.halt_reconnect = True
@@ -68,7 +68,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     channel.original_name = name
     channel.bake_to_vcol_name = 'Baked ' + channel.name
     channel.type = channel_type
-    channel.special_channel_type = special_channel_type
+    channel.special_type = special_type
 
     # Get last index
     last_index = len(yp.channels) - 1
@@ -81,7 +81,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         layer.channels[last_index].enable = enable
 
         # For normal channel, set default channel override color to default normal
-        if special_channel_type == 'NORMAL':
+        if special_type == 'NORMAL':
             layer.channels[last_index].override_color = (0.5, 0.5, 1.0)
 
     if channel_type in {'RGB', 'VALUE'}:
@@ -95,7 +95,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
     # Special Bake target setup
     alpha_bt_setup = False
-    if special_channel_type == 'ALPHA':
+    if special_type == 'ALPHA':
         color_chs = [c for c in yp.channels if c.type == 'RGB']
         if any(color_chs): 
             color_bt = add_alpha_to_color_bt(color_chs[0], channel)
@@ -127,10 +127,10 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         # Set denoise default values
         bt.denoise = False
 
-        if special_channel_type == 'HEIGHT':
+        if special_type == 'HEIGHT':
             bt.interpolation = 'Cubic'
 
-        if special_channel_type == 'NORMAL':
+        if special_type == 'NORMAL':
             bt.fxaa = False
 
             # Extra normal without bump if height channel exists
@@ -199,7 +199,7 @@ def set_input_default_value(group_node, channel, custom_value=None):
         if inp: group_node.inputs[io_name].default_value = inp.default_value
 
     if channel.type == 'VECTOR':
-        if channel.special_channel_type == 'NORMAL':
+        if channel.special_type == 'NORMAL':
             # Use 999 as normal z value so it will fallback to use geometry normal at checking process
             group_node.inputs[channel.name].default_value = (999, 999, 999)
         else: group_node.inputs[channel.name].default_value = (0.0, 0.0, 0.0)
@@ -556,7 +556,7 @@ def make_channel_as_alpha(mat, node, channel, do_setup=False, move_index=False, 
     if channel.type != 'VALUE': return
 
     # Mark channel as alpha
-    channel.special_channel_type = 'ALPHA'
+    channel.special_type = 'ALPHA'
 
     color_ch = None
     color_idx = -1
@@ -683,7 +683,7 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
         return "Channel named '"+ch_name+"' is already available!"
 
     if mode in {'ALPHA', 'HEIGHT', 'VDISP'}:
-        existing_special_channels = [c for c in yp.channels if c.special_channel_type == mode]
+        existing_special_channels = [c for c in yp.channels if c.special_type == mode]
         if any(existing_special_channels):
             return "Special channel already exists ('"+existing_special_channels[0].name+"')!"
 
@@ -717,9 +717,9 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
                 yp.use_baked = True
             return "There's no proper normal input found in the material nodes!"
 
-    special_channel_type = 'NONE'
+    special_type = 'NONE'
     if mode in {'HEIGHT', 'NORMAL', 'VDISP'}:
-        special_channel_type = mode
+        special_type = mode
 
     orm_bt = None
     # Get ORM Bake target
@@ -735,7 +735,7 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
     add_bake_target = mode not in {'ALPHA', 'AO'} or (mode == 'AO' and not orm_bt)
 
     # Create new channel
-    channel = create_new_yp_channel(group_tree, ch_name, ch_type, non_color=True, special_channel_type=special_channel_type, add_bake_target=add_bake_target)
+    channel = create_new_yp_channel(group_tree, ch_name, ch_type, non_color=True, special_type=special_type, add_bake_target=add_bake_target)
     actual_ch_name = channel.name
 
     # Add AO to ORM bake target

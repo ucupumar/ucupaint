@@ -410,7 +410,7 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
         yp = node.node_tree.yp if node else None
         try: ch = yp.channels[yp.active_channel_index] if yp else None
         except: ch = None
-        if ch and ch.special_channel_type == 'HEIGHT':
+        if ch and ch.special_type == 'HEIGHT':
             ch.use_height_as_bump = True
 
         return {'FINISHED'}
@@ -586,7 +586,7 @@ class YQuickDisplacementSetup(bpy.types.Operator):
         yp = node.node_tree.yp if node else None
         if yp:
             for ch in yp.channels:
-                if ch and ch.special_channel_type == 'HEIGHT':
+                if ch and ch.special_type == 'HEIGHT':
                     ch.use_height_as_bump = False
 
         return {'FINISHED'}
@@ -883,7 +883,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             ch_color = channel_common.create_new_yp_channel(group_tree, 'Color', 'RGB', non_color=False)
 
         if ch_color and self.enable_alpha:
-            ch_alpha = channel_common.create_new_yp_channel(group_tree, 'Alpha', 'VALUE', non_color=True, special_channel_type='ALPHA')
+            ch_alpha = channel_common.create_new_yp_channel(group_tree, 'Alpha', 'VALUE', non_color=True, special_type='ALPHA')
             group_tree.yp.halt_update = True
             ch_alpha.alpha_pair_name = ch_color.name
             group_tree.yp.halt_update = False
@@ -899,15 +899,15 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 ch_roughness = channel_common.create_new_yp_channel(group_tree, 'Roughness', 'VALUE', non_color=True)
 
             if self.enable_height:
-                ch_height = channel_common.create_new_yp_channel(group_tree, 'Height', 'VALUE', non_color=True, special_channel_type='HEIGHT')
+                ch_height = channel_common.create_new_yp_channel(group_tree, 'Height', 'VALUE', non_color=True, special_type='HEIGHT')
                 channel_common.set_default_height_channel_prop(ch_height)
 
             if self.enable_normal:
                 #ch_normal = channel_common.create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
-                ch_normal = channel_common.create_new_yp_channel(group_tree, 'Normal', 'VECTOR', special_channel_type='NORMAL')
+                ch_normal = channel_common.create_new_yp_channel(group_tree, 'Normal', 'VECTOR', special_type='NORMAL')
 
             if self.enable_vector_displacement:
-                ch_vdisp = channel_common.create_new_yp_channel(group_tree, 'Vector Displacement', 'RGB', non_color=True, special_channel_type='VDISP')
+                ch_vdisp = channel_common.create_new_yp_channel(group_tree, 'Vector Displacement', 'RGB', non_color=True, special_type='VDISP')
 
         # Update io
         check_all_channel_ios(group_tree.yp, yp_node=node)
@@ -1419,10 +1419,10 @@ class YSetChannelSpecialType(bpy.types.Operator, BaseOperator.BlendMethodOptions
         channel = context.channel
         yp = channel.id_data.yp
 
-        if self.type == channel.special_channel_type:
+        if self.type == channel.special_type:
             return {'CANCELLED'}
 
-        rna_property = channel.bl_rna.properties['special_channel_type']
+        rna_property = channel.bl_rna.properties['special_type']
         enum_item = rna_property.enum_items[self.type]
         ch_label = enum_item.name
 
@@ -1431,7 +1431,7 @@ class YSetChannelSpecialType(bpy.types.Operator, BaseOperator.BlendMethodOptions
         if self.type != 'NONE':
             for ch in yp.channels:
                 if ch == channel: continue
-                if ch.special_channel_type == self.type:
+                if ch.special_type == self.type:
                     existing_special_ch_name = ch.name
 
         if existing_special_ch_name != '':
@@ -1439,10 +1439,10 @@ class YSetChannelSpecialType(bpy.types.Operator, BaseOperator.BlendMethodOptions
             return {'CANCELLED'}
 
         # Disable smooth bump by default
-        if self.type == 'HEIGHT' and channel.special_channel_type != 'HEIGHT':
+        if self.type == 'HEIGHT' and channel.special_type != 'HEIGHT':
             channel_common.set_default_height_channel_prop(channel)
 
-        channel.special_channel_type = self.type
+        channel.special_type = self.type
 
         check_all_channel_ios(yp)
 
@@ -2545,7 +2545,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
                 #ext = os.path.splitext(path)[1]
                 #baked.image.filepath = os.path.dirname(path) + baked.image.name + ext
 
-            if ch.special_channel_type == 'NORMAL':
+            if ch.special_type == 'NORMAL':
                 #baked_disp = tree.nodes.get(ch.baked_disp)
                 #if baked_disp and baked_disp.image:
                 #    baked_disp.image = baked_disp.image.copy()
@@ -2906,7 +2906,7 @@ def update_channel_name(self, context):
 
         get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['ALPHA']
 
-    if self.special_channel_type == 'HEIGHT':
+    if self.special_type == 'HEIGHT':
         if self.use_height_normalize:
             get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['SCALE']
             input_shift += 1
@@ -3163,7 +3163,7 @@ def update_layer_preview_mode(self, context):
             normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer) if layer else None, None
 
             #if channel.type == 'NORMAL' and ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
-            if channel.special_channel_type == 'NORMAL':
+            if channel.special_type == 'NORMAL':
                 preview = get_preview(mat, output, True, True, normal_space=yp.preview_mode_normal_space)
             else:
                 preview = get_preview(mat, output, True)
@@ -3258,7 +3258,7 @@ def update_preview_mode(self, context):
 
         # Use special preview for normal
         #if channel.type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
-        if channel.special_channel_type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
+        if channel.special_type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
             preview = get_preview(mat, output, False, True, normal_space=yp.preview_mode_normal_space)
         else: preview = get_preview(mat, output, False)
 
@@ -3940,7 +3940,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
         default=False
     )
 
-    special_channel_type : EnumProperty(
+    special_type : EnumProperty(
         name = 'Special Channel Type',
         description = 'Special channel type',
         items = (

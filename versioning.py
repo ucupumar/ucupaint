@@ -296,11 +296,11 @@ def create_bake_target_from_channel(ch, baked_node=None, use_vcol=False, bt_name
             bt.use_custom_resolution = True
     else:
         # Set some default props
-        bt.fxaa = ch.special_channel_type != 'NORMAL'
+        bt.fxaa = ch.special_type != 'NORMAL'
         bt.denoise = False
 
     # Make sure height bake target uses cubic by default
-    if ch.special_channel_type == 'HEIGHT':
+    if ch.special_type == 'HEIGHT':
         bt.interpolation = 'Cubic' if not baked_node else baked_node.interpolation
 
     return bt
@@ -1196,7 +1196,7 @@ def update_yp_tree(tree):
 
             # Create alpha channel
             alpha_ch = channel_common.create_new_yp_channel(tree, 'Alpha', 'VALUE', non_color=True, add_bake_target=False)
-            alpha_ch.special_channel_type = 'ALPHA'
+            alpha_ch.special_type = 'ALPHA'
             if backface_mode != '':
                 alpha_ch.backface_mode = backface_mode
             yp.halt_update = True
@@ -1358,12 +1358,12 @@ def update_yp_tree(tree):
 
                 # Replace normal channel to vector type with normal special type
                 ch.type = 'VECTOR'
-                ch.special_channel_type = 'NORMAL'
+                ch.special_type = 'NORMAL'
 
             # Convert alpha channel
             if ch.is_alpha:
                 yp.halt_update = True
-                ch.special_channel_type = 'ALPHA'
+                ch.special_type = 'ALPHA'
                 alpha_ch = ch
                 yp.halt_update = False
 
@@ -1419,7 +1419,7 @@ def update_yp_tree(tree):
                 height_ch_name = get_unique_name('Height', yp.channels)
 
                 # Create height channel
-                height_ch = channel_common.create_new_yp_channel(tree, height_ch_name, 'VALUE', non_color=True, special_channel_type='HEIGHT', add_bake_target=False)
+                height_ch = channel_common.create_new_yp_channel(tree, height_ch_name, 'VALUE', non_color=True, special_type='HEIGHT', add_bake_target=False)
                 height_ch.use_height_as_bump = not displacement_setup_needed
                 height_ch.enable_smooth_bump = False
 
@@ -1472,7 +1472,7 @@ def update_yp_tree(tree):
                 vdm_ch_name = get_unique_name('Vector Displacement', yp.channels)
 
                 # Create vdm channel
-                vdm_ch = channel_common.create_new_yp_channel(tree, vdm_ch_name, 'RGB', non_color=True, special_channel_type='VDISP', add_bake_target=False)
+                vdm_ch = channel_common.create_new_yp_channel(tree, vdm_ch_name, 'RGB', non_color=True, special_type='VDISP', add_bake_target=False)
 
                 # Swap index
                 vdm_ch_idx = get_channel_index(vdm_ch)
@@ -1593,7 +1593,7 @@ def update_yp_tree(tree):
 
                             if bump_found:
                                 # Getting the channel again just in case
-                                height_ch = [c for c in yp.channels if c.special_channel_type == 'HEIGHT'][0]
+                                height_ch = [c for c in yp.channels if c.special_type == 'HEIGHT'][0]
 
                                 # Do setup
                                 disp = channel_common.do_displacement_node_setup(mat, node, height_ch)
@@ -1611,13 +1611,13 @@ def update_yp_tree(tree):
 
                             if vdm_found:
                                 # Getting the channel again just in case
-                                vdm_ch = [c for c in yp.channels if c.special_channel_type == 'VDISP'][0]
+                                vdm_ch = [c for c in yp.channels if c.special_type == 'VDISP'][0]
 
                                 # Do setup
                                 channel_common.do_displacement_node_setup(mat, node, vdm_ch, is_vector_disp=True)
 
                             # Hide base value since some older versions doesn't do that
-                            norm_chs = [c for c in yp.channels if c.special_channel_type == 'NORMAL']
+                            norm_chs = [c for c in yp.channels if c.special_type == 'NORMAL']
                             if norm_chs:
                                 norm_ch = norm_chs[0]
                                 inp = get_tree_input_by_name(node.node_tree, norm_ch.name)

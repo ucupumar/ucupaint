@@ -66,7 +66,7 @@ def show_transition(self, context, ttype):
 
     if ttype == 'BUMP':
 
-        if root_ch.special_channel_type != 'HEIGHT': 
+        if root_ch.special_type != 'HEIGHT': 
             self.report({'ERROR'}, "Transition bump only works on height channel!")
             return {'CANCELLED'}
 
@@ -199,11 +199,11 @@ class YHideTransitionEffect(bpy.types.Operator):
         root_ch = yp.channels[int(match.group(2))]
         ch = context.parent
 
-        if self.type == 'BUMP' and root_ch.special_channel_type != 'HEIGHT':
+        if self.type == 'BUMP' and root_ch.special_type != 'HEIGHT':
             self.report({'ERROR'}, "Context is incorrect!")
             return {'CANCELLED'}
 
-        if self.type != 'BUMP' and root_ch.special_channel_type == 'HEIGHT':
+        if self.type != 'BUMP' and root_ch.special_type == 'HEIGHT':
             self.report({'ERROR'}, "Context is incorrect!")
             return {'CANCELLED'}
 

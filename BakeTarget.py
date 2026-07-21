@@ -265,7 +265,7 @@ def add_new_channel_bake_target(context, channel, name='', data_type='IMAGE'):
     bt.a.default_value = 1.0
 
     # Set default props
-    if channel.special_channel_type != 'NORMAL':
+    if channel.special_type != 'NORMAL':
         bt.fxaa = True
     bt.denoise = False
 
@@ -439,7 +439,7 @@ def check_channel_bake_target_nodes(yp):
             baked_combine_xyz = check_new_node(tree, ch, 'baked_combine_xyz', 'ShaderNodeCombineXYZ')
         else: remove_node(tree, ch, 'baked_combine_xyz')
 
-        if ch in validated_chs and ch.special_channel_type == 'NORMAL' and ch.name in uv_map_dict:
+        if ch in validated_chs and ch.special_type == 'NORMAL' and ch.name in uv_map_dict:
             baked_normal = check_new_node(tree, ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
             baked_normal.uv_map = uv_map_dict[ch.name]
 
@@ -830,7 +830,7 @@ class YNewBakeTarget(bpy.types.Operator):
 
             elif self.preset == 'DX_NORMAL':
                 for ch in yp.channels:
-                    if ch.special_channel_type == 'NORMAL':
+                    if ch.special_type == 'NORMAL':
                         bt.r.channel_name = ch.name
                         bt.g.channel_name = ch.name
                         bt.b.channel_name = ch.name

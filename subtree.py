@@ -616,13 +616,13 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 if remove_node(tree, c, 'mix_remains'): need_reconnect = True
                 if remove_node(tree, c, 'mix_limit'): need_reconnect = True
                 if remove_node(tree, c, 'mix_limit_normal'): need_reconnect = True
-                if root_ch.special_channel_type == 'HEIGHT':
+                if root_ch.special_type == 'HEIGHT':
                     if remove_node(tree, c, 'mix_pure'): need_reconnect = True
                     if remove_node(tree, c, 'mix_normal'): need_reconnect = True
                     if remove_node(tree, c, 'mix_vdisp'): need_reconnect = True
                 continue
 
-            if (root_ch.special_channel_type == 'HEIGHT' and root_ch.enable_smooth_bump and height_process_needed and
+            if (root_ch.special_type == 'HEIGHT' and root_ch.enable_smooth_bump and height_process_needed and
                 (write_height or (not write_height and i < chain))
                 ):
                 mix = tree.nodes.get(c.mix)
@@ -649,7 +649,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
                     set_mix_clamp(mix, True)
 
-            if root_ch.special_channel_type == 'HEIGHT':
+            if root_ch.special_type == 'HEIGHT':
 
                 if i >= chain and trans_bump and ch == trans_bump:
                     mix_pure = tree.nodes.get(c.mix_pure)
@@ -732,7 +732,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
             if layer.type in {'GROUP', 'PREV_LAYERS'} and mask.blend_type in limited_mask_blend_types:
 
-                if root_ch.special_channel_type != 'HEIGHT' or not root_ch.enable_smooth_bump and height_process_needed:
+                if root_ch.special_type != 'HEIGHT' or not root_ch.enable_smooth_bump and height_process_needed:
                     mix_limit = tree.nodes.get(c.mix_limit)
                     if not mix_limit:
                         need_reconnect = True
@@ -742,7 +742,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 else:
                     if remove_node(tree, c, 'mix_limit'): need_reconnect = True
 
-                if root_ch.special_channel_type == 'HEIGHT':
+                if root_ch.special_type == 'HEIGHT':
                     mix_limit_normal = tree.nodes.get(c.mix_limit_normal)
                     if not mix_limit_normal:
                         need_reconnect = True
@@ -1941,7 +1941,7 @@ def check_layer_height_channel_nodes(tree, layer, root_ch, ch, need_reconnect=Fa
     if check_mask_mix_nodes(layer, tree): need_reconnect = True
 
     # Only height channel will continue proceed with this function
-    if root_ch.special_channel_type != 'HEIGHT': return need_reconnect
+    if root_ch.special_type != 'HEIGHT': return need_reconnect
 
     channel_enabled = get_channel_enabled(ch, layer, root_ch)
     height_process_needed = is_height_process_needed(layer)
@@ -2098,7 +2098,7 @@ def check_channel_vdisp_nodes(tree, layer, root_ch, ch, need_reconnect=False):
     yp = layer.id_data.yp
 
     # Only normal channel will continue proceed with this function
-    if root_ch.special_channel_type != 'VDISP': return need_reconnect
+    if root_ch.special_type != 'VDISP': return need_reconnect
 
     channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
@@ -2616,9 +2616,9 @@ def check_blend_type_nodes(root_ch, layer, ch):
     channel_enabled = is_blend_node_needed(ch, layer, root_ch)
 
     # Background layer always using mix blend type
-    if root_ch.special_channel_type == 'HEIGHT':
+    if root_ch.special_type == 'HEIGHT':
         blend_type = ch.height_blend_type
-    elif root_ch.special_channel_type == 'NORMAL':
+    elif root_ch.special_type == 'NORMAL':
         blend_type = ch.normal_blend_type
     elif layer.type == 'BACKGROUND':
         blend_type = 'MIX'
@@ -2647,7 +2647,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     if root_ch.type in {'RGB', 'VALUE'}:
         if channel_enabled:
-            if root_ch.special_channel_type == 'HEIGHT':
+            if root_ch.special_type == 'HEIGHT':
                 blend, need_reconnect = set_height_blend_node(tree, layer, root_ch, ch, prop_name='blend', blend_type=blend_type, need_reconnect=need_reconnect)
             elif root_ch.type == 'RGB':
                 if (has_parent or is_channel_alpha_enabled(root_ch)) and blend_type == 'MIX':
@@ -2710,7 +2710,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
             if remove_node(tree, ch, 'blend'): need_reconnect = True
             if remove_node(tree, ch, 'extra_alpha'): need_reconnect = True
 
-    elif root_ch.special_channel_type == 'NORMAL':
+    elif root_ch.special_type == 'NORMAL':
         if channel_enabled:
 
             #lib_name = lib.VECTOR_MIX

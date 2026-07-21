@@ -213,18 +213,18 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, ch.vdisp_blend, frame)
         check_set_node_parent(tree, ch.blend, frame)
 
-        if root_ch.special_channel_type == 'HEIGHT':
+        if root_ch.special_type == 'HEIGHT':
             check_set_node_parent(tree, ch.bump_distance_ignorer, frame)
             check_set_node_parent(tree, ch.tb_distance_flipper, frame)
             check_set_node_parent(tree, ch.tb_delta_calc, frame)
             check_set_node_parent(tree, ch.height_proc, frame)
             check_set_node_parent(tree, ch.max_height_calc, frame)
 
-        if root_ch.special_channel_type == 'NORMAL':
+        if root_ch.special_type == 'NORMAL':
             check_set_node_parent(tree, ch.normal_proc, frame)
             check_set_node_parent(tree, ch.normal_overlay, frame)
 
-        if root_ch.special_channel_type == 'VDISP':
+        if root_ch.special_type == 'VDISP':
             check_set_node_parent(tree, ch.vdisp_flip_yz, frame)
             check_set_node_parent(tree, ch.vdisp_proc, frame)
 
@@ -1601,7 +1601,7 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, ch.group_alpha_multiply, loc):
             loc.x += 200
 
-        if root_ch.special_channel_type == 'HEIGHT':
+        if root_ch.special_type == 'HEIGHT':
             if check_set_node_loc(tree, ch.bump_distance_ignorer, loc):
                 loc.x += 200
 
@@ -1617,14 +1617,14 @@ def rearrange_layer_nodes(layer, tree=None):
             if check_set_node_loc(tree, ch.max_height_calc, loc):
                 loc.x += 200
 
-        elif root_ch.special_channel_type == 'NORMAL':
+        elif root_ch.special_type == 'NORMAL':
             if check_set_node_loc(tree, ch.normal_proc, loc):
                 loc.x += 200
 
             if check_set_node_loc(tree, ch.normal_overlay, loc):
                 loc.x += 200
 
-        elif root_ch.special_channel_type == 'VDISP':
+        elif root_ch.special_type == 'VDISP':
             if check_set_node_loc(tree, ch.vdisp_flip_yz, loc):
                 loc.x += 200
 

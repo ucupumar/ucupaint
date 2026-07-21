@@ -542,7 +542,7 @@ def prepare_other_objs_channels(yp, other_objs):
         for o in other_objs:
 
             # Normal channel will always use any objects
-            if ch.special_channel_type == 'NORMAL':
+            if ch.special_type == 'NORMAL':
                 objs.append(o)
                 continue
 
@@ -1864,7 +1864,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
     # Create setup nodes
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
-    if root_ch.special_channel_type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
         if is_bl_newer_than(2, 80) and not is_bl_newer_than(3):
@@ -1880,7 +1880,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
 
     # Links to bake
     rgb = node.outputs[root_ch.name]
-    if root_ch.special_channel_type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
         rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
 
     if extra_channel:
@@ -1959,7 +1959,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, emit)
-    if root_ch.special_channel_type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
         simple_remove_node(mat.node_tree, norm)
 
     if extra_channel:
@@ -2419,12 +2419,12 @@ def get_bake_target_default_color(node, bt, any_linear_ch):
         btc = getattr(bt, letter)
         root_ch = yp.channels.get(btc.channel_name)
         if root_ch:
-            if root_ch.special_channel_type == 'NORMAL':
+            if root_ch.special_type == 'NORMAL':
                 if btc.subchannel_index in {'0', '1'}:
                     color.append(0.5)
                 else: color.append(1.0)
 
-            elif root_ch.special_channel_type == 'HEIGHT' and (root_ch.use_height_normalize or bt.height_normalize):
+            elif root_ch.special_type == 'HEIGHT' and (root_ch.use_height_normalize or bt.height_normalize):
                 color.append(0.5)
 
             elif root_ch.type == 'VALUE':
@@ -2498,10 +2498,10 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     normal_root_ch = get_root_normal_channel(yp)
     height_root_ch = get_root_height_channel(yp)
 
-    any_linear_ch = any([c for c in channels if c.colorspace == 'LINEAR' or c.special_channel_type == 'NORMAL'])
-    any_normal_ch = any([c for c in channels if c.special_channel_type == 'NORMAL'])
-    any_height_ch = any([c for c in channels if c.special_channel_type == 'HEIGHT'])
-    any_non_clamped_ch = any([c for c in channels if c.use_clamp and c.special_channel_type not in {'HEIGHT', 'NORMAL'}])
+    any_linear_ch = any([c for c in channels if c.colorspace == 'LINEAR' or c.special_type == 'NORMAL'])
+    any_normal_ch = any([c for c in channels if c.special_type == 'NORMAL'])
+    any_height_ch = any([c for c in channels if c.special_type == 'HEIGHT'])
+    any_non_clamped_ch = any([c for c in channels if c.use_clamp and c.special_type not in {'HEIGHT', 'NORMAL'}])
 
     # Checking if all channel sources are from normal channel
     # NOTE: Assuming there's only one normal channel, which what's currently possible
@@ -2746,7 +2746,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 img.filepath = filepath
 
             # Set colorspace to linear
-            #if root_ch.colorspace == 'LINEAR' or root_ch.special_channel_type == 'NORMAL' or (root_ch.special_channel_type != 'NORMAL' and use_hdr):
+            #if root_ch.colorspace == 'LINEAR' or root_ch.special_type == 'NORMAL' or (root_ch.special_type != 'NORMAL' and use_hdr):
             if any_linear_ch:
                 img.colorspace_settings.name = get_noncolor_name()
             else: img.colorspace_settings.name = get_srgb_name()
@@ -3182,7 +3182,7 @@ def bake_channel(
     # Check if baking fake lighting is necessary
     # NOTE: Only needed for Blender 2.80 or less because those are the only versions that can use non-baked fake lighting as bump
     ori_bprops_name = bprops['name'] if bprops else ''
-    if not is_bl_newer_than(2, 81) and root_ch.special_channel_type == 'NORMAL':
+    if not is_bl_newer_than(2, 81) and root_ch.special_type == 'NORMAL':
         for lay in yp.layers:
             if not lay.enable: continue
             if channel_idx >= len(lay.channels): continue
@@ -3252,7 +3252,7 @@ def bake_channel(
     # Normal baking need special node setup
     bsdf = None
     norm = None
-    if root_ch.special_channel_type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
 
         # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF
         if is_bl_newer_than(2, 80) and not any_object_space_normal(yp):
@@ -3312,13 +3312,13 @@ def bake_channel(
         if not baked or not is_root_ch_prop_node_unique(root_ch, 'baked'):
             baked = new_node(tree, root_ch, 'baked', 'ShaderNodeTexImage', 'Baked ' + root_ch.name)
         if hasattr(baked, 'color_space'):
-            if root_ch.colorspace == 'LINEAR' or root_ch.special_channel_type == 'NORMAL':
+            if root_ch.colorspace == 'LINEAR' or root_ch.special_type == 'NORMAL':
                 baked.color_space = 'NONE'
             else: baked.color_space = 'COLOR'
         baked.interpolation = interpolation
         
         # Normal related nodes
-        if root_ch.special_channel_type == 'NORMAL':
+        if root_ch.special_type == 'NORMAL':
             baked_normal = tree.nodes.get(root_ch.baked_normal)
             if not baked_normal:
                 baked_normal = new_node(tree, root_ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
@@ -3337,7 +3337,7 @@ def bake_channel(
         # Check if image is available
         if baked.image:
             img_name = baked.image.name
-            if root_ch.special_channel_type == 'NORMAL':
+            if root_ch.special_type == 'NORMAL':
                 filepath = baked.image.filepath
             else: filepath = get_valid_filepath(baked.image, use_hdr)
             baked.image.name = '____TEMP'
@@ -3361,10 +3361,10 @@ def bake_channel(
 
                 color = segment.base_color
 
-        elif root_ch.special_channel_type == 'NORMAL':
+        elif root_ch.special_type == 'NORMAL':
             color = (0.5, 0.5, 1.0, 1.0)
 
-        elif root_ch.special_channel_type == 'HEIGHT' and root_ch.use_height_normalize:
+        elif root_ch.special_type == 'HEIGHT' and root_ch.use_height_normalize:
             color = (0.5, 0.5, 0.5, 1.0)
 
         elif root_ch.type == 'VALUE':
@@ -3403,7 +3403,7 @@ def bake_channel(
             img = bpy.data.images.new(
                 name=img_name, width=width, height=height,
                 alpha=True, tiled=True,
-                float_buffer = (root_ch.special_channel_type == 'NORMAL' and use_float_for_normal) or use_hdr
+                float_buffer = (root_ch.special_type == 'NORMAL' and use_float_for_normal) or use_hdr
             )
 
             # Fill tiles
@@ -3422,7 +3422,7 @@ def bake_channel(
             # Create new standard image
             img = bpy.data.images.new(
                 name=img_name, width=width, height=height, alpha=True,
-                float_buffer = (root_ch.special_channel_type == 'NORMAL' and use_float_for_normal) or use_hdr
+                float_buffer = (root_ch.special_type == 'NORMAL' and use_float_for_normal) or use_hdr
             )
             img.generated_type = 'BLANK'
 
@@ -3439,11 +3439,11 @@ def bake_channel(
             img.filepath = filepath
 
         # Set colorspace to linear
-        if root_ch.colorspace == 'LINEAR' or root_ch.special_channel_type == 'NORMAL' or (root_ch.special_channel_type != 'NORMAL' and use_hdr):
+        if root_ch.colorspace == 'LINEAR' or root_ch.special_type == 'NORMAL' or (root_ch.special_type != 'NORMAL' and use_hdr):
             img.colorspace_settings.name = get_noncolor_name()
         else: img.colorspace_settings.name = get_srgb_name()
 
-    if root_ch.special_channel_type == 'HEIGHT':
+    if root_ch.special_type == 'HEIGHT':
 
         if root_ch.use_height_normalize:
             inp_height = node.inputs.get(root_ch.name)
@@ -3466,7 +3466,7 @@ def bake_channel(
     # Links to bake
     rgb = node.outputs[root_ch.name]
 
-    if root_ch.special_channel_type == 'NORMAL':
+    if root_ch.special_type == 'NORMAL':
         if norm:
             # Custom normal calculation setup
             rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
@@ -3496,14 +3496,14 @@ def bake_channel(
     bake_object_op(scene.cycles.bake_type)
 
     # Revert back the original bake settings
-    if root_ch.special_channel_type == 'NORMAL' and bsdf:
+    if root_ch.special_type == 'NORMAL' and bsdf:
         scene.cycles.bake_type = 'EMIT'
         scene.render.bake.normal_space = ori_normal_space
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
     # Bake normal without bump/displacement
     norm_img = None
-    if height_root_ch and root_ch.special_channel_type == 'NORMAL':
+    if height_root_ch and root_ch.special_type == 'NORMAL':
 
         # Disable use height as bump so normal output doesn't have bump data
         ori_height_as_bump = height_root_ch.use_height_as_bump
@@ -3590,7 +3590,7 @@ def bake_channel(
         if height_root_ch.use_height_as_bump != ori_height_as_bump:
             safely_set_use_height_as_bump(height_root_ch, ori_height_as_bump)
 
-    if root_ch.special_channel_type == 'HEIGHT':
+    if root_ch.special_type == 'HEIGHT':
 
         if root_ch.use_height_normalize:
 
@@ -4469,7 +4469,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     oo.hide_render = True
                 else: oo.hide_render = False
 
-            if root_ch.special_channel_type == 'NORMAL':
+            if root_ch.special_type == 'NORMAL':
                 bake_type = 'NORMAL'
 
                 # Set back original socket

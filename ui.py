@@ -995,13 +995,13 @@ def draw_channel_preview_mode_ui(context, layout, node):
     try: root_ch = yp.channels[yp.active_channel_index]
     except: root_ch = None
 
-    if yp.preview_mode and root_ch and root_ch.special_channel_type in {'NORMAL'}:
+    if yp.preview_mode and root_ch and root_ch.special_type in {'NORMAL'}:
         cbox = col.box()
         bcol = cbox.column(align=True)
 
         split_val = 0.3
 
-        if root_ch.special_channel_type == 'NORMAL':
+        if root_ch.special_type == 'NORMAL':
             row = split_layout(bcol, split_val)
             row.label(text='Normal:')
             row.prop(yp, 'preview_mode_normal_space', text='')
@@ -1039,7 +1039,7 @@ def draw_both_preview_mode_ui(context, layout, node):
             icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
             row.menu("NODE_MT_y_active_channel_menu", text=root_ch.name, icon_value=icon_value)
 
-            if root_ch.special_channel_type == 'NORMAL':
+            if root_ch.special_type == 'NORMAL':
                 row = split_layout(bcol, split_val)
                 row.label(text='Normal:')
                 row.prop(yp, 'preview_mode_normal_space', text='')
@@ -1615,7 +1615,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
     rcol = row.column()
     #if len(yp.channels) > 0:
 
-    #    if channel and channel.special_channel_type == 'NORMAL':
+    #    if channel and channel.special_type == 'NORMAL':
     #        prow = split_layout(rcol, 0.667, align=True)
     #    else: prow = rcol.row()
 
@@ -1623,7 +1623,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
     #    icon = 'HIDE_OFF' if is_bl_newer_than(2, 80) else 'RESTRICT_VIEW_OFF'
     #    prow.prop(yp, 'preview_mode', text='Preview Mode', icon=icon)
 
-    #    if channel and channel.special_channel_type == 'NORMAL':
+    #    if channel and channel.special_type == 'NORMAL':
     #        prow.prop(yp, 'preview_mode_normal_space', text='')
 
     rcol.template_list("NODE_UL_YPaint_channels", "", yp,
@@ -1726,7 +1726,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
 
         if expand_content:
 
-            is_alpha_channel = channel.type == 'VALUE' and channel.special_channel_type == 'ALPHA'
+            is_alpha_channel = channel.type == 'VALUE' and channel.special_type == 'ALPHA'
 
             # Modifier stack ui will only active when use_baked is off
             baked = nodes.get(channel.baked)
@@ -1738,16 +1738,16 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
 
             special_type_available = True
             if channel.type == 'VALUE':
-                height_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'HEIGHT' and c != channel])
-                alpha_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'ALPHA' and c != channel])
-                special_type_available = not height_ch_exists or ((channel.name == 'Alpha' or channel.special_channel_type == 'ALPHA') and not alpha_ch_exists)
+                height_ch_exists = any([c for c in yp.channels if c.special_type == 'HEIGHT' and c != channel])
+                alpha_ch_exists = any([c for c in yp.channels if c.special_type == 'ALPHA' and c != channel])
+                special_type_available = not height_ch_exists or ((channel.name == 'Alpha' or channel.special_type == 'ALPHA') and not alpha_ch_exists)
             elif channel.type == 'VECTOR':
-                normal_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'NORMAL' and c != channel])
+                normal_ch_exists = any([c for c in yp.channels if c.special_type == 'NORMAL' and c != channel])
                 # NOTE: Do not show vector displacement option for channel called normal to avoid confusion
-                vdisp_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'VDISP' and c != channel]) if channel.name != 'Normal' else False
+                vdisp_ch_exists = any([c for c in yp.channels if c.special_type == 'VDISP' and c != channel]) if channel.name != 'Normal' else False
                 special_type_available = not normal_ch_exists or not vdisp_ch_exists
             else:
-                vdisp_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'VDISP' and c != channel])
+                vdisp_ch_exists = any([c for c in yp.channels if c.special_type == 'VDISP' and c != channel])
                 special_type_available = not vdisp_ch_exists
 
             # NOTE: Replaced by base layer
@@ -1780,8 +1780,8 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                 if draw_blank: brow.label(text='', icon='BLANK1')
                 brow.label(text='Special Type:')
 
-                rna_property = channel.bl_rna.properties['special_channel_type']
-                enum_item = rna_property.enum_items[channel.special_channel_type]
+                rna_property = channel.bl_rna.properties['special_type']
+                enum_item = rna_property.enum_items[channel.special_type]
                 label = enum_item.name
                 brow.menu("NODE_MT_y_channel_special_type_menu", text=label)
 
@@ -1862,7 +1862,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
 
                     #bbcol.separator()
 
-            if channel.special_channel_type == 'HEIGHT':
+            if channel.special_type == 'HEIGHT':
                 # Check for normal channel
                 normal_ch = get_root_normal_channel(yp)
 
@@ -1880,7 +1880,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                     brow.label(text='', icon_value=lib.get_icon('texture'))
                 else: brow.prop(channel, 'use_height_normalize', text='')
 
-            if channel.special_channel_type in {'HEIGHT', 'VDISP'}:
+            if channel.special_type in {'HEIGHT', 'VDISP'}:
                 brow = bcol.row(align=True)
                 #brow.active = normal_ch != None
                 if draw_blank: brow.label(text='', icon='BLANK1')
@@ -1890,7 +1890,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
 
                 # Displacement enabled label
                 displacement_enabled = get_displacement_method() != 'BUMP'
-                if channel.special_channel_type == 'HEIGHT':
+                if channel.special_type == 'HEIGHT':
                     displacement_enabled = displacement_enabled and not channel.use_height_as_bump
                 label = 'Enabled' if displacement_enabled else 'Disabled'
                 bbrow.label(text=label)
@@ -1923,7 +1923,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                 #    brow.label(text='', icon_value=lib.get_icon('texture'))
                 #else: brow.prop(channel, 'alpha_combine_to_baked_color', text='')
 
-            if channel.type in {'RGB', 'VALUE'} and channel.special_channel_type == 'NONE':
+            if channel.type in {'RGB', 'VALUE'} and channel.special_type == 'NONE':
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or channel.no_layer_using
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -1934,7 +1934,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
             #if len(channel.modifiers) > 0:
             #    brow.label(text='', icon='BLANK1')
 
-            if channel.special_channel_type == 'NORMAL':
+            if channel.special_type == 'NORMAL':
                 brow = bcol.row(align=True)
                 #brow.active = not (yp.use_baked and yp.enable_baked_outside)
 
@@ -2115,7 +2115,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
 
             if channel.type in {'RGB', 'VALUE'} and not is_alpha_channel:
 
-                if channel.special_channel_type == 'NONE':
+                if channel.special_type == 'NONE':
                     brow = bcol.row(align=True)
                     #brow.label(text='', icon_value=lib.get_icon('input'))
                     if draw_blank: brow.label(text='', icon='BLANK1')
@@ -2125,7 +2125,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                     split.label(text='Space:')
                     split.prop(channel, 'colorspace', text='')
 
-            if channel.special_channel_type == 'VDISP' and is_bl_newer_than(3, 2):
+            if channel.special_type == 'VDISP' and is_bl_newer_than(3, 2):
                 #bcol.separator()
                 brow = bcol.row(align=True)
                 if draw_blank: brow.label(text='', icon='BLANK1')
@@ -2687,7 +2687,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                         if is_bl_newer_than(2, 80):
                             label += ' (VDM)'
                         else: label = 'VDM'
-                elif root_ch.special_channel_type == 'VDISP' and layer.type != 'GROUP':
+                elif root_ch.special_type == 'VDISP' and layer.type != 'GROUP':
                     if is_bl_newer_than(2, 80):
                         label += ' (VDM)'
                     else: label = 'VDM'
@@ -2720,21 +2720,21 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.prop(normal_ch, 'normal_blend_type', text='')
                 draw_input_prop(splits, ch, 'bump_distance', layer=layer)
-            elif root_ch.special_channel_type == 'NORMAL' and layer.type != 'GROUP':
+            elif root_ch.special_type == 'NORMAL' and layer.type != 'GROUP':
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.prop(ch, 'normal_blend_type', text='')
                 draw_input_prop(splits, ch, 'normal_strength', layer=layer)
-            elif root_ch.special_channel_type == 'HEIGHT' and layer.type != 'GROUP':
+            elif root_ch.special_type == 'HEIGHT' and layer.type != 'GROUP':
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.prop(ch, 'height_blend_type', text='')
                 draw_input_prop(splits, ch, 'bump_distance', layer=layer)
-            elif root_ch.special_channel_type == 'VDISP':
+            elif root_ch.special_type == 'VDISP':
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.prop(ch, 'blend_type', text='')
                 draw_input_prop(splits, ch, 'vdisp_strength', layer=layer)
             elif root_ch.type == 'NORMAL' and layer.type != 'GROUP':
                 splits = split_layout(rrow, 0.5, align=True)
-                if root_ch.special_channel_type == 'HEIGHT':
+                if root_ch.special_type == 'HEIGHT':
                     splits.prop(ch, 'height_blend_type', text='')
                 else: splits.prop(ch, 'normal_blend_type', text='')
                 if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
@@ -2855,10 +2855,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 if ch == height_ch and height_ch.use_height_as_normal:
                     label = normal_blend_labels[normal_ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(normal_ch, 'normal_blend_type', text='')
-                elif root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
+                elif root_ch.type == 'NORMAL' or root_ch.special_type == 'NORMAL':
                     label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(ch, 'normal_blend_type', text='')
-                elif root_ch.special_channel_type == 'HEIGHT':
+                elif root_ch.special_type == 'HEIGHT':
                     label = blend_type_labels[ch.height_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(ch, 'height_blend_type', text='')
                 elif layer.type != 'BACKGROUND': 
@@ -2873,7 +2873,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 rrrow = ssplit.row(align=True)
                 draw_input_prop(rrrow, ch, 'intensity_value', layer=layer)
 
-            elif root_ch.special_channel_type == 'HEIGHT':
+            elif root_ch.special_type == 'HEIGHT':
                 rrrow = ssplit.row(align=True)
 
                 draw_input_prop(rrrow, ch, 'bump_distance', layer=layer)
@@ -2891,7 +2891,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                     elif ch.override_type != 'DEFAULT':
                         rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
-            elif root_ch.special_channel_type == 'VDISP':
+            elif root_ch.special_type == 'VDISP':
                 rrrow = ssplit.row(align=True)
                 draw_input_prop(rrrow, ch, 'vdisp_strength', layer=layer)
 
@@ -3005,9 +3005,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             if height_ch == ch and height_ch.use_height_as_normal:
                 rrow.prop(normal_ch, 'normal_blend_type', text='')
-            elif root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'NORMAL':
+            elif root_ch.type == 'NORMAL' or root_ch.special_type == 'NORMAL':
                 rrow.prop(ch, 'normal_blend_type', text='')
-            elif root_ch.special_channel_type == 'HEIGHT':
+            elif root_ch.special_type == 'HEIGHT':
                 rrow.prop(ch, 'height_blend_type', text='')
             else: rrow.prop(ch, 'blend_type', text='')
 
@@ -3024,7 +3024,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 draw_input_prop(row, ch, 'intensity_value', layer=layer)
 
                 # Use Clamp
-                if root_ch.type != 'NORMAL' and root_ch.special_channel_type not in {'HEIGHT', 'NORMAL'}:
+                if root_ch.type != 'NORMAL' and root_ch.special_type not in {'HEIGHT', 'NORMAL'}:
                     row = mcol.row(align=True)
                     row.label(text='', icon='BLANK1')
                     row.label(text='Use Clamp:')
@@ -3043,7 +3043,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             row.label(text='Opacity:')
             draw_input_prop(row, ch, 'intensity_value', layer=layer)
 
-        if root_ch.special_channel_type == 'HEIGHT':
+        if root_ch.special_type == 'HEIGHT':
 
             if layer.type != 'GROUP':
                 # Height
@@ -3187,7 +3187,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
                     #row.label(text='', icon='BLANK1')
 
-        if root_ch.special_channel_type == 'NORMAL' and layer.type != 'GROUP':
+        if root_ch.special_type == 'NORMAL' and layer.type != 'GROUP':
 
             #height_as_normal_disabled = ch == normal_ch and (height_ch == None or not height_ch.enable or not height_ch.use_height_as_normal)
 
@@ -3213,7 +3213,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 row.scale_x = 1.4
             row.prop(ch, 'normal_space', text='')
 
-        if root_ch.special_channel_type == 'VDISP' and layer.type != 'GROUP':
+        if root_ch.special_type == 'VDISP' and layer.type != 'GROUP':
 
             # Vector Displacement Strength
             row = mcol.row(align=True)
@@ -6984,28 +6984,28 @@ class YChannelSpecialTypeMenu(bpy.types.Menu):
         yp = channel.id_data.yp
         col = self.layout.column()
 
-        icon = 'RADIOBUT_ON' if channel.special_channel_type == 'NONE' else 'RADIOBUT_OFF'
+        icon = 'RADIOBUT_ON' if channel.special_type == 'NONE' else 'RADIOBUT_OFF'
         col.operator('wm.y_set_channel_special_type', text='None', icon=icon).type = 'NONE'
 
-        if channel.type == 'VALUE' and (channel.name == 'Alpha' or channel.special_channel_type == 'ALPHA'):
-            alpha_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'ALPHA' and c != channel])
+        if channel.type == 'VALUE' and (channel.name == 'Alpha' or channel.special_type == 'ALPHA'):
+            alpha_ch_exists = any([c for c in yp.channels if c.special_type == 'ALPHA' and c != channel])
             if not alpha_ch_exists:
-                icon = 'RADIOBUT_ON' if channel.special_channel_type == 'ALPHA' else 'RADIOBUT_OFF'
+                icon = 'RADIOBUT_ON' if channel.special_type == 'ALPHA' else 'RADIOBUT_OFF'
                 col.operator('wm.y_set_channel_special_type', text='Alpha', icon=icon).type = 'ALPHA'
 
         if channel.type == 'VECTOR':
-            icon = 'RADIOBUT_ON' if channel.special_channel_type == 'NORMAL' else 'RADIOBUT_OFF'
+            icon = 'RADIOBUT_ON' if channel.special_type == 'NORMAL' else 'RADIOBUT_OFF'
             col.operator('wm.y_set_channel_special_type', text='Normal', icon=icon).type = 'NORMAL'
 
         if channel.type == 'VALUE':
-            height_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'HEIGHT' and c != channel])
+            height_ch_exists = any([c for c in yp.channels if c.special_type == 'HEIGHT' and c != channel])
             if not height_ch_exists:
-                icon = 'RADIOBUT_ON' if channel.special_channel_type == 'HEIGHT' else 'RADIOBUT_OFF'
+                icon = 'RADIOBUT_ON' if channel.special_type == 'HEIGHT' else 'RADIOBUT_OFF'
                 col.operator('wm.y_set_channel_special_type', text='Height', icon=icon).type = 'HEIGHT'
 
         # NOTE: Do not show vector displacement option for channel called normal to avoid confusion
         if channel.type in {'RGB', 'VECTOR'} and channel.name not in {'Normal'}:
-            icon = 'RADIOBUT_ON' if channel.special_channel_type == 'VDISP' else 'RADIOBUT_OFF'
+            icon = 'RADIOBUT_ON' if channel.special_type == 'VDISP' else 'RADIOBUT_OFF'
             col.operator('wm.y_set_channel_special_type', text='Vector Displacement', icon=icon).type = 'VDISP'
 
 class YChannelActiveBakeTargetMenu(bpy.types.Menu):
@@ -8382,10 +8382,10 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
             col.operator('wm.y_new_normalmap_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
             col.operator('wm.y_new_normalmap_modifier', text='Math', icon_value=lib.get_icon('modifier')).type = 'MATH'
 
-        if root_ch.special_channel_type not in {'NORMAL', 'VDISP'}:
+        if root_ch.special_type not in {'NORMAL', 'VDISP'}:
             col = row.column()
             col.label(text='Transition Effects')
-            if root_ch.special_channel_type == 'HEIGHT':
+            if root_ch.special_type == 'HEIGHT':
                 col.operator('wm.y_show_transition_bump', text='Transition Bump', icon_value=lib.get_icon('background'))
             else:
                 col.operator('wm.y_show_transition_ramp', text='Transition Ramp', icon_value=lib.get_icon('background'))

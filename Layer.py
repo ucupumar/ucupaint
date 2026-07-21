@@ -368,10 +368,10 @@ def add_new_layer(
         # Set some props to selected channel
         if layer.type in {'GROUP', 'BACKGROUND'} or channel_idx == i or channel_idx == -1:
             ch.enable = True
-            if root_ch.special_channel_type == 'NORMAL':
+            if root_ch.special_type == 'NORMAL':
                 ch.normal_blend_type = normal_blend_type
                 ch.normal_space = normal_space
-            if root_ch.special_channel_type == 'HEIGHT':
+            if root_ch.special_type == 'HEIGHT':
                 ch.height_blend_type = height_blend_type
             else:
                 ch.blend_type = blend_type
@@ -388,11 +388,11 @@ def add_new_layer(
             # Flip YZ is no longer enabled by default for faster calculation
             ch.vdisp_enable_flip_yz = False
 
-        if root_ch.special_channel_type == 'NORMAL':
+        if root_ch.special_type == 'NORMAL':
             # Set default override color for normal
             ch.override_color = (0.5, 0.5, 1.0)
 
-        if root_ch.special_channel_type == 'VDISP':
+        if root_ch.special_type == 'VDISP':
             # Flip YZ is no longer enabled by default for faster calculation
             ch.vdisp_enable_flip_yz = False
 
@@ -644,7 +644,7 @@ def update_channel_idx_new_layer(self, context):
         channel = yp.channels[channel_idx]
     else: channel = None
 
-    if channel and ((channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP') or channel.special_channel_type == 'HEIGHT'):
+    if channel and ((channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP') or channel.special_type == 'HEIGHT'):
         self.interpolation = 'Cubic'
         if hasattr(self, 'mask_interpolation'): self.mask_interpolation = 'Cubic'
 
@@ -1478,12 +1478,12 @@ class YNewLayer(bpy.types.Operator):
             rrow = col.row(align=True)
             BaseOperator.draw_self_channel_idx(self, rrow, yp)
             if channel:
-                if channel.special_channel_type == 'NORMAL':
+                if channel.special_type == 'NORMAL':
                     rrow.prop(self, 'normal_blend_type', text='')
                     #col.prop(self, 'normal_map_type', text='')
                     #if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
                     col.prop(self, 'normal_space', text='')
-                elif channel.special_channel_type == 'HEIGHT':
+                elif channel.special_type == 'HEIGHT':
                     rrow.prop(self, 'height_blend_type', text='')
                 else: 
                     rrow.prop(self, 'blend_type', text='')
@@ -1911,7 +1911,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper, BaseOperator
                 image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
-            if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT': image_node.interpolation = 'Cubic'
+            if root_ch.type == 'NORMAL' or root_ch.special_type == 'HEIGHT': image_node.interpolation = 'Cubic'
             ch.override_type = 'IMAGE'
             ch.active_edit = True
 
@@ -2333,7 +2333,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                 for image in images:
 
                     # DirectX image will be skipped if there's OpenGL image
-                    if ch.special_channel_type == 'NORMAL' and dx_image and gl_image and image == dx_image:
+                    if ch.special_type == 'NORMAL' and dx_image and gl_image and image == dx_image:
                         continue
 
                     if image in channel_image_dict.values():
@@ -2415,7 +2415,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
 
                 image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
                 image_node.image = image
-                if root_ch.special_channel_type == 'HEIGHT': image_node.interpolation = 'Cubic'
+                if root_ch.special_type == 'HEIGHT': image_node.interpolation = 'Cubic'
 
                 # Add invert modifier for glosiness
                 if syname in {'glossiness', 'smoothness'}:
@@ -3158,12 +3158,12 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         rrow = col.row(align=True)
         BaseOperator.draw_self_channel_idx(self, rrow, yp)
         if channel:
-            if channel.special_channel_type == 'NORMAL':
+            if channel.special_type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
                 #col.prop(self, 'normal_map_type', text='')
                 #if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
                 col.prop(self, 'normal_space', text='')
-            elif channel.special_channel_type == 'HEIGHT':
+            elif channel.special_type == 'HEIGHT':
                 rrow.prop(self, 'height_blend_type', text='')
             else: 
                 rrow.prop(self, 'blend_type', text='')
@@ -3679,7 +3679,7 @@ class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
                 else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
-            if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT': image_node.interpolation = 'Cubic'
+            if root_ch.type == 'NORMAL' or root_ch.special_type == 'HEIGHT': image_node.interpolation = 'Cubic'
             #if image.colorspace_settings.name != get_noncolor_name():
             #    image.colorspace_settings.name = get_noncolor_name()
 
@@ -3917,7 +3917,7 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
                 #col.prop(self, 'normal_map_type', text='')
                 #if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
                 col.prop(self, 'normal_space', text='')
-            elif channel.special_channel_type == 'HEIGHT':
+            elif channel.special_type == 'HEIGHT':
                 rrow.prop(self, 'height_blend_type', text='')
             else: 
                 rrow.prop(self, 'blend_type', text='')
@@ -6204,7 +6204,7 @@ def update_channel_enable(self, context):
     # Check layer source just to make sure
     check_layer_source(layer, tree)
 
-    if (root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT') and self.enable:
+    if (root_ch.type == 'NORMAL' or root_ch.special_type == 'HEIGHT') and self.enable:
         update_layer_images_interpolation(layer, 'Cubic') #, from_interpolation='Linear')
 
     # Check uv maps
@@ -6302,7 +6302,7 @@ def update_blend_type(self, context):
     check_uv_nodes(yp)
 
     # Reconnect all layer channels if normal channel is updated
-    if root_ch.type == 'NORMAL' or root_ch.special_channel_type == 'HEIGHT':
+    if root_ch.type == 'NORMAL' or root_ch.special_type == 'HEIGHT':
         reconnect_layer_nodes(layer) 
     else: reconnect_layer_nodes(layer, ch_index)
 
@@ -6740,7 +6740,7 @@ def update_layer_channel_vdisp_flip_yz(self, context):
         return
 
     #if self.normal_map_type == 'VECTOR_DISPLACEMENT_MAP' and self.vdisp_enable_flip_yz:
-    if root_ch.special_channel_type == 'VDISP' and self.vdisp_enable_flip_yz:
+    if root_ch.special_type == 'VDISP' and self.vdisp_enable_flip_yz:
         vdisp_flip_yz = check_new_node(tree, self, 'vdisp_flip_yz', 'ShaderNodeGroup', 'Flip Y/Z')
         vdisp_flip_yz.node_tree = lib.get_node_tree_lib(lib.FLIP_YZ)
     else:
