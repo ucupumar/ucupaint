@@ -982,7 +982,31 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         brow.label(text='Invert Value:')
         brow.prop(btc, 'invert_value', text='')
 
-def draw_preview_mode_ui(context, layout, node):
+def draw_channel_preview_mode_ui(context, layout, node):
+    yp = node.node_tree.yp
+
+    col = layout.column(align=True)
+
+    row = col.row(align=True)
+    #row.label(text='Preview Mode:')
+    row.alert = yp.preview_mode
+    row.prop(yp, 'preview_mode', text='Channel Preview', icon='HIDE_OFF')
+
+    try: root_ch = yp.channels[yp.active_channel_index]
+    except: root_ch = None
+
+    if yp.preview_mode and root_ch and root_ch.special_channel_type in {'NORMAL'}:
+        cbox = col.box()
+        bcol = cbox.column(align=True)
+
+        split_val = 0.3
+
+        if root_ch.special_channel_type == 'NORMAL':
+            row = split_layout(bcol, split_val)
+            row.label(text='Normal:')
+            row.prop(yp, 'preview_mode_normal_space', text='')
+
+def draw_both_preview_mode_ui(context, layout, node):
     yp = node.node_tree.yp
 
     col = layout.column(align=True)
@@ -1031,7 +1055,7 @@ def is_baked_node_found(yp):
 
     return False
 
-def draw_main_layers_ui(context, layout):
+def draw_main_ui(context, layout):
     wm = context.window_manager
     area = context.area
     scene = context.scene
@@ -1153,8 +1177,6 @@ def draw_main_layers_ui(context, layout):
 
     if (baked_found or yp.use_baked) and not group_tree.users > 1:
         rrow = layout.row(align=True)
-        #if is_bl_newer_than(2, 80):
-        #    rrow.alignment = 'RIGHT'
         rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
         rrow.separator()
         rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
@@ -1167,57 +1189,7 @@ def draw_main_layers_ui(context, layout):
         #icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
         #rrow.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
 
-    #col = layout.column(align=True)
-    # Layers
-    #icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
-    #row = col.row(align=True)
-    #rrow = row.row(align=True)
-
-    #if is_bl_newer_than(2, 80):
-    #    rrow.alignment = 'LEFT'
-    #    rrow.scale_x = 0.95
-    #    rrow.prop(ypui, 'show_layers', emboss=False, text='Layers', icon=icon)
-    #else:
-    #    rrow.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
-    #    rrow.label(text='Layers')
-    
-    #row = col.row(align=True)
-    #row.label(text='Preview Mode:')
-    #row.alert = yp.layer_preview_mode
-    #row.prop(yp, 'layer_preview_mode', text='Layer', icon='HIDE_OFF')
-    #row.alert = yp.preview_mode
-    #row.prop(yp, 'preview_mode', text='Channel', icon='HIDE_OFF')
-
-    #if yp.layer_preview_mode or yp.preview_mode:
-    #    cbox = col.box()
-    #    bcol = cbox.column(align=True)
-
-    #    split_val = 0.3
-
-    #    try: root_ch = yp.channels[yp.active_channel_index]
-    #    except: root_ch = None
-
-    #    if yp.layer_preview_mode:
-    #        row = split_layout(bcol, split_val)
-    #        row.label(text='Type:')
-    #        row.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
-
-    #    if root_ch: 
-    #        row = bcol.row(align=True)
-    #        row = split_layout(bcol, split_val)
-    #        row.label(text='Channel:')
-    #        icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
-    #        row.menu("NODE_MT_y_active_channel_menu", text=root_ch.name, icon_value=icon_value)
-
-    #        if root_ch.special_channel_type == 'NORMAL':
-    #            row = split_layout(bcol, split_val)
-    #            row.label(text='Normal:')
-    #            row.prop(yp, 'preview_mode_normal_space', text='')
-
-    if not yp.use_baked:
-        draw_preview_mode_ui(context, layout, node)
-
-    height_root_ch = get_root_height_channel(yp)
+        #layout.separator()
 
     scenario_1 = (is_tangent_sign_hacks_needed(yp) and area.type == 'VIEW_3D' and 
             area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
@@ -1227,7 +1199,6 @@ def draw_main_layers_ui(context, layout):
         #rrow.alignment = 'RIGHT'
         rrow.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
 
-    #if ypui.show_layers :
     if yp.sculpt_mode:
 
         layer = yp.layers[yp.active_layer_index]
@@ -1245,7 +1216,28 @@ def draw_main_layers_ui(context, layout):
         row = box.row(align=True)
         row.operator('sculpt.y_cancel_sculpt_to_image', icon='X', text='Cancel Sculpt')
     else:
-        draw_layers_ui(context, layout, node)
+        if yp.use_baked:
+            draw_baked_ui(context, layout, node)
+        else:
+            if ypup.unified_tab_ui:
+
+                #col = layout.column(align=True)
+                row = layout.row(align=True)
+                row.prop(ypui, 'active_tab', expand=True)
+                row.scale_y = 1.25
+
+                #layout.separator()
+                #box = col.box()
+                #bcol = box.column()
+
+                if ypui.active_tab == 'CHANNELS':
+                    draw_root_channels_ui(context, layout, node)
+                elif ypui.active_tab == 'BAKE_TARGETS':
+                    draw_bake_targets_ui(context, layout, node)
+                elif ypui.active_tab == 'LAYERS':
+                    draw_layers_ui(context, layout, node)
+            else:
+                draw_layers_ui(context, layout, node)
 
 def draw_stats_ui(context, layout, node, show_header=False):
     group_tree = node.node_tree
@@ -1614,6 +1606,10 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
     if show_header:
         col.label(text='Channel Settings')
 
+    # Preview mode
+    if ypup.unified_tab_ui:
+        draw_channel_preview_mode_ui(context, col, node)
+
     row = col.row()
 
     rcol = row.column()
@@ -1698,7 +1694,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
 
             if panel:
                 expand_content = True
-                bcol = panel.column(align=True)
+                bcol = panel.column(align=False)
         else:
             row = mcol.row(align=True)
             rrow = row.row(align=True)
@@ -1754,19 +1750,9 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                 vdisp_ch_exists = any([c for c in yp.channels if c.special_channel_type == 'VDISP' and c != channel])
                 special_type_available = not vdisp_ch_exists
 
-            # Special channel for other than main color channel
-            if special_type_available and channel.name not in {'Color', 'Base Color', 'Albedo'}:
-                brow = bcol.row(align=True)
-                if draw_blank: brow.label(text='', icon='BLANK1')
-                brow.label(text='Special Type:')
-
-                rna_property = channel.bl_rna.properties['special_channel_type']
-                enum_item = rna_property.enum_items[channel.special_channel_type]
-                label = enum_item.name
-                brow.menu("NODE_MT_y_channel_special_type_menu", text=label)
-
             # NOTE: Replaced by base layer
-            if ypup.layer_list_mode == 'CLASSIC' and channel.type in {'RGB', 'VALUE'}:
+            #if ypup.layer_list_mode == 'CLASSIC' and channel.type in {'RGB', 'VALUE'}:
+            if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
 
                 #brow.label(text='', icon_value=lib.get_icon('input'))
@@ -1787,6 +1773,17 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
 
                 #if len(channel.modifiers) > 0:
                 #    brow.label(text='', icon='BLANK1')
+
+            # Special channel for other than main color channel
+            if special_type_available and channel.name not in {'Color', 'Base Color', 'Albedo'}:
+                brow = bcol.row(align=True)
+                if draw_blank: brow.label(text='', icon='BLANK1')
+                brow.label(text='Special Type:')
+
+                rna_property = channel.bl_rna.properties['special_channel_type']
+                enum_item = rna_property.enum_items[channel.special_channel_type]
+                label = enum_item.name
+                brow.menu("NODE_MT_y_channel_special_type_menu", text=label)
 
             # Alpha is no longer available to access without developer mode 
             if ypup.developer_mode or channel.enable_alpha:
@@ -4628,9 +4625,9 @@ def draw_layers_ui(context, layout, node):
         #box.prop(ypui, 'make_image_single_user')
         return
 
-    if yp.use_baked:
-        draw_baked_ui(context, box, node)
-        return
+    #if yp.use_baked:
+    #    draw_baked_ui(context, box, node)
+    #    return
 
     if is_a_mesh and not uv_found:
         row = box.row(align=True)
@@ -4767,6 +4764,9 @@ def draw_layers_ui(context, layout, node):
         row.alert = True
         row.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent Sign Hacks is missing!')
         row.alert = False
+
+    # Preview mode
+    draw_both_preview_mode_ui(context, box, node)
 
     # Get active item entity
     item_entity = ListItem.get_active_item_entity(yp)
@@ -5384,7 +5384,7 @@ class BaseMainUI():
         row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
 
     def base_draw(self, context):
-        draw_main_layers_ui(context, self.layout)
+        draw_main_ui(context, self.layout)
 
 class VIEW3D_PT_YPaint_main_ui(bpy.types.Panel, BaseMainUI):
     bl_label = ' '
@@ -5690,6 +5690,8 @@ class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsU
     def poll(cls, context):
         #ypui = context.window_manager.ypui
         #if not ypui.expanded_main_ui: return False
+        ypup = get_user_preferences()
+        if ypup.unified_tab_ui: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5716,6 +5718,8 @@ class NODE_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI)
     def poll(cls, context):
         #ypui = context.window_manager.ypui
         #if not ypui.expanded_main_ui: return False
+        ypup = get_user_preferences()
+        if ypup.unified_tab_ui: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5741,6 +5745,8 @@ class NODE_PT_YPaint_legacy_channel_settings_ui(bpy.types.Panel, BaseChannelSett
     def poll(cls, context):
         #ypui = context.window_manager.ypui
         #if not ypui.expanded_main_ui: return False
+        ypup = get_user_preferences()
+        if ypup.unified_tab_ui: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5765,6 +5771,8 @@ class VIEW3D_PT_YPaint_legacy_channel_settings_tools(bpy.types.Panel, BaseChanne
 
     @classmethod
     def poll(cls, context):
+        ypup = get_user_preferences()
+        if ypup.unified_tab_ui: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -9162,12 +9170,29 @@ class YMaterialUI(bpy.types.PropertyGroup):
 
     expand_content : BoolProperty(default=False)
 
+def update_ui_active_tab(self, context):
+    # Match active tab to active settings
+    if self.active_tab in {'CHANNELS', 'BAKE_TARGETS'}:
+        self.active_settings = self.active_tab
+
 if is_bl_newer_than(2, 83):
+    tab_items = (
+       ('LAYERS', 'Layers', 'Layers', 'COLLAPSEMENU', 0),
+       ('CHANNELS', 'Channels', 'Channel Settings', 'OUTLINER_OB_POINTCLOUD', 1),
+       ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings', 'OUTPUT', 2),
+    )
+
     setting_items = (
        ('CHANNELS', 'Channels', 'Channel Settings', 'OUTLINER_OB_POINTCLOUD', 0),
        ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings', 'OUTPUT', 1),
     )
 else:
+    tab_items = (
+       ('LAYERS', 'Layers', 'Layers'),
+       ('CHANNELS', 'Channels', 'Channel Settings'),
+       ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings'),
+    )
+
     setting_items = (
        ('CHANNELS', 'Channels', 'Channel Settings'),
        ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings'),
@@ -9180,6 +9205,14 @@ class YPaintUI(bpy.types.PropertyGroup):
         description = 'Select settings',
         items = setting_items,
         default = 'CHANNELS'
+    )
+
+    active_tab : EnumProperty(
+        name = 'Active Tab',
+        description = 'Select tab',
+        items = tab_items,
+        default = 'LAYERS',
+        update = update_ui_active_tab
     )
 
     show_object : BoolProperty(
@@ -9198,12 +9231,6 @@ class YPaintUI(bpy.types.PropertyGroup):
         name = 'Channels',
         description = 'Show channel lists',
         default = False
-    )
-
-    show_layers : BoolProperty(
-        name = 'Layers',
-        description = 'Show layer lists',
-        default = True
     )
 
     show_bake_targets : BoolProperty(
@@ -9487,7 +9514,8 @@ class YGoToBakeTargetSettings(bpy.types.Operator):
 
     def execute(self, context):
         ypui = context.window_manager.ypui
-        ypui.active_settings = 'BAKE_TARGETS'
+        #ypui.active_settings = 'BAKE_TARGETS'
+        ypui.active_tab = 'BAKE_TARGETS'
 
         bt = context.bake_target
         yp = bt.id_data.yp
