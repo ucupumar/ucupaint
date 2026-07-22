@@ -782,9 +782,10 @@ def update_yp_tree(tree):
                     if hasattr(mat, 'displacement_method'):
                         mat.displacement_method = 'BOTH'
 
-                    if is_bl_newer_than(2, 80):
-                        mat.cycles.displacement_method = 'BOTH'
-                    else: mat.cycles.displacement_method = 'TRUE'
+                    if hasattr(mat.cycles, 'displacement_method'):
+                        if is_bl_newer_than(2, 80):
+                            mat.cycles.displacement_method = 'BOTH'
+                        else: mat.cycles.displacement_method = 'TRUE'
 
                     # Check if height output is connected to something
                     yp_nodes = [node for node in mat.node_tree.nodes if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp]

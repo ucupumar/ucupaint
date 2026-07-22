@@ -41,7 +41,7 @@ def get_normal_map_type_items(self, context):
     return items
 
 def check_layer_source(layer, tree=None, image=None, vcol=None, setup_edge_detect=True):
-    if tree == None: tree = get_tree(layer)
+    if tree == None or layer.source_group != '': tree = get_source_tree(layer)
 
     # Add source
     if layer.type == 'VCOL':
