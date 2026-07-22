@@ -3775,8 +3775,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
     elif bprops.type == 'CURVATURE':
         # Bake the smooth interpolation of the per vertex curvature that
         # was computed into a temporary color attribute
-        src = mat.node_tree.nodes.new('ShaderNodeVertexColor')
-        src.layer_name = TEMP_CURV_VCOL
+        src = mat.node_tree.nodes.new('ShaderNodeAttribute')
+        src.attribute_name = TEMP_CURV_VCOL
 
         # Disconnected pieces resting on the surface leave no shared edges
         # for the vertex pass to see, and vertices are too coarse to draw
