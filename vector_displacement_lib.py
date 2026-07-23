@@ -801,10 +801,14 @@ def get_vdm_loader_geotree(uv_name='', vdm_image=None, tangent_image=None, bitan
 
         links.new(start.outputs[0], offset_capture.inputs[0])
         #links.new(tangent2object.outputs[0], offset_capture.inputs[1])
-        links.new(intensity_multiplier.outputs[0], offset_capture.inputs[1])
+        if is_bl_newer_than(5, 2):
+            links.new(intensity_multiplier.outputs[0], offset_capture.inputs['Vector'])
+        else: links.new(intensity_multiplier.outputs[0], offset_capture.inputs[1])
 
         links.new(offset_capture.outputs[0], offset.inputs[0])
-        links.new(offset_capture.outputs[1], offset.inputs[3])
+        if is_bl_newer_than(5, 2):
+            links.new(offset_capture.outputs['Vector'], offset.inputs[3])
+        else: links.new(offset_capture.outputs[1], offset.inputs[3])
 
         #links.new(start.outputs[0], offset.inputs[0])
         links.new(offset.outputs[0], end.inputs[0])
