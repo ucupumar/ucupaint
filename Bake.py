@@ -2898,7 +2898,7 @@ def remember_and_disable_layer_modifiers_and_transforms(layer, disable_masks=Fal
         oris['ch_trans_aos'].append(c.enable_transition_ao)
         oris['ch_trans_ramps'].append(c.enable_transition_ramp)
 
-        if rch.type == 'NORMAL':
+        if rch.special_type == 'HEIGHT':
             if c.enable_transition_bump:
                 c.enable_transition_bump = False
         else:
@@ -2931,7 +2931,7 @@ def recover_layer_modifiers_and_transforms(layer, oris):
             mod.enable = oris['ch_mods'][ch_name][j]
 
         # Recover original channel transition effects
-        if rch.type == 'NORMAL':
+        if rch.special_type == 'HEIGHT':
             if oris['ch_trans_bumps'][i]:
                 c.enable_transition_bump = oris['ch_trans_bumps'][i]
         else:
@@ -2968,7 +2968,7 @@ def remove_layer_modifiers_and_transforms(layer):
             c.modifiers.remove(j)
 
         # Remove channel transition effects
-        if rch.type == 'NORMAL' and c.enable_transition_bump: 
+        if rch.special_type == 'HEIGHT' and c.enable_transition_bump: 
             c.enable_transition_bump = False
             c.show_transition_bump = False
         else:
@@ -4666,7 +4666,7 @@ def register():
     bpy.utils.register_class(YTransferSomeLayerUV)
     bpy.utils.register_class(YTransferLayerUV)
     bpy.utils.register_class(YResizeImage)
-    bpy.utils.register_class(YBakeChannels)
+    #bpy.utils.register_class(YBakeChannels) # Deprecated
     bpy.utils.register_class(YBakeChannelToVcol)
     bpy.utils.register_class(YMergeLayer)
     bpy.utils.register_class(YMergeMask)
@@ -4678,7 +4678,7 @@ def unregister():
     bpy.utils.unregister_class(YTransferSomeLayerUV)
     bpy.utils.unregister_class(YTransferLayerUV)
     bpy.utils.unregister_class(YResizeImage)
-    bpy.utils.unregister_class(YBakeChannels)
+    #bpy.utils.unregister_class(YBakeChannels) # Deprecated
     bpy.utils.unregister_class(YBakeChannelToVcol)
     bpy.utils.unregister_class(YMergeLayer)
     bpy.utils.unregister_class(YMergeMask)

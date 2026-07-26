@@ -849,17 +849,6 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
 
         label = m.name
 
-        # If parent is layer channel
-        if match:
-            if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                if use_modifier_1:
-                    label += ' (Normal)'
-                else: label += ' (Bump)'
-
-        #if m.type == 'MATH' and not modui.expand_content:
-        #    method_name = [mt[1] for mt in math_method_items if mt[0] == m.math_meth][0]
-        #    label += ' (' + method_name + ')'
-
         rrow = row.row(align=True)
 
         if can_be_expanded:
@@ -959,7 +948,7 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         split.prop_search(btc, "channel_name", yp, "channels", text='')
         split.prop(btc, 'default_value', text='')
     else:
-        if ch and ch.type in {'RGB', 'VECTOR'}: #or (ch.type == 'NORMAL' and btc.normal_type != 'DISPLACEMENT')):
+        if ch and ch.type in {'RGB', 'VECTOR'}:
             split = split_layout(row, 0.75, align=True)
             split.prop_search(btc, "channel_name", yp, "channels", text='')
             split.prop(btc, 'subchannel_index', text='')
@@ -972,11 +961,6 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         row.label(text='', icon='BLANK1')
         box = row.box()
         bcol = box.column()
-
-        if ch.type == 'NORMAL':
-            brow = split_layout(bcol, 0.3, align=True)
-            brow.label(text='Source:')
-            brow.prop(btc, 'normal_type', text='')
 
         brow = bcol.row(align=True)
         brow.label(text='Invert Value:')
@@ -1660,13 +1644,13 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
         if group_tree.users == 1:
 
             # Optimize normal process button if normal input is disconnected
-            root_normal_ch = get_root_height_channel(yp)
-            if root_normal_ch:
-                if is_height_input_unconnected_but_has_start_process(node, root_normal_ch):
+            root_height_ch = get_root_height_channel(yp)
+            if root_height_ch:
+                if is_height_input_unconnected_but_has_start_process(node, root_height_ch):
                     row = mcol.row(align=True)
                     row.alert = True
                     row.operator('wm.y_optimize_normal_process', icon='ERROR', text='Fix Height Process')
-                elif is_height_input_connected_but_has_no_start_process(node, root_normal_ch):
+                elif is_height_input_connected_but_has_no_start_process(node, root_height_ch):
                     row = mcol.row(align=True)
                     row.alert = True
                     row.operator('wm.y_optimize_normal_process', icon='ERROR', text='Fix Height Input')
@@ -1942,176 +1926,6 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
                 #brow.label(text='Normal channel has no settings!', icon='INFO')
                 brow.label(text='Main UV:')
                 brow.prop_search(channel, "main_uv", context.object.data, "uv_layers", text='', icon='GROUP_UVS')
-
-            if channel.type == 'NORMAL':
-                if ypup.show_experimental or channel.enable_smooth_bump or not is_bl_newer_than(2, 78):
-                    brow = bcol.row(align=True)
-
-                    if is_bl_newer_than(2, 80):
-                        label_text='Smoother Bump:'
-                    else: label_text='Smooth Bump:'
-
-                    rrow = brow.row(align=True)
-                    inbox_dropdown_button(rrow, chui, 'expand_smooth_bump_settings', label_text)
-
-                    if is_bl_newer_than(2, 80):
-                        rrow = brow.row(align=True) # To make sure next row is aligned right
-                        rrow.alignment = 'RIGHT'
-
-                    if not yp.use_baked:
-                        brow.prop(channel, 'enable_smooth_bump', text='')
-                    else: brow.label(text='', icon_value=lib.get_icon('texture'))
-
-                    if chui.expand_smooth_bump_settings: # and channel.enable_smooth_bump:
-                        brow = bcol.row(align=True)
-                        if draw_blank: brow.label(text='', icon='BLANK1')
-                        bbox = brow.box()
-                        bbcol = bbox.column() #align=True)
-
-                        if channel.enable_smooth_bump:
-                            brow = bbcol.row(align=True)
-                            brow.label(text='Main UV:')
-                            #brow.label(text=channel.main_uv)
-                            #brow.prop(channel, 'main_uv', text='')
-                            brow.prop_search(channel, "main_uv", context.object.data, "uv_layers", text='', icon='GROUP_UVS')
-
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Backface Normal Up:')
-                        brow.prop(yp, 'enable_backface_always_up', text='')
-
-                if channel.enable_smooth_bump:
-                    brow = bcol.row(align=True)
-                    #brow.label(text='', icon_value=lib.get_icon('input'))
-                    if draw_blank: brow.label(text='', icon='BLANK1')
-                    brow.label(text='Normal Tweak:')
-
-                    if not yp.use_baked:
-                        if channel.enable_smooth_normal_tweak:
-                            end_linear = nodes.get(channel.end_linear)
-                            if end_linear:
-                                brow.prop(end_linear.inputs['Normal Tweak'], 'default_value', text='')
-                            else: brow.prop(channel, 'smooth_normal_tweak', text='')
-
-                        brow.prop(channel, 'enable_smooth_normal_tweak', text='')
-                    else:
-                        brow.label(text='', icon_value=lib.get_icon('texture'))
-
-                brow = bcol.row(align=True)
-
-                #brow.label(text='', icon_value=lib.get_icon('input'))
-                if draw_blank: brow.label(text='', icon='BLANK1')
-                brow.label(text='Height Tweak:')
-
-                if not yp.use_baked:
-                    if channel.enable_height_tweak:
-                        end_max_height_tweak = nodes.get(channel.end_max_height_tweak)
-                        if end_max_height_tweak:
-                            brow.prop(end_max_height_tweak.inputs['Height Tweak'], 'default_value', text='')
-                        else: brow.prop(channel, 'height_tweak', text='')
-
-                    brow.prop(channel, 'enable_height_tweak', text='')
-                else:
-                    brow.label(text='', icon_value=lib.get_icon('texture'))
-
-                # Put parallax settings to experimental since it's very imprescise
-                if ypup.show_experimental or channel.enable_parallax:
-                    brow = bcol.row(align=True)
-                    brow.active = yp.use_baked and not channel.enable_subdiv_setup and not yp.enable_baked_outside
-
-                    rrow = brow.row(align=True)
-                    inbox_dropdown_button(rrow, chui, 'expand_parallax_settings', 'Parallax:')
-
-                    if is_bl_newer_than(2, 80):
-                        rrow = brow.row(align=True) # To make sure next row is aligned right
-                        rrow.alignment = 'RIGHT'
-
-                    if not chui.expand_parallax_settings and channel.enable_parallax:
-                        rrow.prop(channel, 'baked_parallax_num_of_layers', text='')
-                        brow.separator()
-                    brow.prop(channel, 'enable_parallax', text='')
-
-                    if chui.expand_parallax_settings:
-
-                        brow = bcol.row(align=True)
-                        if draw_blank: brow.label(text='', icon='BLANK1')
-                        bbox = brow.box()
-                        bbcol = bbox.column() #align=True)
-                        bbcol.active = is_parallax_enabled(channel) and (
-                                not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive)
-
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Steps:')
-                        brow.prop(channel, 'baked_parallax_num_of_layers', text='')
-
-                        brow = bbcol.row(align=True)
-                        #brow.label(text='', icon_value=lib.get_icon('input'))
-                        brow.label(text='Rim Hack:')
-                        if channel.parallax_rim_hack:
-                            brow.prop(channel, 'parallax_rim_hack_hardness', text='')
-                        brow.prop(channel, 'parallax_rim_hack', text='')
-
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Height Tweak:')
-                        brow.prop(channel, 'parallax_height_tweak', text='')
-
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Main UV: ' + channel.main_uv)
-
-                brow = bcol.row(align=True)
-
-                rrow = brow.row(align=True)
-                inbox_dropdown_button(rrow, chui, 'expand_subdiv_settings', 'Displacement Setup:', scale_override=0.925)
-
-                if is_bl_newer_than(2, 80):
-                    rrow = brow.row(align=True) # To make sure next row is aligned right
-                    rrow.alignment = 'RIGHT'
-
-                brow.prop(channel, 'enable_subdiv_setup', text='')
-
-                if chui.expand_subdiv_settings:
-
-                    brow = bcol.row(align=True)
-                    if draw_blank: brow.label(text='', icon='BLANK1')
-                    bbox = brow.box()
-                    bbcol = bbox.column() #align=True)
-                    bbcol.active = channel.enable_subdiv_setup
-
-                    height_input = node.inputs.get(channel.name + io_suffix['HEIGHT'])
-                    if height_input and len(height_input.links)>0:
-
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Input Max Height:')
-                        max_height_inp = node.inputs.get(channel.name + io_suffix['MAX_HEIGHT'])
-                        if max_height_inp: brow.prop(max_height_inp, 'default_value', text='')
-
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Input Bump Midlevel:')
-
-                        start_bump_process = nodes.get(channel.start_bump_process)
-                        if start_bump_process and 'Midlevel' in start_bump_process.inputs:
-                            brow.prop(start_bump_process.inputs['Midlevel'], 'default_value', text='')
-
-                    brow = bbcol.row(align=True)
-                    brow.label(text='Max Polygons:')
-                    brow.prop(channel, 'subdiv_on_max_polys', text='')
-
-                    if is_bl_newer_than(2, 78):
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Adaptive (Cycles Only):')
-                        brow.prop(channel, 'subdiv_adaptive', text='')
-
-                        if channel.subdiv_adaptive:
-                            brow = bbcol.row(align=True)
-                            brow.label(text='Global Dicing:')
-                            brow.prop(channel, 'subdiv_global_dicing', text='')
-
-                    # Only show subsurf only option when object has multires
-                    multires = get_multires_modifier(obj, include_hidden=True)
-                    if multires or channel.subdiv_subsurf_only:
-                        brow = bbcol.row(align=True)
-                        brow.active = not channel.subdiv_adaptive
-                        brow.label(text='Subsurf Only:')
-                        brow.prop(channel, 'subdiv_subsurf_only', text='')
 
             if channel.type in {'RGB', 'VALUE'} and not is_alpha_channel:
 
@@ -2619,9 +2433,7 @@ def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False)
     elif layer.type in {'GROUP', 'PREV_LAYERS'}:
         root_ch = yp.channels[get_layer_channel_index(layer, ch)]
         label = 'Group ' if layer.type == 'GROUP' else 'Previous '
-        if root_ch.type == 'NORMAL' and not secondary_input:
-            label += 'Bump'
-        else: label += root_ch.name
+        label += root_ch.name
     else:
         label = 'Layer'
 
@@ -2674,20 +2486,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 ch_idx = get_layer_channel_index(layer, ch)
                 root_ch = yp.channels[ch_idx]
                 #label = root_ch.name
-                if root_ch.type == 'NORMAL' and ch.normal_map_type != 'NORMAL_MAP' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
-                    if ch.normal_map_type == 'BUMP_MAP':
-                        if is_bl_newer_than(2, 80):
-                            label += ' (Bump)'
-                        else: label = 'Bump'
-                    elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                        if is_bl_newer_than(2, 80):
-                            label += ' (Bump + Normal)'
-                        else: label = 'Bump + Normal'
-                    elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                        if is_bl_newer_than(2, 80):
-                            label += ' (VDM)'
-                        else: label = 'VDM'
-                elif root_ch.special_type == 'VDISP' and layer.type != 'GROUP':
+                if root_ch.special_type == 'VDISP' and layer.type != 'GROUP':
                     if is_bl_newer_than(2, 80):
                         label += ' (VDM)'
                     else: label = 'VDM'
@@ -2732,16 +2531,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.prop(ch, 'blend_type', text='')
                 draw_input_prop(splits, ch, 'vdisp_strength', layer=layer)
-            elif root_ch.type == 'NORMAL' and layer.type != 'GROUP':
-                splits = split_layout(rrow, 0.5, align=True)
-                if root_ch.special_type == 'HEIGHT':
-                    splits.prop(ch, 'height_blend_type', text='')
-                else: splits.prop(ch, 'normal_blend_type', text='')
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                    draw_input_prop(splits, ch, 'bump_distance', layer=layer)
-                elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                    draw_input_prop(splits, ch, 'vdisp_strength', layer=layer)
-                else: draw_input_prop(splits, ch, 'normal_strength', layer=layer)
             else: 
                 rrow.scale_x = 1.25
                 rrow.prop(ch, 'blend_type', text='')
@@ -2814,12 +2603,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
             alt_ch_for_icon = root_normal_ch
             label = root_normal_ch.name+' from '+root_height_ch.name
-        elif root_ch.type == 'NORMAL' and layer.type not in {'GROUP', 'PREV_LAYERS'}:
-            if chui.expand_content:
-                label += yp.channels[i].name + ' ('
-            label += normal_type_labels[ch.normal_map_type]
-            if chui.expand_content:
-                label += ')'
         else: label += yp.channels[i].name
         intensity_value = get_entity_prop_value(ch, 'intensity_value', layer=layer, 
             path='.channels['+str(i)+'].intensity_value') # NOTE: Manual path passing is for optimization
@@ -2855,7 +2638,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 if ch == height_ch and height_ch.use_height_as_normal:
                     label = normal_blend_labels[normal_ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(normal_ch, 'normal_blend_type', text='')
-                elif root_ch.type == 'NORMAL' or root_ch.special_type == 'NORMAL':
+                elif root_ch.special_type == 'NORMAL':
                     label = normal_blend_labels[ch.normal_blend_type] + ' ' + '%.1f' % intensity_value
                     ssplit.prop(ch, 'normal_blend_type', text='')
                 elif root_ch.special_type == 'HEIGHT':
@@ -2894,38 +2677,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             elif root_ch.special_type == 'VDISP':
                 rrrow = ssplit.row(align=True)
                 draw_input_prop(rrrow, ch, 'vdisp_strength', layer=layer)
-
-            elif root_ch.type == 'NORMAL':
-                rrrow = ssplit.row(align=True)
-
-                if ch.normal_map_type == 'NORMAL_MAP':
-                    draw_input_prop(rrrow, ch, 'normal_strength', layer=layer)
-                elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-                    draw_input_prop(rrrow, ch, 'vdisp_strength', layer=layer)
-                else: draw_input_prop(rrrow, ch, 'bump_distance', layer=layer)
-
-                if ch.normal_map_type == 'NORMAL_MAP' and ch.override_1 and ch.override_1_type == 'DEFAULT':
-                    draw_input_prop(rrrow, ch, 'override_1_color', layer=layer)
-                elif ch.override and ch.override_type == 'DEFAULT':
-                    draw_input_prop(rrrow, ch, 'override_color', layer=layer)
-
-                if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'}:
-                    rrrow.menu("NODE_MT_y_layer_channel_input_menu", text='', icon='DOWNARROW_HLT')
-                if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                    rrrow.menu("NODE_MT_y_layer_channel_input_1_menu", text='', icon='DOWNARROW_HLT')
-
-                #if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
-                if ch.enable:
-                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override:
-                        if ch.override_type == 'IMAGE':
-                            rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
-                        elif ch.override_type == 'VCOL':
-                            rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
-                        elif ch.override_type != 'DEFAULT':
-                            rrrow.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
-
-                    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type == 'IMAGE':
-                        rrrow.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
 
             elif ch.override:
                 rrrow = ssplit.row(align=True)
@@ -3005,7 +2756,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
             if height_ch == ch and height_ch.use_height_as_normal:
                 rrow.prop(normal_ch, 'normal_blend_type', text='')
-            elif root_ch.type == 'NORMAL' or root_ch.special_type == 'NORMAL':
+            elif root_ch.special_type == 'NORMAL':
                 rrow.prop(ch, 'normal_blend_type', text='')
             elif root_ch.special_type == 'HEIGHT':
                 rrow.prop(ch, 'height_blend_type', text='')
@@ -3024,7 +2775,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
                 draw_input_prop(row, ch, 'intensity_value', layer=layer)
 
                 # Use Clamp
-                if root_ch.type != 'NORMAL' and root_ch.special_type not in {'HEIGHT', 'NORMAL'}:
+                if root_ch.type != 'VECTOR' and root_ch.special_type not in {'HEIGHT', 'NORMAL'}:
                     row = mcol.row(align=True)
                     row.label(text='', icon='BLANK1')
                     row.label(text='Use Clamp:')
@@ -3227,212 +2978,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
             row.label(text='Flip Y/Z:') #, icon_value=lib.get_icon('input'))
             draw_input_prop(row, ch, 'vdisp_enable_flip_yz', layer=layer)
 
-        if root_ch.type == 'NORMAL':
-
-            if layer.type not in {'GROUP', 'PREV_LAYERS'}:
-
-                #mcol.separator()
-
-                row = mcol.row(align=True)
-                row.label(text='', icon='BLANK1')
-                #split = split_layout(row, 0.4)
-                row.label(text='Type:')
-                rrow = row.row(align=True)
-                rrow.scale_x = 1.4
-                rrow.prop(ch, 'normal_map_type', text='')
-
-                if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-
-                    # Height
-                    row = mcol.row(align=True)
-                    row.label(text='', icon='BLANK1')
-                    row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
-                    row.label(text='Height:') #, icon_value=lib.get_icon('input'))
-                    row.active == is_bump_distance_relevant(layer, ch)
-                    draw_input_prop(row, ch, 'bump_distance', layer=layer)
-
-                    # Midlevel
-                    row = mcol.row(align=True)
-                    row.label(text='', icon='BLANK1')
-                    row.active = layer.type != 'COLOR' or not ch.enable_transition_bump
-                    row.label(text='Midlevel:') 
-                    draw_input_prop(row, ch, 'bump_midlevel', layer=layer)
-
-                    if root_ch.enable_smooth_bump:
-                        # Smooth multiplier
-                        row = mcol.row(align=True)
-                        row.label(text='', icon='BLANK1')
-                        row.label(text='Smooth Multiplier:') 
-                        draw_input_prop(row, ch, 'bump_smooth_multiplier', layer=layer)
-
-                if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}: 
-
-                    # Normal Strength
-                    row = mcol.row(align=True)
-                    row.label(text='', icon='BLANK1')
-                    label = 'Normal Strength:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Strength:'
-                    row.label(text=label)
-                    if ch.normal_map_type == 'NORMAL_MAP':
-                        row = row.row(align=True)
-                        row.scale_x = 1.4
-                    draw_input_prop(row, ch, 'normal_strength', layer=layer)
-
-                    # Normal Space
-                    row = mcol.row(align=True)
-                    row.label(text='', icon='BLANK1')
-                    label = 'Normal Space:' if ch.normal_map_type == 'BUMP_NORMAL_MAP' else 'Space:'
-                    row.label(text=label)
-                    if ch.normal_map_type == 'NORMAL_MAP':
-                        row = row.row(align=True)
-                        row.scale_x = 1.4
-                    row.prop(ch, 'normal_space', text='')
-
-                elif ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP':
-
-                    # Vector Displacement Strength
-                    row = mcol.row(align=True)
-                    row.label(text='', icon='BLANK1')
-                    row.label(text='Strength:') #, icon_value=lib.get_icon('input'))
-                    draw_input_prop(row, ch, 'vdisp_strength', layer=layer)
-
-                    # Vector Displacement Flip Y/Z
-                    row = mcol.row(align=True)
-                    row.label(text='', icon='BLANK1')
-                    row.label(text='Flip Y/Z:') #, icon_value=lib.get_icon('input'))
-                    draw_input_prop(row, ch, 'vdisp_enable_flip_yz', layer=layer)
-
-            if root_ch.enable_smooth_bump and image:
-
-                uv_neighbor = layer_tree.nodes.get(layer.uv_neighbor)
-                if uv_neighbor:
-                    cur_x = uv_neighbor.inputs[1].default_value 
-                    cur_y = uv_neighbor.inputs[2].default_value 
-
-                    correct_x, correct_y = get_correct_uv_neighbor_resolution(ch, image)
-
-                    if round(cur_x, 2) != round(correct_x, 2) or round(cur_y, 2) != round(correct_y, 2):
-                        brow = mcol.row(align=True)
-                        brow.alert = True
-                        brow.context_pointer_set('channel', ch)
-                        brow.context_pointer_set('image', image)
-                        brow.operator('wm.y_refresh_neighbor_uv', icon='ERROR')
-
-            if ch.show_transition_bump or ch.enable_transition_bump:
-
-                brow = mcol.row(align=True)
-
-                rrow = brow.row(align=True)
-                inbox_dropdown_button(rrow, chui, 'expand_transition_bump_settings', 'Transition Bump:', scale_override=0.915)
-
-                if is_bl_newer_than(2, 80): rrow = brow.row(align=True) # To make sure the next row align right
-                brow.separator()
-
-                if ch.enable_transition_bump and not chui.expand_transition_bump_settings:
-                    draw_input_prop(brow, ch, 'transition_bump_distance', layer=layer)
-
-                brow.context_pointer_set('parent', ch)
-                icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-                brow.menu("NODE_MT_y_transition_bump_menu", text='', icon=icon)
-
-                brow.prop(ch, 'enable_transition_bump', text='')
-
-                if chui.expand_transition_bump_settings:
-                    row = mcol.row(align=True)
-                    row.label(text='', icon='BLANK1')
-
-                    bbox = row.box()
-                    bbox.active = ch.enable_transition_bump
-                    cccol = bbox.column(align=True)
-
-                    #crow = cccol.row(align=True)
-                    #crow.label(text='Type:') #, icon_value=lib.get_icon('input'))
-                    #crow.prop(ch, 'transition_bump_type', text='')
-
-                    #crow = cccol.row(align=True)
-                    #crow.label(text='Type:') #, icon_value=lib.get_icon('input'))
-                    #crow.prop(ch, 'transition_bump_type', text='')
-
-                    crow = cccol.row(align=True)
-                    crow.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
-                    draw_input_prop(crow, ch, 'transition_bump_distance', layer=layer)
-
-                    crow = cccol.row(align=True)
-                    crow.label(text='Edge 1:') #, icon_value=lib.get_icon('input'))
-                    draw_input_prop(crow, ch, 'transition_bump_value', layer=layer)
-
-                    crow = cccol.row(align=True)
-                    crow.label(text='Edge 2:') #, icon_value=lib.get_icon('input'))
-                    draw_input_prop(crow, ch, 'transition_bump_second_edge_value', layer=layer)
-
-                    crow = cccol.row(align=True)
-                    crow.label(text='Affected Masks:') #, icon_value=lib.get_icon('input'))
-                    crow.prop(ch, 'transition_bump_chain', text='')
-
-                    #if ch.transition_bump_type == 'CURVED_BUMP_MAP':
-                    #    crow = cccol.row(align=True)
-                    #    crow.label(text='Offset:') #, icon_value=lib.get_icon('input'))
-                    #    crow.prop(ch, 'transition_bump_curved_offset', text='')
-
-                    crow = cccol.row(align=True)
-                    #crow.active = layer.type != 'BACKGROUND'
-                    crow.label(text='Flip:') #, icon_value=lib.get_icon('input'))
-                    crow.prop(ch, 'transition_bump_flip', text='')
-
-                    crow = cccol.row(align=True)
-                    #crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
-                    crow.active = not ch.transition_bump_flip
-                    crow.label(text='Crease:') #, icon_value=lib.get_icon('input'))
-                    crow.prop(ch, 'transition_bump_crease', text='')
-
-                    if ch.transition_bump_crease:
-                        crow = cccol.row(align=True)
-                        crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
-                        crow.label(text='Crease Factor:') #, icon_value=lib.get_icon('input'))
-                        draw_input_prop(crow, ch, 'transition_bump_crease_factor', layer=layer)
-
-                        crow = cccol.row(align=True)
-                        crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
-                        crow.label(text='Crease Power:') #, icon_value=lib.get_icon('input'))
-                        draw_input_prop(crow, ch, 'transition_bump_crease_power', layer=layer)
-
-                        cccol.separator()
-
-                    crow = cccol.row(align=True)
-                    #crow.active = layer.type != 'BACKGROUND'
-                    crow.label(text='Falloff:') #, icon_value=lib.get_icon('input'))
-                    crow.prop(ch, 'transition_bump_falloff', text='')
-
-                    if ch.transition_bump_falloff:
-
-                        crow = cccol.row(align=True)
-                        crow.label(text='Falloff Type :') #, icon_value=lib.get_icon('input'))
-                        crow.prop(ch, 'transition_bump_falloff_type', text='')
-
-                        if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
-
-                            crow = cccol.row(align=True)
-                            crow.label(text='Falloff Factor:') #, icon_value=lib.get_icon('input'))
-                            draw_input_prop(crow, ch, 'transition_bump_falloff_emulated_curve_fac', layer=layer)
-                        
-                        elif ch.transition_bump_falloff_type == 'CURVE' and ch.enable_transition_bump and ch.enable:
-                            cccol.separator()
-                            tbf = layer_tree.nodes.get(ch.tb_falloff)
-                            if root_ch.enable_smooth_bump:
-                                tbf = tbf.node_tree.nodes.get('_original')
-                            curve = tbf.node_tree.nodes.get('_curve')
-                            curve.draw_buttons_ext(context, cccol)
-
-                    #row.label(text='', icon='BLANK1')
-
-            # Write height
-            if ch.normal_map_type not in {'NORMAL_MAP', 'VECTOR_DISPLACEMENT_MAP'} or ch.enable_transition_bump or layer.type in {'GROUP', 'PREV_LAYERS'}:
-                row = mcol.row(align=True)
-                row.label(text='', icon='BLANK1')
-                row.label(text='Write Height:')
-                row.prop(ch, 'write_height', text='')
-
-            extra_separator = True
-
         if root_ch.type in {'RGB', 'VALUE'}:
 
             if ch.show_transition_ramp or ch.enable_transition_ramp:
@@ -3554,192 +3099,113 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
         source_1 = layer_tree.nodes.get(ch.source_1)
         cache_1 = layer_tree.nodes.get(ch.cache_1_image)
 
-        show_bump_normal_overrides = root_ch.type == 'NORMAL' and (ch.normal_map_type == 'BUMP_NORMAL_MAP' or layer.type in {'GROUP', 'PREV_LAYERS'})
+        split_factor = 0.375
 
-        split_factor = 0.475 if show_bump_normal_overrides else 0.375
+        # Override settings
 
-        if True: #layer.type != 'GROUP' or root_ch.type != 'NORMAL':
-            # Override settings
-            if root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP': # or (not source_1 and not cache_1):
+        modcol = mcol.column()
+        modcol.active = layer.type != 'BACKGROUND'
+        draw_modifier_stack(context, ch, root_ch.type, modcol, 
+                ypui.layer_ui.channels[i], layer)
 
-                modcol = mcol.column()
-                modcol.active = layer.type != 'BACKGROUND'
-                draw_modifier_stack(context, ch, root_ch.type, modcol, 
-                        ypui.layer_ui.channels[i], layer)
+        #mcol.separator()
 
-                #mcol.separator()
+        # NOTE: Swizzle currently only works with non custom layer channel source
+        # Only expose swizzle to developer for now
+        soc = get_channel_input_socket(layer, ch, source)
+        swizzleable = (ypup.developer_mode or ch.swizzle_input_mode != 'RGB') and soc.type in {'RGBA', 'RGB', 'VECTOR'} and not ch.override
+        socket_input_name = get_channel_input_socket_name(layer, ch, source)
 
-                if root_ch.type != 'NORMAL' or ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP' or ch.override:
+        input_settings_available = has_layer_input_options(layer) and (socket_input_name != 'Alpha' 
+                and root_ch.colorspace == 'SRGB')
 
-                    # NOTE: Swizzle currently only works with non custom layer channel source
-                    # Only expose swizzle to developer for now
-                    soc = get_channel_input_socket(layer, ch, source)
-                    swizzleable = (ypup.developer_mode or ch.swizzle_input_mode != 'RGB') and soc.type in {'RGBA', 'RGB', 'VECTOR'} and not ch.override
-                    socket_input_name = get_channel_input_socket_name(layer, ch, source)
+        #row = mcol.row(align=True)
+        srow = split_layout(mcol, split_factor, align=False)
+        row = srow.row(align=True)
 
-                    input_settings_available = has_layer_input_options(layer) and (socket_input_name != 'Alpha' 
-                            and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
+        label = ''
+        label += 'Source:'
 
-                    #row = mcol.row(align=True)
-                    srow = split_layout(mcol, split_factor, align=False)
-                    row = srow.row(align=True)
+        if ch == color_ch and ch.enable:
+            label = root_ch.name + ':'
 
-                    label = ''
-                    if show_bump_normal_overrides:
-                        label += 'Bump '
-                    label += 'Source:'
+        dropdown_available = (ch.override and ch.override_type != 'VCOL') or input_settings_available or swizzleable
 
-                    if ch == color_ch and ch.enable:
-                        label = root_ch.name + ':'
+        if dropdown_available:
+            inbox_dropdown_button(row, chui, 'expand_source', label)
+        else:
+            row.label(text='', icon='BLANK1')
+            row.label(text=label)
 
-                    dropdown_available = (ch.override and ch.override_type != 'VCOL') or input_settings_available or swizzleable
+        row = srow.row(align=True)
+        label = get_layer_channel_input_label(layer, ch, source)
+        row.context_pointer_set('parent', ch)
+        if ch.override and ch.override_type == 'DEFAULT' and not ch.expand_source:
+            split = split_layout(row, 0.55, align=True)
+            split.menu("NODE_MT_y_layer_channel_input_menu", text=label)
+            if root_ch.type == 'VALUE':
+                draw_input_prop(split, ch, 'override_value', layer=layer)
+            else: draw_input_prop(split, ch, 'override_color', layer=layer)
+        else:
+            swizzle_shortcut = swizzleable and not ch.expand_source
+            if swizzle_shortcut:
+                rrow = split_layout(row, 0.55, align=True)
+            else: 
+                rrow = row.row(align=True)
+                rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
 
-                    if dropdown_available:
-                        inbox_dropdown_button(row, chui, 'expand_source', label)
-                    else:
-                        row.label(text='', icon='BLANK1')
-                        row.label(text=label)
+            rrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
 
-                    row = srow.row(align=True)
-                    label = get_layer_channel_input_label(layer, ch, source)
-                    row.context_pointer_set('parent', ch)
-                    if ch.override and ch.override_type == 'DEFAULT' and not ch.expand_source:
-                        split = split_layout(row, 0.55, align=True)
-                        split.menu("NODE_MT_y_layer_channel_input_menu", text=label)
-                        if root_ch.type == 'VALUE':
-                            draw_input_prop(split, ch, 'override_value', layer=layer)
-                        else: draw_input_prop(split, ch, 'override_color', layer=layer)
-                    else:
-                        swizzle_shortcut = swizzleable and not ch.expand_source
-                        if swizzle_shortcut:
-                            rrow = split_layout(row, 0.55, align=True)
-                        else: 
-                            rrow = row.row(align=True)
-                            rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
+            if swizzle_shortcut:
+                rrow.prop(ch, "swizzle_input_mode", text='')
 
-                        rrow.menu("NODE_MT_y_layer_channel_input_menu", text=label)
+        #if ch.enable and ch.override: #and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
+        if (ch.enable or (ch == alpha_ch and color_ch.enable)) and ch.override:
+            if ch.override_type == 'IMAGE':
+                row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
+            elif ch.override_type == 'VCOL':
+                row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+            elif ch.override_type != 'DEFAULT':
+                row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
-                        if swizzle_shortcut:
-                            rrow.prop(ch, "swizzle_input_mode", text='')
+        ch_source = None
+        if ch.override:
+            ch_source = get_channel_source(ch, layer)
 
-                    #if ch.enable and ch.override: #and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
-                    if (ch.enable or (ch == alpha_ch and color_ch.enable)) and ch.override:
-                        if ch.override_type == 'IMAGE':
-                            row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
-                        elif ch.override_type == 'VCOL':
-                            row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
-                        elif ch.override_type != 'DEFAULT':
-                            row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
+        if ch.expand_source and dropdown_available: # and ch.override_type != 'DEFAULT':
 
-                    ch_source = None
-                    if ch.override:
-                        ch_source = get_channel_source(ch, layer)
+            rrow = mcol.row(align=True)
+            rrow.label(text='', icon='BLANK1')
+            #rrcol = rrow.box()
+            rrcol = rrow.column()
 
-                    if ch.expand_source and dropdown_available: # and ch.override_type != 'DEFAULT':
+            if swizzleable:
+                srow = split_layout(rrcol, 0.5, align=False)
+                srow.label(text='Swizzle:')
+                srow.prop(ch, "swizzle_input_mode", text='')
 
-                        rrow = mcol.row(align=True)
-                        rrow.label(text='', icon='BLANK1')
-                        #rrcol = rrow.box()
-                        rrcol = rrow.column()
-
-                        if swizzleable:
-                            srow = split_layout(rrcol, 0.5, align=False)
-                            srow.label(text='Swizzle:')
-                            srow.prop(ch, "swizzle_input_mode", text='')
-
-                        if ch.override:
-                            if ch.override_type == 'DEFAULT':
-                                row = rrcol.row()
-                                if root_ch.type == 'VALUE':
-                                    row.label(text='Custom Value:')
-                                    draw_input_prop(row, ch, 'override_value', layer=layer)
-                                else: 
-                                    row.label(text='Custom Color:')
-                                    draw_input_prop(row, ch, 'override_color', layer=layer)
-
-                            if ch_source:
-                                if ch.override_type == 'IMAGE':
-                                    draw_image_props(context, ch_source, rrcol, ch, show_datablock=False)
-                                elif ch.override_type == 'VCOL':
-                                    draw_vcol_props(rrcol)
-                                else:
-                                    draw_tex_props(ch_source, rrcol, entity=ch)
-
-                        elif input_settings_available:
-                            row = rrcol.row(align=True)
-                            row.label(text='Gamma Space:')
-                            row.prop(ch, 'gamma_space', text='')
-
-            # Override 1
-            if root_ch.type == 'NORMAL' and (ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or layer.type in {'GROUP', 'PREV_LAYERS'}): # and (source_1 or cache_1))):
-
-                modcol = mcol.column()
-                modcol.active = layer.type != 'BACKGROUND'
-                draw_modifier_stack(context, ch, root_ch.type, modcol, 
-                        ypui.layer_ui.channels[i], layer, use_modifier_1=True)
-
-                srow = split_layout(mcol, split_factor, align=False)
-                row = srow.row(align=True)
-
-                label = ''
-                if show_bump_normal_overrides:
-                    label += root_ch.name + ' '
-                label += 'Source:'
-
-                if not ch.override_1:
-                    row.label(text='', icon='BLANK1')
-                    row.label(text=label)
-                else:
-                    inbox_dropdown_button(row, chui, 'expand_source_1', label)
-
-                if ch.override_1:
-                    if ch.override_1_type == 'IMAGE' and source_1 and source_1.image:
-                        label = source_1.image.name
-                    else: label = 'Custom'
-                else:
-                    label = get_layer_channel_input_label(layer, ch, source_1, secondary_input=True)
-                    #label = 'Layer'
-                    #if is_bl_newer_than(2, 81) and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
-                    #    label += ' Distance'
-                    #else: label += ' Color'
-
-                row = srow.row(align=True)
-                row.context_pointer_set('parent', ch)
-                if ch.override_1 and ch.override_1_type == 'DEFAULT' and not ch.expand_source_1:
-                    split = split_layout(row, 0.55, align=True)
-                    split.menu("NODE_MT_y_layer_channel_input_1_menu", text=label)
-                    draw_input_prop(split, ch, 'override_1_color', layer=layer)
-                else:
-                    rrow = row.row(align=True)
-                    rrow.scale_x = 1.4 if ch.normal_map_type != 'BUMP_NORMAL_MAP' else 1.1
-                    rrow.menu("NODE_MT_y_layer_channel_input_1_menu", text=label)
-
-                if ch.enable and ch.override_1 and ch.override_1_type == 'IMAGE': # and ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
-                    row.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
-
-                #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-                #row.menu("NODE_MT_y_replace_channel_override_1_menu", icon=icon, text='')
-
-                ch_source_1 = None
-                if ch.override_1:
-                    ch_source_1 = layer_tree.nodes.get(ch.source_1)
-                elif ch.override_1_type not in {'DEFAULT'}:
-                    #ch_source_1 = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_1_type.lower()))
-                    ch_source_1 = layer_tree.nodes.get(getattr(ch, 'cache_1_image'))
-
-                #if ch.expand_source_1 and ch.override_1_type == 'IMAGE' and ch_source_1:
-                if ch.expand_source_1 and ch.override_1:
-                    rrow = mcol.row(align=True)
-                    rrow.label(text='', icon='BLANK1')
-                    #rbox = rrow.box()
-                    #rbox.active = ch.override_1
-                    rrcol = rrow.column()
-                    if ch.override_1_type == 'DEFAULT':
-                        row = rrcol.row()
+            if ch.override:
+                if ch.override_type == 'DEFAULT':
+                    row = rrcol.row()
+                    if root_ch.type == 'VALUE':
+                        row.label(text='Custom Value:')
+                        draw_input_prop(row, ch, 'override_value', layer=layer)
+                    else: 
                         row.label(text='Custom Color:')
-                        draw_input_prop(row, ch, 'override_1_color', layer=layer)
-                    elif ch.override_1_type == 'IMAGE' and ch_source_1:
-                        draw_image_props(context, ch_source_1, rrcol, entity=ch, show_flip_y=True, show_datablock=False)
+                        draw_input_prop(row, ch, 'override_color', layer=layer)
+
+                if ch_source:
+                    if ch.override_type == 'IMAGE':
+                        draw_image_props(context, ch_source, rrcol, ch, show_datablock=False)
+                    elif ch.override_type == 'VCOL':
+                        draw_vcol_props(rrcol)
+                    else:
+                        draw_tex_props(ch_source, rrcol, entity=ch)
+
+            elif input_settings_available:
+                row = rrcol.row(align=True)
+                row.label(text='Gamma Space:')
+                row.prop(ch, 'gamma_space', text='')
 
         if ypui.expand_channels:
             mrow.label(text='', icon='BLANK1')
@@ -4294,16 +3760,6 @@ def any_yp_problems(yp, vcols=[]):
                         ):
                         missing_data = True
 
-            if root_ch.type == 'NORMAL':
-
-                # Check for missing normal channel source data
-                if not missing_data:
-                    if ch.override_1 and ch.override_1_type == 'IMAGE':
-                        if layer_tree == None: layer_tree = get_tree(layer) # Optimization
-                        normal_channel_source = get_channel_source_1(ch, layer, layer_tree)
-                        if not normal_channel_source or not normal_channel_source.image:
-                            missing_data = True
-
             # No need to check linear problem if channel is disabled or there's missing data
             if missing_data or not layer_enabled or not get_channel_enabled(ch, layer, root_ch): continue
 
@@ -4318,16 +3774,6 @@ def any_yp_problems(yp, vcols=[]):
 
                 if is_gamma_incorrect(gamma, linear):
                     linear_problem = True
-
-            if root_ch.type == 'NORMAL':
-
-                # Check for linear problem on normal channel source
-                if not linear_problem:
-                    if layer_tree == None: layer_tree = get_tree(layer) # Optimization
-                    gamma_1 = get_layer_channel_normal_gamma_value(ch, layer, root_ch, layer_tree=layer_tree, channel_enabled=True)
-                    linear_1 = layer_tree.nodes.get(ch.linear_1)
-                    if is_gamma_incorrect(gamma_1, linear_1):
-                        linear_problem = True
 
         # Masks loop
         for mask in layer.masks:
@@ -5821,13 +5267,11 @@ def is_output_unconnected(node, root_ch):
     outp = node.outputs.get(root_ch.name)
     if not outp: return False
     unconnected = len(outp.links) == 0 and not (yp.use_baked and yp.enable_baked_outside)
-    #if root_ch.type == 'NORMAL':
-    #    unconnected &= not (not is_bl_newer_than(2, 80) and yp.use_baked and root_ch.subdiv_adaptive)
     return unconnected
 
 def is_height_input_connected_but_has_no_start_process(node, root_ch):
     yp = node.node_tree.yp
-    if root_ch.type != 'NORMAL': return False
+    if root_ch.special_type != 'HEIGHT': return False
     socket = node.inputs.get(root_ch.name + io_suffix['HEIGHT'])
     connected = len(socket.links) > 0 if socket else False
     start_bump_process = node.node_tree.nodes.get(root_ch.start_bump_process)
@@ -5837,7 +5281,7 @@ def is_height_input_connected_but_has_no_start_process(node, root_ch):
 
 def is_height_input_unconnected_but_has_start_process(node, root_ch):
     yp = node.node_tree.yp
-    if root_ch.type != 'NORMAL': return False
+    if root_ch.special_type != 'HEIGHT': return False
     socket = node.inputs.get(root_ch.name + io_suffix['HEIGHT'])
     unconnected = len(socket.links) == 0 if socket else True
     start_bump_process = node.node_tree.nodes.get(root_ch.start_bump_process)
@@ -5933,17 +5377,7 @@ def any_subitem_in_layer(layer):
 
         root_ch = yp.channels[i]
 
-        if (root_ch.type == 'NORMAL' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} 
-            and ch.override and ch.override_type != 'DEFAULT'
-            ):
-            return True
-
-        elif (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} 
-            and ch.override_1 and ch.override_1_type != 'DEFAULT'
-            ):
-            return True
-
-        elif root_ch.type != 'NORMAL' and ch.override and ch.override_type != 'DEFAULT':
+        if ch.override and ch.override_type != 'DEFAULT':
             return True
 
     return False
@@ -5984,18 +5418,16 @@ def get_eye_icon(visible=True):
 def get_ch_type_icon_prefix(layer, ch):
     if get_layer_channel_type(layer, ch) == 'RGB': return 'rgb_'
     if get_layer_channel_type(layer, ch) == 'VALUE': return 'value_'
-    if get_layer_channel_type(layer, ch) == 'NORMAL': return 'vector_'
+    if get_layer_channel_type(layer, ch) == 'VECTOR': return 'vector_'
     return ''
 
-def get_ch_override_label(layer, ch, is_normal_override=False):
+def get_ch_override_label(layer, ch):
     yp = ch.id_data.yp
 
     label = channel_override_labels[ch.override_type]
 
     root_ch = yp.channels[get_layer_channel_index(layer, ch)]
     channel_label = root_ch.name
-    if root_ch.type == 'NORMAL' and not is_normal_override:
-        channel_label = 'Bump'
 
     label += ' ('+channel_label+')'
 
@@ -6317,7 +5749,7 @@ def layer_listing(layout, layer, show_expand=False):
             elif override_ch.override_type == 'VCOL':
                 row.prop(override_ch, 'override_vcol_name', text='', emboss=False)
             else:
-                row.label(text=get_ch_override_label(layer, override_ch, override_ch.active_edit_1))
+                row.label(text=get_ch_override_label(layer, override_ch))
         elif active_mask_image:
             if active_mask_image.yia.is_image_atlas or active_mask_image.yua.is_udim_atlas:
                 row.prop(mask, 'name', text='', emboss=False)
@@ -6514,12 +5946,9 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
 
                 ch_source = None
                 override_type = ''
-                if (root_ch.type != 'NORMAL' or ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}) and ch.override and not item.is_second_member:
+                if ch.override:
                     ch_source = get_channel_source(ch, layer)
                     override_type = ch.override_type
-                elif (root_ch.type == 'NORMAL' or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}) and ch.override_1 and item.is_second_member:
-                    ch_source = get_channel_source_1(ch, layer)
-                    override_type = ch.override_1_type
 
                 ch_image = None
                 if override_type == 'IMAGE' and ch_source and ch_source.image:
@@ -6535,7 +5964,7 @@ class NODE_UL_YPaint_list_items(bpy.types.UIList):
                     row.prop(ch, 'override_vcol_name', text='', emboss=False, icon_value=lib.get_icon(icon_name))
                 else: 
                     icon_name = get_ch_type_icon_prefix(layer, ch) + 'texture'
-                    row.label(text=get_ch_override_label(layer, ch, item.is_second_member), icon_value=lib.get_icon(icon_name))
+                    row.label(text=get_ch_override_label(layer, ch), icon_value=lib.get_icon(icon_name))
 
                 if ch_image:
                     # Asterisk icon to indicate dirty image
@@ -7070,8 +6499,8 @@ class YNewChannelMenu(bpy.types.Menu):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
         col.operator("wm.y_add_new_ypaint_channel", icon_value=icon_value, text='RGB').type = 'RGB'
 
-        icon_value = lib.get_icon(lib.channel_custom_icon_dict['NORMAL'])
-        col.operator("wm.y_add_new_ypaint_channel", icon_value=icon_value, text='Normal').type = 'NORMAL'
+        icon_value = lib.get_icon(lib.channel_custom_icon_dict['VECTOR'])
+        col.operator("wm.y_add_new_ypaint_channel", icon_value=icon_value, text='Vector').type = 'VECTOR'
 
         col.separator()
         col.label(text='Auto Setup New Channel')
@@ -7441,12 +6870,8 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         
         col = self.layout.column()
 
-        if root_ch.type == 'NORMAL':
-            #col.label(text='Layer Bump Source')
-            col.label(text='Bump Source')
-        else: 
-            #col.label(text='Layer '+root_ch.name+' Source')
-            col.label(text=root_ch.name+' Source')
+        #col.label(text='Layer '+root_ch.name+' Source')
+        col.label(text=root_ch.name+' Source')
 
         col.separator()
 
@@ -7473,9 +6898,7 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         else:
             if layer.type in {'GROUP', 'PREV_LAYERS'}:
                 label = 'Group ' if layer.type == 'GROUP' else 'Previous '
-                if root_ch.type == 'NORMAL':
-                    label += 'Bump'
-                else: label += root_ch.name
+                label += root_ch.name
                 icon = 'RADIOBUT_ON' if not ch.override else 'RADIOBUT_OFF'
                 op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
                 op.socket_name = ch.socket_input_name
@@ -8356,10 +7779,6 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
             return
 
-        is_bump_layer_channel = False
-        is_normal_layer_channel = False
-        is_bump_normal_layer_channel = False
-
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         yp = context.parent.id_data.yp
         layer = yp.layers[int(m.group(1))]
@@ -8367,38 +7786,21 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
 
         is_group_layer = layer.type in {'GROUP', 'PREV_LAYERS'}
 
-        if root_ch.type == 'NORMAL':
-            if context.parent.normal_map_type == 'BUMP_MAP':
-                is_bump_layer_channel = True
-            elif context.parent.normal_map_type == 'NORMAL_MAP':
-                is_normal_layer_channel = True
-            elif context.parent.normal_map_type == 'BUMP_NORMAL_MAP':
-                is_bump_normal_layer_channel = True
-
         col.separator()
 
-        if is_bump_normal_layer_channel or is_bump_layer_channel or is_group_layer:
-            col.label(text='Add Modifier (Bump)')
-        elif is_normal_layer_channel:
-            col.label(text='Add Modifier (Normal)')
-        else:
-            col.label(text='Add Modifier')
+        col.label(text='Add Modifier')
 
-        if not is_normal_layer_channel:
-            # List the items
-            for mt in Modifier.modifier_type_items:
-                # Override color and multiplier modifier are deprecated
-                if mt[0] == 'OVERRIDE_COLOR': continue
-                if mt[0] == 'MULTIPLIER': continue
-                col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
+        #if root_ch.special_type == 'NORMAL':
+        #    col.operator('wm.y_new_normalmap_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
+        #    col.operator('wm.y_new_normalmap_modifier', text='Math', icon_value=lib.get_icon('modifier')).type = 'MATH'
+        #else:
 
-        if is_bump_normal_layer_channel or is_group_layer:
-            col.separator()
-            col.label(text='Add Modifier (Normal)')
-
-        if is_normal_layer_channel or is_bump_normal_layer_channel or is_group_layer:
-            col.operator('wm.y_new_normalmap_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
-            col.operator('wm.y_new_normalmap_modifier', text='Math', icon_value=lib.get_icon('modifier')).type = 'MATH'
+        # List the items
+        for mt in Modifier.modifier_type_items:
+            # Override color and multiplier modifier are deprecated
+            if mt[0] == 'OVERRIDE_COLOR': continue
+            if mt[0] == 'MULTIPLIER': continue
+            col.operator('wm.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
         if root_ch.special_type not in {'NORMAL', 'VDISP'}:
             col = row.column()

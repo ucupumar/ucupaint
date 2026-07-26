@@ -166,16 +166,6 @@ def check_entity_decal_nodes(entity, tree=None):
                         decal_alpha.operation = 'MULTIPLY'
                 else:
                     remove_node(tree, ch, 'decal_alpha')
-
-                if root_ch.type == 'NORMAL':
-                    if ch_enabled and root_ch.enable_smooth_bump:
-                        for letter in nsew_letters:
-                            decal_alpha = check_new_node(tree, ch, 'decal_alpha_' + letter, 'ShaderNodeMath', 'Decal Alpha ' + letter.upper())
-                            if decal_alpha.operation != 'MULTIPLY':
-                                decal_alpha.operation = 'MULTIPLY'
-                    else:
-                        for letter in nsew_letters:
-                            remove_node(tree, ch, 'decal_alpha_' + letter)
     else:
 
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
@@ -192,10 +182,6 @@ def check_entity_decal_nodes(entity, tree=None):
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
                 remove_node(tree, ch, 'decal_alpha')
-
-                if root_ch.type == 'NORMAL':
-                    for letter in nsew_letters:
-                        remove_node(tree, ch, 'decal_alpha_' + letter)
 
         # Recover image extension type
         if entity.type == 'IMAGE' and entity.original_texcoord == 'Decal' and entity.original_image_extension != '':

@@ -638,7 +638,8 @@ def update_yp_tree(tree):
         for layer in yp.layers:
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
-                if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP' and ch.override:
+                # NOTE: `NORMAL` type is replaced with `VECTOR`
+                if root_ch.type == 'VECTOR' and ch.normal_map_type == 'NORMAL_MAP' and ch.override:
 
                     # Disable override first
                     ch.override = False
@@ -948,7 +949,8 @@ def update_yp_tree(tree):
                 bi = baked.image.y_bake_info
                 bi.is_baked_channel = True
 
-            if root_ch.type == 'NORMAL':
+            # NOTE: `NORMAL` type is replaced with `VECTOR`
+            if root_ch.type == 'VECTOR':
                 baked_disp = tree.nodes.get(root_ch.baked_disp)
                 if baked_disp and baked_disp.image:
                     bi = baked_disp.image.y_bake_info
@@ -988,7 +990,9 @@ def update_yp_tree(tree):
             for layer in yp.layers:
                 height_ch = get_height_channel(layer)
                 layer_tree = get_tree(layer)
-                need_reconnect = check_channel_normal_map_nodes(layer_tree, layer, height_root_ch, height_ch)
+                # NOTE: This function is no longer exists
+                #need_reconnect = check_channel_normal_map_nodes(layer_tree, layer, height_root_ch, height_ch)
+                need_reconnect = False
 
                 if need_reconnect:
                     reconnect_layer_nodes(layer)
@@ -1058,7 +1062,8 @@ def update_yp_tree(tree):
                             for i, ch in enumerate(layer.channels):
                                 if not ch.enable: continue
                                 root_ch = yp.channels[i]
-                                if root_ch.type == 'NORMAL' and ((ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and not ch.override_1) or ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
+                                # NOTE: `NORMAL` type is replaced with `VECTOR`
+                                if root_ch.type == 'VECTOR' and ((ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and not ch.override_1) or ch.normal_map_type == 'VECTOR_DISPLACEMENT_MAP'):
                                     used_as_normal_map = True
                                     break
 
@@ -1185,7 +1190,8 @@ def update_yp_tree(tree):
                         color_ch_name = ch.name
                         backface_mode = ch.backface_mode
 
-                    if ch.type != 'NORMAL':
+                    # NOTE: `NORMAL` type is replaced with `VECTOR`
+                    if ch.type != 'VECTOR':
                         inp = node.inputs.get(ch.name)
                         if inp:
                             val = inp.default_value
@@ -1292,7 +1298,8 @@ def update_yp_tree(tree):
                     else: ch.socket_input_name = 'Factor'
 
                 # Apparently normal channel use the same input as the bump map in previous versions
-                if root_ch.type == 'NORMAL':
+                # NOTE: `NORMAL` type is replaced with `VECTOR`
+                if root_ch.type == 'VECTOR':
                     ch.socket_input_1_name = ch.socket_input_name
 
             # Masks
@@ -1352,7 +1359,8 @@ def update_yp_tree(tree):
         for i, ch in enumerate(yp.channels):
 
             # Convert normal channel
-            if ch.type == 'NORMAL':
+            # NOTE: `NORMAL` type is replaced with `VECTOR`
+            if ch.type == 'VECTOR':
                 normal_ch = ch
                 normal_ch_idx = i
                 displacement_setup_needed = ch.enable_subdiv_setup
@@ -2362,7 +2370,8 @@ def remove_smooth_bump_setup(check_io=True):
         yp = tree.yp
 
         # Get normal channel
-        norm_chs = [ch for ch in yp.channels if ch.type == 'NORMAL']
+        # NOTE: `NORMAL` type is replaced with `VECTOR`
+        norm_chs = [ch for ch in yp.channels if ch.type == 'VECTOR']
         norm_ch = norm_chs[0] if any(norm_chs) else None
 
         if norm_ch and norm_ch.enable_smooth_bump:
@@ -2421,16 +2430,27 @@ def remove_smooth_bump_setup(check_io=True):
 
                 # Move all sources out of source group
                 disable_layer_source_tree(layer)
-                disable_channel_source_tree(layer, norm_ch, ch, rearrange=False, force=True)
+                disable_channel_source_tree(layer, norm_ch, ch, rearrange=False)
 
                 for mask in layer.masks:
                     disable_mask_source_tree(layer, mask)
                     remove_node(layer_tree, mask, 'uv_neighbor')
                     #check_mask_mix_nodes(layer, layer_tree, mask, ch)
+
+                    # Remove decal alpha
+                    for letter in nsew_letters:
+                        remove_node(layer_tree, mask, 'decal_alpha_' + letter)
                 
                 # Remove neighbor UV
                 remove_node(layer_tree, layer, 'uv_neighbor')
                 remove_node(layer_tree, ch, 'uv_neighbor')
+
+                # Remove linear_1
+                remove_node(layer_tree, ch, 'linear_1')
+
+                # Remove decal alpha
+                for letter in nsew_letters:
+                    remove_node(layer_tree, ch, 'decal_alpha_' + letter)
 
                 if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     # Get image and change the interpolation to Cubic

@@ -336,37 +336,6 @@ class YPackImage(bpy.types.Operator):
         pack_image(context.image)
         context.image.filepath = ''
 
-        node = get_active_ypaint_node()
-        tree = node.node_tree
-        yp = tree.yp
-
-        if yp.use_baked and yp.active_channel_index < len(yp.channels):
-            ch = yp.channels[yp.active_channel_index]
-            if ch.type == 'NORMAL':
-
-                baked_disp = tree.nodes.get(ch.baked_disp)
-                if baked_disp and baked_disp.image and not baked_disp.image.packed_file:
-                    pack_image(baked_disp.image)
-                    baked_disp.image.filepath = ''
-
-                baked_vdisp = tree.nodes.get(ch.baked_vdisp)
-                if baked_vdisp and baked_vdisp.image and not baked_vdisp.image.packed_file:
-                    pack_image(baked_vdisp.image)
-                    baked_vdisp.image.filepath = ''
-
-                if not is_overlay_normal_empty(ch):
-                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image and not baked_normal_overlay.image.packed_file:
-                        pack_image(baked_normal_overlay.image)
-
-                    baked_normal_overlay.image.filepath = ''
-
-                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
-                if baked_normal_no_disp and baked_normal_no_disp.image and not baked_normal_no_disp.image.packed_file:
-                    pack_image(baked_normal_no_disp.image)
-
-                baked_normal_no_disp.image.filepath = ''
-
         print('INFO:', context.image.name, 'image is packed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}

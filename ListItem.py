@@ -31,7 +31,7 @@ def refresh_list_items(yp, repoint_active=False):
     # Get current active item and its parent
     active_item_name = ''
     active_item_type = ''
-    active_item_is_second_member = False
+    #active_item_is_second_member = False
     active_collapsed_parent_item_index = -1
     if repoint_active:
 
@@ -57,10 +57,10 @@ def refresh_list_items(yp, repoint_active=False):
                         active_item_name = layer.name + ' ' + root_ch.name
                         active_item_type = 'CHANNEL_OVERRIDE'
 
-                    if root_ch.type == 'NORMAL' and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.active_edit_1:
-                        active_item_name = layer.name + ' ' + root_ch.name + ' 1'
-                        active_item_type = 'CHANNEL_OVERRIDE'
-                        active_item_is_second_member = True
+                    #if root_ch.type == 'NORMAL' and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.active_edit_1:
+                    #    active_item_name = layer.name + ' ' + root_ch.name + ' 1'
+                    #    active_item_type = 'CHANNEL_OVERRIDE'
+                    #    active_item_is_second_member = True
 
         # Get current item
         elif yp.active_item_index < len(yp.list_items):
@@ -77,7 +77,7 @@ def refresh_list_items(yp, repoint_active=False):
                 # Get current active item
                 active_item_name = item.name
                 active_item_type = item.type
-                active_item_is_second_member = item.is_second_member
+                #active_item_is_second_member = item.is_second_member
 
     # Reset list
     yp.list_items.clear()
@@ -111,7 +111,6 @@ def refresh_list_items(yp, repoint_active=False):
 
                 # Channel Override
                 if (layer.expand_subitems and 
-                    (root_ch.type != 'NORMAL' or ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}) and 
                     (ch.override and ch.override_type != 'DEFAULT') and
                     (ch.enable or (ch == alpha_ch and color_ch.enable)) and
                     yp.enable_expandable_subitems
@@ -136,31 +135,31 @@ def refresh_list_items(yp, repoint_active=False):
                     new_active_index = layer_item_index
 
                 # Channel Override 1 / Normal
-                if (layer.expand_subitems and 
-                    (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}) and 
-                    (ch.override_1 and ch.override_1_type != 'DEFAULT') and
-                    ch.enable and
-                    yp.enable_expandable_subitems
-                    ):
-                    item = yp.list_items.add()
-                    item.type = 'CHANNEL_OVERRIDE'
-                    item.index = j
-                    item.parent_index = i
-                    item.parent_name = layer.name
-                    item.name = layer.name + ' ' + root_ch.name + ' 1'
-                    item.is_second_member = True
+                #if (layer.expand_subitems and 
+                #    (root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}) and 
+                #    (ch.override_1 and ch.override_1_type != 'DEFAULT') and
+                #    ch.enable and
+                #    yp.enable_expandable_subitems
+                #    ):
+                #    item = yp.list_items.add()
+                #    item.type = 'CHANNEL_OVERRIDE'
+                #    item.index = j
+                #    item.parent_index = i
+                #    item.parent_name = layer.name
+                #    item.name = layer.name + ' ' + root_ch.name + ' 1'
+                #    item.is_second_member = True
 
-                    if (
-                        # Select channel with active edit after expand subitems
-                        (repoint_active and yp.active_layer_index == i and ch.active_edit_1) or 
+                #    if (
+                #        # Select channel with active edit after expand subitems
+                #        (repoint_active and yp.active_layer_index == i and ch.active_edit_1) or 
 
-                        # Select correct mask after other layer uncollapsing
-                        (active_item_name == item.name and active_item_type == 'CHANNEL_OVERRIDE' and active_item_is_second_member)
-                    ):
-                        new_active_index = len(yp.list_items)-1
+                #        # Select correct mask after other layer uncollapsing
+                #        (active_item_name == item.name and active_item_type == 'CHANNEL_OVERRIDE' and active_item_is_second_member)
+                #    ):
+                #        new_active_index = len(yp.list_items)-1
 
-                elif active_item_name == layer.name + ' ' + root_ch.name + ' 1' and active_item_type == 'CHANNEL_OVERRIDE':
-                    new_active_index = layer_item_index
+                #elif active_item_name == layer.name + ' ' + root_ch.name + ' 1' and active_item_type == 'CHANNEL_OVERRIDE':
+                #    new_active_index = layer_item_index
 
             # Masks
             for j, mask in enumerate(layer.masks):

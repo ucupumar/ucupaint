@@ -184,19 +184,6 @@ def set_input_default_value(group_node, channel, custom_value=None):
 
     if channel.type == 'VALUE':
         group_node.inputs[channel.name].default_value = 0.0
-    if channel.type == 'NORMAL':
-        # Use 999 as normal z value so it will fallback to use geometry normal at checking process
-        group_node.inputs[channel.name].default_value = (999, 999, 999)
-
-        # Update height default value
-        io_name = channel.name + io_suffix['HEIGHT']
-        inp = get_tree_input_by_name(group_node.node_tree, io_name)
-        if inp: group_node.inputs[io_name].default_value = inp.default_value
-
-        # Update max height default value
-        io_name = channel.name + io_suffix['MAX_HEIGHT']
-        inp = get_tree_input_by_name(group_node.node_tree, io_name)
-        if inp: group_node.inputs[io_name].default_value = inp.default_value
 
     if channel.type == 'VECTOR':
         if channel.special_type == 'NORMAL':

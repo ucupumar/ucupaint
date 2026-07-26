@@ -328,10 +328,17 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         items = blend_type_items,
     )
 
+    height_blend_type : EnumProperty(
+        name = 'Height Blend Type',
+        description = 'Height blend type',
+        items = height_blend_type_items,
+        default = 'MIX'
+    )
+
     normal_blend_type : EnumProperty(
         name = 'Normal Blend Type',
         description = 'Normal blend type',
-        items = normal_blend_items,
+        items = normal_blend_type_items,
         default = 'MIX'
     )
 
@@ -730,8 +737,6 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                 # Other object channels always bakes all channels
                 if self.target_type == 'LAYER' and self.type != 'OTHER_OBJECT_CHANNELS':
                     col.label(text='Channel:')
-                    if channel and channel.type == 'NORMAL':
-                        col.label(text='Type:')
         else:
             col.label(text='Name:')
 
@@ -828,9 +833,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                     rrow = col.row(align=True)
                     rrow.prop(self, 'channel_idx', text='')
                     if channel:
-                        if channel.type == 'NORMAL':
+                        if channel.special_type == 'HEIGHT':
+                            rrow.prop(self, 'height_blend_type', text='')
+                        elif channel.special_type == 'NORMAL':
                             rrow.prop(self, 'normal_blend_type', text='')
-                            col.prop(self, 'normal_map_type', text='')
                         else: 
                             rrow.prop(self, 'blend_type', text='')
         else:

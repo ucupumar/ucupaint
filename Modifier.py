@@ -166,13 +166,6 @@ class YNewYPaintModifier(bpy.types.Operator):
         #if self.type == 'RGB_TO_INTENSITY' and root_ch.type == 'RGB':
         #    mod.rgb2i_col = (1,0,1,1)
 
-        # If RGB to intensity is added, bump base is better be 0.0
-        if layer and self.type == 'RGB_TO_INTENSITY':
-            for i, ch in enumerate(yp.channels):
-                c = context.layer.channels[i]
-                if ch.type == 'NORMAL':
-                    c.bump_base_value = 0.0
-
         # Expand channel content to see added modifier
         if m1:
             context.layer_ui.expand_content = True
@@ -872,13 +865,6 @@ def check_modifiers_trees(parent, rearrange=False):
         root_ch = yp.channels[int(match1.group(2))]
         ch = parent
         name = root_ch.name + ' ' + layer.name
-        if (
-            root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and (
-                (not ch.override and layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'}) or 
-                (ch.override and ch.override_type not in {'DEFAULT'} and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'})
-            )
-            ):
-            enable_tree = True
         parent_tree = get_tree(layer)
 
     elif match2:
@@ -1024,13 +1010,6 @@ def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
         if match1: 
             layer = yp.layers[int(match1.group(1))]
             root_ch = yp.channels[int(match1.group(2))]
-
-            # Check if fine bump map is still used
-            if get_channel_enabled(parent, layer, root_ch) and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-                if layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not parent.override:
-                    return
-                if parent.override and parent.override_type != 'DEFAULT':
-                    return
             parent_tree = get_tree(layer)
 
         elif match2:

@@ -251,7 +251,7 @@ def remove_unused_group_node_connections(tree, layer, node): #, height_only=Fals
         if io_name in node.inputs:
             # Should always fill normal input
             #geometry = tree.nodes.get(GEOMETRY)
-            #if root_ch.type == 'NORMAL' and geometry:
+            #if root_ch.special_type == 'NORMAL' and geometry:
             #    create_link(tree, geometry.outputs['Normal'], node.inputs[io_name])
             #else:
             break_input_link(tree, node.inputs[io_name])

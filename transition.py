@@ -89,10 +89,6 @@ def show_transition(self, context, ttype):
 
     elif ttype == 'RAMP':
 
-        if root_ch.type == 'NORMAL': 
-            self.report({'ERROR'}, "Transition ramp only works on color or value channel!")
-            return {'CANCELLED'}
-
         ch.show_transition_ramp = True
 
         if ch.enable_transition_ramp:
@@ -102,10 +98,6 @@ def show_transition(self, context, ttype):
         ch.enable_transition_ramp = True
 
     elif ttype == 'AO':
-
-        if root_ch.type == 'NORMAL': 
-            self.report({'ERROR'}, "Transition AO only works on color or value channel!")
-            return {'CANCELLED'}
 
         if not bump_ch:
             self.report({'ERROR'}, "Transition AO only works if there's transition bump enabled on other channel!")

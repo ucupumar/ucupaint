@@ -2350,6 +2350,7 @@ def get_bake_properties_from_self(self):
         'denoise',
         'channel_idx',
         'blend_type',
+        'height_blend_type',
         'normal_blend_type',
         'normal_map_type',
         'hdr',
@@ -5247,7 +5248,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     normal_map_type=bprops['normal_map_type'], texcoord_type='UV',
                     uv_name=bprops.uv_map, image=image, vcol=None, segment=segment,
                     interpolation = bprops.interpolation,
-                    normal_space = 'OBJECT' if bprops.type == 'OBJECT_SPACE_NORMAL' else 'TANGENT'
+                    normal_space = 'OBJECT' if bprops.type == 'OBJECT_SPACE_NORMAL' else 'TANGENT',
+                    height_blend_type = bprops.height_blend_type
                 )
                 yp.halt_update = False
                 active_id = yp.active_layer_index

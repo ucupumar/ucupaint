@@ -14,14 +14,14 @@ YP_GROUP_PREFIX = get_addon_title() + ' '
 channel_socket_types = {
     'RGB' : 'RGBA',
     'VALUE' : 'VALUE',
-    'NORMAL' : 'VECTOR', # Deprecated
+    #'NORMAL' : 'VECTOR', # Deprecated
     'VECTOR' : 'VECTOR',
 }
 
 channel_socket_custom_icon_names = {
     'RGB' : 'rgb_channel',
     'VALUE' : 'value_channel',
-    'NORMAL' : 'vector_channel', # Deprecated
+    #'NORMAL' : 'vector_channel', # Deprecated
     'VECTOR' : 'vector_channel',
 }
 
@@ -903,7 +903,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 channel_common.set_default_height_channel_prop(ch_height)
 
             if self.enable_normal:
-                #ch_normal = channel_common.create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
                 ch_normal = channel_common.create_new_yp_channel(group_tree, 'Normal', 'VECTOR', special_type='NORMAL')
 
             if self.enable_vector_displacement:
@@ -1100,7 +1099,7 @@ def new_channel_items(self, context):
     items = [
         ('VALUE', 'Value', '', lib.get_icon(lib.channel_custom_icon_dict['VALUE']), 0),
         ('RGB', 'RGB', '', lib.get_icon(lib.channel_custom_icon_dict['RGB']), 1),
-        ('NORMAL', 'Normal', '', lib.get_icon(lib.channel_custom_icon_dict['NORMAL']), 2)
+        ('VECTOR', 'Vector', '', lib.get_icon(lib.channel_custom_icon_dict['VECTOR']), 2)
     ]
 
     return items
@@ -1134,8 +1133,8 @@ def refresh_input_coll(self, context, ch_type):
         if node == yp_node: continue
         for i, inp in enumerate(node.inputs):
             if ch_type == 'VALUE' and inp.type != 'VALUE': continue
-            elif ch_type == 'RGB' and inp.type not in {'RGBA', 'VECTOR'}: continue
-            elif ch_type == 'NORMAL' and 'Normal' not in inp.name: continue
+            elif ch_type == 'RGB' and inp.type != 'RGBA': continue
+            elif ch_type == 'VECTOR' and inp.type != 'VECTOR': continue
             if len(inp.links) > 0 : continue
             label = inp.name + ' (' + node.name +')'
             item = self.input_coll.add()
@@ -1314,7 +1313,7 @@ class YConnectYPaintChannel(bpy.types.Operator):
                 channel_common.do_alpha_setup(mat, node, channel)
 
         # Set input default value
-        if inp and self.channel.type != 'NORMAL': 
+        if inp and self.channel.type != 'VECTOR': 
             channel_common.set_input_default_value(node, channel, inp.default_value)
         else: channel_common.set_input_default_value(node, channel)
 
@@ -1519,8 +1518,8 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
         elif self.type == 'VALUE':
             self.name = 'Value'
             self.colorspace = 'LINEAR'
-        elif self.type == 'NORMAL':
-            self.name = 'Normal'
+        elif self.type == 'VECTOR':
+            self.name = 'Vector'
 
         # Check if name already available on the list
         self.name = get_unique_name(self.name, channels)
@@ -1570,12 +1569,12 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
         srow = col.row(align=True)
         srow.label(text='Connect To:')
 
-        if self.type != 'NORMAL':
+        if self.type != 'VECTOR':
             col.label(text='Color Space:')
         if show_blend_method_option:
             col.label(text='Blend Method:')
             col.label(text='Shadow Method:')
-        if self.type != 'NORMAL': col.label(text='')
+        if self.type != 'VECTOR': col.label(text='')
         if self.connect_to == '':
             col.label(text='')
 
@@ -1590,12 +1589,12 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
         srow = col.row(align=True)
         srow.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE', text='')
 
-        if self.type != 'NORMAL':
+        if self.type != 'VECTOR':
             col.prop(self, "colorspace", text='')
         if show_blend_method_option:
             col.prop(self, 'blend_method', text='')
             col.prop(self, 'shadow_method', text='')
-        if self.type != 'NORMAL': col.prop(self, 'use_clamp')
+        if self.type != 'VECTOR': col.prop(self, 'use_clamp')
         if self.connect_to == '':
             col.prop(self, 'disable_unconnected_warning')
 
@@ -1628,12 +1627,6 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
         same_channel = [c for c in channels if c.name == self.name]
         if same_channel:
             self.report({'ERROR'}, "Channel named '" + self.name +"' is already available!")
-            return {'CANCELLED'}
-
-        # Check if normal channel already exists
-        norm_channnel = [c for c in channels if c.type == 'NORMAL']
-        if norm_channnel and self.type == 'NORMAL':
-            self.report({'ERROR'}, "Cannot add more than one normal channel!")
             return {'CANCELLED'}
 
         # Create new yp channel
@@ -1670,7 +1663,7 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
                 set_blend_method = True
 
         # Set input default value
-        if inp and self.type != 'NORMAL': 
+        if inp and self.type != 'VECTOR': 
             channel_common.set_input_default_value(node, channel, inp.default_value)
         else: channel_common.set_input_default_value(node, channel)
 
@@ -1910,13 +1903,6 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
                 mat.node_tree.nodes.remove(ao_node)
 
-        # Disable smooth bump and parallax if any of those are active
-        if channel.type == 'NORMAL':
-            if channel.enable_parallax:
-                channel.enable_parallax = False
-            if channel.enable_smooth_bump:
-                channel.enable_smooth_bump = False
-
         # Do displacement setup if there's a height channel
         normal_ch, height_ch = get_normal_height_ch_pairs(yp)
         need_displacement_setup = channel == normal_ch
@@ -1989,7 +1975,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
                     Modifier.delete_modifier_nodes(ttree, mod)
 
             # Remove transition bump and ramp
-            if channel.type == 'NORMAL' and ch.enable_transition_bump:
+            if channel.special_type == 'HEIGHT' and ch.enable_transition_bump:
                 transition.remove_transition_bump_nodes(layer, ttree, ch, channel_idx)
             elif channel.type in {'RGB', 'VALUE'} and ch.enable_transition_ramp:
                 transition.remove_transition_ramp_nodes(ttree, ch)
@@ -2917,25 +2903,6 @@ def update_channel_name(self, context):
             get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['SCALE']
             output_shift += 1
 
-    if self.type == 'NORMAL' and self.enable_subdiv_setup:
-        get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['HEIGHT']
-        input_shift += 1
-
-        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['HEIGHT']
-        output_shift += 1
-
-        get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['MAX_HEIGHT']
-        input_shift += 1
-
-        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['MAX_HEIGHT']
-        output_shift += 1
-
-        get_tree_input_by_index(group_tree, input_index+input_shift).name = self.name + io_suffix['VDISP']
-        input_shift += 1
-
-        get_tree_output_by_index(group_tree, output_index+output_shift).name = self.name + io_suffix['VDISP']
-        output_shift += 1
-
     for layer in yp.layers:
         tree = get_tree(layer)
         Layer.check_all_layer_channel_io_and_nodes(layer, tree)
@@ -3162,7 +3129,6 @@ def update_layer_preview_mode(self, context):
             ch = layer.channels[yp.active_channel_index] if layer else None
             normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer) if layer else None, None
 
-            #if channel.type == 'NORMAL' and ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP':
             if channel.special_type == 'NORMAL':
                 preview = get_preview(mat, output, True, True, normal_space=yp.preview_mode_normal_space)
             else:
@@ -3257,7 +3223,6 @@ def update_preview_mode(self, context):
         outs = [o for o in group_node.outputs if o.name.startswith(channel.name)]
 
         # Use special preview for normal
-        #if channel.type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
         if channel.special_type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
             preview = get_preview(mat, output, False, True, normal_space=yp.preview_mode_normal_space)
         else: preview = get_preview(mat, output, False)
@@ -3828,7 +3793,7 @@ def update_flip_backface(self, context):
 
 def update_channel_use_clamp(self, context):
 
-    if self.type == 'NORMAL': return
+    if self.special_type in {'NORMAL', 'HEIGHT', 'VDISP'}: return
 
     group_tree = self.id_data
     check_start_end_root_ch_nodes(group_tree, self)
@@ -3854,9 +3819,6 @@ def update_channel_main_uv(self, context):
         for uv in yp.uvs:
             self.main_uv = uv.name
             break
-
-    if self.type == 'NORMAL' and self.enable_smooth_bump:
-        self.enable_smooth_bump = self.enable_smooth_bump
 
 def update_enable_height_tweak(self, context):
     check_start_end_root_ch_nodes(self.id_data)
@@ -3900,7 +3862,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
         items = (
             ('VALUE', 'Value', ''),
             ('RGB', 'RGB', ''),
-            ('NORMAL', 'Normal', ''), # Deprecated
+            #('NORMAL', 'Normal', ''), # Deprecated
             ('VECTOR', 'Vector', '')
         ),
         default = 'RGB'

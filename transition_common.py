@@ -420,9 +420,6 @@ def check_transition_bump_nodes(layer, tree, ch):
     #update_disp_scale_node(tree, root_ch, ch)
     update_displacement_height_ratio(root_ch)
 
-    # Check normal map nodes
-    #check_channel_normal_map_nodes(tree, layer, root_ch, ch)
-
     # Check extra alpha
     check_extra_alpha(layer)
     
@@ -432,7 +429,7 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
     root_ch = yp.channels[ch_index]
 
     for i, c in enumerate(layer.channels):
-        if yp.channels[i].type == 'NORMAL' and c.enable_transition_bump and c != ch:
+        if yp.channels[i].special_type == 'HEIGHT' and c.enable_transition_bump and c != ch:
             # Disable this mask bump if other channal already use mask bump
             if c.enable:
                 yp.halt_update = True

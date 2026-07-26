@@ -378,16 +378,6 @@ def add_new_layer(
         else: 
             ch.enable = False
 
-        if root_ch.type == 'NORMAL':
-            ch.normal_map_type = normal_map_type
-            
-            # Background layer has default bump distance of 0.0
-            if layer.type in {'BACKGROUND'}:
-                ch.bump_distance = 0.0
-
-            # Flip YZ is no longer enabled by default for faster calculation
-            ch.vdisp_enable_flip_yz = False
-
         if root_ch.special_type == 'NORMAL':
             # Set default override color for normal
             ch.override_color = (0.5, 0.5, 1.0)
@@ -644,7 +634,7 @@ def update_channel_idx_new_layer(self, context):
         channel = yp.channels[channel_idx]
     else: channel = None
 
-    if channel and ((channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP') or channel.special_type == 'HEIGHT'):
+    if channel and channel.special_type == 'HEIGHT':
         self.interpolation = 'Cubic'
         if hasattr(self, 'mask_interpolation'): self.mask_interpolation = 'Cubic'
 
@@ -1386,10 +1376,9 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type not in {'GROUP', 'BACKGROUND'}:
             col.label(text='Channel:')
-            if channel and channel.type == 'NORMAL':
+            if channel and channel.special_type == 'NORMAL':
                 col.label(text='Type:')
-                if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                    col.label(text='Space:')
+                col.label(text='Space:')
 
         if self.type == 'COLOR':
             col.label(text='Color:')
@@ -1480,8 +1469,6 @@ class YNewLayer(bpy.types.Operator):
             if channel:
                 if channel.special_type == 'NORMAL':
                     rrow.prop(self, 'normal_blend_type', text='')
-                    #col.prop(self, 'normal_map_type', text='')
-                    #if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
                     col.prop(self, 'normal_space', text='')
                 elif channel.special_type == 'HEIGHT':
                     rrow.prop(self, 'height_blend_type', text='')
@@ -1672,7 +1659,7 @@ class YNewLayer(bpy.types.Operator):
         # Colorspace based on channel setting
         if not self.hdr:
             channel = yp.channels[channel_idx] if channel_idx < len(yp.channels) and channel_idx >= 0 else None
-            if channel and (channel.colorspace == 'LINEAR' or channel.type == 'NORMAL'):
+            if channel and (channel.colorspace == 'LINEAR' or channel.special_type in {'NORMAL', 'HEIGHT', 'VDISP'}):
                 colorspace = get_noncolor_name()
 
         img = None
@@ -1790,8 +1777,8 @@ class YNewLayer(bpy.types.Operator):
 
         if BaseOperator.get_self_channel_idx(self) != -1:
             ypui.layer_ui.expand_channels = False
-            if len(yp.channels) > 0 and yp.channels[channel_idx].type == 'NORMAL':
-                layer.channels[channel_idx].expand_content = True
+            #if len(yp.channels) > 0 and yp.channels[channel_idx].special_type in {'NORMAL', 'HEIGHT', 'VDISP'}:
+            #    layer.channels[channel_idx].expand_content = True
         else:
             ypui.layer_ui.expand_channels = True
 
@@ -1869,24 +1856,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper, BaseOperator
         if not ch.enable:
             ch.enable = True
 
-        image = None
-        image_1 = None
-
-        if root_ch.type == 'NORMAL':
-            for img in images:
-                img_name = os.path.splitext(os.path.basename(img.filepath))[0].lower()
-                # Image 1 will represents normal
-                if (('normal' in img_name or 'norm' in img_name or img_name.endswith(('_nor', '.nor', '_n', '.n'))) 
-                    and 'displacement' not in img_name # Baked displacement from ucupaint can contains 'normal' word
-                    ):
-                    image_1 = img
-                elif not image:
-                    image = img
-
-                if image and image_1:
-                    break
-        else:
-            image = images[0]
+        image = images[0] if len(images) > 0 else None
 
         if image:
             # Make sure override is on
@@ -1911,48 +1881,9 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper, BaseOperator
                 image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
-            if root_ch.type == 'NORMAL' or root_ch.special_type == 'HEIGHT': image_node.interpolation = 'Cubic'
+            if root_ch.special_type == 'HEIGHT': image_node.interpolation = 'Cubic'
             ch.override_type = 'IMAGE'
             ch.active_edit = True
-
-        if image_1:
-
-            if not ch.override_1:
-                ch.override_1 = True
-
-            # Set relative
-            if self.relative:
-                try: image_1.filepath = bpy.path.relpath(image_1.filepath)
-                except: pass
-
-            # Set colorspace
-            if not image_1.is_dirty:
-                image_1.colorspace_settings.name = get_noncolor_name()
-
-            # Update image 1 cache
-            if ch.override_1_type == 'IMAGE':
-                source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
-                image_node_1, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
-            else:
-                image_node_1, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
-
-            image_node_1.image = image_1
-            ch.override_1_type = 'IMAGE'
-            ch.active_edit_1 = True
-
-        if root_ch.type == 'NORMAL':
-
-            if image and image_1:
-                if ch.normal_map_type != 'BUMP_NORMAL_MAP':
-                    ch.normal_map_type = 'BUMP_NORMAL_MAP'
-
-            elif image_1:
-                if ch.normal_map_type == 'BUMP_MAP':
-                    ch.normal_map_type = 'NORMAL_MAP'
-
-            elif image:
-                if ch.normal_map_type == 'NORMAL_MAP':
-                    ch.normal_map_type = 'BUMP_MAP'
 
         # Update list items
         ListItem.refresh_list_items(yp)
@@ -2552,16 +2483,6 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                 ccol = col.column()
                 ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
 
-        #col.label(text='')
-        #rrow = col.row(align=True)
-        #BaseOperator.draw_self_channel_idx(self, rrow, yp)
-        #if channel:
-        #    if channel.type == 'NORMAL':
-        #        rrow.prop(self, 'normal_blend_type', text='')
-        #        col.prop(self, 'normal_map_type', text='')
-        #    else: 
-        #        rrow.prop(self, 'blend_type', text='')
-
         if display_relative_toggle:
             self.layout.prop(self, 'relative')
 
@@ -2787,28 +2708,23 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
 
         yp_node = get_closest_yp_node_backward(output)
         if yp_node:
+            try: bpy.ops.wm.y_update_yp_trees('INVOKE_DEFAULT')
+            except Exception as e:
+                print('EXCEPTIION: Cannot update opened tree. Error Message: '+e)
+
             otree = yp_node.node_tree
             oyp = otree.yp
             for root_ch in oyp.channels:
 
-                baked_disp = None
-                baked_normal_overlay = None
-                if root_ch.type == 'NORMAL':
-                    baked_disp = otree.nodes.get(root_ch.baked_disp)
-                    if baked_disp and baked_disp.image and 'Bump' not in channel_image_dict.keys():
-                        images.append(baked_disp.image)
-                        channel_image_dict['Bump'] = baked_disp.image
+                # Check for bake target
+                for bt in oyp.bake_targets:
+                    if bt.data_type != 'IMAGE': continue
 
-                    baked_normal_overlay = otree.nodes.get(root_ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image and 'Normal' not in channel_image_dict.keys():
-                        images.append(baked_normal_overlay.image)
-                        channel_image_dict['Normal'] = baked_normal_overlay.image
-
-                if root_ch.type != 'NORMAL' or not (baked_disp and baked_normal_overlay):
-                    baked = otree.nodes.get(root_ch.baked)
-                    if baked and baked.image and root_ch.name not in channel_image_dict.keys():
-                        images.append(baked.image)
-                        channel_image_dict[root_ch.name] = baked.image
+                    if is_bake_target_using_exact_channel(bt, root_ch):
+                        baked_node = otree.nodes.get(bt.baked_node)
+                        images.append(baked_node.image)
+                        channel_image_dict[root_ch.name] = baked_node.image
+                        break
 
         # Check for existing images if the image source is from asset library
         if from_asset_library:
@@ -3141,10 +3057,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         col.label(text='Interpolation:')
         col.label(text='Vector:')
         col.label(text='Channel:')
-        #if channel and channel.type == 'NORMAL':
-        #    col.label(text='Type:')
-        #    if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-        #        col.label(text='Space:')
+        if channel and channel.special_type == 'NORMAL':
+            col.label(text='Space:')
 
         col = row.column()
         if self.file_browser_filepath != '':
@@ -3160,8 +3074,6 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         if channel:
             if channel.special_type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
-                #col.prop(self, 'normal_map_type', text='')
-                #if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
                 col.prop(self, 'normal_space', text='')
             elif channel.special_type == 'HEIGHT':
                 rrow.prop(self, 'height_blend_type', text='')
@@ -3640,9 +3552,6 @@ class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
         if not ch.enable:
             ch.enable = True
 
-        # To check if normal image is selected
-        should_be_normal = False
-
         if self.type == 'IMAGE':
             if self.image_name == '':
                 self.report({'ERROR'}, "Image name cannot be empty!")
@@ -3653,33 +3562,19 @@ class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
                 self.report({'ERROR'}, "Image named " + self.image_name + " is not found!")
                 return {'CANCELLED'}
 
-            if root_ch.type == 'NORMAL':
-                #img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
-                img_name = image.name.lower()
-                if 'normal' in img_name or 'norm' in img_name or img_name.endswith(('_nor', '.nor', '_n', '.n')):
-                    should_be_normal = True
-
             # Make sure override is on
-            if should_be_normal:
-                ch.override_1 = True
-            else: ch.override = True
+            if not ch.override:
+                ch.override = True
 
             # Update image cache
-            if should_be_normal:
-                if ch.override_1_type == 'IMAGE':
-                    source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
-                    image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
-                else:
-                    image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
-            else:
-                if ch.override_type == 'IMAGE':
-                    source_tree = get_channel_source_tree(ch, layer)
-                    source_label = root_ch.name + ' Override : ' + ch.override_type
-                    image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
-                else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+            if ch.override_type == 'IMAGE':
+                source_tree = get_channel_source_tree(ch, layer)
+                source_label = root_ch.name + ' Override : ' + ch.override_type
+                image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+            else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
-            if root_ch.type == 'NORMAL' or root_ch.special_type == 'HEIGHT': image_node.interpolation = 'Cubic'
+            if root_ch.special_type == 'HEIGHT': image_node.interpolation = 'Cubic'
             #if image.colorspace_settings.name != get_noncolor_name():
             #    image.colorspace_settings.name = get_noncolor_name()
 
@@ -3728,13 +3623,8 @@ class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
             ch.override_vcol_name = self.vcol_name
             yp.halt_update = False
 
-        if should_be_normal:
-            ch.override_1_type = self.type
-            if ch.normal_map_type != 'BUMP_NORMAL_MAP': ch.normal_map_type = 'NORMAL_MAP'
-            ch.active_edit_1 = self.type in {'IMAGE', 'VCOL'}
-        else:
-            ch.override_type = self.type
-            ch.active_edit = self.type in {'IMAGE', 'VCOL'}
+        ch.override_type = self.type
+        ch.active_edit = self.type in {'IMAGE', 'VCOL'}
 
         # Update list items
         ListItem.refresh_list_items(yp)
@@ -3888,10 +3778,8 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
             col.label(text='Interpolation:')
             col.label(text='Vector:')
         col.label(text='Channel:')
-        if channel and channel.type == 'NORMAL':
+        if channel and channel.special_type == 'NORMAL':
             col.label(text='Type:')
-            if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                col.label(text='Space:')
 
         col = row.column()
 
@@ -3912,10 +3800,8 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
         rrow = col.row(align=True)
         BaseOperator.draw_self_channel_idx(self, rrow, yp)
         if channel:
-            if channel.type == 'NORMAL':
+            if channel.special_type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
-                #col.prop(self, 'normal_map_type', text='')
-                #if self.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
                 col.prop(self, 'normal_space', text='')
             elif channel.special_type == 'HEIGHT':
                 rrow.prop(self, 'height_blend_type', text='')
@@ -6204,7 +6090,7 @@ def update_channel_enable(self, context):
     # Check layer source just to make sure
     check_layer_source(layer, tree)
 
-    if (root_ch.type == 'NORMAL' or root_ch.special_type == 'HEIGHT') and self.enable:
+    if root_ch.special_type == 'HEIGHT' and self.enable:
         update_layer_images_interpolation(layer, 'Cubic') #, from_interpolation='Linear')
 
     # Check uv maps
@@ -6302,7 +6188,7 @@ def update_blend_type(self, context):
     check_uv_nodes(yp)
 
     # Reconnect all layer channels if normal channel is updated
-    if root_ch.type == 'NORMAL' or root_ch.special_type == 'HEIGHT':
+    if root_ch.special_type == 'HEIGHT':
         reconnect_layer_nodes(layer) 
     else: reconnect_layer_nodes(layer, ch_index)
 
@@ -6713,7 +6599,7 @@ def update_layer_channel_use_clamp(self, context):
     root_ch = yp.channels[int(m.group(2))]
     tree = get_tree(layer)
 
-    if root_ch.type == 'NORMAL': return
+    if root_ch.special_type in {'NORMAL', 'HEIGHT', 'VDISP'}: return
 
     check_blend_type_nodes(root_ch, layer, self)
 
