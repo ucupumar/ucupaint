@@ -47,6 +47,7 @@ if "bpy" in locals():
     importlib.reload(Mask)
     importlib.reload(Modifier)
     importlib.reload(NormalMapModifier)
+    importlib.reload(preview_mode)
     importlib.reload(Layer)
     importlib.reload(ListItem)
     importlib.reload(Bake)
@@ -66,7 +67,7 @@ else:
     from . import Localization
     from . import image_ops, bake_common, modifier_common, Decal, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, channel_common
     from . import vector_displacement_lib, vector_displacement
-    from . import vcol_editor, transition, BakeInfo, BakeTarget, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, ListItem, Bake, BakeToLayer, Root, versioning
+    from . import vcol_editor, transition, BakeInfo, BakeTarget, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, preview_mode, Layer, ListItem, Bake, BakeToLayer, Root, versioning
     if is_available('.addon_updater_ops'): from . import addon_updater_ops
     if is_available('.Test'): from . import Test
     if is_available('.psd_io'): from . import psd_io
