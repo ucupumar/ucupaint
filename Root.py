@@ -3802,10 +3802,18 @@ def update_channel_use_clamp(self, context):
     rearrange_yp_nodes(group_tree)
 
 def update_channel_disable_global_baked(self, context):
+    root_ch = self
     group_tree = self.id_data
+    yp = group_tree.yp
 
-    reconnect_yp_nodes(group_tree)
-    rearrange_yp_nodes(group_tree)
+    normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
+    if yp.use_baked and root_ch == height_ch and not normal_ch.use_height_as_bump:
+        check_all_channel_ios(group_tree.yp)
+        connect_outside_displacement_node(yp, root_ch, get_active_ypaint_node())
+    else:
+        reconnect_yp_nodes(group_tree)
+        rearrange_yp_nodes(group_tree)
 
 def update_backface_mode(self, context):
     yp = self.id_data.yp
@@ -4103,8 +4111,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
         name = 'Enable Displacement Setup',
         description = 'Enable displacement setup. Only works with Cycles or Eevee Next.',
         default = False,
-        update = Bake.update_enable_subdiv_setup
-    )
+        #update = Bake.update_enable_subdiv_setup
+    ) # Deprecated
 
     #subdiv_standard_type : EnumProperty(
     #        name = 'Subdivision Standard Type',

@@ -8797,7 +8797,7 @@ def is_baked_channel_normalized(root_ch):
     yp = tree.yp
 
     is_baked_normalize = False
-    if yp.use_baked:
+    if yp.use_baked and not root_ch.disable_global_baked:
         bt = yp.bake_targets.get(root_ch.bake_target_name)
         if bt and bt.height_normalize:
             max_value_node = tree.nodes.get(bt.max_value_node)
