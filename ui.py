@@ -3870,6 +3870,12 @@ def draw_baked_ui(context, layout, node):
         row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
         row.alert = False
 
+    col.alert = yp.preview_mode
+    if not is_bl_newer_than(2, 80):
+        col.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
+    else: col.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
+    col.alert = False
+
     # Get paired channels
     root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
     root_normal_ch, root_height_ch = get_normal_height_ch_pairs(yp)
@@ -3971,11 +3977,17 @@ def draw_baked_ui(context, layout, node):
                         title = bt.name
                         icon_value = lib.get_icon('vertex_color')
 
+                    is_active_bt = bt.name == root_ch.bake_target_name and (not root_ch.disable_global_baked or yp.enable_baked_outside)
+
                     # Extra '(Active)' label
                     #if not bake_disabled and has_multiple_bts and (
                     #    bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
                     #):
                     #    title += ' (Active)'
+                    if yp.preview_mode and is_active_bt:
+                        ch_idx = get_channel_index(root_ch)
+                        if ch_idx == yp.active_channel_index:
+                            title += ' (Active)'
 
                     # Bake target entry
                     #row.label(text=title, icon_value=icon_value)
@@ -3987,7 +3999,7 @@ def draw_baked_ui(context, layout, node):
                     # Bake target selection
                     #if forced_bt == None and has_multiple_bts:
                     #rrow.context_pointer_set('channel', root_ch)
-                    icon = 'RADIOBUT_ON' if bt.name == root_ch.bake_target_name and (not root_ch.disable_global_baked or yp.enable_baked_outside) else 'RADIOBUT_OFF'
+                    icon = 'RADIOBUT_ON' if is_active_bt else 'RADIOBUT_OFF'
                     op = rrow.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
                     op.bake_target_name = bt.name
                     #else:
@@ -4010,10 +4022,15 @@ def draw_baked_ui(context, layout, node):
                 row.active = root_ch.disable_global_baked
                 rrow = row.row(align=True)
                 rrow.alignment = 'LEFT'
-                icon = 'RADIOBUT_ON' if root_ch.disable_global_baked and not yp.enable_baked_outside else 'RADIOBUT_OFF'
+                is_active = root_ch.disable_global_baked and not yp.enable_baked_outside
+                icon = 'RADIOBUT_ON' if is_active else 'RADIOBUT_OFF'
                 rrow.label(text='', icon=icon)
                 #title = 'Disable Baked '+root_ch.name
                 title = 'Use Layer Stack'
+                if yp.preview_mode and is_active:
+                    ch_idx = get_channel_index(root_ch)
+                    if ch_idx == yp.active_channel_index:
+                        title += ' (Active)'
                 if yp.enable_baked_outside:
                     rrow.label(text=title, icon='COLLAPSEMENU')
                 else:
