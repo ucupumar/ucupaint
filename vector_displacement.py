@@ -1344,15 +1344,23 @@ def convert_vdm_to_multires(obj, vdm_image, uv_name, intensity=1.0, flip_yz=Fals
 
         subdiv_type = 'SIMPLE' if is_mesh_flat_shaded(obj.data) else 'CATMULL_CLARK'
 
-        # Make sure temp object has subsurf modifier so reshape can happen
-        set_active_object(temp)
-        bpy.ops.object.modifier_add(type='SUBSURF')
-        tsubsurf = get_subsurf_modifier(temp)
-        tsubsurf.levels = levels
-        tsubsurf.render_levels = levels
-        if is_mesh_flat_shaded(obj.data):
-            tsubsurf.subdivision_type = 'SIMPLE'
-        set_active_object(obj)
+        tmultires = get_multires_modifier(temp)
+        if tmultires:
+            tmultires.levels = levels
+            tmultires.sculpt_levels = levels
+            tmultires.render_levels = levels
+        else:
+            # Make sure temp object has subsurf modifier so reshape can happen
+            set_active_object(temp)
+            bpy.ops.object.modifier_add(type='SUBSURF')
+            tsubsurf = get_subsurf_modifier(temp)
+            tsubsurf.levels = levels
+            tsubsurf.render_levels = levels
+            if is_mesh_flat_shaded(obj.data):
+                tsubsurf.subdivision_type = 'SIMPLE'
+            # Move to above geomod
+            bpy.ops.object.modifier_move_to_index(modifier=tsubsurf.name, index=len(obj.modifiers)-2)
+            set_active_object(obj)
 
     # Set to max levels
     multires.show_viewport = True
