@@ -130,7 +130,10 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         if special_type == 'HEIGHT':
             bt.interpolation = 'Cubic'
 
-        if special_type == 'NORMAL':
+        elif special_type == 'VDISP':
+            bt.hdr = True
+
+        elif special_type == 'NORMAL':
             bt.fxaa = False
 
             # Extra normal without bump if height channel exists
