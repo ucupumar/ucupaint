@@ -4191,6 +4191,12 @@ def update_use_baked(self, context):
     yp = tree.yp
     ypup = get_user_preferences()
 
+    # Check for value changes
+    value_changed = False
+    if yp.ori_use_baked != yp.use_baked:
+        yp.ori_use_baked = yp.use_baked
+        value_changed = True
+
     if yp.halt_update: return
 
     # Check subdiv setup
@@ -4202,12 +4208,25 @@ def update_use_baked(self, context):
     #    if height_ch.enable_subdiv_setup and not yp.use_baked and not ypup.eevee_next_displacement:
     #        recover_subsurf_levels()
 
+    # Dealing with layer preview mode
+    # TODO: This method is a bit hacky, it's better to make sure `layer_preview_mode` won't create nodes and connections when `use_baked` is enabled
+    if value_changed:
+        if yp.use_baked:
+            if yp.layer_preview_mode:
+                yp.ori_layer_preview_mode = True
+                yp.layer_preview_mode = False
+        else:
+            if yp.ori_layer_preview_mode and not yp.preview_mode:
+                yp.layer_preview_mode = True
+            yp.ori_layer_preview_mode = False
+
     # Check uv nodes
     check_uv_nodes(yp)
 
     # Check input and outputs
     check_all_channel_ios(yp, do_process_layers=False)
 
+    # Connect to outside displacement node
     connect_outside_displacement_node(yp)
 
     # Trigger active image update

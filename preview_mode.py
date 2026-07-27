@@ -2,6 +2,7 @@ import bpy
 from .common import *
 from .input_outputs import *
 from bpy.props import *
+from . import lib, ListItem
 
 def get_preview(mat, output=None, advanced=False, normal_viewer=False, normal_space='CAMERA'):
     tree = mat.node_tree
@@ -342,5 +343,11 @@ class BasePreviewMode():
         ),
         default = 'LAYER',
         update = update_layer_preview_mode_type
+    )
+
+    ori_layer_preview_mode : BoolProperty(
+        name = 'Original value for Layer Preview Mode',
+        description = 'Original value for layer preview mode',
+        default = False
     )
 

@@ -1349,6 +1349,10 @@ def update_yp_tree(tree):
 
     # Version 3.0.0 has separated normal, height, and vector displacement channel
     if version_tuple(yp.version) < (3, 0, 0):
+
+        # Use baked and layer preview mode has new buffer variables
+        yp.ori_use_baked = yp.use_baked
+        #yp.ori_layer_preview_mode = yp.layer_preview_mode
         
         normal_ch = None
         normal_ch_idx = -1

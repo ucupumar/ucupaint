@@ -4096,6 +4096,12 @@ class YPaint(bpy.types.PropertyGroup, preview_mode.BasePreviewMode):
         update = Bake.update_use_baked
     )
 
+    ori_use_baked : BoolProperty(
+        name = 'Original value for Use Baked',
+        description = 'Original value for use baked',
+        default = False
+    )
+
     baked_uv_name : StringProperty(default='')
 
     enable_baked_outside : BoolProperty(
