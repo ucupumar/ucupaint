@@ -152,7 +152,7 @@ def add_new_mask(
     if is_mapping_possible(mask_type):
 
         mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
-        mapping.vector_type = 'POINT' if segment else 'TEXTURE'
+        mapping.vector_type = 'POINT' #if segment else 'TEXTURE'
 
         if segment:
             ImageAtlas.set_segment_mapping(mask, segment, image)
