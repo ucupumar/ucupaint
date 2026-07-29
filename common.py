@@ -6429,7 +6429,10 @@ def get_vcol_data_type_and_domain_by_name(obj, vcol_name, objs=[]):
                     for outp in outputs:
                         if ((is_bl_newer_than(4) and outp.socket_type == 'NodeSocketColor') or
                             (not is_bl_newer_than(4) and outp.type == 'RGBA')):
-                            if mod[outp.identifier + '_attribute_name'] == vcol_name:
+                            if is_bl_newer_than(5, 2):
+                                name = getattr(mod.properties.outputs, outp.identifier).attribute_name
+                            else: name = mod[outp.identifier + '_attribute_name'] == vcol_name
+                            if name == vcol_name:
                                 data_type = 'FLOAT_COLOR'
                                 domain = outp.attribute_domain
                                 outp_found = True
