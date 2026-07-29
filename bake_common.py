@@ -5530,7 +5530,10 @@ def get_output_uv_names_from_geometry_nodes(obj):
             for outp in outputs:
                 if ((is_bl_newer_than(4) and outp.socket_type == 'NodeSocketVector') or
                     (not is_bl_newer_than(4) and outp.type == 'VECTOR')):
-                    uv = uv_layers.get(m[outp.identifier + '_attribute_name'])
+                    if is_bl_newer_than(5, 2):
+                        uv_name = getattr(m.properties.outputs, outp.identifier).attribute_name
+                    else: uv_name = m[outp.identifier + '_attribute_name']
+                    uv = uv_layers.get(uv_name)
                     if uv: uv_names.append(uv.name)
 
     return uv_names
