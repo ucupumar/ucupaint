@@ -5002,10 +5002,12 @@ def get_vertex_color_names_from_geonodes(obj):
     for mod in obj.modifiers:
         if mod.type == 'NODES' and mod.node_group:
             outputs = get_tree_outputs(mod.node_group)
-            for outp in outputs:
+            for i, outp in enumerate(outputs):
                 if ((is_bl_newer_than(4) and outp.socket_type == 'NodeSocketColor') or
                     (not is_bl_newer_than(4) and outp.type == 'RGBA')):
-                    name = mod[outp.identifier + '_attribute_name']
+                    if is_bl_newer_than(5, 2):
+                        name = getattr(mod.properties.outputs, outp.identifier).attribute_name
+                    else: name = mod[outp.identifier + '_attribute_name']
                     if name != '' and name not in vcol_names:
                         vcol_names.append(name)
 
@@ -6541,7 +6543,10 @@ def get_vcol_data_type_and_domain_by_name(obj, vcol_name, objs=[]):
                     for outp in outputs:
                         if ((is_bl_newer_than(4) and outp.socket_type == 'NodeSocketColor') or
                             (not is_bl_newer_than(4) and outp.type == 'RGBA')):
-                            if mod[outp.identifier + '_attribute_name'] == vcol_name:
+                            if is_bl_newer_than(5, 2):
+                                name = getattr(mod.properties.outputs, outp.identifier).attribute_name
+                            else: name = mod[outp.identifier + '_attribute_name'] == vcol_name
+                            if name == vcol_name:
                                 data_type = 'FLOAT_COLOR'
                                 domain = outp.attribute_domain
                                 outp_found = True
