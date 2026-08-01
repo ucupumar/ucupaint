@@ -533,7 +533,7 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
         # Set channel to be an active channel
         if yp.preview_mode:
             ch_idx = get_channel_index(root_ch)
-            yp.active_channel_index = ch_idx
+            yp.preview_mode_channel_index = ch_idx
 
         return {'FINISHED'}
 

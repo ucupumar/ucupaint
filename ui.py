@@ -1008,7 +1008,7 @@ def draw_both_preview_mode_ui(context, layout, node):
 
         split_val = 0.3
 
-        try: root_ch = yp.channels[yp.active_channel_index]
+        try: root_ch = yp.channels[yp.preview_mode_channel_index]
         except: root_ch = None
 
         if yp.layer_preview_mode:
@@ -3986,7 +3986,7 @@ def draw_baked_ui(context, layout, node):
                     #    title += ' (Active)'
                     if yp.preview_mode and is_active_bt:
                         ch_idx = get_channel_index(root_ch)
-                        if ch_idx == yp.active_channel_index:
+                        if ch_idx == yp.preview_mode_channel_index:
                             title += ' (Active)'
 
                     # Bake target entry
@@ -4029,7 +4029,7 @@ def draw_baked_ui(context, layout, node):
                 title = 'Use Layer Stack'
                 if yp.preview_mode and is_active:
                     ch_idx = get_channel_index(root_ch)
-                    if ch_idx == yp.active_channel_index:
+                    if ch_idx == yp.preview_mode_channel_index:
                         title += ' (Active)'
                 if yp.enable_baked_outside:
                     rrow.label(text=title, icon='COLLAPSEMENU')
@@ -7845,7 +7845,7 @@ class YActiveChannelMenu(bpy.types.Menu):
         col = self.layout.column()
 
         for i, ch in enumerate(yp.channels):
-            if i == yp.active_channel_index:
+            if i == yp.preview_mode_channel_index:
                 col.label(text=ch.name, icon='RADIOBUT_ON')
             else: col.operator('wm.y_select_ypaint_channel', text=ch.name, icon='RADIOBUT_OFF').channel_idx = i
 

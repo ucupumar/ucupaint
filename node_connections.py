@@ -400,7 +400,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         # Base layer preview mode
         active_layer = ListItem.get_active_layer(yp)
-        if yp.layer_preview_mode and ch == yp.channels[yp.active_channel_index]:
+        if yp.layer_preview_mode and ch == yp.channels[yp.preview_mode_channel_index]:
             if not active_layer:
                 col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                 alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
@@ -460,7 +460,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             if yp.layer_preview_mode and active_layer: # and yp.layer_preview_mode_type == 'LAYER':
 
-                if ch == yp.channels[yp.active_channel_index] and layer == yp.layers[yp.active_layer_index]:
+                if ch == yp.channels[yp.preview_mode_channel_index] and layer == yp.layers[yp.active_layer_index]:
 
                     col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                     alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
@@ -1354,7 +1354,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if yp.layer_preview_mode_type == 'SPECIFIC_MASK' and ch.override and ch.active_edit == True:
                     if alpha_preview:
                         create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
-                elif root_ch == yp.channels[yp.active_channel_index]:
+                elif root_ch == yp.channels[yp.preview_mode_channel_index]:
                     col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                     if col_preview:
                         create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], col_preview)
@@ -2024,7 +2024,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if not active_found and alpha_preview:
                     create_link(tree, source.outputs[0], alpha_preview)
 
-            elif root_ch == yp.channels[yp.active_channel_index]:
+            elif root_ch == yp.channels[yp.preview_mode_channel_index]:
                 col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                 if col_preview:
                     if root_ch.special_type == 'NORMAL' and normal_proc: 

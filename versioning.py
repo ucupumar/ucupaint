@@ -1352,7 +1352,6 @@ def update_yp_tree(tree):
 
         # Use baked and layer preview mode has new buffer variables
         yp.ori_use_baked = yp.use_baked
-        #yp.ori_layer_preview_mode = yp.layer_preview_mode
         
         normal_ch = None
         normal_ch_idx = -1
@@ -1705,6 +1704,9 @@ def update_yp_tree(tree):
 
         if any_root_ch_modifiers:
             check_all_channel_ios(yp)
+
+        # Preview mode now has it's own channel index
+        yp.preview_mode_channel_index = yp.active_channel_index
 
         # Update list item since there's a new base layer
         ListItem.refresh_list_items(yp)

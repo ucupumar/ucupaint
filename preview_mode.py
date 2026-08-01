@@ -161,9 +161,8 @@ def update_layer_preview_mode(self, context):
         group_node = group_nodes[0]
 
     tree = mat.node_tree
-    index = yp.active_channel_index
+    index = yp.preview_mode_channel_index
     channel = yp.channels[index]
-    #layer = yp.layers[yp.active_layer_index]
     layer = ListItem.get_active_layer(yp)
 
     if yp.preview_mode and yp.layer_preview_mode:
@@ -186,7 +185,7 @@ def update_layer_preview_mode(self, context):
             tree.links.new(preview.outputs[0], output.inputs[0])
 
         else:
-            ch = layer.channels[yp.active_channel_index] if layer else None
+            ch = layer.channels[yp.preview_mode_channel_index] if layer else None
             normal_ch, height_ch = get_layer_normal_height_ch_pairs(layer) if layer else None, None
 
             if channel.special_type == 'NORMAL':
@@ -242,7 +241,7 @@ def update_preview_mode(self, context):
         group_node = group_nodes[0]
 
     tree = mat.node_tree
-    index = yp.active_channel_index
+    index = yp.preview_mode_channel_index
     channel = yp.channels[index]
 
     if yp.layer_preview_mode and yp.preview_mode:
@@ -305,6 +304,12 @@ def update_layer_preview_mode_type(self, context):
     if self.layer_preview_mode:
         update_layer_preview_mode(self, context)
 
+def update_preview_mode_channel_index(self, context):
+    yp = self
+
+    if yp.preview_mode: update_preview_mode(yp, context)
+    elif yp.layer_preview_mode: update_layer_preview_mode(yp, context)
+
 class BasePreviewMode():
     preview_mode : BoolProperty(
         name = 'Enable Channel Preview Mode',
@@ -351,3 +356,39 @@ class BasePreviewMode():
         default = False
     )
 
+    preview_mode_channel_index : IntProperty(
+        name = 'Preview Mode Channel Index',
+        description = 'preview mode channel index',
+        default = 0,
+        update = update_preview_mode_channel_index
+    )
+
+class YSelectYPaintChannel(bpy.types.Operator):
+    bl_idname = "wm.y_select_ypaint_channel"
+    bl_label = "Select " + get_addon_title() + " Channel"
+    bl_description = "Select " + get_addon_title() + " channel"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    channel_idx : IntProperty(
+        name = 'Channel Index',
+        description = 'Channel index',
+        default = 0
+    )
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return group_node and len(group_node.node_tree.yp.channels) > 0
+
+    def execute(self, context):
+        group_node = get_active_ypaint_node()
+        yp = group_node.node_tree.yp
+
+        yp.preview_mode_channel_index = self.channel_idx
+        return{'FINISHED'}
+
+def register():
+    bpy.utils.register_class(YSelectYPaintChannel)
+
+def unregister():
+    bpy.utils.unregister_class(YSelectYPaintChannel)

@@ -1771,30 +1771,6 @@ class YMoveYPaintChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YSelectYPaintChannel(bpy.types.Operator):
-    bl_idname = "wm.y_select_ypaint_channel"
-    bl_label = "Select " + get_addon_title() + " Channel"
-    bl_description = "Select " + get_addon_title() + " channel"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    channel_idx : IntProperty(
-        name = 'Channel Index',
-        description = 'Channel index',
-        default = 0
-    )
-
-    @classmethod
-    def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return group_node and len(group_node.node_tree.yp.channels) > 0
-
-    def execute(self, context):
-        group_node = get_active_ypaint_node()
-        yp = group_node.node_tree.yp
-
-        yp.active_channel_index = self.channel_idx
-        return{'FINISHED'}
-
 class YRemoveYPaintChannel(bpy.types.Operator):
     bl_idname = "wm.y_remove_ypaint_channel"
     bl_label = "Remove " + get_addon_title() + " Channel"
@@ -2946,6 +2922,9 @@ def update_active_yp_channel(self, context):
     yp = tree.yp
     if len(yp.channels) == 0: return
     ch = yp.channels[yp.active_channel_index]
+
+    # Set the active preview mode channel
+    yp.preview_mode_channel_index = yp.active_channel_index
 
     if yp.preview_mode: preview_mode.update_preview_mode(yp, context)
     if yp.layer_preview_mode: preview_mode.update_layer_preview_mode(yp, context)
@@ -4557,7 +4536,6 @@ def register():
     bpy.utils.register_class(YAutoSetupNewYPaintChannel)
     bpy.utils.register_class(YMoveYPaintChannel)
     bpy.utils.register_class(YRemoveYPaintChannel)
-    bpy.utils.register_class(YSelectYPaintChannel)
     bpy.utils.register_class(YAddSimpleUVs)
     bpy.utils.register_class(YSwitchToMaterialView)
     bpy.utils.register_class(YFixChannelMissmatch)
@@ -4627,7 +4605,6 @@ def unregister():
     bpy.utils.unregister_class(YAutoSetupNewYPaintChannel)
     bpy.utils.unregister_class(YMoveYPaintChannel)
     bpy.utils.unregister_class(YRemoveYPaintChannel)
-    bpy.utils.unregister_class(YSelectYPaintChannel)
     bpy.utils.unregister_class(YAddSimpleUVs)
     bpy.utils.unregister_class(YSwitchToMaterialView)
     bpy.utils.unregister_class(YFixChannelMissmatch)
