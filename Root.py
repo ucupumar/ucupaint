@@ -2924,7 +2924,8 @@ def update_active_yp_channel(self, context):
     ch = yp.channels[yp.active_channel_index]
 
     # Set the active preview mode channel
-    yp.preview_mode_channel_index = yp.active_channel_index
+    if yp.preview_mode or yp.layer_preview_mode:
+        yp.preview_mode_channel_index = yp.active_channel_index
 
     if yp.preview_mode: preview_mode.update_preview_mode(yp, context)
     if yp.layer_preview_mode: preview_mode.update_layer_preview_mode(yp, context)

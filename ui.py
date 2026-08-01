@@ -4610,7 +4610,7 @@ def draw_layers_ui(context, layout, node):
                 row.alert = True
                 row.operator('wm.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
-        if is_a_mesh and is_bl_newer_than(3, 2):
+        if layer.type == 'IMAGE' and is_a_mesh and is_bl_newer_than(3, 2):
             vdisp_layer_ch = get_vdisp_channel(layer)
             if vdisp_layer_ch and vdisp_layer_ch.enable:
                 bbox = col.box()
@@ -5458,6 +5458,18 @@ def layer_listing(layout, layer, show_expand=False):
     ypui = bpy.context.window_manager.ypui
 
     is_active = not is_parent_hidden(layer) and layer.enable
+
+    # Layer who doesn't use the active preview channel will be inactive
+    if yp.preview_mode or yp.layer_preview_mode:
+        try: preview_ch = yp.channels[yp.preview_mode_channel_index]
+        except: preview_ch = None
+
+        if preview_ch:
+            ch_idx = get_channel_index(preview_ch)
+            try: ch = layer.channels[ch_idx]
+            except: ch = None
+
+            if ch: is_active = get_channel_enabled(ch, layer, preview_ch)
 
     master = layout.row(align=True)
 
