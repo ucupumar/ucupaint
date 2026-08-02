@@ -139,6 +139,7 @@ GROUP_BUMP_2_NORMAL_SMOOTH = '~yPL Group Bump to Normal Smooth'
 NORMAL_EMISSION_VIEWER = '~yPL Normal Emission Viewer'
 ADVANCED_EMISSION_VIEWER = '~yPL Advanced Emission Viewer'
 ADVANCED_NORMAL_EMISSION_VIEWER = '~yPL Advanced Normal Emission Viewer'
+TRANSPARENT_EMISSION_VIEWER = '~yPL Transparent Emission Viewer'
 #GRID_EMISSION_VIEWER = '~yPL Grid Emission Viewer'
 
 ENGINE_FILTER = '~yPL Engine Filter'

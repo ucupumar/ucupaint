@@ -1011,6 +1011,8 @@ def draw_both_preview_mode_ui(context, layout, node):
         try: root_ch = yp.channels[yp.preview_mode_channel_index]
         except: root_ch = None
 
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
         if yp.layer_preview_mode:
             row = split_layout(bcol, split_val)
             row.label(text='Type:')
@@ -1021,12 +1023,17 @@ def draw_both_preview_mode_ui(context, layout, node):
             row = split_layout(bcol, split_val)
             row.label(text='Channel:')
             icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
-            row.menu("NODE_MT_y_active_channel_menu", text=root_ch.name, icon_value=icon_value)
+            row.menu("NODE_MT_y_preview_mode_channel_menu", text=root_ch.name, icon_value=icon_value)
 
             if root_ch.special_type == 'NORMAL':
                 row = split_layout(bcol, split_val)
                 row.label(text='Normal:')
                 row.prop(yp, 'preview_mode_normal_space', text='')
+
+            if yp.preview_mode and alpha_ch != None and root_ch != alpha_ch:
+                row = split_layout(bcol, split_val)
+                row.label(text='Use Alpha:')
+                row.prop(yp, 'preview_mode_use_alpha', text='')
 
 def is_baked_node_found(yp):
     nodes = yp.id_data.nodes
@@ -1161,7 +1168,7 @@ def draw_main_ui(context, layout):
 
     if (baked_found or yp.use_baked) and not group_tree.users > 1:
         rrow = layout.row(align=True)
-        rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake'))
+        rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
         rrow.separator()
         rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
         rrrow = rrow.row(align=True)
@@ -7841,9 +7848,9 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
                 col.operator('wm.y_show_transition_ao', text='Transition AO', icon_value=lib.get_icon('background'))
 
 class YActiveChannelMenu(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_active_channel_menu"
-    bl_label = "Active Channel Menu"
-    bl_description = 'Active channel'
+    bl_idname = "NODE_MT_y_preview_mode_channel_menu"
+    bl_label = "Preview Mode Channel Menu"
+    bl_description = 'Preview Mode channel'
 
     @classmethod
     def poll(cls, context):
@@ -7859,7 +7866,7 @@ class YActiveChannelMenu(bpy.types.Menu):
         for i, ch in enumerate(yp.channels):
             if i == yp.preview_mode_channel_index:
                 col.label(text=ch.name, icon='RADIOBUT_ON')
-            else: col.operator('wm.y_select_ypaint_channel', text=ch.name, icon='RADIOBUT_OFF').channel_idx = i
+            else: col.operator('wm.y_select_preview_mode_channel', text=ch.name, icon='RADIOBUT_OFF').channel_idx = i
 
 class YLayerTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_type_menu"

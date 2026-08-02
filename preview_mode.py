@@ -4,7 +4,7 @@ from .input_outputs import *
 from bpy.props import *
 from . import lib, ListItem
 
-def get_preview(mat, output=None, advanced=False, normal_viewer=False, normal_space='CAMERA'):
+def get_preview(mat, output=None, advanced=False, normal_viewer=False, normal_space='CAMERA', use_alpha=False):
     tree = mat.node_tree
 
     # Search for output
@@ -37,7 +37,12 @@ def get_preview(mat, output=None, advanced=False, normal_viewer=False, normal_sp
             )
             if dirty:
                 duplicate_lib_node_tree(preview)
-
+        elif use_alpha:
+            preview, dirty = simple_replace_new_node(
+                tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
+                lib.TRANSPARENT_EMISSION_VIEWER,
+                return_status=True, hard_replace=True
+            )
         else:
             preview, dirty = simple_replace_new_node(
                 tree, EMISSION_VIEWER, 'ShaderNodeEmission', 'Emission Viewer', 
@@ -216,7 +221,7 @@ def update_layer_preview_mode(self, context):
             if ch:
                 if ch == normal_ch and height_ch.enable and height_ch.use_height_as_normal:
                     channel_enabled = True
-                else: channel_enabled = ch.enable
+                else: channel_enabled = get_channel_enabled(ch, layer)
             else: channel_enabled = True
 
             # Use different grid if channel is not enabled
@@ -248,6 +253,11 @@ def update_preview_mode(self, context):
         yp.layer_preview_mode = False
 
     if self.preview_mode:
+
+        # Check if alpha is needed to use
+        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+        use_alpha = alpha_ch != None and channel != alpha_ch and yp.preview_mode_use_alpha
+
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
 
@@ -270,8 +280,8 @@ def update_preview_mode(self, context):
 
         # Use special preview for normal
         if channel.special_type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
-            preview = get_preview(mat, output, False, True, normal_space=yp.preview_mode_normal_space)
-        else: preview = get_preview(mat, output, False)
+            preview = get_preview(mat, output, False, True, normal_space=yp.preview_mode_normal_space, use_alpha=use_alpha)
+        else: preview = get_preview(mat, output, False, use_alpha=use_alpha)
 
         # Preview should exists by now
         if not preview: return
@@ -290,12 +300,22 @@ def update_preview_mode(self, context):
                         tree.links.new(outs[i + 1], preview.inputs[0])
                     else: tree.links.new(outs[0], preview.inputs[0])
 
+        # Alpha setup
+        alpha_inp = preview.inputs.get('Alpha')
+        if alpha_inp:
+            if use_alpha:
+                alpha_outp = group_node.outputs.get(alpha_ch.name)
+                if alpha_outp: tree.links.new(alpha_outp, alpha_inp)
+            else:
+                for link in alpha_inp.links:
+                    tree.links.remove(link)
+
         tree.links.new(preview.outputs[0], output.inputs[0])
     else:
         check_all_channel_ios(yp)
         remove_preview(mat)
 
-def update_preview_mode_normal_space(self, context):
+def update_preview_mode_options(self, context):
     if self.layer_preview_mode:
         update_layer_preview_mode(self, context)
     else: update_preview_mode(self, context)
@@ -327,7 +347,14 @@ class BasePreviewMode():
             ('OBJECT', 'Object Space', 'Encode normal output and transform it into object space'),
         ),
         default = 'CAMERA',
-        update = update_preview_mode_normal_space
+        update = update_preview_mode_options
+    )
+
+    preview_mode_use_alpha : BoolProperty(
+        name = 'Preview Mode Use Alpha',
+        description = 'Use alpha channel for preview mode',
+        default = False,
+        update = update_preview_mode_options
     )
 
     # Layer Preview Mode
@@ -363,10 +390,10 @@ class BasePreviewMode():
         update = update_preview_mode_channel_index
     )
 
-class YSelectYPaintChannel(bpy.types.Operator):
-    bl_idname = "wm.y_select_ypaint_channel"
-    bl_label = "Select " + get_addon_title() + " Channel"
-    bl_description = "Select " + get_addon_title() + " channel"
+class YSelectPreviewModeChannel(bpy.types.Operator):
+    bl_idname = "wm.y_select_preview_mode_channel"
+    bl_label = "Select Preview Mode Channel"
+    bl_description = "Select preview mode channel"
     bl_options = {'REGISTER', 'UNDO'}
 
     channel_idx : IntProperty(
@@ -388,7 +415,7 @@ class YSelectYPaintChannel(bpy.types.Operator):
         return{'FINISHED'}
 
 def register():
-    bpy.utils.register_class(YSelectYPaintChannel)
+    bpy.utils.register_class(YSelectPreviewModeChannel)
 
 def unregister():
-    bpy.utils.unregister_class(YSelectYPaintChannel)
+    bpy.utils.unregister_class(YSelectPreviewModeChannel)
