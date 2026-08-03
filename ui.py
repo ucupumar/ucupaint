@@ -1022,12 +1022,15 @@ def draw_preview_mode_settings(context, layout, node, in_popover=True):
     if in_popover:
         bcol.label(text='Preview Mode Settings')
 
-    row = split_layout(bcol, split_val)
-    row.label(text='Type:')
     if in_popover:
         #rrow = row.row(align=True)
-        row.prop(yp, "preview_mode_type", expand=True)
-    else: row.prop(yp, "preview_mode_type", text='')
+        ccol = bcol.column(align=True)
+        ccol.label(text='Type')
+        ccol.prop(yp, "preview_mode_type", expand=True)
+    else: 
+        row = split_layout(bcol, split_val)
+        row.label(text='Type:')
+        row.prop(yp, "preview_mode_type", text='')
 
     if not in_popover:
         row = split_layout(bcol, split_val)
@@ -1038,23 +1041,27 @@ def draw_preview_mode_settings(context, layout, node, in_popover=True):
         if root_ch.special_type == 'NORMAL': rrow.prop(yp, 'preview_mode_normal_space', text='')
 
     if in_popover:
-        row = split_layout(bcol, split_val)
-        row.label(text='Channel:')
-        row.template_list("NODE_UL_YPaint_channels", "", yp,
+        ccol = bcol.column(align=True)
+        ccol.label(text='Channel')
+        ccol.template_list("NODE_UL_YPaint_channels", "", yp,
                 "channels", yp, "preview_mode_channel_index", rows=len(yp.channels), maxrows=5)  
 
     if in_popover:
         if root_ch.special_type == 'NORMAL':
-            row = split_layout(bcol, split_val)
-            row.label(text='Normal:')
-            row.prop(yp, 'preview_mode_normal_space', text='')
+            ccol = bcol.column(align=True)
+            ccol.label(text='Normal Space')
+            ccol.prop(yp, 'preview_mode_normal_space', text='')
 
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
     if is_channel_preview_mode_enabled(yp) and alpha_ch != None:
-        row = split_layout(bcol, split_val)
+        if not in_popover:
+            row = split_layout(bcol, split_val)
+            #row.label(text='Use Alpha:')
+            row.label(text='')
+        else:
+            row = bcol.row()
+            
         row.active = root_ch != alpha_ch
-        #row.label(text='Use Alpha:')
-        row.label(text='')
         row.prop(yp, 'preview_mode_use_alpha', text='Use Alpha')
 
 def is_baked_node_found(yp):
@@ -6290,7 +6297,7 @@ class YPaintPreviewModeSettingsPopover(bpy.types.Panel):
     bl_description = get_addon_title() + " Preview Mode settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
-    bl_ui_units_x = 14
+    bl_ui_units_x = 8
 
     @classmethod
     def poll(cls, context):
