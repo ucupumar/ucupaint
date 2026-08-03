@@ -151,7 +151,7 @@ def set_srgb_view_transform():
         scene.yp.ori_use_curve_mapping = scene.view_settings.use_curve_mapping
         scene.view_settings.use_curve_mapping = False
 
-def update_layer_preview_mode(self, context):
+def update_preview_mode(self, context):
     yp = self
     mat = get_active_material()
 
@@ -167,14 +167,12 @@ def update_layer_preview_mode(self, context):
 
     tree = mat.node_tree
     index = yp.preview_mode_channel_index
-    channel = yp.channels[index]
+    try: channel = yp.channels[index]
+    except: channel = None
     layer = ListItem.get_active_layer(yp)
 
-    if yp.preview_mode and yp.layer_preview_mode:
-        yp.preview_mode = False
-
-    # Get preview node
-    if yp.layer_preview_mode:
+    # Layer Preview Mode
+    if channel and is_layer_preview_mode_enabled(yp):
 
         check_all_channel_ios(yp, specific_layer=layer) #, do_process_layers=layer!=None)
 
@@ -182,7 +180,7 @@ def update_layer_preview_mode(self, context):
         set_srgb_view_transform()
 
         output = get_material_output(mat, create_one=True)
-        if yp.layer_preview_mode_type in {'ALPHA', 'SPECIFIC_MASK'}:
+        if yp.preview_mode_type in {'ALPHA', 'SPECIFIC_MASK'}:
             preview = get_preview(mat, output, False)
             if not preview: return
 
@@ -227,32 +225,8 @@ def update_layer_preview_mode(self, context):
             # Use different grid if channel is not enabled
             preview.inputs['Missing Data'].default_value = 1.0 if (not channel_enabled or (layer and not layer.enable)) else 0.0
 
-    else:
-        check_all_channel_ios(yp)
-        remove_preview(mat)
-
-def update_preview_mode(self, context):
-    yp = self
-    mat = get_active_material()
-
-    if is_yp_on_material(yp, mat):
-        group_node = get_active_ypaint_node()
-    else:
-        mats = get_materials_using_yp(yp)
-        if not mats: return
-        mat = mats[0]
-        group_nodes = get_nodes_using_yp(mat, yp)
-        if not group_nodes: return
-        group_node = group_nodes[0]
-
-    tree = mat.node_tree
-    index = yp.preview_mode_channel_index
-    channel = yp.channels[index]
-
-    if yp.layer_preview_mode and yp.preview_mode:
-        yp.layer_preview_mode = False
-
-    if self.preview_mode:
+    # Channel Preview Mode
+    elif channel and is_channel_preview_mode_enabled(yp):
 
         # Check if alpha is needed to use
         color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
@@ -311,24 +285,18 @@ def update_preview_mode(self, context):
                     tree.links.remove(link)
 
         tree.links.new(preview.outputs[0], output.inputs[0])
+
+    # Disable Preview Mode
     else:
         check_all_channel_ios(yp)
         remove_preview(mat)
 
-def update_preview_mode_options(self, context):
-    if self.layer_preview_mode:
-        update_layer_preview_mode(self, context)
-    else: update_preview_mode(self, context)
-
-def update_layer_preview_mode_type(self, context):
-    if self.layer_preview_mode:
-        update_layer_preview_mode(self, context)
-
-def update_preview_mode_channel_index(self, context):
-    yp = self
-
-    if yp.preview_mode: update_preview_mode(yp, context)
-    elif yp.layer_preview_mode: update_layer_preview_mode(yp, context)
+preview_mode_type_items = (
+    ('CHANNEL', 'Final Channel', ''),
+    ('LAYER', 'Layer', ''),
+    ('ALPHA', 'Layer Alpha', ''),
+    ('SPECIFIC_MASK', 'Active Mask / Data', ''),
+)
 
 class BasePreviewMode():
     preview_mode : BoolProperty(
@@ -347,14 +315,29 @@ class BasePreviewMode():
             ('OBJECT', 'Object Space', 'Encode normal output and transform it into object space'),
         ),
         default = 'CAMERA',
-        update = update_preview_mode_options
+        update = update_preview_mode
     )
 
     preview_mode_use_alpha : BoolProperty(
         name = 'Preview Mode Use Alpha',
         description = 'Use alpha channel for preview mode',
         default = False,
-        update = update_preview_mode_options
+        update = update_preview_mode
+    )
+
+    preview_mode_type : EnumProperty(
+        name = 'Preview Mode Type',
+        description = 'Preview mode type',
+        items = preview_mode_type_items,
+        default = 'CHANNEL',
+        update = update_preview_mode
+    )
+
+    preview_mode_channel_index : IntProperty(
+        name = 'Preview Mode Channel Index',
+        description = 'preview mode channel index',
+        default = 0,
+        update = update_preview_mode
     )
 
     # Layer Preview Mode
@@ -362,8 +345,7 @@ class BasePreviewMode():
         name = 'Enable Layer Preview Mode',
         description = 'Enable layer preview mode',
         default = False,
-        update = update_layer_preview_mode
-    )
+    ) # Deprecated
 
     layer_preview_mode_type : EnumProperty(
         name = 'Layer Preview Mode Type',
@@ -374,20 +356,7 @@ class BasePreviewMode():
             ('SPECIFIC_MASK', 'Active Mask / Custom Data', ''),
         ),
         default = 'LAYER',
-        update = update_layer_preview_mode_type
-    )
-
-    ori_layer_preview_mode : BoolProperty(
-        name = 'Original value for Layer Preview Mode',
-        description = 'Original value for layer preview mode',
-        default = False
-    )
-
-    preview_mode_channel_index : IntProperty(
-        name = 'Preview Mode Channel Index',
-        description = 'preview mode channel index',
-        default = 0,
-        update = update_preview_mode_channel_index
+        update = update_preview_mode
     )
 
 class YSelectPreviewModeChannel(bpy.types.Operator):
@@ -414,8 +383,42 @@ class YSelectPreviewModeChannel(bpy.types.Operator):
         yp.preview_mode_channel_index = self.channel_idx
         return{'FINISHED'}
 
+class YSetPreviewModeType(bpy.types.Operator):
+    bl_idname = "wm.y_set_preview_mode_type"
+    bl_label = "Set Preview Mode Type"
+    bl_description = "Set preview mode type"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type : EnumProperty(
+        name = 'Preview Mode Type',
+        description = 'Preview mode type',
+        items = (
+            ('CHANNEL', 'Channel', ''),
+            ('LAYER', 'Layer', ''),
+            ('ALPHA', 'Alpha', ''),
+            ('SPECIFIC_MASK', 'Active Mask / Custom Data', ''),
+        ),
+        default = 'CHANNEL'
+    )
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return group_node and len(group_node.node_tree.yp.channels) > 0
+
+    def execute(self, context):
+        group_node = get_active_ypaint_node()
+        yp = group_node.node_tree.yp
+
+        print('Kentut')
+
+        #yp.preview_mode_channel_index = self.channel_idx
+        return{'FINISHED'}
+
 def register():
     bpy.utils.register_class(YSelectPreviewModeChannel)
+    bpy.utils.register_class(YSetPreviewModeType)
 
 def unregister():
     bpy.utils.unregister_class(YSelectPreviewModeChannel)
+    bpy.utils.unregister_class(YSetPreviewModeType)

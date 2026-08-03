@@ -2433,7 +2433,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
             if remove_node(tree, ch, 'normal_overlay'): need_reconnect = True
 
     # Update preview mode node
-    if yp.layer_preview_mode:
+    if is_layer_preview_mode_enabled(yp):
         mat = bpy.context.object.active_material
         preview = mat.node_tree.nodes.get(EMISSION_VIEWER)
         if preview: update_preview_mix(ch.blend_type, preview)

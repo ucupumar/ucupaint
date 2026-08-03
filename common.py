@@ -5629,14 +5629,6 @@ def is_entity_need_tangent_input(entity, uv_name):
 
         elif normal_root_ch and uv_name == normal_root_ch.main_uv:
 
-            # Main UV tangent is needed for normal process
-            #if height_channel_enabled and is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
-            #    return True
-
-            # Overlay blend and transition bump need tangent
-            #if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and (height_ch.normal_blend_type == 'OVERLAY' or (height_ch.enable_transition_bump and height_root_ch.enable_smooth_bump)):
-            #    return True
-
             if normal_channel_enabled and normal_ch.normal_blend_type == 'OVERLAY':
                 return True
 
@@ -5699,7 +5691,7 @@ def is_height_process_needed(layer):
     height_ch = get_height_channel(layer)
     if not height_ch or not height_ch.enable: return False
 
-    if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+    if is_layer_preview_mode_enabled(yp) and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
     if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         if is_layer_using_bump_map(layer, height_root_ch):
@@ -5717,7 +5709,7 @@ def is_vdisp_process_needed(layer):
     vdisp_ch = get_vdisp_channel(layer)
     if not vdisp_ch or not vdisp_ch.enable: return False
 
-    #if yp.layer_preview_mode and vdisp_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+    #if is_layer_preview_mode_enabled(yp) and vdisp_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
     if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         return is_layer_using_vdisp_map(layer, vdisp_root_ch)
@@ -5734,7 +5726,7 @@ def is_normal_process_needed(layer):
     height_ch = get_height_channel(layer)
     if not height_ch or not height_ch.enable: return False
 
-    if yp.layer_preview_mode and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
+    if is_layer_preview_mode_enabled(yp) and height_ch.normal_map_type != 'VECTOR_DISPLACEMENT_MAP': return True
 
     if layer.type in {'GROUP', 'PREV_LAYERS'}: 
         if is_layer_using_bump_map(layer, height_root_ch) and not height_ch.write_height:
@@ -5764,7 +5756,6 @@ def get_layer_enabled(layer):
             break
 
     return layer.enable and parent_enable and channel_enabled
-    #return (layer.enable and parent_enable) or yp.layer_preview_mode
 
 ''' Check if mask is practically enabled or not '''
 def get_mask_enabled(mask, layer=None):
@@ -5774,7 +5765,6 @@ def get_mask_enabled(mask, layer=None):
         layer = yp.layers[int(m.group(1))]
 
     return get_layer_enabled(layer) and layer.enable_masks and mask.enable
-    #return (get_layer_enabled(layer) and mask.enable) or yp.layer_preview_mode
 
 ''' Check if channel is practically enabled or not '''
 def get_channel_enabled(ch, layer=None, root_ch=None):
@@ -8856,4 +8846,10 @@ def connect_outside_displacement_node(yp, height_root_ch=None, node=None):
                         midlevel_outp = node.outputs.get(height_root_ch.name + io_suffix['MIDLEVEL'])
                         if midlevel_outp:
                             mat.node_tree.links.new(midlevel_outp, inp)
+
+def is_layer_preview_mode_enabled(yp):
+    return yp.preview_mode and yp.preview_mode_type != 'CHANNEL' and not yp.use_baked
+
+def is_channel_preview_mode_enabled(yp):
+    return yp.preview_mode and (yp.preview_mode_type == 'CHANNEL' or yp.use_baked)
 

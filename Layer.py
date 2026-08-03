@@ -6115,9 +6115,9 @@ def update_channel_enable(self, context):
 
     if yp.halt_reconnect: return
 
-    if yp.layer_preview_mode:
+    if is_layer_preview_mode_enabled(yp):
         # Refresh preview mode, rearrange and reconnect already done in this event
-        yp.layer_preview_mode = yp.layer_preview_mode
+        yp.preview_mode = yp.preview_mode
     else:
 
         reconnect_layer_nodes(layer)
@@ -6155,7 +6155,7 @@ def update_normal_map_type(self, context):
     # Check layer modifiers since the group can change
     Modifier.check_layer_modifier_tree(layer)
 
-    if yp.layer_preview_mode:
+    if is_layer_preview_mode_enabled(yp):
         # Set correct active edit
         if self.normal_map_type == 'BUMP_MAP' and self.active_edit_1:
             self.active_edit = True
@@ -6555,9 +6555,9 @@ def update_layer_enable(self, context):
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-    if yp.layer_preview_mode:
+    if is_layer_preview_mode_enabled(yp):
         # Refresh preview mode, rearrange and reconnect already done in this event
-        yp.layer_preview_mode = yp.layer_preview_mode
+        yp.preview_mode = yp.preview_mode
     else:
         #if yp.disable_quick_toggle:
         reconnect_yp_nodes(layer.id_data)

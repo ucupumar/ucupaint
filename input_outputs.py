@@ -264,7 +264,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 valid_inputs, input_index, default_value=default_value, hide_value=hide_value, node=yp_node
             )
 
-        if not is_bump_only or force_height_output or (yp.preview_mode and ch == active_preview_ch):
+        if not is_bump_only or force_height_output or (is_channel_preview_mode_enabled(yp) and ch == active_preview_ch):
             create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
                     valid_outputs, output_index)
 
@@ -341,7 +341,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     check_start_end_root_ch_nodes(group_tree)
 
     specific_channel = None
-    if yp.layer_preview_mode:
+    if is_layer_preview_mode_enabled(yp):
         create_output(group_tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index)
         output_index += 1
 
@@ -377,7 +377,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
         for layer in yp.layers:
             if specific_layer and layer != specific_layer: continue
             specific_ch = None
-            if yp.layer_preview_mode and yp.preview_mode_channel_index < len(layer.channels):
+            if is_layer_preview_mode_enabled(yp) and yp.preview_mode_channel_index < len(layer.channels):
                 specific_ch = layer.channels[yp.preview_mode_channel_index]
             check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False, remove_props=remove_props, hard_reset=hard_reset)
 
@@ -896,7 +896,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
         input_index += 1
 
-    if yp.layer_preview_mode:
+    if is_layer_preview_mode_enabled(yp):
         dirty = create_output(tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index, dirty)
         output_index += 1
 

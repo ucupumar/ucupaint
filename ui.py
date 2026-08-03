@@ -59,12 +59,14 @@ def update_yp_ui():
         ypui.channels.clear()
 
         if len(yp.bake_targets) > 0:
-            bt = yp.bake_targets[yp.active_bake_target_index]
-            ypui.bake_target_ui.expand_content = bt.expand_content
-            ypui.bake_target_ui.expand_r = bt.expand_r
-            ypui.bake_target_ui.expand_g = bt.expand_g
-            ypui.bake_target_ui.expand_b = bt.expand_b
-            ypui.bake_target_ui.expand_a = bt.expand_a
+            try: bt = yp.bake_targets[yp.active_bake_target_index]
+            except: bt = None
+            if bt:
+                ypui.bake_target_ui.expand_content = bt.expand_content
+                ypui.bake_target_ui.expand_r = bt.expand_r
+                ypui.bake_target_ui.expand_g = bt.expand_g
+                ypui.bake_target_ui.expand_b = bt.expand_b
+                ypui.bake_target_ui.expand_a = bt.expand_a
 
         if len(yp.channels) > 0:
 
@@ -966,74 +968,94 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         brow.label(text='Invert Value:')
         brow.prop(btc, 'invert_value', text='')
 
-def draw_channel_preview_mode_ui(context, layout, node):
+def draw_preview_mode_ui(context, layout, node):
     yp = node.node_tree.yp
 
     col = layout.column(align=True)
 
     row = col.row(align=True)
-    #row.label(text='Preview Mode:')
-    row.alert = yp.preview_mode
-    row.prop(yp, 'preview_mode', text='Channel Preview', icon='HIDE_OFF')
 
-    try: root_ch = yp.channels[yp.active_channel_index]
+    show_settings = yp.preview_mode and not yp.use_baked
+    use_popover = is_bl_newer_than(2, 80) #and False
+
+    if show_settings and use_popover:
+        row = split_layout(row, 0.5, align=True)
+
+    row.alert = yp.preview_mode
+    title = 'Preview Mode'
+    row.prop(yp, 'preview_mode', text=title, icon='HIDE_OFF')
+
+    try: root_ch = yp.channels[yp.preview_mode_channel_index]
     except: root_ch = None
 
-    if yp.preview_mode and root_ch and root_ch.special_type in {'NORMAL'}:
-        cbox = col.box()
+    if show_settings:
+        if use_popover:
+            title = root_ch.name if root_ch else 'Settings'
+            if yp.preview_mode_type == 'CHANNEL':
+                title += ' (Final)'
+            elif yp.preview_mode_type == 'LAYER':
+                title += ' (Layer)'
+            elif yp.preview_mode_type == 'ALPHA':
+                title += ' (Alpha)'
+            elif yp.preview_mode_type == 'SPECIFIC_MASK':
+                title += ' (Mask)'
+            setting_icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+            icon_name = lib.channel_custom_icon_dict[root_ch.type] if root_ch else setting_icon
+            icon_value = lib.get_icon(icon_name)
+            row.popover("NODE_PT_ypaint_preview_mode_settings_popover", text=title, icon_value=icon_value)
+        else:
+            draw_preview_mode_settings(context, col, node, in_popover=False)
+
+def draw_preview_mode_settings(context, layout, node, in_popover=True):
+    yp = node.node_tree.yp
+
+    try: root_ch = yp.channels[yp.preview_mode_channel_index]
+    except: return
+
+    split_val = 0.3
+    if in_popover:
+        bcol = layout
+    else:
+        cbox = layout.box()
         bcol = cbox.column(align=True)
+    
+    if in_popover:
+        bcol.label(text='Preview Mode Settings')
 
-        split_val = 0.3
+    row = split_layout(bcol, split_val)
+    row.label(text='Type:')
+    if in_popover:
+        #rrow = row.row(align=True)
+        row.prop(yp, "preview_mode_type", expand=True)
+    else: row.prop(yp, "preview_mode_type", text='')
 
+    if not in_popover:
+        row = split_layout(bcol, split_val)
+        row.label(text='Channel:')
+        icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
+        rrow = row.row(align=True)
+        rrow.menu("NODE_MT_y_preview_mode_channel_menu", text=root_ch.name, icon_value=icon_value)
+        if root_ch.special_type == 'NORMAL': rrow.prop(yp, 'preview_mode_normal_space', text='')
+
+    if in_popover:
+        row = split_layout(bcol, split_val)
+        row.label(text='Channel:')
+        row.template_list("NODE_UL_YPaint_channels", "", yp,
+                "channels", yp, "preview_mode_channel_index", rows=len(yp.channels), maxrows=5)  
+
+    if in_popover:
         if root_ch.special_type == 'NORMAL':
             row = split_layout(bcol, split_val)
             row.label(text='Normal:')
             row.prop(yp, 'preview_mode_normal_space', text='')
 
-def draw_both_preview_mode_ui(context, layout, node):
-    yp = node.node_tree.yp
-
-    col = layout.column(align=True)
-
-    row = col.row(align=True)
-    #row.label(text='Preview Mode:')
-    row.alert = yp.layer_preview_mode
-    row.prop(yp, 'layer_preview_mode', text='Layer Preview', icon='HIDE_OFF')
-    row.alert = yp.preview_mode
-    row.prop(yp, 'preview_mode', text='Channel Preview', icon='HIDE_OFF')
-
-    if yp.layer_preview_mode or yp.preview_mode:
-        cbox = col.box()
-        bcol = cbox.column(align=True)
-
-        split_val = 0.3
-
-        try: root_ch = yp.channels[yp.preview_mode_channel_index]
-        except: root_ch = None
-
-        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
-
-        if yp.layer_preview_mode:
-            row = split_layout(bcol, split_val)
-            row.label(text='Type:')
-            row.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
-
-        if root_ch: 
-            row = bcol.row(align=True)
-            row = split_layout(bcol, split_val)
-            row.label(text='Channel:')
-            icon_value = lib.get_icon(lib.channel_custom_icon_dict[root_ch.type])
-            row.menu("NODE_MT_y_preview_mode_channel_menu", text=root_ch.name, icon_value=icon_value)
-
-            if root_ch.special_type == 'NORMAL':
-                row = split_layout(bcol, split_val)
-                row.label(text='Normal:')
-                row.prop(yp, 'preview_mode_normal_space', text='')
-
-            if yp.preview_mode and alpha_ch != None and root_ch != alpha_ch:
-                row = split_layout(bcol, split_val)
-                row.label(text='Use Alpha:')
-                row.prop(yp, 'preview_mode_use_alpha', text='')
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+    if is_channel_preview_mode_enabled(yp) and alpha_ch != None:
+        row = split_layout(bcol, split_val)
+        row.active = root_ch != alpha_ch
+        #row.label(text='Use Alpha:')
+        row.label(text='')
+        row.prop(yp, 'preview_mode_use_alpha', text='Use Alpha')
 
 def is_baked_node_found(yp):
     nodes = yp.id_data.nodes
@@ -1189,6 +1211,9 @@ def draw_main_ui(context, layout):
         rrow = row.row(align=True)
         #rrow.alignment = 'RIGHT'
         rrow.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
+
+    # Preview mode
+    draw_preview_mode_ui(context, layout, node)
 
     if yp.sculpt_mode:
 
@@ -1367,7 +1392,7 @@ def draw_bake_targets_ui(context, layout, node, show_header=False):
     #box = layout.box()
     box = layout
     col = box.column()
-    col.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).show_necessary_only_option = False
+    #col.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).show_necessary_only_option = False
 
     if show_header:
         col.label(text='Bake Target Settings')
@@ -1597,25 +1622,9 @@ def draw_root_channels_ui(context, layout, node, show_header=False):
     if show_header:
         col.label(text='Channel Settings')
 
-    # Preview mode
-    if ypup.unified_tab_ui:
-        draw_channel_preview_mode_ui(context, col, node)
-
     row = col.row()
 
     rcol = row.column()
-    #if len(yp.channels) > 0:
-
-    #    if channel and channel.special_type == 'NORMAL':
-    #        prow = split_layout(rcol, 0.667, align=True)
-    #    else: prow = rcol.row()
-
-    #    if yp.preview_mode: prow.alert = True
-    #    icon = 'HIDE_OFF' if is_bl_newer_than(2, 80) else 'RESTRICT_VIEW_OFF'
-    #    prow.prop(yp, 'preview_mode', text='Preview Mode', icon=icon)
-
-    #    if channel and channel.special_type == 'NORMAL':
-    #        prow.prop(yp, 'preview_mode_normal_space', text='')
 
     rcol.template_list("NODE_UL_YPaint_channels", "", yp,
             "channels", yp, "active_channel_index", rows=3, maxrows=5)  
@@ -3877,11 +3886,11 @@ def draw_baked_ui(context, layout, node):
         row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
         row.alert = False
 
-    col.alert = yp.preview_mode
-    if not is_bl_newer_than(2, 80):
-        col.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-    else: col.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
-    col.alert = False
+    #col.alert = yp.preview_mode
+    #if not is_bl_newer_than(2, 80):
+    #    col.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
+    #else: col.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
+    #col.alert = False
 
     # Get paired channels
     root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
@@ -4235,9 +4244,6 @@ def draw_layers_ui(context, layout, node):
         row.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent Sign Hacks is missing!')
         row.alert = False
 
-    # Preview mode
-    draw_both_preview_mode_ui(context, box, node)
-
     # Get active item entity
     item_entity = ListItem.get_active_item_entity(yp)
 
@@ -4322,18 +4328,6 @@ def draw_layers_ui(context, layout, node):
 
     row = col.row()
     rcol = row.column()
-    #if True: #len(yp.layers) > 0:
-    #    #prow = rcol.row(align=True)
-
-    #    prow = split_layout(rcol, 0.667, align=True)
-
-    #    if yp.layer_preview_mode: prow.alert = True
-    #    if not is_bl_newer_than(2, 80):
-    #        prow.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-    #    else: prow.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='HIDE_OFF')
-    #    #prow.alert = yp.mask_preview_mode and yp.layer_preview_mode
-    #    #icon_value = lib.get_icon("mask)"
-    #    prow.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
 
     if ypup.layer_list_mode in {'CLASSIC', 'BOTH'}:
         rcol.template_list("NODE_UL_YPaint_layers", "", yp,
@@ -5467,7 +5461,7 @@ def layer_listing(layout, layer, show_expand=False):
     is_active = not is_parent_hidden(layer) and layer.enable
 
     # Layer who doesn't use the active preview channel will be inactive
-    if yp.preview_mode or yp.layer_preview_mode:
+    if yp.preview_mode: # and yp.preview_mode_type != 'SPECIFIC_MASK':
         try: preview_ch = yp.channels[yp.preview_mode_channel_index]
         except: preview_ch = None
 
@@ -6289,6 +6283,21 @@ class YPaintBakeTargetPopover(bpy.types.Panel):
 
     def draw(self, context):
         draw_bake_targets_ui(context, self.layout, get_active_ypaint_node(), show_header=True)
+
+class YPaintPreviewModeSettingsPopover(bpy.types.Panel):
+    bl_idname = "NODE_PT_ypaint_preview_mode_settings_popover"
+    bl_label = get_addon_title() + " Preview ModeS Settings"
+    bl_description = get_addon_title() + " Preview Mode settings"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "WINDOW"
+    bl_ui_units_x = 14
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_preview_mode_settings(context, self.layout, get_active_ypaint_node())
 
 class YPaintChannelPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_channel_popover"
@@ -7119,8 +7128,6 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         if UDIM.is_udim_supported():
             col.operator('wm.y_refill_udim_tiles', text='Refill UDIM Tiles', icon_value=lib.get_icon('uv'))
 
-        #col.prop(yp, 'layer_preview_mode', text='Layer Only Viewer')
-
         col = row.column()
 
         #col.context_pointer_set('space_data', context.screen.areas[6].spaces[0])
@@ -7847,7 +7854,26 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
                 col.operator('wm.y_show_transition_ramp', text='Transition Ramp', icon_value=lib.get_icon('background'))
                 col.operator('wm.y_show_transition_ao', text='Transition AO', icon_value=lib.get_icon('background'))
 
-class YActiveChannelMenu(bpy.types.Menu):
+class YPreviewModeTypeMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_preview_mode_type_menu"
+    bl_label = "Preview Mode Type Menu"
+    bl_description = 'Preview Mode Type'
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        col = self.layout.column()
+
+        icon = 'RADIOBUT_OFF'
+        col.operator('wm.y_set_preview_mode_type', text='Final Channel Color', icon=icon).type = 'CHANNEL'
+        col.operator('wm.y_set_preview_mode_type', text='Layer', icon=icon).type = 'LAYER'
+        col.operator('wm.y_set_preview_mode_type', text='Alpha', icon=icon).type = 'ALPHA'
+        col.operator('wm.y_set_preview_mode_type', text='Active Mask / Custom Data', icon=icon).type = 'SPECIFIC_MASK'
+
+class YPreviewModeChannelMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_preview_mode_channel_menu"
     bl_label = "Preview Mode Channel Menu"
     bl_description = 'Preview Mode channel'
@@ -9005,6 +9031,7 @@ def register():
 
         bpy.utils.register_class(YPaintBakeTargetPopover)
         bpy.utils.register_class(YPaintChannelPopover)
+        bpy.utils.register_class(YPaintPreviewModeSettingsPopover)
 
     bpy.utils.register_class(YPaintSpecialMenu)
     bpy.utils.register_class(YChannelSpecialTypeMenu)
@@ -9037,7 +9064,8 @@ def register():
     bpy.utils.register_class(YLayerChannelSpecialMenu)
     bpy.utils.register_class(YReplaceChannelOverrideMenu)
     bpy.utils.register_class(YReplaceChannelOverride1Menu)
-    bpy.utils.register_class(YActiveChannelMenu)
+    bpy.utils.register_class(YPreviewModeTypeMenu)
+    bpy.utils.register_class(YPreviewModeChannelMenu)
     bpy.utils.register_class(YLayerSpecialMenu)
     bpy.utils.register_class(YLayerTypeMenu)
     bpy.utils.register_class(YMaskTypeMenu)
@@ -9115,6 +9143,7 @@ def unregister():
 
         bpy.utils.unregister_class(YPaintBakeTargetPopover)
         bpy.utils.unregister_class(YPaintChannelPopover)
+        bpy.utils.unregister_class(YPaintPreviewModeSettingsPopover)
 
     bpy.utils.unregister_class(YPaintSpecialMenu)
     bpy.utils.unregister_class(YChannelSpecialTypeMenu)
@@ -9147,7 +9176,8 @@ def unregister():
     bpy.utils.unregister_class(YLayerChannelSpecialMenu)
     bpy.utils.unregister_class(YReplaceChannelOverrideMenu)
     bpy.utils.unregister_class(YReplaceChannelOverride1Menu)
-    bpy.utils.unregister_class(YActiveChannelMenu)
+    bpy.utils.unregister_class(YPreviewModeTypeMenu)
+    bpy.utils.unregister_class(YPreviewModeChannelMenu)
     bpy.utils.unregister_class(YLayerSpecialMenu)
     bpy.utils.unregister_class(YLayerTypeMenu)
     bpy.utils.unregister_class(YMaskTypeMenu)

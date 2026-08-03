@@ -1823,10 +1823,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         outputs = get_tree_outputs(group_tree)
 
         # Disable preview mode to avoid error
-        ori_layer_preview_mode = yp.layer_preview_mode
         ori_preview_mode = yp.preview_mode
-        if yp.layer_preview_mode:
-            yp.layer_preview_mode = False
         if yp.preview_mode:
             yp.preview_mode = False
 
@@ -2016,9 +2013,6 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         if (yp.active_channel_index == len(yp.channels) and
             yp.active_channel_index > 0
             ): yp.active_channel_index -= 1
-
-        if ori_layer_preview_mode:
-            yp.layer_preview_mode = True
 
         if ori_preview_mode:
             yp.preview_mode = True
@@ -2894,24 +2888,6 @@ def update_channel_name(self, context):
     print('INFO: Channel renamed in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
-#def update_merge_mask_mode(self, context):
-#    if not self.layer_preview_mode:
-#        return
-#
-#    try:
-#        mat = bpy.context.object.active_material
-#        tree = mat.node_tree
-#        group_node = get_active_ypaint_node()
-#        yp = group_node.node_tree.yp
-#        channel = yp.channels[yp.active_channel_index]
-#        layer = yp.layers[yp.active_layer_index]
-#    except: return
-#
-#    layer_tree = get_tree(layer)
-
-#def update_mask_preview_mode(self, context):
-#    pass
-
 def update_sculpt_mode(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
@@ -2924,11 +2900,11 @@ def update_active_yp_channel(self, context):
     ch = yp.channels[yp.active_channel_index]
 
     # Set the active preview mode channel
-    if yp.preview_mode or yp.layer_preview_mode:
+    if yp.preview_mode:
         yp.preview_mode_channel_index = yp.active_channel_index
 
-    if yp.preview_mode: preview_mode.update_preview_mode(yp, context)
-    if yp.layer_preview_mode: preview_mode.update_layer_preview_mode(yp, context)
+        # Update preview mode
+        preview_mode.update_preview_mode(yp, context)
 
     # Set active baked image to paint slot
     set_active_paint_slot_entity(yp)
@@ -2969,7 +2945,7 @@ def update_layer_index(self, context):
                 #group_tree.nodes.active = layer_node
             else: layer_node.select = False
 
-    if yp.layer_preview_mode: preview_mode.update_layer_preview_mode(yp, context)
+    if is_layer_preview_mode_enabled(yp): preview_mode.update_preview_mode(yp, context)
 
     # Get active image and stuff
     image, uv_name, src_of_img, entity, mapping, vcol = get_active_image_and_stuffs(obj, yp)
@@ -3510,8 +3486,8 @@ def update_use_linear_blending(self, context):
     check_start_end_root_ch_nodes(self.id_data)
     check_yp_linear_nodes(self)
 
-    if self.layer_preview_mode:
-        preview_mode.update_layer_preview_mode(self, context)
+    if is_layer_preview_mode_enabled(self):
+        preview_mode.update_preview_mode(self, context)
 
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
@@ -4074,12 +4050,6 @@ class YPaint(bpy.types.PropertyGroup, preview_mode.BasePreviewMode):
         name = 'Use Baked',
         description = 'Use baked channels rather than layer channels',
         update = Bake.update_use_baked
-    )
-
-    ori_use_baked : BoolProperty(
-        name = 'Original value for Use Baked',
-        description = 'Original value for use baked',
-        default = False
     )
 
     baked_uv_name : StringProperty(default='')

@@ -5647,8 +5647,7 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     # Remember before doing preview
     ori_channel_index = yp.active_channel_index
     ori_preview_mode = yp.preview_mode
-    ori_layer_preview_mode = yp.layer_preview_mode
-    ori_layer_preview_mode_type = yp.layer_preview_mode_type
+    ori_preview_mode_type = yp.preview_mode_type
 
     ori_layer_intensity_value = 1.0
     changed_layer_channel_index = -1
@@ -5685,8 +5684,10 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
             if m.active_edit: m.active_edit = False
 
     # Preview setup
-    yp.layer_preview_mode_type = 'SPECIFIC_MASK' if mask else 'LAYER'
-    yp.layer_preview_mode = True
+    if not yp.preview_mode: yp.preview_mode = True
+    correct_type = 'SPECIFIC_MASK' if mask else 'LAYER'
+    if yp.preview_mode_type != correct_type:
+        yp.preview_mode_type = correct_type
 
     # Set active channel so preview will output right value
     for i, ch in enumerate(layer.channels):
@@ -5820,10 +5821,8 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     yp.active_channel_index = ori_channel_index
     if yp.preview_mode != ori_preview_mode:
         yp.preview_mode = ori_preview_mode
-    if yp.layer_preview_mode != ori_layer_preview_mode:
-        yp.layer_preview_mode = ori_layer_preview_mode
-    if yp.layer_preview_mode_type != ori_layer_preview_mode_type:
-        yp.layer_preview_mode_type = ori_layer_preview_mode_type
+    if yp.preview_mode_type != ori_preview_mode_type:
+        yp.preview_mode_type = ori_preview_mode_type
 
     if changed_layer_channel_index != -1:
         ch = layer.channels[changed_layer_channel_index]

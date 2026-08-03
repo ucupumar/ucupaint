@@ -1350,9 +1350,6 @@ def update_yp_tree(tree):
     # Version 3.0.0 has separated normal, height, and vector displacement channel
     if version_tuple(yp.version) < (3, 0, 0):
 
-        # Use baked and layer preview mode has new buffer variables
-        yp.ori_use_baked = yp.use_baked
-        
         normal_ch = None
         normal_ch_idx = -1
         displacement_setup_needed = False 
@@ -1707,6 +1704,11 @@ def update_yp_tree(tree):
 
         # Preview mode now has it's own channel index
         yp.preview_mode_channel_index = yp.active_channel_index
+
+        # Preview mode is now unified
+        if yp.layer_preview_mode:
+            yp.preview_mode = True
+            yp.preview_mode_type = yp.layer_preview_mode_type
 
         # Update list item since there's a new base layer
         ListItem.refresh_list_items(yp)

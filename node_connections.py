@@ -400,7 +400,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         # Base layer preview mode
         active_layer = ListItem.get_active_layer(yp)
-        if yp.layer_preview_mode and ch == yp.channels[yp.preview_mode_channel_index]:
+        if is_layer_preview_mode_enabled(yp) and ch == yp.channels[yp.preview_mode_channel_index]:
             if not active_layer:
                 col_preview = get_essential_node(tree, TREE_END).get(LAYER_VIEWER)
                 alpha_preview = get_essential_node(tree, TREE_END).get(LAYER_ALPHA_VIEWER)
@@ -458,7 +458,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             #is_hidden = not layer.enable or is_parent_hidden(layer)
 
-            if yp.layer_preview_mode and active_layer: # and yp.layer_preview_mode_type == 'LAYER':
+            if is_layer_preview_mode_enabled(yp) and active_layer: # and yp.preview_mode_type == 'LAYER':
 
                 if ch == yp.channels[yp.preview_mode_channel_index] and layer == yp.layers[yp.active_layer_index]:
 
@@ -598,7 +598,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     if height_end_bump_process and 'Normal' in height_end_bump_process.inputs:
                         rgb = create_link(tree, rgb, height_end_bump_process.inputs['Normal'])[0]
 
-                elif ch == height_ch and not yp.preview_mode:
+                elif ch == height_ch and not is_channel_preview_mode_enabled(yp):
                     if ch.use_height_normalize:
                         rgb = get_essential_node(tree, HALF_VALUE)[0]
                     else: rgb = get_essential_node(tree, ZERO_VALUE)[0]
@@ -1167,7 +1167,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             mask_val = create_link(tree, mask_val, mask_decal_alpha.inputs[0])[0]
             create_link(tree, mask_decal_process.outputs[1], mask_decal_alpha.inputs[1])
 
-        if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and mask.active_edit == True:
+        if is_layer_preview_mode_enabled(yp) and yp.preview_mode_type == 'SPECIFIC_MASK' and mask.active_edit == True:
             if alpha_preview:
                 create_link(tree, mask_val, alpha_preview)
 
@@ -1291,7 +1291,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 create_link(tree, mask_val, mask_mix.inputs[mmixcol1])
 
-    if merge_mask and yp.layer_preview_mode:
+    if merge_mask and is_layer_preview_mode_enabled(yp):
         if alpha_preview:
             create_link(tree, root_mask_val, alpha_preview)
         return
@@ -1350,8 +1350,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if not channel_enabled:
             
             # Disabled channel layer preview
-            if yp.layer_preview_mode:
-                if yp.layer_preview_mode_type == 'SPECIFIC_MASK' and ch.override and ch.active_edit == True:
+            if is_layer_preview_mode_enabled(yp):
+                if yp.preview_mode_type == 'SPECIFIC_MASK' and ch.override and ch.active_edit == True:
                     if alpha_preview:
                         create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
                 elif root_ch == yp.channels[yp.preview_mode_channel_index]:
@@ -1446,7 +1446,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if vector and ch.override_type != 'DEFAULT' and 'Vector' in ch_source.inputs:
                 create_link(tree, vector, ch_source.inputs['Vector'])
 
-            if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and ch.active_edit == True:
+            if is_layer_preview_mode_enabled(yp) and yp.preview_mode_type == 'SPECIFIC_MASK' and ch.active_edit == True:
                 if alpha_preview:
                     create_link(tree, rgb, alpha_preview)
 
@@ -2001,10 +2001,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if blend: create_link(tree, blend.outputs[1], next_alpha)
 
         # Layer preview
-        if yp.layer_preview_mode:
+        if is_layer_preview_mode_enabled(yp):
 
             # If previewing specific mask with any mask or override channel active
-            if yp.layer_preview_mode_type == 'SPECIFIC_MASK':
+            if yp.preview_mode_type == 'SPECIFIC_MASK':
                 active_found = False
 
                 for mask in layer.masks:
@@ -2035,7 +2035,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         _, _, mixout = get_mix_color_indices(vdisp_proc)
                         create_link(tree, vdisp_proc.outputs[mixout], col_preview)
                     else: create_link(tree, rgb, col_preview)
-                if alpha_preview and yp.layer_preview_mode_type != 'SPECIFIC_MASK':
+                if alpha_preview and yp.preview_mode_type != 'SPECIFIC_MASK':
                     create_link(tree, alpha, alpha_preview)
                 
     # Clean unused essential nodes

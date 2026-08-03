@@ -3535,8 +3535,11 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
             height = img.size[1]
 
         # Activate layer preview mode
-        ori_layer_preview_mode = yp.layer_preview_mode
-        yp.layer_preview_mode = True
+        ori_preview_mode = yp.preview_mode
+        ori_preview_mode_type = yp.preview_mode_type
+
+        if yp.preview_mode_type != 'LAYER': yp.preview_mode_type = 'LAYER'
+        if not yp.preview_mode: yp.preview_mode = True
 
         # Get neighbor mask
         neighbor_mask = layer.masks[neighbor_idx]
@@ -3641,7 +3644,10 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         recover_bake_settings(book, yp)
 
         # Revert back preview mode 
-        yp.layer_preview_mode = ori_layer_preview_mode
+        if ori_preview_mode != yp.preview_mode:
+            yp.preview_mode = ori_preview_mode
+        if ori_preview_mode_type != yp.preview_mode_type:
+            yp.preview_mode_type = ori_preview_mode_type
 
         # Point to neighbor mask for merge up
         if index > neighbor_idx:
@@ -4191,12 +4197,6 @@ def update_use_baked(self, context):
     yp = tree.yp
     ypup = get_user_preferences()
 
-    # Check for value changes
-    value_changed = False
-    if yp.ori_use_baked != yp.use_baked:
-        yp.ori_use_baked = yp.use_baked
-        value_changed = True
-
     if yp.halt_update: return
 
     # Check subdiv setup
@@ -4208,23 +4208,11 @@ def update_use_baked(self, context):
     #    if height_ch.enable_subdiv_setup and not yp.use_baked and not ypup.eevee_next_displacement:
     #        recover_subsurf_levels()
 
-    # Dealing with layer preview mode
-    # TODO: This method is a bit hacky, it's better to make sure `layer_preview_mode` won't create nodes and connections when `use_baked` is enabled
-    if value_changed:
-        if yp.use_baked:
-            if yp.layer_preview_mode:
-                yp.ori_layer_preview_mode = True
-                yp.layer_preview_mode = False
-        else:
-            if yp.ori_layer_preview_mode and not yp.preview_mode:
-                yp.layer_preview_mode = True
-            yp.ori_layer_preview_mode = False
-
     # Check uv nodes
     check_uv_nodes(yp)
 
     # Check input and outputs
-    check_all_channel_ios(yp, do_process_layers=False)
+    check_all_channel_ios(yp, do_process_layers=is_layer_preview_mode_enabled(yp))
 
     # Connect to outside displacement node
     connect_outside_displacement_node(yp)
