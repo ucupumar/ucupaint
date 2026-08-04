@@ -2629,7 +2629,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         rrow = row.row(align=True)
         rrow.alignment = 'RIGHT'
-        if ypui.expand_channels:
+        if False and ypui.expand_channels:
             draw_channel_setting_button(rrow, add_row=False)
             rrow.separator()
         rrow.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.get_icon('checkbox'))
@@ -5548,7 +5548,7 @@ def layer_listing(layout, layer, show_expand=False):
             except: ch = None
 
             if ch:
-                is_active = get_channel_enabled(ch, layer, preview_ch) or (alpha_ch and ch == alpha_ch and get_channel_enabled(color_ch, layer))
+                is_active = get_channel_enabled(ch, layer, preview_ch) or (alpha_ch != None and ch == alpha_ch and get_channel_enabled(color_ch, layer))
 
     master = layout.row(align=True)
 
