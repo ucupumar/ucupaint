@@ -300,8 +300,8 @@ preview_mode_type_items = (
 
 class BasePreviewMode():
     preview_mode : BoolProperty(
-        name = 'Enable Channel Preview Mode',
-        description = 'Enable channel preview mode',
+        name = 'Enable Preview Mode',
+        description = 'Enable preview mode',
         default = False,
         update = update_preview_mode
     )

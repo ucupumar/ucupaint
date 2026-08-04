@@ -975,11 +975,13 @@ def draw_preview_mode_ui(context, layout, node):
 
     row = col.row(align=True)
 
-    show_settings = yp.preview_mode and not yp.use_baked
     use_popover = is_bl_newer_than(2, 80) #and False
+    show_settings = True #not yp.use_baked
+    if not use_popover:
+        show_settings &= yp.preview_mode
 
     if show_settings and use_popover:
-        row = split_layout(row, 0.5, align=True)
+        row = split_layout(row, 0.6, align=True)
 
     row.alert = yp.preview_mode
     title = 'Preview Mode'
@@ -990,27 +992,29 @@ def draw_preview_mode_ui(context, layout, node):
 
     if show_settings:
         if use_popover:
+            rrow = row.row(align=True)
+            rrow.active = yp.preview_mode
             title = root_ch.name if root_ch else 'Settings'
-            if yp.preview_mode_type == 'CHANNEL':
-                title += ' (Final)'
-            elif yp.preview_mode_type == 'LAYER':
-                title += ' (Layer)'
-            elif yp.preview_mode_type == 'ALPHA':
-                title += ' (Alpha)'
-            elif yp.preview_mode_type == 'SPECIFIC_MASK':
-                title += ' (Mask)'
+            if root_ch and not yp.use_baked:
+                if yp.preview_mode_type == 'CHANNEL':
+                    title += ' (Final)'
+                elif yp.preview_mode_type == 'LAYER':
+                    title += ' (Layer)'
+                elif yp.preview_mode_type == 'ALPHA':
+                    title += ' (Alpha)'
+                elif yp.preview_mode_type == 'SPECIFIC_MASK':
+                    title += ' (Mask)'
             setting_icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
             icon_name = lib.channel_custom_icon_dict[root_ch.type] if root_ch else setting_icon
             icon_value = lib.get_icon(icon_name)
-            row.popover("NODE_PT_ypaint_preview_mode_settings_popover", text=title, icon_value=icon_value)
+            rrow.popover("NODE_PT_ypaint_preview_mode_settings_popover", text=title, icon_value=icon_value)
         else:
             draw_preview_mode_settings(context, col, node, in_popover=False)
 
 def draw_preview_mode_settings(context, layout, node, in_popover=True):
     yp = node.node_tree.yp
 
-    try: root_ch = yp.channels[yp.preview_mode_channel_index]
-    except: return
+    layout.active = yp.preview_mode
 
     split_val = 0.3
     if in_popover:
@@ -1022,15 +1026,21 @@ def draw_preview_mode_settings(context, layout, node, in_popover=True):
     if in_popover:
         bcol.label(text='Preview Mode Settings')
 
-    if in_popover:
-        #rrow = row.row(align=True)
-        ccol = bcol.column(align=True)
-        ccol.label(text='Type')
-        ccol.prop(yp, "preview_mode_type", expand=True)
-    else: 
-        row = split_layout(bcol, split_val)
-        row.label(text='Type:')
-        row.prop(yp, "preview_mode_type", text='')
+    try: root_ch = yp.channels[yp.preview_mode_channel_index]
+    except:
+        bcol.label(text='No channel to preview', icon='ERROR')
+        return
+
+    if not yp.use_baked:
+        if in_popover:
+            #rrow = row.row(align=True)
+            ccol = bcol.column(align=True)
+            ccol.label(text='Type')
+            ccol.prop(yp, "preview_mode_type", expand=True)
+        else: 
+            row = split_layout(bcol, split_val)
+            row.label(text='Type:')
+            row.prop(yp, "preview_mode_type", text='')
 
     if not in_popover:
         row = split_layout(bcol, split_val)
@@ -5465,6 +5475,8 @@ def layer_listing(layout, layer, show_expand=False):
     ypup = get_user_preferences()
     ypui = bpy.context.window_manager.ypui
 
+    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
+
     is_active = not is_parent_hidden(layer) and layer.enable
 
     # Layer who doesn't use the active preview channel will be inactive
@@ -5477,7 +5489,8 @@ def layer_listing(layout, layer, show_expand=False):
             try: ch = layer.channels[ch_idx]
             except: ch = None
 
-            if ch: is_active = get_channel_enabled(ch, layer, preview_ch)
+            if ch:
+                is_active = get_channel_enabled(ch, layer, preview_ch) or (alpha_ch and ch == alpha_ch and get_channel_enabled(color_ch, layer))
 
     master = layout.row(align=True)
 
@@ -5510,8 +5523,6 @@ def layer_listing(layout, layer, show_expand=False):
         (yp.enable_inline_subitems and not (layer.expand_subitems and yp.enable_expandable_subitems)) or 
         (not yp.enable_inline_subitems and not yp.enable_expandable_subitems)
         )
-
-    color_ch, alpha_ch = get_layer_color_alpha_ch_pairs(layer)
 
     all_overrides = []
     selectable_overrides = []

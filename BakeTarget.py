@@ -451,6 +451,92 @@ def check_channel_bake_target_nodes(yp):
             remove_node(tree, ch, 'baked_normal')
             remove_node(tree, ch, 'baked_normal_prep')
 
+def set_channel_active_bake_target(root_ch, bake_target_name):
+    tree = root_ch.id_data
+    yp = tree.yp
+
+    # Get color and alpha channel pair
+    color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
+
+    # Get bake target
+    bt = yp.bake_targets.get(bake_target_name)
+
+    # Rename channel bake target name
+    do_reconnect = False
+    #is_paired = False
+    if root_ch.bake_target_name != bake_target_name:
+        root_ch.bake_target_name = bake_target_name
+
+        # Automatically set paired channel bake target
+        if color_ch and alpha_ch:
+            if root_ch == color_ch:
+                if bt.a.channel_name == alpha_ch.name:
+                    alpha_ch.bake_target_name = bake_target_name
+                    #is_paired = True
+            elif root_ch == alpha_ch:
+                if (bt.r.channel_name == color_ch.name and bt.r.subchannel_index == '0' and
+                    bt.g.channel_name == color_ch.name and bt.g.subchannel_index == '1' and
+                    bt.b.channel_name == color_ch.name and bt.b.subchannel_index == '2'
+                ):
+                    color_ch.bake_target_name = bake_target_name
+                    #is_paired = True
+
+        check_channel_bake_target_nodes(yp)
+        #do_reconnect = True
+        do_reconnect = yp.use_baked
+
+    # Set image editor image
+    image = None
+    if bt and bt.data_type == 'IMAGE':
+        baked_node = tree.nodes.get(bt.baked_node)
+        if baked_node:
+            image = baked_node.image
+    update_image_editor_image(bpy.context, image)
+
+    # Use baked data
+    if yp.use_baked and root_ch.disable_global_baked:
+        root_ch.disable_global_baked = False
+
+        #if is_paired:
+        #    if root_ch == color_ch and alpha_ch.disable_global_baked: alpha_ch.disable_global_baked = False
+        #    if root_ch == alpha_ch and color_ch.disable_global_baked: color_ch.disable_global_baked = False
+
+        if root_ch == color_ch and alpha_ch.disable_global_baked: alpha_ch.disable_global_baked = False
+        if root_ch == alpha_ch and color_ch.disable_global_baked: color_ch.disable_global_baked = False
+
+    if do_reconnect:
+        reconnect_yp_nodes(tree)
+        rearrange_yp_nodes(tree)
+
+        # Refresh enable baked outside
+        if yp.enable_baked_outside:
+            yp.enable_baked_outside = True
+
+    # Set channel to be an active channel
+    if yp.preview_mode:
+        ch_idx = get_channel_index(root_ch)
+        yp.preview_mode_channel_index = ch_idx
+
+def refresh_active_channel_bake_target(yp):
+    tree = yp.id_data
+    try: root_ch = yp.channels[yp.preview_mode_channel_index]
+    except: return
+
+    # Get bake target
+    bt = yp.bake_targets.get(root_ch.bake_target_name)
+
+    # Set image editor image
+    image = None
+    if bt and bt.data_type == 'IMAGE':
+        baked_node = tree.nodes.get(bt.baked_node)
+        if baked_node:
+            image = baked_node.image
+    update_image_editor_image(bpy.context, image)
+
+    # Update preview mode nodes by reselecting the channel index
+    if yp.preview_mode:
+        yp.preview_mode_channel_index = yp.preview_mode_channel_index
+
 class YSetChannelActiveBakeTarget(bpy.types.Operator):
     bl_idname = "wm.y_set_channel_active_bake_target"
     bl_label = "Set Channel Active Bake Target"
@@ -468,73 +554,7 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
         return get_active_ypaint_node()
     
     def execute(self, context):
-
-        root_ch = context.channel
-        tree = root_ch.id_data
-        yp = tree.yp
-
-        # Get color and alpha channel pair
-        color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
-
-        # Get bake target
-        bt = yp.bake_targets.get(self.bake_target_name)
-
-        # Rename channel bake target name
-        do_reconnect = False
-        #is_paired = False
-        if root_ch.bake_target_name != self.bake_target_name:
-            root_ch.bake_target_name = self.bake_target_name
-
-            # Automatically set paired channel bake target
-            if color_ch and alpha_ch:
-                if root_ch == color_ch:
-                    if bt.a.channel_name == alpha_ch.name:
-                        alpha_ch.bake_target_name = self.bake_target_name
-                        #is_paired = True
-                elif root_ch == alpha_ch:
-                    if (bt.r.channel_name == color_ch.name and bt.r.subchannel_index == '0' and
-                        bt.g.channel_name == color_ch.name and bt.g.subchannel_index == '1' and
-                        bt.b.channel_name == color_ch.name and bt.b.subchannel_index == '2'
-                    ):
-                        color_ch.bake_target_name = self.bake_target_name
-                        #is_paired = True
-
-            check_channel_bake_target_nodes(yp)
-            #do_reconnect = True
-            do_reconnect = yp.use_baked
-
-        # Set image editor image
-        image = None
-        if bt and bt.data_type == 'IMAGE':
-            baked_node = tree.nodes.get(bt.baked_node)
-            if baked_node:
-                image = baked_node.image
-        update_image_editor_image(context, image)
-
-        # Use baked data
-        if yp.use_baked and root_ch.disable_global_baked:
-            root_ch.disable_global_baked = False
-
-            #if is_paired:
-            #    if root_ch == color_ch and alpha_ch.disable_global_baked: alpha_ch.disable_global_baked = False
-            #    if root_ch == alpha_ch and color_ch.disable_global_baked: color_ch.disable_global_baked = False
-
-            if root_ch == color_ch and alpha_ch.disable_global_baked: alpha_ch.disable_global_baked = False
-            if root_ch == alpha_ch and color_ch.disable_global_baked: color_ch.disable_global_baked = False
-
-        if do_reconnect:
-            reconnect_yp_nodes(tree)
-            rearrange_yp_nodes(tree)
-
-            # Refresh enable baked outside
-            if yp.enable_baked_outside:
-                yp.enable_baked_outside = True
-
-        # Set channel to be an active channel
-        if yp.preview_mode:
-            ch_idx = get_channel_index(root_ch)
-            yp.preview_mode_channel_index = ch_idx
-
+        set_channel_active_bake_target(context.channel, self.bake_target_name)
         return {'FINISHED'}
 
 class YToggleChannelUseBaked(bpy.types.Operator):

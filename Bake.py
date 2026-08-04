@@ -8,7 +8,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem, BakeInfo, channel_common
+from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem, BakeInfo, channel_common, BakeTarget
 
 UV_OUTSIDE_PREFIX = '__BAKE_TARGET_UV__'
 
@@ -1376,6 +1376,11 @@ class BaseBakeBakeTargetOperator():
         if not objs:
             self.report({'ERROR'}, "No valid objects to bake!")
             return {'CANCELLED'}
+        
+        # Disable preview mode
+        ori_preview_mode = yp.preview_mode
+        if yp.preview_mode:
+            yp.preview_mode = False
 
         # UV data should be accessible when there's multiple materials in single object, so object mode is necessary
         ori_edit_mode = False
@@ -1469,9 +1474,14 @@ class BaseBakeBakeTargetOperator():
         # Revert back to edit mode
         if ori_edit_mode:
             bpy.ops.object.mode_set(mode='EDIT')
+
+        # Revert back preview mode
+        if ori_preview_mode:
+            yp.preview_mode = True
         
         # Refresh active channel index
-        yp.active_channel_index = yp.active_channel_index
+        #yp.active_channel_index = yp.active_channel_index
+        BakeTarget.refresh_active_channel_bake_target(yp)
 
         # Update UI
         ypui = context.window_manager.ypui
@@ -4219,7 +4229,8 @@ def update_use_baked(self, context):
 
     # Trigger active image update
     if yp.use_baked:
-        yp.active_channel_index = yp.active_channel_index
+        #yp.active_channel_index = yp.active_channel_index
+        BakeTarget.refresh_active_channel_bake_target(yp)
     else:
         yp.active_layer_index = yp.active_layer_index
 
