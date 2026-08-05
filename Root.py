@@ -2906,6 +2906,12 @@ def update_active_yp_channel(self, context):
         # Update preview mode
         preview_mode.update_preview_mode(yp, context)
 
+    # Also select bake target
+    bt = yp.bake_targets.get(ch.bake_target_name)
+    if bt:
+        bt_idx = get_bake_target_index(bt)
+        yp.active_bake_target_index = bt_idx
+
     # Set active baked image to paint slot
     set_active_paint_slot_entity(yp)
 

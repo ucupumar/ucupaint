@@ -513,9 +513,9 @@ def set_channel_active_bake_target(root_ch, bake_target_name):
             yp.enable_baked_outside = True
 
     # Set channel to be an active channel
-    if yp.preview_mode:
-        ch_idx = get_channel_index(root_ch)
-        yp.preview_mode_channel_index = ch_idx
+    #if yp.preview_mode:
+    ch_idx = get_channel_index(root_ch)
+    yp.preview_mode_channel_index = ch_idx
 
 def refresh_active_channel_bake_target(yp):
     tree = yp.id_data
@@ -588,9 +588,9 @@ class YToggleChannelUseBaked(bpy.types.Operator):
             pair_channel.disable_global_baked = root_ch.disable_global_baked
 
         # Set channel to be an active channel
-        if yp.preview_mode:
-            ch_idx = get_channel_index(root_ch)
-            yp.active_channel_index = ch_idx
+        #if yp.preview_mode:
+        ch_idx = get_channel_index(root_ch)
+        yp.preview_mode_channel_index = ch_idx
 
         return {'FINISHED'}
 
