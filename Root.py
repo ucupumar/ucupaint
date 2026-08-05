@@ -2229,6 +2229,37 @@ class YFixMissingUV(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def rename_bake_target_tree_names(yp, old_name, new_name, duplicate_data=False):
+    tree = yp.id_data
+    for bt in yp.bake_targets:
+        baked_node = tree.nodes.get(bt.baked_node)
+        image = None
+        actual_new_name = ''
+
+        # Ignore addon title
+        old_name = old_name.replace(get_addon_title()+' ', '')
+        new_name = new_name.replace(get_addon_title()+' ', '')
+
+        if bt.data_type == 'IMAGE' and baked_node:
+            image = baked_node.image
+            if image:
+                actual_new_name = image.name.replace(old_name, new_name)
+                if actual_new_name != image.name:
+                    actual_new_name = get_unique_name(actual_new_name, bpy.data.images)
+        # TODO: Dealing with vertex color bake target
+        elif not baked_node:
+            actual_new_name = bt.name.replace(old_name, new_name)
+            if actual_new_name != bt.name:
+                actual_new_name = get_unique_name(actual_new_name, yp.bake_targets)
+        
+        if actual_new_name != '':
+            bt.name = actual_new_name
+            if image: 
+                if duplicate_data:
+                    baked_node.image = image.copy()
+                    image = baked_node.image
+                image.name = actual_new_name
+
 class YRenameYPaintTree(bpy.types.Operator):
     bl_idname = "wm.y_rename_ypaint_tree"
     bl_label = "Rename " + get_addon_title() + " Tree"
@@ -2258,10 +2289,16 @@ class YRenameYPaintTree(bpy.types.Operator):
     def execute(self, context):
         node = get_active_ypaint_node()
         tree = node.node_tree
+        yp = tree.yp
+        old_name = tree.name
         tree.name = self.name
         if self.rename_active_material:
             mat = get_active_material()
             mat.name = self.name
+
+        # Rename bake targets
+        rename_bake_target_tree_names(yp, old_name, self.name)
+        
         return {'FINISHED'}
 
 class YChangeActiveYPaintNode(bpy.types.Operator):
@@ -2430,6 +2467,8 @@ class YDuplicateYPNodes(bpy.types.Operator):
             objs = [context.object]
         else: objs = get_all_objects_with_same_materials(mat)
 
+        old_name = ''
+
         if self.duplicate_material:
 
             # Get new material name
@@ -2454,6 +2493,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
             # Duplicate the trees
             for tree_name, node in tree_dict.items():
+                old_name = tree_name
                 tree = bpy.data.node_groups.get(tree_name)
                 node.node_tree = tree.copy()
                 if self.new_name:
@@ -2490,29 +2530,10 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         #if ypui.make_image_single_user:
 
-        # Copy baked image
-        for ch in yp.channels:
-            baked = tree.nodes.get(ch.baked)
-            if baked and baked.image:
-                baked.image = baked.image.copy()
-
-                # Also rename path because why not? NO, because it will cause image lost
-                #path = baked.image.filepath
-                #ext = os.path.splitext(path)[1]
-                #baked.image.filepath = os.path.dirname(path) + baked.image.name + ext
-
-            if ch.special_type == 'NORMAL':
-                #baked_disp = tree.nodes.get(ch.baked_disp)
-                #if baked_disp and baked_disp.image:
-                #    baked_disp.image = baked_disp.image.copy()
-
-                #baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                #if baked_normal_overlay and baked_normal_overlay.image:
-                #    baked_normal_overlay.image = baked_normal_overlay.image.copy()
-
-                baked_normal_no_disp = tree.nodes.get(ch.baked_normal_no_disp)
-                if baked_normal_no_disp and baked_normal_no_disp.image:
-                    baked_normal_no_disp.image = baked_normal_no_disp.image.copy()
+        # Duplicate image data and rename bake targets
+        old_name = old_name.replace(get_addon_title()+' ', '')
+        new_name = self.new_name.replace(get_addon_title()+' ', '')
+        rename_bake_target_tree_names(yp, old_name, new_name, duplicate_data=True)
 
         # Recover possibly deleted parallax
         height_root_ch = get_root_height_channel(yp)

@@ -1078,7 +1078,7 @@ def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
         ccol.prop(yp, 'preview_mode_normal_space', text='')
 
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
-    if yp.preview_mode_type == 'CHANNEL' and alpha_ch != None:
+    if (yp.preview_mode_type == 'CHANNEL' or yp.use_baked) and alpha_ch != None:
         row = col.row()
             
         row.active = root_ch != alpha_ch
@@ -1457,8 +1457,8 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
     col = box.column()
 
     if show_header:
+        col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
         col.label(text='Bake Target Settings')
-        col.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).show_necessary_only_option = False
 
     row = col.row()
 
@@ -4777,10 +4777,27 @@ def draw_test_ui(context, layout):
     if not Test: return
     Test.draw_test_ui(context, layout)
 
-def draw_about_ui(self, context):
-    #T = time.time()
+def draw_about_preset_ui(self, context):
+    return
+    ypui = context.window_manager.ypui
 
-    wm = context.window_manager
+    layout = self.layout
+    row = layout.row(align=True)
+
+    if not ypui.expanded_about_ui:
+        title = 'About'
+        title = ''
+        row.popover("NODE_PT_ypaint_about_popover", text=title, icon='HELP')
+        if is_package_module_exists('.credits_ui'):
+            title = 'Support Us!'
+            title = ''
+            row.popover('VIEW3D_PT_ypaint_support_ui', text=title, icon='FUND')
+
+    ypui.expanded_about_ui = False
+
+def draw_about_ui(self, context):
+    ypui = context.window_manager.ypui
+    ypui.expanded_about_ui = True
 
     layout = self.layout
     row = layout.row(align=True)
@@ -4791,8 +4808,6 @@ def draw_about_ui(self, context):
         row.popover("NODE_PT_ypaint_about_popover", text='About', icon='HELP')
         if is_package_module_exists('.credits_ui'):
             row.popover('VIEW3D_PT_ypaint_support_ui', text='Support Us!', icon='FUND')
-
-    #print(get_addon_title()+': UI is created in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 class NODE_PT_YPaint_legacy_about_ui(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
@@ -4819,6 +4834,9 @@ class NODE_PT_YPaint_about_ui(bpy.types.Panel):
     def poll(cls, context):
         return (context.object and context.object.type in possible_object_types 
                 and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
+
+    def draw_header_preset(self, context):
+        draw_about_preset_ui(self, context)
 
     def draw(self, context):
         draw_about_ui(self, context)
@@ -4847,6 +4865,9 @@ class VIEW3D_PT_YPaint_about_ui(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw_header_preset(self, context):
+        draw_about_preset_ui(self, context)
 
     def draw(self, context):
         draw_about_ui(self, context)
@@ -4928,7 +4949,7 @@ class BaseMainUI():
         #elif not yp.use_baked and not ypup.unified_tab_ui:
         if ypui.expanded_main_ui:
 
-            if not yp.use_baked:
+            if not yp.use_baked and not ypup.unified_tab_ui:
 
                 row.popover("NODE_PT_ypaint_channel_popover", text='', icon_value=lib.get_icon('channels'))
                 row.popover("NODE_PT_ypaint_bake_target_popover", text='', icon_value=lib.get_icon('bake'))
@@ -8931,6 +8952,7 @@ class YPaintUI(bpy.types.PropertyGroup):
         default= ''
     )
 
+    expanded_about_ui : BoolProperty(default=True)
     expanded_main_ui : BoolProperty(default=True)
     expanded_settings_ui : BoolProperty(default=False)
 
