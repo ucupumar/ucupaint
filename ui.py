@@ -1021,6 +1021,7 @@ def draw_preview_mode_ui(context, layout, node):
             rrow = row.row(align=True)
             rrow.scale_y = scale_y
             rrow.active = yp.preview_mode
+
             title = root_ch.name if root_ch else 'Settings'
             if root_ch and not yp.use_baked:
                 if yp.preview_mode_type == 'CHANNEL':
@@ -1030,7 +1031,20 @@ def draw_preview_mode_ui(context, layout, node):
                 elif yp.preview_mode_type == 'ALPHA':
                     title += ' (Alpha)'
                 elif yp.preview_mode_type == 'SPECIFIC_MASK':
-                    title += ' (Mask)'
+                    extra_title = ''
+
+                    try: layer = yp.layers[yp.active_layer_index]
+                    except: layer = None
+                    if layer:
+                        for mask in layer.masks:
+                            if mask.active_edit:
+                                extra_title = ' (Mask)'
+                                break
+
+                    if extra_title == '':
+                        extra_title = ' (Data)'
+                    title += extra_title
+
             setting_icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
             icon_name = lib.channel_custom_icon_dict[root_ch.type] if root_ch else setting_icon
             icon_value = lib.get_icon(icon_name)
