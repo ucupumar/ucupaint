@@ -3482,7 +3482,7 @@ def update_channel_disable_global_baked(self, context):
 
     normal_ch, height_ch = get_normal_height_ch_pairs(yp)
 
-    if yp.use_baked and root_ch == height_ch and not normal_ch.use_height_as_bump:
+    if yp.use_baked and root_ch == height_ch and not height_ch.use_height_as_bump:
         check_all_channel_ios(group_tree.yp)
         connect_outside_displacement_node(yp, root_ch, get_active_ypaint_node())
     else:
