@@ -2914,6 +2914,7 @@ def update_sculpt_mode(self, context):
     rearrange_yp_nodes(self.id_data)
 
 def update_active_yp_channel(self, context):
+    ypup = get_user_preferences()
     obj = context.object
     tree = self.id_data
     yp = tree.yp
@@ -2921,7 +2922,8 @@ def update_active_yp_channel(self, context):
     ch = yp.channels[yp.active_channel_index]
 
     # Set the active preview mode channel
-    if yp.preview_mode:
+    # NOTE: Will only happens for non-popover channel settings UI
+    if yp.preview_mode and (ypup.unified_tab_ui or not is_bl_newer_than(2, 80)):
         yp.preview_mode_channel_index = yp.active_channel_index
 
         # Update preview mode
