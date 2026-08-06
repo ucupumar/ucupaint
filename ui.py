@@ -997,7 +997,7 @@ def draw_preview_mode_ui(context, layout, node):
         #title += ' Mode'
         if is_channel_preview_mode_enabled(yp):
             rrow.alert = True
-        rrow.operator('wm.y_toggle_channel_preview_mode', text=title, icon='HIDE_OFF')
+        rrow.operator('wm.y_toggle_preview_mode', text=title, icon='HIDE_OFF').type = 'CHANNEL'
 
         rrow.alert = False
 
@@ -1006,7 +1006,7 @@ def draw_preview_mode_ui(context, layout, node):
         #title += ' Mode'
         if is_layer_preview_mode_enabled(yp):
             rrow.alert = True
-        rrow.operator('wm.y_toggle_layer_preview_mode', text=title, icon='HIDE_OFF')
+        rrow.operator('wm.y_toggle_preview_mode', text=title, icon='HIDE_OFF').type = 'LAYER'
 
     else: 
         row.alert = yp.preview_mode
@@ -1057,7 +1057,7 @@ def draw_preview_mode_ui(context, layout, node):
 def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
     yp = node.node_tree.yp
 
-    layout.active = yp.preview_mode
+    #layout.active = yp.preview_mode
 
     layout.label(text='Preview Mode Settings')
 
@@ -1072,14 +1072,30 @@ def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
         col = row.column()
 
         if not yp.use_baked:
-            #rrow = row.row(align=True)
             ccol = col.column(align=True)
             ccol.label(text='Type')
-            ccol.prop(yp, "preview_mode_type", expand=True)
+            #ccol.prop(yp, "preview_mode_type", expand=True)
+
+            if yp.preview_mode and yp.preview_mode_type == 'CHANNEL': ccol.alert = True
+            ccol.operator('wm.y_toggle_preview_mode', text='Final Channel').type = 'CHANNEL'
+            ccol.alert = False
+
+            if yp.preview_mode and yp.preview_mode_type == 'LAYER': ccol.alert = True
+            ccol.operator('wm.y_toggle_preview_mode', text='Layer').type = 'LAYER'
+            ccol.alert = False
+
+            if yp.preview_mode and yp.preview_mode_type == 'ALPHA': ccol.alert = True
+            ccol.operator('wm.y_toggle_preview_mode', text='Layer Alpha').type = 'ALPHA'
+            ccol.alert = False
+
+            if yp.preview_mode and yp.preview_mode_type == 'SPECIFIC_MASK': ccol.alert = True
+            ccol.operator('wm.y_toggle_preview_mode', text='Active Mask/Data').type = 'SPECIFIC_MASK'
+            ccol.alert = False
     else:
         row = layout
 
     col = row.column()
+    col.active = yp.preview_mode
 
     ccol = col.column(align=True)
     ccol.label(text='Channel')

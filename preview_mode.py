@@ -383,11 +383,18 @@ class YSelectPreviewModeChannel(bpy.types.Operator):
         yp.preview_mode_channel_index = self.channel_idx
         return{'FINISHED'}
 
-class YToggleLayerPreviewMode(bpy.types.Operator):
-    bl_idname = "wm.y_toggle_layer_preview_mode"
-    bl_label = "Toggle Layer Preview Mode"
-    bl_description = "Toggle layer preview mode"
+class YTogglePreviewMode(bpy.types.Operator):
+    bl_idname = "wm.y_toggle_preview_mode"
+    bl_label = "Toggle Preview Mode"
+    bl_description = "Toggle preview mode"
     bl_options = {'REGISTER', 'UNDO'}
+
+    type : EnumProperty(
+        name = 'Preview Mode Type',
+        description = 'Preview mode type',
+        items = preview_mode_type_items,
+        default = 'CHANNEL',
+    )
 
     @classmethod
     def poll(cls, context):
@@ -398,33 +405,8 @@ class YToggleLayerPreviewMode(bpy.types.Operator):
         group_node = get_active_ypaint_node()
         yp = group_node.node_tree.yp
 
-        layer_preview_types = {'LAYER', 'ALPHA', 'SPECIFIC_MASK'}
-
-        if not yp.preview_mode or yp.preview_mode_type not in layer_preview_types:
-            if yp.preview_mode_type not in layer_preview_types: yp.preview_mode_type = 'LAYER'
-            if not yp.preview_mode: yp.preview_mode = True
-        else:
-            yp.preview_mode = False
-
-        return{'FINISHED'}
-
-class YToggleChannelPreviewMode(bpy.types.Operator):
-    bl_idname = "wm.y_toggle_channel_preview_mode"
-    bl_label = "Toggle Final Channel Value Preview Mode"
-    bl_description = "Toggle final channel value preview mode"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        return group_node and len(group_node.node_tree.yp.channels) > 0
-
-    def execute(self, context):
-        group_node = get_active_ypaint_node()
-        yp = group_node.node_tree.yp
-
-        if not yp.preview_mode or yp.preview_mode_type != 'CHANNEL':
-            if yp.preview_mode != 'CHANNEL': yp.preview_mode_type = 'CHANNEL'
+        if not yp.preview_mode or yp.preview_mode_type != self.type:
+            if yp.preview_mode != self.type: yp.preview_mode_type = self.type
             if not yp.preview_mode: yp.preview_mode = True
         else: yp.preview_mode = False
 
@@ -432,10 +414,8 @@ class YToggleChannelPreviewMode(bpy.types.Operator):
 
 def register():
     bpy.utils.register_class(YSelectPreviewModeChannel)
-    bpy.utils.register_class(YToggleLayerPreviewMode)
-    bpy.utils.register_class(YToggleChannelPreviewMode)
+    bpy.utils.register_class(YTogglePreviewMode)
 
 def unregister():
     bpy.utils.unregister_class(YSelectPreviewModeChannel)
-    bpy.utils.unregister_class(YToggleLayerPreviewMode)
-    bpy.utils.unregister_class(YToggleChannelPreviewMode)
+    bpy.utils.unregister_class(YTogglePreviewMode)
