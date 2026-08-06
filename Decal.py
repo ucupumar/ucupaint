@@ -4,6 +4,154 @@ from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
 
+def get_plane_projection_tree():
+    """Pure planar projection: Infinite XY plane projection with Z-axis distance clipping."""
+    tree_name = '~yPL Plane Projection'
+    tree = bpy.data.node_groups.get(tree_name)
+    if tree:
+        return tree
+
+    tree = bpy.data.node_groups.new(tree_name, 'ShaderNodeTree')
+
+    # --- Setup Sockets ---
+    if is_bl_newer_than(4, 0):
+        tree.interface.new_socket('Vector', in_out='INPUT', socket_type='NodeSocketVector')
+            
+        s_dist = tree.interface.new_socket('Decal Distance', in_out='INPUT', socket_type='NodeSocketFloat')
+        if hasattr(s_dist, 'default_value'):
+            s_dist.default_value = 1.0
+
+        s_scale = tree.interface.new_socket('Scale', in_out='INPUT', socket_type='NodeSocketVector')
+        if hasattr(s_scale, 'default_value'):
+            s_scale.default_value = (1.0, 1.0, 1.0)
+
+        tree.interface.new_socket('Vector', in_out='OUTPUT', socket_type='NodeSocketVector')
+        tree.interface.new_socket('Alpha Mask', in_out='OUTPUT', socket_type='NodeSocketFloat')
+    else:
+        new_tree_input(tree, 'Vector', 'NodeSocketVector')
+        
+        s_dist = new_tree_input(tree, 'Decal Distance', 'NodeSocketFloat')
+        s_dist.default_value = 1.0
+
+        s_scale = new_tree_input(tree, 'Scale', 'NodeSocketVector')
+        s_scale.default_value = (1.0, 1.0, 1.0)
+
+        new_tree_output(tree, 'Vector', 'NodeSocketVector')
+        new_tree_output(tree, 'Alpha Mask', 'NodeSocketFloat')
+
+    create_essential_nodes(tree)
+    start = tree.nodes.get(TREE_START)
+    end = tree.nodes.get(TREE_END)
+
+    # --- 1. UV Projection (Scaled XY + 0.5 offset) ---
+    vec_div = tree.nodes.new('ShaderNodeVectorMath')
+    vec_div.operation = 'DIVIDE'
+    tree.links.new(start.outputs['Vector'], vec_div.inputs[0])
+    tree.links.new(start.outputs['Scale'], vec_div.inputs[1])
+
+    sep_scaled = tree.nodes.new('ShaderNodeSeparateXYZ')
+    tree.links.new(vec_div.outputs['Vector'], sep_scaled.inputs['Vector'])
+
+    flat_u = tree.nodes.new('ShaderNodeMath')
+    flat_u.operation = 'ADD'
+    flat_u.inputs[1].default_value = 0.5
+    tree.links.new(sep_scaled.outputs['X'], flat_u.inputs[0])
+
+    flat_v = tree.nodes.new('ShaderNodeMath')
+    flat_v.operation = 'ADD'
+    flat_v.inputs[1].default_value = 0.5
+    tree.links.new(sep_scaled.outputs['Y'], flat_v.inputs[0])
+
+    flat_uv = tree.nodes.new('ShaderNodeCombineXYZ')
+    tree.links.new(flat_u.outputs['Value'], flat_uv.inputs['X'])
+    tree.links.new(flat_v.outputs['Value'], flat_uv.inputs['Y'])
+
+    # --- 2. Z Distance Depth Mask (|Z| < Decal Distance * 0.5) ---
+    sep_raw = tree.nodes.new('ShaderNodeSeparateXYZ')
+    tree.links.new(start.outputs['Vector'], sep_raw.inputs['Vector'])
+
+    abs_z = tree.nodes.new('ShaderNodeMath')
+    abs_z.operation = 'ABSOLUTE'
+    tree.links.new(sep_raw.outputs['Z'], abs_z.inputs[0])
+
+    half_dist = tree.nodes.new('ShaderNodeMath')
+    half_dist.operation = 'MULTIPLY'
+    half_dist.inputs[1].default_value = 0.5
+    tree.links.new(start.outputs['Decal Distance'], half_dist.inputs[0])
+
+    mask_z = tree.nodes.new('ShaderNodeMath')
+    mask_z.operation = 'LESS_THAN'
+    tree.links.new(abs_z.outputs['Value'], mask_z.inputs[0])
+    tree.links.new(half_dist.outputs['Value'], mask_z.inputs[1])
+
+    # --- Outputs ---
+    tree.links.new(flat_uv.outputs['Vector'], end.inputs['Vector'])
+    tree.links.new(mask_z.outputs['Value'], end.inputs['Alpha Mask'])
+
+    return tree
+
+def get_decal_process_tree():
+    """Main '~yPL Decal Process' ShaderNodeTree wrapping projection sub-trees."""
+    tree_name = lib.DECAL_PROCESS
+    tree = bpy.data.node_groups.get(tree_name)
+    if tree:
+        return tree
+
+    tree = bpy.data.node_groups.new(tree_name, 'ShaderNodeTree')
+
+    # --- Setup Interface Sockets ---
+    if is_bl_newer_than(4, 0):
+        tree.interface.new_socket('Vector', in_out='INPUT', socket_type='NodeSocketVector')
+            
+        inp_dist = tree.interface.new_socket('Decal Distance', in_out='INPUT', socket_type='NodeSocketFloat')
+        if hasattr(inp_dist, 'default_value'):
+            inp_dist.default_value = 1.0
+
+        inp_scale = tree.interface.new_socket('Scale', in_out='INPUT', socket_type='NodeSocketVector')
+        if hasattr(inp_scale, 'default_value'):
+            inp_scale.default_value = (1.0, 1.0, 1.0)   
+
+        inp_type = tree.interface.new_socket('Type', in_out='INPUT', socket_type='NodeSocketInt')
+        if hasattr(inp_type, 'default_value'):
+            inp_type.default_value = 0     
+
+        tree.interface.new_socket('Vector', in_out='OUTPUT', socket_type='NodeSocketVector')
+        tree.interface.new_socket('Alpha Mask', in_out='OUTPUT', socket_type='NodeSocketFloat')
+    else:
+        new_tree_input(tree, 'Vector', 'NodeSocketVector')
+
+        
+        inp_dist = new_tree_input(tree, 'Decal Distance', 'NodeSocketFloat')
+        inp_dist.default_value = 1.0
+
+        inp_scale = new_tree_input(tree, 'Scale', 'NodeSocketVector')
+        inp_scale.default_value = (1.0, 1.0, 1.0)
+
+        inp_type = new_tree_input(tree, 'Type', 'NodeSocketInt')
+        inp_type.default_value = 0
+
+        new_tree_output(tree, 'Vector', 'NodeSocketVector')
+        new_tree_output(tree, 'Alpha Mask', 'NodeSocketFloat')
+
+    create_essential_nodes(tree)
+    start = tree.nodes.get(TREE_START)
+    end = tree.nodes.get(TREE_END)
+
+    # --- Add Plane Projection Sub-Group ---
+    plane_node = tree.nodes.new('ShaderNodeGroup')
+    plane_node.node_tree = get_plane_projection_tree()
+
+    # Pass main inputs to sub-group
+    tree.links.new(start.outputs['Vector'], plane_node.inputs['Vector'])
+    tree.links.new(start.outputs['Scale'], plane_node.inputs['Scale'])
+    tree.links.new(start.outputs['Decal Distance'], plane_node.inputs['Decal Distance'])
+
+    # Pass sub-group outputs to main outputs
+    tree.links.new(plane_node.outputs['Vector'], end.inputs['Vector'])
+    tree.links.new(plane_node.outputs['Alpha Mask'], end.inputs['Alpha Mask'])
+
+    return tree
+
 def get_decal_object(entity):
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
@@ -44,6 +192,43 @@ def remove_decal_object(tree, entity):
             texcoord.object = None
             remove_datablock(bpy.data.objects, decal_obj)
 
+decal_projection_items = (
+    ('FLAT', "Flat", "Flat projection"),
+    ('CYLINDER', "Cylinder", "Cylindrical projection"),
+    ('SPHERE', "Sphere", "Spherical projection"),
+)
+
+def update_decal_projection(self, context):
+    """Callback to rebuild shader node connections when decal properties change."""
+    # Find tree from self/context and update decal nodes
+    check_entity_decal_nodes(self)
+
+def update_enable_uniform_scale(self, context):
+    """Fired when toggling the lock icon."""
+    if self.enable_uniform:
+        # Lock Y and Z to X's current scale value
+        val = self.decal_scale[0]
+        self.uniform_scale = val
+        self.decal_scale = (val, val, val)
+    
+
+def update_decal_scale(self, context):
+    """Fired when editing decal_scale vector components."""
+    if getattr(self, 'enable_uniform', False):
+        # Prevent recursion by checking if values actually differ
+        val = self.decal_scale[0]
+        # Keep all axes locked together
+        if self.decal_scale[1] != val or self.decal_scale[2] != val:
+            self.decal_scale = (val, val, val)
+            self.uniform_scale = val
+
+
+def update_uniform_scale(self, context):
+    """Fired when uniform_scale changes."""
+    if getattr(self, 'enable_uniform', False):
+        val = self.uniform_scale
+        self.decal_scale = (val, val, val)
+
 def update_enable_decal_object_constraint(self, context):
     obj = context.object
     decal_obj = self.id_data
@@ -60,23 +245,30 @@ def update_enable_decal_object_constraint(self, context):
         if decal_const:
             decal_obj.constraints.remove(decal_const)
 
-def create_decal_empty():
+def create_decal_empty(projection_type='FLAT'):
     obj = bpy.context.object
     scene = bpy.context.scene
     empty_name = get_unique_name('Decal', bpy.data.objects)
     empty = bpy.data.objects.new(empty_name, None)
+
+    # Set Empty display type according to projection primitive
+    display_map = {'FLAT': 'SINGLE_ARROW', 'CYLINDER': 'CYLINDER', 'SPHERE': 'SPHERE'}
+    draw_type = display_map.get(projection_type, 'SINGLE_ARROW')
+
     if is_bl_newer_than(2, 80):
-        empty.empty_display_type = 'SINGLE_ARROW'
-    else: empty.empty_draw_type = 'SINGLE_ARROW'
+        empty.empty_display_type = draw_type
+    else: 
+        empty.empty_draw_type = draw_type
+
     custom_collection = obj.users_collection[0] if is_bl_newer_than(2, 80) and len(obj.users_collection) > 0 else None
     link_object(scene, empty, custom_collection)
+
     if is_bl_newer_than(2, 80):
         empty.location = scene.cursor.location.copy()
         empty.rotation_euler = scene.cursor.rotation_euler.copy()
     else: 
         empty.location = scene.cursor_location.copy()
 
-    # Parent empty to active object
     empty.parent = obj
     empty.matrix_parent_inverse = obj.matrix_world.inverted()
 
@@ -99,46 +291,109 @@ def check_entity_decal_nodes(entity, tree=None):
         layer = yp.layers[int(m2.group(1))]
         if not tree: tree = get_tree(entity)
         mask = entity
-    else: return
+    else: 
+        return
 
     # Get height channel
     height_ch = get_height_channel(layer)
 
-    # Create texcoord node if decal is used
     texcoord = tree.nodes.get(entity.texcoord)
     if entity_enabled and entity.texcoord_type == 'Decal' and is_mapping_possible(entity.type):
 
-        # Set image extension type to clip
+        # 1. Fetch image source early
         image = None
         if entity.type == 'IMAGE' and source:
             image = source.image
 
-        # Create new empty object if there's no texcoord yet
+        # 2. Projection type setup
+        proj_type = getattr(entity, 'decal_projection_type', 'FLAT')
+
+        # 3. Create or update TexCoord empty object
         if not texcoord:
-            empty = create_decal_empty()
+            empty = create_decal_empty(proj_type)
             texcoord = new_node(tree, entity, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
             texcoord.object = empty
+        elif hasattr(texcoord, 'object') and texcoord.object:
+            display_map = {'FLAT': 'SINGLE_ARROW', 'CYLINDER': 'CYLINDER', 'SPHERE': 'SPHERE'}
+            texcoord.object.empty_display_type = display_map.get(proj_type, 'SINGLE_ARROW')
 
+        # 4. Create or fetch Decal Process group node
         decal_process = tree.nodes.get(entity.decal_process)
         if not decal_process:
             decal_process = new_node(tree, entity, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
-            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+            decal_process.node_tree = get_decal_process_tree()
 
-            # Set image extension only after decal process node is initialized
             if image and source:
                 entity.original_image_extension = source.extension
                 source.extension = 'CLIP'
 
-        # Set decal aspect ratio
+        # 5. Connect TexCoord Object vector output -> Decal Process input
+        if 'Object' in texcoord.outputs and 'Vector' in decal_process.inputs:
+            tree.links.new(texcoord.outputs['Object'], decal_process.inputs['Vector'])
+
+        # 6. Pass Decal Distance value
+        if 'Decal Distance' in decal_process.inputs:
+            decal_process.inputs['Decal Distance'].default_value = getattr(entity, 'decal_distance_value', 1.0)
+
+        scale_x, scale_y, scale_z = 1.0, 1.0, 1.0
+
+        # 1. Base scale from image aspect ratio
         if image and image.size[0] > 0 and image.size[1] > 0:
             if image.size[0] > image.size[1]:
-                decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
-            else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
+                scale_x = image.size[1] / image.size[0]
+            else:
+                scale_y = image.size[0] / image.size[1]
 
-        # Create decal alpha nodes
+        # 2. Combine with material layer scale property
+        layer_scale = getattr(entity, 'scale', None) or getattr(entity, 'mapping_scale', None)
+        if layer_scale:
+            scale_x *= layer_scale[0]
+            scale_y *= layer_scale[1]
+            scale_z *= layer_scale[2]
+
+        if 'Scale' in decal_process.inputs:
+            decal_process.inputs['Scale'].default_value = (scale_x, scale_y, scale_z)
+
+        # 7. Pass Projection Type integer (if node group supports multi-projection)
+        if 'Projection Type' in decal_process.inputs:
+            proj_map = {'FLAT': 0, 'CYLINDER': 1, 'SPHERE': 2}
+            decal_process.inputs['Projection Type'].default_value = proj_map.get(proj_type, 0)
+
+        # 8. Set decal aspect ratio scale
+        scale_x, scale_y, scale_z = 1.0, 1.0, 1.0
+
+        if image and image.size[0] > 0 and image.size[1] > 0:
+            if image.size[0] > image.size[1]:
+                scale_x = image.size[1] / image.size[0]
+            else:
+                scale_y = image.size[0] / image.size[1]
+
+        if getattr(entity, 'enable_uniform_scale', False):
+            u_scale = getattr(entity, 'uniform_scale_value', 1.0)
+            scale_x *= u_scale
+            scale_y *= u_scale
+            scale_z *= u_scale
+        else:
+            user_scale = (
+                getattr(entity, 'decal_scale', None) or 
+                getattr(entity, 'scale', None) or (1.0, 1.0, 1.0)
+            )
+            scale_x *= user_scale[0]
+            scale_y *= user_scale[1]
+            scale_z *= user_scale[2]
+
+        scale_input = decal_process.inputs.get('Scale')
+        if scale_input:
+            scale_input.default_value = (scale_x, scale_y, scale_z)
+
+        # 8. Pass Projection Type integer (FLAT=0, CYLINDER=1, SPHERE=2)
+        proj_input = decal_process.inputs.get('Projection Type') or decal_process.inputs.get('Mode')
+        if proj_input:
+            proj_map = {'FLAT': 0, 'CYLINDER': 1, 'SPHERE': 2}
+            proj_input.default_value = proj_map.get(proj_type, 0)
+
+        # 9. Create decal alpha math nodes
         if mask:
-
-            # Check if height channel is enabled
             height_root_ch = get_root_height_channel(yp)
             height_ch_enabled = get_channel_enabled(height_ch) if height_ch else False
 
@@ -156,7 +411,6 @@ def check_entity_decal_nodes(entity, tree=None):
                     remove_node(tree, mask, 'decal_alpha_' + letter)
 
         else:
-
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
                 ch_enabled = get_channel_enabled(ch)
@@ -176,15 +430,15 @@ def check_entity_decal_nodes(entity, tree=None):
                     else:
                         for letter in nsew_letters:
                             remove_node(tree, ch, 'decal_alpha_' + letter)
-    else:
 
+    else:
+        # Cleanup when decal mode is disabled or mapped away
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
             remove_node(tree, entity, 'texcoord')
         remove_node(tree, entity, 'decal_process')
 
         if mask: 
             remove_node(tree, mask, 'decal_alpha')
-
             if height_ch:
                 for letter in nsew_letters:
                     remove_node(tree, mask, 'decal_alpha_' + letter)
@@ -274,6 +528,33 @@ class YSetDecalObjectPositionToCursor(bpy.types.Operator):
         return {'FINISHED'}
 
 class BaseDecal():
+    enable_uniform: BoolProperty(
+        name='Uniform Scale',
+        default=False,
+        update=update_enable_uniform_scale
+    )
+
+    uniform_scale: FloatProperty(
+        name='Uniform Scale Value',
+        default=1.0,
+        update=update_uniform_scale
+    )
+
+    decal_scale: FloatVectorProperty(
+        name='Scale',
+        default=(1.0, 1.0, 1.0),
+        size=3,
+        subtype='XYZ',
+        update=update_decal_scale
+    )
+
+    decal_projection_type: EnumProperty(
+        name='Projection',
+        description='Decal projection mapping mode',
+        items=decal_projection_items,
+        default='FLAT',
+        update=update_decal_projection
+    )
 
     decal_distance_value : FloatProperty(
         name = 'Decal Distance',

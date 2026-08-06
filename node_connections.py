@@ -2171,7 +2171,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else: 
                 mask_vector = get_essential_node(tree, TREE_START).get(io_names[mask.texcoord_type])
 
-            if mask_vector:
+            if mask_vector:1
 
                 if mask.use_baked:
                     mask_baked_mapping = nodes.get(mask.baked_mapping)

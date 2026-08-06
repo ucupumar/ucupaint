@@ -1721,7 +1721,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             brow.operator("wm.y_remove_baked_entity", text='', icon=icon)
 
     layout.separator()
-
+                        
 def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
 
     obj = context.object
@@ -1774,10 +1774,6 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
             else:
                 rrow.prop(layer, 'texcoord_type', text='')
 
-        #if layer.texcoord_type == 'UV':
-        #    icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-        #    rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
-
         if lui.expand_vector:
             row = col.row(align=True)
             row.label(text='', icon='BLANK1')
@@ -1809,6 +1805,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                 splits.label(text='Projection Blend:')
                 splits.prop(layer, 'projection_blend', text='')
 
+            # --- Decal Settings Block ---
             if layer.texcoord_type == 'Decal':
 
                 if texcoord:
@@ -1818,6 +1815,32 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     splits.label(text='Decal Object:')
                     splits.prop(texcoord, 'object', text='')
 
+                if hasattr(layer, 'decal_projection_type'):
+                    rrow = boxcol.row(align=True)
+                    rrow.label(text='', icon='BLANK1')
+                    splits = split_layout(rrow, 0.45, align=True)
+                    splits.label(text='Mode:')
+                    splits.prop(layer, 'decal_projection_type', text='')
+
+                if hasattr(layer, 'decal_scale'):
+                    rrow = boxcol.row(align=True)
+                    rrow.label(text='', icon='BLANK1')
+
+                    mcol = rrow.column(align=True)
+                    mrow = mcol.row()
+                    mrow.label(text='Scale:')
+
+                    if layer.enable_uniform:
+                        # LOCKED: Uniform scale mode (draws scalar float property across axes)
+                        mrow.prop(layer, 'enable_uniform', text='', icon='LOCKED')
+                        draw_input_prop(mcol, layer, 'uniform_scale', None, 'X', layer=layer)
+                        draw_input_prop(mcol, layer, 'uniform_scale', None, 'Y', layer=layer)
+                        draw_input_prop(mcol, layer, 'uniform_scale', None, 'Z', layer=layer)
+                    else:
+                        # UNLOCKED: Independent vector mode (Blender natively handles X, Y, Z fields)
+                        mrow.prop(layer, 'enable_uniform', text='', icon='UNLOCKED')
+                        mcol.prop(layer, 'decal_scale', text='')
+
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 splits = split_layout(rrow, 0.5, align=True)
@@ -1825,14 +1848,12 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                 draw_input_prop(splits, layer, 'decal_distance_value', layer=layer)
 
                 if texcoord and texcoord.object:
-
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
                     rrrow = rrow.row()
                     rrrow.label(text='Decal Constraint:')
                     draw_input_prop(rrrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
 
-                    # NOTE: Show constraint target when there's more than one material users
                     decal_const = Decal.get_decal_shrinkwrap_constraint(texcoord.object)
                     if decal_const:
                         mat = get_active_material()
@@ -1846,9 +1867,8 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                 boxcol.context_pointer_set('entity', layer)
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
-                if is_bl_newer_than(2, 80):
-                    rrow.operator('wm.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
-                else: rrow.operator('wm.y_select_decal_object', icon='EMPTY_DATA')
+                icon = 'EMPTY_SINGLE_ARROW' if is_bl_newer_than(2, 80) else 'EMPTY_DATA'
+                rrow.operator('wm.y_select_decal_object', icon=icon)
 
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
@@ -1908,6 +1928,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
             rrow.prop(layer, 'enable_blur_vector', text='')
 
             layout.separator()
+
 
 def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False):
     yp = layer.id_data.yp
@@ -5749,6 +5770,7 @@ def draw_ypaint_about(self, context):
     if addon_updater_ops:
         col.separator()
         addon_updater_ops.draw_updater_options(context, col)
+
 
 class YPaintAboutPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_about_popover"
