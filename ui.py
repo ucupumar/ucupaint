@@ -1277,25 +1277,6 @@ def draw_main_ui(context, layout):
     #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
     #row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
 
-    # Check for baked node
-    baked_found = is_baked_node_found(yp)
-
-    if (baked_found or yp.use_baked) and not group_tree.users > 1:
-        rrow = layout.row(align=True)
-        rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
-        rrow.separator()
-        rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
-        rrrow = rrow.row(align=True)
-        rrrow.active = yp.use_baked
-        rrrow.prop(yp, 'enable_baked_outside', toggle=True, text='Outside', icon='NODETREE')
-
-        #rrow.separator()
-
-        #icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
-        #rrow.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
-
-        #layout.separator()
-
     scenario_1 = (is_tangent_sign_hacks_needed(yp) and area.type == 'VIEW_3D' and 
             area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
 
@@ -1321,6 +1302,23 @@ def draw_main_ui(context, layout):
         row = box.row(align=True)
         row.operator('sculpt.y_cancel_sculpt_to_image', icon='X', text='Cancel Sculpt')
     else:
+
+        # Check for baked node
+        baked_found = is_baked_node_found(yp)
+
+        if (baked_found or yp.use_baked) and not group_tree.users > 1:
+            rrow = layout.row(align=True)
+            rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
+            rrow.separator()
+            rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
+            rrrow = rrow.row(align=True)
+            rrrow.active = yp.use_baked
+            rrrow.prop(yp, 'enable_baked_outside', toggle=True, text='Outside', icon='NODETREE')
+
+            #rrow.separator()
+
+            #icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
+            #rrow.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
 
         if not yp.use_baked and ypup.unified_tab_ui:
             #col = layout.column(align=True)
@@ -4977,7 +4975,7 @@ class BaseMainUI():
         #        row.prop(yp, 'use_baked', text='Use Baked', toggle=True)
         #        row.separator()
         #elif not yp.use_baked and not ypup.unified_tab_ui:
-        if ypui.expanded_main_ui:
+        if ypui.expanded_main_ui and not yp.sculpt_mode:
 
             if not yp.use_baked and not ypup.unified_tab_ui:
 
