@@ -360,9 +360,6 @@ def add_new_layer(
         )
         mask.active_edit = True
 
-    if add_modifier:
-        Modifier.add_new_modifier(layer, modifier_type)
-
     # Fill channel layer props
     shortcut_created = False
     for i, ch in enumerate(layer.channels):
@@ -392,6 +389,10 @@ def add_new_layer(
 
         # Set linear node of layer channel
         check_layer_channel_linear_node(ch, layer, root_ch)
+
+    # Add modifier
+    if add_modifier:
+        Modifier.add_new_modifier(layer, modifier_type)
 
     # Check uv maps
     check_uv_nodes(yp)

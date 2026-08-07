@@ -1059,7 +1059,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     for i, ch in enumerate(layer.channels):
 
         # Alpha channel will get ignored if color channel is also enabled
-        channel_enabled = get_channel_enabled(ch, layer) or (ch == alpha_ch and get_channel_enabled(color_ch, layer)) or (ch == normal_ch and height_ch.use_height_as_normal and get_channel_enabled(height_ch, layer))
+        channel_enabled = get_channel_enabled(ch, layer) or (ch == alpha_ch and get_channel_enabled(color_ch, layer) and layer.type != 'PREV_LAYERS') or (ch == normal_ch and height_ch.use_height_as_normal and get_channel_enabled(height_ch, layer))
         ch_enableds[yp.channels[i].name] = channel_enabled
 
         # Only create channel socket dictionary for enabled channels
