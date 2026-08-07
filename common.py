@@ -541,7 +541,7 @@ mask_texcoord_type_items = (
     ('Window', 'Window', ''),
     ('Reflection', 'Reflection', ''),
     ('Decal', 'Decal', ''),
-    ('Layer', 'Use Layer Vector', ''),
+    ('Layer', 'Use Layer Mapping', ''),
 )
 
 interpolation_type_items = (

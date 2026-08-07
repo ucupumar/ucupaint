@@ -885,7 +885,7 @@ class YNewLayerMask(bpy.types.Operator):
             col.label(text='')
 
         if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
-            col.label(text='Vector:')
+            col.label(text='Mapping:')
             if self.type == 'IMAGE':
                 if UDIM.is_udim_supported():
                     col.label(text='')
@@ -1262,7 +1262,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
         if self.file_browser_filepath != '':
             col.label(text='Image:')
         col.label(text='Interpolation:')
-        col.label(text='Vector:')
+        col.label(text='Mapping:')
         if len(self.layer.masks) > 0:
             col.label(text='Blend:')
 
@@ -1536,7 +1536,7 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
 
         if self.type == 'IMAGE':
             col.label(text='Interpolation:')
-            col.label(text='Vector:')
+            col.label(text='Mapping:')
 
         if len(layer.masks) > 0:
             col.label(text='Blend:')

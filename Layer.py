@@ -95,6 +95,7 @@ def add_new_layer(
         ao_distance=1.0, height_blend_type='MIX',
         enable=True,
         use_designated_idx = False, designated_index = -1, designated_parent_idx = -1,
+        add_modifier=False, modifier_type='RGB_CURVE',
     ):
 
     yp = group_tree.yp
@@ -358,6 +359,9 @@ def add_new_layer(
             hemi_use_prev_normal = mask_use_prev_normal
         )
         mask.active_edit = True
+
+    if add_modifier:
+        Modifier.add_new_modifier(layer, modifier_type)
 
     # Fill channel layer props
     shortcut_created = False
@@ -1191,6 +1195,26 @@ class YNewLayer(bpy.types.Operator):
         default = False
     )
 
+    #add_modifier : BoolProperty(
+    #    name = 'Add Modifier',
+    #    description = 'Add modifier to new layer',
+    #    default = False
+    #)
+
+    modifier_type : EnumProperty(
+        name = 'Modifier Type',
+        description = 'Modifier type',
+        items = (
+            ('INVERT', 'Invert', 'Invert input RGB and/or Alpha', 'MODIFIER', 0),
+            ('COLOR_RAMP', 'Color Ramp', '', 'MODIFIER', 1),
+            ('RGB_CURVE', 'RGB Curve', '', 'MODIFIER', 2),
+            ('HUE_SATURATION', 'Hue Saturation', '', 'MODIFIER', 3),
+            ('BRIGHT_CONTRAST', 'Brightness Contrast', '', 'MODIFIER', 4),
+            ('MATH', 'Math', '', 'MODIFIER', 5)
+        ),
+        default = 'RGB_CURVE'
+    )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -1412,8 +1436,13 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='')
             col.label(text='Interpolation:')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO'}:
-            col.label(text='Vector:')
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
+            col.label(text='Mapping:')
+
+        if self.type in {'PREV_LAYERS'}:
+            #col.label(text='')
+            #if self.add_modifier:
+            col.label(text='Modifier Type:')
 
         if self.type in {'VCOL'}:
             col.label(text='')
@@ -1445,7 +1474,7 @@ class YNewLayer(bpy.types.Operator):
                                 col.label(text='Mask Height:')
 
                         col.label(text='Mask Interpolation:')
-                        col.label(text='Mask Vector:')
+                        col.label(text='Mask Mapping:')
                     
                         if not self.mask_image_filepath:
                             if UDIM.is_udim_supported():
@@ -1513,12 +1542,17 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'hdr')
             col.prop(self, 'interpolation', text='')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        if self.type in {'PREV_LAYERS'}:
+            #col.prop(self, 'add_modifier')
+            #if self.add_modifier:
+            col.prop(self, 'modifier_type', text='')
 
         if self.type in {'VCOL'}:
             col.prop(self, 'use_divider_alpha')
@@ -1753,7 +1787,9 @@ class YNewLayer(bpy.types.Operator):
             mask_edge_detect_radius=self.mask_edge_detect_radius, mask_edge_detect_method=self.mask_edge_detect_method,
             edge_detect_radius=self.edge_detect_radius, edge_detect_method=self.edge_detect_method,
             mask_use_prev_normal=self.mask_use_prev_normal, ao_distance=self.ao_distance, normal_space=self.normal_space,
-            height_blend_type=self.height_blend_type
+            height_blend_type = self.height_blend_type,
+            add_modifier = self.type == 'PREV_LAYERS',
+            modifier_type = self.modifier_type
         )
 
         if segment:
@@ -2430,7 +2466,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
         row = split_layout(self.layout, 0.325)
 
         col = row.column()
-        col.label(text='Vector:')
+        col.label(text='Mapping:')
 
         height_root_ch = get_root_height_channel(yp) if yp else None
         if not yp or height_root_ch:
@@ -3055,7 +3091,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         if self.file_browser_filepath != '':
             col.label(text='Image:')
         col.label(text='Interpolation:')
-        col.label(text='Vector:')
+        col.label(text='Mapping:')
         col.label(text='Channel:')
         if channel and channel.special_type == 'NORMAL':
             col.label(text='Space:')
@@ -3776,7 +3812,7 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
 
         if self.type == 'IMAGE':
             col.label(text='Interpolation:')
-            col.label(text='Vector:')
+            col.label(text='Mapping:')
         col.label(text='Channel:')
         if channel and channel.special_type == 'NORMAL':
             col.label(text='Type:')

@@ -4455,6 +4455,7 @@ def draw_layers_ui(context, layout, node):
     rcol = row.column(align=True)
     if is_bl_newer_than(2, 80):
         rcol.menu("NODE_MT_y_new_layer_menu", text='', icon='ADD')
+        #rcol.operator("wm.call_menu", text='', icon='ADD').name = "NODE_MT_y_new_layer_menu"
     else: rcol.menu("NODE_MT_y_new_layer_menu", text='', icon='ZOOMIN')
 
     if layer:
@@ -6741,6 +6742,7 @@ class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"
     bl_description = 'Add New Layer'
     bl_label = "New Layer Menu"
+    #bl_options = {'SEARCH_ON_KEY_PRESS'}
 
     @classmethod
     def poll(cls, context):
@@ -6754,12 +6756,20 @@ class YNewLayerMenu(bpy.types.Menu):
 
         row = self.layout.row()
         col = row.column()
-        #col = self.layout.column(align=True)
-        #col.context_pointer_set('group_node', context.group_node)
+
+        #if self.layout.operator_context == 'EXEC_REGION_WIN':
+        #    self.layout.operator_context = 'INVOKE_REGION_WIN'
+        #    col.operator(
+        #        "WM_OT_search_single_menu",
+        #        text="Search...",
+        #        icon='VIEWZOOM',
+        #    ).menu_idname = "NODE_MT_y_new_layer_menu"
+        #    col.separator()
+
+        self.layout.operator_context = 'INVOKE_REGION_WIN'
+
         col.label(text='New Layer:')
         col.operator("wm.y_new_layer", text='New Image', icon_value=lib.get_icon('image')).type = 'IMAGE'
-
-        #col.separator()
 
         op = col.operator("wm.y_open_image_to_layer", text='Open Image...')
         op.texcoord_type = 'UV'
@@ -6775,7 +6785,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.separator()
 
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
-        col.operator("wm.y_new_layer", icon_value=lib.get_icon('COLLAPSEMENU'), text='Previous Layers').type = 'PREV_LAYERS'
+        #col.operator("wm.y_new_layer", icon_value=lib.get_icon('COLLAPSEMENU'), text='Previous Layers').type = 'PREV_LAYERS'
         col.separator()
 
         col.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New '+get_vertex_color_label()).type = 'VCOL'
@@ -6850,6 +6860,32 @@ class YNewLayerMenu(bpy.types.Menu):
             col.separator()
             col.operator("wm.y_new_layer", icon_value=lib.get_icon('edge_detect'), text='Ambient Occlusion').type = 'AO'
             col.operator("wm.y_new_layer", text='Edge Detect').type = 'EDGE_DETECT'
+
+        col.separator()
+        col.label(text='New Adjustment Layer:')
+        op = col.operator("wm.y_new_layer", icon_value=lib.get_icon('modifier'), text='RGB Curve')
+        op.type = 'PREV_LAYERS'
+        op.modifier_type = 'RGB_CURVE'
+
+        op = col.operator("wm.y_new_layer", text='Color Ramp')
+        op.type = 'PREV_LAYERS'
+        op.modifier_type = 'COLOR_RAMP'
+
+        op = col.operator("wm.y_new_layer", text='Hue Saturation')
+        op.type = 'PREV_LAYERS'
+        op.modifier_type = 'HUE_SATURATION'
+
+        op = col.operator("wm.y_new_layer", text='Brightness Contrast')
+        op.type = 'PREV_LAYERS'
+        op.modifier_type = 'BRIGHT_CONTRAST'
+
+        op = col.operator("wm.y_new_layer", text='Math')
+        op.type = 'PREV_LAYERS'
+        op.modifier_type = 'MATH'
+
+        op = col.operator("wm.y_new_layer", text='Invert')
+        op.type = 'PREV_LAYERS'
+        op.modifier_type = 'INVERT'
 
         col = row.column()
         col.label(text='Bake as Layer:')
@@ -7654,17 +7690,23 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.label(text='Image Mask:')
         new_mask_button(col, 'wm.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE')
-        op = new_mask_button(col, 'wm.y_open_image_as_mask', 'Open Image as Mask...', lib_icon='open_image')
+        op = new_mask_button(col, 'wm.y_open_image_as_mask', 'Open Image as Mask...') #, lib_icon='open_image')
         op.texcoord_type = 'UV'
         op.file_browser_filepath = ''
-        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing Image as Mask', lib_icon='open_image', otype='IMAGE')
+        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing Image as Mask', otype='IMAGE') #, lib_icon='open_image')
         col.separator()
 
         col.label(text=get_vertex_color_label()+' Mask:')
         new_mask_button(col, 'wm.y_new_layer_mask', 'New '+get_vertex_color_label()+' Mask', lib_icon='vertex_color', otype='VCOL')
-        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing '+get_vertex_color_label()+' as Mask', lib_icon='vertex_color', otype='VCOL')
+        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing '+get_vertex_color_label()+' as Mask', otype='VCOL') # lib_icon='vertex_color')
 
         new_mask_button(col, 'wm.y_new_layer_mask', 'Color ID', lib_icon='color', otype='COLOR_ID')
+
+        col.separator()
+        col.label(text='Adjustment Mask:')
+        new_mask_button(col, 'wm.y_new_layer_mask', 'Invert', otype='MODIFIER', modifier_type='INVERT', lib_icon='modifier')
+        new_mask_button(col, 'wm.y_new_layer_mask', 'Ramp', otype='MODIFIER', modifier_type='RAMP') #, lib_icon='modifier')
+        new_mask_button(col, 'wm.y_new_layer_mask', 'Curve', otype='MODIFIER', modifier_type='CURVE') #, lib_icon='modifier')
 
         col = row.column(align=True)
         col.label(text='Generated Mask:')
@@ -7705,12 +7747,6 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         if is_bl_newer_than(2, 77):
             col.separator()
             new_mask_button(col, 'wm.y_bake_to_layer', 'Other Objects Color', otype='OTHER_OBJECT_EMISSION', target_type='MASK', overwrite_current=False)
-
-        col.separator()
-        col.label(text='Inbetween Modifier Mask:')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Invert', otype='MODIFIER', modifier_type='INVERT', lib_icon='modifier')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Ramp', otype='MODIFIER', modifier_type='RAMP', lib_icon='modifier')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Curve', otype='MODIFIER', modifier_type='CURVE', lib_icon='modifier')
 
 class YLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_mask_menu"
