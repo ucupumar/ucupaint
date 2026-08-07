@@ -1238,6 +1238,20 @@ class YNewLayer(bpy.types.Operator):
         elif self.type == 'VCOL' and obj.type == 'MESH':
             name = obj.active_material.name + DEFAULT_NEW_VCOL_SUFFIX
             items = get_vertex_color_names(obj)
+        elif self.type == 'PREV_LAYERS':
+            if self.modifier_type == 'RGB_CURVE':
+                name = 'RGB Curve'
+            elif self.modifier_type == 'COLOR_RAMP':
+                name = 'Color Ramp'
+            elif self.modifier_type == 'HUE_SATURATION':
+                name = 'Hue Saturation'
+            elif self.modifier_type == 'BRIGHT_CONTRAST':
+                name = 'Brightness Contrast'
+            elif self.modifier_type == 'MATH':
+                name = 'Math'
+            elif self.modifier_type == 'INVERT':
+                name = 'Invert'
+            items = yp.layers
         else:
             name = layer_type_labels[self.type]
             items = yp.layers

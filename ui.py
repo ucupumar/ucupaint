@@ -2296,6 +2296,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         elif layer.type in {'EDGE_DETECT', 'AO'}:
             icon_value = lib.get_icon('edge_detect')
         elif layer.type == 'PREV_LAYERS':
+            menu_label = 'Adjustment (Previous Layers)'
             icon_value = lib.get_icon('COLLAPSEMENU')
         else: icon_value = lib.get_icon('texture')
 
@@ -5715,7 +5716,8 @@ def layer_listing(layout, layer, show_expand=False):
         elif layer.type == 'COLOR': 
             row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
         elif layer.type == 'PREV_LAYERS': 
-            row.prop(layer, 'name', text='', emboss=False, icon='COLLAPSEMENU')
+            icon_name = 'modifier' if len(layer.modifiers) > 0 else 'COLLAPSEMENU'
+            row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon(icon_name))
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
         elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
         else: 
@@ -5737,7 +5739,8 @@ def layer_listing(layout, layer, show_expand=False):
             elif layer.type == 'COLOR': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon='COLOR')
             elif layer.type == 'PREV_LAYERS': 
-                row.prop(active_override, ae_prop, text='', emboss=False, icon='COLLAPSEMENU')
+                icon_name = 'modifier' if len(layer.modifiers) > 0 else 'COLLAPSEMENU'
+                row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon(icon_name))
             elif layer.type == 'HEMI': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('hemi'))
             elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -5759,7 +5762,8 @@ def layer_listing(layout, layer, show_expand=False):
             elif layer.type == 'COLOR': 
                 row.label(text='', icon='COLOR')
             elif layer.type == 'PREV_LAYERS': 
-                row.label(text='', icon='COLLAPSEMENU')
+                icon_name = 'modifier' if len(layer.modifiers) > 0 else 'COLLAPSEMENU'
+                row.label(text='', icon_value=lib.get_icon(icon_name))
             elif layer.type == 'HEMI': 
                 row.label(text='', icon_value=lib.get_icon('hemi'))
             elif layer.type in {'EDGE_DETECT', 'AO'}:
@@ -8161,7 +8165,7 @@ class YLayerTypeMenu(bpy.types.Menu):
         col.operator('wm.y_replace_layer_type', text='Group', icon=icon).type = 'GROUP'
 
         icon = 'RADIOBUT_ON' if layer.type == 'PREV_LAYERS' else 'RADIOBUT_OFF'
-        col.operator("wm.y_replace_layer_type", icon=icon, text='Previous Layers').type = 'PREV_LAYERS'
+        col.operator("wm.y_replace_layer_type", icon=icon, text='Adjustment (Previous Layers)').type = 'PREV_LAYERS'
 
         col.separator()
 
