@@ -1959,10 +1959,13 @@ class YFixEdgeDetectAO(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'layer')
+        scene = context.scene
+        return scene and hasattr(scene, 'eevee') and hasattr(scene.eevee, 'use_gtao')
 
     def execute(self, context):
-        bpy.context.scene.eevee.use_gtao = True
+        eevee = context.scene.eevee
+        if hasattr(eevee, 'use_gtao'):
+            eevee.use_gtao = True
         return {'FINISHED'}
 
 def update_mask_active_edit(self, context):

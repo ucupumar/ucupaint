@@ -451,10 +451,11 @@ class YUseLinearColorSpace(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'layer') #and hasattr(context, 'channel') and hasattr(context, 'image') and context.image
+        return get_active_ypaint_node()
 
     def execute(self, context):
-        yp = context.layer.id_data.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
         check_yp_linear_nodes(yp)
 
         return {'FINISHED'}

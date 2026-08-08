@@ -1172,6 +1172,10 @@ def draw_main_ui(context, layout):
 
     ypui.expanded_main_ui = True
 
+    # NOTE: Blender 4.2+ can detect if user is currently in a modal operation
+    # [HACK] Cache is necessary to improve performace since blender always update the UI in modal operation and when using the sliders
+    use_cache = ypui.use_cache or (is_bl_newer_than(4, 2) and len(bpy.context.window.modal_operators) > 0)
+
     # Timer
     #if wm.yptimer.time != '':
     #    print('INFO: Scene is updated in', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
@@ -1211,9 +1215,6 @@ def draw_main_ui(context, layout):
     if not node:
         #layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
         layout.operator("wm.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
-
-        # Test
-        #draw_test_ui(context=context, layout=layout)
 
         return
 
@@ -1277,15 +1278,108 @@ def draw_main_ui(context, layout):
     #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
     #row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
 
-    scenario_1 = (is_tangent_sign_hacks_needed(yp) and area.type == 'VIEW_3D' and 
-            area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
+    # Check duplicated yp node (indicated by more than one users)
+    if group_tree.users > 1:
+        row = layout.row(align=True)
+        row.alert = True
+        op = row.operator("wm.y_duplicate_yp_nodes", text='Fix Multi-User ' + get_addon_title() + ' Node', icon='ERROR')
+        op.duplicate_node = True
+        op.duplicate_material = False
+        op.only_active = True
+        row.alert = False
+        #layout.prop(ypui, 'make_image_single_user')
+        return
 
-    if scenario_1:
-        rrow = row.row(align=True)
-        #rrow.alignment = 'RIGHT'
-        rrow.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
+    # Check if uv is found
+    is_a_mesh = True if obj and obj.type == 'MESH' else False
+    uv_layers = get_uv_layers(obj)
+
+    uv_found = False
+    if is_a_mesh and len(uv_layers) > 0: 
+        uv_found = True
+
+    if is_a_mesh and not uv_found:
+        row = layout.row(align=True)
+        row.alert = True
+        row.operator("wm.y_add_simple_uvs", icon='ERROR')
+        row.alert = False
+        return
+
+    # Check if layer and yp has different numbers of channels
+    channel_mismatch = False
+    num_channels = len(yp.channels)
+    for layer in yp.layers:
+        if len(layer.channels) != num_channels:
+            channel_mismatch = True
+            break
+            
+        for mask in layer.masks:
+            if len(mask.channels) != num_channels:
+                channel_mismatch = True
+                break
+
+        if channel_mismatch:
+            break
+
+    if channel_mismatch:
+        row = layout.row(align=True)
+        row.alert = True
+        row.operator("wm.y_fix_channel_missmatch", text='Fix Missmatched Channels!', icon='ERROR')
+        row.alert = False
+        return
+
+    # If error happens, halt_update and halt_reconnect can stuck on, add button to disable it
+    if yp.halt_update:
+        row = layout.row(align=True)
+        row.alert = True
+        row.prop(yp, 'halt_update', text='Disable Halt Update', icon='ERROR')
+        row.alert = False
+    if yp.halt_reconnect:
+        row = layout.row(align=True)
+        row.alert = True
+        row.prop(yp, 'halt_reconnect', text='Disable Halt Reconnect', icon='ERROR')
+        row.alert = False
+
+    # NOTE: Avoid checking missing data, linear colors, and AO problems when in modal operation to avoid performance loss
+    if use_cache:
+        missing_data = ypui.cache_missing_data
+        linear_problem = ypui.cache_linear_problem
+        ao_problem = ypui.cache_ao_problem
+    else:
+        vcols = get_vertex_colors(obj)
+        linear_problem, ao_problem, missing_data = any_yp_problems(yp, vcols)
+        ypui.cache_linear_problem = linear_problem
+        ypui.cache_ao_problem = ao_problem
+        ypui.cache_missing_data = missing_data
+    
+    # Show missing data button
+    if missing_data:
+        row = layout.row(align=True)
+        row.alert = True
+        row.operator("wm.y_fix_missing_data", icon='ERROR')
+        row.alert = False
+        return
+
+    if linear_problem:
+        row = layout.row(align=True)
+        row.alert = True
+        row.operator('wm.y_use_linear_color_space', text='Fix Linear Colorspace Problem', icon='ERROR')
+        row.alert = False
+
+    if ao_problem:
+        row = layout.row(align=True)
+        row.alert = True
+        row.operator('wm.y_fix_edge_detect_ao', text='Fix EEVEE Edge Detect AO', icon='ERROR')
+        row.alert = False
+
+    # Refresh tangent sign
+    if (is_tangent_sign_hacks_needed(yp) and area.type == 'VIEW_3D' and 
+        area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES'):
+        row = layout.row(align=True)
+        row.operator('wm.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
 
     if yp.sculpt_mode:
+        # Sculpt mode
 
         layer = yp.layers[yp.active_layer_index]
         source = get_layer_source(layer)
@@ -4195,112 +4289,15 @@ def draw_layers_ui(context, layout, node):
     obj = context.object
     vcols = get_vertex_colors(obj)
     is_a_mesh = True if obj and obj.type == 'MESH' else False
-
-    # NOTE: Blender 4.2+ can detect if user is currently in a modal operation
-    # [HACK] Cache is necessary to improve performace since blender always update the UI in modal operation and when using the sliders
-    use_cache = ypui.use_cache or (is_bl_newer_than(4, 2) and len(bpy.context.window.modal_operators) > 0)
-
     uv_layers = get_uv_layers(obj)
 
     # Check if uv is found
-    uv_found = False
-    if is_a_mesh and len(uv_layers) > 0: 
-        uv_found = True
-
     #box = layout.box()
     box = layout
-
-    # Check duplicated yp node (indicated by more than one users)
-    if group_tree.users > 1:
-        row = box.row(align=True)
-        row.alert = True
-        op = row.operator("wm.y_duplicate_yp_nodes", text='Fix Multi-User ' + get_addon_title() + ' Node', icon='ERROR')
-        op.duplicate_node = True
-        op.duplicate_material = False
-        op.only_active = True
-        row.alert = False
-        #box.prop(ypui, 'make_image_single_user')
-        return
-
-    if is_a_mesh and not uv_found:
-        row = box.row(align=True)
-        row.alert = True
-        row.operator("wm.y_add_simple_uvs", icon='ERROR')
-        row.alert = False
-        return
-
-    # Check if layer and yp has different numbers of channels
-    channel_mismatch = False
-    num_channels = len(yp.channels)
-    for layer in yp.layers:
-        if len(layer.channels) != num_channels:
-            channel_mismatch = True
-            break
-            
-        for mask in layer.masks:
-            if len(mask.channels) != num_channels:
-                channel_mismatch = True
-                break
-
-        if channel_mismatch:
-            break
-
-    if channel_mismatch:
-        row = box.row(align=True)
-        row.alert = True
-        row.operator("wm.y_fix_channel_missmatch", text='Fix Missmatched Channels!', icon='ERROR')
-        row.alert = False
-        return
-
-    # If error happens, halt_update and halt_reconnect can stuck on, add button to disable it
-    if yp.halt_update:
-        row = box.row(align=True)
-        row.alert = True
-        row.prop(yp, 'halt_update', text='Disable Halt Update', icon='ERROR')
-        row.alert = False
-    if yp.halt_reconnect:
-        row = box.row(align=True)
-        row.alert = True
-        row.prop(yp, 'halt_reconnect', text='Disable Halt Reconnect', icon='ERROR')
-        row.alert = False
 
     # Check if parallax is enabled
     height_root_ch = get_root_height_channel(yp)
     enable_parallax = is_parallax_enabled(height_root_ch)
-
-    # Check duplicated layers (indicated by more than one users)
-    #elif len(yp.layers) > 0:
-    #    last_layer = yp.layers[-1]
-    #    ltree = get_tree(last_layer)
-    #    if ltree and (
-    #        (not enable_parallax and ltree.users > 1) or
-    #        (enable_parallax and ltree.users > 2)
-    #        ):
-    #        row = box.row(align=True)
-    #        row.alert = True
-    #        row.operator("wm.y_fix_duplicated_yp_nodes", text='Fix Duplicated Layers', icon='ERROR')
-    #        row.alert = False
-    #        #box.prop(ypui, 'make_image_single_user')
-    #        return
-
-    # NOTE: Avoid checking missing data, linear colors, and AO problems when in modal operation to avoid performance loss
-    if use_cache:
-        missing_data = ypui.cache_missing_data
-        linear_problem = ypui.cache_linear_problem
-        ao_problem = ypui.cache_ao_problem
-    else:
-        linear_problem, ao_problem, missing_data = any_yp_problems(yp, vcols)
-        ypui.cache_linear_problem = linear_problem
-        ypui.cache_ao_problem = ao_problem
-        ypui.cache_missing_data = missing_data
-    
-    # Show missing data button
-    if missing_data:
-        row = box.row(align=True)
-        row.alert = True
-        row.operator("wm.y_fix_missing_data", icon='ERROR')
-        row.alert = False
-        return
 
     # Check if any uv is missing
     uv_missings = []
@@ -4546,20 +4543,6 @@ def draw_layers_ui(context, layout, node):
         mask_socket_input_name = ''
         if mask and source:
             mask_socket_input_name = get_mask_input_socket_name(mask, source)
-
-        if linear_problem:
-            bbox = col.box()
-            row = bbox.row(align=True)
-            row.alert = True
-            row.operator('wm.y_use_linear_color_space', text='Refresh Linear Color Space', icon='ERROR')
-            row.alert = False
-
-        if ao_problem:
-            bbox = col.box()
-            row = bbox.row(align=True)
-            row.alert = True
-            row.operator('wm.y_fix_edge_detect_ao', text='Fix EEVEE Edge Detect AO', icon='ERROR')
-            row.alert = False
 
         if colorid_vcol and colorid_vcol == get_active_vertex_color(obj) and obj.type == 'MESH' and obj.mode == 'EDIT':
 
@@ -4971,15 +4954,9 @@ class BaseMainUI():
 
         row = layout.row(align=True)
 
-        #if not ypui.expanded_main_ui:
-        #    baked_found = is_baked_node_found(yp)
-        #    if baked_found:
-        #        row.prop(yp, 'use_baked', text='Use Baked', toggle=True)
-        #        row.separator()
-        #elif not yp.use_baked and not ypup.unified_tab_ui:
         if ypui.expanded_main_ui and not yp.sculpt_mode:
 
-            if not yp.use_baked and not ypup.unified_tab_ui:
+            if not ypup.unified_tab_ui:
 
                 row.popover("NODE_PT_ypaint_channel_popover", text='', icon_value=lib.get_icon('channels'))
                 row.popover("NODE_PT_ypaint_bake_target_popover", text='', icon_value=lib.get_icon('bake'))
