@@ -4070,6 +4070,8 @@ class YPaint(bpy.types.PropertyGroup, preview_mode.BasePreviewMode):
         update = BakeTarget.update_active_bake_target_index
     )
 
+    bake_target_global_settings : PointerProperty(type=BakeTarget.YBakeTargetGlobalSettings)
+
     # Disable all vector displacement layers when sculpt mode is on
     sculpt_mode : BoolProperty(default=False, update=update_sculpt_mode)
 

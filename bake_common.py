@@ -6465,15 +6465,17 @@ class BaseBakeProps():
         default = 'CORNER'
     )
 
+bake_device_items = (
+    ('GPU', 'GPU Compute', ''),
+    ('CPU', 'CPU', ''),
+    ('OSL', 'CPU (OSL)', ''),
+)
+
 class BaseBakeOperator(BaseBakeProps):
     bake_device : EnumProperty(
         name = 'Bake Device',
         description = 'Device to use for baking',
-        items = (
-            ('GPU', 'GPU Compute', ''),
-            ('CPU', 'CPU', ''),
-            ('OSL', 'CPU (OSL)', ''),
-        ),
+        items = bake_device_items,
         default = 'CPU'
     )
     

@@ -8712,6 +8712,31 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
     col.prop(btprops, 'force_bake_all_polygons')
     col.prop(btprops, 'bake_disabled_layers')
 
+
+    if hasattr(btprops, 'bake_device') or hasattr(btprops, 'necessary_only'):
+        #layout.separator()
+
+        if hasattr(btprops, 'necessary_only'):
+            row = split_layout(layout, factor)
+
+            col = row.column()
+            col.label(text='')
+
+            col = row.column()
+            col.prop(btprops, 'necessary_only', text='Only Necessary Channels')
+
+        if hasattr(btprops, 'bake_device'):
+            row = split_layout(layout, factor)
+
+            col = row.column()
+            col.alignment = 'RIGHT'
+            col.label(text='Bake Device:')
+
+            col = row.column()
+            col.prop(btprops, 'bake_device', text='')
+
+        layout.separator()
+
 def is_bake_target_using_exact_channel(bt, root_ch):
 
     if bt.r.channel_name == bt.g.channel_name == bt.b.channel_name == root_ch.name:

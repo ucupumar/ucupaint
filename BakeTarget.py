@@ -126,6 +126,17 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
         default = True
     )
 
+    # Bake setting
+    bake_settings : EnumProperty(
+        name = 'Bake Settings',
+        description = 'Bake settings for this bake target',
+        items = (
+            ('GLOBAL', 'Use Global Settings', 'Use global bake settings'),
+            ('CUSTOM', 'Custom Settings', 'Use custom bake settings')
+        ),
+        default = 'GLOBAL'
+    )
+
     # Deprecated
     use_float : BoolProperty(default=False)
 
@@ -163,6 +174,35 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     expand_g : BoolProperty(default=False)
     expand_b : BoolProperty(default=False)
     expand_a : BoolProperty(default=False)
+
+class YBakeTargetGlobalSettings(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoProps):
+
+    bake_device : EnumProperty(
+        name = 'Bake Device',
+        description = 'Device to use for baking',
+        items = bake_device_items,
+        default = 'CPU'
+    )
+
+    necessary_only : BoolProperty(
+        name = 'Only Bake Necessary Channels',  
+        description = 'Enabling this will only bake the channels that at least has one layer (unconnected base layer is not counted)',
+        default = True
+    )
+
+    use_float_for_normal : BoolProperty(
+        name = 'Use Float for Normal',
+        description = 'Use float image for baked normal',
+        default = False
+    )
+
+    use_float_for_displacement : BoolProperty(
+        name = 'Use Float for Displacement',
+        description = 'Use float image for baked displacement',
+        default = False
+    )
+
+    uv_map : StringProperty(default='', update=update_bake_uv_map)
 
 def get_channel_idx_that_has_no_bake_target_yet(yp, data_type):
 
@@ -1150,6 +1190,7 @@ def register():
     bpy.utils.register_class(YRemoveBakeTarget)
     bpy.utils.register_class(YBakeTargetChannel)
     bpy.utils.register_class(YBakeTarget)
+    bpy.utils.register_class(YBakeTargetGlobalSettings)
     bpy.utils.register_class(YCopyBakeTarget)
     bpy.utils.register_class(YPasteBakeTarget)
     bpy.utils.register_class(YMoveBakeTarget)
@@ -1162,6 +1203,7 @@ def unregister():
     bpy.utils.unregister_class(YRemoveBakeTarget)
     bpy.utils.unregister_class(YBakeTargetChannel)
     bpy.utils.unregister_class(YBakeTarget)
+    bpy.utils.unregister_class(YBakeTargetGlobalSettings)
     bpy.utils.unregister_class(YCopyBakeTarget)
     bpy.utils.unregister_class(YPasteBakeTarget)
     bpy.utils.unregister_class(YMoveBakeTarget)
