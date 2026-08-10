@@ -1402,7 +1402,7 @@ def draw_main_ui(context, layout):
 
         if (baked_found or yp.use_baked) and not group_tree.users > 1:
             rrow = layout.row(align=True)
-            rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
+            rrow.operator('wm.y_bake_all_targets_immediate', text='Rebake', icon_value=lib.get_icon('bake')).with_prompt = True
             rrow.separator()
             rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
             rrrow = rrow.row(align=True)
@@ -1593,8 +1593,9 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
                 show_vcol_props = False,
                 show_udim = UDIM.is_udim_supported()
             )
+            col.separator()
 
-            col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
+            col.operator('wm.y_bake_all_targets_immediate', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = False
             
             return
 
@@ -6608,7 +6609,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
 
-        col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
+        col.operator('wm.y_bake_all_targets_immediate', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
         col.operator('wm.y_rename_ypaint_tree', text='Rename '+get_addon_title()+' Node Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()
@@ -9503,13 +9504,13 @@ def unregister():
     else: 
         bpy.utils.unregister_class(NODE_PT_YPaint_about_ui)
         bpy.utils.unregister_class(NODE_PT_YPaint_main_ui)
-        bpy.utils.unregister_class(NODE_PT_YPaint_channel_settings_ui)
+        #bpy.utils.unregister_class(NODE_PT_YPaint_channel_settings_ui)
 
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_about_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_obj_mat_settings_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_main_ui)
     #bpy.utils.unregister_class(VIEW3D_PT_YPaint_stats_ui)
-    bpy.utils.unregister_class(VIEW3D_PT_YPaint_channel_settings_ui)
+    #bpy.utils.unregister_class(VIEW3D_PT_YPaint_channel_settings_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_test_ui)
 
     bpy.utils.unregister_class(YPaintUI)

@@ -2691,10 +2691,14 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     if do_actual_objects_setup:
         objs, obook = prepare_objs_before_baking(mat, yp, objs, btprops.uv_map, btprops.force_bake_all_polygons)
 
+    # Width and height
+    width = btprops.width if btprops.use_custom_resolution else int(btprops.image_resolution)
+    height = btprops.height if btprops.use_custom_resolution else int(btprops.image_resolution)
+
     # AA setup
     margin = btprops.margin * btprops.aa_level
-    width = btprops.width * btprops.aa_level
-    height = btprops.height * btprops.aa_level
+    width = width * btprops.aa_level
+    height = height * btprops.aa_level
 
     # Prepare bake settings
     prepare_bake_settings(
@@ -6409,6 +6413,9 @@ def update_bake_uv_map(self, context):
         objs = get_all_objects_with_same_materials(mat)
         self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
+#def update_bake_image_resolution(self, context):
+#    pass
+
 class BaseBakeProps():
     # Image related
     width : IntProperty(name='Width', default=1024, min=1, max=16384)
@@ -6418,6 +6425,7 @@ class BaseBakeProps():
         name = 'Image Resolution',
         items = image_resolution_items,
         default = '1024'
+        #update = update_bake_image_resolution
     )
     
     use_custom_resolution : BoolProperty(

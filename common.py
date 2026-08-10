@@ -8715,7 +8715,6 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
     col.prop(btprops, 'force_bake_all_polygons')
     col.prop(btprops, 'bake_disabled_layers')
 
-
     if hasattr(btprops, 'bake_device') or hasattr(btprops, 'necessary_only'):
         #layout.separator()
 
@@ -8738,7 +8737,7 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
             col = row.column()
             col.prop(btprops, 'bake_device', text='')
 
-        layout.separator()
+        #layout.separator()
 
 def is_bake_target_using_exact_channel(bt, root_ch):
 

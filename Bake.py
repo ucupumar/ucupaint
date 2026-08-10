@@ -1313,7 +1313,7 @@ class BaseBakeBakeTargetOperator():
             if self.uv_map == '' or self.uv_map not in uv_layers:
                 self.uv_map = get_default_uv_name(obj)
 
-        return context.window_manager.invoke_props_dialog(self, width=400)
+        return context.window_manager.invoke_props_dialog(self, width=300)
 
     def is_cycles_exist(self, context):
         if not hasattr(context.scene, 'cycles'):
@@ -1321,7 +1321,7 @@ class BaseBakeBakeTargetOperator():
             return False
         return True
 
-    def execute_bake_bake_target(self, context, bts):
+    def execute_bake_bake_target(self, context, bts, bake_device='CPU'):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
 
         T = time.time()
@@ -1333,7 +1333,7 @@ class BaseBakeBakeTargetOperator():
         mat = obj.active_material
 
         # Bake Device
-        selected_bake_device = self.bake_device
+        selected_bake_device = bake_device
         use_osl = False
         if selected_bake_device == 'OSL':
             selected_bake_device = 'CPU'
@@ -1422,7 +1422,13 @@ class BaseBakeBakeTargetOperator():
 
         for bt in image_bts:
             # Get bake properties
-            btprops = get_set_bake_target_properties_from_bt_and_self(bt, self)
+            #btprops = get_set_bake_target_properties_from_bt_and_self(bt, self)
+
+            gloset = yp.bake_target_global_settings
+            print(bt.bake_settings, gloset.image_resolution, gloset.width)
+            if bt.bake_settings == 'GLOBAL':
+                btprops = yp.bake_target_global_settings
+            else: btprops = bt
 
             # Bake bake target
             bake_bake_target(mat, node, bt, btprops, objs=objs, do_objects_setup=obook==None, bake_device=selected_bake_device, use_osl=use_osl)
@@ -1558,7 +1564,106 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
         try: bt = yp.bake_targets[self.bake_target_index]
         except: return {'CANCELLED'}
 
-        return self.execute_bake_bake_target(context, [bt])
+        return self.execute_bake_bake_target(context, [bt], bake_device=self.bake_device)
+
+class YBakeAllTargetsImmediate(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSettings, BaseBakeBakeTargetOperator):
+    bl_idname = "wm.y_bake_all_targets_immediate"
+    bl_label = "Bake All Bake Targets Immediately"
+    bl_description = "Bake all bake targets immediately"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    with_prompt : BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        node = get_active_ypaint_node()
+        if not node: return False
+
+        group_tree = node.node_tree
+        yp = group_tree.yp
+        obj = context.object
+        
+        return obj and obj.type == 'MESH' and len(yp.bake_targets) > 0
+
+    def invoke(self, context, event):
+        if self.with_prompt:
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
+            gloset = yp.bake_target_global_settings
+
+            # Read the global settings
+            props = BakeTarget.get_global_settings_props()
+            for prop in props:
+                setattr(self, prop, getattr(gloset, prop))
+
+            return self.invoke_op(context, event)
+        return self.execute(context)
+
+    def draw(self, context):
+        draw_base_bake_target_settings(context, self.layout, self, bt=None, 
+            show_image_props = True,
+            show_vcol_props = False,
+            show_udim = UDIM.is_udim_supported()
+        )
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        gloset = yp.bake_target_global_settings
+        if not gloset.necessary_only:
+            bts = yp.bake_targets
+        else:
+            # Get normal and height channel pair
+            normal_ch, height_ch = get_normal_height_ch_pairs(yp)
+
+            # Get necessary channels
+            ch_names = []
+            for i, root_ch in enumerate(yp.channels):
+
+                # Check for connected input
+                inp = node.inputs.get(root_ch.name)
+                if inp and len(inp.links) > 0:
+                    if root_ch.name not in ch_names:
+                        ch_names.append(root_ch.name)
+                    continue
+
+                # Check for any layer
+                for layer in yp.layers:
+                    try: ch = layer.channels[i]
+                    except: pass
+                    if get_channel_enabled(ch, layer, root_ch):
+
+                        # NOTE: Currently height will also be baked even though it's only used as bump
+                        if root_ch.name not in ch_names:
+                            ch_names.append(root_ch.name)
+                        if normal_ch and height_ch and height_ch.use_height_as_bump and root_ch == height_ch:
+                            if  normal_ch.name not in ch_names:
+                                ch_names.append(normal_ch.name)
+
+                        break
+            
+            # Get bake target that uses the necessary channels:
+            bts = []
+            for bt in yp.bake_targets:
+                for letter in rgba_letters:
+                    btc = getattr(bt, letter)
+                    if btc and btc.channel_name in ch_names and bt not in bts:
+                        bts.append(bt)
+                        break
+
+        if len(bts) == 0:
+            self.report({'ERROR'}, "No valid bake targets to bake!")
+            return {'CANCELLED'}
+
+        status = self.execute_bake_bake_target(context, bts, bake_device=gloset.bake_device)
+
+        # Copy back operator settings to global bake target settings
+        if self.with_prompt:
+            props = BakeTarget.get_global_settings_props()
+            for prop in props:
+                setattr(gloset, prop, getattr(self, prop))
+
+        return status
 
 class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoProps, BaseBakeBakeTargetOperator):
     bl_idname = "wm.y_bake_all_targets"
@@ -1868,7 +1973,7 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
             self.report({'ERROR'}, "No valid bake targets to bake!")
             return {'CANCELLED'}
 
-        return self.execute_bake_bake_target(context, bts)
+        return self.execute_bake_bake_target(context, bts, bake_device=self.bake_device)
 
 class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     """Bake Channels to Image(s)"""
@@ -4692,6 +4797,7 @@ def register():
     bpy.utils.register_class(YMergeMask)
     bpy.utils.register_class(YDeleteBakedChannelImages)
     bpy.utils.register_class(YBakeAllTargets)
+    bpy.utils.register_class(YBakeAllTargetsImmediate)
     bpy.utils.register_class(YBakeSingleTarget)
 
 def unregister():
@@ -4704,4 +4810,5 @@ def unregister():
     bpy.utils.unregister_class(YMergeMask)
     bpy.utils.unregister_class(YDeleteBakedChannelImages)
     bpy.utils.unregister_class(YBakeAllTargets)
+    bpy.utils.unregister_class(YBakeAllTargetsImmediate)
     bpy.utils.unregister_class(YBakeSingleTarget)

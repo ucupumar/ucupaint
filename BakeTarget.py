@@ -175,8 +175,7 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     expand_b : BoolProperty(default=False)
     expand_a : BoolProperty(default=False)
 
-class YBakeTargetGlobalSettings(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoProps):
-
+class BaseBakeTargetGlobalSettings(BaseBakeProps, BakeInfo.BaseBakeInfoProps):
     bake_device : EnumProperty(
         name = 'Bake Device',
         description = 'Device to use for baking',
@@ -203,6 +202,29 @@ class YBakeTargetGlobalSettings(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo
     )
 
     uv_map : StringProperty(default='', update=update_bake_uv_map)
+
+class YBakeTargetGlobalSettings(bpy.types.PropertyGroup, BaseBakeTargetGlobalSettings):
+    pass
+
+def get_global_settings_props():
+    all_props = set()
+    for parent in BaseBakeTargetGlobalSettings.__mro__:
+        if hasattr(parent, "__annotations__"):
+            all_props.update(parent.__annotations__.keys())
+        
+        # Blender 2.7x
+        if hasattr(parent, "__dict__"):
+            for key, value in parent.__dict__.items():
+                # Blender 2.7x properties are stored as specific tuples or internal descriptors
+                is_27x_prop = (
+                    isinstance(value, tuple) and 
+                    hasattr(value, "__name__") and 
+                    value.__name__.startswith('Property')
+                )
+                if is_27x_prop:
+                    all_props.add(key)
+
+    return all_props
 
 def get_channel_idx_that_has_no_bake_target_yet(yp, data_type):
 
