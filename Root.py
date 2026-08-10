@@ -998,6 +998,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         if len([ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]) == 1:
             context.window_manager.ypui.expand_channels = True
 
+        # Set bake target default UV
+        uv_name = get_default_uv_name()
+        group_tree.yp.bake_target_global_settings.uv_map = uv_name
+
         # Update list items
         ListItem.refresh_list_items(group_tree.yp, repoint_active=True)
 
@@ -1070,6 +1074,10 @@ class YNewYPaintNode(bpy.types.Operator):
 
         # Set the location of new node
         node.location = space.cursor_location
+
+        # Set bake target default UV
+        uv_name = get_default_uv_name()
+        yp.bake_target_global_settings.uv_map = uv_name
 
         # Expand channels now is enabled by default if it's the only yp node
         if len([ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]) == 1:
@@ -2211,6 +2219,10 @@ class YFixMissingUV(bpy.types.Operator):
             # Check baked images uv
             if yp.baked_uv_name == self.source_uv_name:
                 yp.baked_uv_name = target_uv_name
+
+            # Check bake target global settings
+            if yp.bake_target_global_settings.uv_map == self.source_uv_name:
+                yp.bake_target_global_settings = target_uv_name
 
             # Check baked normal channel
             for ch in yp.channels:

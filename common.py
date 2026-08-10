@@ -8661,7 +8661,10 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
         col.separator()
 
         col.prop(btprops, 'interpolation', text='')
-        col.prop_search(btprops, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+        if obj and obj.type == 'MESH':
+            col.prop_search(btprops, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+        else:
+            col.prop(btprops, "uv_map", text='')
 
         ccol = col.column(align=True)
 

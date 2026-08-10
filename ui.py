@@ -1099,7 +1099,7 @@ def draw_preview_mode_popover_settings(context, layout, node, show_types=True):
 
     ccol = col.column(align=True)
     ccol.label(text='Channel')
-    ccol.template_list("NODE_UL_YPaint_channels", "", yp,
+    ccol.template_list("NODE_UL_YPaint_simple_channels", "", yp,
             "channels", yp, "preview_mode_channel_index", rows=len(yp.channels), maxrows=5)  
 
     if root_ch.special_type == 'NORMAL':
@@ -1212,6 +1212,21 @@ def draw_main_ui(context, layout):
         row.alert = False
         return
 
+    # Check if uv is found
+    is_a_mesh = True if obj and obj.type == 'MESH' else False
+    uv_layers = get_uv_layers(obj)
+
+    uv_found = False
+    if is_a_mesh and len(uv_layers) > 0: 
+        uv_found = True
+
+    if is_a_mesh and not uv_found:
+        row = layout.row(align=True)
+        row.alert = True
+        row.operator("wm.y_add_simple_uvs", icon='ERROR')
+        row.alert = False
+        return
+
     if not node:
         #layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
         layout.operator("wm.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
@@ -1288,21 +1303,6 @@ def draw_main_ui(context, layout):
         op.only_active = True
         row.alert = False
         #layout.prop(ypui, 'make_image_single_user')
-        return
-
-    # Check if uv is found
-    is_a_mesh = True if obj and obj.type == 'MESH' else False
-    uv_layers = get_uv_layers(obj)
-
-    uv_found = False
-    if is_a_mesh and len(uv_layers) > 0: 
-        uv_found = True
-
-    if is_a_mesh and not uv_found:
-        row = layout.row(align=True)
-        row.alert = True
-        row.operator("wm.y_add_simple_uvs", icon='ERROR')
-        row.alert = False
         return
 
     # Check if layer and yp has different numbers of channels
@@ -5038,7 +5038,14 @@ class BaseMainUI():
 
             if not yp.use_baked and not ypup.unified_tab_ui:
 
-                row.popover("NODE_PT_ypaint_channel_popover", text='', icon_value=lib.get_icon('channels'))
+                connection_warning = False
+                for ch in yp.channels:
+                    if is_output_unconnected(node, ch) and not ch.disable_unconnected_warning:
+                        connection_warning = True
+                        break
+
+                icon_value = lib.get_icon('ERROR') if connection_warning else lib.get_icon('channels')
+                row.popover("NODE_PT_ypaint_channel_popover", text='', icon_value=icon_value)
                 row.popover("NODE_PT_ypaint_bake_target_popover", text='', icon_value=lib.get_icon('bake'))
 
             icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
@@ -5537,6 +5544,12 @@ class NODE_UL_YPaint_bake_targets(bpy.types.UIList):
         else: 
             row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
 
+class NODE_UL_YPaint_simple_channels(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        row = layout.row()
+        icon_value = lib.get_icon(lib.channel_custom_icon_dict[item.type])
+        row.label(text=item.name, icon_value=icon_value)
+
 class NODE_UL_YPaint_channels(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 
@@ -5554,17 +5567,18 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
         row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
 
         # NOTE: Option for background only available for classic layer list mode
-        if ypup.layer_list_mode != 'CLASSIC': return
+        #if ypup.layer_list_mode != 'CLASSIC': return
 
         if not yp.use_baked or (item.no_layer_using and not (yp.use_baked and yp.enable_baked_outside)):
             if item.type == 'RGB':
                 row = row.row(align=True)
 
             if len(inp.links) == 0:
-                if item.type == 'VALUE':
-                    row.prop(inp, 'default_value', text='') #, emboss=False)
-                elif item.type == 'RGB':
-                    row.prop(inp, 'default_value', text='', icon='COLOR')
+                #if item.type == 'VALUE':
+                #    row.prop(inp, 'default_value', text='') #, emboss=False)
+                #elif item.type == 'RGB':
+                #    row.prop(inp, 'default_value', text='', icon='COLOR')
+                pass
             else:
                 row.label(text='', icon='LINKED')
 
@@ -5572,10 +5586,11 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
                 row.label(text='', icon='ERROR')
 
             if ypup.developer_mode and item.type=='RGB' and item.enable_alpha:
-                inp_alpha = inputs.get(item.name + io_suffix['ALPHA'])
-                if len(inp_alpha.links) == 0:
-                    row.prop(inp_alpha, 'default_value', text='')
-                else: row.label(text='', icon='LINKED')
+                #inp_alpha = inputs.get(item.name + io_suffix['ALPHA'])
+                #if len(inp_alpha.links) == 0:
+                #    row.prop(inp_alpha, 'default_value', text='')
+                #else: row.label(text='', icon='LINKED')
+                pass
 
 def any_subitem_in_layer(layer):
     yp = layer.id_data.yp
@@ -9352,6 +9367,7 @@ def register():
     bpy.utils.register_class(YMaterialUI)
     bpy.utils.register_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.register_class(NODE_UL_YPaint_channels)
+    bpy.utils.register_class(NODE_UL_YPaint_simple_channels)
     bpy.utils.register_class(NODE_UL_YPaint_layers)
     bpy.utils.register_class(NODE_UL_YPaint_list_items)
     bpy.utils.register_class(YPAssetBrowserMenu)
@@ -9465,6 +9481,7 @@ def unregister():
     bpy.utils.unregister_class(YMaterialUI)
     bpy.utils.unregister_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.unregister_class(NODE_UL_YPaint_channels)
+    bpy.utils.unregister_class(NODE_UL_YPaint_simple_channels)
     bpy.utils.unregister_class(NODE_UL_YPaint_layers)
     bpy.utils.unregister_class(NODE_UL_YPaint_list_items)
     bpy.utils.unregister_class(YPAssetBrowserMenu)

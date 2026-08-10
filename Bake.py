@@ -1520,8 +1520,9 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
 
         group_tree = node.node_tree
         yp = group_tree.yp
+        obj = context.object
         
-        return context.object and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0
+        return obj and obj.type == 'MESH' and len(yp.bake_targets) > 0 and yp.active_bake_target_index >= 0
 
     def invoke(self, context, event):
         return self.invoke_op(context, event)
@@ -1681,8 +1682,9 @@ class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoPr
 
         group_tree = node.node_tree
         yp = group_tree.yp
+        obj = context.object
         
-        return context.object and len(yp.bake_targets) > 0
+        return obj and obj.type == 'MESH' and len(yp.bake_targets) > 0
 
     def invoke(self, context, event):
         return self.invoke_op(context, event)
