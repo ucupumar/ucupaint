@@ -993,7 +993,7 @@ def rearrange_layer_nodes(layer, tree=None):
     #    loc.y -= 240
 
     if check_set_node_loc(tree, layer.decal_process, loc):
-        loc.y -= 170
+        loc.y -= 300
 
     if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240
@@ -1949,6 +1949,110 @@ def rearrange_depth_layer_nodes(group_tree):
         loc.x += 200
 
     check_set_node_loc(tree, TREE_END, loc)
+
+def rearrange_decal_nodes(tree):
+    start = tree.nodes.get(TREE_START)
+    if not start:
+        return
+
+    end = tree.nodes.get(TREE_END)
+
+    # 1. Calculate column depth
+    node_depths = {start: 0}
+    queue = [start]
+
+    while queue:
+        curr = queue.pop(0)
+        curr_depth = node_depths[curr]
+
+        for output in curr.outputs:
+            for link in output.links:
+                nxt = link.to_node
+                if nxt == end:
+                    continue
+                if nxt not in node_depths or node_depths[nxt] < curr_depth + 1:
+                    node_depths[nxt] = curr_depth + 1
+                    queue.append(nxt)
+
+    # 2. Categorize nodes connected upstream from TREE_END into Mapping vs Masking
+    mapping_nodes = set()
+    mask_nodes = set()
+
+    if end:
+        for inp in end.inputs:
+            name_lower = inp.name.lower()
+            is_mask_socket = any(kw in name_lower for kw in ('mask', 'alpha', 'falloff', 'clip', 'factor'))
+            target_set = mask_nodes if is_mask_socket else mapping_nodes
+
+            # Stack-based upstream traversal
+            stack = [link.from_node for link in inp.links]
+            while stack:
+                node = stack.pop()
+                if node not in target_set and node not in (start, end):
+                    target_set.add(node)
+                    for node_inp in node.inputs:
+                        for link in node_inp.links:
+                            stack.append(link.from_node)
+
+    # 3. Position nodes in three regional lanes
+    base_loc = start.location.copy()
+    max_depth = 0
+
+    Y_OFFSET_MAPPING = 320      
+    Y_OFFSET_SHARED = 0    
+    Y_OFFSET_MASK = -320      
+
+    for depth in sorted(set(node_depths.values())):
+        if depth == 0:
+            continue
+        max_depth = max(max_depth, depth)
+
+        col_nodes = [node for node, d in node_depths.items() if d == depth and node not in (start, end)]
+
+        reg1_nodes = []    # Mapping only (Top)
+        shared_nodes = []  # Shared by both (Middle)
+        reg2_nodes = []    # Masking only (Bottom)
+
+        for node in col_nodes:
+            is_mapping = node in mapping_nodes
+            is_mask = node in mask_nodes or any(kw in node.name.lower() for kw in ('mask', 'clip', 'falloff'))
+
+            if is_mapping and is_mask:
+                shared_nodes.append(node)
+            elif is_mask:
+                reg2_nodes.append(node)
+            else:
+                reg1_nodes.append(node)
+
+        col_x = base_loc.x + (depth * 220)
+
+        # Layout Region 1 (Top)
+        for i, node in enumerate(reg1_nodes):
+            loc = base_loc.copy()
+            loc.x = col_x
+            loc.y = base_loc.y + Y_OFFSET_MAPPING - (i * 180)
+            check_set_node_loc(tree, node.name, loc)
+
+        # Layout Shared Region (Middle)
+        for i, node in enumerate(shared_nodes):
+            loc = base_loc.copy()
+            loc.x = col_x
+            loc.y = base_loc.y + Y_OFFSET_SHARED - (i * 180)
+            check_set_node_loc(tree, node.name, loc)
+
+        # Layout Region 2 (Bottom)
+        for i, node in enumerate(reg2_nodes):
+            loc = base_loc.copy()
+            loc.x = col_x
+            loc.y = base_loc.y + Y_OFFSET_MASK - (i * 180)
+            check_set_node_loc(tree, node.name, loc)
+
+    # 4. Position TREE_END node centered relative to all three lanes
+    if end:
+        loc = base_loc.copy()
+        loc.x = base_loc.x + ((max_depth + 1) * 220)
+        loc.y = base_loc.y + Y_OFFSET_SHARED  # Aligned directly with middle lane
+        check_set_node_loc(tree, TREE_END, loc)
 
 def rearrange_yp_nodes(group_tree):
 

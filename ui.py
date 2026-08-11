@@ -1835,7 +1835,6 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                         mrow.prop(layer, 'enable_uniform', text='', icon='LOCKED')
                         draw_input_prop(mcol, layer, 'uniform_scale', None, 'X', layer=layer)
                         draw_input_prop(mcol, layer, 'uniform_scale', None, 'Y', layer=layer)
-                        draw_input_prop(mcol, layer, 'uniform_scale', None, 'Z', layer=layer)
                     else:
                         # UNLOCKED: Independent vector mode (Blender natively handles X, Y, Z fields)
                         mrow.prop(layer, 'enable_uniform', text='', icon='UNLOCKED')
