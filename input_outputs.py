@@ -742,7 +742,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             input_index += 1
 
         if layer.texcoord_type == 'Decal':
-            dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)                   
+            dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
         
         if is_bl_newer_than(2, 81) and layer.enable_uniform_scale and is_layer_using_vector(layer) and layer.segment_name == '':
