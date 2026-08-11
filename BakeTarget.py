@@ -749,7 +749,7 @@ class YNewChannelBakeTarget(bpy.types.Operator):
         # Refresh UI
         wm = context.window_manager
         ypui = wm.ypui
-        ypui.bake_target_ui.expand_content = True
+        ypui.bake_target_ui.expand_content = False
         ypui.need_update = True
         
         # Update panel
@@ -935,7 +935,7 @@ class YNewBakeTarget(bpy.types.Operator):
 
         yp.active_bake_target_index = len(yp.bake_targets)-1
 
-        ypui.bake_target_ui.expand_content = True
+        ypui.bake_target_ui.expand_content = self.channel_idx == -1
         ypui.need_update = True
         #wm.yptimer.time = str(time.time())
         

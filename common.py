@@ -8625,7 +8625,10 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
             ccol.separator()
         ccol.label(text='Margin:')
 
-        col.separator()
+        if hasattr(btprops, 'use_float_for_displacement') or hasattr(btprops, 'use_float_for_normal'):
+            col.label(text='Use 32-bit Float:')
+        else:
+            col.separator()
 
         col.label(text='Interpolation:')
         col.label(text='UV Map:')
@@ -8658,7 +8661,14 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
         else:
             ccol.prop(btprops, 'margin', text='')
 
-        col.separator()
+        if hasattr(btprops, 'use_float_for_displacement') or hasattr(btprops, 'use_float_for_normal'):
+            crow = col.row()
+            if hasattr(btprops, 'use_float_for_normal'):
+                crow.prop(btprops, 'use_float_for_normal', text='Normal')
+            if hasattr(btprops, 'use_float_for_displacement'):
+                crow.prop(btprops, 'use_float_for_displacement', text='Height')
+        else:
+            col.separator()
 
         col.prop(btprops, 'interpolation', text='')
         if obj and obj.type == 'MESH':

@@ -1402,7 +1402,7 @@ def draw_main_ui(context, layout):
 
         if (baked_found or yp.use_baked) and not group_tree.users > 1:
             rrow = layout.row(align=True)
-            rrow.operator('wm.y_bake_all_targets_immediate', text='Rebake', icon_value=lib.get_icon('bake')).with_prompt = True
+            rrow.operator('wm.y_bake_all_targets', text='Rebake', icon_value=lib.get_icon('bake')).with_prompt = True
             rrow.separator()
             rrow.prop(yp, 'use_baked', toggle=True, text='Use Baked')
             rrrow = rrow.row(align=True)
@@ -1579,7 +1579,7 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
     col = box.column()
 
     if show_header:
-        #col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
+        #col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
         col.label(text='Bake Target Settings')
         row = col.row(align=True)
         row.prop(ypui, 'bake_target_settings_tab', expand=True)
@@ -1588,14 +1588,17 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
 
         if ypui.bake_target_settings_tab == 'GLOBAL_SETTINGS':
             gloset = yp.bake_target_global_settings
+            any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
+            #any_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL'])
             draw_base_bake_target_settings(context, col, gloset, bt=None, 
-                show_image_props = True,
-                show_vcol_props = False,
+                show_image_props = any_image_bts,
+                show_vcol_props = False, #any_vcol_bts,
+                show_hdr = False,
                 show_udim = UDIM.is_udim_supported()
             )
             col.separator()
 
-            col.operator('wm.y_bake_all_targets_immediate', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = False
+            col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = False
             
             return
 
@@ -1606,7 +1609,7 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
     rcol = row.column(align=False)
 
     #if show_header:
-    #    rcol.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).show_necessary_only_option = False
+    #    rcol.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).with_prompt = False
 
     rows = rows if rows >= 4 else 4
     rcol.template_list(
@@ -1740,7 +1743,7 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
 
         label_setting = "Bake Settings:"
         icon_value = lib.get_icon('bake')
-        if bt.bake_settings == 'CUSTOM':
+        if bt.bake_settings == 'CUSTOM' or bt.data_type == 'VCOL':
             drow = crow.row(align=True)
             if is_bl_newer_than(2, 80):
                 drow.alignment = 'LEFT'
@@ -1755,12 +1758,13 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
             crow.label(text='', icon='BLANK1')
             crow.label(text=label_setting) #, icon_value=icon_value)
 
-        srow = crow.row(align=True)
-        #srow = srow.row(align=True)
-        srow.alignment = 'RIGHT'
-        srow.prop(bt, 'bake_settings', text='')
+        if bt.data_type != 'VCOL':
+            srow = crow.row(align=True)
+            #srow = srow.row(align=True)
+            srow.alignment = 'RIGHT'
+            srow.prop(bt, 'bake_settings', text='')
 
-        if btui.expand_setting and bt.bake_settings == 'CUSTOM':
+        if btui.expand_setting and (bt.bake_settings == 'CUSTOM' or bt.data_type == 'VCOL'):
 
             #crow = col.row(align=True)
 
@@ -1795,8 +1799,7 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
         #col.separator()
         #crow = col.row(align=True)
         ##crow.label(text='', icon='BLANK1')
-        #crow.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).show_necessary_only_option = False
-        ##crow.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).show_necessary_only_option = True
+        #crow.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).with_prompt = True
 
 def draw_bake_target_settings(context, layout, bt):
 
@@ -6609,7 +6612,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
 
-        col.operator('wm.y_bake_all_targets_immediate', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
+        col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
         col.operator('wm.y_rename_ypaint_tree', text='Rename '+get_addon_title()+' Node Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()

@@ -2208,105 +2208,6 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
 
     return max_height_value
 
-def get_set_bake_target_properties_from_bt_and_self(bt, self):
-    btprops = dotdict()
-
-    if hasattr(self, 'override_all'):
-        # YBakeTarget
-        bt.uv_map = btprops.uv_map = self.uv_map if self.override_uv_map == 'Override' or self.override_all else bt.uv_map
-
-        # BaseBakeProps
-        if self.override_all:
-            if not self.use_custom_resolution:
-                bt.image_resolution = self.image_resolution
-                btprops.width = btprops.height = int(self.image_resolution)
-            else:
-                bt.width = btprops.width = self.width
-                bt.height = btprops.height = self.height
-            bt.use_custom_resolution = self.use_custom_resolution
-        else:
-            if self.override_resolution == 'Template':
-                btprops.width = btprops.height = int(self.image_resolution)
-                bt.use_custom_resolution = False
-                bt.image_resolution = self.image_resolution
-            elif self.override_resolution == 'Custom':
-                bt.width = btprops.width = self.width
-                bt.height = btprops.height = self.height
-                bt.use_custom_resolution = True
-            else:
-                if bt.use_custom_resolution:
-                    btprops.width = bt.width
-                    btprops.height = bt.height
-                else: btprops.width = btprops.height = int(bt.image_resolution)
-
-        bt.samples = btprops.samples = self.samples if self.override_samples == 'Override' or self.override_all else bt.samples
-        bt.margin = btprops.margin = self.margin if self.override_margin == 'Override' or self.override_all else bt.margin
-        bt.margin_type = btprops.margin_type = self.margin_type if self.override_margin == 'Override' or self.override_all else bt.margin_type
-
-        if self.override_fxaa == 'Enable': bt.fxaa = btprops.fxaa = True
-        elif self.override_fxaa == 'Disable': bt.fxaa = btprops.fxaa = False
-        else: btprops.fxaa = bt.fxaa
-
-        if self.override_denoise == 'Enable': bt.denoise = btprops.denoise = True
-        elif self.override_denoise == 'Disable': bt.denoise = btprops.denoise = False
-        else: btprops.denoise = bt.denoise
-
-        # BaseBakeInfoProps
-        #btprops.hdr = self.hdr
-        bt.interpolation = btprops.interpolation = self.interpolation if self.override_interpolation == 'Override' or self.override_all else bt.interpolation
-        #btprops.ssaa = self.ssaa
-        bt.aa_level = btprops.aa_level = self.aa_level if self.override_aa_level == 'Override' or self.override_all else bt.aa_level
-
-        if self.override_use_udim == 'Enable': bt.use_udim = btprops.use_udim = True
-        elif self.override_use_udim == 'Disable': bt.use_udim = btprops.use_udim = False
-        else: btprops.use_udim = bt.use_udim
-
-        if self.override_use_dithering == 'Enable':
-            bt.use_dithering = btprops.use_dithering = True
-            bt.dither_intensity = btprops.dither_intensity = self.dither_intensity
-        elif self.override_use_dithering == 'Disable': 
-            bt.use_dithering = btprops.use_dithering = False
-        else: 
-            btprops.use_dithering = bt.use_dithering
-            btprops.dither_intensity = bt.dither_intensity
-
-        if self.override_force_bake_all_polygons == 'Enable': bt.force_bake_all_polygons = btprops.force_bake_all_polygons = True
-        elif self.override_force_bake_all_polygons == 'Disable': bt.force_bake_all_polygons = btprops.force_bake_all_polygons = False
-        else: btprops.force_bake_all_polygons = bt.force_bake_all_polygons
-
-        if self.override_bake_disabled_layers == 'Enable': bt.bake_disabled_layers = btprops.bake_disabled_layers = True
-        elif self.override_bake_disabled_layers == 'Disable': bt.bake_disabled_layers = btprops.bake_disabled_layers = False
-        else: btprops.bake_disabled_layers = bt.bake_disabled_layers
-    else:
-        # YBakeTarget
-        btprops.uv_map = bt.uv_map
-
-        # BaseBakeProps
-        if not bt.use_custom_resolution:
-            btprops.width = btprops.height = int(bt.image_resolution)
-        else:
-            btprops.width = bt.width
-            btprops.height = bt.height
-
-        btprops.samples = bt.samples
-        btprops.margin = bt.margin
-        btprops.margin_type = bt.margin_type
-        btprops.fxaa = bt.fxaa
-        btprops.denoise = bt.denoise
-
-        # BaseBakeInfoProps
-        #btprops.hdr = bt.hdr
-        btprops.interpolation = bt.interpolation
-        #btprops.ssaa = bt.ssaa
-        btprops.aa_level = bt.aa_level
-        btprops.use_udim = bt.use_udim
-        btprops.use_dithering = bt.use_dithering
-        btprops.dither_intensity = bt.dither_intensity
-        btprops.force_bake_all_polygons = bt.force_bake_all_polygons
-        btprops.bake_disabled_layers = bt.bake_disabled_layers
-
-    return btprops
-
 def get_bake_properties_from_self(self):
 
     bprops = dotdict()
@@ -2736,6 +2637,17 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     #            reconnect_layer_nodes(lay)
     #            rearrange_layer_nodes(lay)
 
+    # Check for hdr
+    if hasattr(btprops, 'use_float_for_displacement') and hasattr(btprops, 'use_float_for_normal'):
+        if btprops.use_float_for_displacement and any_height_ch:
+            use_hdr = True
+        if btprops.use_float_for_normal and any_normal_ch:
+            use_hdr = True
+        else:
+            use_hdr = False
+    else:
+        use_hdr = bt.hdr if bt else False
+
     # Get default color
     color = get_bake_target_default_color(node, bt, any_linear_ch)
 
@@ -2802,7 +2714,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 img.size[0] != width or img.size[1] != height or
                 (img.source == 'TILED' and not btprops.use_udim) or
                 (img.source != 'TILED' and btprops.use_udim) or
-                (img.is_float != bt.hdr)
+                (img.is_float != use_hdr)
                 ):
             old_img = img
             img = None
@@ -2835,7 +2747,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 img = bpy.data.images.new(
                     name=img_name, width=width, height=height,
                     alpha=True, tiled=True,
-                    float_buffer = bt.hdr
+                    float_buffer = use_hdr
                 )
 
                 # Fill tiles
@@ -2848,7 +2760,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
                 # Create new standard image
                 img = bpy.data.images.new(
                     name=img_name, width=width, height=height, alpha=True,
-                    float_buffer = bt.hdr
+                    float_buffer = use_hdr
                 )
                 img.generated_type = 'BLANK'
 

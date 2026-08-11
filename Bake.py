@@ -1420,14 +1420,12 @@ class BaseBakeBakeTargetOperator():
             if not settings_difference:
                 objs, obook = prepare_objs_before_baking(mat, yp, objs, uv_map, force_bake_all_polygons)
 
+        gloset = yp.bake_target_global_settings if hasattr(self, 'with_prompt') and not self.with_prompt else self
+
         for bt in image_bts:
             # Get bake properties
-            #btprops = get_set_bake_target_properties_from_bt_and_self(bt, self)
-
-            gloset = yp.bake_target_global_settings
-            print(bt.bake_settings, gloset.image_resolution, gloset.width)
             if bt.bake_settings == 'GLOBAL':
-                btprops = yp.bake_target_global_settings
+                btprops = gloset
             else: btprops = bt
 
             # Bake bake target
@@ -1442,7 +1440,8 @@ class BaseBakeBakeTargetOperator():
 
         for bt in vcol_bts:
             # Get bake properties
-            btprops = get_set_bake_target_properties_from_bt_and_self(bt, self)
+            # NOTE: Attribute bake targets always use their own bake settings
+            btprops = bt
 
             # Bake bake target
             bake_bake_target(mat, node, bt, btprops, objs=objs, bake_device=selected_bake_device, use_osl=use_osl)
@@ -1566,10 +1565,10 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
 
         return self.execute_bake_bake_target(context, [bt], bake_device=self.bake_device)
 
-class YBakeAllTargetsImmediate(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSettings, BaseBakeBakeTargetOperator):
-    bl_idname = "wm.y_bake_all_targets_immediate"
-    bl_label = "Bake All Bake Targets Immediately"
-    bl_description = "Bake all bake targets immediately"
+class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSettings, BaseBakeBakeTargetOperator):
+    bl_idname = "wm.y_bake_all_targets"
+    bl_label = "Bake All Bake Targets"
+    bl_description = "Bake all bake targets"
     bl_options = {'REGISTER', 'UNDO'}
 
     with_prompt : BoolProperty(default=False)
@@ -1600,9 +1599,14 @@ class YBakeAllTargetsImmediate(bpy.types.Operator, BakeTarget.BaseBakeTargetGlob
         return self.execute(context)
 
     def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
+        #any_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL'])
         draw_base_bake_target_settings(context, self.layout, self, bt=None, 
-            show_image_props = True,
-            show_vcol_props = False,
+            show_image_props = any_image_bts,
+            show_vcol_props = False, #any_vcol_bts,
+            show_hdr = False,
             show_udim = UDIM.is_udim_supported()
         )
 
@@ -1664,316 +1668,6 @@ class YBakeAllTargetsImmediate(bpy.types.Operator, BakeTarget.BaseBakeTargetGlob
                 setattr(gloset, prop, getattr(self, prop))
 
         return status
-
-class YBakeAllTargets(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoProps, BaseBakeBakeTargetOperator):
-    bl_idname = "wm.y_bake_all_targets"
-    bl_label = "Bake All Bake Targets"
-    bl_description = "Bake all bake targets"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    show_necessary_only_option : BoolProperty(
-        name = 'Show \'Only Bake Necessary Channels\' Option',  
-        description = 'Show an option to bake only necessary channels',
-        default = False
-    )
-
-    necessary_only : BoolProperty(
-        name = 'Only Bake Necessary Channels',  
-        description = 'Enabling this will only bake the channels that at least has one layer (unconnected base layer is not counted)',
-        default = True
-    )
-
-    override_all : BoolProperty(
-        name = 'Override All Settings',  
-        description = 'Override all settings to custom targets',
-        default = False
-    )
-
-    override_resolution : EnumProperty(
-        name = 'Override Resolution',  
-        description = 'Override resolution settings to custom targets',
-        items = bake_resolution_override_type,
-        update = update_bake_override_resolution,
-        default = 'Default'
-    )
-
-    override_samples : EnumProperty(
-        name = 'Override Sample',
-        description = 'Override sample settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_aa_level : EnumProperty(
-        name = 'Override AA Level',
-        description = 'Override AA level settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_margin : EnumProperty(
-        name = 'Override Margin',  
-        description = 'Override margin settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_interpolation : EnumProperty(
-        name = 'Override Interpolation',
-        description = 'Override interpolation settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_uv_map : EnumProperty(
-        name = 'Override UV Map',
-        description = 'Override UV map settings to custom targets',
-        items = bake_override_type,
-        default = 'Default'
-    )
-
-    override_use_udim : EnumProperty(
-        name = 'Override UDIM Tiles',
-        description = 'Override UDIM tiles settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_fxaa : EnumProperty(
-        name = 'Override FXAA',
-        description = 'Override FXAA settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_denoise : EnumProperty(
-        name = 'Override Denoise',
-        description = 'Override Denoise settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_use_dithering : EnumProperty(
-        name = 'Override Dithering',
-        description = 'Override Dithering settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_force_bake_all_polygons : EnumProperty(
-        name = 'Override Force Bake all Polygons',
-        description = 'Override Force Bake all polygons settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    override_bake_disabled_layers : EnumProperty(
-        name = 'Override Bake Disabled Layers',
-        description = 'Override Bake Disabled Layers settings to custom targets',
-        items = bake_boolean_override_type,
-        default = 'Default',
-        update = update_override_vars
-    )
-
-    @classmethod
-    def poll(cls, context):
-        node = get_active_ypaint_node()
-        if not node: return False
-
-        group_tree = node.node_tree
-        yp = group_tree.yp
-        obj = context.object
-        
-        return obj and obj.type == 'MESH' and len(yp.bake_targets) > 0
-
-    def invoke(self, context, event):
-        return self.invoke_op(context, event)
-
-    def draw_label(self, layout, label):
-        row_var = split_layout(layout, 0.4, True)
-        row_var.alignment = 'RIGHT'
-        row_var.label(text=label + ':')
-
-        return row_var
-
-    def draw_field(self, layout, field_override, field_name, label):
-
-        is_overriden = False
-        if field_override != '':
-            is_overriden = getattr(self, field_override) == 'Override'
-
-        row_var = self.draw_label(layout, label)
-
-        if is_overriden or self.override_all:
-
-            if self.override_all:
-                row_ovr = row_var
-            else:
-                row_ovr = split_layout(row_var, 0.3, align=True)
-                row_ovr.prop(self, field_override, text='')
-
-            if field_name == 'uv_map':
-                row_ovr.prop_search(self, field_name, self, "uv_map_coll", text='', icon='GROUP_UVS')
-            elif field_name == 'margin':
-                if is_bl_newer_than(3, 1):
-                    split = split_layout(row_ovr, 0.4, align=True)
-                    split.prop(self, field_name, text='')
-                    split.prop(self, 'margin_type', text='')
-                else:
-                    row_ovr.prop(self, field_name, text='')
-            else:
-                row_ovr.prop(self, field_name, text='')
-        else:
-            row_var.prop(self, field_override, text='')
-
-    def draw_bool_field(self, layout, field_override, field_name, label):
-
-        row_var = self.draw_label(layout, label)
-
-        if self.override_all:
-            row_var.prop(self, field_name, text='')
-        else:
-            row_var.prop(self, field_override, text='')
-
-            if field_name == 'use_dithering' and self.override_use_dithering == 'Enable':
-                row_var.prop(self, 'dither_intensity', text='')
-
-    def draw(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        ypup = get_user_preferences()
-        obj = context.object
-
-        root_col = self.layout.column()
-
-        row_var = split_layout(root_col, 0.4, True)
-        row_var.alignment = 'RIGHT'
-        row_var.label(text="Bake Device" + ':')
-        row_var.prop(self, "bake_device", text="")
-
-        #if ypup.default_bake_device != self.bake_device:
-        #    row_ovr = split_layout(root_col, 0.4, align=True)
-        #    row_ovr.alignment = 'RIGHT'
-        #    row_ovr.label(text="Set as default" + ':')
-        #    row_ovr.prop(self, "override_bake_device", text="")
-
-        if self.show_necessary_only_option:
-            row_var = split_layout(root_col, 0.4, True)
-            row_var.label(text='')
-            row_var.prop(self, 'necessary_only')
-
-        row_var = split_layout(root_col, 0.4, True)
-        row_var.label(text='')
-        row_var.prop(self, 'override_all', text='Override All Variables')
-
-        any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
-
-        box = root_col.box()
-        bcol = box.column()
-        if self.override_all:
-            draw_base_bake_target_settings(context, bcol, self, bt=None, show_image_props=any_image_bts, show_vcol_props=False, show_hdr=False, show_udim=UDIM.is_udim_supported())
-
-        else:
-            if any_image_bts:
-                # resolution
-                res_label = 'Resolution'
-                override_res = 'override_resolution'
-
-                res_override_type = getattr(self, override_res)
-
-                if not self.override_all:
-                    row_var = self.draw_label(bcol, res_label)
-                else:
-                    row_var = self.draw_label(bcol, "Custom Resolution")
-
-                if self.override_all:
-                    row_var.prop(self, 'use_custom_resolution', text='')
-                else:
-                    row_var.prop(self, override_res, text='')
-
-                if res_override_type == 'Template' or (self.override_all and not self.use_custom_resolution):
-                    lbl = split_layout(bcol, 0.4, align=True)
-                    if self.override_all and self.use_custom_resolution == False:
-                        lbl.alignment = 'RIGHT'
-                        lbl.label(text='Resolution:')
-                    else:
-                        lbl.label(text='')
-                    row_res = lbl.row(align=True)
-                    row_res.prop(self, 'image_resolution', expand= True,)
-                elif res_override_type == 'Custom' or (self.override_all and self.use_custom_resolution):
-
-                    row_width = self.draw_label(bcol, "Width")
-                    row_width.prop(self, 'width', text='')
-
-                    row_height = self.draw_label(bcol, "Height")
-                    row_height.prop(self, 'height', text='')
-
-                self.draw_field(bcol, 'override_samples', 'samples', 'Samples')
-                self.draw_field(bcol, 'override_aa_level', 'aa_level', 'AA Level')
-                self.draw_field(bcol, 'override_margin', 'margin', 'Margin')
-                self.draw_field(bcol, 'override_interpolation', 'interpolation', 'Interpolation')
-                self.draw_field(bcol, 'override_uv_map', 'uv_map', 'UV Map')
-                self.draw_bool_field(bcol, 'override_use_udim', 'use_udim', 'Use UDIM Tiles')
-                self.draw_bool_field(bcol, 'override_fxaa', 'fxaa', 'Use FXAA')
-                self.draw_bool_field(bcol, 'override_denoise', 'denoise', 'Use Denoise')
-                self.draw_bool_field(bcol, 'override_use_dithering', 'use_dithering', 'Use Dithering')
-            self.draw_bool_field(bcol, 'override_force_bake_all_polygons', 'force_bake_all_polygons', 'Force Bake all Polygons')
-            self.draw_bool_field(bcol, 'override_bake_disabled_layers', 'bake_disabled_layers', 'Bake Disabled Layers')
-
-    def execute(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        if not self.necessary_only or not self.show_necessary_only_option:
-            bts = yp.bake_targets
-        else:
-            # Get normal and height channel pair
-            normal_ch, height_ch = get_normal_height_ch_pairs(yp)
-
-            # Get necessary channels
-            ch_names = []
-            for i, root_ch in enumerate(yp.channels):
-
-                # Check for connected input
-                inp = node.inputs.get(root_ch.name)
-                if inp and len(inp.links) > 0:
-                    if root_ch.name not in ch_names:
-                        ch_names.append(root_ch.name)
-                    continue
-
-                # Check for any layer
-                for layer in yp.layers:
-                    try: ch = layer.channels[i]
-                    except: pass
-                    if get_channel_enabled(ch, layer, root_ch):
-
-                        # NOTE: Currently height will also be baked even though it's only used as bump
-                        if root_ch.name not in ch_names:
-                            ch_names.append(root_ch.name)
-                        if normal_ch and height_ch and height_ch.use_height_as_bump and root_ch == height_ch:
-                            if  normal_ch.name not in ch_names:
-                                ch_names.append(normal_ch.name)
-
-                        break
-            
-            # Get bake target that uses the necessary channels:
-            bts = []
-            for bt in yp.bake_targets:
-                for letter in rgba_letters:
-                    btc = getattr(bt, letter)
-                    if btc and btc.channel_name in ch_names and bt not in bts:
-                        bts.append(bt)
-                        break
-
-        if len(bts) == 0:
-            self.report({'ERROR'}, "No valid bake targets to bake!")
-            return {'CANCELLED'}
-
-        return self.execute_bake_bake_target(context, bts, bake_device=self.bake_device)
 
 class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     """Bake Channels to Image(s)"""
@@ -4797,7 +4491,6 @@ def register():
     bpy.utils.register_class(YMergeMask)
     bpy.utils.register_class(YDeleteBakedChannelImages)
     bpy.utils.register_class(YBakeAllTargets)
-    bpy.utils.register_class(YBakeAllTargetsImmediate)
     bpy.utils.register_class(YBakeSingleTarget)
 
 def unregister():
@@ -4810,5 +4503,4 @@ def unregister():
     bpy.utils.unregister_class(YMergeMask)
     bpy.utils.unregister_class(YDeleteBakedChannelImages)
     bpy.utils.unregister_class(YBakeAllTargets)
-    bpy.utils.unregister_class(YBakeAllTargetsImmediate)
     bpy.utils.unregister_class(YBakeSingleTarget)
