@@ -1774,6 +1774,10 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
             else:
                 rrow.prop(layer, 'texcoord_type', text='')
 
+        #if layer.texcoord_type == 'UV':
+        #    icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        #    rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
+
         if lui.expand_vector:
             row = col.row(align=True)
             row.label(text='', icon='BLANK1')
@@ -1853,6 +1857,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     rrrow.label(text='Decal Constraint:')
                     draw_input_prop(rrrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
 
+                    # NOTE: Show constraint target when there's more than one material users
                     decal_const = Decal.get_decal_shrinkwrap_constraint(texcoord.object)
                     if decal_const:
                         mat = get_active_material()
@@ -1927,7 +1932,6 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
             rrow.prop(layer, 'enable_blur_vector', text='')
 
             layout.separator()
-
 
 def get_layer_channel_input_label(layer, ch, source=None, secondary_input=False):
     yp = layer.id_data.yp
@@ -5769,7 +5773,6 @@ def draw_ypaint_about(self, context):
     if addon_updater_ops:
         col.separator()
         addon_updater_ops.draw_updater_options(context, col)
-
 
 class YPaintAboutPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_about_popover"
