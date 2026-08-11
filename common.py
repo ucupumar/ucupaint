@@ -8559,20 +8559,30 @@ def get_bake_target_channels(bt):
 
     return channels
 
-def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image_props=True, show_vcol_props=True, show_hdr=True, show_udim=True):
+def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image_props=True, show_vcol_props=True, show_hdr=True, show_udim=True, yp=None):
 
     any_normal_ch = False
     any_height_ch = False
     any_non_clamped_ch = False
     any_color_channel = False
     if bt:
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        if yp == None:
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
         channels = get_bake_target_channels(bt)
         any_normal_ch = any([c for c in channels if c.special_type == 'NORMAL'])
         any_height_ch = any([c for c in channels if c.special_type == 'HEIGHT'])
         any_non_clamped_ch = any([c for c in channels if not c.use_clamp and c.special_type not in {'HEIGHT', 'NORMAL'}])
         any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+
+    show_float_normal_option = False
+    show_float_height_option = False
+    if yp and hasattr(btprops, 'use_float_for_displacement') and hasattr(btprops, 'use_float_for_normal'):
+        for c in yp.channels:
+            if c.special_type == 'NORMAL' and yp.bake_targets.get(c.bake_target_name):
+                show_float_normal_option = True
+            if c.special_type == 'HEIGHT' and yp.bake_targets.get(c.bake_target_name):
+                show_float_height_option = True
 
     obj = context.object
 
@@ -8625,8 +8635,10 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
             ccol.separator()
         ccol.label(text='Margin:')
 
-        if hasattr(btprops, 'use_float_for_displacement') or hasattr(btprops, 'use_float_for_normal'):
-            col.label(text='Use 32-bit Float:')
+        if show_float_normal_option or show_float_height_option:
+            if not show_float_normal_option or not show_float_height_option:
+                col.label(text='')
+            else: col.label(text='Use 32-bit Float:')
         else:
             col.separator()
 
@@ -8661,12 +8673,18 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
         else:
             ccol.prop(btprops, 'margin', text='')
 
-        if hasattr(btprops, 'use_float_for_displacement') or hasattr(btprops, 'use_float_for_normal'):
+        if show_float_normal_option or show_float_height_option:
             crow = col.row()
-            if hasattr(btprops, 'use_float_for_normal'):
-                crow.prop(btprops, 'use_float_for_normal', text='Normal')
-            if hasattr(btprops, 'use_float_for_displacement'):
-                crow.prop(btprops, 'use_float_for_displacement', text='Height')
+            if show_float_normal_option:
+                if not show_float_height_option:
+                    title = 'Use 32-bit float for Normal'
+                else: title = 'Normal'
+                crow.prop(btprops, 'use_float_for_normal', text=title)
+            if show_float_height_option:
+                if not show_float_normal_option:
+                    title = 'Use 32-bit float for Height'
+                else: title = 'Height'
+                crow.prop(btprops, 'use_float_for_displacement', text=title)
         else:
             col.separator()
 

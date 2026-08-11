@@ -1594,7 +1594,8 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
                 show_image_props = any_image_bts,
                 show_vcol_props = False, #any_vcol_bts,
                 show_hdr = False,
-                show_udim = UDIM.is_udim_supported()
+                show_udim = UDIM.is_udim_supported(),
+                yp = yp
             )
             col.separator()
 
