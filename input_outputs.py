@@ -742,10 +742,6 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             input_index += 1
 
         if layer.texcoord_type == 'Decal':
-            dirty = create_prop_input(layer, 'decal_projection_type', valid_inputs, input_index, dirty, float_factor_input_names)
-            input_index += 1
-            dirty = create_prop_input(layer, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)        
-            input_index += 1
             dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)                   
             input_index += 1
         

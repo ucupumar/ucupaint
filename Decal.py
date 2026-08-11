@@ -4,6 +4,260 @@ from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
 
+def get_cylinder_projection_tree():
+    tree_name = '~yPL Cylinder Projection'
+    tree = bpy.data.node_groups.get(tree_name)
+    if tree:
+        return tree
+
+    tree = bpy.data.node_groups.new(tree_name, 'ShaderNodeTree')
+    # --- Setup Sockets ---
+    if is_bl_newer_than(4, 0):
+        tree.interface.new_socket('Vector', in_out='INPUT', socket_type='NodeSocketVector')
+            
+        s_dist = tree.interface.new_socket('Decal Distance', in_out='INPUT', socket_type='NodeSocketFloat')
+        if hasattr(s_dist, 'default_value'):
+            s_dist.default_value = 1.0
+
+        s_scale = tree.interface.new_socket('Scale', in_out='INPUT', socket_type='NodeSocketVector')
+        if hasattr(s_scale, 'default_value'):
+            s_scale.default_value = (1.0, 1.0, 1.0)
+
+        tree.interface.new_socket('Vector', in_out='OUTPUT', socket_type='NodeSocketVector')
+        tree.interface.new_socket('Alpha Mask', in_out='OUTPUT', socket_type='NodeSocketFloat')
+    else:
+        new_tree_input(tree, 'Vector', 'NodeSocketVector')
+        
+        s_dist = new_tree_input(tree, 'Decal Distance', 'NodeSocketFloat')
+        s_dist.default_value = 1.0
+
+        s_scale = new_tree_input(tree, 'Scale', 'NodeSocketVector')
+        s_scale.default_value = (1.0, 1.0, 1.0)
+
+        new_tree_output(tree, 'Vector', 'NodeSocketVector')
+        new_tree_output(tree, 'Alpha Mask', 'NodeSocketFloat')
+
+    create_essential_nodes(tree)
+    start = tree.nodes.get(TREE_START)
+    end = tree.nodes.get(TREE_END)
+
+    # --- 1. Gizmo Alignment: Rotate 90° on X ---
+    vec_rot = tree.nodes.new('ShaderNodeVectorRotate')
+    vec_rot.inputs['Axis'].default_value = (1.0, 0.0, 0.0)
+    vec_rot.inputs['Angle'].default_value = math.radians(90)
+    tree.links.new(start.outputs['Vector'], vec_rot.inputs['Vector'])
+
+    # Separate unscaled rotated vector
+    sep_rot = tree.nodes.new('ShaderNodeSeparateXYZ')
+    tree.links.new(vec_rot.outputs['Vector'], sep_rot.inputs['Vector'])
+
+    # Separate Scale input for horizontal (X) and vertical (Y) UV tiling
+    sep_scale = tree.nodes.new('ShaderNodeSeparateXYZ')
+    tree.links.new(start.outputs['Scale'], sep_scale.inputs['Vector'])
+
+    # --- 2. Horizontal U (Azimuth Angle) + Scale Tiling ---
+    # U_raw = atan2(Y, X) / (2 * pi) -> yields range [-0.5, 0.5]
+    atan_u = tree.nodes.new('ShaderNodeMath')
+    atan_u.operation = 'ARCTAN2'
+    tree.links.new(sep_rot.outputs['Y'], atan_u.inputs[0])
+    tree.links.new(sep_rot.outputs['X'], atan_u.inputs[1])
+
+    norm_u = tree.nodes.new('ShaderNodeMath')
+    norm_u.operation = 'MULTIPLY'
+    norm_u.inputs[1].default_value = 1.0 / (2.0 * math.pi)
+    tree.links.new(atan_u.outputs['Value'], norm_u.inputs[0])
+
+    # Tile U using Scale.X
+    scaled_u = tree.nodes.new('ShaderNodeMath')
+    scaled_u.operation = 'MULTIPLY'
+    tree.links.new(norm_u.outputs['Value'], scaled_u.inputs[0])
+    tree.links.new(sep_scale.outputs['X'], scaled_u.inputs[1])
+
+    # Center U at 0.5
+    cyl_u = tree.nodes.new('ShaderNodeMath')
+    cyl_u.operation = 'ADD'
+    cyl_u.inputs[1].default_value = 0.5
+    tree.links.new(scaled_u.outputs['Value'], cyl_u.inputs[0])
+
+    # --- 3. Vertical V (Height Mapping) + Scale Tiling ---
+    # V_raw = Z -> yields range [-0.5, 0.5]
+    # Tile V using Scale.Y
+    scaled_v = tree.nodes.new('ShaderNodeMath')
+    scaled_v.operation = 'MULTIPLY'
+    tree.links.new(sep_rot.outputs['Z'], scaled_v.inputs[0])
+    tree.links.new(sep_scale.outputs['Y'], scaled_v.inputs[1])
+
+    # Center V at 0.5
+    cyl_v = tree.nodes.new('ShaderNodeMath')
+    cyl_v.operation = 'ADD'
+    cyl_v.inputs[1].default_value = 0.5
+    tree.links.new(scaled_v.outputs['Value'], cyl_v.inputs[0])
+
+    # Combine into UV output vector
+    cyl_uv = tree.nodes.new('ShaderNodeCombineXYZ')
+    tree.links.new(cyl_u.outputs['Value'], cyl_uv.inputs['X'])
+    tree.links.new(cyl_v.outputs['Value'], cyl_uv.inputs['Y'])
+
+    # --- 4. Cylindrical Boundary Mask (Based on Gizmo Size) ---
+    # Radial XY Distance: length(X, Y)
+    xy_comb = tree.nodes.new('ShaderNodeCombineXYZ')
+    tree.links.new(sep_rot.outputs['X'], xy_comb.inputs['X'])
+    tree.links.new(sep_rot.outputs['Y'], xy_comb.inputs['Y'])
+
+    xy_len = tree.nodes.new('ShaderNodeVectorMath')
+    xy_len.operation = 'LENGTH'
+    tree.links.new(xy_comb.outputs['Vector'], xy_len.inputs[0])
+
+    # Z Depth Distance: |Z|
+    abs_z = tree.nodes.new('ShaderNodeMath')
+    abs_z.operation = 'ABSOLUTE'
+    tree.links.new(sep_rot.outputs['Z'], abs_z.inputs[0])
+
+    half_dist = tree.nodes.new('ShaderNodeMath')
+    half_dist.operation = 'MULTIPLY'
+    half_dist.inputs[1].default_value = 0.5
+    tree.links.new(start.outputs['Decal Distance'], half_dist.inputs[0])
+
+    # Combine Masks
+    mask_xy = tree.nodes.new('ShaderNodeMath')
+    mask_xy.operation = 'LESS_THAN'
+    tree.links.new(xy_len.outputs['Value'], mask_xy.inputs[0])
+    tree.links.new(half_dist.outputs['Value'], mask_xy.inputs[1])
+
+    mask_z = tree.nodes.new('ShaderNodeMath')
+    mask_z.operation = 'LESS_THAN'
+    tree.links.new(abs_z.outputs['Value'], mask_z.inputs[0])
+    tree.links.new(half_dist.outputs['Value'], mask_z.inputs[1])
+
+    mask_cyl = tree.nodes.new('ShaderNodeMath')
+    mask_cyl.operation = 'MULTIPLY'
+    tree.links.new(mask_xy.outputs['Value'], mask_cyl.inputs[0])
+    tree.links.new(mask_z.outputs['Value'], mask_cyl.inputs[1])
+
+    # --- Outputs ---
+    tree.links.new(cyl_uv.outputs['Vector'], end.inputs['Vector'])
+    tree.links.new(mask_cyl.outputs['Value'], end.inputs['Alpha Mask'])
+
+    return tree
+
+def get_sphere_projection_tree():
+    tree_name = '~yPL Sphere Projection'
+    tree = bpy.data.node_groups.get(tree_name)
+    if tree:
+        return tree
+
+    tree = bpy.data.node_groups.new(tree_name, 'ShaderNodeTree')
+    # --- Setup Sockets ---
+    if is_bl_newer_than(4, 0):
+        tree.interface.new_socket('Vector', in_out='INPUT', socket_type='NodeSocketVector')
+            
+        s_dist = tree.interface.new_socket('Decal Distance', in_out='INPUT', socket_type='NodeSocketFloat')
+        if hasattr(s_dist, 'default_value'):
+            s_dist.default_value = 1.0
+
+        s_scale = tree.interface.new_socket('Scale', in_out='INPUT', socket_type='NodeSocketVector')
+        if hasattr(s_scale, 'default_value'):
+            s_scale.default_value = (1.0, 1.0, 1.0)
+
+        tree.interface.new_socket('Vector', in_out='OUTPUT', socket_type='NodeSocketVector')
+        tree.interface.new_socket('Alpha Mask', in_out='OUTPUT', socket_type='NodeSocketFloat')
+    else:
+        new_tree_input(tree, 'Vector', 'NodeSocketVector')
+        
+        s_dist = new_tree_input(tree, 'Decal Distance', 'NodeSocketFloat')
+        s_dist.default_value = 1.0
+
+        s_scale = new_tree_input(tree, 'Scale', 'NodeSocketVector')
+        s_scale.default_value = (1.0, 1.0, 1.0)
+
+        new_tree_output(tree, 'Vector', 'NodeSocketVector')
+        new_tree_output(tree, 'Alpha Mask', 'NodeSocketFloat')
+
+    create_essential_nodes(tree)
+    start = tree.nodes.get(TREE_START)
+    end = tree.nodes.get(TREE_END)
+
+    # --- 1. Cast from Center Outwards (Normalize Unscaled Vector) ---
+    vec_norm = tree.nodes.new('ShaderNodeVectorMath')
+    vec_norm.operation = 'NORMALIZE'
+    tree.links.new(start.outputs['Vector'], vec_norm.inputs[0])
+
+    sep_norm = tree.nodes.new('ShaderNodeSeparateXYZ')
+    tree.links.new(vec_norm.outputs['Vector'], sep_norm.inputs['Vector'])
+
+    # Separate Scale input for horizontal (X) and vertical (Y) UV tiling
+    sep_scale = tree.nodes.new('ShaderNodeSeparateXYZ')
+    tree.links.new(start.outputs['Scale'], sep_scale.inputs['Vector'])
+
+    # --- 2. Horizontal U (Angle around central Z-axis) + Scale Tiling ---
+    # U_raw = atan2(Y_norm, X_norm) / (2 * pi) -> yields range [-0.5, 0.5]
+    atan_u = tree.nodes.new('ShaderNodeMath')
+    atan_u.operation = 'ARCTAN2'
+    tree.links.new(sep_norm.outputs['Y'], atan_u.inputs[0])
+    tree.links.new(sep_norm.outputs['X'], atan_u.inputs[1])
+
+    norm_u = tree.nodes.new('ShaderNodeMath')
+    norm_u.operation = 'MULTIPLY'
+    norm_u.inputs[1].default_value = 1.0 / (2.0 * math.pi)
+    tree.links.new(atan_u.outputs['Value'], norm_u.inputs[0])
+
+    # Tile U using Scale.X
+    scaled_u = tree.nodes.new('ShaderNodeMath')
+    scaled_u.operation = 'MULTIPLY'
+    tree.links.new(norm_u.outputs['Value'], scaled_u.inputs[0])
+    tree.links.new(sep_scale.outputs['X'], scaled_u.inputs[1])
+
+    # Center U at 0.5
+    sphere_u = tree.nodes.new('ShaderNodeMath')
+    sphere_u.operation = 'ADD'
+    sphere_u.inputs[1].default_value = 0.5
+    tree.links.new(scaled_u.outputs['Value'], sphere_u.inputs[0])
+
+    # --- 3. Vertical V (Latitude / Z height) + Scale Tiling ---
+    # V_raw = Z_norm * 0.5 -> yields range [-0.5, 0.5]
+    mult_v = tree.nodes.new('ShaderNodeMath')
+    mult_v.operation = 'MULTIPLY'
+    mult_v.inputs[1].default_value = 0.5
+    tree.links.new(sep_norm.outputs['Z'], mult_v.inputs[0])
+
+    # Tile V using Scale.Y
+    scaled_v = tree.nodes.new('ShaderNodeMath')
+    scaled_v.operation = 'MULTIPLY'
+    tree.links.new(mult_v.outputs['Value'], scaled_v.inputs[0])
+    tree.links.new(sep_scale.outputs['Y'], scaled_v.inputs[1])
+
+    # Center V at 0.5
+    sphere_v = tree.nodes.new('ShaderNodeMath')
+    sphere_v.operation = 'ADD'
+    sphere_v.inputs[1].default_value = 0.5
+    tree.links.new(scaled_v.outputs['Value'], sphere_v.inputs[0])
+
+    # Combine into UV output vector
+    sphere_uv = tree.nodes.new('ShaderNodeCombineXYZ')
+    tree.links.new(sphere_u.outputs['Value'], sphere_uv.inputs['X'])
+    tree.links.new(sphere_v.outputs['Value'], sphere_uv.inputs['Y'])
+
+    # --- 4. Radial Distance Mask (3D distance from center < Decal Distance * 0.5) ---
+    vec_len = tree.nodes.new('ShaderNodeVectorMath')
+    vec_len.operation = 'LENGTH'
+    tree.links.new(start.outputs['Vector'], vec_len.inputs[0])
+
+    half_dist = tree.nodes.new('ShaderNodeMath')
+    half_dist.operation = 'MULTIPLY'
+    half_dist.inputs[1].default_value = 0.5
+    tree.links.new(start.outputs['Decal Distance'], half_dist.inputs[0])
+
+    mask_r = tree.nodes.new('ShaderNodeMath')
+    mask_r.operation = 'LESS_THAN'
+    tree.links.new(vec_len.outputs['Value'], mask_r.inputs[0])
+    tree.links.new(half_dist.outputs['Value'], mask_r.inputs[1])
+
+    # --- Outputs ---
+    tree.links.new(sphere_uv.outputs['Vector'], end.inputs['Vector'])
+    tree.links.new(mask_r.outputs['Value'], end.inputs['Alpha Mask'])
+
+    return tree
+
 def get_plane_projection_tree():
     """Pure planar projection: Infinite XY plane projection with Z-axis distance clipping."""
     tree_name = '~yPL Plane Projection'
@@ -12,7 +266,6 @@ def get_plane_projection_tree():
         return tree
 
     tree = bpy.data.node_groups.new(tree_name, 'ShaderNodeTree')
-
     # --- Setup Sockets ---
     if is_bl_newer_than(4, 0):
         tree.interface.new_socket('Vector', in_out='INPUT', socket_type='NodeSocketVector')
@@ -111,9 +364,6 @@ def get_decal_process_tree():
         if hasattr(inp_scale, 'default_value'):
             inp_scale.default_value = (1.0, 1.0, 1.0)   
 
-        inp_type = tree.interface.new_socket('Type', in_out='INPUT', socket_type='NodeSocketInt')
-        if hasattr(inp_type, 'default_value'):
-            inp_type.default_value = 0     
 
         tree.interface.new_socket('Vector', in_out='OUTPUT', socket_type='NodeSocketVector')
         tree.interface.new_socket('Alpha Mask', in_out='OUTPUT', socket_type='NodeSocketFloat')
@@ -126,9 +376,6 @@ def get_decal_process_tree():
 
         inp_scale = new_tree_input(tree, 'Scale', 'NodeSocketVector')
         inp_scale.default_value = (1.0, 1.0, 1.0)
-
-        inp_type = new_tree_input(tree, 'Type', 'NodeSocketInt')
-        inp_type.default_value = 0
 
         new_tree_output(tree, 'Vector', 'NodeSocketVector')
         new_tree_output(tree, 'Alpha Mask', 'NodeSocketFloat')
@@ -198,10 +445,85 @@ decal_projection_items = (
     ('SPHERE', "Sphere", "Spherical projection"),
 )
 
+def set_projection_gizmo(proj_node, mode):
+    if not proj_node:
+        return
+
+    match mode:
+        case 'SPHERE':
+            new_tree = get_sphere_projection_tree()
+        case 'CYLINDER':
+            new_tree = get_cylinder_projection_tree()
+        case _:
+            new_tree = get_plane_projection_tree()
+
+    # Swap tree if changed
+    old_tree = proj_node.node_tree
+    if old_tree != new_tree:
+        proj_node.node_tree = new_tree
+
+        # Clean up
+        if old_tree and old_tree.users == 0:
+            bpy.data.node_groups.remove(old_tree)
+
+def set_projection_mode(proj_node, mode):
+    if not proj_node:
+        return
+
+    match mode:
+        case 'SPHERE':
+            new_tree = get_sphere_projection_tree()
+        case 'CYLINDER':
+            new_tree = get_cylinder_projection_tree()
+        case _:
+            new_tree = get_plane_projection_tree()
+
+    # Swap tree if changed
+    old_tree = proj_node.node_tree
+    if old_tree != new_tree:
+        proj_node.node_tree = new_tree
+
+        # Clean up
+        if old_tree and old_tree.users == 0:
+            bpy.data.node_groups.remove(old_tree)
+
+
 def update_decal_projection(self, context):
-    """Callback to rebuild shader node connections when decal properties change."""
-    # Find tree from self/context and update decal nodes
-    check_entity_decal_nodes(self)
+    entity = self
+    
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if m1: 
+        tree = get_tree(entity)
+    elif m2: 
+        tree = get_mask_tree(entity)
+
+      
+    if not tree:
+        return
+    
+    decal_node = tree.nodes.get(getattr(entity, 'decal_process', ''))
+    if not decal_node or not decal_node.node_tree:
+        return
+
+    #Split decal nodes
+    if decal_node.node_tree.users > 1:
+        decal_node.node_tree = decal_node.node_tree.copy()
+
+    proj_node = None
+    for node in decal_node.node_tree.nodes:
+        if node.type == 'GROUP' and node.node_tree:
+            if re.match(r'^~yPL .+ Projection$', node.node_tree.name):
+                proj_node = node
+                break
+
+    if not proj_node:
+        return
+    
+    mode = getattr(entity, 'decal_projection_type', 'FLAT')
+
+    set_projection_mode(proj_node, mode)
 
 def update_enable_uniform_scale(self, context):
     """Fired when toggling the lock icon."""
@@ -245,20 +567,19 @@ def update_enable_decal_object_constraint(self, context):
         if decal_const:
             decal_obj.constraints.remove(decal_const)
 
-def create_decal_empty(projection_type='FLAT'):
+def create_decal_empty():
     obj = bpy.context.object
     scene = bpy.context.scene
     empty_name = get_unique_name('Decal', bpy.data.objects)
     empty = bpy.data.objects.new(empty_name, None)
 
-    # Set Empty display type according to projection primitive
-    display_map = {'FLAT': 'SINGLE_ARROW', 'CYLINDER': 'CYLINDER', 'SPHERE': 'SPHERE'}
-    draw_type = display_map.get(projection_type, 'SINGLE_ARROW')
+
 
     if is_bl_newer_than(2, 80):
-        empty.empty_display_type = draw_type
+        empty.empty_display_type = 'SINGLE_ARROW'
     else: 
-        empty.empty_draw_type = draw_type
+        empty.empty_draw_type = 'SINGLE_ARROW'
+
 
     custom_collection = obj.users_collection[0] if is_bl_newer_than(2, 80) and len(obj.users_collection) > 0 else None
     link_object(scene, empty, custom_collection)
@@ -310,12 +631,12 @@ def check_entity_decal_nodes(entity, tree=None):
 
         # 3. Create or update TexCoord empty object
         if not texcoord:
-            empty = create_decal_empty(proj_type)
+            empty = create_decal_empty()
             texcoord = new_node(tree, entity, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
             texcoord.object = empty
         elif hasattr(texcoord, 'object') and texcoord.object:
-            display_map = {'FLAT': 'SINGLE_ARROW', 'CYLINDER': 'CYLINDER', 'SPHERE': 'SPHERE'}
-            texcoord.object.empty_display_type = display_map.get(proj_type, 'SINGLE_ARROW')
+            display_map = {'FLAT': 'SINGLE_ARROW', 'CYLINDER': 'CIRCLE', 'SPHERE': 'SPHERE'}
+            texcoord.object.empty_display_type = 'SINGLE_ARROW'
 
         # 4. Create or fetch Decal Process group node
         decal_process = tree.nodes.get(entity.decal_process)
@@ -385,12 +706,6 @@ def check_entity_decal_nodes(entity, tree=None):
         scale_input = decal_process.inputs.get('Scale')
         if scale_input:
             scale_input.default_value = (scale_x, scale_y, scale_z)
-
-        # 8. Pass Projection Type integer (FLAT=0, CYLINDER=1, SPHERE=2)
-        proj_input = decal_process.inputs.get('Projection Type') or decal_process.inputs.get('Mode')
-        if proj_input:
-            proj_map = {'FLAT': 0, 'CYLINDER': 1, 'SPHERE': 2}
-            proj_input.default_value = proj_map.get(proj_type, 0)
 
         # 9. Create decal alpha math nodes
         if mask:
@@ -572,6 +887,7 @@ class BaseDecal():
         name = 'Original Image Extension Type',
         default = ''
     )
+
 
 class YPaintDecalObjectProps(bpy.types.PropertyGroup):
     enable_shrinkwrap : BoolProperty(

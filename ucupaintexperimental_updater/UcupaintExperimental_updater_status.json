@@ -1,5 +1,5 @@
 {
-    "last_check": "2026-08-06 01:02:45.846151",
+    "last_check": "2026-08-10 16:58:25.820505",
     "backup_date": "",
     "using_development_build": false,
     "current_branch": null,
@@ -79,7 +79,7 @@
                     "state": "uploaded",
                     "size": 2111096,
                     "digest": "sha256:9618f9677bad60e250ee61835efc358bdf97da5ce13dcb53f735c45c7648e705",
-                    "download_count": 667,
+                    "download_count": 903,
                     "created_at": "2026-07-29T13:08:31Z",
                     "updated_at": "2026-07-29T13:08:31Z",
                     "browser_download_url": "https://github.com/ucupumar/ucupaint/releases/download/2.4.9/ucupaint-2.4.9.zip"
@@ -115,7 +115,7 @@
                     "state": "uploaded",
                     "size": 2111003,
                     "digest": "sha256:73d78b8c720e8e91d37f0db6d4a81775c3c99d100b05c408ccadf9f76f465d73",
-                    "download_count": 24,
+                    "download_count": 34,
                     "created_at": "2026-07-29T13:08:28Z",
                     "updated_at": "2026-07-29T13:08:28Z",
                     "browser_download_url": "https://github.com/ucupumar/ucupaint/releases/download/2.4.9/ucupaint-blender_27x-legacy-2.4.9.zip"
@@ -151,7 +151,7 @@
                     "state": "uploaded",
                     "size": 2030697,
                     "digest": "sha256:82ec6c77d32681148f605e442ead685ad5e7aa92ca473246bd63b98ed8cc0803",
-                    "download_count": 36,
+                    "download_count": 43,
                     "created_at": "2026-07-29T13:08:34Z",
                     "updated_at": "2026-07-29T13:08:35Z",
                     "browser_download_url": "https://github.com/ucupumar/ucupaint/releases/download/2.4.9/ucupaint-no-auto-update-2.4.9.zip"
@@ -230,7 +230,7 @@
         },
         {
             "name": "v300btui",
-            "last_commit": "c95a9b7f91a42c2fee960e8a7e95b5ca1e71adf8",
+            "last_commit": "9894dfaab8bd851c94f6b9c2dffbef866c58ea7e",
             "label": "v300btui",
             "zipball_url": "https://api.github.com/repos/ucupumar/ucupaint/zipball/v300btui"
         },
