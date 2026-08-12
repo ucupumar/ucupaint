@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake, ListItem, modifier_common, Modifier, Layer, channel_common
+from . import Bake, ListItem, modifier_common, Modifier, Layer, channel_common, BakeTarget
 
 def flip_tangent_sign():
     meshes = []
@@ -1709,6 +1709,28 @@ def update_yp_tree(tree):
         if yp.layer_preview_mode:
             yp.preview_mode = True
             yp.preview_mode_type = yp.layer_preview_mode_type
+
+        # Copy the first bake target to the global settings
+        first_bt = None
+        for bt in yp.bake_targets:
+            if bt.data_type == 'IMAGE':
+                first_bt = bt
+                break
+
+        if first_bt:
+            gloset = yp.bake_target_global_settings
+
+            props = BakeTarget.get_global_settings_props()
+            for prop in props:
+                if hasattr(first_bt, prop):
+                    setattr(gloset, prop, getattr(first_bt, prop))
+
+            # Also copy from image's bake info for some other props
+            baked_node = tree.nodes.get(first_bt.baked_node)
+            if baked_node and baked_node.image:
+                bi = baked_node.image.y_bake_info
+                gloset.use_float_for_displacement = bi.use_float_for_displacement
+                gloset.use_float_for_normal = bi.use_float_for_normal
 
         # Update list item since there's a new base layer
         ListItem.refresh_list_items(yp)
