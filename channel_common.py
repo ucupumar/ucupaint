@@ -57,6 +57,45 @@ def check_yp_channel_nodes(yp, reconnect=False):
         reconnect_yp_nodes(yp.id_data)
         rearrange_yp_nodes(yp.id_data)
 
+def create_normal_without_bump_bake_target(yp):
+    group_tree = yp.id_data
+    normal_ch = get_root_normal_channel(yp)
+    height_ch = get_root_height_channel(yp)
+
+    if not normal_ch or not height_ch:
+        return
+
+    # Check if there's already normal without height bake target
+    for b in yp.bake_targets:
+        if is_bake_target_using_exact_channel(b, normal_ch) and not b.normal_includes_height:
+            return
+
+    bt = yp.bake_targets.add()
+    bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ' + normal_ch.name + ' without Height', bpy.data.images)
+
+    bt.a.default_value = 1.0
+
+    bt.r.channel_name = normal_ch.name
+    bt.r.subchannel_index = '0'
+
+    bt.g.channel_name = normal_ch.name
+    bt.g.subchannel_index = '1'
+
+    bt.b.channel_name = normal_ch.name
+    bt.b.subchannel_index = '2'
+
+    bt.data_type = 'IMAGE'
+
+    bt.normal_includes_height = False
+
+    bt.fxaa = False
+    bt.denoise  = False
+
+    if hasattr(bpy.context, 'object'):
+        bt.uv_map = get_default_uv_name(bpy.context.object, yp)
+
+    return bt
+
 def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False, special_type='NONE', add_bake_target=True):
     yp = group_tree.yp
 
@@ -135,33 +174,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
         elif special_type == 'NORMAL':
             bt.fxaa = False
-
-            # Extra normal without bump if height channel exists
-            height_root_ch = get_root_height_channel(yp)
-            if height_root_ch:
-                extra_bt = yp.bake_targets.add()
-                extra_bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ' + name + ' without Height', bpy.data.images)
-
-                extra_bt.a.default_value = 1.0
-
-                extra_bt.r.channel_name = name
-                extra_bt.r.subchannel_index = '0'
-
-                extra_bt.g.channel_name = name
-                extra_bt.g.subchannel_index = '1'
-
-                extra_bt.b.channel_name = name
-                extra_bt.b.subchannel_index = '2'
-
-                extra_bt.data_type = 'IMAGE'
-
-                extra_bt.normal_includes_height = False
-
-                extra_bt.fxaa = False
-                extra_bt.denoise  = False
-
-                if hasattr(bpy.context, 'object'):
-                    extra_bt.uv_map = get_default_uv_name(bpy.context.object, yp)
+            #create_normal_without_bump_bake_target(yp)
         else:
             # FXAA is enabled by default
             bt.fxaa = True

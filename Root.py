@@ -589,6 +589,9 @@ class YQuickDisplacementSetup(bpy.types.Operator):
                 if ch and ch.special_type == 'HEIGHT':
                     ch.use_height_as_bump = False
 
+            # Create normal without height bake target so baked node can be displayed correctly
+            channel_common.create_normal_without_bump_bake_target(yp)
+
         return {'FINISHED'}
 
 class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions):
