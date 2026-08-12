@@ -1504,6 +1504,9 @@ class BaseBakeBakeTargetOperator():
             self.report({'INFO'}, 'Baking bake targets are done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
         else: self.report({'INFO'}, ' Baking '+bts[0].name+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
+        # Add to baked counters
+        gloset.baked_counters += 1
+
         return {'FINISHED'}
     
 class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoProps, BaseBakeBakeTargetOperator):
@@ -1607,7 +1610,8 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
             show_image_props = any_image_bts,
             show_vcol_props = False, #any_vcol_bts,
             show_hdr = False,
-            show_udim = UDIM.is_udim_supported()
+            show_udim = UDIM.is_udim_supported(),
+            yp = yp
         )
 
     def execute(self, context):

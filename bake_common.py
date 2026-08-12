@@ -2516,6 +2516,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     any_linear_ch = any([c for c in channels if c.colorspace == 'LINEAR' or c.special_type == 'NORMAL'])
     any_normal_ch = any([c for c in channels if c.special_type == 'NORMAL'])
     any_height_ch = any([c for c in channels if c.special_type == 'HEIGHT'])
+    any_vdm_ch = any([c for c in channels if c.special_type == 'VDISP'])
     any_non_clamped_ch = any([c for c in channels if c.use_clamp and c.special_type not in {'HEIGHT', 'NORMAL'}])
 
     # Checking if all channel sources are from normal channel
@@ -2638,15 +2639,16 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     #            rearrange_layer_nodes(lay)
 
     # Check for hdr
-    if hasattr(btprops, 'use_float_for_displacement') and hasattr(btprops, 'use_float_for_normal'):
-        if btprops.use_float_for_displacement and any_height_ch:
+    use_hdr = False
+    if not bt or bt.bake_settings == 'GLOBAL':
+        if hasattr(btprops, 'use_float_for_displacement') and btprops.use_float_for_displacement and any_height_ch:
             use_hdr = True
-        if btprops.use_float_for_normal and any_normal_ch:
+        if hasattr(btprops, 'use_float_for_normal') and btprops.use_float_for_normal and any_normal_ch:
             use_hdr = True
-        else:
-            use_hdr = False
-    else:
-        use_hdr = bt.hdr if bt else False
+        if hasattr(btprops, 'use_float_for_vector_displacement') and btprops.use_float_for_vector_displacement and any_vdm_ch:
+            use_hdr = True
+    elif bt:
+        use_hdr = bt.hdr
 
     # Get default color
     color = get_bake_target_default_color(node, bt, any_linear_ch)
@@ -2737,6 +2739,13 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
     # Set interpolation
     if not is_vcol_baking:
         baked_node.interpolation = btprops.interpolation
+
+        # Bake target that uses global settings will always use 'Cubic' interpolation for height and vdm
+        if not bt or bt.bake_settings == 'GLOBAL':
+            if hasattr(btprops, 'use_float_for_displacement') and any_height_ch:
+                baked_node.interpolation = 'Cubic'
+            if hasattr(btprops, 'use_float_for_vector_displacement') and any_vdm_ch:
+                baked_node.interpolation = 'Cubic'
         
     if not is_vcol_baking:
         # Create new image

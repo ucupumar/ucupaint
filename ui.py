@@ -5041,7 +5041,7 @@ class BaseMainUI():
 
         if ypui.expanded_main_ui and not yp.sculpt_mode:
 
-            if not yp.use_baked and not ypup.unified_tab_ui:
+            if not ypup.unified_tab_ui:
 
                 connection_warning = False
                 for ch in yp.channels:
@@ -5051,7 +5051,12 @@ class BaseMainUI():
 
                 icon_value = lib.get_icon('ERROR') if connection_warning else lib.get_icon('channels')
                 row.popover("NODE_PT_ypaint_channel_popover", text='', icon_value=icon_value)
-                row.popover("NODE_PT_ypaint_bake_target_popover", text='', icon_value=lib.get_icon('bake'))
+
+                # NOTE: HACK: Switch between alternative popovers so the popover always closed after baking
+                gloset = yp.bake_target_global_settings
+                if gloset.baked_counters % 2 == 1:
+                    row.popover("NODE_PT_ypaint_bake_target_alt_popover", text='', icon_value=lib.get_icon('bake'))
+                else: row.popover("NODE_PT_ypaint_bake_target_popover", text='', icon_value=lib.get_icon('bake'))
 
             icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
             row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
@@ -6508,6 +6513,23 @@ class YPaintBakeTargetPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_bake_target_popover"
     bl_label = get_addon_title() + " Bake Targets"
     bl_description = get_addon_title() + " Bake Targets"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "WINDOW"
+    bl_ui_units_x = 15
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        draw_bake_targets_ui(context, self.layout, node, show_header=True, rows=len(yp.bake_targets))
+
+class YPaintBakeTargetAltPopover(bpy.types.Panel):
+    bl_idname = "NODE_PT_ypaint_bake_target_alt_popover"
+    bl_label = get_addon_title() + " Bake Targets (Alt)"
+    bl_description = get_addon_title() + " Bake Targets (alt)"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
     bl_ui_units_x = 15
@@ -9324,6 +9346,7 @@ def register():
         bpy.utils.register_class(YListItemOptionPopover)
 
         bpy.utils.register_class(YPaintBakeTargetPopover)
+        bpy.utils.register_class(YPaintBakeTargetAltPopover)
         bpy.utils.register_class(YPaintChannelPopover)
         bpy.utils.register_class(YPaintPreviewModeSettingsPopover)
         bpy.utils.register_class(YPaintPreviewModeChannelSettingsPopover)
@@ -9438,6 +9461,7 @@ def unregister():
         bpy.utils.unregister_class(YListItemOptionPopover)
 
         bpy.utils.unregister_class(YPaintBakeTargetPopover)
+        bpy.utils.unregister_class(YPaintBakeTargetAltPopover)
         bpy.utils.unregister_class(YPaintChannelPopover)
         bpy.utils.unregister_class(YPaintPreviewModeSettingsPopover)
         bpy.utils.unregister_class(YPaintPreviewModeChannelSettingsPopover)

@@ -196,12 +196,21 @@ class BaseBakeTargetGlobalSettings(BaseBakeProps, BakeInfo.BaseBakeInfoProps):
     )
 
     use_float_for_displacement : BoolProperty(
-        name = 'Use Float for Displacement',
-        description = 'Use float image for baked displacement',
+        name = 'Use Float for Height',
+        description = 'Use float image for baked height',
         default = False
     )
 
+    use_float_for_vector_displacement : BoolProperty(
+        name = 'Use Float for Vector Displacement',
+        description = 'Use float image for baked vector displacement',
+        default = True
+    )
+
     uv_map : StringProperty(default='', update=update_bake_uv_map)
+
+    # Baked counters to make use bake target popover switch after baking
+    baked_counters : IntProperty(default=0)
 
 class YBakeTargetGlobalSettings(bpy.types.PropertyGroup, BaseBakeTargetGlobalSettings):
     pass
