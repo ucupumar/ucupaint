@@ -1611,6 +1611,12 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False, re
 
     tree.nodes.remove(node)
 
+def remove_all_nodes_from_tree(tree):
+    for node in tree.nodes:
+        if node.type == 'GROUP' and node.node_tree.users <= 1:
+            remove_all_nodes_from_tree(node.node_tree)
+        simple_remove_node(tree, node)
+
 def is_vcol_being_used(tree, vcol_name, exception_node=None):
     for node in tree.nodes:
         if node.type == 'VERTEX_COLOR' and node.layer_name == vcol_name and node != exception_node:

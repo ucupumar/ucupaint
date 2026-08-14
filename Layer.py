@@ -15,6 +15,8 @@ if not is_bl_newer_than(3, 2):
 else: DEFAULT_NEW_VCOL_SUFFIX = ' Attribute'
 DEFAULT_NEW_VDM_SUFFIX = ' VDM'
 
+TEMP_TREE_SUFFIX = '____TEMP__'
+
 def active_layer_op_poll(context):
     if not context.object: return False
     group_node = get_active_ypaint_node()
@@ -2901,10 +2903,13 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
             return {'CANCELLED'}
 
         source_tree = source_yp_node.node_tree
+        # Rename material so it can be correctly removed after pasting layer
+        if from_asset_library: source_tree.name += TEMP_TREE_SUFFIX
         source_yp = source_tree.yp
 
         if len(source_yp.layers) == 0:
             self.remove_mat(mat, from_asset_library)
+            remove_temporary_trees()
             self.report({'ERROR'}, "Material has no layers!")
             return {'CANCELLED'}
 
@@ -2915,6 +2920,7 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
                 bpy.ops.wm.y_update_yp_trees('INVOKE_DEFAULT')
             except Exception as e:
                 self.remove_mat(mat, from_asset_library)
+                remove_temporary_trees()
                 self.report({'ERROR'}, "Failed to update source layers: "+str(e))
                 return {'CANCELLED'}
 
@@ -2927,6 +2933,7 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
             bpy.ops.wm.y_paste_layer('INVOKE_DEFAULT')
         except Exception as e:
             self.remove_mat(mat, from_asset_library)
+            remove_temporary_trees()
             self.report({'ERROR'}, "Failed to paste layers: "+str(e))
             return {'CANCELLED'}
 
@@ -5726,6 +5733,228 @@ class YCopyLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def copy_layers(yp_source, yp_dest, layer_name='', packed_duplicate=True, paste_blank=False, ondisk_duplicate=False, set_new_decal_position=False, rebake_bakeds=True):
+    message = ''
+
+    yp = yp_dest
+    tree = yp.id_data
+    tree_source = yp_source.id_data
+
+    # Check if the source yp has matching channel order
+    matching = True
+    if len(yp.channels) != len(yp_source.channels):
+        matching = False
+    else:
+        for i, ch in enumerate(yp.channels):
+            ch_source = yp_source.channels[i]
+            if ch.name != ch_source.name or ch.type != ch_source.type:
+                matching = False
+                break
+
+    # Empty layer name meant all layers will be copied
+    if layer_name == '':
+        # Get datas
+        first_copied_index = 0
+        layer_names = [l.name for l in yp_source.layers]
+
+    else:
+
+        # Source layer
+        layer_source = yp_source.layers.get(layer_name)
+
+        if not layer_source:
+            #self.report({'ERROR'}, "Cannot find copied layer! Maybe it was deleted or renamed.")
+            #return {'CANCELLED'}
+            message = "Cannot find copied layer! Maybe it was deleted or renamed."
+            return False, message
+
+        # Check index of copied layer to know the offest
+        first_copied_index = get_layer_index_by_name(yp_source, layer_source.name)
+
+        # Get all children
+        children, child_ids = get_list_of_all_children_and_child_ids(layer_source)
+
+        # Collect relevant names
+        layer_names = [layer_source.name]
+        for child in children:
+            layer_names.append(child.name)
+
+    # Disable source layers if channel list is not matching 
+    ori_layer_enables = {}
+    if not matching:
+        for lname in layer_names:
+            l = yp_source.layers.get(lname)
+            ori_layer_enables[lname] = l.enable
+            l.enable = False
+
+    # Get parent and index dict
+    parent_dict = get_parent_dict(yp)
+    index_dict = get_index_dict(yp)
+
+    # Current index
+    cur_idx = yp.active_layer_index
+    if len(yp.layers) > 0:
+        cur_layer = yp.layers[cur_idx]
+        cur_parent_idx = cur_layer.parent_idx
+    else:
+        cur_parent_idx = -1
+
+    # List of newly pasted datas
+    pasted_layer_names = []
+
+    # Halt update to prevent needless reconnection
+    yp.halt_update = True
+
+    for lname in layer_names:
+
+        ls = yp_source.layers.get(lname)
+
+        # Create new layer
+        new_layer = yp.layers.add()
+        new_layer.name = get_unique_name(ls.name, yp.layers)
+
+        # Get original source layer again to avoid pointer error after adding new layer
+        ls = yp_source.layers.get(lname)
+
+        # Copy layer props
+        copy_id_props(ls, new_layer, ['name'])
+
+        if not matching:
+            # Clear out layer channel props
+            new_layer.channels.clear()
+            for mask in new_layer.masks:
+                mask.channels.clear()
+
+            for root_ch in yp.channels:
+
+                # New layer channel
+                new_ch = new_layer.channels.add()
+                new_ch.enable = new_layer.type in {'GROUP', 'BACKGROUND'} # Layer channel default is disabled except for group and background
+
+                # Get matching channel on source yp
+                source_idx = -1
+                if root_ch.name in yp_source.channels:
+                    source_idx = get_channel_index(yp_source.channels.get(root_ch.name))
+
+                # Copy layer channel props
+                if source_idx != -1:
+                    copy_id_props(ls.channels[source_idx], new_ch)
+
+                for i, mask in enumerate(new_layer.masks):
+
+                    # New mask channel
+                    mch = mask.channels.add()
+                    mch.enable = True # Mask channel default is enabled
+
+                    # Copy mask channel props
+                    if source_idx != -1:
+                        copy_id_props(ls.masks[i].channels[source_idx], mch)
+
+            # Reenable new layer
+            if ls.name in ori_layer_enables:
+                new_layer.enable = ori_layer_enables[ls.name]
+
+        # Duplicate groups
+        new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', new_layer.name)
+        new_group_node.node_tree = get_tree(ls)
+
+        # Duplicate group input values
+        source_node = tree_source.nodes.get(ls.group_node)
+        for inp in new_group_node.inputs:
+            source_inp = source_node.inputs.get(inp.name)
+            if source_inp: inp.default_value = source_inp.default_value
+
+        pasted_layer_names.append(new_layer.name)
+
+    # Duplicate data of pasted layers
+    pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
+    duplicate_layer_nodes_and_images(
+        tree, pasted_layers, packed_duplicate = packed_duplicate,
+        duplicate_blank = paste_blank,
+        ondisk_duplicate = ondisk_duplicate,
+        set_new_decal_position = set_new_decal_position
+    )
+
+    # Move pasted layer to current index
+    for i, lname in enumerate(pasted_layer_names):
+        nl = yp.layers.get(lname)
+        idx = get_layer_index_by_name(yp, lname)
+        yp.layers.move(idx, cur_idx+i)
+
+    for i, lname in enumerate(pasted_layer_names):
+        nl = yp.layers.get(lname)
+
+        # Remap parent index
+        if i == 0:
+            # Set upmost pasted layer to current parent index
+            nl.parent_idx = cur_parent_idx
+        else:
+            if nl.parent_idx != -1:
+                nl.parent_idx += cur_idx - first_copied_index
+            else:
+                nl.parent_idx = cur_parent_idx
+
+        # Refresh io and nodes
+        check_all_layer_channel_io_and_nodes(nl)
+
+        reconnect_layer_nodes(nl)
+        rearrange_layer_nodes(nl)
+
+    # Remap parents for non pasted layers
+    for lay in yp.layers:
+        if lay.name in pasted_layer_names: continue
+        lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+    # Remap fcurves
+    remap_layer_fcurves(yp, index_dict)
+
+    # Check uv maps
+    check_uv_nodes(yp)
+
+    # Revert back halt update
+    yp.halt_update = False
+
+    # Rearrange and reconnect
+    check_start_end_root_ch_nodes(tree)
+    reconnect_yp_nodes(tree)
+    rearrange_yp_nodes(tree)
+
+    # Revert original layer channel enables
+    for lname, lenable in ori_layer_enables.items():
+        l = yp_source.layers.get(lname)
+        if l: l.enable = lenable
+
+    # Rebake baked images
+    # NOTE: Blender versions lower than 2.80 don't copy image's bake info, making rebake process useless
+    if rebake_bakeds and is_bl_newer_than(2, 80):
+        T = time.time()
+
+        # NOTE: Calling rebake function directly is not possible yet due to cyclic file imports
+        #pasted_layer = [l for l in yp.layers if l.name in pasted_layer_names]
+        #bake_common.rebake_baked_images(yp, specific_layers=pasted_layers)
+
+        pasted_layer_ids = [i for i, l in enumerate(yp.layers) if l.name in pasted_layer_names]
+        bpy.ops.wm.y_rebake_specific_layers(layer_ids=str(pasted_layer_ids))
+
+        #self.report({'INFO'}, 'Rebaking pasted layers is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
+        message = 'Rebaking pasted layers is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!'
+
+        # TODO: Refactor common functions for adding new data (add_new_layer, add_new_mask, etc) to avoid cyclic imports
+
+    # Refresh active layer
+    yp.active_layer_index = yp.active_layer_index
+
+    # Update list items
+    ListItem.refresh_list_items(yp)
+
+    return True, message
+
+def remove_temporary_trees():
+    for ng in bpy.data.node_groups:
+        if ng.name.endswith(TEMP_TREE_SUFFIX):
+            remove_all_nodes_from_tree(ng)
+            remove_datablock(bpy.data.node_groups, ng)
+
 class YPasteLayer(bpy.types.Operator):
     bl_idname = "wm.y_paste_layer"
     bl_label = "Paste Layer"
@@ -5831,6 +6060,10 @@ class YPasteLayer(bpy.types.Operator):
             if self.rebake_bakeds:
                 self.layout.label(text='Rebaking can take a while', icon='ERROR')
 
+    def cancel(self, context):
+        # Remove temporary material if necessary
+        remove_temporary_trees()
+
     def execute(self, context):
         T = time.time()
 
@@ -5839,8 +6072,6 @@ class YPasteLayer(bpy.types.Operator):
         tree = node.node_tree
         yp = tree.yp
         wmp = wm.ypprops
-
-        #print(wmp.clipboard_tree, wmp.clipboard_layer)
 
         tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
         if not tree_source:
@@ -5852,213 +6083,23 @@ class YPasteLayer(bpy.types.Operator):
         if not tree_source:
             self.report({'ERROR'}, "Cannot paste as clipboard source isn't found!")
             return {'CANCELLED'}
-
-        # Check if the source yp has matching channel order
-        matching = True
-        if len(yp.channels) != len(yp_source.channels):
-            matching = False
-        else:
-            for i, ch in enumerate(yp.channels):
-                ch_source = yp_source.channels[i]
-                if ch.name != ch_source.name or ch.type != ch_source.type:
-                    matching = False
-                    break
-
-        if wmp.clipboard_layer == '':
-
-            if len(yp_source.layers) == 0:
-                self.report({'ERROR'}, "Copied tree has no layers!")
-                return {'CANCELLED'}
-
-            # Get datas
-            first_copied_index = 0
-            relevant_layer_names = [l.name for l in yp_source.layers]
-
-        else:
-
-            # Source layer
-            layer_source = yp_source.layers.get(wmp.clipboard_layer)
-
-            if not layer_source:
-                self.report({'ERROR'}, "Cannot find copied layer! Maybe it was deleted or renamed.")
-                return {'CANCELLED'}
-
-            # Check index of copied layer to know the offest
-            first_copied_index = get_layer_index_by_name(yp_source, layer_source.name)
-
-            # Get all children
-            children, child_ids = get_list_of_all_children_and_child_ids(layer_source)
-
-            # Collect relevant names
-            relevant_layer_names = [layer_source.name]
-            for child in children:
-                relevant_layer_names.append(child.name)
-
-        # Disable source layers if channel list is not matching 
-        ori_layer_enables = {}
-        if not matching:
-            for lname in relevant_layer_names:
-                l = yp_source.layers.get(lname)
-                ori_layer_enables[lname] = l.enable
-                l.enable = False
-
-        # Get parent and index dict
-        parent_dict = get_parent_dict(yp)
-        index_dict = get_index_dict(yp)
-
-        # Current index
-        cur_idx = yp.active_layer_index
-        if len(yp.layers) > 0:
-            cur_layer = yp.layers[cur_idx]
-            cur_parent_idx = cur_layer.parent_idx
-        else:
-            cur_parent_idx = -1
-
-        # List of newly pasted datas
-        pasted_layer_names = []
-
-        # Halt update to prevent needless reconnection
-        yp.halt_update = True
-
-        for lname in relevant_layer_names:
-
-            ls = yp_source.layers.get(lname)
-
-            # Create new layer
-            new_layer = yp.layers.add()
-            new_layer.name = get_unique_name(ls.name, yp.layers)
-
-            # Get original source layer again to avoid pointer error after adding new layer
-            ls = yp_source.layers.get(lname)
-
-            # Copy layer props
-            copy_id_props(ls, new_layer, ['name'])
-
-            if not matching:
-                # Clear out layer channel props
-                new_layer.channels.clear()
-                for mask in new_layer.masks:
-                    mask.channels.clear()
-
-                for root_ch in yp.channels:
-
-                    # New layer channel
-                    new_ch = new_layer.channels.add()
-                    new_ch.enable = new_layer.type in {'GROUP', 'BACKGROUND'} # Layer channel default is disabled except for group and background
-
-                    # Get matching channel on source yp
-                    source_idx = -1
-                    if root_ch.name in yp_source.channels:
-                        source_idx = get_channel_index(yp_source.channels.get(root_ch.name))
-
-                    # Copy layer channel props
-                    if source_idx != -1:
-                        copy_id_props(ls.channels[source_idx], new_ch)
-
-                    for i, mask in enumerate(new_layer.masks):
-
-                        # New mask channel
-                        mch = mask.channels.add()
-                        mch.enable = True # Mask channel default is enabled
-
-                        # Copy mask channel props
-                        if source_idx != -1:
-                            copy_id_props(ls.masks[i].channels[source_idx], mch)
-
-                # Reenable new layer
-                if ls.name in ori_layer_enables:
-                    new_layer.enable = ori_layer_enables[ls.name]
-
-            # Duplicate groups
-            new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', new_layer.name)
-            new_group_node.node_tree = get_tree(ls)
-
-            # Duplicate group input values
-            source_node = tree_source.nodes.get(ls.group_node)
-            for inp in new_group_node.inputs:
-                source_inp = source_node.inputs.get(inp.name)
-                if source_inp: inp.default_value = source_inp.default_value
-
-            pasted_layer_names.append(new_layer.name)
-
-        # Duplicate data of pasted layers
-        pasted_layers = [l for l in yp.layers if l.name in pasted_layer_names]
-        duplicate_layer_nodes_and_images(
-            tree, pasted_layers, packed_duplicate = self.packed_duplicate,
-            duplicate_blank = self.paste_blank,
-            ondisk_duplicate = self.ondisk_duplicate,
-            set_new_decal_position = self.set_new_decal_position
+        
+        status, message = copy_layers(
+            yp_source, yp, wmp.clipboard_layer, 
+            self.packed_duplicate, self.ondisk_duplicate, self.set_new_decal_position, 
+            self.any_baked and self.rebake_bakeds
         )
 
-        # Move pasted layer to current index
-        for i, lname in enumerate(pasted_layer_names):
-            nl = yp.layers.get(lname)
-            idx = get_layer_index_by_name(yp, lname)
-            yp.layers.move(idx, cur_idx+i)
+        if message != '':
+            if not status:
+                self.report({'ERROR'}, message)
+            else: self.report({'INFO'}, message)
 
-        for i, lname in enumerate(pasted_layer_names):
-            nl = yp.layers.get(lname)
+        # Remove temporary material if necessary
+        remove_temporary_trees()
 
-            # Remap parent index
-            if i == 0:
-                # Set upmost pasted layer to current parent index
-                nl.parent_idx = cur_parent_idx
-            else:
-                if nl.parent_idx != -1:
-                    nl.parent_idx += cur_idx - first_copied_index
-                else:
-                    nl.parent_idx = cur_parent_idx
-
-            # Refresh io and nodes
-            check_all_layer_channel_io_and_nodes(nl)
-
-            reconnect_layer_nodes(nl)
-            rearrange_layer_nodes(nl)
-
-        # Remap parents for non pasted layers
-        for lay in yp.layers:
-            if lay.name in pasted_layer_names: continue
-            lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
-
-        # Remap fcurves
-        remap_layer_fcurves(yp, index_dict)
-
-        # Check uv maps
-        check_uv_nodes(yp)
-
-        # Revert back halt update
-        yp.halt_update = False
-
-        # Rearrange and reconnect
-        check_start_end_root_ch_nodes(tree)
-        reconnect_yp_nodes(tree)
-        rearrange_yp_nodes(tree)
-
-        # Revert original layer channel enables
-        for lname, lenable in ori_layer_enables.items():
-            l = yp_source.layers.get(lname)
-            if l: l.enable = lenable
-
-        # Rebake baked images
-        # NOTE: Blender versions lower than 2.80 don't copy image's bake info, making rebake process useless
-        if self.any_baked and self.rebake_bakeds and is_bl_newer_than(2, 80):
-
-            # NOTE: Calling rebake function directly is not possible yet due to cyclic file imports
-            #pasted_layer = [l for l in yp.layers if l.name in pasted_layer_names]
-            #bake_common.rebake_baked_images(yp, specific_layers=pasted_layers)
-
-            pasted_layer_ids = [i for i, l in enumerate(yp.layers) if l.name in pasted_layer_names]
-            bpy.ops.wm.y_rebake_specific_layers(layer_ids=str(pasted_layer_ids))
-
-            self.report({'INFO'}, 'Rebaking pasted layers is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
-
-            # TODO: Refactor common functions for adding new data (add_new_layer, add_new_mask, etc) to avoid cyclic imports
-
-        # Refresh active layer
-        yp.active_layer_index = yp.active_layer_index
-
-        # Update list items
-        ListItem.refresh_list_items(yp)
+        if not status:
+            return {'CANCELLED'}
 
         print('INFO: Layer(s) pasted in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
