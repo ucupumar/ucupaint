@@ -2813,7 +2813,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
             for new_img in images:
                 for old_img in bpy.data.images:
                     if old_img in images: continue
-                    if old_img.filepath == new_img.filepath:
+                    if old_img.filepath == new_img.filepath and old_img.filepath != '':
                         existing_images.append(old_img)
                         duplicated_images.append(new_img)
                         break
