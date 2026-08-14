@@ -2783,6 +2783,7 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
                 images = search_for_images(mat.node_tree)
 
         yp_node = get_closest_yp_node_backward(output)
+        otree = None
         if yp_node:
             otree = yp_node.node_tree
             oyp = otree.yp
@@ -2855,6 +2856,9 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
 
         # Remove material if it has only fake users
         if from_asset_library and ((mat.use_fake_user and mat.users == 1) or mat.users == 0):
+            if otree:
+                remove_all_nodes_from_tree(otree)
+                remove_datablock(bpy.data.node_groups, otree)     
             remove_datablock(bpy.data.materials, mat)
 
         if failed:
