@@ -2364,7 +2364,7 @@ class YUpdateYPTrees(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_ypaint_node()
+        return True
 
     def execute(self, context):
         update_node_tree_libs('')
