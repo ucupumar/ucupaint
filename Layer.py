@@ -6086,8 +6086,11 @@ class YPasteLayer(bpy.types.Operator):
         
         status, message = copy_layers(
             yp_source, yp, wmp.clipboard_layer, 
-            self.packed_duplicate, self.ondisk_duplicate, self.set_new_decal_position, 
-            self.any_baked and self.rebake_bakeds
+            packed_duplicate = self.packed_duplicate, 
+            paste_blank = self.paste_blank,
+            ondisk_duplicate = self.ondisk_duplicate, 
+            set_new_decal_position = self.set_new_decal_position, 
+            rebake_bakeds = self.any_baked and self.rebake_bakeds
         )
 
         if message != '':
