@@ -4701,10 +4701,13 @@ def draw_layers_ui(context, layout, node):
                 row.operator('paint.y_toggle_eraser', text=label)
 
         # Only works with experimental sculpt texture paint is turned on
-        in_sculpt_texture_paint_mode = obj.mode == 'SCULPT' and (
+        in_sculpt_texture_paint_mode = obj.mode == 'SCULPT' and ((
             hasattr(context.preferences.experimental, 'use_sculpt_texture_paint') and 
             context.preferences.experimental.use_sculpt_texture_paint
-            )
+            ) or (
+            # NOTE: Blender 5.2 likely will/already have custom build that can paint texture in sculpt mode
+            is_bl_newer_than(5, 2) 
+            ))
 
         in_texture_paint_mode = obj.mode == 'TEXTURE_PAINT'
 
