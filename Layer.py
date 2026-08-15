@@ -15,7 +15,7 @@ if not is_bl_newer_than(3, 2):
 else: DEFAULT_NEW_VCOL_SUFFIX = ' Attribute'
 DEFAULT_NEW_VDM_SUFFIX = ' VDM'
 
-TEMP_TREE_SUFFIX = '____TEMP__'
+TEMP_TREE_PREFIX = '____TEMP__'
 
 def get_normal_map_type_items(self, context):
     items = []
@@ -2935,7 +2935,7 @@ class YOpenLayersFromMaterial(bpy.types.Operator):
 
         source_tree = source_yp_node.node_tree
         # Rename material so it can be correctly removed after pasting layer
-        if from_asset_library: source_tree.name += TEMP_TREE_SUFFIX
+        if from_asset_library: source_tree.name = TEMP_TREE_PREFIX + source_tree.name
         source_yp = source_tree.yp
 
         if len(source_yp.layers) == 0:
@@ -5983,7 +5983,7 @@ def copy_layers(yp_source, yp_dest, layer_name='', packed_duplicate=True, paste_
 
 def remove_temporary_trees():
     for ng in bpy.data.node_groups:
-        if ng.name.endswith(TEMP_TREE_SUFFIX):
+        if ng.name.startswith(TEMP_TREE_PREFIX):
             remove_all_nodes_from_tree(ng)
             remove_datablock(bpy.data.node_groups, ng)
 
