@@ -522,6 +522,76 @@ def check_channel_bake_target_nodes(yp):
             remove_node(tree, ch, 'baked_normal')
             remove_node(tree, ch, 'baked_normal_prep')
 
+def get_baked_outside_channel_socket_to_use(mat, channel, bt=None, do_connection=True):
+    mtree = mat.node_tree
+    yp = channel.id_data.yp
+
+    if bt == None:
+        bt = yp.bake_targets.get(channel.bake_target_name)
+        if bt == None: return None
+
+    ch_soc = None
+    baked_node = mtree.nodes.get(bt.baked_node_outside) if bt else None
+    if bt and baked_node:
+        separate_xyz = mtree.nodes.get(bt.separate_xyz_outside)
+        invert_r = mtree.nodes.get(bt.invert_r_outside)
+        invert_g = mtree.nodes.get(bt.invert_g_outside)
+        invert_b = mtree.nodes.get(bt.invert_b_outside)
+        invert_a = mtree.nodes.get(bt.invert_a_outside)
+
+        baked_combine_xyz = mtree.nodes.get(channel.baked_combine_xyz_outside)
+
+        if is_bake_target_using_exact_channel(bt, channel):
+            ch_soc = baked_node.outputs['Color']
+        elif channel.type == 'VALUE' or get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, channel) != -1:
+            if channel.type == 'VALUE': index = get_bake_target_subchannel_ids_of_value_channel(bt, channel)
+            else: index = get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, channel)
+            if index != -1:
+                if index == 3:
+                    if bt.a.invert_value and invert_a: ch_soc = invert_a.outputs[0]
+                    elif baked_node.type == 'TEX_IMAGE': ch_soc = baked_node.outputs[1]
+                    elif baked_node.type == 'ATTRIBUTE': ch_soc = baked_node.outputs['Alpha']
+                else: 
+                    if index == 0 and bt.r.invert_value and invert_r: ch_soc = invert_r.outputs[0]
+                    elif index == 1 and bt.g.invert_value and invert_g: ch_soc = invert_g.outputs[0]
+                    elif index == 2 and bt.b.invert_value and invert_b: ch_soc = invert_b.outputs[0]
+                    elif separate_xyz: ch_soc = separate_xyz.outputs[index]
+        else:
+            ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, channel)
+            if -1 not in ids:
+                if separate_xyz and baked_combine_xyz:
+                    # Get base socket
+                    socs = []
+                    for i in range(len(ids)):
+                        if ids[i] == 3:
+                            if baked_node.type == 'TEX_IMAGE': socs.append(baked_node.outputs[1])
+                            elif baked_node.type == 'ATTRIBUTE': socs.append(baked_node.outputs['Alpha'])
+                        else: socs.append(separate_xyz.outputs[ids[i]])
+
+                    # Check for inverted value
+                    for i, index in enumerate(ids):
+                        if index == 0 and bt.r.invert_value and invert_r: socs[i] = invert_r.outputs[0]
+                        elif index == 1 and bt.g.invert_value and invert_g: socs[i] = invert_g.outputs[0]
+                        elif index == 2 and bt.b.invert_value and invert_b: socs[i] = invert_b.outputs[0]
+                        elif index == 3 and bt.a.invert_value and invert_a: socs[i] = invert_a.outputs[0]
+
+                    # Connect to combine xyz
+                    if do_connection:
+                        for i, soc in enumerate(socs):
+                            mtree.links.new(soc, baked_combine_xyz.inputs[i])
+
+                    ch_soc = baked_combine_xyz.outputs[0]
+
+    if ch_soc and channel.special_type == 'NORMAL':
+
+        baked_normal = mtree.nodes.get(channel.baked_normal_outside)
+        if baked_normal:
+            if do_connection:
+                mtree.links.new(ch_soc, baked_normal.inputs[1])
+            ch_soc = baked_normal.outputs[0]
+
+    return ch_soc
+
 def set_channel_active_bake_target(root_ch, bake_target_name):
     tree = root_ch.id_data
     yp = tree.yp

@@ -2,7 +2,7 @@ import bpy
 from .common import *
 from .input_outputs import *
 from bpy.props import *
-from . import lib, ListItem
+from . import lib, ListItem, BakeTarget
 
 def get_preview(mat, output=None, advanced=False, normal_viewer=False, normal_space='CAMERA', use_alpha=False):
     tree = mat.node_tree
@@ -154,6 +154,7 @@ def set_srgb_view_transform():
 def update_preview_mode(self, context):
     yp = self
     mat = get_active_material()
+    mtree = mat.node_tree
 
     if is_yp_on_material(yp, mat):
         group_node = get_active_ypaint_node()
@@ -253,7 +254,7 @@ def update_preview_mode(self, context):
         outs = [o for o in group_node.outputs if o.name.startswith(channel.name)]
 
         # Use special preview for normal
-        if channel.special_type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
+        if channel.special_type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1]) or (yp.use_baked and yp.enable_baked_outside)):
             preview = get_preview(mat, output, False, True, normal_space=yp.preview_mode_normal_space, use_alpha=use_alpha)
         else: preview = get_preview(mat, output, False, use_alpha=use_alpha)
 
@@ -263,23 +264,35 @@ def update_preview_mode(self, context):
         # Make sure needed output exists
         check_all_channel_ios(yp)
 
-        if is_from_socket_missing:
-            # Connect first output
-            tree.links.new(group_node.outputs[channel.name], preview.inputs[0])
+        preview_soc = None
+        if yp.use_baked and yp.enable_baked_outside:
+            # Baked outside nodes
+            preview_soc = BakeTarget.get_baked_outside_channel_socket_to_use(mat, channel, do_connection=False)
         else:
-            # Cycle outputs
-            for i, o in enumerate(outs):
-                if o == from_socket:
-                    if i != len(outs) - 1:
-                        tree.links.new(outs[i + 1], preview.inputs[0])
-                    else: tree.links.new(outs[0], preview.inputs[0])
+            if is_from_socket_missing:
+                # Connect first output
+                preview_soc = group_node.outputs[channel.name]
+            else:
+                # Cycle outputs
+                for i, o in enumerate(outs):
+                    if o == from_socket:
+                        if i != len(outs) - 1:
+                            preview_soc = outs[i + 1]
+                        else: 
+                            preview_soc = outs[0]
+
+        if preview_soc != None:
+            tree.links.new(preview_soc, preview.inputs[0])
 
         # Alpha setup
         alpha_inp = preview.inputs.get('Alpha')
         if alpha_inp:
             if use_alpha:
-                alpha_outp = group_node.outputs.get(alpha_ch.name)
-                if alpha_outp: tree.links.new(alpha_outp, alpha_inp)
+                if yp.use_baked and yp.enable_baked_outside:
+                    preview_alpha_soc = BakeTarget.get_baked_outside_channel_socket_to_use(mat, alpha_ch, do_connection=False)
+                else: preview_alpha_soc = group_node.outputs.get(alpha_ch.name)
+
+                if preview_alpha_soc: tree.links.new(preview_alpha_soc, alpha_inp)
             else:
                 for link in alpha_inp.links:
                     tree.links.remove(link)

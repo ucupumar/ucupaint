@@ -3772,63 +3772,7 @@ def update_enable_baked_outside(self, context):
                         if scale_inp and len(scale_inp.links) == 0: 
                             scale_inp.default_value = max_height if bt.height_normalize else 1.0
 
-            baked_soc = None
-            baked_node = mtree.nodes.get(bt.baked_node_outside) if bt else None
-            if bt and baked_node:
-                separate_xyz = mtree.nodes.get(bt.separate_xyz_outside)
-                invert_r = mtree.nodes.get(bt.invert_r_outside)
-                invert_g = mtree.nodes.get(bt.invert_g_outside)
-                invert_b = mtree.nodes.get(bt.invert_b_outside)
-                invert_a = mtree.nodes.get(bt.invert_a_outside)
-
-                baked_combine_xyz = mtree.nodes.get(ch.baked_combine_xyz_outside)
-
-                if is_bake_target_using_exact_channel(bt, ch):
-                    baked_soc = baked_node.outputs['Color']
-                elif ch.type == 'VALUE' or get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch) != -1:
-                    if ch.type == 'VALUE': index = get_bake_target_subchannel_ids_of_value_channel(bt, ch)
-                    else: index = get_bake_target_subchannel_ids_of_rgb_to_bw_channel(bt, ch)
-                    if index != -1:
-                        if index == 3:
-                            if bt.a.invert_value and invert_a: baked_soc = invert_a.outputs[0]
-                            elif baked_node.type == 'TEX_IMAGE': baked_soc = baked_node.outputs[1]
-                            elif baked_node.type == 'ATTRIBUTE': baked_soc = baked_node.outputs['Alpha']
-                        else: 
-                            if index == 0 and bt.r.invert_value and invert_r: baked_soc = invert_r.outputs[0]
-                            elif index == 1 and bt.g.invert_value and invert_g: baked_soc = invert_g.outputs[0]
-                            elif index == 2 and bt.b.invert_value and invert_b: baked_soc = invert_b.outputs[0]
-                            elif separate_xyz: baked_soc = separate_xyz.outputs[index]
-                else:
-                    ids = get_bake_target_subchannel_ids_of_rgb_channel(bt, ch)
-                    if -1 not in ids:
-                        if separate_xyz and baked_combine_xyz:
-                            # Get base socket
-                            socs = []
-                            for i in range(len(ids)):
-                                if ids[i] == 3:
-                                    if baked_node.type == 'TEX_IMAGE': socs.append(baked_node.outputs[1])
-                                    elif baked_node.type == 'ATTRIBUTE': socs.append(baked_node.outputs['Alpha'])
-                                else: socs.append(separate_xyz.outputs[ids[i]])
-
-                            # Check for inverted value
-                            for i, index in enumerate(ids):
-                                if index == 0 and bt.r.invert_value and invert_r: socs[i] = invert_r.outputs[0]
-                                elif index == 1 and bt.g.invert_value and invert_g: socs[i] = invert_g.outputs[0]
-                                elif index == 2 and bt.b.invert_value and invert_b: socs[i] = invert_b.outputs[0]
-                                elif index == 3 and bt.a.invert_value and invert_a: socs[i] = invert_a.outputs[0]
-
-                            # Connect to combine xyz
-                            for i, soc in enumerate(socs):
-                                mtree.links.new(soc, baked_combine_xyz.inputs[i])
-
-                            baked_soc = baked_combine_xyz.outputs[0]
-
-            if baked_soc and ch.special_type == 'NORMAL':
-
-                baked_normal = mtree.nodes.get(ch.baked_normal_outside)
-                if baked_normal:
-                    mtree.links.new(baked_soc, baked_normal.inputs[1])
-                    baked_soc = baked_normal.outputs[0]
+            baked_soc = BakeTarget.get_baked_outside_channel_socket_to_use(mat, ch, bt)
 
             if baked_soc:
                 connect_to_original_node(mtree, baked_soc, ch.ori_to)
