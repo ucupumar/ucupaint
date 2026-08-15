@@ -590,7 +590,11 @@ class YQuickDisplacementSetup(bpy.types.Operator):
                     ch.use_height_as_bump = False
 
             # Create normal without height bake target so baked node can be displayed correctly
-            channel_common.create_normal_without_bump_bake_target(yp)
+            bt = channel_common.create_normal_without_bump_bake_target(yp)
+
+            # Set the bake target as the default bake target of normal channel
+            normal_ch = get_root_normal_channel(yp)
+            normal_ch.bake_target_name = bt.name
 
         return {'FINISHED'}
 

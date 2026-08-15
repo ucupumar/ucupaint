@@ -609,13 +609,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             bt = yp.bake_targets.get(ch.bake_target_name)
 
-            # Check if the baked height is not used as bump only
-            if root_height_ch and ch == root_normal_ch:
-                if not root_height_ch.use_height_as_bump:
-                    # Check for normal bake target that has no height data
-                    b = get_normal_bake_target_without_height(yp, root_normal_ch)
-                    if b: bt = b
-
             if bt:
                 baked_node = nodes.get(bt.baked_node)
 
