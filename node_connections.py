@@ -1274,11 +1274,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             for tc in texcoords:
                 inp = node.inputs.get(io_names[tc])
-                if inp: 
+                # Triplanar uses object texture coordinate
+                outp_name = 'Object' if tc == 'Triplanar' else tc
+                if inp:
                     if parallax_ch and parallax:
-                        create_link(tree, parallax.outputs[TEXCOORD_IO_PREFIX + tc], inp)
-                    else: 
-                        create_link(tree, get_essential_node(tree, TEXCOORD)[tc], inp)
+                        create_link(tree, parallax.outputs[TEXCOORD_IO_PREFIX + outp_name], inp)
+                    else:
+                        create_link(tree, get_essential_node(tree, TEXCOORD)[outp_name], inp)
 
             # Background layer
             if layer.type == 'BACKGROUND':
@@ -1712,7 +1714,8 @@ def reconnect_mask_source_nodes(mask, layer_tree):
     # Mask inside a node group has start and end node
     group_node = layer_tree.nodes.get(mask.group_node)
     if group_node:
-        tree = group_node.node_tree
+        # Mask tree can be inside a triplanar wrapper
+        tree = get_mask_tree(mask, layer_tree)
         start = tree.nodes.get(TREE_START)
         end = tree.nodes.get(TREE_END)
     else:
@@ -1771,6 +1774,16 @@ def reconnect_mask_source_nodes(mask, layer_tree):
         val = group_node.outputs[0]
 
     return source, val
+
+def reconnect_triplanar_input_links(tree, entity, targets):
+    ''' Connect triplanar prop inputs to all triplanar wrapper instances '''
+
+    for socket_name, prop_name in triplanar_input_props.items():
+        inp = get_essential_node(tree, TREE_START).get(get_entity_input_name(entity, prop_name))
+        if not inp: continue
+        for target in targets:
+            if target and socket_name in target.inputs:
+                create_link(tree, inp, target.inputs[socket_name])
 
 def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     yp = layer.id_data.yp
@@ -1906,6 +1919,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if vector:
         if 'Vector' in source.inputs:
             create_link(tree, vector, source.inputs['Vector'])
+
+        if layer.texcoord_type == 'Triplanar':
+            reconnect_triplanar_input_links(tree, layer, [source, source_n, source_s, source_e, source_w])
 
         if layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT', 'AO'}:
 
@@ -2190,6 +2206,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
 
                 create_link(tree, mask_vector, mask_source.inputs[0])
+
+                if mask.texcoord_type == 'Triplanar':
+                    triplanar_targets = [mask_source] + [nodes.get(getattr(mask, 'source_' + d)) for d in nsew_letters]
+                    reconnect_triplanar_input_links(tree, mask, triplanar_targets)
 
                 # Mask UV uniform scale value
                 if is_bl_newer_than(2, 81):

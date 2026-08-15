@@ -1,7 +1,7 @@
 import bpy, time, re, os, random, numpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, BaseOperator, Decal
+from . import Modifier, lib, Mask, transition, ImageAtlas, UDIM, NormalMapModifier, ListItem, BaseOperator, Decal, Triplanar
 from .common import *
 #from . import bake_common
 from .node_arrangements import *
@@ -35,6 +35,9 @@ def get_normal_map_type_items(self, context):
 
 def check_layer_source(layer, tree=None, image=None, vcol=None, setup_edge_detect=True):
     if tree == None or layer.source_group != '': tree = get_source_tree(layer)
+
+    # Source can be inside a group
+    tree = get_source_tree(layer, tree)
 
     # Add source
     if layer.type == 'VCOL':
@@ -4691,7 +4694,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         setattr(layer, 'cache_' + layer.type.lower(), source.name)
         # Remove uv input link
         if any(source.inputs) and any(source.inputs[0].links):
-            tree.links.remove(source.inputs[0].links[0])
+            source_tree.links.remove(source.inputs[0].links[0])
         source.label = ''
     else:
         remove_node(source_tree, layer, 'source', remove_data=remove_data)
@@ -5224,14 +5227,18 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
         if layer.source_group != '':
             source_group = ttree.nodes.get(layer.source_group)
             source_group.node_tree = source_group.node_tree.copy()
-            source = source_group.node_tree.nodes.get(layer.source)
+
+            # Triplanar wrapper keeps the actual source tree inside
+            inner_tree = Triplanar.duplicate_triplanar_inner_tree(source_group.node_tree)
+            source_tree = inner_tree if inner_tree else source_group.node_tree
+            source = source_tree.nodes.get(layer.source)
 
             for d in neighbor_directions:
                 s = ttree.nodes.get(getattr(layer, 'source_' + d))
                 if s: s.node_tree = source_group.node_tree
 
             # Duplicate layer modifier groups
-            duplicate_layer_modifier_tree(layer, source_group.node_tree)
+            duplicate_layer_modifier_tree(layer, source_tree)
 
         else:
             source = ttree.nodes.get(layer.source)
@@ -5305,7 +5312,11 @@ def duplicate_layer_nodes_and_images(tree, specific_layers=[], packed_duplicate=
             if mask.group_node != '':
                 mask_group =  ttree.nodes.get(mask.group_node)
                 mask_group.node_tree = mask_group.node_tree.copy()
-                mask_source = mask_group.node_tree.nodes.get(mask.source)
+
+                # Triplanar wrapper keeps the actual source tree inside
+                inner_tree = Triplanar.duplicate_triplanar_inner_tree(mask_group.node_tree)
+                mask_tree = inner_tree if inner_tree else mask_group.node_tree
+                mask_source = mask_tree.nodes.get(mask.source)
 
                 for d in neighbor_directions:
                     s = ttree.nodes.get(getattr(mask, 'source_' + d))
@@ -7465,7 +7476,7 @@ def update_layer_use_baked(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
-class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
+class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal, Triplanar.BaseTriplanar):
     name : StringProperty(
         name = 'Layer Name',
         description = 'Layer name',

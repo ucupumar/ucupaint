@@ -1,7 +1,7 @@
 import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
-from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator, Decal
+from . import lib, ImageAtlas, MaskModifier, UDIM, ListItem, BaseOperator, Decal, Triplanar
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -2444,7 +2444,7 @@ def update_mask_uniform_scale_enabled(self, context):
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
+class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal, Triplanar.BaseTriplanar):
 
     name : StringProperty(
         name = 'Mask Name',

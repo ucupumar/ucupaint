@@ -1,5 +1,5 @@
 import bpy, re, bmesh
-from . import lib, Modifier, MaskModifier
+from . import lib, Modifier, MaskModifier, Triplanar
 from .common import *
 from .node_arrangements import *
 from .node_connections import *
@@ -146,6 +146,8 @@ def disable_layer_source_tree(layer, layer_tree=None, source_group=None):
     if not layer_tree: layer_tree = get_tree(layer)
     if not source_group: source_group = layer_tree.nodes.get(layer.source_group)
 
+    Triplanar.unwrap_triplanar_group_node(source_group)
+
     if source_group:
         source_ref = source_group.node_tree.nodes.get(layer.source)
         baked_source_ref = source_group.node_tree.nodes.get(layer.baked_source)
@@ -187,12 +189,16 @@ def disable_layer_source_tree(layer, layer_tree=None, source_group=None):
     remove_node(layer_tree, layer, 'source_e')
     remove_node(layer_tree, layer, 'source_w')
 
-def check_layer_source_tree(layer, smooth_bump_enabled):
+def check_layer_source_tree(layer, smooth_bump_enabled=None):
+
+    if smooth_bump_enabled == None:
+        smooth_bump_ch = get_smooth_bump_channel(layer)
+        smooth_bump_enabled = smooth_bump_ch != None and get_channel_enabled(smooth_bump_ch) and is_height_process_needed(layer)
 
     layer_tree = get_tree(layer)
     source_group = layer_tree.nodes.get(layer.source_group)
 
-    if (smooth_bump_enabled and
+    if ((smooth_bump_enabled or is_entity_using_triplanar(layer)) and
         (layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'})
     ):
         # Enable source group
@@ -257,7 +263,7 @@ def check_layer_source_tree(layer, smooth_bump_enabled):
             else:
                 move_mod_groups(layer, layer_tree, source_tree)
         else:
-            source_tree = source_group.node_tree
+            source_tree = get_source_tree(layer, layer_tree)
             source = source_tree.nodes.get(layer.source)
             baked_source = source_tree.nodes.get(layer.baked_source)
 
@@ -483,6 +489,7 @@ def disable_mask_source_tree(layer, mask):
     if mask.group_node != '':
 
         layer_tree = get_tree(layer)
+        Triplanar.unwrap_triplanar_group_node(layer_tree.nodes.get(mask.group_node))
         mask_tree = get_mask_tree(mask)
 
         source_ref = mask_tree.nodes.get(mask.source)
@@ -747,10 +754,11 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
     for i, mask in enumerate(layer.masks):
         if specific_mask and specific_mask != mask: continue
 
-        if smooth_bump_ch and get_channel_enabled(smooth_bump_ch, layer, yp.channels[ch_idx]) and get_mask_enabled(mask) and (
+        if (get_mask_enabled(mask) and is_entity_using_triplanar(mask)) or (
+                smooth_bump_ch and get_channel_enabled(smooth_bump_ch, layer, yp.channels[ch_idx]) and get_mask_enabled(mask) and (
                 mask.channels[ch_idx].enable and height_process_needed and (write_height_ch or i < chain) and
                 (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'})
-                ): 
+                )):
             enable_mask_source_tree(layer, mask)
         else:
             disable_mask_source_tree(layer, mask)
@@ -1578,16 +1586,18 @@ def check_layer_projection_blends(layer):
         if hasattr(source, 'projection_blend'):
             source.projection_blend = layer.projection_blend
 
+    override_blend = layer.triplanar_blend if layer.texcoord_type == 'Triplanar' else layer.projection_blend
+
     for ch in layer.channels:
         if ch.override and ch.override_type == 'IMAGE':
             source = get_channel_source(ch, layer)
             if hasattr(source, 'projection_blend'):
-                source.projection_blend = layer.projection_blend
+                source.projection_blend = override_blend
 
         if ch.override_1 and ch.override_1_type == 'IMAGE':
             source = get_channel_source_1(ch, layer)
             if hasattr(source, 'projection_blend'):
-                source.projection_blend = layer.projection_blend
+                source.projection_blend = override_blend
 
 def check_layer_projections(layer):
     # Set image source projection
@@ -1596,14 +1606,15 @@ def check_layer_projections(layer):
         source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
 
     # Set channel override images
+    # NOTE: Triplanar uses native box projection for override images since they aren't inside the entity source tree
     for ch in layer.channels:
         if ch.override and ch.override_type == 'IMAGE':
             source = get_channel_source(ch, layer)
-            source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+            source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object', 'Triplanar'} else 'FLAT'
 
         if ch.override_1 and ch.override_1_type == 'IMAGE':
             source = get_channel_source_1(ch, layer)
-            source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+            source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object', 'Triplanar'} else 'FLAT'
 
     # Check projection blends
     check_layer_projection_blends(layer)

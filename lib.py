@@ -151,6 +151,11 @@ COMBINED_VDM = '~yPL Combined VDM'
 
 DECAL_PROCESS = '~yPL Decal Process'
 
+TRIPLANAR = '~yPL Triplanar'
+TRIPLANAR_BLEND = '~yPL Triplanar Blend'
+TRIPLANAR_BLEND_VALUE = '~yPL Triplanar Blend Value'
+TRIPLANAR_REVISION_MARKER = '__yp_triplanar_rev_3'
+
 SMOOTH_PREFIX = '~yPL Smooth '
 
 # Nodes that require Blender 2.81 at minimum
@@ -379,7 +384,7 @@ def get_neighbor_uv_tree_name(texcoord_type, entity):
         different_uv = check_uv_difference_to_main_uv(entity)
         if different_uv: return NEIGHBOR_UV_OTHER_UV
         return NEIGHBOR_UV_TANGENT
-    if texcoord_type in {'Generated', 'Normal', 'Object', 'Decal'}:
+    if texcoord_type in {'Generated', 'Normal', 'Object', 'Decal', 'Triplanar'}:
         return NEIGHBOR_UV_OBJECT
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return NEIGHBOR_UV_CAMERA
@@ -503,6 +508,325 @@ def get_smooth_mix_node(blend_type, layer_type=''):
         loc.x += 200
 
         end.location.x = loc.x
+
+    return tree
+
+def new_math_node(tree, operation, loc, value=None):
+    node = tree.nodes.new('ShaderNodeMath')
+    node.operation = operation
+    node.location = loc.copy()
+    if value != None: node.inputs[1].default_value = value
+    return node
+
+def get_triplanar_prep_tree():
+    ''' Convert a vector to three planar projection vectors and their blend weights.
+    Weights use object space normal components normalized by their maximum,
+    so they stay stable at any blend sharpness. Color weights are normalized by the
+    sum of shown sides, while alpha weights are normalized by the sum of all sides,
+    so hiding a side fades the entity out on faces pointing that way. '''
+
+    tree = bpy.data.node_groups.get(TRIPLANAR)
+    if tree:
+        if tree.nodes.get(TRIPLANAR_REVISION_MARKER): return tree
+
+        # Rebuild the tree since it comes from an older revision
+        tree.nodes.clear()
+        for inp in reversed(get_tree_inputs(tree)): remove_tree_input(tree, inp)
+        for outp in reversed(get_tree_outputs(tree)): remove_tree_output(tree, outp)
+    else:
+        tree = bpy.data.node_groups.new(TRIPLANAR, 'ShaderNodeTree')
+
+    # IO
+    new_tree_input(tree, 'Vector', 'NodeSocketVector')
+    for socket_name in triplanar_input_props:
+        inp = new_tree_input(tree, socket_name, 'NodeSocketFloatFactor')
+        inp.min_value = 0.0
+        inp.max_value = 1.0
+        inp.default_value = triplanar_input_defaults.get(socket_name, 1.0)
+
+    for axis in triplanar_axes:
+        new_tree_output(tree, 'Vector ' + axis, 'NodeSocketVector')
+    for axis in triplanar_axes:
+        new_tree_output(tree, 'Color Weight ' + axis, 'NodeSocketFloat')
+    for axis in triplanar_axes:
+        new_tree_output(tree, 'Alpha Weight ' + axis, 'NodeSocketFloat')
+
+    create_essential_nodes(tree)
+
+    start = tree.nodes.get(TREE_START)
+    end = tree.nodes.get(TREE_END)
+
+    loc = Vector((0, 0))
+    start.location = loc
+
+    # Projection vectors
+    loc.x += 200
+    sep_pos = tree.nodes.new('ShaderNodeSeparateXYZ')
+    sep_pos.location = loc
+    tree.links.new(start.outputs['Vector'], sep_pos.inputs[0])
+
+    loc.x += 200
+    swizzles = {'X': ('Y', 'Z'), 'Y': ('X', 'Z'), 'Z': ('X', 'Y')}
+    for axis in triplanar_axes:
+        com = tree.nodes.new('ShaderNodeCombineXYZ')
+        com.location = loc
+        tree.links.new(sep_pos.outputs[swizzles[axis][0]], com.inputs[0])
+        tree.links.new(sep_pos.outputs[swizzles[axis][1]], com.inputs[1])
+        tree.links.new(com.outputs[0], end.inputs['Vector ' + axis])
+        loc.y -= 150
+
+    # Object space normal
+    loc = Vector((0, -600))
+    texcoord = tree.nodes.new('ShaderNodeTexCoord')
+    texcoord.location = loc
+
+    loc.x += 200
+    sep_nor = tree.nodes.new('ShaderNodeSeparateXYZ')
+    sep_nor.location = loc
+    tree.links.new(texcoord.outputs['Normal'], sep_nor.inputs[0])
+
+    # Blend factor to weight exponent
+    exp_max = new_math_node(tree, 'MAXIMUM', loc + Vector((0, -200)), 0.001)
+    tree.links.new(start.outputs['Blend'], exp_max.inputs[0])
+    exponent = new_math_node(tree, 'POWER', loc + Vector((200, -200)), -2.0)
+    tree.links.new(exp_max.outputs[0], exponent.inputs[0])
+
+    loc.x += 200
+    abses = {}
+    for i, axis in enumerate(triplanar_axes):
+        abs_node = new_math_node(tree, 'ABSOLUTE', loc + Vector((0, -i * 150)))
+        tree.links.new(sep_nor.outputs[axis], abs_node.inputs[0])
+        abses[axis] = abs_node
+
+    # Normalize absolute normal by its largest component
+    loc.x += 200
+    max_xy = new_math_node(tree, 'MAXIMUM', loc)
+    tree.links.new(abses['X'].outputs[0], max_xy.inputs[0])
+    tree.links.new(abses['Y'].outputs[0], max_xy.inputs[1])
+    max_xyz = new_math_node(tree, 'MAXIMUM', loc + Vector((0, -150)))
+    tree.links.new(max_xy.outputs[0], max_xyz.inputs[0])
+    tree.links.new(abses['Z'].outputs[0], max_xyz.inputs[1])
+    max_safe = new_math_node(tree, 'MAXIMUM', loc + Vector((0, -300)), 0.00001)
+    tree.links.new(max_xyz.outputs[0], max_safe.inputs[0])
+
+    loc.x += 200
+    weights = {}
+    for i, axis in enumerate(triplanar_axes):
+        div = new_math_node(tree, 'DIVIDE', loc + Vector((0, -i * 300)))
+        tree.links.new(abses[axis].outputs[0], div.inputs[0])
+        tree.links.new(max_safe.outputs[0], div.inputs[1])
+
+        power = new_math_node(tree, 'POWER', loc + Vector((200, -i * 300)))
+        tree.links.new(div.outputs[0], power.inputs[0])
+        tree.links.new(exponent.outputs[0], power.inputs[1])
+        weights[axis] = power
+
+    # Select show factor by normal direction so each side of the axis can be hidden separately
+    loc.x += 400
+    shown_weights = {}
+    for i, axis in enumerate(triplanar_axes):
+        is_positive = new_math_node(tree, 'GREATER_THAN', loc + Vector((0, -i * 300)), 0.0)
+        tree.links.new(sep_nor.outputs[axis], is_positive.inputs[0])
+
+        side_diff = new_math_node(tree, 'SUBTRACT', loc + Vector((0, -i * 300 - 150)))
+        tree.links.new(start.outputs['Show +' + axis], side_diff.inputs[0])
+        tree.links.new(start.outputs['Show -' + axis], side_diff.inputs[1])
+
+        side_select = new_math_node(tree, 'MULTIPLY', loc + Vector((200, -i * 300)))
+        tree.links.new(is_positive.outputs[0], side_select.inputs[0])
+        tree.links.new(side_diff.outputs[0], side_select.inputs[1])
+
+        show = new_math_node(tree, 'ADD', loc + Vector((200, -i * 300 - 150)))
+        tree.links.new(start.outputs['Show -' + axis], show.inputs[0])
+        tree.links.new(side_select.outputs[0], show.inputs[1])
+
+        mul = new_math_node(tree, 'MULTIPLY', loc + Vector((400, -i * 300)))
+        tree.links.new(weights[axis].outputs[0], mul.inputs[0])
+        tree.links.new(show.outputs[0], mul.inputs[1])
+        shown_weights[axis] = mul
+
+    loc.x += 400
+
+    # Sum of all weights and sum of shown weights
+    loc.x += 200
+    full_sum = new_math_node(tree, 'ADD', loc)
+    tree.links.new(weights['X'].outputs[0], full_sum.inputs[0])
+    tree.links.new(weights['Y'].outputs[0], full_sum.inputs[1])
+    full_sum_1 = new_math_node(tree, 'ADD', loc + Vector((0, -150)))
+    tree.links.new(full_sum.outputs[0], full_sum_1.inputs[0])
+    tree.links.new(weights['Z'].outputs[0], full_sum_1.inputs[1])
+    full_sum_safe = new_math_node(tree, 'MAXIMUM', loc + Vector((0, -300)), 0.00001)
+    tree.links.new(full_sum_1.outputs[0], full_sum_safe.inputs[0])
+
+    shown_sum = new_math_node(tree, 'ADD', loc + Vector((0, -450)))
+    tree.links.new(shown_weights['X'].outputs[0], shown_sum.inputs[0])
+    tree.links.new(shown_weights['Y'].outputs[0], shown_sum.inputs[1])
+    shown_sum_1 = new_math_node(tree, 'ADD', loc + Vector((0, -600)))
+    tree.links.new(shown_sum.outputs[0], shown_sum_1.inputs[0])
+    tree.links.new(shown_weights['Z'].outputs[0], shown_sum_1.inputs[1])
+
+    # Coverage of shown sides, expandable to counteract fading when some sides are hidden
+    loc.x += 200
+    coverage = new_math_node(tree, 'DIVIDE', loc + Vector((0, -900)))
+    tree.links.new(shown_sum_1.outputs[0], coverage.inputs[0])
+    tree.links.new(full_sum_safe.outputs[0], coverage.inputs[1])
+
+    expand_inv = new_math_node(tree, 'SUBTRACT', loc + Vector((0, -1050)))
+    expand_inv.inputs[0].default_value = 1.0
+    tree.links.new(start.outputs['Expand'], expand_inv.inputs[1])
+    expand_inv_safe = new_math_node(tree, 'MAXIMUM', loc + Vector((200, -1050)), 0.001)
+    tree.links.new(expand_inv.outputs[0], expand_inv_safe.inputs[0])
+
+    expanded_coverage = new_math_node(tree, 'DIVIDE', loc + Vector((400, -900)))
+    tree.links.new(coverage.outputs[0], expanded_coverage.inputs[0])
+    tree.links.new(expand_inv_safe.outputs[0], expanded_coverage.inputs[1])
+    expanded_coverage_clamped = new_math_node(tree, 'MINIMUM', loc + Vector((600, -900)), 1.0)
+    tree.links.new(expanded_coverage.outputs[0], expanded_coverage_clamped.inputs[0])
+
+    # Color always blends all projections to avoid stretching,
+    # hiding sides only fades the entity out through the alpha weights
+    for i, axis in enumerate(triplanar_axes):
+        color_weight = new_math_node(tree, 'DIVIDE', loc + Vector((0, -i * 300)))
+        tree.links.new(weights[axis].outputs[0], color_weight.inputs[0])
+        tree.links.new(full_sum_safe.outputs[0], color_weight.inputs[1])
+        tree.links.new(color_weight.outputs[0], end.inputs['Color Weight ' + axis])
+
+        alpha_weight = new_math_node(tree, 'MULTIPLY', loc + Vector((800, -i * 300)))
+        tree.links.new(color_weight.outputs[0], alpha_weight.inputs[0])
+        tree.links.new(expanded_coverage_clamped.outputs[0], alpha_weight.inputs[1])
+        tree.links.new(alpha_weight.outputs[0], end.inputs['Alpha Weight ' + axis])
+
+    loc.x += 1000
+    end.location = loc
+
+    marker = tree.nodes.new('NodeFrame')
+    marker.name = TRIPLANAR_REVISION_MARKER
+    marker.label = ''
+
+    return tree
+
+def get_triplanar_blend_tree():
+    ''' Blend three triplanar samples of a color and alpha pair '''
+
+    tree = bpy.data.node_groups.get(TRIPLANAR_BLEND)
+    if tree: return tree
+
+    tree = bpy.data.node_groups.new(TRIPLANAR_BLEND, 'ShaderNodeTree')
+
+    # IO
+    for axis in triplanar_axes:
+        new_tree_input(tree, 'Color ' + axis, 'NodeSocketColor')
+    for axis in triplanar_axes:
+        new_tree_input(tree, 'Alpha ' + axis, 'NodeSocketFloat')
+    for axis in triplanar_axes:
+        new_tree_input(tree, 'Color Weight ' + axis, 'NodeSocketFloat')
+    for axis in triplanar_axes:
+        new_tree_input(tree, 'Alpha Weight ' + axis, 'NodeSocketFloat')
+
+    new_tree_output(tree, 'Color', 'NodeSocketColor')
+    new_tree_output(tree, 'Alpha', 'NodeSocketFloat')
+
+    create_essential_nodes(tree)
+
+    start = tree.nodes.get(TREE_START)
+    end = tree.nodes.get(TREE_END)
+
+    loc = Vector((0, 0))
+    start.location = loc
+
+    loc.x += 200
+    color_muls = {}
+    for i, axis in enumerate(triplanar_axes):
+        mul = simple_new_mix_node(tree)
+        mixcol0, mixcol1, mixout = get_mix_color_indices(mul)
+        mul.blend_type = 'MULTIPLY'
+        mul.inputs[0].default_value = 1.0
+        mul.location = loc + Vector((0, -i * 200))
+        tree.links.new(start.outputs['Color ' + axis], mul.inputs[mixcol0])
+        tree.links.new(start.outputs['Color Weight ' + axis], mul.inputs[mixcol1])
+        color_muls[axis] = (mul, mixout)
+
+    loc.x += 200
+    add_xy = simple_new_mix_node(tree)
+    mixcol0, mixcol1, add_xy_out = get_mix_color_indices(add_xy)
+    add_xy.blend_type = 'ADD'
+    add_xy.inputs[0].default_value = 1.0
+    add_xy.location = loc
+    tree.links.new(color_muls['X'][0].outputs[color_muls['X'][1]], add_xy.inputs[mixcol0])
+    tree.links.new(color_muls['Y'][0].outputs[color_muls['Y'][1]], add_xy.inputs[mixcol1])
+
+    loc.x += 200
+    add_xyz = simple_new_mix_node(tree)
+    mixcol0, mixcol1, mixout = get_mix_color_indices(add_xyz)
+    add_xyz.blend_type = 'ADD'
+    add_xyz.inputs[0].default_value = 1.0
+    add_xyz.location = loc
+    tree.links.new(add_xy.outputs[add_xy_out], add_xyz.inputs[mixcol0])
+    tree.links.new(color_muls['Z'][0].outputs[color_muls['Z'][1]], add_xyz.inputs[mixcol1])
+    tree.links.new(add_xyz.outputs[mixout], end.inputs['Color'])
+
+    # Alpha
+    loc = Vector((200, -700))
+    alpha_muls = {}
+    for i, axis in enumerate(triplanar_axes):
+        mul = new_math_node(tree, 'MULTIPLY', loc + Vector((0, -i * 150)))
+        tree.links.new(start.outputs['Alpha ' + axis], mul.inputs[0])
+        tree.links.new(start.outputs['Alpha Weight ' + axis], mul.inputs[1])
+        alpha_muls[axis] = mul
+
+    alpha_add_xy = new_math_node(tree, 'ADD', loc + Vector((200, 0)))
+    tree.links.new(alpha_muls['X'].outputs[0], alpha_add_xy.inputs[0])
+    tree.links.new(alpha_muls['Y'].outputs[0], alpha_add_xy.inputs[1])
+    alpha_add_xyz = new_math_node(tree, 'ADD', loc + Vector((400, 0)))
+    tree.links.new(alpha_add_xy.outputs[0], alpha_add_xyz.inputs[0])
+    tree.links.new(alpha_muls['Z'].outputs[0], alpha_add_xyz.inputs[1])
+    tree.links.new(alpha_add_xyz.outputs[0], end.inputs['Alpha'])
+
+    end.location = Vector((800, 0))
+
+    return tree
+
+def get_triplanar_blend_value_tree():
+    ''' Blend three triplanar samples of a single value '''
+
+    tree = bpy.data.node_groups.get(TRIPLANAR_BLEND_VALUE)
+    if tree: return tree
+
+    tree = bpy.data.node_groups.new(TRIPLANAR_BLEND_VALUE, 'ShaderNodeTree')
+
+    # IO
+    for axis in triplanar_axes:
+        new_tree_input(tree, 'Value ' + axis, 'NodeSocketFloat')
+    for axis in triplanar_axes:
+        new_tree_input(tree, 'Weight ' + axis, 'NodeSocketFloat')
+
+    new_tree_output(tree, 'Value', 'NodeSocketFloat')
+
+    create_essential_nodes(tree)
+
+    start = tree.nodes.get(TREE_START)
+    end = tree.nodes.get(TREE_END)
+
+    loc = Vector((0, 0))
+    start.location = loc
+
+    loc.x += 200
+    muls = {}
+    for i, axis in enumerate(triplanar_axes):
+        mul = new_math_node(tree, 'MULTIPLY', loc + Vector((0, -i * 150)))
+        tree.links.new(start.outputs['Value ' + axis], mul.inputs[0])
+        tree.links.new(start.outputs['Weight ' + axis], mul.inputs[1])
+        muls[axis] = mul
+
+    add_xy = new_math_node(tree, 'ADD', loc + Vector((200, 0)))
+    tree.links.new(muls['X'].outputs[0], add_xy.inputs[0])
+    tree.links.new(muls['Y'].outputs[0], add_xy.inputs[1])
+    add_xyz = new_math_node(tree, 'ADD', loc + Vector((400, 0)))
+    tree.links.new(add_xy.outputs[0], add_xyz.inputs[0])
+    tree.links.new(muls['Z'].outputs[0], add_xyz.inputs[1])
+    tree.links.new(add_xyz.outputs[0], end.inputs['Value'])
+
+    end.location = loc + Vector((600, 0))
 
     return tree
 
