@@ -7,7 +7,7 @@ from bpy.app.handlers import persistent
 from .node_arrangements import *
 from .node_connections import *
 from .input_outputs import *
-from . import Bake, ListItem, modifier_common, Modifier, Layer, channel_common, BakeTarget
+from . import Bake, ListItem, modifier_common, modifier_common, channel_common, layer_common, BakeTarget, displacement_common
 
 def flip_tangent_sign():
     meshes = []
@@ -797,7 +797,7 @@ def update_yp_tree(tree):
 
                 # Update displacement connection, make sure only setup with the height socket actually connected
                 if is_height_connected:
-                    Bake.check_subdiv_setup(height_root_ch)
+                    displacement_common.check_subdiv_setup(height_root_ch)
 
                 updated_to_yp_200_displacement = True
 
@@ -1071,7 +1071,7 @@ def update_yp_tree(tree):
                             if not used_as_normal_map:
 
                                 # In some cases (like in linked blend file context), adding new data is causing an error
-                                try: mod = Modifier.add_new_modifier(layer, 'MATH')
+                                try: mod = modifier_common.add_new_modifier(layer, 'MATH')
                                 except Exception as e: 
                                     mod = None
                                     print('EXCEPTIION:', e)
@@ -1238,7 +1238,7 @@ def update_yp_tree(tree):
         # Convert background layer to solid color
         for layer in yp.layers:
             if layer.type == 'BACKGROUND':
-                Layer.replace_layer_type(layer, 'COLOR')
+                layer_common.replace_layer_type(layer, 'COLOR')
                 if 'Solid Color' in layer.name: layer.name = 'Hole'
 
                 source = get_layer_source(layer)
@@ -1680,7 +1680,7 @@ def update_yp_tree(tree):
                 yp.halt_update = True
 
                 # Create new layer
-                layer = Layer.add_new_layer(
+                layer = layer_common.add_new_layer(
                     tree, root_ch.name+' Adjustment', 'PREV_LAYERS', i,
                     'MIX', 'MIX', 'BUMP_MAP',
                     'UV')

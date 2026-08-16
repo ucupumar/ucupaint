@@ -508,6 +508,38 @@ def get_smooth_mix_node(blend_type, layer_type=''):
 
     return tree
 
+def setup_edge_detect_source(entity, source, edge_detect_radius=None, edge_detect_method=None):
+    yp = entity.id_data.yp
+
+    if edge_detect_method == None:
+        edge_detect_method = entity.edge_detect_method
+    elif entity.edge_detect_method != edge_detect_method:
+        ori_halt_update = yp.halt_update
+        yp.halt_update = True
+        entity.edge_detect_method = edge_detect_method
+        yp.halt_update = ori_halt_update
+
+    if edge_detect_method == 'CROSS':
+        if entity.hemi_use_prev_normal:
+            lib_name = EDGE_DETECT_CUSTOM_NORMAL
+        else: lib_name = EDGE_DETECT
+    else:
+        if entity.hemi_use_prev_normal:
+            lib_name = EDGE_DETECT_CUSTOM_NORMAL_DOT
+        else: lib_name = EDGE_DETECT_DOT
+
+    ori_lib = source.node_tree
+    if not ori_lib or ori_lib.name != lib_name:
+        source.node_tree = get_node_tree_lib(lib_name)
+        if ori_lib and ori_lib.users == 0:
+            remove_datablock(bpy.data.node_groups, ori_lib)
+
+    if edge_detect_radius != None:
+        source.inputs[0].default_value = entity.edge_detect_radius = edge_detect_radius
+    else: source.inputs[0].default_value = entity.edge_detect_radius
+
+    enable_eevee_ao()
+
 def clean_unused_libraries():
     for ng in bpy.data.node_groups:
         if ng.name.startswith('~yPL ') and ng.users == 0:

@@ -3,7 +3,7 @@ import requests, threading
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
-from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal
+from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal, modifier_common
 from .common import *
 
 USE_CACHE_DELTA_MS = 250
@@ -8153,7 +8153,7 @@ class YLayerChannelSpecialMenu(bpy.types.Menu):
         #else:
 
         # List the items
-        for mt in Modifier.modifier_type_items:
+        for mt in modifier_common.modifier_type_items:
             # Override color and multiplier modifier are deprecated
             if mt[0] == 'OVERRIDE_COLOR': continue
             if mt[0] == 'MULTIPLIER': continue
@@ -8480,7 +8480,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
             col = row.column()
             col.label(text='Add Modifier')
             ## List the modifiers
-            for mt in Modifier.modifier_type_items:
+            for mt in modifier_common.modifier_type_items:
                 # Override color modifier is deprecated
                 if mt[0] == 'OVERRIDE_COLOR': continue
                 if mt[0] == 'MULTIPLIER': continue

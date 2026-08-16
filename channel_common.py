@@ -63,12 +63,12 @@ def create_normal_without_bump_bake_target(yp):
     height_ch = get_root_height_channel(yp)
 
     if not normal_ch or not height_ch:
-        return
+        return None
 
     # Check if there's already normal without height bake target
     for b in yp.bake_targets:
         if is_bake_target_using_exact_channel(b, normal_ch) and not b.normal_includes_height:
-            return
+            return b
 
     bt = yp.bake_targets.add()
     bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ' + normal_ch.name + ' without Height', bpy.data.images)

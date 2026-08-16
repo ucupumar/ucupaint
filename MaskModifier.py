@@ -92,7 +92,7 @@ def add_modifier_nodes(mod, tree, ref_tree=None):
 
             ref_tree.nodes.remove(curve_ref)
 
-def delete_modifier_nodes(tree, mod):
+def delete_mask_modifier_nodes(tree, mod):
 
     if mod.type == 'INVERT':
         remove_node(tree, mod, 'invert')
@@ -237,7 +237,7 @@ class YRemoveMaskModifier(bpy.types.Operator):
                 break
         if index == -1: return {'CANCELLED'}
 
-        delete_modifier_nodes(tree, context.modifier)
+        delete_mask_modifier_nodes(tree, context.modifier)
 
         mask.modifiers.remove(index)
 

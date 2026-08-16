@@ -5,7 +5,7 @@ from .common import *
 from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import channel_common, lib, Modifier, Layer, Mask, transition, Bake, BakeTarget, ListItem, BaseOperator, preview_mode
+from . import channel_common, lib, Modifier, Layer, layer_common, Mask, transition, Bake, BakeTarget, ListItem, BaseOperator, preview_mode, modifier_common
 from .input_outputs import *
 
 YP_GROUP_SUFFIX = ' ' + get_addon_title()
@@ -305,296 +305,6 @@ class YRenameUVMaterial(bpy.types.Operator):
             height_ch = get_root_height_channel(yp)
             if height_ch and height_ch.main_uv == self.uv_map:
                 height_ch.main_uv = new_uv_name
-
-        return {'FINISHED'}
-
-class YRemoveDisplacementSetup(bpy.types.Operator):
-    bl_idname = "wm.y_remove_displacement_setup"
-    bl_label = "Remove Displacement and Subdivision Setup"
-    bl_description = "Disable material displacement settings and remove or use lower subdivision modifer to all objects with the same material.\nNOTE: This will also make the height output no longer accessible."
-    bl_options = {'REGISTER', 'UNDO'}
-
-    delete_subdivision : BoolProperty(
-        name = 'Delete Subdivision Modifier',
-        description = 'Delete existing subdivision modifier on all objects with the same material',
-        default=False,
-    )
-
-    subdiv_level : IntProperty(
-        name = 'Subdivision Level',
-        description = 'Set subdivision level on all objects with the same material',
-        default=1, min=0, max=10, 
-    )
-
-    @classmethod
-    def poll(cls, context):
-        return context.object and get_active_material()
-
-    def invoke(self, context, event):
-        #displacement_method = get_displacement_method()
-        #
-        #self.displacement_found = displacement_method in {'DISPLACEMENT', 'BOTH', 'TRUE'}
-        #if not self.displacement_found:
-        #    return self.execute(context)
-
-        return context.window_manager.invoke_props_dialog(self, width=350)
-
-    def draw(self, context):
-        row = split_layout(self.layout, 0.35)
-        col = row.column()
-        col.label(text='')
-        if not self.delete_subdivision:
-            col.label(text='Set Subdivision Level:')
-
-        col = row.column()
-        col.prop(self, 'delete_subdivision')
-        if not self.delete_subdivision:
-            col.prop(self, 'subdiv_level', text='')
-
-    def execute(self, context):
-        #if not self.displacement_found:
-        #    self.report({'ERROR'}, "Displacement setup doesn't exist yet!")
-        #    return {'CANCELLED'}
-
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat, True)
-
-        displacement_method = 'BUMP'
-
-        # Set displacement mode
-        if hasattr(mat, 'displacement_method'):
-            mat.displacement_method = displacement_method
-
-        # Set cycles displacement mode
-        if hasattr(mat.cycles, 'displacement_method'):
-            mat.cycles.displacement_method = displacement_method
-        
-        # Displacement method is inside object data for Blender 2.77 and below 
-        if not is_bl_newer_than(2, 78):
-            for obj in objs:
-                if obj.data and hasattr(obj.data, 'cycles'):
-                    obj.data.cycles.displacement_method = displacement_method
-
-        # Remember active object
-        ori_active_obj = context.object
-
-        for obj in objs:
-
-            # Set active object to modify modifiers
-            set_active_object(obj)
-
-            # Subsurf / Multires Modifier
-            subsurf = get_subsurf_modifier(obj)
-
-            if subsurf:
-                if not self.delete_subdivision:
-                    subsurf.levels = self.subdiv_level
-                    subsurf.render_levels = self.subdiv_level
-                else:
-                    # Remove subdivision
-                    bpy.ops.object.modifier_remove(modifier=subsurf.name)
-
-            # TODO: Multires related
-            #multires = get_multires_modifier(obj, include_hidden=True)
-
-            # Disable Adaptive subdiv
-            subsurf = get_subsurf_modifier(obj)
-            if not is_bl_newer_than(5):
-                obj.cycles.use_adaptive_subdivision = False
-            elif subsurf: subsurf.use_adaptive_subdivision = False
-
-        set_active_object(ori_active_obj)
-
-        # NOTE: Height as bump will always be enabled at this point for now
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp if node else None
-        try: ch = yp.channels[yp.active_channel_index] if yp else None
-        except: ch = None
-        if ch and ch.special_type == 'HEIGHT':
-            ch.use_height_as_bump = True
-
-        return {'FINISHED'}
-
-class YQuickDisplacementSetup(bpy.types.Operator):
-    bl_idname = "wm.y_quick_displacement_setup"
-    bl_label = "Quick Displacement and Subdivision Setup"
-    bl_description = "Enable material displacement settings and add subdivision modifer to all objects with the same material.\nNOTE: This will also make the height output accessible."
-    bl_options = {'REGISTER', 'UNDO'}
-
-    displacement_method : EnumProperty(
-        name = 'Displacement Method',
-        items = (
-            #('BUMP', 'Bump Only', 'Bump mapping to simulate the appearance of displacement.'),
-            ('DISPLACEMENT', 'Displacement Only', 'Use true displacement of surface only, requires fine subdivision.'),
-            ('BOTH', 'Displacement and Bump', 'Combination of true displacement and bump mapping for finer detail.'),
-        ),
-        default = 'BOTH'
-    )
-
-    max_polys : IntProperty(
-        name = 'Subdivision Max Polygons',
-        description = 'Add subdivision modifier with number of max polygons (in thousand)',
-        default=1000, min=1, max=10000, 
-    )
-
-    use_adaptive_subdivision : BoolProperty(
-        name = 'Use Adaptive Subdivision',
-        description = 'Use adaptive subdivion (Cycles Only)',
-        default = False
-    )
-
-    dicing_rate : FloatProperty(
-        name = 'Adaptive Subdivision Dicing Rate',
-        description = 'Adaptive subdivision dicing rate in pixels',
-        default=1.0, min=0.5, max=1000,
-    )
-
-    @classmethod
-    def poll(cls, context):
-        return context.object and get_active_material()
-
-    def invoke(self, context, event):
-        # Check current displacement mode
-        method = get_displacement_method()
-
-        if method in {'TRUE', 'DISPLACEMENT'}:
-            self.displacement_method = 'DISPLACEMENT'
-        elif method == 'BOTH':
-            self.displacement_method = 'BOTH'
-
-        return context.window_manager.invoke_props_dialog(self, width=330)
-
-    def draw(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp if node else None
-        try: ch = yp.channels[yp.active_channel_index] if yp else None
-        except: ch = None
-
-        row = split_layout(self.layout, 0.35)
-        col = row.column()
-        col.label(text='Method:')
-        col.label(text='Max Polygons:')
-        col.label(text='')
-        if self.use_adaptive_subdivision:
-            col.label(text='Dicing Rate')
-
-        col = row.column()
-        col.prop(self, 'displacement_method', text='')
-        col.prop(self, 'max_polys', text='')
-        col.prop(self, 'use_adaptive_subdivision', text='Adaptive (Cycles Only)')
-        if self.use_adaptive_subdivision:
-            col.prop(self, 'dicing_rate', text='')
-
-    def execute(self, context):
-        scene = context.scene
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat, True)
-
-        # Displacement only works with experimental feature set in Blender 2.79
-        if not is_bl_newer_than(5) and (self.use_adaptive_subdivision or not is_bl_newer_than(2, 80)):
-            scene.cycles.feature_set = 'EXPERIMENTAL'
-
-        if self.use_adaptive_subdivision:
-            # Blender 5.0 will set the pixel size in the modifiers rather than setting global settings
-            if is_bl_newer_than(5):
-                for obj in objs:
-                    subsurf = get_subsurf_modifier(obj)
-                    if subsurf:
-                        subsurf.adaptive_pixel_size = self.dicing_rate
-
-                scene.cycles.dicing_rate = 1.0
-                scene.cycles.preview_dicing_rate = 1.0
-
-            else:
-                scene.cycles.dicing_rate = self.dicing_rate
-                scene.cycles.preview_dicing_rate = self.dicing_rate
-
-        # Legacy blender has different enum
-        displacement_method = self.displacement_method
-        if not is_bl_newer_than(2, 80) and displacement_method == 'DISPLACEMENT':
-            displacement_method = 'TRUE'
-
-        # Set displacement mode
-        if hasattr(mat, 'displacement_method'):
-            mat.displacement_method = displacement_method
-
-        # Set cycles displacement mode
-        if hasattr(mat.cycles, 'displacement_method'):
-            mat.cycles.displacement_method = displacement_method
-        
-        # Displacement method is inside object data for Blender 2.77 and below 
-        if not is_bl_newer_than(2, 78):
-            for obj in objs:
-                if obj.data and hasattr(obj.data, 'cycles'):
-                    obj.data.cycles.displacement_method = displacement_method
-
-        # Remember active object
-        ori_active_obj = context.object
-
-        # Iterate all objects with same materials
-        proportions = Bake.get_objs_size_proportions(objs)
-        for obj in objs:
-
-            # Set active object to modify modifier order
-            set_active_object(obj)
-
-            # Subsurf / Multires Modifier
-            subsurf = get_subsurf_modifier(obj)
-            multires = get_multires_modifier(obj, include_hidden=True)
-
-            if multires:
-                #if height_ch.enable_subdiv_setup and (height_ch.subdiv_subsurf_only or height_ch.subdiv_adaptive):
-                # TODO: Disable Multires options
-                if False:
-                    multires.show_render = False
-                    multires.show_viewport = False
-                else:
-                    if subsurf: 
-                        obj.modifiers.remove(subsurf)
-                    multires.show_render = True
-                    multires.show_viewport = True
-                    subsurf = multires
-
-            #if height_ch.enable_subdiv_setup:
-            if not subsurf:
-                subsurf = obj.modifiers.new('Subsurf', 'SUBSURF')
-                if obj.type == 'MESH' and is_mesh_flat_shaded(obj.data):
-                    subsurf.subdivision_type = 'SIMPLE'
-
-            Bake.setup_subdiv_to_max_polys(obj, self.max_polys * 1000 * proportions[obj.name], subsurf)
-
-            # Set subsurf to visible
-            if subsurf:
-                subsurf.show_render = True
-                subsurf.show_viewport = True
-
-            # Adaptive subdiv
-            subsurf = get_subsurf_modifier(obj)
-            if self.use_adaptive_subdivision:
-                if not is_bl_newer_than(5):
-                    obj.cycles.use_adaptive_subdivision = True
-                elif subsurf: subsurf.use_adaptive_subdivision = True
-            else: 
-                if not is_bl_newer_than(5):
-                    obj.cycles.use_adaptive_subdivision = False
-                elif subsurf: subsurf.use_adaptive_subdivision = False
-
-        set_active_object(ori_active_obj)
-
-        # NOTE: Height as bump will always be disabled at this point for now
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp if node else None
-        if yp:
-            for ch in yp.channels:
-                if ch and ch.special_type == 'HEIGHT':
-                    ch.use_height_as_bump = False
-
-            # Create normal without height bake target so baked node can be displayed correctly
-            bt = channel_common.create_normal_without_bump_bake_target(yp)
-
-            # Set the bake target as the default bake target of normal channel
-            normal_ch = get_root_normal_channel(yp)
-            normal_ch.bake_target_name = bt.name
 
         return {'FINISHED'}
 
@@ -1960,7 +1670,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
                 ttree.nodes.remove(mod_group)
             else:
                 for mod in ch.modifiers:
-                    Modifier.delete_modifier_nodes(ttree, mod)
+                    modifier_common.delete_modifier_nodes(ttree, mod)
 
             # Remove transition bump and ramp
             if channel.special_type == 'HEIGHT' and ch.enable_transition_bump:
@@ -1973,9 +1683,6 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
             # Remove layer channel
             layer.channels.remove(channel_idx)
-
-            # Update layer ios
-            #Layer.check_all_layer_channel_io_and_nodes(layer, ttree) #, has_parent=has_parent)
 
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
@@ -2000,7 +1707,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'baked_combine_xyz')
 
         for mod in channel.modifiers:
-            Modifier.delete_modifier_nodes(group_tree, mod)
+            modifier_common.delete_modifier_nodes(group_tree, mod)
 
         # Remove channel
         yp.channels.remove(channel_idx)
@@ -2527,7 +2234,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
             yp.enable_baked_outside = False
 
         # Duplicate all layers
-        Layer.duplicate_layer_nodes_and_images(tree, packed_duplicate=True, ondisk_duplicate=self.ondisk_duplicate)
+        layer_common.duplicate_layer_nodes_and_images(tree, packed_duplicate=True, ondisk_duplicate=self.ondisk_duplicate)
 
         # Duplicate uv nodes
         for uv in yp.uvs:
@@ -2627,7 +2334,7 @@ class YFixMissingData(bpy.types.Operator):
             # Delete layer if source is not found
             src = get_layer_source(layer)
             if not src:
-                Layer.remove_layer(yp, i)
+                layer_common.remove_layer(yp, i)
                 continue
 
             # Delete mask if mask source is not found
@@ -2915,7 +2622,7 @@ def update_channel_name(self, context):
 
     for layer in yp.layers:
         tree = get_tree(layer)
-        Layer.check_all_layer_channel_io_and_nodes(layer, tree)
+        check_all_layer_channel_io_and_nodes(layer, tree)
         reconnect_layer_nodes(layer)
         rearrange_layer_nodes(layer)
 
@@ -3530,7 +3237,7 @@ def update_enable_height_tweak(self, context):
     rearrange_yp_nodes(self.id_data)
 
 def update_use_linear_blending(self, context):
-    Modifier.check_yp_modifier_linear_nodes(self)
+    modifier_common.check_yp_modifier_linear_nodes(self)
     check_start_end_root_ch_nodes(self.id_data)
     check_yp_linear_nodes(self)
 
@@ -4546,8 +4253,6 @@ def register():
     bpy.utils.register_class(YSelectMaterialPolygons)
     bpy.utils.register_class(YRenameUVMaterial)
     bpy.utils.register_class(YQuickYPaintNodeSetup)
-    bpy.utils.register_class(YQuickDisplacementSetup)
-    bpy.utils.register_class(YRemoveDisplacementSetup)
     bpy.utils.register_class(YNewYPaintNode)
     bpy.utils.register_class(YPaintNodeInputCollItem)
     bpy.utils.register_class(YConnectYPaintChannel)
@@ -4615,8 +4320,6 @@ def unregister():
     bpy.utils.unregister_class(YSelectMaterialPolygons)
     bpy.utils.unregister_class(YRenameUVMaterial)
     bpy.utils.unregister_class(YQuickYPaintNodeSetup)
-    bpy.utils.unregister_class(YQuickDisplacementSetup)
-    bpy.utils.unregister_class(YRemoveDisplacementSetup)
     bpy.utils.unregister_class(YNewYPaintNode)
     bpy.utils.unregister_class(YPaintNodeInputCollItem)
     bpy.utils.unregister_class(YConnectYPaintChannel)

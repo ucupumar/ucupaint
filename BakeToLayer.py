@@ -7,7 +7,7 @@ from .subtree import *
 from .input_outputs import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer, Mask, ImageAtlas, UDIM, vector_displacement_lib, vector_displacement, BaseOperator
+from . import lib, layer_common, mask_common, ImageAtlas, UDIM, vector_displacement_lib, vector_displacement, BaseOperator
 
 class YTryToSelectBakedVertexSelect(bpy.types.Operator):
     bl_idname = "wm.y_try_to_select_baked_vertex"
@@ -345,7 +345,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     normal_map_type : EnumProperty(
         name = 'Normal Map Type',
         description = 'Normal map type of this layer',
-        items = Layer.get_normal_map_type_items
+        items = layer_common.get_normal_map_type_items
     )
 
     hdr : BoolProperty(
@@ -1396,7 +1396,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
                 new_entity_name = get_unique_name(self.name, self.entities) if self.use_image_atlas else image.name
 
                 # Create new mask
-                mask = Mask.add_new_mask(
+                mask = mask_common.add_new_mask(
                     self.layer, new_entity_name, 'IMAGE', 'UV', self.uv_map, 
                     image=image, vcol_name='', segment=segment
                 )

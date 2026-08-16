@@ -4,7 +4,7 @@ from .common import *
 from .subtree import *
 from .input_outputs import *
 from .node_connections import *
-from . import lib, Layer, ImageAtlas, UDIM, image_ops, Mask, vector_displacement, vector_displacement_lib
+from . import lib, layer_common, ImageAtlas, UDIM, image_ops, mask_common, vector_displacement, vector_displacement_lib
 
 BL28_HACK = True
 
@@ -5166,7 +5166,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                     layer_name = get_unique_name(layer_name, yp.layers)
 
                 yp.halt_update = True
-                layer = Layer.add_new_layer(
+                layer = layer_common.add_new_layer(
                     group_tree=node.node_tree, layer_name=layer_name,
                     layer_type='IMAGE', channel_idx=channel_idx,
                     blend_type=bprops.blend_type, normal_blend_type=bprops.normal_blend_type,
@@ -5197,7 +5197,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                 if bprops.use_image_atlas:
                     mask_name = get_unique_name(mask_name, active_layer.masks)
 
-                mask = Mask.add_new_mask(
+                mask = mask_common.add_new_mask(
                     active_layer, mask_name, 'IMAGE', 'UV', bprops.uv_map,
                     image=image, vcol_name='', segment=segment
                 )

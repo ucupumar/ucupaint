@@ -8,7 +8,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, Modifier, MaskModifier, image_ops, ListItem, BakeInfo, channel_common, BakeTarget
+from . import lib, Layer, Mask, MaskModifier, image_ops, ListItem, BakeInfo, channel_common, BakeTarget, displacement_common, layer_common, modifier_common
 
 UV_OUTSIDE_PREFIX = '__BAKE_TARGET_UV__'
 
@@ -2619,7 +2619,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         # Check subdiv Setup
         #if height_ch:
-        #    check_subdiv_setup(height_ch)
+        #    displacement_common.check_subdiv_setup(height_ch)
 
         # Update global uv
         check_uv_nodes(yp)
@@ -2767,7 +2767,7 @@ def remove_layer_modifiers_and_transforms(layer):
 
         # Delete the nodes
         mod_tree = get_mod_tree(layer)
-        Modifier.delete_modifier_nodes(mod_tree, mod)
+        modifier_common.delete_modifier_nodes(mod_tree, mod)
         layer.modifiers.remove(i)
 
     for i, c in enumerate(layer.channels):
@@ -2779,7 +2779,7 @@ def remove_layer_modifiers_and_transforms(layer):
 
             # Delete the nodes
             mod_tree = get_mod_tree(c)
-            Modifier.delete_modifier_nodes(mod_tree, mod)
+            modifier_common.delete_modifier_nodes(mod_tree, mod)
             c.modifiers.remove(j)
 
         # Remove channel transition effects
@@ -3189,7 +3189,7 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
 
         if merge_success:
             # Remove neighbor layer
-            Layer.remove_layer(yp, neighbor_idx)
+            layer_common.remove_layer(yp, neighbor_idx)
 
             # Remap parents
             for lay in yp.layers:
@@ -3437,7 +3437,7 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
 
         # Remove modifiers
         for i, mod in reversed(list(enumerate(mask.modifiers))):
-            MaskModifier.delete_modifier_nodes(tree, mod)
+            MaskModifier.delete_mask_modifier_nodes(tree, mod)
             mask.modifiers.remove(i)
 
         # Remove neighbor mask
@@ -3933,9 +3933,9 @@ def update_enable_baked_outside(self, context):
                         scene.cycles.feature_set = 'EXPERIMENTAL'
 
                     # Set global dicing
-                    set_subdiv_global_dicing(height_ch)
+                    displacement_common.set_subdiv_global_dicing(height_ch)
 
-                check_displacement_node(mat, node, set_one=True)
+                displacement_common.check_displacement_node(mat, node, set_one=True)
 
 def connect_to_original_node(mtree, outp, ori_to, set_default_value=False):
     for con in ori_to:
@@ -3967,7 +3967,7 @@ def update_use_baked(self, context):
     #if height_ch:
     #    if height_ch.enable_subdiv_setup and yp.use_baked and not ypup.eevee_next_displacement:
     #        remember_subsurf_levels()
-    #    check_subdiv_setup(height_ch)
+    #    displacement_common.check_subdiv_setup(height_ch)
     #    if height_ch.enable_subdiv_setup and not yp.use_baked and not ypup.eevee_next_displacement:
     #        recover_subsurf_levels()
 
@@ -4001,251 +4001,6 @@ def update_enable_bake_to_vcol(self, context):
         yp['enable_baked_outside'] = True
     update_use_baked(self, context)
 
-def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outside=False):
-
-    output_mat = get_material_output(mat)
-    if not output_mat: return None
-
-    height_ch = get_root_height_channel(node.node_tree.yp)
-    if not height_ch: return None
-
-    # Check output connection
-    norm_outp = node.outputs[height_ch.name]
-    height_outp = node.outputs.get(height_ch.name + io_suffix['HEIGHT'])
-    max_height_outp = node.outputs.get(height_ch.name + io_suffix['MAX_HEIGHT'])
-    vdisp_outp = node.outputs.get(height_ch.name + io_suffix['VDISP'])
-    disp_mat_inp = output_mat.inputs['Displacement']
-
-    disp = channel_common.get_closest_disp_node_backward(output_mat, 'Displacement')
-    vdisp = channel_common.get_closest_disp_node_backward(output_mat, 'Displacement', is_vector_disp=True)
-    add_disp = None
-
-    if set_one or set_outside:
-        
-        # Set add vector node
-        if is_bl_newer_than(2, 80) and ((not disp and not vdisp) or (disp and not vdisp) or (not disp and vdisp)):
-            add_disp = mat.node_tree.nodes.new('ShaderNodeVectorMath')
-
-            add_disp.location.x = output_mat.location.x
-            add_disp.location.y = node.location.y - 170
-            add_disp.hide = True
-
-        # Set displacement
-        if not disp:
-
-            # Create displacement node
-            disp = channel_common.create_displacement_node(mat.node_tree) #, disp_mat_inp)
-
-            disp.location.x = output_mat.location.x
-            disp.location.y = node.location.y - 220
-
-            # Set displacement node default value
-            disp.inputs['Height'].default_value = 0.0
-            disp.inputs['Scale'].default_value = 0.0
-
-        elif set_one:
-            # Connect the original connections to yp node
-            height_inp = None
-            for l in disp.inputs['Height'].links:
-                if not l.from_socket or l.from_node == node: continue
-                height_inp = node.inputs.get(height_ch.name + io_suffix['HEIGHT'])
-                if height_inp: create_link(mat.node_tree, l.from_socket, height_inp)
-
-            for l in disp.inputs['Scale'].links:
-                if not l.from_socket or l.from_node == node: continue
-                max_height_inp = node.inputs.get(height_ch.name + io_suffix['MAX_HEIGHT'])
-                if max_height_inp: create_link(mat.node_tree, l.from_socket, max_height_inp)
-            
-            # Need to check check start and end nodes again if height input is connected
-            if height_inp: check_all_channel_ios(node.node_tree.yp, reconnect=False)
-
-        # Set vector displacement
-        if not vdisp:
-
-            # Create displacement node
-            vdisp = channel_common.create_vector_displacement_node(mat.node_tree) #, disp_mat_inp)
-
-            if vdisp:
-                vdisp.location.x = output_mat.location.x
-                vdisp.location.y = node.location.y - 410
-
-                # Set displacement node default value
-                vdisp.inputs['Vector'].default_value = (0, 0, 0, 0)
-
-        elif set_one:
-            # Connect the original connections to yp node
-            vdisp_input = None
-            for l in vdisp.inputs['Vector'].links:
-                if not l.from_socket or l.from_node == node: continue
-                vdisp_input = node.inputs.get(height_ch.name + io_suffix['VDISP'])
-                if vdisp_input: create_link(mat.node_tree, l.from_socket, vdisp_input)
-
-        if add_disp and vdisp:
-            create_link(mat.node_tree, disp.outputs[0], add_disp.inputs[0])
-            create_link(mat.node_tree, vdisp.outputs[0], add_disp.inputs[1])
-            create_link(mat.node_tree, add_disp.outputs[0], disp_mat_inp)
-        elif disp and not vdisp:
-            create_link(mat.node_tree, disp.outputs[0], disp_mat_inp)
-
-        if set_one:
-            # Create links
-            if vdisp and vdisp_outp: create_link(mat.node_tree, vdisp_outp, vdisp.inputs['Vector'])
-            if disp:
-                create_link(mat.node_tree, height_outp, disp.inputs['Height'])
-                create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])
-
-    if unset_one:
-        if disp:
-            height_inp = node.inputs.get(height_ch.name + io_suffix['HEIGHT'])
-            max_height_inp = node.inputs.get(height_ch.name + io_suffix['MAX_HEIGHT'])
-
-            if height_inp and len(height_inp.links) > 0:
-                soc = height_inp.links[0].from_socket
-                create_link(mat.node_tree, soc, disp.inputs['Height'])
-                break_input_link(mat.node_tree, height_inp)
-
-            if max_height_inp and len(max_height_inp.links) > 0:
-                soc = max_height_inp.links[0].from_socket
-                create_link(mat.node_tree, soc, disp.inputs['Scale'])
-                break_input_link(mat.node_tree, max_height_inp)
-
-        if vdisp:
-            vdisp_inp = node.inputs.get(height_ch.name + io_suffix['VDISP'])
-            if vdisp_inp and len(vdisp_inp.links) > 0:
-                soc = vdisp_inp.links[0].from_socket
-                create_link(mat.node_tree, soc, vdisp.inputs['Vector'])
-                break_input_link(mat.node_tree, height_inp)
-
-    return disp
-
-def check_subdiv_setup(height_ch):
-    tree = height_ch.id_data
-    yp = tree.yp
-    ypup = get_user_preferences()
-
-    if not height_ch: return
-    mat = get_active_material()
-    scene = bpy.context.scene
-    objs = get_all_objects_with_same_materials(mat, True)
-
-    mtree = mat.node_tree
-
-    # Get active output material
-    output_mat = get_material_output(mat)
-    if not output_mat: return
-
-    # Get active ypaint node
-    node = get_active_ypaint_node()
-    norm_outp = node.outputs[height_ch.name]
-
-    # Scene and material displacement settings
-    if height_ch.enable_subdiv_setup:
-
-        # Displacement only works with experimental feature set in Blender 2.79
-        if not is_bl_newer_than(5) and (height_ch.subdiv_adaptive or not is_bl_newer_than(2, 80)):
-            scene.cycles.feature_set = 'EXPERIMENTAL'
-
-        if height_ch.subdiv_adaptive:
-            set_subdiv_global_dicing(height_ch, objs)
-
-        # Set displacement mode
-        if hasattr(mat, 'displacement_method'):
-            mat.displacement_method = 'BOTH'
-
-        # Set cycles displacement mode
-        if hasattr(mat.cycles, 'displacement_method'):
-            if is_bl_newer_than(2, 80):
-                mat.cycles.displacement_method = 'BOTH'
-            else: mat.cycles.displacement_method = 'TRUE'
-        
-        # Displacement method is inside object data for Blender 2.77 and below 
-        if not is_bl_newer_than(2, 78):
-            for obj in objs:
-                if obj.data and hasattr(obj.data, 'cycles'):
-                    obj.data.cycles.displacement_method = 'TRUE'
-
-        if not yp.use_baked or not yp.enable_baked_outside:
-            check_displacement_node(mat, node, set_one=True)
-
-    # Outside nodes connection set
-    #if yp.use_baked and yp.enable_baked_outside:
-    #    frame = get_node(mtree, yp.baked_outside_frame)
-    #    norm = get_node(mtree, height_ch.baked_outside_normal_process, parent=frame)
-    #    disp = get_node(mtree, height_ch.baked_outside_disp_process, parent=frame)
-    #    baked_outside = get_node(mtree, height_ch.baked_outside, parent=frame)
-    #    baked_outside_normal_overlay = get_node(mtree, height_ch.baked_outside_normal_overlay, parent=frame)
-
-    #    if height_ch.enable_subdiv_setup:
-    #        if disp:
-    #            create_link(mtree, disp.outputs[0], output_mat.inputs['Displacement'])
-    #        if baked_outside and norm:
-    #            create_link(mtree, baked_outside.outputs[0], norm.inputs[1])
-    #    else:
-    #        if baked_outside and norm:
-    #            create_link(mtree, baked_outside.outputs[0], norm.inputs[1])
-    #    
-    #    if norm and not baked_outside_normal_overlay and height_ch.enable_subdiv_setup:
-    #        for l in norm.outputs[0].links:
-    #            mtree.links.remove(l)
-    #    elif norm:
-    #        for con in height_ch.ori_to:
-    #            n = mtree.nodes.get(con.node)
-    #            if n:
-    #                s = n.inputs.get(con.socket)
-    #                if s:
-    #                    create_link(mtree, norm.outputs[0], s)
-
-    # Remember active object
-    ori_active_obj = bpy.context.object
-
-    # Iterate all objects with same materials
-    proportions = get_objs_size_proportions(objs)
-    for obj in objs:
-
-        # Set active object to modify modifier order
-        set_active_object(obj)
-
-        # Subsurf / Multires Modifier
-        subsurf = get_subsurf_modifier(obj)
-        multires = get_multires_modifier(obj, include_hidden=True)
-
-        if multires:
-            if height_ch.enable_subdiv_setup and (height_ch.subdiv_subsurf_only or height_ch.subdiv_adaptive):
-                multires.show_render = False
-                multires.show_viewport = False
-            else:
-                if subsurf: 
-                    obj.modifiers.remove(subsurf)
-                multires.show_render = True
-                multires.show_viewport = True
-                subsurf = multires
-
-        if height_ch.enable_subdiv_setup:
-            if not subsurf:
-                subsurf = obj.modifiers.new('Subsurf', 'SUBSURF')
-                if obj.type == 'MESH' and is_mesh_flat_shaded(obj.data):
-                    subsurf.subdivision_type = 'SIMPLE'
-
-            setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
-
-        # Set subsurf to visible
-        if subsurf:
-            subsurf.show_render = True
-            subsurf.show_viewport = True
-
-        # Adaptive subdiv
-        subsurf = get_subsurf_modifier(obj)
-        if height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
-            if not is_bl_newer_than(5):
-                obj.cycles.use_adaptive_subdivision = True
-            elif subsurf: subsurf.use_adaptive_subdivision = True
-        else: 
-            if not is_bl_newer_than(5):
-                obj.cycles.use_adaptive_subdivision = False
-            elif subsurf: subsurf.use_adaptive_subdivision = False
-
-    set_active_object(ori_active_obj)
-
 def update_subdiv_setup(self, context):
     tree = self.id_data
     yp = tree.yp
@@ -4254,13 +4009,13 @@ def update_subdiv_setup(self, context):
     if not self.enable_subdiv_setup:
         mat = get_active_material()
         node = get_active_ypaint_node()
-        check_displacement_node(mat, node, unset_one=True)
+        displacement_common.check_displacement_node(mat, node, unset_one=True)
 
     # Check input and outputs
     check_all_channel_ios(yp, reconnect=False)
 
     # Check subdiv setup
-    check_subdiv_setup(self)
+    displacement_common.check_subdiv_setup(self)
 
     # Reconnect layers
     for layer in yp.layers:
@@ -4323,55 +4078,6 @@ def update_enable_subdiv_setup(self, context):
     if not height_ch.enable_subdiv_setup:
         recover_subsurf_levels()
 
-def setup_subdiv_to_max_polys(obj, max_polys, subsurf=None):
-    
-    if obj.type != 'MESH': return
-    if not subsurf: subsurf = get_subsurf_modifier(obj)
-    if not subsurf: return
-
-    # Check object polygons
-    num_poly = len(obj.data.polygons)
-
-    # Get levels
-    level = int(math.log(max_polys / num_poly, 4))
-
-    if subsurf.type == 'MULTIRES':
-        if level > subsurf.total_levels: 
-            set_active_object(obj)
-            for i in range(level - subsurf.total_levels):
-                if not is_bl_newer_than(2, 90):
-                    bpy.ops.object.multires_subdivide(modifier=subsurf.name)
-                else:
-                    if is_mesh_flat_shaded(obj.data):
-                        bpy.ops.object.multires_subdivide(modifier=subsurf.name, mode='SIMPLE')
-                    else: bpy.ops.object.multires_subdivide(modifier=subsurf.name, mode='CATMULL_CLARK')
-            level = subsurf.total_levels
-    else:
-        # Maximum subdivision is 10
-        if level > 10: level = 10
-
-    subsurf.render_levels = level
-    subsurf.levels = level
-
-def get_objs_size_proportions(objs):
-
-    sizes = []
-    
-    for obj in objs:
-        sorted_dim = sorted(obj.dimensions, reverse=True)
-        # Object size is only measured on its largest 2 dimensions because this should work on a plane too
-        size = sorted_dim[0] * sorted_dim[1]
-        sizes.append(size)
-
-    total_size = sum(sizes)
-
-    # Measure object size compared to total size
-    proportions = {}
-    for i, size in enumerate(sizes):
-        proportions[objs[i].name] = size/total_size
-
-    return proportions
-
 def update_subdiv_max_polys(self, context):
     mat = get_active_material()
     tree = self.id_data
@@ -4383,7 +4089,7 @@ def update_subdiv_max_polys(self, context):
     #if not ypup.eevee_next_displacement and (not yp.use_baked or not height_ch.enable_subdiv_setup or self.subdiv_adaptive): return
     if not height_ch.enable_subdiv_setup: return
 
-    proportions = get_objs_size_proportions(objs)
+    proportions = displacement_common.get_objs_size_proportions(objs)
 
     for obj in objs:
 
@@ -4395,7 +4101,7 @@ def update_subdiv_max_polys(self, context):
 
         if not subsurf: continue
 
-        setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
+        displacement_common.setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
 
 #def update_subdiv_standard_type(self, context):
 #    obj = context.object
@@ -4409,29 +4115,8 @@ def update_subdiv_max_polys(self, context):
 #
 #    subsurf.subdivision_type = height_ch.subdiv_standard_type
 
-def set_subdiv_global_dicing(height_ch, objs=[]):
-    scene = bpy.context.scene
-
-    # Blender 5.0 will set the pixel size in the modifiers rather than setting global settings
-    if is_bl_newer_than(5):
-        if len(objs) == 0:
-            mat = get_active_material()
-            objs = get_all_objects_with_same_materials(mat)
-
-        for obj in objs:
-            subsurf = get_subsurf_modifier(obj)
-            if subsurf:
-                subsurf.adaptive_pixel_size = height_ch.subdiv_global_dicing
-
-        scene.cycles.dicing_rate = 1.0
-        scene.cycles.preview_dicing_rate = 1.0
-
-    else:
-        scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
-        scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
-
 def update_subdiv_global_dicing(self, context):
-    set_subdiv_global_dicing(self)
+    displacement_common.set_subdiv_global_dicing(self)
 
 def register():
     bpy.utils.register_class(YTransferSomeLayerUV)
