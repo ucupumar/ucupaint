@@ -3569,6 +3569,10 @@ def update_enable_baked_outside(self, context):
                 baked_node_outside = check_new_node(mtree, bt, 'baked_node_outside', baked_node.bl_idname)
                 set_outside_loc(baked_node_outside, loc_x, loc_y, bt_frame)
 
+                # Set interpolation
+                baked_node = tree.nodes.get(bt.baked_node)
+                if baked_node: baked_node_outside.interpolation = baked_node.interpolation
+
                 if not is_bl_newer_than(2, 80):
                     baked_node_outside.color_space = baked_node.color_space
 
