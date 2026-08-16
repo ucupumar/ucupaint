@@ -1950,7 +1950,6 @@ def rearrange_depth_layer_nodes(group_tree):
 
     check_set_node_loc(tree, TREE_END, loc)
 
-
 def rearrange_yp_nodes(group_tree):
 
     yp = group_tree.yp

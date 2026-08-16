@@ -2,7 +2,6 @@ import bpy, re
 from . import lib
 from bpy.props import *
 from bpy.app.handlers import persistent
-from .node_arrangements import *
 from .common import *
 
 def get_decal_object(entity):
@@ -231,12 +230,6 @@ def check_entity_decal_nodes(entity, tree=None):
             texcoord.object.empty_display_type = 'SINGLE_ARROW'
 
         # 4. Create or fetch Decal Process group node
-        proj_type = getattr(entity, 'decal_projection_type', 'FLAT')
-        decal_lib_map = {
-            'FLAT': lib.DECAL_PROCESS_FLAT,
-            'CYLINDER': lib.DECAL_PROCESS_CYLINDER,
-            'SPHERE': lib.DECAL_PROCESS_SPHERE,
-        }
         target_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
         decal_process = tree.nodes.get(entity.decal_process)
 
