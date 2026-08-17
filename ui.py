@@ -2333,14 +2333,11 @@ def draw_base_layer_ui(context, layout, yp, node):
             if len(inputs[input_index].links) > 0:
                 rcrow.label(text='', icon='LINKED')
 
-            # NOTE: Show base value when there's no input connection or there's baked node
-            # Baked node will show the input because sometimes user want to change base color of the baked image
-            baked = tree.nodes.get(root_ch.baked)
-            if len(inputs[input_index].links) == 0 or baked:
-                if root_ch.type == 'VALUE':
-                    rcrow.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
-                elif root_ch.type == 'RGB':
-                    rcrow.prop(inputs[input_index], 'default_value', text='', icon='COLOR')
+            # NOTE: Always show the base values because it will affect the bake result
+            if root_ch.type == 'VALUE':
+                rcrow.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
+            elif root_ch.type == 'RGB':
+                rcrow.prop(inputs[input_index], 'default_value', text='', icon='COLOR')
 
             #output_index = get_output_index(root_ch)
             #if is_output_unconnected(node, output_index, root_ch):
@@ -5587,11 +5584,12 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
                 row = row.row(align=True)
 
             if len(inp.links) == 0:
-                #if item.type == 'VALUE':
-                #    row.prop(inp, 'default_value', text='') #, emboss=False)
-                #elif item.type == 'RGB':
-                #    row.prop(inp, 'default_value', text='', icon='COLOR')
-                pass
+                if item.type == 'VALUE':
+                    rrow = row.row(align=True)
+                    if is_bl_newer_than(2, 80): rrow.scale_x = 0.8
+                    rrow.prop(inp, 'default_value', text='') #, emboss=False)
+                elif item.type == 'RGB':
+                    row.prop(inp, 'default_value', text='', icon='COLOR')
             else:
                 row.label(text='', icon='LINKED')
 
@@ -5599,11 +5597,10 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
                 row.label(text='', icon='ERROR')
 
             if ypup.developer_mode and item.type=='RGB' and item.enable_alpha:
-                #inp_alpha = inputs.get(item.name + io_suffix['ALPHA'])
-                #if len(inp_alpha.links) == 0:
-                #    row.prop(inp_alpha, 'default_value', text='')
-                #else: row.label(text='', icon='LINKED')
-                pass
+                inp_alpha = inputs.get(item.name + io_suffix['ALPHA'])
+                if len(inp_alpha.links) == 0:
+                    row.prop(inp_alpha, 'default_value', text='')
+                else: row.label(text='', icon='LINKED')
 
 def any_subitem_in_layer(layer):
     yp = layer.id_data.yp
