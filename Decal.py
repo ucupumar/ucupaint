@@ -55,13 +55,12 @@ def set_gizmo_style(entity, mode):
     if not decal_obj:
         return
 
-    match mode:
-        case 'SPHERE':
-            decal_obj.empty_display_type = 'SPHERE'
-        case 'CYLINDER':
-            decal_obj.empty_display_type = 'CIRCLE'
-        case _:
-            decal_obj.empty_display_type = 'SINGLE_ARROW'
+    if mode == 'SPHERE':
+        decal_obj.empty_display_type = 'SPHERE'
+    elif mode == 'CYLINDER':
+        decal_obj.empty_display_type = 'CIRCLE'
+    else:
+        decal_obj.empty_display_type = 'SINGLE_ARROW'
 
 def set_decal_scale_to_node(entity):
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -105,13 +104,12 @@ def update_decal_projection(self, context):
     
     mode = getattr(entity, 'decal_projection_type', 'FLAT')
     set_gizmo_style(entity, mode)
-    match mode:
-            case 'SPHERE':
-                decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_SPHERE)
-            case 'CYLINDER':
-                decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_CYLINDER)
-            case _:
-                decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
+    if mode == 'SPHERE':
+        decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_SPHERE)
+    elif mode == 'CYLINDER':
+        decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_CYLINDER)
+    else:
+        decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
 
 def update_enable_uniform_scale(self, context):
     """Fired when toggling the lock icon."""
