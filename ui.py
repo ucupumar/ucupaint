@@ -3225,14 +3225,14 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                     if texcoord and texcoord.object:
                         
 
-                        if hasattr(layer, 'decal_projection_type'):
+                        if hasattr(mask, 'decal_projection_type'):
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
                             splits = split_layout(rrow, 0.45, align=True)
                             splits.label(text='Mode:')
-                            splits.prop(layer, 'decal_projection_type', text='')
+                            splits.prop(mask, 'decal_projection_type', text='')
         
-                        if hasattr(layer, 'decal_scale'):
+                        if hasattr(mask, 'decal_scale'):
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
         
@@ -3240,15 +3240,15 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             mrow = mcol.row()
                             mrow.label(text='Scale:')
         
-                            if layer.enable_uniform:
+                            if mask.enable_uniform:
                                 # LOCKED: Uniform scale
-                                mrow.prop(layer, 'enable_uniform', text='', icon='LOCKED')
-                                draw_input_prop(mcol, layer, 'uniform_scale', None, 'X', layer=layer)
-                                draw_input_prop(mcol, layer, 'uniform_scale', None, 'Y', layer=layer)
+                                mrow.prop(mask, 'enable_uniform', text='', icon='LOCKED')
+                                draw_input_prop(mcol, mask, 'uniform_scale', None, 'X', layer=layer)
+                                draw_input_prop(mcol, mask, 'uniform_scale', None, 'Y', layer=layer)
                             else:
                                 # UNLOCKED: Independent scale
-                                mrow.prop(layer, 'enable_uniform', text='', icon='UNLOCKED')
-                                mcol.prop(layer, 'decal_scale', text='')
+                                mrow.prop(mask, 'enable_uniform', text='', icon='UNLOCKED')
+                                mcol.prop(mask, 'decal_scale', text='')
 
 
                     splits = split_layout(boxcol, 0.5, align=True)
