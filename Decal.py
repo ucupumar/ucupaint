@@ -226,9 +226,7 @@ def check_entity_decal_nodes(entity, tree=None):
             texcoord = new_node(tree, entity, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
             texcoord.object = empty
 
-
         decal_process = tree.nodes.get(entity.decal_process)
-
         if not decal_process:
             decal_process = new_node(tree, entity, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
             decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
@@ -238,69 +236,37 @@ def check_entity_decal_nodes(entity, tree=None):
                 entity.original_image_extension = source.extension
                 source.extension = 'CLIP'
 
-        # If the node already exists but projection mode changed, swap the node_tree
-        elif decal_process.node_tree != target_tree:
-            decal_process.node_tree = target_tree
-
-        # 5. Connect TexCoord Object vector output -> Decal Process input
-        if 'Object' in texcoord.outputs and 'Vector' in decal_process.inputs:
-            tree.links.new(texcoord.outputs['Object'], decal_process.inputs['Vector'])
-
-        # 6. Pass Decal Distance value
+        # Set distance value.
         if 'Decal Distance' in decal_process.inputs:
             decal_process.inputs['Decal Distance'].default_value = getattr(entity, 'decal_distance_value', 1.0)
+    
 
         scale_x, scale_y, scale_z = 1.0, 1.0, 1.0
-
-        # 1. Base scale from image aspect ratio
         if image and image.size[0] > 0 and image.size[1] > 0:
             if image.size[0] > image.size[1]:
                 scale_x = image.size[1] / image.size[0]
             else:
                 scale_y = image.size[0] / image.size[1]
 
-        # 2. Combine with material layer scale property
-        layer_scale = getattr(entity, 'scale', None) or getattr(entity, 'mapping_scale', None)
-        if layer_scale:
-            scale_x *= layer_scale[0]
-            scale_y *= layer_scale[1]
-            scale_z *= layer_scale[2]
-
-        if 'Scale' in decal_process.inputs:
-            decal_process.inputs['Scale'].default_value = (scale_x, scale_y, scale_z)
-
-        # 7. Pass Projection Type integer (if node group supports multi-projection)
-        if 'Projection Type' in decal_process.inputs:
-            proj_map = {'FLAT': 0, 'CYLINDER': 1, 'SPHERE': 2}
-            decal_process.inputs['Projection Type'].default_value = proj_map.get(proj_type, 0)
-
-        # 8. Set decal aspect ratio scale
-        scale_x, scale_y, scale_z = 1.0, 1.0, 1.0
-
-        if image and image.size[0] > 0 and image.size[1] > 0:
-            if image.size[0] > image.size[1]:
-                scale_x = image.size[1] / image.size[0]
-            else:
-                scale_y = image.size[0] / image.size[1]
-
+        # Apply decal wrapping scale
         if getattr(entity, 'enable_uniform_scale', False):
             u_scale = getattr(entity, 'uniform_scale_value', 1.0)
             scale_x *= u_scale
             scale_y *= u_scale
         else:
-            user_scale = (
-                getattr(entity, 'decal_scale', None) or 
-                getattr(entity, 'scale', None) or (1.0, 1.0)
-            )
+            user_scale = getattr(entity, 'scale', (1.0, 1.0))
             scale_x *= user_scale[0]
             scale_y *= user_scale[1]
+            if len(user_scale) > 2:
+                scale_z *= user_scale[2]
 
+        # Assign values to decal process node inputs
         scale_input = decal_process.inputs.get('Scale')
         if scale_input:
             scale_input.default_value = (scale_x, scale_y, scale_z)
 
-        # 9. Create decal alpha math nodes
         if mask:
+            # Check if height channel is enabled
             height_root_ch = get_root_height_channel(yp)
             height_ch_enabled = get_channel_enabled(height_ch) if height_ch else False
 

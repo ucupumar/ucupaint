@@ -1,5 +1,5 @@
 {
-    "last_check": "2026-08-16 18:02:03.638784",
+    "last_check": "2026-08-18 11:37:04.074612",
     "backup_date": "",
     "using_development_build": false,
     "current_branch": null,
@@ -79,7 +79,7 @@
                     "state": "uploaded",
                     "size": 2111096,
                     "digest": "sha256:9618f9677bad60e250ee61835efc358bdf97da5ce13dcb53f735c45c7648e705",
-                    "download_count": 1192,
+                    "download_count": 1269,
                     "created_at": "2026-07-29T13:08:31Z",
                     "updated_at": "2026-07-29T13:08:31Z",
                     "browser_download_url": "https://github.com/ucupumar/ucupaint/releases/download/2.4.9/ucupaint-2.4.9.zip"
@@ -115,7 +115,7 @@
                     "state": "uploaded",
                     "size": 2111003,
                     "digest": "sha256:73d78b8c720e8e91d37f0db6d4a81775c3c99d100b05c408ccadf9f76f465d73",
-                    "download_count": 40,
+                    "download_count": 41,
                     "created_at": "2026-07-29T13:08:28Z",
                     "updated_at": "2026-07-29T13:08:28Z",
                     "browser_download_url": "https://github.com/ucupumar/ucupaint/releases/download/2.4.9/ucupaint-blender_27x-legacy-2.4.9.zip"
@@ -151,7 +151,7 @@
                     "state": "uploaded",
                     "size": 2030697,
                     "digest": "sha256:82ec6c77d32681148f605e442ead685ad5e7aa92ca473246bd63b98ed8cc0803",
-                    "download_count": 52,
+                    "download_count": 55,
                     "created_at": "2026-07-29T13:08:34Z",
                     "updated_at": "2026-07-29T13:08:35Z",
                     "browser_download_url": "https://github.com/ucupumar/ucupaint/releases/download/2.4.9/ucupaint-no-auto-update-2.4.9.zip"
@@ -162,8 +162,8 @@
             "body": "## \u2b50 What\u2019s New\r\nNew bake types contributed by @jakeblakeley \r\n- Curvature bake type (#411)\r\n- Thickness bake type(#408)\r\n-  Wireframe bake type (#410)\r\n\r\n<img width=\"1920\" height=\"1080\" alt=\"new_bake_types\" src=\"https://github.com/user-attachments/assets/b91327e2-ff32-4ab6-9ff2-a8a788ce5610\" />\r\n\r\n## \ud83d\udc1e Bugfixes\r\n\r\n- Fix: Error when deleting a layer with no source\r\n- Fix: Bake target subchannels UI doesn't get saved\r\n- Fix: Non-UV image layers/masks can be mistakenly converted to use image atlas\r\n- Fix: Duplicating a blank image using UDIM atlas won't copy the correct tile size\r\n- Fix: Sponsors panel can cause a crash since it loads thumbnail data in a non-main thread\r\n- Fix: Cannot set the correct channel index when creating a new layer if Blender is a debug build\r\n- Fix: Errors when updating version 1.x nodes with displacement setup in Blender 5.0+\r\n- Fix: Sculpting VDM image in Blender 5.2 will produce a wrong mesh\r\n- Fix: Sculpting VDM Layer when the object has multires modifier will crash Blender\r\n- Fix: Can't add new layers when there is a Geometry Nodes modifier with color output on the stack (Blender 5.2)\r\n- Fix: Can't bake all channels when there are multiple objects and a Geometry Nodes modifier with vector output on the stack (Blender 5.2)\r\n- Fix: Cannot open attributes outputted from geometry nodes (Blender 5.2)\r\n\r\n## \ud83d\udc1e Bugfixes for Ucupaint Plus\r\n\r\n- Fix: Ucupaint can mistakenly download unnecessary modules when installing PSD-Tools\r\n\r\n## \ud83d\udcbb Compatibilty\r\nTested and compatible with all Blender versions starting from Blender 2.76 to Blender 5.2. \r\n- For Blender 2.80 to 5.2+, you can download the main zip file (_ucupaint-2.4.9.zip_). \r\n- For Blender 2.76 to 2.79, you need to download the legacy zip (_ucupaint-blender_27x-legacy-2.4.9.zip_). \r\n\r\n## \ud83d\ude4bSupport Ucupaint!\r\nSupport Ucupaint development by becoming [a Github sponsor](https://github.com/sponsors/ucupumar) and get the **PSD layers import-export**! ",
             "reactions": {
                 "url": "https://api.github.com/repos/ucupumar/ucupaint/releases/361543544/reactions",
-                "total_count": 7,
-                "+1": 3,
+                "total_count": 8,
+                "+1": 4,
                 "-1": 0,
                 "laugh": 0,
                 "hooray": 1,
@@ -230,7 +230,7 @@
         },
         {
             "name": "v300btui",
-            "last_commit": "5eaf7b94c6a1757629e50ff3e8baa4d02f97217d",
+            "last_commit": "d9e8de6fbf53ab4f819ef9c0d0aa4ad125f88c44",
             "label": "v300btui",
             "zipball_url": "https://api.github.com/repos/ucupumar/ucupaint/zipball/v300btui"
         },
