@@ -54,13 +54,20 @@ def set_gizmo_style(entity, mode):
     decal_obj = get_decal_object(entity)
     if not decal_obj:
         return
-
-    if mode == 'SPHERE':
-        decal_obj.empty_display_type = 'SPHERE'
-    elif mode == 'CYLINDER':
-        decal_obj.empty_display_type = 'CIRCLE'
-    else:
-        decal_obj.empty_display_type = 'SINGLE_ARROW'
+    if is_bl_newer_than(2, 80):
+        if mode == 'SPHERE':
+            decal_obj.empty_display_type = 'SPHERE'
+        elif mode == 'CYLINDER':
+            decal_obj.empty_display_type = 'CIRCLE'
+        else:
+            decal_obj.empty_display_type = 'SINGLE_ARROW'
+    else: 
+        if mode == 'SPHERE':
+            decal_obj.empty_draw_type = 'SPHERE'
+        elif mode == 'CYLINDER':
+            decal_obj.empty_draw_type = 'CIRCLE'
+        else:
+            decal_obj.empty_draw_type = 'SINGLE_ARROW'        
 
 def set_decal_scale_to_node(entity):
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -153,7 +160,6 @@ def create_decal_empty():
     scene = bpy.context.scene
     empty_name = get_unique_name('Decal', bpy.data.objects)
     empty = bpy.data.objects.new(empty_name, None)
-
     if is_bl_newer_than(2, 80):
         empty.empty_display_type = 'SINGLE_ARROW'
     else: 
