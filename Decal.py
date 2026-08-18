@@ -182,6 +182,7 @@ def create_decal_empty():
     else: 
         empty.location = scene.cursor_location.copy()
 
+    # Parent empty to active object
     empty.parent = obj
     empty.matrix_parent_inverse = obj.matrix_world.inverted()
 
@@ -210,32 +211,27 @@ def check_entity_decal_nodes(entity, tree=None):
     # Get height channel
     height_ch = get_height_channel(layer)
 
+     # Create texcoord node if decal is used
     texcoord = tree.nodes.get(entity.texcoord)
     if entity_enabled and entity.texcoord_type == 'Decal' and is_mapping_possible(entity.type):
 
-        # 1. Fetch image source early
+        # Set image extension type to clip
         image = None
         if entity.type == 'IMAGE' and source:
             image = source.image
 
-        # 2. Projection type setup
-        proj_type = getattr(entity, 'decal_projection_type', 'FLAT')
-
-        # 3. Create or update TexCoord empty object
+        # Create new empty object if there's no texcoord yet
         if not texcoord:
             empty = create_decal_empty()
             texcoord = new_node(tree, entity, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
             texcoord.object = empty
-        elif hasattr(texcoord, 'object') and texcoord.object:
-            texcoord.object.empty_display_type = 'SINGLE_ARROW'
 
-        # 4. Create or fetch Decal Process group node
-        target_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
+
         decal_process = tree.nodes.get(entity.decal_process)
 
         if not decal_process:
             decal_process = new_node(tree, entity, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
-            decal_process.node_tree = target_tree
+            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
 
             # Set image extension only after decal process node is initialized
             if image and source:
