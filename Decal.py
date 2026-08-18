@@ -112,27 +112,21 @@ def update_decal_projection(self, context):
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
 
 def update_enable_uniform_scale(self, context):
-    """Fired when toggling the lock icon."""
-    if self.enable_uniform:
-        # Lock Y and Z to X's current scale value
+      if self.enable_uniform:
         val = self.decal_scale[0]
         self.uniform_scale = val
         self.decal_scale = (val, val)
 
 
 def update_decal_scale(self, context):
-    """Fired when editing decal_scale vector components."""
     if getattr(self, 'enable_uniform', False):
-        # Prevent recursion by checking if values actually differ
         val = self.decal_scale[0]
-        # Keep all axes locked together
         if self.decal_scale[1] != val:
             self.decal_scale = (val, val)
             self.uniform_scale = val
     set_decal_scale_to_node(self)
 
 def update_uniform_scale(self, context):
-    """Fired when uniform_scale changes."""
     if getattr(self, 'enable_uniform', False):
         val = self.uniform_scale
         self.decal_scale = (val, val)
@@ -160,13 +154,10 @@ def create_decal_empty():
     empty_name = get_unique_name('Decal', bpy.data.objects)
     empty = bpy.data.objects.new(empty_name, None)
 
-
-
     if is_bl_newer_than(2, 80):
         empty.empty_display_type = 'SINGLE_ARROW'
     else: 
         empty.empty_draw_type = 'SINGLE_ARROW'
-
 
     custom_collection = obj.users_collection[0] if is_bl_newer_than(2, 80) and len(obj.users_collection) > 0 else None
     link_object(scene, empty, custom_collection)
@@ -206,7 +197,7 @@ def check_entity_decal_nodes(entity, tree=None):
     # Get height channel
     height_ch = get_height_channel(layer)
 
-     # Create texcoord node if decal is used
+    # Create texcoord node if decal is used
     texcoord = tree.nodes.get(entity.texcoord)
     if entity_enabled and entity.texcoord_type == 'Decal' and is_mapping_possible(entity.type):
 
@@ -261,6 +252,7 @@ def check_entity_decal_nodes(entity, tree=None):
 
         # Create decal alpha nodes
         if mask:
+
             # Check if height channel is enabled
             height_root_ch = get_root_height_channel(yp)
             height_ch_enabled = get_channel_enabled(height_ch) if height_ch else False
@@ -277,7 +269,6 @@ def check_entity_decal_nodes(entity, tree=None):
             else:
                 for letter in nsew_letters:
                     remove_node(tree, mask, 'decal_alpha_' + letter)
-
         else:
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
@@ -300,13 +291,13 @@ def check_entity_decal_nodes(entity, tree=None):
                             remove_node(tree, ch, 'decal_alpha_' + letter)
 
     else:
-        # Cleanup when decal mode is disabled or mapped away
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
             remove_node(tree, entity, 'texcoord')
         remove_node(tree, entity, 'decal_process')
 
         if mask: 
             remove_node(tree, mask, 'decal_alpha')
+
             if height_ch:
                 for letter in nsew_letters:
                     remove_node(tree, mask, 'decal_alpha_' + letter)
@@ -441,7 +432,6 @@ class BaseDecal():
         name = 'Original Image Extension Type',
         default = ''
     )
-
 
 class YPaintDecalObjectProps(bpy.types.PropertyGroup):
     enable_shrinkwrap : BoolProperty(
