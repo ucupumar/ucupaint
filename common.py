@@ -4829,9 +4829,9 @@ def check_if_node_is_duplicated_from_lib(node, lib_name):
     if m: return True
     return False
 
-def get_subsurf_modifier(obj, keyword=''):
+def get_subsurf_modifier(obj, keyword='', include_hidden=True):
     for mod in obj.modifiers:
-        if mod.type == 'SUBSURF': # and mod.show_render and mod.show_viewport:
+        if mod.type == 'SUBSURF' and (mod.show_viewport or include_hidden):
             if keyword != '' and keyword != mod.name: continue
             return mod
 

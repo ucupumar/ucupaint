@@ -49,6 +49,9 @@ def setup_subdiv_to_max_polys(obj, max_polys, subsurf=None):
     if not subsurf: subsurf = get_subsurf_modifier(obj)
     if not subsurf: return
 
+    # Remember active object
+    ori_active_obj = bpy.context.object
+
     # Check object polygons
     num_poly = len(obj.data.polygons)
 
@@ -73,57 +76,15 @@ def setup_subdiv_to_max_polys(obj, max_polys, subsurf=None):
     subsurf.render_levels = level
     subsurf.levels = level
 
-def add_subdivision_levels(mat, objs=[], thousand_polys_target=1000, displacement_method='BOTH', use_adaptive_subdivision=False, dicing_rate=1.0,):
-    scene = bpy.context.scene
-    if len(objs) == 0: objs = get_all_objects_with_same_materials(mat)
-    if len(objs) == 0: return
+    # Recover active object
+    if bpy.context.object != ori_active_obj:
+        set_active_object(ori_active_obj)
 
-    # Displacement only works with experimental feature set in Blender 2.79
-    if not is_bl_newer_than(5) and (use_adaptive_subdivision or not is_bl_newer_than(2, 80)):
-        scene.cycles.feature_set = 'EXPERIMENTAL'
+def set_subdivision_levels(objs, thousand_polys_target=1000):
 
-    if use_adaptive_subdivision:
-        # Blender 5.0 will set the pixel size in the modifiers rather than setting global settings
-        if is_bl_newer_than(5):
-            for obj in objs:
-                subsurf = get_subsurf_modifier(obj)
-                if subsurf:
-                    subsurf.adaptive_pixel_size = dicing_rate
-
-            scene.cycles.dicing_rate = 1.0
-            scene.cycles.preview_dicing_rate = 1.0
-
-        else:
-            scene.cycles.dicing_rate = dicing_rate
-            scene.cycles.preview_dicing_rate = dicing_rate
-
-    # Legacy blender has different enum
-    if not is_bl_newer_than(2, 80) and displacement_method == 'DISPLACEMENT':
-        displacement_method = 'TRUE'
-
-    # Set displacement mode
-    if hasattr(mat, 'displacement_method'):
-        mat.displacement_method = displacement_method
-
-    # Set cycles displacement mode
-    if hasattr(mat.cycles, 'displacement_method'):
-        mat.cycles.displacement_method = displacement_method
-    
-    # Displacement method is inside object data for Blender 2.77 and below 
-    if not is_bl_newer_than(2, 78):
-        for obj in objs:
-            if obj.data and hasattr(obj.data, 'cycles'):
-                obj.data.cycles.displacement_method = displacement_method
-
-    # Remember active object
-    ori_active_obj = bpy.context.object
-
-    # Iterate all objects with same materials
     proportions = get_objs_size_proportions(objs)
-    for obj in objs:
 
-        # Set active object to modify modifier order
-        set_active_object(obj)
+    for obj in objs:
 
         # Subsurf / Multires Modifier
         subsurf = get_subsurf_modifier(obj)
@@ -155,20 +116,133 @@ def add_subdivision_levels(mat, objs=[], thousand_polys_target=1000, displacemen
             subsurf.show_render = True
             subsurf.show_viewport = True
 
-        # Adaptive subdiv
+def remember_subsurf_modifiers(mat=None, objs=[]):
+    if not mat: mat = get_active_material()
+    if len(objs) == 0 and mat: objs = get_all_objects_with_same_materials(mat, True)
+
+    # Displacement method is inside object data for Blender 2.77 and below 
+    if not is_bl_newer_than(2, 78):
+        for obj in objs:
+            if obj.data and hasattr(obj.data, 'cycles'):
+                obj.data.cycles.displacement_method = displacement_method
+
+    for obj in objs:
         subsurf = get_subsurf_modifier(obj)
-        if use_adaptive_subdivision:
-            if not is_bl_newer_than(5):
-                obj.cycles.use_adaptive_subdivision = True
-            elif subsurf: subsurf.use_adaptive_subdivision = True
-        else: 
-            if not is_bl_newer_than(5):
-                obj.cycles.use_adaptive_subdivision = False
-            elif subsurf: subsurf.use_adaptive_subdivision = False
+        if subsurf:
+            obj.yp.ori_has_subsurf = True
+            obj.yp.ori_subsurf_render_levels = subsurf.render_levels
+            obj.yp.ori_subsurf_levels = subsurf.levels
+            if is_bl_newer_than(5):
+                obj.yp.ori_subsurf_use_adapative = subsurf.use_adaptive_subdivision
 
-    set_active_object(ori_active_obj)
+        multires = get_multires_modifier(obj)
+        if multires:
+            obj.yp.ori_has_multires = True
+            obj.yp.ori_multires_render_levels = multires.render_levels
+            obj.yp.ori_multires_levels = multires.levels
 
-def remove_subdivision_levels(mat, objs=[], displacement_method='BUMP', delete_subdivision=False, subdiv_level=1):
+def recover_subsurf_modifiers(mat=None, objs=[]):
+    if not mat: mat = get_active_material()
+    if len(objs) == 0 and mat: objs = get_all_objects_with_same_materials(mat, True)
+
+    for obj in objs:
+        subsurf = get_subsurf_modifier(obj)
+
+        # Recover the existance
+        if not subsurf and obj.yp.ori_has_subsurf:
+            subsurf = obj.modifiers.new(name="Subsurf", type='SUBSURF')
+        elif subsurf and not obj.yp.ori_has_subsurf:
+            obj.modifiers.remove(subsurf)
+            subsurf = None
+
+        if subsurf:
+            if subsurf.render_levels != obj.yp.ori_subsurf_render_levels:
+                subsurf.render_levels = obj.yp.ori_subsurf_render_levels
+            if subsurf.levels != obj.yp.ori_subsurf_levels:
+                subsurf.levels = obj.yp.ori_subsurf_levels
+            if is_bl_newer_than(5) and subsurf.use_adaptive_subdivision != obj.yp.ori_subsurf_use_adapative:
+                subsurf.use_adaptive_subdivision = obj.yp.ori_subsurf_use_adapative
+
+        multires = get_multires_modifier(obj)
+
+        # Recover the existance
+        if not multires and obj.yp.ori_has_multires:
+            multires = obj.modifiers.new(name="Multiresolution", type='MULTIRES')
+        elif multires and not obj.yp.ori_has_multires:
+            obj.modifiers.remove(multires)
+            multires = None
+
+        if multires:
+            render_levels = obj.yp.ori_multires_render_levels if obj.yp.ori_multires_render_levels <= multires.total_levels else multires.total_levels
+            if multires.render_levels != render_levels:
+                multires.render_levels = render_levels
+
+            levels = obj.yp.ori_multires_levels if obj.yp.ori_multires_levels <= multires.total_levels else multires.total_levels
+            if multires.levels != levels:
+                multires.levels = levels
+
+def enable_displacement_setup(mat, yp=None, objs=[], thousand_polys_target=1000, displacement_method='BOTH', use_adaptive_subdivision=False, dicing_rate=1.0,):
+    scene = bpy.context.scene
+    if len(objs) == 0: objs = get_all_objects_with_same_materials(mat)
+    if len(objs) == 0: return
+
+    # Remember the original modifier values
+    remember_subsurf_modifiers(mat, objs)
+
+    # Displacement only works with experimental feature set in Blender 2.79
+    if not is_bl_newer_than(5) and (use_adaptive_subdivision or not is_bl_newer_than(2, 80)):
+        scene.cycles.feature_set = 'EXPERIMENTAL'
+
+    # Legacy blender has different enum
+    if not is_bl_newer_than(2, 80) and displacement_method == 'DISPLACEMENT':
+        displacement_method = 'TRUE'
+
+    # Set displacement mode
+    if hasattr(mat, 'displacement_method'):
+        mat.displacement_method = displacement_method
+
+    # Set cycles displacement mode
+    if hasattr(mat.cycles, 'displacement_method'):
+        mat.cycles.displacement_method = displacement_method
+    
+    # Displacement method is inside object data for Blender 2.77 and below 
+    if not is_bl_newer_than(2, 78):
+        for obj in objs:
+            if obj.data and hasattr(obj.data, 'cycles'):
+                obj.data.cycles.displacement_method = displacement_method
+
+    # Add subdivision levels
+    set_subdivision_levels(objs, thousand_polys_target=thousand_polys_target)
+
+    # Adaptive subdivision dicing rate
+    if use_adaptive_subdivision:
+        # Blender 5.0 will set the pixel size in the modifiers rather than setting global settings
+        scene.cycles.dicing_rate = 1.0 if is_bl_newer_than(5) else dicing_rate
+        scene.cycles.preview_dicing_rate = 1.0 if is_bl_newer_than(5) else dicing_rate
+
+    # Adaptive subdivision
+    for obj in objs:
+        if is_bl_newer_than(5):
+            subsurf = get_subsurf_modifier(obj)
+            if subsurf:
+                subsurf.use_adaptive_subdivision = use_adaptive_subdivision
+                if use_adaptive_subdivision: subsurf.adaptive_pixel_size = dicing_rate
+        else:
+            obj.cycles.use_adaptive_subdivision = use_adaptive_subdivision
+
+    if yp:
+        # NOTE: Height as bump will always be disabled at this point for now
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch: height_root_ch.use_height_as_bump = False
+
+        # Create normal without height bake target so baked node can be displayed correctly
+        bt = channel_common.create_normal_without_bump_bake_target(yp)
+
+        # Set the bake target as the default bake target of normal channel
+        normal_ch = get_root_normal_channel(yp)
+        if normal_ch and bt: normal_ch.bake_target_name = bt.name
+
+def disable_displacement_setup(mat, yp=None, objs=[], recover_original=False, displacement_method='BUMP', delete_subdivision=False, subdiv_level=1, disable_adaptive_subdiv=True):
     if len(objs) == 0: objs = get_all_objects_with_same_materials(mat)
     if len(objs) == 0: return
 
@@ -186,35 +260,40 @@ def remove_subdivision_levels(mat, objs=[], displacement_method='BUMP', delete_s
             if obj.data and hasattr(obj.data, 'cycles'):
                 obj.data.cycles.displacement_method = displacement_method
 
-    # Remember active object
-    ori_active_obj = bpy.context.object
+    if recover_original:
+        recover_subsurf_modifiers(mat, objs)
+    else:
+        for obj in objs:
 
-    for obj in objs:
+            # Subsurf / Multires Modifier
+            multires = get_multires_modifier(obj, include_hidden=False)
+            subsurf = get_subsurf_modifier(obj)
 
-        # Set active object to modify modifiers
-        set_active_object(obj)
+            # Prioritize multires, since lowing the levels makes more sense
+            if multires:
+                subsurf = multires
 
-        # Subsurf / Multires Modifier
-        subsurf = get_subsurf_modifier(obj)
-
-        if subsurf:
-            if not delete_subdivision:
-                subsurf.levels = subdiv_level
-                subsurf.render_levels = subdiv_level
-            else:
-                # Remove subdivision
-                bpy.ops.object.modifier_remove(modifier=subsurf.name)
-
-        # TODO: Multires related
-        #multires = get_multires_modifier(obj, include_hidden=True)
+            if subsurf:
+                if not delete_subdivision:
+                    subsurf.levels = subdiv_level
+                    subsurf.render_levels = subdiv_level
+                else:
+                    # Remove subdivision
+                    #bpy.ops.object.modifier_remove(modifier=subsurf.name)
+                    obj.modifiers.remove(subsurf)
 
         # Disable Adaptive subdiv
-        subsurf = get_subsurf_modifier(obj)
-        if not is_bl_newer_than(5):
-            obj.cycles.use_adaptive_subdivision = False
-        elif subsurf: subsurf.use_adaptive_subdivision = False
+        if disable_adaptive_subdiv:
+            for obj in objs:
+                subsurf = get_subsurf_modifier(obj)
+                if not is_bl_newer_than(5):
+                    obj.cycles.use_adaptive_subdivision = False
+                elif subsurf: subsurf.use_adaptive_subdivision = False
 
-    set_active_object(ori_active_obj)
+    # NOTE: Height as bump will always be enabled at this point for now
+    if yp:
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch: height_root_ch.use_height_as_bump = True
 
 def check_displacement_node(mat, node, set_one=False, unset_one=False, set_outside=False):
 
@@ -467,10 +546,14 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
     bl_description = "Disable material displacement settings and remove or use lower subdivision modifer to all objects with the same material.\nNOTE: This will also make the height output no longer accessible."
     bl_options = {'REGISTER', 'UNDO'}
 
-    delete_subdivision : BoolProperty(
-        name = 'Delete Subdivision Modifier',
-        description = 'Delete existing subdivision modifier on all objects with the same material',
-        default=False,
+    action : EnumProperty(
+        name = 'Remove Displacement Action',
+        items = (
+            ('ORIGINAL', 'Recover Original State', 'Recover original object modifier states before displacement setup.'),
+            ('REMOVE', 'Remove Subdivision Modifier', 'Delete existing subdivision or multires modifier.'),
+            ('KEEP', 'Keep Subdivision Modifier', 'Keep subdivision or multires modifier.'),
+        ),
+        default = 'ORIGINAL'
     )
 
     subdiv_level : IntProperty(
@@ -495,13 +578,13 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
     def draw(self, context):
         row = split_layout(self.layout, 0.35)
         col = row.column()
-        col.label(text='')
-        if not self.delete_subdivision:
+        col.label(text='Action:')
+        if self.action == 'KEEP':
             col.label(text='Set Subdivision Level:')
 
         col = row.column()
-        col.prop(self, 'delete_subdivision')
-        if not self.delete_subdivision:
+        col.prop(self, 'action', text='')
+        if self.action == 'KEEP':
             col.prop(self, 'subdiv_level', text='')
 
     def execute(self, context):
@@ -510,20 +593,15 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
         #    return {'CANCELLED'}
 
         mat = get_active_material()
-
-        # Remove subdivision
-        remove_subdivision_levels(mat,
-            delete_subdivision = self.delete_subdivision,
-            subdiv_level = self.subdiv_level
-        )
-
-        # NOTE: Height as bump will always be enabled at this point for now
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
-        try: ch = yp.channels[yp.active_channel_index] if yp else None
-        except: ch = None
-        if ch and ch.special_type == 'HEIGHT':
-            ch.use_height_as_bump = True
+
+        # Remove subdivision
+        disable_displacement_setup(mat, yp,
+            recover_original = self.action == 'ORIGINAL',
+            delete_subdivision = self.action == 'REMOVE',
+            subdiv_level = self.subdiv_level
+        )
 
         return {'FINISHED'}
 
@@ -599,29 +677,16 @@ class YQuickDisplacementSetup(bpy.types.Operator):
 
     def execute(self, context):
         mat = get_active_material()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
 
         # Add subdivisions
-        add_subdivision_levels(mat,
+        enable_displacement_setup(mat, yp=yp,
             thousand_polys_target = self.max_polys, 
             displacement_method = self.displacement_method,
             use_adaptive_subdivision = self.use_adaptive_subdivision,
             dicing_rate = self.dicing_rate
         )
-
-        # NOTE: Height as bump will always be disabled at this point for now
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp if node else None
-        if yp:
-            for ch in yp.channels:
-                if ch and ch.special_type == 'HEIGHT':
-                    ch.use_height_as_bump = False
-
-            # Create normal without height bake target so baked node can be displayed correctly
-            bt = channel_common.create_normal_without_bump_bake_target(yp)
-
-            # Set the bake target as the default bake target of normal channel
-            normal_ch = get_root_normal_channel(yp)
-            if normal_ch and bt: normal_ch.bake_target_name = bt.name
 
         return {'FINISHED'}
 

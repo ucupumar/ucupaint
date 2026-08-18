@@ -3942,8 +3942,12 @@ class YPaintObjectUVHash(bpy.types.PropertyGroup):
     uv_hash : StringProperty(default='')
 
 class YPaintObjectProps(bpy.types.PropertyGroup):
+    ori_has_subsurf : BoolProperty(default=False)
     ori_subsurf_render_levels : IntProperty(default=1)
     ori_subsurf_levels : IntProperty(default=1)
+    ori_subsurf_use_adapative : BoolProperty(default=False)
+
+    ori_has_multires : BoolProperty(default=False)
     ori_multires_render_levels : IntProperty(default=1)
     ori_multires_levels : IntProperty(default=1)
 

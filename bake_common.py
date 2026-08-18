@@ -4,7 +4,7 @@ from .common import *
 from .subtree import *
 from .input_outputs import *
 from .node_connections import *
-from . import lib, layer_common, ImageAtlas, UDIM, image_ops, mask_common, vector_displacement, vector_displacement_lib
+from . import lib, layer_common, ImageAtlas, UDIM, image_ops, mask_common, vector_displacement, vector_displacement_lib, displacement_common
 
 BL28_HACK = True
 
@@ -3967,13 +3967,11 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         height = bprops.height
 
     # If use baked disp, need to bake normal and height map first
-    subdiv_setup_changes = False
+    disp_setup_changes = False
     height_root_ch = get_root_height_channel(yp)
-    if height_root_ch and bprops.use_baked_disp and not bprops.type.startswith('MULTIRES_'):
-
-        if not height_root_ch.enable_subdiv_setup:
-            height_root_ch.enable_subdiv_setup = True
-            subdiv_setup_changes = True
+    if height_root_ch and bprops.use_baked_disp and not bprops.type.startswith('MULTIRES_') and height_root_ch.use_height_as_bump:
+        displacement_common.enable_displacement_setup(mat, yp, objs, use_adaptive_subdivision=True)
+        disp_setup_changes = True
 
     # Sometimes Cavity bake will create temporary objects
     if (bprops.type == 'CAVITY' and (bprops.subsurf_influence or bprops.use_baked_disp)):
@@ -5398,8 +5396,8 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             flip_mesh_normals(ob)
 
     # Recover subdiv setup
-    if height_root_ch and subdiv_setup_changes:
-        height_root_ch.enable_subdiv_setup = not height_root_ch.enable_subdiv_setup
+    if height_root_ch and disp_setup_changes:
+        displacement_common.disable_displacement_setup(mat, yp, objs, recover_original=True)
 
     # Remove temp curvature vcols
     if bprops.type == 'CURVATURE':

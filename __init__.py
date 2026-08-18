@@ -141,7 +141,7 @@ def unregister():
     BakeInfo.unregister()
     UDIM.unregister()
     ImageAtlas.unregister()
-    displacement.unregister()
+    displacement_common.unregister()
     vector_displacement.unregister()
     BakeTarget.unregister()
     MaskModifier.unregister()
