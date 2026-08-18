@@ -240,7 +240,7 @@ def check_entity_decal_nodes(entity, tree=None):
         if 'Decal Distance' in decal_process.inputs:
             decal_process.inputs['Decal Distance'].default_value = getattr(entity, 'decal_distance_value', 1.0)
     
-
+        # Set decal aspect ratio
         scale_x, scale_y, scale_z = 1.0, 1.0, 1.0
         if image and image.size[0] > 0 and image.size[1] > 0:
             if image.size[0] > image.size[1]:
@@ -254,17 +254,17 @@ def check_entity_decal_nodes(entity, tree=None):
             scale_x *= u_scale
             scale_y *= u_scale
         else:
-            user_scale = getattr(entity, 'scale', (1.0, 1.0))
-            scale_x *= user_scale[0]
-            scale_y *= user_scale[1]
-            if len(user_scale) > 2:
-                scale_z *= user_scale[2]
+            u_scale = getattr(entity, 'scale', (1.0, 1.0))
+            scale_x *= u_scale[0]
+            scale_y *= u_scale[1]
+
 
         # Assign values to decal process node inputs
         scale_input = decal_process.inputs.get('Scale')
         if scale_input:
             scale_input.default_value = (scale_x, scale_y, scale_z)
 
+        # Create decal alpha nodes
         if mask:
             # Check if height channel is enabled
             height_root_ch = get_root_height_channel(yp)
