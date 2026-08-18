@@ -1835,12 +1835,12 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     mrow.label(text='Scale:')
 
                     if layer.enable_uniform:
-                        # LOCKED: Uniform scale mode (draws scalar float property across axes)
+                        # LOCKED: Uniform scale
                         mrow.prop(layer, 'enable_uniform', text='', icon='LOCKED')
                         draw_input_prop(mcol, layer, 'uniform_scale', None, 'X', layer=layer)
                         draw_input_prop(mcol, layer, 'uniform_scale', None, 'Y', layer=layer)
                     else:
-                        # UNLOCKED: Independent vector mode (Blender natively handles X, Y, Z fields)
+                        # UNLOCKED: Independent scale
                         mrow.prop(layer, 'enable_uniform', text='', icon='UNLOCKED')
                         mcol.prop(layer, 'decal_scale', text='')
 
@@ -3222,15 +3222,43 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                         splits.label(text='Decal Object:')
                         splits.prop(texcoord, 'object', text='')
 
+                    if texcoord and texcoord.object:
+                        
+
+                        if hasattr(layer, 'decal_projection_type'):
+                            rrow = boxcol.row(align=True)
+                            rrow.label(text='', icon='BLANK1')
+                            splits = split_layout(rrow, 0.45, align=True)
+                            splits.label(text='Mode:')
+                            splits.prop(layer, 'decal_projection_type', text='')
+        
+                        if hasattr(layer, 'decal_scale'):
+                            rrow = boxcol.row(align=True)
+                            rrow.label(text='', icon='BLANK1')
+        
+                            mcol = rrow.column(align=True)
+                            mrow = mcol.row()
+                            mrow.label(text='Scale:')
+        
+                            if layer.enable_uniform:
+                                # LOCKED: Uniform scale
+                                mrow.prop(layer, 'enable_uniform', text='', icon='LOCKED')
+                                draw_input_prop(mcol, layer, 'uniform_scale', None, 'X', layer=layer)
+                                draw_input_prop(mcol, layer, 'uniform_scale', None, 'Y', layer=layer)
+                            else:
+                                # UNLOCKED: Independent scale
+                                mrow.prop(layer, 'enable_uniform', text='', icon='UNLOCKED')
+                                mcol.prop(layer, 'decal_scale', text='')
+
+
                     splits = split_layout(boxcol, 0.5, align=True)
                     splits.label(text='Decal Distance:')
                     draw_input_prop(splits, mask, 'decal_distance_value', layer=layer)
 
                     if texcoord and texcoord.object:
-                        rrow = boxcol.row(align=True)
+                        rrow = boxcol.row(align=True)         
                         rrow.label(text='Decal Constraint:')
                         draw_input_prop(rrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
-
                         # NOTE: Show constraint target when there's more than one material users
                         decal_const = Decal.get_decal_shrinkwrap_constraint(texcoord.object)
                         if decal_const:
@@ -3239,7 +3267,6 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                                 rrow = boxcol.row(align=True)
                                 rrow.label(text='Constraint Target:')
                                 draw_input_prop(rrow, decal_const, 'target')
-
                     boxcol.context_pointer_set('entity', mask)
                     if is_bl_newer_than(2, 80):
                         boxcol.operator('wm.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')

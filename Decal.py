@@ -63,8 +63,7 @@ def set_gizmo_style(entity, mode):
         case _:
             decal_obj.empty_display_type = 'SINGLE_ARROW'
 
-def set_decal_scale_to_node(entity):
-    """Locates the decal node and updates its 'Scale' input socket (X and Y)."""
+def set_decal_scale_to_node(entity, context):
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
@@ -84,21 +83,19 @@ def set_decal_scale_to_node(entity):
 
     scale_socket = decal_node.inputs.get('Scale')
     if scale_socket and hasattr(scale_socket, 'default_value'):
-        # Update X and Y on the node's Scale input socket
         scale_socket.default_value[0] = entity.decal_scale[0]
         scale_socket.default_value[1] = entity.decal_scale[1]
 
 def update_decal_projection(self, context):
     entity = self
-    
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-
+    print(m1,m2)
     if m1: 
         tree = get_tree(entity)
     elif m2: 
         tree = get_mask_tree(entity)
-      
+    
     if not tree:
         return
     
