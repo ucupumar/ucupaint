@@ -186,8 +186,11 @@ def enable_displacement_setup(mat, yp=None, objs=[], thousand_polys_target=1000,
     if len(objs) == 0: objs = get_all_objects_with_same_materials(mat)
     if len(objs) == 0: return
 
-    # Remember the original modifier values
-    remember_subsurf_modifiers(mat, objs)
+    # Remember the original modifier values if displacement setup isn't enabled yet
+    if yp:
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and height_root_ch.use_height_as_bump:
+            remember_subsurf_modifiers(mat, objs)
 
     # Displacement only works with experimental feature set in Blender 2.79
     if not is_bl_newer_than(5) and (use_adaptive_subdivision or not is_bl_newer_than(2, 80)):
