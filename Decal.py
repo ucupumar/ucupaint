@@ -69,28 +69,6 @@ def set_gizmo_style(entity, mode):
         else:
             decal_obj.empty_draw_type = 'SINGLE_ARROW'        
 
-def set_decal_scale_to_node(entity):
-    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-
-    if m1:
-        tree = get_tree(entity)
-    elif m2:
-        tree = get_mask_tree(entity)
-    else:
-        return
-
-    if not tree:
-        return
-
-    decal_node = tree.nodes.get(getattr(entity, 'decal_process', ''))
-    if not decal_node:
-        return
-
-    scale_socket = decal_node.inputs.get('Scale')
-    if scale_socket and hasattr(scale_socket, 'default_value'):
-        scale_socket.default_value[0] = entity.decal_scale[0]
-        scale_socket.default_value[1] = entity.decal_scale[1]
 
 def update_decal_projection(self, context):
     entity = self
@@ -124,21 +102,6 @@ def update_enable_uniform_scale(self, context):
         self.uniform_scale = val
         self.decal_scale = (val, val)
 
-
-def update_decal_scale(self, context):
-    if getattr(self, 'enable_uniform', False):
-        val = self.decal_scale[0]
-        if self.decal_scale[1] != val:
-            self.decal_scale = (val, val)
-            self.uniform_scale = val
-    set_decal_scale_to_node(self)
-
-def update_uniform_scale(self, context):
-    if getattr(self, 'enable_uniform', False):
-        val = self.uniform_scale
-        self.decal_scale = (val, val)
-    set_decal_scale_to_node(self)
-
 def update_enable_decal_object_constraint(self, context):
     obj = context.object
     decal_obj = self.id_data
@@ -160,19 +123,21 @@ def create_decal_empty():
     scene = bpy.context.scene
     empty_name = get_unique_name('Decal', bpy.data.objects)
     empty = bpy.data.objects.new(empty_name, None)
+    
     if is_bl_newer_than(2, 80):
         empty.empty_display_type = 'SINGLE_ARROW'
-    else: 
-        empty.empty_draw_type = 'SINGLE_ARROW'
-
-    custom_collection = obj.users_collection[0] if is_bl_newer_than(2, 80) and len(obj.users_collection) > 0 else None
-    link_object(scene, empty, custom_collection)
-
-    if is_bl_newer_than(2, 80):
         empty.location = scene.cursor.location.copy()
         empty.rotation_euler = scene.cursor.rotation_euler.copy()
-    else: 
+        if len(scene.collection.objects) > 0:
+            custom_collection = obj.users_collection[0]
+        else: 
+            custom_collection = None
+    else:
+        empty.empty_draw_type = 'SINGLE_ARROW'
         empty.location = scene.cursor_location.copy()
+        custom_collection = None
+
+    link_object(scene, empty, custom_collection)
 
     # Parent empty to active object
     empty.parent = obj
@@ -237,33 +202,10 @@ def check_entity_decal_nodes(entity, tree=None):
                 entity.original_image_extension = source.extension
                 source.extension = 'CLIP'
 
-            # Set distance value.
-            if 'Decal Distance' in decal_process.inputs:
-                decal_process.inputs['Decal Distance'].default_value = getattr(entity, 'decal_distance_value', 1.0)
-    
-        # Set decal aspect ratio
-        scale_x, scale_y, scale_z = 1.0, 1.0, 1.0
-        if image and image.size[0] > 0 and image.size[1] > 0:
-            if image.size[0] > image.size[1]:
-                scale_x = image.size[1] / image.size[0]
-            else:
-                scale_y = image.size[0] / image.size[1]
-
-        # Apply decal wrapping scale
-        if getattr(entity, 'enable_uniform_scale', False):
-            u_scale = getattr(entity, 'uniform_scale_value', 1.0)
-            scale_x *= u_scale
-            scale_y *= u_scale
-        else:
-            u_scale = getattr(entity, 'scale', (1.0, 1.0))
-            scale_x *= u_scale[0]
-            scale_y *= u_scale[1]
-
-
-        # Assign values to decal process node inputs
-        scale_input = decal_process.inputs.get('Scale')
-        if scale_input:
-            scale_input.default_value = (scale_x, scale_y, scale_z)
+            scale_socket = decal_process.inputs.get("decal_scale")
+            if scale_socket:
+                # Transfer 2D stored value to 3D socket (Z set to 1.0)
+                scale_socket.default_value = (entity.decal_scale[0], entity.decal_scale[1], 1.0)
 
         # Create decal alpha nodes
         if mask:
@@ -284,7 +226,9 @@ def check_entity_decal_nodes(entity, tree=None):
             else:
                 for letter in nsew_letters:
                     remove_node(tree, mask, 'decal_alpha_' + letter)
+                    
         else:
+            
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
                 ch_enabled = get_channel_enabled(ch)
@@ -306,6 +250,7 @@ def check_entity_decal_nodes(entity, tree=None):
                             remove_node(tree, ch, 'decal_alpha_' + letter)
 
     else:
+        
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
             remove_node(tree, entity, 'texcoord')
         remove_node(tree, entity, 'decal_process')
@@ -411,7 +356,6 @@ class BaseDecal():
     uniform_scale: FloatProperty(
         name='Uniform Scale Value',
         default=1.0,
-        update=update_uniform_scale
     )
 
     decal_projection_type: EnumProperty(
@@ -427,7 +371,6 @@ class BaseDecal():
         default=(1.0, 1.0),
         size=2,
         subtype='XYZ',
-        update=update_decal_scale
     )
 
 

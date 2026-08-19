@@ -1842,7 +1842,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     else:
                         # UNLOCKED: Independent scale
                         mrow.prop(layer, 'enable_uniform', text='', icon='UNLOCKED')
-                        mcol.prop(layer, 'decal_scale', text='')
+                        draw_input_prop(mcol, layer, 'decal_scale', layer=layer)
 
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
@@ -3246,7 +3246,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             else:
                                 # UNLOCKED: Independent scale
                                 mrow.prop(mask, 'enable_uniform', text='', icon='UNLOCKED')
-                                mcol.prop(mask, 'decal_scale', text='')
+                                draw_input_prop(mcol, mask, 'decal_scale', layer=layer)
+
 
                     splits = split_layout(boxcol, 0.5, align=True)
                     splits.label(text='Decal Distance:')
