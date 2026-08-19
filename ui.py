@@ -3217,11 +3217,10 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                         splits.label(text='Decal Object:')
                         splits.prop(texcoord, 'object', text='')
 
-                    if texcoord and texcoord.object:
                         if hasattr(mask, 'decal_projection_type'):
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
-                            splits = split_layout(rrow, 0.45, align=True)
+                            splits = split_layout(rrow, 0.45, align=True) 
                             splits.label(text='Mode:')
                             splits.prop(mask, 'decal_projection_type', text='')
         
