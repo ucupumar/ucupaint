@@ -96,7 +96,7 @@ def update_decal_projection(self, context):
     entity = self
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-    print(m1,m2)
+
     if m1: 
         tree = get_tree(entity)
     elif m2: 
@@ -218,19 +218,28 @@ def check_entity_decal_nodes(entity, tree=None):
             texcoord = new_node(tree, entity, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
             texcoord.object = empty
 
+
+        
         decal_process = tree.nodes.get(entity.decal_process)
         if not decal_process:
             decal_process = new_node(tree, entity, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
-            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
+            mode = getattr(entity, 'decal_projection_type', 'FLAT')
+            
+            if mode == 'SPHERE':
+                decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_SPHERE)
+            elif mode == 'CYLINDER':
+                decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_CYLINDER)
+            else:
+                decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
 
             # Set image extension only after decal process node is initialized
             if image and source:
                 entity.original_image_extension = source.extension
                 source.extension = 'CLIP'
 
-        # Set distance value.
-        if 'Decal Distance' in decal_process.inputs:
-            decal_process.inputs['Decal Distance'].default_value = getattr(entity, 'decal_distance_value', 1.0)
+            # Set distance value.
+            if 'Decal Distance' in decal_process.inputs:
+                decal_process.inputs['Decal Distance'].default_value = getattr(entity, 'decal_distance_value', 1.0)
     
         # Set decal aspect ratio
         scale_x, scale_y, scale_z = 1.0, 1.0, 1.0

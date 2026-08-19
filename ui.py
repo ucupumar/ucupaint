@@ -1721,7 +1721,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             brow.operator("wm.y_remove_baked_entity", text='', icon=icon)
 
     layout.separator()
-                        
+
 def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
 
     obj = context.object
@@ -1851,6 +1851,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                 draw_input_prop(splits, layer, 'decal_distance_value', layer=layer)
 
                 if texcoord and texcoord.object:
+
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
                     rrrow = rrow.row()
@@ -1871,8 +1872,9 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                 boxcol.context_pointer_set('entity', layer)
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
-                icon = 'EMPTY_SINGLE_ARROW' if is_bl_newer_than(2, 80) else 'EMPTY_DATA'
-                rrow.operator('wm.y_select_decal_object', icon=icon)
+                if is_bl_newer_than(2, 80):
+                    rrow.operator('wm.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
+                else: rrow.operator('wm.y_select_decal_object', icon='EMPTY_DATA')
 
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
@@ -3223,8 +3225,6 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                         splits.prop(texcoord, 'object', text='')
 
                     if texcoord and texcoord.object:
-                        
-
                         if hasattr(mask, 'decal_projection_type'):
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
@@ -3235,11 +3235,9 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                         if hasattr(mask, 'decal_scale'):
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
-        
                             mcol = rrow.column(align=True)
                             mrow = mcol.row()
                             mrow.label(text='Scale:')
-        
                             if mask.enable_uniform:
                                 # LOCKED: Uniform scale
                                 mrow.prop(mask, 'enable_uniform', text='', icon='LOCKED')
@@ -3250,15 +3248,15 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                                 mrow.prop(mask, 'enable_uniform', text='', icon='UNLOCKED')
                                 mcol.prop(mask, 'decal_scale', text='')
 
-
                     splits = split_layout(boxcol, 0.5, align=True)
                     splits.label(text='Decal Distance:')
                     draw_input_prop(splits, mask, 'decal_distance_value', layer=layer)
 
                     if texcoord and texcoord.object:
-                        rrow = boxcol.row(align=True)         
+                        rrow = boxcol.row(align=True)
                         rrow.label(text='Decal Constraint:')
                         draw_input_prop(rrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
+
                         # NOTE: Show constraint target when there's more than one material users
                         decal_const = Decal.get_decal_shrinkwrap_constraint(texcoord.object)
                         if decal_const:
@@ -3267,6 +3265,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                                 rrow = boxcol.row(align=True)
                                 rrow.label(text='Constraint Target:')
                                 draw_input_prop(rrow, decal_const, 'target')
+
                     boxcol.context_pointer_set('entity', mask)
                     if is_bl_newer_than(2, 80):
                         boxcol.operator('wm.y_select_decal_object', icon='EMPTY_SINGLE_ARROW')
