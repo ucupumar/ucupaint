@@ -3225,21 +3225,16 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             splits.label(text='Mode:')
                             splits.prop(mask, 'decal_projection_type', text='')
         
-                        if hasattr(mask, 'decal_scale'):
+                        if hasattr(mask, 'decal_scale_valueX') and hasattr(mask, 'decal_scale_valueY'):
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
+
                             mcol = rrow.column(align=True)
                             mrow = mcol.row()
                             mrow.label(text='Scale:')
-                            if mask.enable_uniform:
-                                # LOCKED: Uniform scale
-                                mrow.prop(mask, 'enable_uniform', text='', icon='LOCKED')
-                                draw_input_prop(mcol, mask, 'uniform_scale', None, 'X', layer=layer)
-                                draw_input_prop(mcol, mask, 'uniform_scale', None, 'Y', layer=layer)
-                            else:
-                                # UNLOCKED: Independent scale
-                                mrow.prop(mask, 'enable_uniform', text='', icon='UNLOCKED')
-                                draw_input_prop(mcol, mask, 'decal_scale', layer=layer)
+
+                            draw_input_prop(mcol, mask, 'decal_scale_valueX', None, 'X', layer=layer)
+                            draw_input_prop(mcol, mask, 'decal_scale_valueY', None, 'Y', layer=layer)
 
 
                     splits = split_layout(boxcol, 0.5, align=True)

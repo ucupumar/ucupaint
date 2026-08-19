@@ -177,8 +177,6 @@ def check_entity_decal_nodes(entity, tree=None):
             texcoord = new_node(tree, entity, 'texcoord', 'ShaderNodeTexCoord', 'TexCoord')
             texcoord.object = empty
 
-
-        
         decal_process = tree.nodes.get(entity.decal_process)
         if not decal_process:
             decal_process = new_node(tree, entity, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
@@ -195,11 +193,6 @@ def check_entity_decal_nodes(entity, tree=None):
             if image and source:
                 entity.original_image_extension = source.extension
                 source.extension = 'CLIP'
-
-            scale_socket = decal_process.inputs.get("decal_scale")
-            if scale_socket:
-                # Transfer 2D stored value to 3D socket (Z set to 1.0)
-                scale_socket.default_value = (entity.decal_scale[0], entity.decal_scale[1], 1.0)
 
         # Create decal alpha nodes
         if mask:
@@ -220,9 +213,9 @@ def check_entity_decal_nodes(entity, tree=None):
             else:
                 for letter in nsew_letters:
                     remove_node(tree, mask, 'decal_alpha_' + letter)
-                    
+
         else:
-            
+
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
                 ch_enabled = get_channel_enabled(ch)
@@ -244,7 +237,7 @@ def check_entity_decal_nodes(entity, tree=None):
                             remove_node(tree, ch, 'decal_alpha_' + letter)
 
     else:
-        
+
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
             remove_node(tree, entity, 'texcoord')
         remove_node(tree, entity, 'decal_process')
@@ -341,12 +334,6 @@ class YSetDecalObjectPositionToCursor(bpy.types.Operator):
         return {'FINISHED'}
 
 class BaseDecal():
-    enable_uniform: BoolProperty(
-        name='Uniform Scale',
-        default=False,
-        update=update_enable_uniform_scale
-    )
-
     decal_projection_type: EnumProperty(
         name='Projection',
         description='Decal projection mapping mode',

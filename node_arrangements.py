@@ -993,7 +993,7 @@ def rearrange_layer_nodes(layer, tree=None):
     #    loc.y -= 240
 
     if check_set_node_loc(tree, layer.decal_process, loc):
-        loc.y -= 240
+        loc.y -= 170
 
     if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240
@@ -1243,7 +1243,7 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.y -= 140
 
         if check_set_node_loc(tree, mask.decal_process, loc):
-            loc.y -= 240
+            loc.y -= 170
 
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130
