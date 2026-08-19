@@ -96,12 +96,6 @@ def update_decal_projection(self, context):
     else:
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
 
-def update_enable_uniform_scale(self, context):
-      if self.enable_uniform:
-        val = self.decal_scale[0]
-        self.uniform_scale = val
-        self.decal_scale = (val, val)
-
 def update_enable_decal_object_constraint(self, context):
     obj = context.object
     decal_obj = self.id_data
@@ -353,11 +347,6 @@ class BaseDecal():
         update=update_enable_uniform_scale
     )
 
-    uniform_scale: FloatProperty(
-        name='Uniform Scale Value',
-        default=1.0,
-    )
-
     decal_projection_type: EnumProperty(
         name='Projection',
         description='Decal projection mapping mode',
@@ -366,13 +355,17 @@ class BaseDecal():
         update=update_decal_projection
     )
 
-    decal_scale: FloatVectorProperty(
-        name='Scale',
-        default=(1.0, 1.0),
-        size=2,
-        subtype='XYZ',
+    decal_scale_valueX: FloatProperty(
+        name='Decal Scale X',
+        description='Decal Scale Value X',
+        default=1.0,
     )
 
+    decal_scale_valueY: FloatProperty(
+        name='Decal Scale Y',
+        description='Decal Scale Value Y',
+        default=1.0,
+    )
 
     decal_distance_value : FloatProperty(
         name = 'Decal Distance',

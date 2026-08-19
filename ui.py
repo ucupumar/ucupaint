@@ -1826,7 +1826,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     splits.label(text='Mode:')
                     splits.prop(layer, 'decal_projection_type', text='')
 
-                if hasattr(layer, 'decal_scale'):
+                if hasattr(layer, 'decal_scale_valueX') and hasattr(layer, 'decal_scale_valueY'):
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
 
@@ -1834,15 +1834,8 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     mrow = mcol.row()
                     mrow.label(text='Scale:')
 
-                    if layer.enable_uniform:
-                        # LOCKED: Uniform scale
-                        mrow.prop(layer, 'enable_uniform', text='', icon='LOCKED')
-                        draw_input_prop(mcol, layer, 'uniform_scale', None, 'X', layer=layer)
-                        draw_input_prop(mcol, layer, 'uniform_scale', None, 'Y', layer=layer)
-                    else:
-                        # UNLOCKED: Independent scale
-                        mrow.prop(layer, 'enable_uniform', text='', icon='UNLOCKED')
-                        draw_input_prop(mcol, layer, 'decal_scale', layer=layer)
+                    draw_input_prop(mcol, layer, 'decal_scale_valueX', None, 'X', layer=layer)
+                    draw_input_prop(mcol, layer, 'decal_scale_valueY', None, 'Y', layer=layer)
 
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
