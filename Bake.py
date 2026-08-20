@@ -1618,7 +1618,7 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         gloset = yp.bake_target_global_settings
-        necessary_only = gloset.necessary_only if not self.with_prompt else self.necessary_only
+        necessary_only = self.necessary_only if self.with_prompt else gloset.necessary_only
         if not necessary_only:
             bts = yp.bake_targets
         else:
@@ -3938,6 +3938,9 @@ def update_enable_baked_outside(self, context):
 
                 displacement_common.check_displacement_node(mat, node, set_one=True)
 
+    # Connect to outside displacement node
+    connect_outside_displacement_node(yp)
+
 def connect_to_original_node(mtree, outp, ori_to, set_default_value=False):
     for con in ori_to:
         node = mtree.nodes.get(con.node)
@@ -3978,8 +3981,9 @@ def update_use_baked(self, context):
     # Check input and outputs
     check_all_channel_ios(yp, do_process_layers=is_layer_preview_mode_enabled(yp))
 
+    # NOTE: Already called in `update_enable_baked_outside` function
     # Connect to outside displacement node
-    connect_outside_displacement_node(yp)
+    #connect_outside_displacement_node(yp)
 
     # Trigger active image update
     if yp.use_baked:
