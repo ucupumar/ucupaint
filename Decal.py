@@ -345,13 +345,13 @@ class BaseDecal():
     decal_scale_x: FloatProperty(
         name='Decal Scale X',
         description='Decal Scale Value X',
-        default=1.0,
+        min=0.0, max=100.0, default=1.0, precision=3
     )
 
     decal_scale_y: FloatProperty(
         name='Decal Scale Y',
         description='Decal Scale Value Y',
-        default=1.0,
+        min=0.0, max=100.0, default=1.0, precision=3
     )
 
     decal_distance_value : FloatProperty(
