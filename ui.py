@@ -1826,7 +1826,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     splits.label(text='Mode:')
                     splits.prop(layer, 'decal_projection_type', text='')
 
-                if hasattr(layer, 'decal_scale_x') and hasattr(layer, 'decal_scale_y'):
+                if hasattr(layer, 'decal_scale_x') and hasattr(layer, 'decal_scale_y') and layer.decal_projection_type != "FLAT":
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
 
@@ -3224,7 +3224,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             splits.label(text='Mode:')
                             splits.prop(mask, 'decal_projection_type', text='')
         
-                        if hasattr(mask, 'decal_scale_x') and hasattr(mask, 'decal_scale_y'):
+                        if hasattr(mask, 'decal_scale_x') and hasattr(mask, 'decal_scale_y') and layer.decal_projection_type != "FLAT":
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
 
