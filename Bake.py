@@ -1618,7 +1618,8 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         gloset = yp.bake_target_global_settings
-        if not gloset.necessary_only:
+        necessary_only = gloset.necessary_only if not self.with_prompt else self.necessary_only
+        if not necessary_only:
             bts = yp.bake_targets
         else:
             # Get normal and height channel pair
