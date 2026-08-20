@@ -2168,8 +2168,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     mask_vector = mask_texcoord.outputs['Object']
                     if mask_decal_process: 
                         layer_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_distance_value'))
-                        layer_decal_scale_x = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'decal_scale_x'))
-                        layer_decal_scale_y = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'decal_scale_y'))
+                        layer_decal_scale_x = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_scale_x'))
+                        layer_decal_scale_y = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_scale_y'))
                         mask_vector = create_link(tree, mask_vector, mask_decal_process.inputs[0])[0]
                         if layer_decal_distance: create_link(tree, layer_decal_distance, mask_decal_process.inputs[1])
                         if layer_decal_scale_x: create_link(tree, layer_decal_scale_x, mask_decal_process.inputs[2])
