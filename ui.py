@@ -1826,7 +1826,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     splits.label(text='Mode:')
                     splits.prop(layer, 'decal_projection_type', text='')
 
-                if hasattr(layer, 'decal_scale_valueX') and hasattr(layer, 'decal_scale_valueY'):
+                if hasattr(layer, 'decal_scale_x') and hasattr(layer, 'decal_scale_y'):
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
 
@@ -1834,8 +1834,8 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     mrow = mcol.row()
                     mrow.label(text='Scale:')
 
-                    draw_input_prop(mcol, layer, 'decal_scale_valueX', None, 'X', layer=layer)
-                    draw_input_prop(mcol, layer, 'decal_scale_valueY', None, 'Y', layer=layer)
+                    draw_input_prop(mcol, layer, 'decal_scale_x', None, 'X', layer=layer)
+                    draw_input_prop(mcol, layer, 'decal_scale_y', None, 'Y', layer=layer)
 
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
@@ -3224,7 +3224,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             splits.label(text='Mode:')
                             splits.prop(mask, 'decal_projection_type', text='')
         
-                        if hasattr(mask, 'decal_scale_valueX') and hasattr(mask, 'decal_scale_valueY'):
+                        if hasattr(mask, 'decal_scale_x') and hasattr(mask, 'decal_scale_y'):
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
 
@@ -3232,8 +3232,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             mrow = mcol.row()
                             mrow.label(text='Scale:')
 
-                            draw_input_prop(mcol, mask, 'decal_scale_valueX', None, 'X', layer=layer)
-                            draw_input_prop(mcol, mask, 'decal_scale_valueY', None, 'Y', layer=layer)
+                            draw_input_prop(mcol, mask, 'decal_scale_x', None, 'X', layer=layer)
+                            draw_input_prop(mcol, mask, 'decal_scale_y', None, 'Y', layer=layer)
 
 
                     splits = split_layout(boxcol, 0.5, align=True)

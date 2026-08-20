@@ -342,13 +342,13 @@ class BaseDecal():
         update=update_decal_projection
     )
 
-    decal_scale_valueX: FloatProperty(
+    decal_scale_x: FloatProperty(
         name='Decal Scale X',
         description='Decal Scale Value X',
         default=1.0,
     )
 
-    decal_scale_valueY: FloatProperty(
+    decal_scale_y: FloatProperty(
         name='Decal Scale Y',
         description='Decal Scale Value Y',
         default=1.0,
