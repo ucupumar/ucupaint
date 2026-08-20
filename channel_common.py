@@ -745,6 +745,7 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
     if mode == 'AO' and orm_bt:
         orm_bt.r.channel_name = channel.name
         orm_bt.r.subchannel_index = '3'
+        channel.bake_target_name = orm_bt.name
 
     # Make sure height will use `Height as Bump` by default
     if mode == 'HEIGHT':

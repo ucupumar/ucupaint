@@ -355,6 +355,12 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         default = True
     )
 
+    use_orm_bake_target : BoolProperty(
+        name = 'Use ORM Bake Target',
+        description = 'Use ORM format as bake target for Ambient Occlusion, Roughness, and Metallic channels',
+        default = False
+    )
+
     target_bsdf_name : StringProperty(default='')
     not_on_material_view : BoolProperty(default=True)
 
@@ -449,6 +455,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
                 col.prop(self, 'shadow_method', text='')
 
         col.prop(self, 'use_linear_blending')
+        if self.type == 'BSDF_PRINCIPLED' and (self.enable_roughness or self.enable_metallic or self.enable_ao):
+            col.prop(self, 'use_orm_bake_target')
 
         if self.not_on_material_view:
             col.prop(self, 'switch_to_material_view')
@@ -606,14 +614,18 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
             group_tree.yp.halt_update = False
 
         if self.type != 'EMISSION':
+
+            # ORM bake target will be added later
+            add_bake_target = not self.use_orm_bake_target or self.type != 'BSDF_PRINCIPLED'
+
             if self.enable_ao:
-                ch_ao = channel_common.create_new_yp_channel(group_tree, 'Ambient Occlusion', 'RGB', non_color=True)
+                ch_ao = channel_common.create_new_yp_channel(group_tree, 'Ambient Occlusion', 'RGB', non_color=True, add_bake_target=add_bake_target)
 
             if self.type == 'BSDF_PRINCIPLED' and self.enable_metallic:
-                ch_metallic = channel_common.create_new_yp_channel(group_tree, 'Metallic', 'VALUE', non_color=True)
+                ch_metallic = channel_common.create_new_yp_channel(group_tree, 'Metallic', 'VALUE', non_color=True, add_bake_target=add_bake_target)
 
             if self.enable_roughness:
-                ch_roughness = channel_common.create_new_yp_channel(group_tree, 'Roughness', 'VALUE', non_color=True)
+                ch_roughness = channel_common.create_new_yp_channel(group_tree, 'Roughness', 'VALUE', non_color=True, add_bake_target=add_bake_target)
 
             if self.enable_height:
                 ch_height = channel_common.create_new_yp_channel(group_tree, 'Height', 'VALUE', non_color=True, special_type='HEIGHT')
@@ -641,6 +653,33 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         ch_height = group_tree.yp.channels.get('Height')
         ch_normal = group_tree.yp.channels.get('Normal')
         ch_vdisp = group_tree.yp.channels.get('Vector Displacement')
+
+        # Add ORM bake target
+        if self.use_orm_bake_target and self.type == 'BSDF_PRINCIPLED' and (self.enable_ao or self.enable_roughness or self.enable_metallic):
+            bt = group_tree.yp.bake_targets.add()
+            bt.name = get_unique_name(group_tree.name.replace(get_addon_title()+' ', '') + ' ORM', bpy.data.images)
+
+            bt.a.default_value = 1.0
+
+            if ch_ao: 
+                bt.r.channel_name = ch_ao.name
+                bt.r.subchannel_index = '3'
+                ch_ao.bake_target_name = bt.name
+
+            if ch_roughness: 
+                bt.g.channel_name = ch_roughness.name
+                ch_roughness.bake_target_name = bt.name
+
+            if ch_metallic: 
+                bt.b.channel_name = ch_metallic.name
+                ch_metallic.bake_target_name = bt.name
+
+            if hasattr(context, 'object'):
+                bt.uv_map = get_default_uv_name(context.object, group_tree.yp)
+
+            # Set default values
+            bt.denoise = False
+            bt.fxaa = False
 
         if ch_color:
             inp = main_bsdf.inputs[0]
