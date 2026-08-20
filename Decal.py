@@ -94,7 +94,7 @@ def update_decal_projection(self, context):
     elif mode == 'CYLINDER':
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_CYLINDER)
     else:
-        decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
+        decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
 
 def update_enable_decal_object_constraint(self, context):
     obj = context.object
@@ -187,7 +187,7 @@ def check_entity_decal_nodes(entity, tree=None):
             elif mode == 'CYLINDER':
                 decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_CYLINDER)
             else:
-                decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_FLAT)
+                decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
 
             # Set image extension only after decal process node is initialized
             if image and source:
