@@ -155,9 +155,9 @@ class YPaintPreferences(AddonPreferences):
         default = False
     )
 
-    unified_tab_ui : BoolProperty(
-        name = 'Unify Layers panel with Channel & Bake Target Settings',
-        description = 'Unify layers panel and channel & bake target settings',
+    ui_non_popup_settings : BoolProperty(
+        name = 'Use Non-Popup Channels and Bake Targets UI',
+        description = 'Use non popup UI for channels and bake targets panel',
         default = False
     )
 
@@ -186,7 +186,8 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'always_evaluate_frame')
         if is_bl_newer_than(2, 81):
             self.layout.prop(self, 'enable_uniform_uv_scale_by_default')
-        self.layout.prop(self, 'unified_tab_ui')
+        if is_bl_newer_than(2, 80):
+            self.layout.prop(self, 'ui_non_popup_settings')
         self.layout.prop(self, 'hide_update_notification')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')

@@ -987,31 +987,9 @@ def draw_preview_mode_ui(context, layout, node):
         row = split_layout(row, 0.6, align=True)
 
     scale_y = 1.0
-    if False and (not ypup.unified_tab_ui or (ypup.unified_tab_ui and ypui.active_tab == 'LAYERS')) and not yp.use_baked:
-        #rrow = row.column(align=True)
-        #scale_y = 2.0
-        rrow = row.row(align=True)
-
-        title = 'Channel'
-        #title += ' Preview'
-        #title += ' Mode'
-        if is_channel_preview_mode_enabled(yp):
-            rrow.alert = True
-        rrow.operator('wm.y_toggle_preview_mode', text=title, icon='HIDE_OFF').type = 'CHANNEL'
-
-        rrow.alert = False
-
-        title = 'Layer'
-        #title += ' Preview'
-        #title += ' Mode'
-        if is_layer_preview_mode_enabled(yp):
-            rrow.alert = True
-        rrow.operator('wm.y_toggle_preview_mode', text=title, icon='HIDE_OFF').type = 'LAYER'
-
-    else: 
-        row.alert = yp.preview_mode
-        title = 'Preview Mode'
-        row.prop(yp, 'preview_mode', text=title, icon='HIDE_OFF')
+    row.alert = yp.preview_mode
+    title = 'Preview Mode'
+    row.prop(yp, 'preview_mode', text=title, icon='HIDE_OFF')
 
     try: root_ch = yp.channels[yp.preview_mode_channel_index]
     except: root_ch = None
@@ -1414,31 +1392,12 @@ def draw_main_ui(context, layout):
             #icon = 'TRASH' if is_bl_newer_than(2, 80) else 'CANCEL'
             #rrow.operator('wm.y_delete_baked_channel_images', text='', icon=icon)
 
-        if not yp.use_baked and ypup.unified_tab_ui:
-            #col = layout.column(align=True)
-            row = layout.row(align=True)
-            row.prop(ypui, 'active_tab', expand=True)
-            row.scale_y = 1.25
-
-        #box = layout.box()
-        #layout = box.column()
-
         # Preview mode
         draw_preview_mode_ui(context, layout, node)
 
         if yp.use_baked:
             draw_baked_ui(context, layout, node)
-        else:
-            if ypup.unified_tab_ui:
-
-                if ypui.active_tab == 'CHANNELS':
-                    draw_root_channels_ui(context, layout, node)
-                elif ypui.active_tab == 'BAKE_TARGETS':
-                    draw_bake_targets_ui(context, layout, node)
-                elif ypui.active_tab == 'LAYERS':
-                    draw_layers_ui(context, layout, node)
-            else:
-                draw_layers_ui(context, layout, node)
+        else: draw_layers_ui(context, layout, node)
 
 def draw_stats_ui(context, layout, node, show_header=False):
     group_tree = node.node_tree
@@ -1581,27 +1540,28 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
     if show_header:
         #col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
         col.label(text='Bake Target Settings')
-        row = col.row(align=True)
-        row.prop(ypui, 'bake_target_settings_tab', expand=True)
 
+    row = col.row(align=True)
+    row.prop(ypui, 'bake_target_settings_tab', expand=True)
+
+    col.separator()
+
+    if ypui.bake_target_settings_tab == 'GLOBAL_SETTINGS':
+        gloset = yp.bake_target_global_settings
+        any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
+        #any_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL'])
+        draw_base_bake_target_settings(context, col, gloset, bt=None, 
+            show_image_props = any_image_bts,
+            show_vcol_props = False, #any_vcol_bts,
+            show_hdr = False,
+            show_udim = UDIM.is_udim_supported(),
+            yp = yp
+        )
         col.separator()
 
-        if ypui.bake_target_settings_tab == 'GLOBAL_SETTINGS':
-            gloset = yp.bake_target_global_settings
-            any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
-            #any_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL'])
-            draw_base_bake_target_settings(context, col, gloset, bt=None, 
-                show_image_props = any_image_bts,
-                show_vcol_props = False, #any_vcol_bts,
-                show_hdr = False,
-                show_udim = UDIM.is_udim_supported(),
-                yp = yp
-            )
-            col.separator()
-
-            col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = False
-            
-            return
+        col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = False
+        
+        return
 
     #col.label(text='Individual Bake Target Settings')
 
@@ -2255,9 +2215,6 @@ def draw_root_channels_ui(context, layout, node, show_header=False, rows=3):
                 icon_value = lib.get_icon('image') if bt.data_type == 'IMAGE' else lib.get_icon('vertex_color')
                 srow = split.row(align=True)
                 srow.menu("NODE_MT_y_channel_active_bake_target_menu", icon_value=icon_value, text=bt_label)
-                srow.context_pointer_set('bake_target', bt)
-                if ypup.unified_tab_ui:
-                    srow.operator('wm.y_go_to_bake_target_settings', text='', icon='FORWARD')
             else:
 
                 if valid_bts_exist:
@@ -2267,26 +2224,6 @@ def draw_root_channels_ui(context, layout, node, show_header=False, rows=3):
                     split.operator('wm.y_new_channel_bake_target', text='Add New Bake Target', icon='ADD')
 
         #draw_channel_bake_target_dropdown(context, channel, mcol, draw_blank)
-
-def draw_channel_setting_button(row, add_row=True):
-    ypup = get_user_preferences()
-
-    if add_row:
-        row = row.row(align=True)
-        row.alignment = 'RIGHT'
-
-    if ypup.unified_tab_ui:
-        icon = 'FORWARD'
-        #title = '➜' if is_bl_newer_than(3, 4) else 'Settings'
-        title = 'Settings'
-        row.operator('wm.y_go_to_channel_settings', text=title, icon=icon)
-    else:
-        row.scale_x = 1.1
-        title = 'Settings'
-        #title = 'Add/Remove'
-        #icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-        icon_value = lib.get_icon('channels')
-        row.popover("NODE_PT_ypaint_channel_popover", text=title, icon_value=icon_value) #icon=icon)
 
 def draw_base_layer_ui(context, layout, yp, node):
     ypui = context.window_manager.ypui
@@ -2304,9 +2241,6 @@ def draw_base_layer_ui(context, layout, yp, node):
     if is_bl_newer_than(2, 80):
         rrow.prop(ypui, 'expand_channel_base_values', text=label, emboss=False, icon_value=icon_value)
     else: rrow.label(text=label, icon_value=icon_value)
-
-    #if ypui.expand_channel_base_values:
-    #    draw_channel_setting_button(row)
 
     if ypui.expand_channel_base_values:
         rrow = layout.row(align=True)
@@ -2854,9 +2788,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, specific_ch):
 
         rrow = row.row(align=True)
         rrow.alignment = 'RIGHT'
-        #if False and ypui.expand_channels:
-        #    draw_channel_setting_button(rrow, add_row=False)
-        #    rrow.separator()
         rrow.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.get_icon('checkbox'))
 
     rrow = layout.row(align=True)
@@ -5041,7 +4972,7 @@ class BaseMainUI():
 
         if ypui.expanded_main_ui and not yp.sculpt_mode:
 
-            if not ypup.unified_tab_ui:
+            if not ypup.ui_non_popup_settings:
 
                 connection_warning = False
                 for ch in yp.channels:
@@ -5337,10 +5268,6 @@ class BaseChannelSettingsUI():
     def base_draw_header_preset(self, context):
         ypui = bpy.context.window_manager.ypui
 
-        #if ypui.expanded_settings_ui:
-        #    row = self.layout.row(align=True)
-        #    row.prop(ypui, 'active_settings', expand=True)
-
     def base_draw(self, context):
         node = get_active_ypaint_node()
         ypui = bpy.context.window_manager.ypui
@@ -5348,13 +5275,7 @@ class BaseChannelSettingsUI():
 
         layout = self.layout
 
-        row = layout.row(align=True)
-        row.prop(ypui, 'active_settings', expand=True)
-
-        if ypui.active_settings == 'CHANNELS':
-            draw_root_channels_ui(context, layout, node)
-        elif ypui.active_settings == 'BAKE_TARGETS':
-            draw_bake_targets_ui(context, layout, node)
+        draw_root_channels_ui(context, layout, node)
 
 class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI):
     bl_label = 'Channel Settings'
@@ -5366,10 +5287,8 @@ class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsU
 
     @classmethod
     def poll(cls, context):
-        #ypui = context.window_manager.ypui
-        #if not ypui.expanded_main_ui: return False
         ypup = get_user_preferences()
-        if ypup.unified_tab_ui: return False
+        if not ypup.ui_non_popup_settings: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5394,10 +5313,8 @@ class NODE_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI)
 
     @classmethod
     def poll(cls, context):
-        #ypui = context.window_manager.ypui
-        #if not ypui.expanded_main_ui: return False
         ypup = get_user_preferences()
-        if ypup.unified_tab_ui: return False
+        if not ypup.ui_non_popup_settings: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5421,10 +5338,8 @@ class NODE_PT_YPaint_legacy_channel_settings_ui(bpy.types.Panel, BaseChannelSett
 
     @classmethod
     def poll(cls, context):
-        #ypui = context.window_manager.ypui
-        #if not ypui.expanded_main_ui: return False
         ypup = get_user_preferences()
-        if ypup.unified_tab_ui: return False
+        if not ypup.ui_non_popup_settings: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5450,7 +5365,122 @@ class VIEW3D_PT_YPaint_legacy_channel_settings_tools(bpy.types.Panel, BaseChanne
     @classmethod
     def poll(cls, context):
         ypup = get_user_preferences()
-        if ypup.unified_tab_ui: return False
+        if not ypup.ui_non_popup_settings: return False
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        use_baked = yp.use_baked if yp else False
+        sculpt_mode = yp.sculpt_mode if yp else False
+        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class BaseBakeTargetSettingsUI():
+    def base_draw_header(self, context):
+        ypui = bpy.context.window_manager.ypui
+        ypui.expanded_settings_ui = False
+
+    def base_draw_header_preset(self, context):
+        ypui = bpy.context.window_manager.ypui
+
+    def base_draw(self, context):
+        node = get_active_ypaint_node()
+        ypui = bpy.context.window_manager.ypui
+        ypui.expanded_settings_ui = True
+
+        layout = self.layout
+
+        draw_bake_targets_ui(context, layout, node)
+
+class VIEW3D_PT_YPaint_bake_target_settings_ui(bpy.types.Panel, BaseBakeTargetSettingsUI):
+    bl_label = 'Bake Target Settings'
+    bl_space_type = 'VIEW_3D'
+    #bl_context = "object"
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        ypup = get_user_preferences()
+        if not ypup.ui_non_popup_settings: return False
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        use_baked = yp.use_baked if yp else False
+        sculpt_mode = yp.sculpt_mode if yp else False
+        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class NODE_PT_YPaint_bake_target_settings_ui(bpy.types.Panel, BaseBakeTargetSettingsUI):
+    bl_space_type = 'NODE_EDITOR'
+    bl_label = 'Bake Target Settings'
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        ypup = get_user_preferences()
+        if not ypup.ui_non_popup_settings: return False
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        use_baked = yp.use_baked if yp else False
+        sculpt_mode = yp.sculpt_mode if yp else False
+        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class NODE_PT_YPaint_legacy_bake_target_settings_ui(bpy.types.Panel, BaseBakeTargetSettingsUI):
+    bl_space_type = 'NODE_EDITOR'
+    bl_label = 'Bake Target Settings'
+    bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        ypup = get_user_preferences()
+        if not ypup.ui_non_popup_settings: return False
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+        use_baked = yp.use_baked if yp else False
+        sculpt_mode = yp.sculpt_mode if yp else False
+        return yp and not use_baked and not sculpt_mode and context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw_header(self, context):
+        self.base_draw_header(context)
+
+    def draw_header_preset(self, context):
+        self.base_draw_header_preset(context)
+
+    def draw(self, context):
+        self.base_draw(context)
+
+class VIEW3D_PT_YPaint_legacy_bake_target_settings_tools(bpy.types.Panel, BaseBakeTargetSettingsUI):
+    bl_space_type = 'VIEW_3D'
+    bl_label = 'Bake Target Settings'
+    bl_region_type = 'TOOLS'
+    bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
+
+    @classmethod
+    def poll(cls, context):
+        ypup = get_user_preferences()
+        if not ypup.ui_non_popup_settings: return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -8944,11 +8974,6 @@ class YMaterialUI(bpy.types.PropertyGroup):
 
     expand_content : BoolProperty(default=False)
 
-def update_ui_active_tab(self, context):
-    # Match active tab to active settings
-    if self.active_tab in {'CHANNELS', 'BAKE_TARGETS'}:
-        self.active_settings = self.active_tab
-
 if is_bl_newer_than(2, 83):
     tab_items = (
        ('LAYERS', 'Layers', 'Layers', 'COLLAPSEMENU', 0),
@@ -8973,21 +8998,6 @@ else:
     )
 
 class YPaintUI(bpy.types.PropertyGroup):
-
-    active_settings : EnumProperty(
-        name = 'Active Settings',
-        description = 'Select settings',
-        items = setting_items,
-        default = 'CHANNELS'
-    )
-
-    active_tab : EnumProperty(
-        name = 'Active Tab',
-        description = 'Select tab',
-        items = tab_items,
-        default = 'LAYERS',
-        update = update_ui_active_tab
-    )
 
     bake_target_settings_tab : EnumProperty(
         name = 'Bake Target Settings Tab',
@@ -9291,39 +9301,6 @@ def check_latest_extension_version():
     else:
         ypui.extension_update_state = 'UNAVAILABLE'
 
-class YGoToBakeTargetSettings(bpy.types.Operator):
-    bl_idname = "wm.y_go_to_bake_target_settings"
-    bl_label = "Go to Bake Target Settings"
-    bl_description = "Go to bake target settings"
-    #bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        ypui = context.window_manager.ypui
-        #ypui.active_settings = 'BAKE_TARGETS'
-        ypui.active_tab = 'BAKE_TARGETS'
-
-        bt = context.bake_target
-        yp = bt.id_data.yp
-
-        for i, b in enumerate(yp.bake_targets):
-            if b == bt:
-                yp.active_bake_target_index = i
-
-        return {'FINISHED'}
-
-class YGoToChannelSettings(bpy.types.Operator):
-    bl_idname = "wm.y_go_to_channel_settings"
-    bl_label = "Go to Channel Settings"
-    bl_description = "Go to channel settings"
-    #bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        ypui = context.window_manager.ypui
-        #ypui.active_settings = 'BAKE_TARGETS'
-        ypui.active_tab = 'CHANNELS'
-
-        return {'FINISHED'}
-
 class YPendingUpdate(bpy.types.Operator):
     bl_idname = "ext.y_pending_update"
     bl_label = "Pending Update"
@@ -9401,29 +9378,31 @@ def register():
     bpy.utils.register_class(YPAssetBrowserMenu)
     bpy.utils.register_class(YPFileBrowserMenu)
     bpy.utils.register_class(NODE_MT_copy_image_path_menu)
-    bpy.utils.register_class(YGoToBakeTargetSettings)
-    bpy.utils.register_class(YGoToChannelSettings)
     bpy.utils.register_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.register_class(NODE_PT_YPaint_legacy_about_ui)
         bpy.utils.register_class(NODE_PT_YPaint_legacy_main_ui)
         bpy.utils.register_class(NODE_PT_YPaint_legacy_channel_settings_ui)
+        bpy.utils.register_class(NODE_PT_YPaint_legacy_bake_target_settings_ui)
 
         bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_about_tools)
         bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
         bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_main_tools)
         bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
+        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_bake_target_settings_tools)
     else: 
         bpy.utils.register_class(NODE_PT_YPaint_about_ui)
         bpy.utils.register_class(NODE_PT_YPaint_main_ui)
-        #bpy.utils.register_class(NODE_PT_YPaint_channel_settings_ui)
+        bpy.utils.register_class(NODE_PT_YPaint_channel_settings_ui)
+        bpy.utils.register_class(NODE_PT_YPaint_bake_target_settings_ui)
 
     bpy.utils.register_class(VIEW3D_PT_YPaint_about_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_obj_mat_settings_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_main_ui)
     #bpy.utils.register_class(VIEW3D_PT_YPaint_stats_ui)
-    #bpy.utils.register_class(VIEW3D_PT_YPaint_channel_settings_ui)
+    bpy.utils.register_class(VIEW3D_PT_YPaint_channel_settings_ui)
+    bpy.utils.register_class(VIEW3D_PT_YPaint_bake_target_settings_ui)
     bpy.utils.register_class(VIEW3D_PT_YPaint_test_ui)
 
     bpy.utils.register_class(YPaintUI)
@@ -9516,29 +9495,31 @@ def unregister():
     bpy.utils.unregister_class(YPAssetBrowserMenu)
     bpy.utils.unregister_class(YPFileBrowserMenu)
     bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
-    bpy.utils.unregister_class(YGoToBakeTargetSettings)
-    bpy.utils.unregister_class(YGoToChannelSettings)
     bpy.utils.unregister_class(YPendingUpdate)
 
     if not is_bl_newer_than(2, 80):
         bpy.utils.unregister_class(NODE_PT_YPaint_legacy_about_ui)
         bpy.utils.unregister_class(NODE_PT_YPaint_legacy_main_ui)
         bpy.utils.unregister_class(NODE_PT_YPaint_legacy_channel_settings_ui)
+        bpy.utils.unregister_class(NODE_PT_YPaint_legacy_bake_target_settings_ui)
 
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_about_tools)
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_main_tools)
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
+        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_bake_target_settings_tools)
     else: 
         bpy.utils.unregister_class(NODE_PT_YPaint_about_ui)
         bpy.utils.unregister_class(NODE_PT_YPaint_main_ui)
-        #bpy.utils.unregister_class(NODE_PT_YPaint_channel_settings_ui)
+        bpy.utils.unregister_class(NODE_PT_YPaint_channel_settings_ui)
+        bpy.utils.unregister_class(NODE_PT_YPaint_bake_target_settings_ui)
 
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_about_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_obj_mat_settings_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_main_ui)
     #bpy.utils.unregister_class(VIEW3D_PT_YPaint_stats_ui)
-    #bpy.utils.unregister_class(VIEW3D_PT_YPaint_channel_settings_ui)
+    bpy.utils.unregister_class(VIEW3D_PT_YPaint_channel_settings_ui)
+    bpy.utils.unregister_class(VIEW3D_PT_YPaint_bake_target_settings_ui)
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_test_ui)
 
     bpy.utils.unregister_class(YPaintUI)

@@ -181,7 +181,7 @@ def recover_subsurf_modifiers(mat=None, objs=[]):
             if multires.levels != levels:
                 multires.levels = levels
 
-def enable_displacement_setup(mat, yp=None, objs=[], thousand_polys_target=1000, displacement_method='BOTH', use_adaptive_subdivision=False, dicing_rate=1.0,):
+def enable_displacement_setup(mat, yp=None, objs=[], thousand_polys_target=1000, displacement_method='BOTH', use_adaptive_subdivision=False, dicing_rate=1.0):
     scene = bpy.context.scene
     if len(objs) == 0: objs = get_all_objects_with_same_materials(mat)
     if len(objs) == 0: return
@@ -237,13 +237,6 @@ def enable_displacement_setup(mat, yp=None, objs=[], thousand_polys_target=1000,
         # NOTE: Height as bump will always be disabled at this point for now
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch: height_root_ch.use_height_as_bump = False
-
-        # Create normal without height bake target so baked node can be displayed correctly
-        bt = channel_common.create_normal_without_bump_bake_target(yp)
-
-        # Set the bake target as the default bake target of normal channel
-        normal_ch = get_root_normal_channel(yp)
-        if normal_ch and bt: normal_ch.bake_target_name = bt.name
 
 def disable_displacement_setup(mat, yp=None, objs=[], recover_original=False, displacement_method='BUMP', delete_subdivision=False, subdiv_level=1, disable_adaptive_subdiv=True):
     if len(objs) == 0: objs = get_all_objects_with_same_materials(mat)
@@ -690,6 +683,14 @@ class YQuickDisplacementSetup(bpy.types.Operator):
             use_adaptive_subdivision = self.use_adaptive_subdivision,
             dicing_rate = self.dicing_rate
         )
+
+        if yp:
+            # Create normal without height bake target so baked node can be displayed correctly
+            bt = channel_common.create_normal_without_bump_bake_target(yp)
+
+            # Set the bake target as the default bake target of normal channel
+            normal_ch = get_root_normal_channel(yp)
+            if normal_ch and bt: normal_ch.bake_target_name = bt.name
 
         return {'FINISHED'}
 

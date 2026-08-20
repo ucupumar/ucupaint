@@ -2688,7 +2688,7 @@ def update_active_yp_channel(self, context):
 
     # Set the active preview mode channel
     # NOTE: Will only happens for non-popover channel settings UI
-    if yp.preview_mode and (ypup.unified_tab_ui or not is_bl_newer_than(2, 80)):
+    if yp.preview_mode and (ypup.ui_non_popup_settings or not is_bl_newer_than(2, 80)):
         yp.preview_mode_channel_index = yp.active_channel_index
 
         # Update preview mode
