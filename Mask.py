@@ -638,144 +638,113 @@ class YNewLayerMask(bpy.types.Operator):
         yp = node.node_tree.yp
         layer = get_active_layer(yp)
 
-        row = split_layout(self.layout, 0.4)
+        split_val = 0.4
+        layout = self.layout
 
-        col = row.column(align=False)
-        col.label(text='Name:')
-        if self.type == 'IMAGE' and self.use_custom_resolution == False:
-            col.label(text='')
-            col.label(text='Resolution:')
-        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
-            col.label(text='')
-            col.label(text='Width:')
-            col.label(text='Height:')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Name:')
+        row.prop(self, 'name', text='')
 
         if self.type == 'IMAGE':
-            col.label(text='Interpolation:')
-
-        if self.type in {'VCOL', 'IMAGE'}:
-            col.label(text='Color:')
+            BaseOperator.draw_base_image_settings(self, layout, split_val)
 
         if self.type == 'COLOR_ID':
-            col.label(text='Color ID:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Color ID:')
+            row.prop(self, 'color_id', text='')
+
             if obj.mode == 'EDIT':
-                col.label(text='')
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'vcol_fill', text='Fill Selected Faces')
 
         if self.type == 'VCOL':
             if is_bl_newer_than(3, 2):
-                col.label(text='Domain:')
-                col.label(text='Data Type:')
-            if obj.mode == 'EDIT' and self.color_option == 'BLACK':
-                col.label(text='')
-
-        if self.type == 'HEMI':
-            col.label(text='Space:')
-
-        if self.type == 'EDGE_DETECT':
-            col.label(text='Radius:')
-
-        if self.type == 'AO':
-            col.label(text='AO Distance:')
-
-        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
-            col.label(text='')
-
-        if self.type == 'IMAGE':
-            col.label(text='')
-
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
-            col.label(text='Mapping:')
-            if self.type == 'IMAGE':
-                if UDIM.is_udim_supported():
-                    col.label(text='')
-                col.label(text='')
-
-        if self.type == 'OBJECT_INDEX':
-            col.label(text='Object Index')
-
-        col.label(text='Blend:')
-
-        col = row.column(align=False)
-        col.prop(self, 'name', text='')
-        if self.type == 'IMAGE' and self.use_custom_resolution == False:
-            crow = col.row(align=True)
-            crow.prop(self, 'use_custom_resolution')
-            crow = col.row(align=True)
-            crow.prop(self, 'image_resolution', expand= True,)
-        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
-            crow = col.row(align=True)
-            crow.prop(self, 'use_custom_resolution')
-            col.prop(self, 'width', text='')
-            col.prop(self, 'height', text='')
-
-        if self.type == 'IMAGE':
-            col.prop(self, 'interpolation', text='')
-
-        if self.type in {'VCOL', 'IMAGE'}:
-            col.prop(self, 'color_option', text='')
-
-        if self.type == 'COLOR_ID':
-            col.prop(self, 'color_id', text='')
-            if obj.mode == 'EDIT':
-                col.prop(self, 'vcol_fill', text='Fill Selected Faces')
-
-        if self.type == 'HEMI':
-            col.prop(self, 'hemi_space', text='')
-
-        if self.type == 'EDGE_DETECT':
-            col.prop(self, 'edge_detect_radius', text='')
-
-        if self.type == 'AO':
-            col.prop(self, 'ao_distance', text='')
-
-        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
-            col.prop(self, 'hemi_use_prev_normal')
-
-        if self.type == 'VCOL':
-            if is_bl_newer_than(3, 2):
-                crow = col.row(align=True)
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Domain:')
+                crow = row.row(align=True)
                 crow.prop(self, 'vcol_domain', expand=True)
-                crow = col.row(align=True)
+
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Data Type:')
+                crow = row.row(align=True)
                 crow.prop(self, 'vcol_data_type', expand=True)
-
+                
             if obj.mode == 'EDIT' and self.color_option == 'BLACK':
-                col.prop(self, 'vcol_fill', text='Fill Selected Faces')
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'vcol_fill', text='Fill Selected Faces')
 
-        if self.type == 'IMAGE':
-            col.prop(self, 'hdr')
+        if self.type == 'HEMI':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Space:')
+            row.prop(self, 'hemi_space', text='')
+
+        if self.type == 'EDGE_DETECT':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Radius:')
+            row.prop(self, 'edge_detect_radius', text='')
+
+        if self.type == 'AO':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'AO Distance:')
+            row.prop(self, 'ao_distance', text='')
+
+        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'hemi_use_prev_normal')
 
         if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER', 'AO'}:
-            crow = col.row(align=True)
+
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Mapping:')
+            crow = row.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 crow.prop_search(self, "uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-            if self.type == 'IMAGE':
-                if UDIM.is_udim_supported():
-                    col.prop(self, 'use_udim')
-                ccol = col.column()
-                ccol.prop(self, 'use_image_atlas')
+        if self.type == 'OBJECT_INDEX':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Object Index')
+            row.prop(self, 'object_index', text='')
+
+        if self.type == 'IMAGE':
+            acol = layout.column(align=True)
+            if UDIM.is_udim_supported():
+                row = split_layout(acol, split_val)
+                row.label(text='')
+                row.prop(self, 'use_udim')
+
+            row = split_layout(acol, split_val)
+            row.label(text='')
+            row.prop(self, 'use_image_atlas')
+
+        acol = layout.column(align=False)
+        if self.type in {'VCOL', 'IMAGE'}:
+            row = split_layout(acol, split_val)
+            right_aligned_label(row, text='Color:')
+            row.prop(self, 'color_option', text='')
+
+        row = split_layout(acol, split_val)
+        right_aligned_label(row, 'Blend:')
+        row.prop(self, 'blend_type', text='')
 
         if self.get_to_be_cleared_image_atlas(context, yp):
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
             col.label(text='It will take a couple seconds to clear.')
         
-        if self.type == 'OBJECT_INDEX':
-            col.prop(self, 'object_index', text='')
-
-        col.prop(self, 'blend_type', text='')
-
         if self.type == 'AO':
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='Realtime AO can look different in baked/rendered view!', icon='ERROR')
 
         elif self.type == 'EDGE_DETECT':
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='Realtime Edge Detect can look different in baked/rendered view!', icon='ERROR')
 
         elif self.type == 'BACKFACE':
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='Backface mask can\'t be baked!', icon='ERROR')
 
     def execute(self, context):
@@ -1055,35 +1024,40 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
     def draw(self, context):
         obj = context.object
 
-        row = self.layout.row()
+        split_val = 0.325
+        layout = self.layout
 
-        col = row.column()
         if self.file_browser_filepath != '':
-            col.label(text='Image:')
-        col.label(text='Interpolation:')
-        col.label(text='Mapping:')
-        if len(self.layer.masks) > 0:
-            col.label(text='Blend:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Image:')
+            row.label(text=os.path.basename(self.file_browser_filepath), icon='IMAGE_DATA')
 
-        col.label(text='Image Channel:')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Interpolation:')
+        row.prop(self, 'interpolation', text='')
 
-        col = row.column()
-        if self.file_browser_filepath != '':
-            col.label(text=os.path.basename(self.file_browser_filepath), icon='IMAGE_DATA')
-        col.prop(self, 'interpolation', text='')
-        crow = col.row(align=True)
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, text='Mapping:')
+        crow = row.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         if len(self.layer.masks) > 0:
-            col.prop(self, 'blend_type', text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Blend:')
+            row.prop(self, 'blend_type', text='')
 
-        crow = col.row(align=True)
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Image Channel:')
+        crow = row.row(align=True)
         crow.prop(self, 'socket_input_name', expand=True)
 
-        layout = col if self.file_browser_filepath != '' else self.layout
+        # Toggle column
+        if self.file_browser_filepath != '':
+            row = split_layout(layout, split_val)
+            layout = row.column()
+            layout = row.column()
 
         layout.prop(self, 'relative')
 
@@ -1325,46 +1299,43 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
         yp = node.node_tree.yp
         layer = get_active_layer(yp)
 
-        row = self.layout.row()
-
-        col = row.column()
-        if self.type == 'IMAGE':
-            col.label(text='Image:')
-        elif self.type == 'VCOL':
-            col.label(text=get_vertex_color_label()+':')
+        split_val = 0.4
+        layout = self.layout
 
         if self.type == 'IMAGE':
-            col.label(text='Interpolation:')
-            col.label(text='Mapping:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Image:')
+            row.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
 
-        if len(layer.masks) > 0:
-            col.label(text='Blend:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Interpolation:')
+            row.prop(self, 'interpolation', text='')
 
-        if self.type == 'IMAGE':
-            col.label(text='Image Channel:')
-        elif self.type == 'VCOL' and is_bl_newer_than(2, 92):
-            col.label(text=get_vertex_color_label()+' Data:')
-
-        col = row.column()
-
-        if self.type == 'IMAGE':
-            col.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
-        elif self.type == 'VCOL':
-            col.prop_search(self, "vcol_name", self, "vcol_coll", text='', icon='GROUP_VCOL')
-
-        if self.type == 'IMAGE':
-            col.prop(self, 'interpolation', text='')
-            crow = col.row(align=True)
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Mapping:')
+            crow = row.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
-                #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-        if len(layer.masks) > 0:
-            col.prop(self, 'blend_type', text='')
+        elif self.type == 'VCOL':
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, get_vertex_color_label()+':')
+            row.prop_search(self, "vcol_name", self, "vcol_coll", text='', icon='GROUP_VCOL')
 
-        if is_bl_newer_than(2, 92) or self.type != 'VCOL':
-            crow = col.row(align=True)
+        if len(layer.masks) > 0:
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Blend:')
+            row.prop(self, 'blend_type', text='')
+
+        if (self.type == 'VCOL' and is_bl_newer_than(2, 92)) or self.type == 'IMAGE':
+            row = split_layout(layout, split_val)
+            if self.type == 'IMAGE':
+                right_aligned_label(row, 'Image Channel:')
+            elif self.type == 'VCOL' and is_bl_newer_than(2, 92):
+                right_aligned_label(row, get_vertex_color_label()+' Data:')
+
+            crow = row.row(align=True)
             crow.prop(self, 'socket_input_name', expand=True)
 
     def execute(self, context):

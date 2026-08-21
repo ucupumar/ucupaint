@@ -338,45 +338,40 @@ class YNewVDMLayer(bpy.types.Operator):
         yp = node.node_tree.yp
         first_vdm = get_first_vdm_layer(yp)
 
-        row = split_layout(self.layout, 0.4)
+        layout = self.layout
 
-        col = row.column(align=False)
+        split_val = 0.4
 
-        col.label(text='Name:')
-        col.label(text='')
-        if not self.use_custom_resolution:
-            col.label(text='Resolution:')
-        else:
-            col.label(text='Width:')
-            col.label(text='Height:')
-        col.label(text='Blend Type:')
-        col.label(text='UV Map:')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, text='Name:')
+        row.prop(self, 'name', text='')
 
-        col = row.column(align=False)
+        BaseOperator.draw_base_image_settings(self, layout, split_val)
 
-        col.prop(self, 'name', text='')
-        col.prop(self, 'use_custom_resolution')
-        if not self.use_custom_resolution:
-            crow = col.row(align=True)
-            crow.prop(self, 'image_resolution', expand=True)
-        else:
-            col.prop(self, 'width', text='')
-            col.prop(self, 'height', text='')
-        col.prop(self, 'blend_type', text='')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Blend Type:')
+        row.prop(self, 'blend_type', text='')
+
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'UV Map:')
+
         if not first_vdm:
-            col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
-        else:
-            col.label(text=self.uv_map + '*') # + ' (used by other VDM)')
-            self.layout.label(text='* Only one UV map is currently supported')
+            row.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        else: row.label(text=self.uv_map + '*') # + ' (used by other VDM)')
 
         # NOTE: UDIM is not supported yet
         if False:
-            col.prop(self, 'use_udim')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'use_udim')
+
+        if first_vdm:
+            layout.label(text='* Only one UV map is currently supported')
 
         #height_root_ch = get_root_height_channel(yp)
         #if height_root_ch and not height_root_ch.enable_subdiv_setup:
         if get_displacement_method() == 'BUMP':
-            col = self.layout.column()
+            col = layout.column()
             col.label(text='Displacement Setup is not enabled yet!', icon='ERROR')
             col.prop(self, 'enable_subdiv_setup')
 
@@ -990,8 +985,10 @@ class YNewLayer(bpy.types.Operator):
         yp = node.node_tree.yp
         obj = context.object
 
+        layout = self.layout
+
         if len(yp.channels) == 0:
-            self.layout.label(text='No channel found! Still want to create a layer?', icon='ERROR')
+            layout.label(text='No channel found! Still want to create a layer?', icon='ERROR')
             return
 
         try:
@@ -1001,243 +998,214 @@ class YNewLayer(bpy.types.Operator):
             else: channel = None
         except: channel = None
 
-        row = split_layout(self.layout, 0.4)
-        col = row.column(align=False)
+        split_val = 0.4
 
         if self.add_mask and self.mask_type == 'IMAGE' and self.mask_image_filepath:
-            col.label(text='Layer Type:')
-            col.separator()
+            row = split_layout(layout, split_val)
+
+            right_aligned_label(row, 'Layer Type:')
+            row.prop(self, 'type', text='')
+
+            layout.separator()
         
-        col.label(text='Name:')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Name:')
+        row.prop(self, 'name', text='')
 
         if self.type not in {'GROUP', 'BACKGROUND'}:
-            col.label(text='Channel:')
-            if channel and channel.special_type == 'NORMAL':
-                col.label(text='Type:')
-                col.label(text='Space:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Channel:')
 
-        if self.type == 'COLOR':
-            col.label(text='Color:')
-
-        if self.type == 'VCOL' and is_bl_newer_than(3, 2):
-            col.label(text='Domain:')
-            col.label(text='Data Type:')
-
-        if self.type == 'HEMI':
-            col.label(text='Space:')
-
-        if self.type == 'EDGE_DETECT':
-            col.label(text='Edge Detect Radius:')
-            col.label(text='Cycles Method:')
-
-        if self.type == 'AO':
-            col.label(text='AO Distance:')
-
-        if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
-            col.label(text='')
-
-        if self.type == 'IMAGE' and self.use_custom_resolution == False:
-            col.label(text='')
-            col.label(text='Resolution:')
-        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
-            col.label(text='')
-            col.label(text='Width:')
-            col.label(text='Height:')
-            
-        if self.type == 'IMAGE':
-            col.label(text='')
-            col.label(text='Interpolation:')
-
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
-            col.label(text='Mapping:')
-
-        if self.type in {'PREV_LAYERS'}:
-            #col.label(text='')
-            #if self.add_modifier:
-            col.label(text='Modifier Type:')
-
-        if self.type in {'VCOL'}:
-            col.label(text='')
-
-        if self.type != 'IMAGE':
-            col.label(text='')
-            if self.add_mask:
-                col.label(text='Mask Type:')
-                if self.mask_type == 'COLOR_ID':
-                    col.label(text='Mask Color ID:')
-                    if obj.mode == 'EDIT':
-                        col.label(text='')
-                elif self.mask_type == 'EDGE_DETECT':
-                    col.label(text='Edge Detect Radius:')
-                    col.label(text='Cycles Method:')
-                else:
-                    if self.mask_type == 'IMAGE':
-                        if self.mask_image_filepath:
-                            col.label(text='Mask Image Path:')
-
-                        if not self.mask_image_filepath:
-                            col.label(text='Mask Color:')
-                            col.label(text='')
-                            col.label(text='')
-                            if not self.mask_use_custom_resolution:
-                                col.label(text='Mask Resolution:')
-                            else:
-                                col.label(text='Mask Width:')
-                                col.label(text='Mask Height:')
-
-                        col.label(text='Mask Interpolation:')
-                        col.label(text='Mask Mapping:')
-                    
-                        if not self.mask_image_filepath:
-                            if UDIM.is_udim_supported():
-                                col.label(text='')
-                            col.label(text='')
-                if is_bl_newer_than(3, 2) and self.mask_type == 'VCOL':
-                    col.label(text='Mask Domain:')
-                    col.label(text='Mask Data Type:')
-
-        col = row.column(align=False)
-
-        if self.add_mask and self.mask_type == 'IMAGE' and self.mask_image_filepath:
-            col.prop(self, 'type', text='')
-            col.separator()
-
-        col.prop(self, 'name', text='')
-
-        if self.type not in {'GROUP', 'BACKGROUND'}:
-            rrow = col.row(align=True)
+            rrow = row.row(align=True)
             BaseOperator.draw_self_channel_idx(self, rrow, yp)
             if channel:
                 if channel.special_type == 'NORMAL':
                     rrow.prop(self, 'normal_blend_type', text='')
-                    col.prop(self, 'normal_space', text='')
                 elif channel.special_type == 'HEIGHT':
                     rrow.prop(self, 'height_blend_type', text='')
                 else: 
                     rrow.prop(self, 'blend_type', text='')
 
+                if channel.special_type == 'NORMAL':
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, 'Space:')
+                    row.prop(self, 'normal_space', text='')
+
         if self.type == 'COLOR':
-            col.prop(self, 'solid_color', text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, text='Color:')
+            row.prop(self, 'solid_color', text='')
 
         if self.type == 'VCOL' and is_bl_newer_than(3, 2):
-            crow = col.row(align=True)
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Domain:')
+            crow = row.row(align=True)
             crow.prop(self, 'vcol_domain', expand=True)
-            crow = col.row(align=True)
+
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Data Type:')
+            crow = row.row(align=True)
             crow.prop(self, 'vcol_data_type', expand=True)
 
         if self.type == 'HEMI':
-            col.prop(self, 'hemi_space', text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Space:')
+            row.prop(self, 'hemi_space', text='')
 
         if self.type == 'EDGE_DETECT':
-            col.prop(self, 'edge_detect_radius', text='')
-            rrow = col.row(align=True)
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Edge Detect Radius:')
+            row.prop(self, 'edge_detect_radius', text='')
+
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Cycles Method:')
+            rrow = row.row(align=True)
             rrow.prop(self, 'edge_detect_method', expand=True)
 
         if self.type == 'AO':
-            col.prop(self, 'ao_distance', text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'AO Distance:')
+            row.prop(self, 'ao_distance', text='')
 
         if self.type in {'HEMI', 'EDGE_DETECT', 'AO'}:
-            col.prop(self, 'hemi_use_prev_normal')
-
-        if self.type == 'IMAGE' and self.use_custom_resolution == False:
-            crow = col.row(align=True)
-            crow.prop(self, 'use_custom_resolution')
-            crow = col.row(align=True)
-            crow.prop(self, 'image_resolution', expand=True)
-        elif self.type == 'IMAGE' and self.use_custom_resolution == True:
-            crow = col.row(align=True)
-            crow.prop(self, 'use_custom_resolution')
-            col.prop(self, 'width', text='')
-            col.prop(self, 'height', text='')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'hemi_use_prev_normal')
 
         if self.type == 'IMAGE':
-            col.prop(self, 'hdr')
-            col.prop(self, 'interpolation', text='')
+            BaseOperator.draw_base_image_settings(self, layout, split_val)
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
-            crow = col.row(align=True)
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, text='Mapping:')
+
+            crow = row.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         if self.type in {'PREV_LAYERS'}:
-            #col.prop(self, 'add_modifier')
-            #if self.add_modifier:
-            col.prop(self, 'modifier_type', text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Modifier Type:')
+            row.prop(self, 'modifier_type', text='')
 
         if self.type in {'VCOL'}:
-            col.prop(self, 'use_divider_alpha')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'use_divider_alpha')
 
         if self.type == 'IMAGE':
+            acol = layout.column(align=True)
             if UDIM.is_udim_supported():
-                col.prop(self, 'use_udim')
-            ccol = col.column()
-            ccol.prop(self, 'use_image_atlas')
+                row = split_layout(acol, split_val)
+                row.label(text='')
+                row.prop(self, 'use_udim')
+
+            row = split_layout(acol, split_val)
+            row.label(text='')
+            row.prop(self, 'use_image_atlas')
 
         if self.type != 'IMAGE':
-            col.prop(self, 'add_mask', text='Add Mask')
+
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'add_mask', text='Add Mask')
+
             if self.add_mask:
-                col.prop(self, 'mask_type', text='')
+
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Mask Type:')
+                row.prop(self, 'mask_type', text='')
+
                 if self.mask_type == 'COLOR_ID':
-                    col.prop(self, 'mask_color_id', text='')
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, text='Mask Color ID:')
+                    row.prop(self, 'mask_color_id', text='')
+
                     if obj.mode == 'EDIT':
-                        col.prop(self, 'mask_vcol_fill', text='Fill Selected Faces')
+                        row = split_layout(layout, split_val)
+                        row.label(text='')
+                        row.prop(self, 'mask_vcol_fill', text='Fill Selected Faces')
+
                 elif self.mask_type == 'EDGE_DETECT':
-                    col.prop(self, 'mask_edge_detect_radius', text='')
-                    rrow = col.row(align=True)
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, 'Edge Detect Radius:')
+                    row.prop(self, 'mask_edge_detect_radius', text='')
+
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, 'Cycles Method:')
+                    rrow = row.row(align=True)
                     rrow.prop(self, 'mask_edge_detect_method', expand=True)
-                    col.prop(self, 'mask_use_prev_normal', text='Use Previous Normal')
-                else:
-                    if self.mask_type == 'IMAGE':
-                        if self.mask_image_filepath:
-                            col.prop(self, 'mask_image_filepath', text='')
 
-                        if not self.mask_image_filepath:
-                            col.prop(self, 'mask_color', text='')
-                            col.prop(self, 'mask_use_hdr')
-                            col.prop(self, 'mask_use_custom_resolution')
-                            if not self.mask_use_custom_resolution:
-                                crow = col.row(align=True)
-                                crow.prop(self, 'mask_image_resolution', expand=True)
-                            else:
-                                col.prop(self, 'mask_width', text='')
-                                col.prop(self, 'mask_height', text='')
+                    row = split_layout(layout, split_val)
+                    row.label(text='')
+                    row.prop(self, 'mask_use_prev_normal', text='Use Previous Normal')
 
-                        col.prop(self, 'mask_interpolation', text='')
+                elif self.mask_type == 'IMAGE':
+                    if self.mask_image_filepath:
+                        row = split_layout(layout, split_val)
+                        right_aligned_label(row, 'Mask Image Path:')
+                        row.prop(self, 'mask_image_filepath', text='')
 
-                        crow = col.row(align=True)
-                        crow.prop(self, 'mask_texcoord_type', text='')
-                        if self.mask_texcoord_type == 'UV' and obj.type == 'MESH':
-                            crow.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+                    else:
+                        row = split_layout(layout, split_val)
+                        right_aligned_label(row, 'Mask Color:')
+                        row.prop(self, 'mask_color', text='')
 
-                        if not self.mask_image_filepath:
-                            if UDIM.is_udim_supported():
-                                col.prop(self, 'use_udim_for_mask')
-                            ccol = col.column()
-                            ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+                        BaseOperator.draw_base_mask_image_settings(self, layout, split_val)
 
-                if self.mask_type == 'VCOL':
-                    if is_bl_newer_than(3, 2):
-                        crow = col.row(align=True)
-                        crow.prop(self, 'mask_vcol_domain', expand=True)
-                        crow = col.row(align=True)
-                        crow.prop(self, 'mask_vcol_data_type', expand=True)
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, 'Mask Interpolation:')
+                    row.prop(self, 'mask_interpolation', text='')
+
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, text='Mask Mapping:')
+
+                    crow = row.row(align=True)
+                    crow.prop(self, 'mask_texcoord_type', text='')
+                    if self.mask_texcoord_type == 'UV' and obj.type == 'MESH':
+                        crow.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+                
+                    if not self.mask_image_filepath:
+                        acol = layout.column(align=True)
+                        if UDIM.is_udim_supported():
+                            row = split_layout(acol, split_val)
+                            row.label(text='')
+                            row.prop(self, 'use_udim_for_mask')
+
+                        row = split_layout(acol, split_val)
+                        row.label(text='')
+                        row.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+
+                elif is_bl_newer_than(3, 2) and self.mask_type == 'VCOL':
+
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, 'Mask Domain:')
+                    crow = row.row(align=True)
+                    crow.prop(self, 'mask_vcol_domain', expand=True)
+
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, 'Mask Data Type:')
+                    crow = row.row(align=True)
+                    crow.prop(self, 'mask_vcol_data_type', expand=True)
 
                     if obj.mode == 'EDIT':
-                        col.prop(self, 'mask_vcol_fill', text='Fill Selected Faces')
+                        row = split_layout(layout, split_val)
+                        row.label(text='')
+                        row.prop(self, 'mask_vcol_fill', text='Fill Selected Faces')
 
         if self.get_to_be_cleared_image_atlas(context, yp):
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
             col.label(text='It will take a couple seconds to clear.')
 
         if self.type == 'AO':
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='Realtime AO can look different in baked/rendered view!', icon='ERROR')
 
         if self.type == 'EDGE_DETECT' or (self.add_mask and self.mask_type == 'EDGE_DETECT'):
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='Realtime Edge Detect can look different in baked/rendered view!', icon='ERROR')
 
     def execute(self, context):
@@ -2070,69 +2038,82 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
 
-    def draw_operator(self, context, display_relative_toggle=True):
+    def draw_operator(self, context, display_relative_toggle=True, split_val=0.325):
         obj = context.object
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
 
-        row = split_layout(self.layout, 0.325)
+        layout = self.layout
 
-        col = row.column()
-        col.label(text='Mapping:')
-
-        height_root_ch = get_root_height_channel(yp) if yp else None
-        if not yp or height_root_ch:
-            col.label(text='Normal Map:')
-            col.label(text='')
-
-        if self.add_mask:
-            col.label(text='Mask Type:')
-            col.label(text='Mask Color:')
-            if self.mask_type == 'IMAGE':
-                col.label(text='')
-                col.label(text='')
-                if not self.mask_use_custom_resolution:
-                    col.label(text='Mask Resolution:')
-                else:
-                    col.label(text='Mask Width:')
-                    col.label(text='Mask Height:')
-                col.label(text='Mask UV Map:')
-                col.label(text='')
-
-        col = row.column()
-        crow = col.row(align=True)
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Mapping:')
+        crow = row.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
             #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
+        height_root_ch = get_root_height_channel(yp) if yp else None
         if not yp or height_root_ch:
-            crow = col.row(align=True)
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Normal Map:')
+
+            crow = row.row(align=True)
             crow.prop(self, 'normal_height_priority', text='')
             crow.prop(self, 'normal_map_flip_y', text='', icon_value=lib.get_icon('g'))
 
-        col.prop(self, 'add_mask', text='Add Mask')
+        row = split_layout(layout, split_val)
+        row.label(text='')
+        row.prop(self, 'add_mask', text='Add Mask')
+
         if self.add_mask:
-            col.prop(self, 'mask_type', text='')
-            col.prop(self, 'mask_color', text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Mask Type:')
+            row.prop(self, 'mask_type', text='')
+
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Mask Color:')
+            row.prop(self, 'mask_color', text='')
+
             if self.mask_type == 'IMAGE':
-                col.prop(self, 'mask_use_hdr')
-                col.prop(self, 'mask_use_custom_resolution')
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'mask_use_hdr')
+
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'mask_use_custom_resolution')
+
                 if not self.mask_use_custom_resolution:
-                    crow = col.row(align=True)
+                    row = split_layout(layout, split_val)
+                    right_aligned_label(row, 'Mask Resolution:')
+                    crow = row.row(align=True)
                     crow.prop(self, 'mask_image_resolution', expand=True)
                 else:
-                    col.prop(self, 'mask_width', text='')
-                    col.prop(self, 'mask_height', text='')
-                #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-                col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+                    row = split_layout(layout, split_val)
+                    rcol = row.column(align=True)
+                    right_aligned_label(rcol, 'Mask Width:')
+                    right_aligned_label(rcol, 'Mask Height:')
+
+                    rcol = row.column(align=True)
+                    rcol.prop(self, 'mask_width', text='')
+                    rcol.prop(self, 'mask_height', text='')
+
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Mask UV Map:')
+                row.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
                 if UDIM.is_udim_supported():
-                    col.prop(self, 'use_udim_for_mask')
-                ccol = col.column()
-                ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+                    row = split_layout(layout, split_val)
+                    row.label(text='')
+                    row.prop(self, 'use_udim_for_mask')
+
+                row = split_layout(layout, split_val)
+                row.label(text='')
+                row.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
 
         if display_relative_toggle:
-            self.layout.prop(self, 'relative')
+            layout.prop(self, 'relative')
 
     def check_operator(self, context:bpy.context):
         ypup = get_user_preferences()
@@ -2268,19 +2249,19 @@ class YOpenImagesFromMaterialToLayer(bpy.types.Operator, ImportHelper, BaseMulti
         return self.check_operator(context)
 
     def draw(self, context):
-        row = split_layout(self.layout, 0.325, align=True)
-        row.label(text='Material')
+        split_val = 0.325
+
+        row = split_layout(self.layout, split_val, align=True)
+        right_aligned_label(row, 'Material:')
         if self.asset_library_path == '':
             row.prop_search(self, "mat_name", self, "mat_coll", text='', icon='MATERIAL_DATA')
         else: row.label(text=self.mat_name, icon='MATERIAL_DATA')
 
-        row = split_layout(self.layout, 0.325)
-        row.label(text='Read method:')
+        row = split_layout(self.layout, split_val)
+        right_aligned_label(row, 'Read method:')
+        row.prop(self, 'read_method', text="")
 
-        col = row.column()
-        col.prop(self, 'read_method', text="")
-
-        self.draw_operator(context, display_relative_toggle=False)
+        self.draw_operator(context, display_relative_toggle=False, split_val=split_val)
 
     def execute(self, context):
 
@@ -2568,10 +2549,10 @@ class YOpenImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleIma
         
         return {'FINISHED'}
 
-class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
-    """Open Image to Layer"""
+class YOpenImageAsLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage):
+    """Open Image as Layer"""
     bl_idname = "wm.y_open_image_to_layer"
-    bl_label = "Open Image to Layer"
+    bl_label = "Open Image as Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     interpolation : EnumProperty(
@@ -2705,39 +2686,48 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         params = context.space_data.params
 
         channel = yp.channels[BaseOperator.get_self_channel_idx(self)] if BaseOperator.get_self_channel_idx(self) != -1 else None
+
+        layout = self.layout
+        split_val = 0.3
         
-        row = self.layout.row()
-
-        col = row.column()
         if self.file_browser_filepath != '':
-            col.label(text='Image:')
-        col.label(text='Interpolation:')
-        col.label(text='Mapping:')
-        col.label(text='Channel:')
-        if channel and channel.special_type == 'NORMAL':
-            col.label(text='Space:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Image:')
+            row.label(text=os.path.basename(self.file_browser_filepath), icon='IMAGE_DATA')
 
-        col = row.column()
-        if self.file_browser_filepath != '':
-            col.label(text=os.path.basename(self.file_browser_filepath), icon='IMAGE_DATA')
-        col.prop(self, 'interpolation', text='')
-        crow = col.row(align=True)
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Interpolation:')
+        row.prop(self, 'interpolation', text='')
+
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Mapping:')
+        crow = row.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-        rrow = col.row(align=True)
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Channel:')
+        rrow = row.row(align=True)
         BaseOperator.draw_self_channel_idx(self, rrow, yp)
         if channel:
             if channel.special_type == 'NORMAL':
                 rrow.prop(self, 'normal_blend_type', text='')
-                col.prop(self, 'normal_space', text='')
             elif channel.special_type == 'HEIGHT':
                 rrow.prop(self, 'height_blend_type', text='')
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
-        layout = col if self.file_browser_filepath != '' else self.layout
+            if channel.special_type == 'NORMAL':
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Space:')
+                row.prop(self, 'normal_space', text='')
+
+        # Toggles column
+        if self.file_browser_filepath != '':
+            row = split_layout(layout, split_val)
+            layout = row.column()
+            layout = row.column()
 
         layout.prop(self, 'use_image_atlas')
 
@@ -3294,9 +3284,9 @@ class YOpenExistingDataToOverrideChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YOpenExistingDataToLayer(bpy.types.Operator):
-    """Open Existing Data to Layer"""
+    """Open Existing Data as Layer"""
     bl_idname = "wm.y_open_existing_data_to_layer"
-    bl_label = "Open Existing Data to Layer"
+    bl_label = "Open Existing Data as Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
@@ -3422,48 +3412,43 @@ class YOpenExistingDataToLayer(bpy.types.Operator):
 
         channel = yp.channels[BaseOperator.get_self_channel_idx(self)] if BaseOperator.get_self_channel_idx(self) != -1 else None
 
-        row = self.layout.row()
-
-        col = row.column()
+        split_val = 0.4
 
         if self.type == 'IMAGE':
-            col.label(text='Image:')
-        elif self.type == 'VCOL':
-            col.label(text=get_vertex_color_label()+':')
+            row = split_layout(self.layout, split_val)
+            right_aligned_label(row, 'Image:')
+            row.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
 
-        if self.type == 'IMAGE':
-            col.label(text='Interpolation:')
-            col.label(text='Mapping:')
-        col.label(text='Channel:')
-        if channel and channel.special_type == 'NORMAL':
-            col.label(text='Type:')
+            row = split_layout(self.layout, split_val)
+            right_aligned_label(row, 'Interpolation:')
+            row.prop(self, 'interpolation', text='')
 
-        col = row.column()
-
-        if self.type == 'IMAGE':
-            col.prop_search(self, "image_name", self, "image_coll", text='', icon='IMAGE_DATA')
-        elif self.type == 'VCOL':
-            col.prop_search(self, "vcol_name", self, "vcol_coll", text='', icon='GROUP_VCOL')
-
-        if self.type == 'IMAGE':
-            col.prop(self, 'interpolation', text='')
-            crow = col.row(align=True)
+            row = split_layout(self.layout, split_val)
+            right_aligned_label(row, 'Mapping:')
+            crow = row.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-        #col.label(text='')
-        rrow = col.row(align=True)
+        elif self.type == 'VCOL':
+            row = split_layout(self.layout, split_val)
+            right_aligned_label(row, get_vertex_color_label()+':')
+            row.prop_search(self, "vcol_name", self, "vcol_coll", text='', icon='GROUP_VCOL')
+
+        row = split_layout(self.layout, split_val)
+        right_aligned_label(row, 'Channel:')
+        rrow = row.row(align=True)
         BaseOperator.draw_self_channel_idx(self, rrow, yp)
-        if channel:
-            if channel.special_type == 'NORMAL':
-                rrow.prop(self, 'normal_blend_type', text='')
-                col.prop(self, 'normal_space', text='')
-            elif channel.special_type == 'HEIGHT':
-                rrow.prop(self, 'height_blend_type', text='')
-            else: 
-                rrow.prop(self, 'blend_type', text='')
+        if channel and channel.special_type == 'NORMAL':
+            rrow.prop(self, 'normal_blend_type', text='')
+            row = split_layout(self.layout, split_val)
+            right_aligned_label(row, 'Space:')
+            row.prop(self, 'normal_space', text='')
+        elif channel and channel.special_type == 'HEIGHT':
+            rrow.prop(self, 'height_blend_type', text='')
+        elif channel:
+            rrow.prop(self, 'blend_type', text='')
 
     def execute(self, context):
         T = time.time()
@@ -6674,7 +6659,7 @@ def register():
     bpy.utils.register_class(YNewLayer)
     bpy.utils.register_class(YNewVDMLayer)
     bpy.utils.register_class(YNewVcolToOverrideChannel)
-    bpy.utils.register_class(YOpenImageToLayer)
+    bpy.utils.register_class(YOpenImageAsLayer)
     bpy.utils.register_class(YOpenImagesToSingleLayer)
     bpy.utils.register_class(YOpenImagesFromMaterialToLayer)
     bpy.utils.register_class(YOpenLayersFromMaterial)
@@ -6710,7 +6695,7 @@ def unregister():
     bpy.utils.unregister_class(YNewLayer)
     bpy.utils.unregister_class(YNewVDMLayer)
     bpy.utils.unregister_class(YNewVcolToOverrideChannel)
-    bpy.utils.unregister_class(YOpenImageToLayer)
+    bpy.utils.unregister_class(YOpenImageAsLayer)
     bpy.utils.unregister_class(YOpenImagesToSingleLayer)
     bpy.utils.unregister_class(YOpenLayersFromMaterial)
     bpy.utils.unregister_class(YOpenImagesFromMaterialToLayer)

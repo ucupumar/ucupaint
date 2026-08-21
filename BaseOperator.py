@@ -131,3 +131,69 @@ def draw_self_channel_idx(self, layout, yp=None):
             icon_name = lib.channel_custom_icon_dict[first_ch.type]
             layout.label(text=first_ch.name, icon_value=lib.get_icon(icon_name))
 
+def draw_base_image_settings(parent, layout, split_val=0.4, show_texcoord=True):
+    acol = layout.column(align=True)
+
+    row = split_layout(acol, split_val)
+    row.label(text='')
+    crow = row.row(align=True)
+    crow.prop(parent, 'use_custom_resolution')
+
+    if not parent.use_custom_resolution:
+        row = split_layout(acol, split_val)
+        right_aligned_label(row, 'Resolution:')
+        crow = row.row(align=True)
+        crow.prop(parent, 'image_resolution', expand= True,)
+    else:
+        row = split_layout(acol, split_val)
+        rcol = row.column(align=True)
+        right_aligned_label(rcol, 'Width:')
+        right_aligned_label(rcol, 'Height:')
+
+        rcol = row.column(align=True)
+        rcol.prop(parent, 'width', text='')
+        rcol.prop(parent, 'height', text='')
+
+    if hasattr(parent, 'hdr'):
+        row = split_layout(acol, split_val)
+        row.label(text='')
+        row.prop(parent, 'hdr')
+
+    if hasattr(parent, 'interpolation'):
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Interpolation:')
+        row.prop(parent, 'interpolation', text='')
+
+def draw_base_mask_image_settings(parent, layout, split_val=0.4):
+
+    acol = layout.column(align=True)
+
+    row = split_layout(acol, split_val)
+    row.label(text='')
+    crow = row.row(align=True)
+    crow.prop(parent, 'mask_use_custom_resolution')
+
+    if not parent.mask_use_custom_resolution:
+        row = split_layout(acol, split_val)
+        right_aligned_label(row, 'Resolution:')
+        crow = row.row(align=True)
+        crow.prop(parent, 'mask_image_resolution', expand= True,)
+    else:
+        row = split_layout(acol, split_val)
+        rcol = row.column(align=True)
+        right_aligned_label(rcol, 'Width:')
+        right_aligned_label(rcol, 'Height:')
+
+        rcol = row.column(align=True)
+        rcol.prop(parent, 'mask_width', text='')
+        rcol.prop(parent, 'mask_height', text='')
+
+    row = split_layout(acol, split_val)
+    row.label(text='')
+    row.prop(parent, 'mask_use_hdr')
+
+    #if hasattr(parent, 'mask_interpolation'):
+    #    row = split_layout(layout, split_val)
+    #    right_aligned_label(row, 'Interpolation:')
+    #    row.prop(parent, 'mask_interpolation', text='')
+
