@@ -77,8 +77,10 @@ def update_decal_projection(self, context):
 
     if m1: 
         tree = get_tree(entity)
+        source = get_layer_source(entity)
     elif m2: 
         tree = get_mask_tree(entity)
+        source = get_mask_source(entity)
     
     if not tree:
         return
@@ -95,6 +97,17 @@ def update_decal_projection(self, context):
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_CYLINDER)
     else:
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+
+        # Image scaling on change of mode
+        image = None
+        if entity.type == 'IMAGE' and source:
+            image = source.image
+        if image and image.size[0] > 0 and image.size[1] > 0:
+            if image.size[0] > image.size[1]:
+                decal_node.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
+            else: decal_node.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
+
+
 
 def update_enable_decal_object_constraint(self, context):
     obj = context.object
@@ -193,6 +206,12 @@ def check_entity_decal_nodes(entity, tree=None):
             if image and source:
                 entity.original_image_extension = source.extension
                 source.extension = 'CLIP'
+
+        # Set decal aspect ratio    
+        if image and image.size[0] > 0 and image.size[1] > 0:
+            if image.size[0] > image.size[1]:
+                decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
+            else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
 
         # Create decal alpha nodes
         if mask:
