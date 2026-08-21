@@ -150,6 +150,8 @@ BL27_DISP = '~yPL Blender 2.7 Displacement'
 COMBINED_VDM = '~yPL Combined VDM'
 
 DECAL_PROCESS = '~yPL Decal Process'
+DECAL_PROCESS_CYLINDER = '~yPL Decal Process Cylinder'
+DECAL_PROCESS_SPHERE = '~yPL Decal Process Sphere'
 
 SMOOTH_PREFIX = '~yPL Smooth '
 

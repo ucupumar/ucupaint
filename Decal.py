@@ -44,6 +44,71 @@ def remove_decal_object(tree, entity):
             texcoord.object = None
             remove_datablock(bpy.data.objects, decal_obj)
 
+decal_projection_items = (
+    ('FLAT', "Flat", "Flat projection"),
+    ('CYLINDER', "Cylinder", "Cylindrical projection"),
+    ('SPHERE', "Sphere", "Spherical projection"),
+)
+
+def set_gizmo_style(entity, mode):
+    decal_obj = get_decal_object(entity)
+    if not decal_obj:
+        return
+    if is_bl_newer_than(2, 80):
+        if mode == 'SPHERE':
+            decal_obj.empty_display_type = 'SPHERE'
+        elif mode == 'CYLINDER':
+            decal_obj.empty_display_type = 'CIRCLE'
+        else:
+            decal_obj.empty_display_type = 'SINGLE_ARROW'
+    else: 
+        if mode == 'SPHERE':
+            decal_obj.empty_draw_type = 'SPHERE'
+        elif mode == 'CYLINDER':
+            decal_obj.empty_draw_type = 'CIRCLE'
+        else:
+            decal_obj.empty_draw_type = 'SINGLE_ARROW'        
+
+
+def update_decal_projection(self, context):
+    entity = self
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if m1: 
+        tree = get_tree(entity)
+        source = get_layer_source(entity)
+    elif m2: 
+        tree = get_mask_tree(entity)
+        source = get_mask_source(entity)
+    
+    if not tree:
+        return
+    
+    decal_node = tree.nodes.get(getattr(entity, 'decal_process', ''))
+    if not decal_node or not decal_node.node_tree:
+        return
+    
+    mode = getattr(entity, 'decal_projection_type', 'FLAT')
+    set_gizmo_style(entity, mode)
+    if mode == 'SPHERE':
+        decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_SPHERE)
+    elif mode == 'CYLINDER':
+        decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_CYLINDER)
+    else:
+        decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+
+        # Image scaling on change of mode
+        image = None
+        if entity.type == 'IMAGE' and source:
+            image = source.image
+        if image and image.size[0] > 0 and image.size[1] > 0:
+            if image.size[0] > image.size[1]:
+                decal_node.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
+            else: decal_node.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
+
+
+
 def update_enable_decal_object_constraint(self, context):
     obj = context.object
     decal_obj = self.id_data
@@ -65,16 +130,21 @@ def create_decal_empty():
     scene = bpy.context.scene
     empty_name = get_unique_name('Decal', bpy.data.objects)
     empty = bpy.data.objects.new(empty_name, None)
+    
     if is_bl_newer_than(2, 80):
         empty.empty_display_type = 'SINGLE_ARROW'
-    else: empty.empty_draw_type = 'SINGLE_ARROW'
-    custom_collection = obj.users_collection[0] if is_bl_newer_than(2, 80) and len(obj.users_collection) > 0 else None
-    link_object(scene, empty, custom_collection)
-    if is_bl_newer_than(2, 80):
         empty.location = scene.cursor.location.copy()
         empty.rotation_euler = scene.cursor.rotation_euler.copy()
-    else: 
+        if len(scene.collection.objects) > 0:
+            custom_collection = obj.users_collection[0]
+        else: 
+            custom_collection = None
+    else:
+        empty.empty_draw_type = 'SINGLE_ARROW'
         empty.location = scene.cursor_location.copy()
+        custom_collection = None
+
+    link_object(scene, empty, custom_collection)
 
     # Parent empty to active object
     empty.parent = obj
@@ -99,7 +169,8 @@ def check_entity_decal_nodes(entity, tree=None):
         layer = yp.layers[int(m2.group(1))]
         if not tree: tree = get_tree(entity)
         mask = entity
-    else: return
+    else: 
+        return
 
     # Get height channel
     height_ch = get_height_channel(layer)
@@ -122,14 +193,21 @@ def check_entity_decal_nodes(entity, tree=None):
         decal_process = tree.nodes.get(entity.decal_process)
         if not decal_process:
             decal_process = new_node(tree, entity, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
-            decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+            mode = getattr(entity, 'decal_projection_type', 'FLAT')
+            
+            if mode == 'SPHERE':
+                decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_SPHERE)
+            elif mode == 'CYLINDER':
+                decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_CYLINDER)
+            else:
+                decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
 
             # Set image extension only after decal process node is initialized
             if image and source:
                 entity.original_image_extension = source.extension
                 source.extension = 'CLIP'
 
-        # Set decal aspect ratio
+        # Set decal aspect ratio    
         if image and image.size[0] > 0 and image.size[1] > 0:
             if image.size[0] > image.size[1]:
                 decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
@@ -176,6 +254,7 @@ def check_entity_decal_nodes(entity, tree=None):
                     else:
                         for letter in nsew_letters:
                             remove_node(tree, ch, 'decal_alpha_' + letter)
+
     else:
 
         if not texcoord or not hasattr(texcoord, 'object') or not texcoord.object: 
@@ -274,6 +353,25 @@ class YSetDecalObjectPositionToCursor(bpy.types.Operator):
         return {'FINISHED'}
 
 class BaseDecal():
+    decal_projection_type: EnumProperty(
+        name='Projection',
+        description='Decal projection mapping mode',
+        items=decal_projection_items,
+        default='FLAT',
+        update=update_decal_projection
+    )
+
+    decal_scale_x: FloatProperty(
+        name='Decal Scale X',
+        description='Decal Scale Value X',
+        min=0.0, max=100.0, default=1.0, precision=3
+    )
+
+    decal_scale_y: FloatProperty(
+        name='Decal Scale Y',
+        description='Decal Scale Value Y',
+        min=0.0, max=100.0, default=1.0, precision=3
+    )
 
     decal_distance_value : FloatProperty(
         name = 'Decal Distance',
