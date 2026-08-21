@@ -9,6 +9,16 @@ def update_icons(self, context):
     lib.unload_custom_icons()
     lib.load_custom_icons()
 
+def update_default_bake_device(self, context):
+    if self.default_bake_device != 'DEFAULT':
+        # Get all yp trees
+        yp_trees = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]
+
+        # Update global settings bake device
+        for tree in yp_trees:
+            yp = tree.yp
+            yp.bake_target_global_settings.bake_device = self.default_bake_device
+
 class YPaintPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
@@ -91,9 +101,11 @@ class YPaintPreferences(AddonPreferences):
         items = (
             ('DEFAULT', 'Default', 'Use last selected bake device'),
             ('CPU', 'CPU', 'Use CPU by default'),
-            ('GPU', 'GPU Compute', 'Use GPU by default')
+            ('GPU', 'GPU Compute', 'Use GPU by default'),
+            ('OSL', 'CPU (OSL)', 'Use CPU with OSL enabled by default (slower but higher compatibility for complex shader)')
         ),
-        default = 'DEFAULT'
+        default = 'DEFAULT',
+        update = update_default_bake_device
     )
 
     enable_baked_outside_by_default : BoolProperty(

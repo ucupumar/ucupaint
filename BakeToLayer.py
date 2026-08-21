@@ -396,12 +396,6 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
     
-    use_osl : BoolProperty(
-        name = 'Use OSL',
-        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
-        default = False
-    )
-
     hide_source_objects : BoolProperty(
         name = 'Hide Source Objects after Baking',
         description = 'Hide source objects after baking',
@@ -715,122 +709,36 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         height_root_ch = get_root_height_channel(yp)
 
-        row = split_layout(self.layout, 0.4)
-
         show_subsurf_influence = not self.type.startswith('MULTIRES_') and (self.type not in {'SELECTED_VERTICES', 'WIREFRAME'} or (self.type == 'WIREFRAME' and is_bl_newer_than(2, 81) and not self.wireframe_triangulated))
         show_use_baked_disp = height_root_ch and not self.type.startswith('MULTIRES_') and self.type not in {'SELECTED_VERTICES'}
 
-        col = row.column(align=False)
+        split_val = 0.4
+
+        lcol = self.layout.column(align=False)
 
         if not self.overwrite_current:
 
             if len(self.overwrite_coll) > 0:
-                col.label(text='Overwrite:')
+                row = split_layout(lcol, split_val)
+                right_aligned_label(row, 'Overwrite:')
+                row.prop(self, 'overwrite_choice', text='')
+
+            row = split_layout(lcol, split_val)
             if len(self.overwrite_coll) > 0 and self.overwrite_choice:
                 if self.target_type == 'LAYER':
-                    col.label(text='Overwrite Layer:')
-                else:
-                    col.label(text='Overwrite Mask:')
+                    right_aligned_label(row, 'Overwrite Layer:')
+                else: right_aligned_label(row, 'Overwrite Mask:')
+                row.prop_search(self, "overwrite_name", self, "overwrite_coll", text='', icon='IMAGE_DATA')
             else:
-                col.label(text='Name:')
+                right_aligned_label(row, 'Name:')
+                row.prop(self, 'name', text='')
 
                 # Other object channels always bakes all channels
                 if self.target_type == 'LAYER' and self.type != 'OTHER_OBJECT_CHANNELS':
-                    col.label(text='Channel:')
-        else:
-            col.label(text='Name:')
+                    row = split_layout(lcol, split_val)
+                    right_aligned_label(row, 'Channel:')
 
-        if self.type.startswith('OTHER_OBJECT_'):
-            col.label(text='')
-            if self.use_cage:
-                col.label(text='Cage Object:')
-                col.label(text='Cage Extrusion:')
-            else:
-                col.label(text='Extrusion:')
-            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
-                col.label(text='Max Ray Distance:')
-            if self.type in {'OTHER_OBJECT_NORMAL'}:
-                col.label(text='')
-        elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
-            col.label(text='')
-        elif self.type == 'AO':
-            col.label(text='AO Distance:')
-            col.label(text='')
-        elif self.type == 'THICKNESS':
-            col.label(text='Distance:')
-            col.label(text='')
-        elif self.type == 'WIREFRAME':
-            col.label(text='Wireframe Size:')
-            if is_bl_newer_than(2, 81):
-                col.label(text='')
-        elif self.type == 'CURVATURE':
-            col.label(text='Distance:')
-        elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
-            col.label(text='Bevel Samples:')
-            col.label(text='Bevel Radius:')
-            if self.type == 'BEVEL_MASK':
-                col.label(text='Edge Detect Method:')
-        elif self.type.startswith('MULTIRES_'):
-            col.label(text='Base Level:')
-        #elif self.type.startswith('OTHER_OBJECT_'):
-        #    col.label(text='Source Object:')
-
-        col.label(text='')
-        col.label(text='')
-        if self.use_custom_resolution == False:
-            col.label(text='Resolution:')
-        if self.use_custom_resolution == True:
-            col.label(text='Width:')
-            col.label(text='Height:')
-        col.label(text='Samples:')
-        col.label(text='UV Map:')
-        if self.type == 'FLOW':
-            col.label(text='Straight UV Map:')
-        col.label(text='Margin:')
-        if is_bl_newer_than(2, 80):
-            col.separator()
-            col.label(text='Bake Device:')
-        col.label(text='Interpolation:')
-        if self.target_type == 'MASK':
-            col.label(text='Blend:')
-        col.separator()
-        col.label(text='')
-        #col.label(text='')
-        col.label(text='')
-
-        #if not self.type.startswith('MULTIRES_'):
-        if show_subsurf_influence:
-            col.label(text='')
-
-        #if height_root_ch and not self.type.startswith('MULTIRES_'):
-        if show_use_baked_disp:
-            col.label(text='')
-
-        col.label(text='')
-        col.label(text='')
-
-        if self.type not in {'OTHER_OBJECT_CHANNELS'}:
-            col.separator()
-            col.label(text='')
-
-        if is_bl_newer_than(2, 79) and self.type.startswith('OTHER_OBJECT_'):
-            col.separator()
-            col.label(text='')
-
-        col = row.column(align=False)
-
-        if not self.overwrite_current:
-            if len(self.overwrite_coll) > 0:
-                col.prop(self, 'overwrite_choice', text='')
-
-            if len(self.overwrite_coll) > 0 and self.overwrite_choice:
-                col.prop_search(self, "overwrite_name", self, "overwrite_coll", text='', icon='IMAGE_DATA')
-            else:
-                col.prop(self, 'name', text='')
-
-                # Other object channels always bakes all channels
-                if self.target_type == 'LAYER' and self.type != 'OTHER_OBJECT_CHANNELS':
-                    rrow = col.row(align=True)
+                    rrow = row.row(align=True)
                     rrow.prop(self, 'channel_idx', text='')
                     if channel:
                         if channel.special_type == 'HEIGHT':
@@ -840,112 +748,235 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
                         else: 
                             rrow.prop(self, 'blend_type', text='')
         else:
-            col.label(text=self.overwrite_name)
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Name:')
+            row.label(text=self.overwrite_name)
 
         if self.type.startswith('OTHER_OBJECT_'):
-            col.prop(self, 'use_cage')
-            if self.use_cage:
-                col.prop_search(self, "cage_object_name", self, "cage_object_coll", text='', icon='OBJECT_DATA')
-            col.prop(self, 'cage_extrusion', text='')
-            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
-                col.prop(self, 'max_ray_distance', text='')
-            if self.type in {'OTHER_OBJECT_NORMAL'}:
-                col.prop(self, 'use_transparent_for_missing_rays')
-        elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
-            col.prop(self, 'normalize', text='Normalize Pointiness')
-        elif self.type == 'AO':
-            col.prop(self, 'ao_distance', text='')
-            col.prop(self, 'only_local')
-        elif self.type == 'THICKNESS':
-            col.prop(self, 'ao_distance', text='')
-            col.prop(self, 'only_local')
-        elif self.type == 'WIREFRAME':
-            col.prop(self, 'wireframe_size', text='')
-            if is_bl_newer_than(2, 81):
-                col.prop(self, 'wireframe_triangulated')
-        elif self.type == 'CURVATURE':
-            col.prop(self, 'curvature_distance', text='')
-        elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
-            col.prop(self, 'bevel_samples', text='')
-            col.prop(self, 'bevel_radius', text='')
-            if self.type == 'BEVEL_MASK':
-                crow = col.row(align=True)
-                crow.prop(self, 'edge_detect_method', expand=True)
-        elif self.type.startswith('MULTIRES_'):
-            col.prop(self, 'multires_base', text='')
 
-        col.prop(self, 'hdr')
-        col.prop(self, 'use_custom_resolution')
-        crow = col.row(align=True)
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            row.prop(self, 'use_cage')
+
+            if self.use_cage:
+                row = split_layout(lcol, split_val)
+                right_aligned_label(row, 'Cage Object:')
+                row.prop_search(self, "cage_object_name", self, "cage_object_coll", text='', icon='OBJECT_DATA')
+
+            row = split_layout(lcol, split_val)
+
+            rcol = row.column(align=True)
+            if self.use_cage:
+                right_aligned_label(rcol, 'Cage Extrusion:')
+            else: right_aligned_label(rcol, 'Extrusion:')
+            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
+                right_aligned_label(rcol, 'Max Ray Distance:')
+
+            rcol = row.column(align=True)
+            rcol.prop(self, 'cage_extrusion', text='')
+            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
+                rcol.prop(self, 'max_ray_distance', text='')
+
+            if self.type in {'OTHER_OBJECT_NORMAL'}:
+                row = split_layout(lcol, split_val)
+                row.label(text='')
+                row.prop(self, 'use_transparent_for_missing_rays')
+
+        elif self.type == 'POINTINESS' and is_bl_newer_than(2, 83):
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            row.prop(self, 'normalize', text='Normalize Pointiness')
+
+        elif self.type == 'AO':
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'AO Distance:')
+            row.prop(self, 'ao_distance', text='')
+
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            row.prop(self, 'only_local')
+
+        elif self.type == 'THICKNESS':
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Distance:')
+            row.prop(self, 'ao_distance', text='')
+
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            row.prop(self, 'only_local')
+
+        elif self.type == 'WIREFRAME':
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Wireframe Size:')
+            row.prop(self, 'wireframe_size', text='')
+
+            if is_bl_newer_than(2, 81):
+                row = split_layout(lcol, split_val)
+                row.label(text='')
+                row.prop(self, 'wireframe_triangulated')
+
+        elif self.type == 'CURVATURE':
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Distance:')
+            row.prop(self, 'curvature_distance', text='')
+
+        elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Bevel Samples:')
+            row.prop(self, 'bevel_samples', text='')
+
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Bevel Radius:')
+            row.prop(self, 'bevel_radius', text='')
+
+            if self.type == 'BEVEL_MASK':
+                row = split_layout(lcol, split_val)
+                right_aligned_label(row, 'Edge Detect Method:')
+
+                crow = row.row(align=True)
+                crow.prop(self, 'edge_detect_method', expand=True)
+
+        elif self.type.startswith('MULTIRES_'):
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Base Level:')
+            row.prop(self, 'multires_base', text='')
+
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        row.prop(self, 'hdr')
+
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        row.prop(self, 'use_custom_resolution')
+
         if self.use_custom_resolution == False:
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Resolution:')
+            crow = row.row(align=True)
             crow.prop(self, 'image_resolution', expand= True,)
-        elif self.use_custom_resolution == True:
-            col.prop(self, 'width', text='')
-            col.prop(self, 'height', text='')
-        col.prop(self, 'samples', text='')
-        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        if self.use_custom_resolution == True:
+            row = split_layout(lcol, split_val)
+
+            rcol = row.column(align=True)
+            right_aligned_label(rcol, 'Width:')
+            right_aligned_label(rcol, 'Height:')
+
+            rcol = row.column(align=True)
+            rcol.prop(self, 'width', text='')
+            rcol.prop(self, 'height', text='')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Samples:')
+        row.prop(self, 'samples', text='')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'UV Map:')
+        row.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
         if self.type == 'FLOW':
-            col.prop_search(self, "uv_map_1", self, "uv_map_coll", text='', icon='GROUP_UVS')
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Straight UV Map:')
+            row.prop_search(self, "uv_map_1", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Margin:')
         if is_bl_newer_than(3, 1):
-            split = split_layout(col, 0.4, align=True)
+            split = split_layout(row, 0.4, align=True)
             split.prop(self, 'margin', text='')
             split.prop(self, 'margin_type', text='')
         else:
-            col.prop(self, 'margin', text='')
+            row.prop(self, 'margin', text='')
 
-        if is_bl_newer_than(2, 80):
-            col.separator()
-            if self.use_osl:
-                col.label(text='CPU (OSL)')
-            else: col.prop(self, 'bake_device', text='')
-        col.prop(self, 'interpolation', text='')
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, text='Interpolation:')
+        row.prop(self, 'interpolation', text='')
 
         if self.target_type == 'MASK':
-            col.prop(self, 'blend_type', text='')
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, text='Blend:')
+            row.prop(self, 'blend_type', text='')
 
-        col.separator()
+        lcol.separator()
+
+        row = split_layout(lcol, split_val)
+        row.label(text='')
         if self.type.startswith('OTHER_OBJECT_'):
-            col.prop(self, 'ssaa')
-        else: col.prop(self, 'fxaa')
+            row.prop(self, 'ssaa')
+        else: row.prop(self, 'fxaa')
 
         if self.type == 'WIREFRAME':
-            col.prop(self, 'ssaa')
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            row.prop(self, 'ssaa')
 
         if self.type in {'AO', 'THICKNESS', 'BEVEL_MASK', 'BEVEL_NORMAL'} and is_bl_newer_than(2, 81):
-            col.prop(self, 'denoise')
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            row.prop(self, 'denoise')
 
-        col.separator()
+        lcol.separator()
 
-        #if not self.type.startswith('MULTIRES_') or self.type not in {'SELECTED_VERTICES'}:
         if show_subsurf_influence:
-            r = col.row()
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+
+            r = row.row()
             r.active = not self.use_baked_disp
             r.prop(self, 'subsurf_influence')
 
         #if height_root_ch and not self.type.startswith('MULTIRES_'):
         if show_use_baked_disp:
-            col.prop(self, 'use_baked_disp')
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            row.prop(self, 'use_baked_disp')
 
-        col.prop(self, 'flip_normals')
-        col.prop(self, 'force_bake_all_polygons')
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        row.prop(self, 'flip_normals')
 
-        if UDIM.is_udim_supported() or self.type not in {'OTHER_OBJECT_CHANNELS'}:
-            col.separator()
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        row.prop(self, 'force_bake_all_polygons')
 
-        col.prop(self, 'use_osl')
-
-        if UDIM.is_udim_supported():
-            ccol = col.column(align=True)
-            ccol.prop(self, 'use_udim')
+        sep_added = False
 
         if self.type not in {'OTHER_OBJECT_CHANNELS'}:
-            ccol = col.column(align=True)
-            #ccol.active = not self.use_udim
-            ccol.prop(self, 'use_image_atlas')
+            lcol.separator()
+            sep_added = True
+
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+
+            r = row.row()
+            #r.active = not self.use_udim
+            r.prop(self, 'use_image_atlas')
+
+        if UDIM.is_udim_supported():
+            if not sep_added:
+                lcol.separator()
+                sep_added = True
+
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            r = row.row()
+            r.prop(self, 'use_udim')
 
         if is_bl_newer_than(2, 79) and self.type.startswith('OTHER_OBJECT_'):
-            ccol = col.column(align=True)
-            ccol.prop(self, 'hide_source_objects')
+            if not sep_added:
+                lcol.separator()
+                sep_added = True
+
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            r = row.row()
+            r.prop(self, 'hide_source_objects')
+
+        if is_bl_newer_than(2, 80):
+            lcol.separator()
+
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Bake Device:')
+            row.prop(self, 'bake_device', text='')
 
     def execute(self, context):
         if not self.execute_operator_prep(context): return {'CANCELLED'}
@@ -1099,12 +1130,6 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         default = False
     )
 
-    use_osl : BoolProperty(
-        name = 'Use OSL',
-        description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
-        default = False
-    )
-
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1250,96 +1275,105 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
 
     def draw(self, context):
 
-        row = split_layout(self.layout, 0.4)
+        lcol = self.layout.column(align=False)
 
-        col = row.column(align=False)
+        split_val = 0.4
 
-        col.label(text='Name:')
-        col.label(text='')
-        col.label(text='')
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Name:')
+        row.prop(self, 'name', text='')
+
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        row.prop(self, 'hdr')
+
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        row.prop(self, 'use_custom_resolution')
+
         if not self.use_custom_resolution:
-            col.label(text='Resolution:')
-        else:
-            col.label(text='Width:')
-            col.label(text='Height:')
-        col.label(text='Samples:')
-        col.label(text='UV Map:')
-        col.label(text='Margin:')
-
-        if is_bl_newer_than(2, 80):
-            col.separator()
-            col.label(text='Bake Device:')
-        col.separator()
-        col.label(text='')
-
-        if self.blur:
-            if self.blur_type == 'NOISE':
-                col.label(text='Blur Factor:')
-            else: col.label(text='Blur Size:')
-            col.separator()
-
-        col.label(text='')
-        if is_bl_newer_than(2, 81):
-            col.label(text='')
-        col.label(text='')
-        col.label(text='')
-        #col.label(text='')
-
-        col = row.column(align=False)
-
-        col.prop(self, 'name', text='')
-        col.prop(self, 'hdr')
-        col.prop(self, 'use_custom_resolution')
-        if not self.use_custom_resolution:
-            crow = col.row(align=True)
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Resolution:')
+            crow = row.row(align=True)
             crow.prop(self, 'image_resolution', expand=True)
         else:
-            col.prop(self, 'width', text='')
-            col.prop(self, 'height', text='')
-        col.prop(self, 'samples', text='')
-        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+            row = split_layout(lcol, split_val)
+            rcol = row.column(align=True)
+            right_aligned_label(rcol, 'Width:')
+            right_aligned_label(rcol, 'Height:')
 
+            rcol = row.column(align=True)
+            rcol.prop(self, 'width', text='')
+            rcol.prop(self, 'height', text='')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Samples:')
+        row.prop(self, 'samples', text='')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'UV Map:')
+        row.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Margin:')
         if is_bl_newer_than(3, 1):
-            split = split_layout(col, 0.4, align=True)
+            split = split_layout(row, 0.4, align=True)
             split.prop(self, 'margin', text='')
             split.prop(self, 'margin_type', text='')
         else:
-            col.prop(self, 'margin', text='')
+            row.prop(self, 'margin', text='')
 
-        if is_bl_newer_than(2, 80):
-            col.separator()
-            if self.use_osl:
-                col.label(text='CPU (OSL)')
-            else: col.prop(self, 'bake_device', text='')
-        col.separator()
+        lcol.separator()
 
-        rrow = col.row(align=True)
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        rrow = row.row(align=True)
         rrow.prop(self, 'blur')
         if self.blur:
             rrow.prop(self, 'blur_type', text='')
 
-            rrow = col.row(align=True)
+            row = split_layout(lcol, split_val)
             if self.blur_type == 'NOISE':
-                rrow.prop(self, 'blur_factor', text='')
-            else: rrow.prop(self, 'blur_size', text='')
+                right_aligned_label(row, 'Blur Factor:')
+            else: right_aligned_label(row, 'Blur Size:')
 
-            col.separator()
+            if self.blur_type == 'NOISE':
+                row.prop(self, 'blur_factor', text='')
+            else: row.prop(self, 'blur_size', text='')
 
-        col.prop(self, 'fxaa')
+            lcol.separator()
+
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        row.prop(self, 'fxaa')
+
         if is_bl_newer_than(2, 81):
-            col.prop(self, 'denoise', text='Use Denoise')
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            row.prop(self, 'denoise', text='Use Denoise')
 
-        col.prop(self, 'use_osl')
-
+        # NOTE: Duplicate entity currently only available for mask
         if self.mask:
-            col.prop(self, 'duplicate_entity', text='Duplicate Mask')
-        #else: col.prop(self, 'duplicate_entity', text='Disable Layer')
-        if self.duplicate_entity:
-            if self.mask:
-                col.prop(self, 'disable_current', text='Disable Current Mask')
-            else: col.prop(self, 'disable_current', text='Disable Current Layer')
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            row.prop(self, 'duplicate_entity', text='Duplicate Mask')
 
-        col.prop(self, 'use_image_atlas')
+        if self.duplicate_entity:
+            row = split_layout(lcol, split_val)
+            row.label(text='')
+            if self.mask:
+                row.prop(self, 'disable_current', text='Disable Current Mask')
+            else: row.prop(self, 'disable_current', text='Disable Current Layer')
+
+        row = split_layout(lcol, split_val)
+        row.label(text='')
+        row.prop(self, 'use_image_atlas')
+
+        if is_bl_newer_than(2, 80):
+            lcol.separator()
+            row = split_layout(lcol, split_val)
+            right_aligned_label(row, 'Bake Device:')
+            row.prop(self, 'bake_device', text='')
 
     def execute(self, context):
         if not self.execute_operator_prep(context): return {'CANCELLED'}

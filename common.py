@@ -199,6 +199,12 @@ swizzle_items = (
     ('B', 'B', '')
 )
 
+bake_device_items = (
+    ('GPU', 'GPU Compute', 'Use GPU Compute'),
+    ('CPU', 'CPU', 'Use CPU'),
+    ('OSL', 'CPU (OSL)', 'Use CPU with OSL enabled (slower but higher compatibility for complex shader)'),
+)
+
 def entity_input_items(self, context):
     yp = self.id_data.yp
     entity = self
@@ -8196,6 +8202,11 @@ def split_layout(layout, factor, align=False):
 
     return layout.split(factor=factor, align=align)
 
+def right_aligned_label(layout, text):
+    row = layout.row()
+    if is_bl_newer_than(2, 80): row.alignment = 'RIGHT'
+    row.label(text=text)
+
 def get_armature_modifier(obj, return_index=False):
     for i, mod in enumerate(obj.modifiers):
         if mod.type == 'ARMATURE' and mod.object:
@@ -8626,10 +8637,10 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
 
         # ===========
         col = row.column()
-        col.alignment = 'RIGHT'
+        if is_bl_newer_than(2, 80): col.alignment = 'RIGHT'
 
         ccol = col.column(align=True)
-        ccol.alignment = 'RIGHT'
+        if is_bl_newer_than(2, 80): ccol.alignment = 'RIGHT'
 
         ccol.label(text='')
 
@@ -8793,7 +8804,7 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
             row = split_layout(layout, factor)
 
             col = row.column()
-            col.alignment = 'RIGHT'
+            if is_bl_newer_than(2, 80): col.alignment = 'RIGHT'
             col.label(text='Bake Device:')
 
             col = row.column()

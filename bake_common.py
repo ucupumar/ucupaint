@@ -4188,17 +4188,24 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         tile_x = 256
         tile_y = 256
 
+    if bprops.bake_device == 'OSL':
+        bake_device = 'CPU'
+        use_osl = True
+    else:
+        bake_device = bprops.bake_device
+        use_osl = False
+
     prepare_bake_settings(
         book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
         uv_map=bprops.uv_map, bake_type=bake_type, #disable_problematic_modifiers=True, 
-        bake_device=bprops.bake_device, hide_other_objs=hide_other_objs, 
+        bake_device=bake_device, hide_other_objs=hide_other_objs, 
         bake_from_multires=bprops.type.startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
         use_selected_to_active=bprops.type.startswith('OTHER_OBJECT_'),
         max_ray_distance=bprops.max_ray_distance, cage_extrusion=bprops.cage_extrusion,
         source_objs=other_objs, use_denoising=False, margin_type=bprops.margin_type,
         use_cage = bprops.use_cage, cage_object_name = bprops.cage_object_name,
         normal_space = 'TANGENT' if bprops.type != 'OBJECT_SPACE_NORMAL' else 'OBJECT',
-        use_osl = bprops.use_osl
+        use_osl = use_osl
     )
     # Set multires level
     #ori_multires_levels = {}
@@ -4899,7 +4906,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
             else:
                 print('EXCEPTIION:', e)
 
-        if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
+        if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
 
         # Curvature is always normalized so the result spans the full black to
         # white range. Stretching the pixels directly also covers rebakes onto
@@ -5024,7 +5031,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
                         copy_image_channel_pixels(temp_img, temp_img, 3, 0)
 
                     # FXAA alpha
-                    fxaa_image(temp_img, False, bprops.bake_device, first_tile_only=True)
+                    fxaa_image(temp_img, False, bake_device, first_tile_only=True)
 
                     # Copy alpha to actual image
                     copy_image_channel_pixels(temp_img, image, 0, 3)
@@ -5045,7 +5052,7 @@ def bake_to_entity(bprops, overwrite_img=None, segment=None):
         if use_ssaa:
             image, temp_segment = resize_image(
                 image, bprops.width, bprops.height, image.colorspace_settings.name,
-                alpha_aware=True, bake_device=bprops.bake_device
+                alpha_aware=True, bake_device=bake_device
             )
 
         # Denoise AO image
@@ -5658,10 +5665,17 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     source = get_entity_source(entity)
     hide_other_objs = entity.type != 'AO' or source.only_local
 
+    if bprops.bake_device == 'OSL':
+        bake_device = 'CPU'
+        use_osl = True
+    else:
+        bake_device = bprops.bake_device
+        use_osl = False
+
     prepare_bake_settings(
         book, objs, yp, samples=bprops.samples, margin=bprops.margin, 
-        uv_map=bprops.uv_map, bake_type='EMIT', bake_device=bprops.bake_device, 
-        margin_type=bprops.margin_type, use_osl=bprops.use_osl, hide_other_objs=hide_other_objs,
+        uv_map=bprops.uv_map, bake_type='EMIT', bake_device=bake_device, 
+        margin_type=bprops.margin_type, use_osl=use_osl, hide_other_objs=hide_other_objs,
     )
 
     # Create bake nodes
@@ -5716,11 +5730,11 @@ def bake_entity_as_image(entity, bprops, set_image_to_entity=False):
     if bprops.blur: 
         samples = 4096 if is_bl_newer_than(3) else 128
         if bprops.blur_type == 'NOISE':
-            noise_blur_image(image, False, bake_device=bprops.bake_device, factor=bprops.blur_factor, samples=samples)
+            noise_blur_image(image, False, bake_device=bake_device, factor=bprops.blur_factor, samples=samples)
         else: blur_image(image, filter_type=bprops.blur_type, size=bprops.blur_size)
     if bprops.denoise:
         denoise_image(image)
-    if use_fxaa: fxaa_image(image, False, bake_device=bprops.bake_device)
+    if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
 
     # Remove temp bake nodes
     simple_remove_node(mat.node_tree, tex, remove_data=False)
@@ -6391,12 +6405,6 @@ class BaseBakeProps():
         items = vcol_domain_items,
         default = 'CORNER'
     )
-
-bake_device_items = (
-    ('GPU', 'GPU Compute', ''),
-    ('CPU', 'CPU', ''),
-    ('OSL', 'CPU (OSL)', ''),
-)
 
 class BaseBakeOperator(BaseBakeProps):
     bake_device : EnumProperty(

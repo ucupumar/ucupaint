@@ -188,10 +188,7 @@ class YBakeInfoProps(bpy.types.PropertyGroup, BaseBakeInfoProps):
     bake_device : EnumProperty(
         name = 'Bake Device',
         description = 'Device to use for baking',
-        items = (
-            ('GPU', 'GPU Compute', ''),
-            ('CPU', 'CPU', '')
-        ),
+        items = bake_device_items,
         default = 'CPU'
     )
 
@@ -241,7 +238,7 @@ class YBakeInfoProps(bpy.types.PropertyGroup, BaseBakeInfoProps):
         name = 'Use OSL',
         description = 'Use Open Shading Language (slower but can handle more complex layer setup)',
         default = False
-    )
+    ) # Deprecated
 
     normalize : BoolProperty(
         name = 'Normalize Bake Result',

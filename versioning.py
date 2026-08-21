@@ -1731,6 +1731,7 @@ def update_yp_tree(tree):
                 bi = baked_node.image.y_bake_info
                 gloset.use_float_for_displacement = bi.use_float_for_displacement
                 gloset.use_float_for_normal = bi.use_float_for_normal
+                if bi.use_osl: gloset.bake_device = 'OSL'
 
         # Update list item since there's a new base layer
         ListItem.refresh_list_items(yp)
