@@ -6862,6 +6862,9 @@ class YNewChannelMenu(bpy.types.Menu):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
         col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Ambient Occlusion').mode = 'AO'
 
+        icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
+        col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Emission').mode = 'EMISSION'
+
         icon_value = lib.get_icon(lib.channel_custom_icon_dict['VALUE'])
         col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Height').mode = 'HEIGHT'
 

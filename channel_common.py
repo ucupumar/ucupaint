@@ -679,6 +679,9 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
     elif mode == 'VDISP':
         ch_name = 'Vector Displacement'
         ch_type = 'RGB'
+    elif mode == 'EMISSION':
+        ch_name = 'Emission'
+        ch_type = 'RGB'
 
     # Check if channel with same name is already available
     same_channel = [c for c in yp.channels if c.name == ch_name]
@@ -699,6 +702,31 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
     if yp.use_baked and yp.enable_baked_outside:
         yp.use_baked = False
         ori_use_baked = True
+
+    # Check for emission input
+    emission_inp = None
+    emission_strength_inp = None
+    if mode == 'EMISSION':
+        inp_name = 'Emission Color' if is_bl_newer_than(4) else 'Emission'
+        strength_inp_name = 'Emission Strength'
+        # Get available channel connections
+        for ch in yp.channels:
+            outp = node.outputs.get(ch.name)
+            if outp and len(outp.links) > 0:
+                for link in outp.links:
+                    for inp in link.to_node.inputs:
+                        if inp.name == inp_name:
+                            emission_inp = inp
+                            #break
+                        if inp.name == strength_inp_name:
+                            emission_strength_inp = inp
+                    if emission_inp != None: break
+            if emission_inp != None: break
+
+        if emission_inp == None:
+            if yp.use_baked != ori_use_baked:
+                yp.use_baked = True
+            return "There's no proper emission input found in the material nodes!"
 
     # Check for normal input
     normal_inp = None
@@ -767,6 +795,15 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
         outp = node.outputs.get(channel.name)
         mat.node_tree.links.new(outp, normal_inp)
         set_input_default_value(node, channel)
+    elif mode == 'EMISSION':
+        outp = node.outputs.get(channel.name)
+        mat.node_tree.links.new(outp, emission_inp)
+        set_input_default_value(node, channel, custom_value=(0.0, 0.0, 0.0))
+
+        # Set emission strength to one
+        if emission_strength_inp:
+            emission_strength_inp.default_value = 1.0
+
     elif mode == 'VDISP':
         do_displacement_node_setup(mat, node, channel, is_vector_disp=True)
 

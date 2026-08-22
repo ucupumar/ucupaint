@@ -339,6 +339,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
     enable_ao : BoolProperty(name='Ambient Occlusion', default=False)
     enable_metallic : BoolProperty(name='Metallic', default=True)
     enable_roughness : BoolProperty(name='Roughness', default=True)
+    enable_emission : BoolProperty(name='Emission', default=False)
     enable_height : BoolProperty(name='Height', default=True)
     enable_normal : BoolProperty(name='Normal', default=True)
     enable_vector_displacement : BoolProperty(name='Vector Displacement', default=False)
@@ -402,64 +403,82 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         return True
 
     def draw(self, context):
-        row = split_layout(self.layout, 0.35)
+        layout = self.layout.column()
+        split_val = 0.35
 
-        col = row.column()
-        col.label(text='Tree Name:')
-        col.separator()
-        col.label(text='Type:')
-        if self.type != 'EMISSION':
-            ccol = col.column(align=True)
-            ccol.label(text='Channels:')
-            if self.enable_color:
-                ccol.label(text='')
-            ccol.label(text='')
-            if self.type == 'BSDF_PRINCIPLED':
-                ccol.label(text='')
-            ccol.label(text='')
-            ccol.label(text='')
-
-        if (self.enable_color or self.type == 'EMISSION') and self.enable_alpha:
-            if self.type == 'EMISSION': 
-                col.label(text='')
-
-            if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
-                col.label(text='Blend Method:')
-                col.label(text='Shadow Method:')
-
-        col = row.column()
-        rrow = col.row(align=True)
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Tree Name:')
+        rrow = row.row(align=True)
         rrow.prop(self, 'tree_name', text='')
         rrow.prop(self, 'set_material_name_from_tree_name', text='', icon='MATERIAL_DATA')
-        col.separator()
-        col.prop(self, 'type', text='')
+
+        layout.separator()
+
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Type:')
+        row.prop(self, 'type', text='')
+
         if self.type != 'EMISSION':
-            ccol = col.column(align=True)
-            ccol.prop(self, 'enable_color', toggle=True)
+            layout.separator()
+
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Channels:')
+
+            rcol = row.column(align=True)
+            rcol.prop(self, 'enable_color', toggle=True)
+
             if self.enable_color:
-                ccol.prop(self, 'enable_alpha', toggle=True)
-            ccol.prop(self, 'enable_ao', toggle=True)
+                rcol.prop(self, 'enable_alpha', toggle=True)
+
+            rcol.prop(self, 'enable_ao', toggle=True)
+
+            rcol.separator()
+
+            if self.type == 'BSDF_PRINCIPLED' and is_bl_newer_than(2, 80):
+                rcol.prop(self, 'enable_emission', toggle=True)
+
             if self.type == 'BSDF_PRINCIPLED':
-                ccol.prop(self, 'enable_metallic', toggle=True)
-            ccol.prop(self, 'enable_roughness', toggle=True)
-            ccol.prop(self, 'enable_height', toggle=True)
-            ccol.prop(self, 'enable_normal', toggle=True)
-            ccol.prop(self, 'enable_vector_displacement', toggle=True)
+                rcol.prop(self, 'enable_metallic', toggle=True)
+
+            rcol.prop(self, 'enable_roughness', toggle=True)
+
+            rcol.separator()
+
+            rcol.prop(self, 'enable_height', toggle=True)
+            rcol.prop(self, 'enable_normal', toggle=True)
+            if is_bl_newer_than(2, 80):
+                rcol.prop(self, 'enable_vector_displacement', toggle=True)
+
+            layout.separator()
+
         else:
-            ccol = col.column(align=True)
-            ccol.prop(self, 'enable_alpha', text='Enable Alpha')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'enable_alpha', text='Enable Alpha')
 
         if (self.enable_color or self.type == 'EMISSION') and self.enable_alpha:
             if is_bl_newer_than(2, 80) and not is_bl_newer_than(4, 2):
-                col.prop(self, 'blend_method', text='')
-                col.prop(self, 'shadow_method', text='')
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Blend Method:')
+                row.prop(self, 'blend_method', text='')
 
-        col.prop(self, 'use_linear_blending')
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Shadow Method:')
+                row.prop(self, 'shadow_method', text='')
+
+        row = split_layout(layout, split_val)
+        row.label(text='')
+        row.prop(self, 'use_linear_blending')
+
         if self.type == 'BSDF_PRINCIPLED' and (self.enable_roughness or self.enable_metallic or self.enable_ao):
-            col.prop(self, 'use_orm_bake_target')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'use_orm_bake_target')
 
         if self.not_on_material_view:
-            col.prop(self, 'switch_to_material_view')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'switch_to_material_view')
 
     def execute(self, context):
 
@@ -600,6 +619,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         ch_ao = None
         ch_metallic = None
         ch_roughness = None
+        ch_emission = None
         ch_height = None
         ch_normal = None
         ch_vdisp = None
@@ -620,6 +640,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
 
             if self.enable_ao:
                 ch_ao = channel_common.create_new_yp_channel(group_tree, 'Ambient Occlusion', 'RGB', non_color=True, add_bake_target=add_bake_target)
+
+            if self.type == 'BSDF_PRINCIPLED' and self.enable_emission:
+                ch_emission = channel_common.create_new_yp_channel(group_tree, 'Emission', 'RGB', non_color=False, add_bake_target=add_bake_target)
 
             if self.type == 'BSDF_PRINCIPLED' and self.enable_metallic:
                 ch_metallic = channel_common.create_new_yp_channel(group_tree, 'Metallic', 'VALUE', non_color=True, add_bake_target=add_bake_target)
@@ -650,6 +673,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         ch_ao = group_tree.yp.channels.get('Ambient Occlusion')
         ch_metallic = group_tree.yp.channels.get('Metallic')
         ch_roughness = group_tree.yp.channels.get('Roughness')
+        ch_emission = group_tree.yp.channels.get('Emission')
         ch_height = group_tree.yp.channels.get('Height')
         ch_normal = group_tree.yp.channels.get('Normal')
         ch_vdisp = group_tree.yp.channels.get('Vector Displacement')
@@ -724,6 +748,23 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
 
             channel_common.set_input_default_value(node, ch_roughness, inp.default_value)
             links.new(node.outputs[ch_roughness.name], inp)
+
+        if ch_emission:
+            if is_bl_newer_than(4):
+                inp = main_bsdf.inputs['Emission Color']
+
+                # Set strength to one
+                sinp = main_bsdf.inputs['Emission Strength']
+                sinp.default_value = 1.0
+            else: inp = main_bsdf.inputs['Emission']
+
+            # Check original link
+            for l in inp.links:
+                links.new(l.from_socket, node.inputs[ch_emission.name])
+
+            #channel_common.set_input_default_value(node, ch_emission, inp.default_value)
+            channel_common.set_input_default_value(node, ch_emission, (0.0, 0.0, 0.0))
+            links.new(node.outputs[ch_emission.name], inp)
 
         if ch_height:
             if not ch_height.use_height_as_bump or not ch_normal:
@@ -1098,6 +1139,7 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         items = (
             ('ALPHA', 'Alpha', ''),
             ('AO', 'Ambient Occlusion', ''),
+            ('EMISSION', 'Emission', ''),
             ('HEIGHT', 'Height', ''),
             ('NORMAL', 'Normal', ''),
             ('VDISP', 'Vector Displacement', ''),
