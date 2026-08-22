@@ -572,16 +572,17 @@ class YRemoveDisplacementSetup(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=350)
 
     def draw(self, context):
-        row = split_layout(self.layout, 0.35)
-        col = row.column()
-        col.label(text='Action:')
-        if self.action == 'KEEP':
-            col.label(text='Set Subdivision Level:')
+        split_val = 0.35
+        layout = self.layout.column()
 
-        col = row.column()
-        col.prop(self, 'action', text='')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Action:')
+        row.prop(self, 'action', text='')
+
         if self.action == 'KEEP':
-            col.prop(self, 'subdiv_level', text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Set Subdivision Level:')
+            row.prop(self, 'subdiv_level', text='')
 
     def execute(self, context):
         #if not self.displacement_found:
@@ -656,20 +657,25 @@ class YQuickDisplacementSetup(bpy.types.Operator):
         try: ch = yp.channels[yp.active_channel_index] if yp else None
         except: ch = None
 
-        row = split_layout(self.layout, 0.35)
-        col = row.column()
-        col.label(text='Method:')
-        col.label(text='Max Polygons:')
-        col.label(text='')
-        if self.use_adaptive_subdivision:
-            col.label(text='Dicing Rate')
+        split_val = 0.35
+        layout = self.layout.column()
 
-        col = row.column()
-        col.prop(self, 'displacement_method', text='')
-        col.prop(self, 'max_polys', text='')
-        col.prop(self, 'use_adaptive_subdivision', text='Adaptive (Cycles Only)')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Method:')
+        row.prop(self, 'displacement_method', text='')
+
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Max Polygons:')
+        row.prop(self, 'max_polys', text='')
+
+        row = split_layout(layout, split_val)
+        row.label(text='')
+        row.prop(self, 'use_adaptive_subdivision', text='Adaptive (Cycles Only)')
+
         if self.use_adaptive_subdivision:
-            col.prop(self, 'dicing_rate', text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Dicing Rate')
+            row.prop(self, 'dicing_rate', text='')
 
     def execute(self, context):
         mat = get_active_material()

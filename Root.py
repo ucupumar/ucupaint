@@ -1137,18 +1137,21 @@ class YAutoSetupNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOpt
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        row = split_layout(self.layout, 0.4)
-        col = row.column(align=False)
-        if self.mode == 'ALPHA' and not is_bl_newer_than(4, 2):
-            col.label(text='Blend Method:')
-            col.label(text='Shadow Method:')
-        col.label(text='Channel Pair:')
+        split_val = 0.4
+        layout = self.layout.column()
 
-        col = row.column(align=False)
         if self.mode == 'ALPHA' and not is_bl_newer_than(4, 2):
-            col.prop(self, 'blend_method', text='')
-            col.prop(self, 'shadow_method', text='')
-        col.prop_search(self, "channel_pair_name", yp, "channels", text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Blend Method:')
+            row.prop(self, 'blend_method', text='')
+
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Shadow Method:')
+            row.prop(self, 'shadow_method', text='')
+
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Channel Pair:')
+        row.prop_search(self, "channel_pair_name", yp, "channels", text='')
 
     def execute(self, context):
 
@@ -1328,52 +1331,58 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
                 if item.input_name in {'Emission Color', 'Subsurface Scale'}:
                     show_strength_option = True
 
-        row = split_layout(self.layout, 0.35)
+        split_val = 0.35
+        layout = self.layout.column()
 
-        col = row.column(align=False)
-        col.label(text='Name:')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Name:')
+        row.prop(self, 'name', text='')
 
-        srow = col.row(align=True)
-        srow.label(text='Connect To:')
-
-        if self.type != 'VECTOR':
-            col.label(text='Color Space:')
-        if show_blend_method_option:
-            col.label(text='Blend Method:')
-            col.label(text='Shadow Method:')
-        if self.type != 'VECTOR': col.label(text='')
-        if self.connect_to == '':
-            col.label(text='')
-
-        if show_alpha_option:
-            col.label(text='')
-            if self.use_as_alpha:
-                col.label(text='Channel Pair:')
-
-        col = row.column(align=False)
-        col.prop(self, 'name', text='')
-
-        srow = col.row(align=True)
-        srow.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE', text='')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Connect To:')
+        row.prop_search(self, "connect_to", self, "input_coll", icon='NODETREE', text='')
 
         if self.type != 'VECTOR':
-            col.prop(self, "colorspace", text='')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Color Space:')
+            row.prop(self, "colorspace", text='')
+
         if show_blend_method_option:
-            col.prop(self, 'blend_method', text='')
-            col.prop(self, 'shadow_method', text='')
-        if self.type != 'VECTOR': col.prop(self, 'use_clamp')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Blend Method:')
+            row.prop(self, 'blend_method', text='')
+
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Shadow Method:')
+            row.prop(self, 'shadow_method', text='')
+
+        if self.type != 'VECTOR':
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'use_clamp')
+
         if self.connect_to == '':
-            col.prop(self, 'disable_unconnected_warning')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'disable_unconnected_warning')
 
         if show_strength_option:
-            col.prop(self, "set_strength_to_one")
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, "set_strength_to_one")
 
         if show_alpha_option:
             node = get_active_ypaint_node()
             yp = node.node_tree.yp
-            col.prop(self, "use_as_alpha")
+
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, "use_as_alpha")
+
             if self.use_as_alpha:
-                col.prop_search(self, "alpha_pair_name", yp, "channels", text='')
+                row = split_layout(layout, split_val)
+                right_aligned_label(row, 'Channel Pair:')
+                row.prop_search(self, "alpha_pair_name", yp, "channels", text='')
 
     def execute(self, context):
 

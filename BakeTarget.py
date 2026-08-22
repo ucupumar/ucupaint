@@ -907,32 +907,31 @@ class YNewBakeTarget(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        row = split_layout(self.layout, 0.3)
+        split_val = 0.3
+        layout = self.layout.column()
 
-        col = row.column(align=False)
-        col.label(text='Name:')
-        col.label(text='Type:')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Name:')
+        row.prop(self, 'name', text='')
 
-        col.label(text='Channel:')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Type:')
+        rrow = row.row(align=True)
+        rrow.prop(self, 'data_type', expand=True)
+
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Channel:')
+        row.prop(self, 'channel_idx', text='')
+
         if self.channel_idx == '-1':
-            col.label(text='Preset:')
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Preset:')
+            row.prop(self, 'preset', text='')
 
         if self.data_type == 'IMAGE':
-            col.separator()
-            col.label(text='')
-
-        col = row.column(align=False)
-        col.prop(self, 'name', text='')
-        rrow = col.row(align=True)
-        rrow.prop(self, 'data_type', expand=True) #, text='')
-
-        col.prop(self, 'channel_idx', text='')
-        if self.channel_idx == '-1':
-            col.prop(self, 'preset', text='')
-
-        if self.data_type == 'IMAGE':
-            col.separator()
-            col.prop(self, 'hdr')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'hdr')
 
         # Check for the already available bake target
         if not self.channel_idx == '-1':

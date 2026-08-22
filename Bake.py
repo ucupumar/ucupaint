@@ -2918,8 +2918,6 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
         return True
 
     def draw(self, context):
-        row = split_layout(self.layout, 0.5)
-
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
@@ -2931,27 +2929,32 @@ class YMergeLayer(bpy.types.Operator, BaseBakeOperator):
             blend_type = ch.normal_blend_type
         else: blend_type = ch.blend_type
 
-        col = row.column(align=False)
-        col.label(text='Main Channel:')
-        col.label(text='Apply Modifiers:')
-        col.label(text='Apply Neighbor Modifiers:')
-        
-        if blend_type != 'MIX':
-            col.label(text='Force Mix Blending:')
+        split_val = 0.3
+        layout = self.layout.column()
 
-        col = row.column(align=False)
-        col.prop(self, 'channel_idx', text='')
-        col.prop(self, 'apply_modifiers', text='')
-        col.prop(self, 'apply_neighbor_modifiers', text='')
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Main Channel:')
+        row.prop(self, 'channel_idx', text='')
+
+        row = split_layout(layout, split_val)
+        row.label(text='')
+        row.prop(self, 'apply_modifiers', text='Apply Modifiers')
+
+        row = split_layout(layout, split_val)
+        row.label(text='')
+        row.prop(self, 'apply_neighbor_modifiers', text='Apply Neighbor Modifiers')
+
         if blend_type != 'MIX':
-            col.prop(self, 'force_mix_blending', text='')
+            row = split_layout(layout, split_val)
+            row.label(text='')
+            row.prop(self, 'force_mix_blending', text='Force Mix Blending')
 
         if self.legacy_on_non_object_mode:
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text='You cannot UNDO this operation in this mode.', icon='ERROR')
             col.label(text="Are you sure you want to continue?", icon='BLANK1')
         elif self.any_dirty_images:
-            col = self.layout.column(align=True)
+            col = layout.column(align=True)
             col.label(text="Unsaved data will be LOST if you UNDO this operation.", icon='ERROR')
             col.label(text="Are you sure you want to continue?", icon='BLANK1')
 
@@ -3411,26 +3414,12 @@ class YMergeMask(bpy.types.Operator, BaseBakeOperator):
         mat.node_tree.links.new(node.outputs[LAYER_ALPHA_VIEWER], emit.inputs[0])
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
-        # Bake
-        bake_object_op()
-
-        # Copy results to original image
         copy_image_pixels(img, source.image, segment)
-
         # HACK: Pack and refresh to update image in Blender 2.77 and lower
-        if not is_bl_newer_than(2, 78) and (source.image.packed_file or source.image.filepath == ''):
-            if source.image.is_float:
-                image_ops.pack_float_image_27x(source.image)
-            else: source.image.pack(as_png=True)
-            source.image.reload()
-
-        # Remove temp image
         remove_datablock(bpy.data.images, img, user=tex, user_prop='image')
-
         # Remove mask mix nodes
         for m in [mask, neighbor_mask]:
             remove_node(tree, m, 'mix')
-
             # Replace linear to less accurate ones
             linear = tree.nodes.get(m.linear)
             if linear:
