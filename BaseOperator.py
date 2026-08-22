@@ -131,19 +131,19 @@ def draw_self_channel_idx(self, layout, yp=None):
             icon_name = lib.channel_custom_icon_dict[first_ch.type]
             layout.label(text=first_ch.name, icon_value=lib.get_icon(icon_name))
 
-def draw_base_image_settings(parent, layout, split_val=0.4, show_texcoord=True):
-    acol = layout.column(align=True)
+def draw_base_image_settings(self, layout, split_val=0.4, show_hdr=True, show_interpolation=True, show_texcoord=True):
+    acol = layout.column(align=False)
 
     row = split_layout(acol, split_val)
     row.label(text='')
     crow = row.row(align=True)
-    crow.prop(parent, 'use_custom_resolution')
+    crow.prop(self, 'use_custom_resolution')
 
-    if not parent.use_custom_resolution:
+    if not self.use_custom_resolution:
         row = split_layout(acol, split_val)
         right_aligned_label(row, 'Resolution:')
         crow = row.row(align=True)
-        crow.prop(parent, 'image_resolution', expand= True,)
+        crow.prop(self, 'image_resolution', expand= True,)
     else:
         row = split_layout(acol, split_val)
         rcol = row.column(align=True)
@@ -151,18 +151,27 @@ def draw_base_image_settings(parent, layout, split_val=0.4, show_texcoord=True):
         right_aligned_label(rcol, 'Height:')
 
         rcol = row.column(align=True)
-        rcol.prop(parent, 'width', text='')
-        rcol.prop(parent, 'height', text='')
+        rcol.prop(self, 'width', text='')
+        rcol.prop(self, 'height', text='')
 
-    if hasattr(parent, 'hdr'):
+    if show_hdr and hasattr(self, 'hdr'):
         row = split_layout(acol, split_val)
         row.label(text='')
-        row.prop(parent, 'hdr')
+        row.prop(self, 'hdr')
 
-    if hasattr(parent, 'interpolation'):
+    #if is_udim_supported():
+    #    row = split_layout(acol, split_val)
+    #    row.label(text='')
+    #    row.prop(self, 'use_udim')
+
+    #row = split_layout(acol, split_val)
+    #row.label(text='')
+    #row.prop(self, 'use_image_atlas')
+
+    if show_interpolation and hasattr(self, 'interpolation'):
         row = split_layout(layout, split_val)
         right_aligned_label(row, 'Interpolation:')
-        row.prop(parent, 'interpolation', text='')
+        row.prop(self, 'interpolation', text='')
 
 def draw_base_mask_image_settings(parent, layout, split_val=0.4):
 
@@ -196,4 +205,195 @@ def draw_base_mask_image_settings(parent, layout, split_val=0.4):
     #    row = split_layout(layout, split_val)
     #    right_aligned_label(row, 'Interpolation:')
     #    row.prop(parent, 'mask_interpolation', text='')
+
+def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image_props=True, show_vcol_props=True, show_hdr=True, show_udim=True, yp=None):
+
+    #layout = layout.column(align=True)
+
+    any_normal_ch = False
+    any_height_ch = False
+    any_non_clamped_ch = False
+    any_color_channel = False
+    if bt:
+        channels = get_bake_target_channels(bt)
+        any_normal_ch = any([c for c in channels if c.special_type == 'NORMAL'])
+        any_height_ch = any([c for c in channels if c.special_type == 'HEIGHT'])
+        any_non_clamped_ch = any([c for c in channels if not c.use_clamp and c.special_type not in {'HEIGHT', 'NORMAL'}])
+        any_color_channel = any([c for c in channels if c.type == 'RGB' and c.colorspace == 'SRGB' and c.use_clamp])
+
+    show_float_normal_option = False
+    show_float_height_option = False
+    show_float_vdm_option = False
+    if yp:
+        for c in yp.channels:
+            if c.special_type == 'NORMAL':
+                bt = yp.bake_targets.get(c.bake_target_name)
+                if bt and bt.bake_settings == 'GLOBAL' and hasattr(btprops, 'use_float_for_normal'):
+                    show_float_normal_option = True
+                any_normal_ch = True
+            if c.special_type == 'HEIGHT':
+                bt = yp.bake_targets.get(c.bake_target_name)
+                if bt and bt.bake_settings == 'GLOBAL' and hasattr(btprops, 'use_float_for_displacement'):
+                    show_float_height_option = True
+                any_height_ch = True
+            if c.special_type == 'VDISP':
+                bt = yp.bake_targets.get(c.bake_target_name)
+                if bt and bt.bake_settings == 'GLOBAL' and hasattr(btprops, 'use_float_for_vector_displacement'):
+                    show_float_vdm_option = True
+            if not c.use_clamp:
+                any_non_clamped_ch = True
+            if c.colorspace == 'SRGB' and c.type == 'RGB':
+                any_color_channel = True
+
+    obj = context.object
+
+    factor = 0.35
+
+    # Image properties
+    if show_image_props:
+
+        draw_base_image_settings(btprops, layout, factor, show_hdr=show_hdr, show_interpolation=True)
+
+        row = split_layout(layout, factor)
+        right_aligned_label(row, 'UV Map:')
+        if obj and obj.type == 'MESH':
+            row.prop_search(btprops, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+        else: row.prop(btprops, "uv_map", text='')
+
+        if show_float_normal_option or show_float_height_option or show_float_vdm_option:
+            row = split_layout(layout, factor)
+
+            if (
+                (show_float_normal_option and not show_float_height_option and not show_float_vdm_option) or
+                (show_float_height_option and not show_float_normal_option and not show_float_vdm_option) or
+                (show_float_vdm_option and not show_float_height_option and not show_float_normal_option)
+            ):
+                row.label(text='')
+            else:
+                right_aligned_label(row, 'Use 32-bit Float:')
+
+            crow = row.row()
+
+            if show_float_normal_option:
+                if not show_float_height_option and not show_float_vdm_option:
+                    title = 'Use 32-bit float for Normal'
+                    crow.prop(btprops, 'use_float_for_normal', text=title)
+                else: 
+                    title = 'Normal'
+                    if show_float_height_option and show_float_vdm_option:
+                        rrow = crow.row(align=True)
+                        rrow.scale_x = 1.1
+                        rrow.prop(btprops, 'use_float_for_normal', text=title)
+                    else:
+                        crow.prop(btprops, 'use_float_for_normal', text=title)
+
+            if show_float_height_option:
+                if not show_float_normal_option and not show_float_vdm_option:
+                    title = 'Use 32-bit float for Height'
+                    crow.prop(btprops, 'use_float_for_displacement', text=title)
+                else:
+                    title = 'Height'
+                    if show_float_normal_option and show_float_vdm_option:
+                        rrow = crow.row(align=True)
+                        rrow.scale_x = 1.1
+                        rrow.prop(btprops, 'use_float_for_displacement', text=title)
+                    else:
+                        crow.prop(btprops, 'use_float_for_displacement', text=title)
+
+            if show_float_vdm_option:
+                if not show_float_height_option and not show_float_normal_option:
+                    title = 'Use 32-bit float for VDM'
+                else: title = 'VDM'
+                crow.prop(btprops, 'use_float_for_vector_displacement', text=title)
+
+        #layout.separator()
+
+        row = split_layout(layout, factor)
+        rcol = row.column(align=True)
+        right_aligned_label(rcol, 'Samples:')
+        right_aligned_label(rcol, 'AA Level:')
+
+        rcol = row.column(align=True)
+        rcol.prop(btprops, 'samples', text='')
+        rcol.prop(btprops, 'aa_level', text='')
+
+        row = split_layout(layout, factor)
+        right_aligned_label(row, text='Margin:')
+        if is_bl_newer_than(3, 1):
+            split = split_layout(row, factor, align=True)
+            split.prop(btprops, 'margin', text='')
+            split.prop(btprops, 'margin_type', text='')
+        else:
+            row.prop(btprops, 'margin', text='')
+
+        layout.separator()
+
+        if show_udim:
+            row = split_layout(layout, factor)
+            row.label(text='')
+            row.prop(btprops, 'use_udim')
+
+        acol = layout.column(align=True)
+        row = split_layout(acol, factor)
+        row.label(text='')
+        row.prop(btprops, 'fxaa', text='Use FXAA')
+
+        if is_bl_newer_than(2, 81) and (not bt or 
+                ((not any_height_ch or bt.height_normalize) and not any_non_clamped_ch)
+        ): 
+            row = split_layout(acol, factor)
+            row.label(text='')
+            #row.active = (not any_height_ch or bt.height_normalize) and not any_non_clamped_ch
+            row.prop(btprops, 'denoise', text='Use Denoise')
+
+        if not bt or any_color_channel:
+            row = split_layout(acol, factor)
+            row.label(text='')
+            if not btprops.use_dithering:
+                row.prop(btprops, 'use_dithering', text='Use Dithering')
+            if btprops.use_dithering:
+                rrow = split_layout(row, 0.55)
+                rrow.prop(btprops, 'use_dithering', text='Use Dithering')
+                rrow.prop(btprops, 'dither_intensity', text='')
+
+    # Color attributes properties
+
+    if show_vcol_props and is_bl_newer_than(3, 2):
+        row = split_layout(layout, factor)
+
+        rcol = row.column()
+        right_aligned_label(rcol, text='Domain:')
+        right_aligned_label(rcol, text='Data Type:')
+
+        rcol = row.column()
+        crow = rcol.row(align=True)
+        crow.prop(btprops, 'vcol_domain', expand=True)
+        crow = rcol.row(align=True)
+        crow.prop(btprops, 'vcol_data_type', expand=True)
+
+    # General properties
+
+    acol = layout.column(align=True)
+    row = split_layout(acol, factor)
+    row.label(text='')
+    row.prop(btprops, 'force_bake_all_polygons')
+
+    row = split_layout(acol, factor)
+    row.label(text='')
+    row.prop(btprops, 'bake_disabled_layers')
+
+    if hasattr(btprops, 'bake_device') or hasattr(btprops, 'necessary_only'):
+        layout.separator()
+
+        if hasattr(btprops, 'necessary_only'):
+            row = split_layout(layout, factor)
+            row.label(text='')
+            row.prop(btprops, 'necessary_only', text='Only Necessary Channels')
+
+        if is_bl_newer_than(2, 80) and hasattr(btprops, 'bake_device'):
+            row = split_layout(layout, factor)
+            right_aligned_label(row, 'Bake Device:')
+            row.prop(btprops, 'bake_device', text='')
+
+        #layout.separator()
 

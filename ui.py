@@ -3,7 +3,7 @@ import requests, threading
 from bpy.props import *
 from bpy.app.handlers import persistent
 from bpy.app.translations import pgettext_iface
-from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal, modifier_common
+from . import lib, Modifier, MaskModifier, UDIM, ListItem, Decal, modifier_common, BaseOperator
 from .common import *
 
 USE_CACHE_DELTA_MS = 250
@@ -1550,11 +1550,11 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
         gloset = yp.bake_target_global_settings
         any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
         #any_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL'])
-        draw_base_bake_target_settings(context, col, gloset, bt=None, 
+        BaseOperator.draw_base_bake_target_settings(context, col, gloset, bt=None, 
             show_image_props = any_image_bts,
             show_vcol_props = False, #any_vcol_bts,
             show_hdr = False,
-            show_udim = UDIM.is_udim_supported(),
+            show_udim = is_udim_supported(),
             yp = yp
         )
         col.separator()
@@ -1767,10 +1767,10 @@ def draw_bake_target_settings(context, layout, bt):
     box = layout.box()
     bcol = box.column()
 
-    draw_base_bake_target_settings(context, bcol, bt, bt, 
+    BaseOperator.draw_base_bake_target_settings(context, bcol, bt, bt, 
         show_image_props = bt.data_type == 'IMAGE',
         show_vcol_props = bt.data_type == 'VCOL',
-        show_udim = UDIM.is_udim_supported()
+        show_udim = is_udim_supported()
     )
 
 def draw_channel_bake_target_dropdown(context, channel, layout, draw_blank=True):
@@ -7466,7 +7466,7 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         col.separator()
         col.operator('wm.y_rebake_baked_images', text='Rebake All Baked Images', icon_value=lib.get_icon('bake'))
 
-        if UDIM.is_udim_supported():
+        if is_udim_supported():
             col.operator('wm.y_refill_udim_tiles', text='Refill UDIM Tiles', icon_value=lib.get_icon('uv'))
 
         col = row.column()
@@ -7585,7 +7585,7 @@ class YImageConvertToMenu(bpy.types.Menu):
         text = 'Convert to ' + ('Byte ' if context.image.is_float else 'Float ') + 'Image'
         col.operator("image.y_convert_image_bit_depth", icon='IMAGE_DATA', text=text)
 
-        if UDIM.is_udim_supported():
+        if is_udim_supported():
             #col.separator()
             text = 'Convert to ' + ('Non UDIM ' if context.image.source == 'TILED' else 'UDIM ') + 'Image'
             col.operator("image.y_convert_image_tiled", icon='IMAGE_DATA', text=text)

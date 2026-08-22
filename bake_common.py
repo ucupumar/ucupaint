@@ -2155,7 +2155,7 @@ def get_bake_max_height(root_ch, mat=None, node=None, tex=None, emit=None):
         root_ch.use_height_normalize = True
 
     # Create target image
-    if UDIM.is_udim_supported():
+    if is_udim_supported():
         img = bpy.data.images.new(
             name='____MAXHEIGHT_TEMP', width=100, height=100, 
             alpha=False, tiled=False, float_buffer=True
@@ -6339,7 +6339,7 @@ def get_output_uv_names_from_geometry_nodes(obj):
     return uv_names
 
 def update_bake_uv_map(self, context):
-    if not UDIM.is_udim_supported(): return
+    if not is_udim_supported(): return
 
     if get_user_preferences().enable_auto_udim_detection:
         mat = get_active_material()

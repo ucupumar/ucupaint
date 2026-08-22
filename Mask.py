@@ -103,7 +103,7 @@ def remove_mask(layer, mask, obj, refresh_list=True):
         ListItem.refresh_list_items(yp)
 
 def update_new_mask_uv_map(self, context):
-    if not UDIM.is_udim_supported(): return
+    if not is_udim_supported(): return
     if self.type != 'IMAGE': 
         self.use_udim = False
         return
@@ -639,7 +639,7 @@ class YNewLayerMask(bpy.types.Operator):
         layer = get_active_layer(yp)
 
         split_val = 0.4
-        layout = self.layout
+        layout = self.layout.column()
 
         row = split_layout(layout, split_val)
         right_aligned_label(row, 'Name:')
@@ -711,7 +711,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'IMAGE':
             acol = layout.column(align=True)
-            if UDIM.is_udim_supported():
+            if is_udim_supported():
                 row = split_layout(acol, split_val)
                 row.label(text='')
                 row.prop(self, 'use_udim')
@@ -1061,7 +1061,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
 
         layout.prop(self, 'relative')
 
-        if UDIM.is_udim_supported():
+        if is_udim_supported():
             layout.prop(self, 'use_udim_detecting')
 
     def execute(self, context):
@@ -1083,7 +1083,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
             import_list = [os.path.basename(self.file_browser_filepath)]
             directory = os.path.dirname(self.file_browser_filepath)
 
-        if not UDIM.is_udim_supported():
+        if not is_udim_supported():
             images = tuple(load_image(path, directory) for path in import_list)
         else:
             ori_ui_type = bpy.context.area.type

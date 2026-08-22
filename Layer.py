@@ -204,7 +204,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 def update_new_layer_uv_map(self, context):
-    if not UDIM.is_udim_supported(): return
+    if not is_udim_supported(): return
     if hasattr(self, 'type') and self.type != 'IMAGE': 
         self.use_udim = False
         return
@@ -215,7 +215,7 @@ def update_new_layer_uv_map(self, context):
         self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
 def update_new_layer_mask_uv_map(self, context):
-    if not UDIM.is_udim_supported(): return
+    if not is_udim_supported(): return
     if self.mask_type != 'IMAGE': 
         self.use_udim_for_mask = False
         return
@@ -927,7 +927,7 @@ class YNewLayer(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=width)
 
     #def is_mask_using_udim(self):
-    #    return self.use_udim_for_mask and UDIM.is_udim_supported()
+    #    return self.use_udim_for_mask and is_udim_supported()
 
     #def is_mask_using_image_atlas(self):
     #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
@@ -985,7 +985,7 @@ class YNewLayer(bpy.types.Operator):
         yp = node.node_tree.yp
         obj = context.object
 
-        layout = self.layout
+        layout = self.layout.column()
 
         if len(yp.channels) == 0:
             layout.label(text='No channel found! Still want to create a layer?', icon='ERROR')
@@ -1097,7 +1097,7 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'IMAGE':
             acol = layout.column(align=True)
-            if UDIM.is_udim_supported():
+            if is_udim_supported():
                 row = split_layout(acol, split_val)
                 row.label(text='')
                 row.prop(self, 'use_udim')
@@ -1169,7 +1169,7 @@ class YNewLayer(bpy.types.Operator):
                 
                     if not self.mask_image_filepath:
                         acol = layout.column(align=True)
-                        if UDIM.is_udim_supported():
+                        if is_udim_supported():
                             row = split_layout(acol, split_val)
                             row.label(text='')
                             row.prop(self, 'use_udim_for_mask')
@@ -1754,7 +1754,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
     )
 
     #def is_mask_using_udim(self):
-    #    return self.use_udim_for_mask and UDIM.is_udim_supported()
+    #    return self.use_udim_for_mask and is_udim_supported()
 
     #def is_mask_using_image_atlas(self):
     #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
@@ -2103,7 +2103,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
                 right_aligned_label(row, 'Mask UV Map:')
                 row.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-                if UDIM.is_udim_supported():
+                if is_udim_supported():
                     row = split_layout(layout, split_val)
                     row.label(text='')
                     row.prop(self, 'use_udim_for_mask')
@@ -2630,7 +2630,7 @@ class YOpenImageAsLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         default = True
     )
 
-    extra_desc = '\nCurrently only works with opened non-UDIM images.' if UDIM.is_udim_supported() else ''
+    extra_desc = '\nCurrently only works with opened non-UDIM images.' if is_udim_supported() else ''
 
     use_image_atlas : BoolProperty(
         name = 'Use Image Atlas',
@@ -2736,11 +2736,11 @@ class YOpenImageAsLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
         udim_image_found = True if match else False
 
         rrow = layout.row(align=True)
-        if self.use_image_atlas and (not UDIM.is_udim_supported() or not udim_image_found):
+        if self.use_image_atlas and (not is_udim_supported() or not udim_image_found):
             rrow.active = False
         rrow.prop(self, 'relative')
 
-        if UDIM.is_udim_supported():
+        if is_udim_supported():
             layout.prop(self, 'use_udim_detecting')
 
         # Detect for layered images
@@ -2793,7 +2793,7 @@ class YOpenImageAsLayer(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage
             import_list = [os.path.basename(self.file_browser_filepath)]
             directory = os.path.dirname(self.file_browser_filepath)
 
-        if not UDIM.is_udim_supported():
+        if not is_udim_supported():
             images = tuple(load_image(path, directory) for path in import_list)
         else:
             ori_ui_type = bpy.context.area.type

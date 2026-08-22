@@ -179,7 +179,7 @@ def save_pack_all(yp):
 
         force_pack = False
 
-        if UDIM.is_udim_supported() and image.source == 'TILED' and UDIM.is_using_temp_dir(image):
+        if is_udim_supported() and image.source == 'TILED' and UDIM.is_using_temp_dir(image):
 
             # There's a need to check if there's empty tile to make sure the image will be packed correctly
             # NOTE: There's actually no need to do this for Blender 4.1 onward,

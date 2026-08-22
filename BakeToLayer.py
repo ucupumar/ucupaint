@@ -841,33 +841,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             right_aligned_label(row, 'Base Level:')
             row.prop(self, 'multires_base', text='')
 
-        row = split_layout(lcol, split_val)
-        row.label(text='')
-        row.prop(self, 'hdr')
-
-        row = split_layout(lcol, split_val)
-        row.label(text='')
-        row.prop(self, 'use_custom_resolution')
-
-        if self.use_custom_resolution == False:
-            row = split_layout(lcol, split_val)
-            right_aligned_label(row, 'Resolution:')
-            crow = row.row(align=True)
-            crow.prop(self, 'image_resolution', expand= True,)
-        if self.use_custom_resolution == True:
-            row = split_layout(lcol, split_val)
-
-            rcol = row.column(align=True)
-            right_aligned_label(rcol, 'Width:')
-            right_aligned_label(rcol, 'Height:')
-
-            rcol = row.column(align=True)
-            rcol.prop(self, 'width', text='')
-            rcol.prop(self, 'height', text='')
-
-        row = split_layout(lcol, split_val)
-        right_aligned_label(row, 'Samples:')
-        row.prop(self, 'samples', text='')
+        BaseOperator.draw_base_image_settings(self, lcol, split_val)
 
         row = split_layout(lcol, split_val)
         right_aligned_label(row, 'UV Map:')
@@ -879,6 +853,10 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
             row.prop_search(self, "uv_map_1", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Samples:')
+        row.prop(self, 'samples', text='')
+
+        row = split_layout(lcol, split_val)
         right_aligned_label(row, 'Margin:')
         if is_bl_newer_than(3, 1):
             split = split_layout(row, 0.4, align=True)
@@ -887,9 +865,9 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         else:
             row.prop(self, 'margin', text='')
 
-        row = split_layout(lcol, split_val)
-        right_aligned_label(row, text='Interpolation:')
-        row.prop(self, 'interpolation', text='')
+        #row = split_layout(lcol, split_val)
+        #right_aligned_label(row, text='Interpolation:')
+        #row.prop(self, 'interpolation', text='')
 
         if self.target_type == 'MASK':
             row = split_layout(lcol, split_val)
@@ -1283,36 +1261,15 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         right_aligned_label(row, 'Name:')
         row.prop(self, 'name', text='')
 
-        row = split_layout(lcol, split_val)
-        row.label(text='')
-        row.prop(self, 'hdr')
-
-        row = split_layout(lcol, split_val)
-        row.label(text='')
-        row.prop(self, 'use_custom_resolution')
-
-        if not self.use_custom_resolution:
-            row = split_layout(lcol, split_val)
-            right_aligned_label(row, 'Resolution:')
-            crow = row.row(align=True)
-            crow.prop(self, 'image_resolution', expand=True)
-        else:
-            row = split_layout(lcol, split_val)
-            rcol = row.column(align=True)
-            right_aligned_label(rcol, 'Width:')
-            right_aligned_label(rcol, 'Height:')
-
-            rcol = row.column(align=True)
-            rcol.prop(self, 'width', text='')
-            rcol.prop(self, 'height', text='')
-
-        row = split_layout(lcol, split_val)
-        right_aligned_label(row, 'Samples:')
-        row.prop(self, 'samples', text='')
+        BaseOperator.draw_base_image_settings(self, lcol, split_val, show_interpolation=False)
 
         row = split_layout(lcol, split_val)
         right_aligned_label(row, 'UV Map:')
         row.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        row = split_layout(lcol, split_val)
+        right_aligned_label(row, 'Samples:')
+        row.prop(self, 'samples', text='')
 
         row = split_layout(lcol, split_val)
         right_aligned_label(row, 'Margin:')

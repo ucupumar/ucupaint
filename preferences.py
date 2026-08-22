@@ -186,8 +186,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')
 
-        from . import UDIM
-        if UDIM.is_udim_supported():
+        if is_udim_supported():
             self.layout.prop(self, 'enable_auto_udim_detection')
 
         self.layout.prop(self, 'enable_material_view_warning')

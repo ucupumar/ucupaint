@@ -8,7 +8,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, MaskModifier, image_ops, ListItem, BakeInfo, channel_common, BakeTarget, displacement_common, layer_common, modifier_common
+from . import lib, Layer, Mask, MaskModifier, image_ops, ListItem, BakeInfo, channel_common, BakeTarget, displacement_common, layer_common, modifier_common, BaseOperator
 
 UV_OUTSIDE_PREFIX = '__BAKE_TARGET_UV__'
 
@@ -1606,11 +1606,12 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
         yp = node.node_tree.yp
         any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
         #any_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL'])
-        draw_base_bake_target_settings(context, self.layout, self, bt=None, 
+        col = self.layout.column()
+        BaseOperator.draw_base_bake_target_settings(context, col, self, bt=None, 
             show_image_props = any_image_bts,
             show_vcol_props = False, #any_vcol_bts,
             show_hdr = False,
-            show_udim = UDIM.is_udim_supported(),
+            show_udim = is_udim_supported(),
             yp = yp
         )
 
@@ -1997,7 +1998,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
 
         ccol.separator()
 
-        if UDIM.is_udim_supported():
+        if is_udim_supported():
             ccol.prop(self, 'use_udim')
         ccol.prop(self, 'fxaa', text='Use FXAA')
         if is_bl_newer_than(2, 81):
