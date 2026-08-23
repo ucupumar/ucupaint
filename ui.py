@@ -4807,36 +4807,54 @@ def draw_test_ui(context, layout):
     Test.draw_test_ui(context, layout)
 
 def draw_about_preset_ui(self, context):
-    return
+    #return
     ypui = context.window_manager.ypui
 
     layout = self.layout
     row = layout.row(align=True)
 
-    if not ypui.expanded_about_ui:
-        title = 'About'
-        title = ''
-        row.popover("NODE_PT_ypaint_about_popover", text=title, icon='HELP')
-        if is_package_module_exists('.credits_ui'):
-            title = 'Support Us!'
-            title = ''
-            row.popover('VIEW3D_PT_ypaint_support_ui', text=title, icon='FUND')
+    area_type = 'VIEW_3D' if context.area.type == 'VIEW_3D' else 'NODE_EDITOR'
+    if context.area.type == area_type:
+        if not getattr(ypui, 'expanded_about_ui_'+area_type):
+            row.label(text='Help', icon='HELP')
 
-    ypui.expanded_about_ui = False
+        setattr(ypui, 'expanded_about_ui_'+area_type, False)
 
 def draw_about_ui(self, context):
     ypui = context.window_manager.ypui
-    ypui.expanded_about_ui = True
+    area_type = 'VIEW_3D' if context.area.type == 'VIEW_3D' else 'NODE_EDITOR'
+    setattr(ypui, 'expanded_about_ui_'+area_type, True)
 
     layout = self.layout
-    row = layout.row(align=True)
 
-    if not is_bl_newer_than(2, 80):
-        row.menu("NODE_MT_ypaint_about_menu", text='About', icon='INFO')
-    else: 
-        row.popover("NODE_PT_ypaint_about_popover", text='About', icon='HELP')
+    col = layout.column()
+
+    credits_ui = get_package_module('.credits_ui')
+
+    if is_bl_newer_than(2, 80) and credits_ui:
+        row = col.row(align=True)
+        row.popover("NODE_PT_ypaint_about_popover", text='Credits', icon='HELP')
         if is_package_module_exists('.credits_ui'):
             row.popover('VIEW3D_PT_ypaint_support_ui', text='Support Us!', icon='FUND')
+        #col.separator()
+
+    # NOTE: Blender don't like if the addon creator get small money through UI :(((
+    elif not is_installed_through_extension_platform():
+        icon = 'FUND' if is_bl_newer_than(2, 80) else 'POSE_DATA'
+        label = "Get "+get_addon_title()+" Plus!" if is_bl_newer_than(2, 80) else "Become a Sponsor!"
+        col.operator('wm.url_open', text=label, icon=icon).url = "https://github.com/sponsors/ucupumar"
+        #col.separator()
+
+    ccol = col.column(align=True)
+    ccol.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
+    ccol.operator('wm.url_open', text=get_addon_title()+' GitHub', icon='SCRIPT').url = 'https://github.com/ucupumar/ucupaint'
+    icon = 'COMMUNITY' if is_bl_newer_than(2, 80) else 'SEQ_SEQUENCER'
+    ccol.operator('wm.url_open', text=get_addon_title()+' Discord Server', icon=icon).url = 'https://discord.gg/BdNfGGzQHh'
+
+    addon_updater_ops = get_package_module('.addon_updater_ops')
+    if addon_updater_ops:
+        #col.separator()
+        addon_updater_ops.draw_updater_options(context, col)
 
 class NODE_PT_YPaint_legacy_about_ui(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
@@ -6507,37 +6525,37 @@ def draw_yp_file_browser_menu(self, context):
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
 
-    any_ui_drawn = False
+    #any_ui_drawn = False
 
     credits_ui = get_package_module('.credits_ui')
-    credits_ui_loaded = False
+    #credits_ui_loaded = False
     if credits_ui:
         credits_ui_loaded = credits_ui.draw_contributors(context, col)
-        if credits_ui_loaded: any_ui_drawn = True
+        #if credits_ui_loaded: any_ui_drawn = True
 
-    if not credits_ui_loaded:
-        # NOTE: Blender don't like if the addon creator get small money through UI :(((
-        if not is_installed_through_extension_platform() and (not is_bl_newer_than(2, 80) or not credits_ui):
-            col.label(text='Support '+get_addon_title() + '!')
-            icon = 'FUND' if is_bl_newer_than(2, 80) else 'POSE_DATA'
-            label = "Get "+get_addon_title()+" Plus!" if is_bl_newer_than(2, 80) else "Become a Sponsor!"
-            col.operator('wm.url_open', text=label, icon=icon).url = "https://github.com/sponsors/ucupumar"
-            any_ui_drawn = True
+    #if not credits_ui_loaded:
+    #    # NOTE: Blender don't like if the addon creator get small money through UI :(((
+    #    if not is_installed_through_extension_platform() and (not is_bl_newer_than(2, 80) or not credits_ui):
+    #        col.label(text='Support '+get_addon_title() + '!')
+    #        icon = 'FUND' if is_bl_newer_than(2, 80) else 'POSE_DATA'
+    #        label = "Get "+get_addon_title()+" Plus!" if is_bl_newer_than(2, 80) else "Become a Sponsor!"
+    #        col.operator('wm.url_open', text=label, icon=icon).url = "https://github.com/sponsors/ucupumar"
+    #        any_ui_drawn = True
 
-        if credits_ui: credits_ui.draw_contributor_status(context, col, add_separator=any_ui_drawn)    
+    #    if credits_ui: credits_ui.draw_contributor_status(context, col, add_separator=any_ui_drawn)    
 
-    if any_ui_drawn: col.separator()
+    #if any_ui_drawn: col.separator()
 
-    col.label(text='Links:')
-    col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
-    col.operator('wm.url_open', text=get_addon_title()+' GitHub', icon='SCRIPT').url = 'https://github.com/ucupumar/ucupaint'
-    icon = 'COMMUNITY' if is_bl_newer_than(2, 80) else 'SEQ_SEQUENCER'
-    col.operator('wm.url_open', text=get_addon_title()+' Discord Server', icon=icon).url = 'https://discord.gg/BdNfGGzQHh'
+    #col.label(text='Links:')
+    #col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
+    #col.operator('wm.url_open', text=get_addon_title()+' GitHub', icon='SCRIPT').url = 'https://github.com/ucupumar/ucupaint'
+    #icon = 'COMMUNITY' if is_bl_newer_than(2, 80) else 'SEQ_SEQUENCER'
+    #col.operator('wm.url_open', text=get_addon_title()+' Discord Server', icon=icon).url = 'https://discord.gg/BdNfGGzQHh'
 
-    addon_updater_ops = get_package_module('.addon_updater_ops')
-    if addon_updater_ops:
-        col.separator()
-        addon_updater_ops.draw_updater_options(context, col)
+    #addon_updater_ops = get_package_module('.addon_updater_ops')
+    #if addon_updater_ops:
+    #    col.separator()
+    #    addon_updater_ops.draw_updater_options(context, col)
 
 class YPaintBakeTargetPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_bake_target_popover"
@@ -9146,7 +9164,8 @@ class YPaintUI(bpy.types.PropertyGroup):
         default= ''
     )
 
-    expanded_about_ui : BoolProperty(default=True)
+    expanded_about_ui_VIEW_3D : BoolProperty(default=True)
+    expanded_about_ui_NODE_EDITOR : BoolProperty(default=True)
     expanded_main_ui : BoolProperty(default=True)
     expanded_settings_ui : BoolProperty(default=False)
 
