@@ -98,15 +98,7 @@ def update_decal_projection(self, context):
     else:
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
 
-        # Image scaling on change of mode
-        image = None
-        if entity.type == 'IMAGE' and source:
-            image = source.image
-        if image and image.size[0] > 0 and image.size[1] > 0:
-            if image.size[0] > image.size[1]:
-                decal_node.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
-            else: decal_node.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
-
+        
 
 
 def update_enable_decal_object_constraint(self, context):
@@ -206,12 +198,6 @@ def check_entity_decal_nodes(entity, tree=None):
             if image and source:
                 entity.original_image_extension = source.extension
                 source.extension = 'CLIP'
-
-        # Set decal aspect ratio    
-        if image and image.size[0] > 0 and image.size[1] > 0:
-            if image.size[0] > image.size[1]:
-                decal_process.inputs['Scale'].default_value = (image.size[1] / image.size[0], 1.0, 1.0)
-            else: decal_process.inputs['Scale'].default_value = (1.0, image.size[0] / image.size[1], 1.0)
 
         # Create decal alpha nodes
         if mask:
@@ -361,16 +347,15 @@ class BaseDecal():
         update=update_decal_projection
     )
 
-    decal_scale_x: FloatProperty(
-        name='Decal Scale X',
-        description='Decal Scale Value X',
-        min=0.0, max=100.0, default=1.0, precision=3
-    )
-
-    decal_scale_y: FloatProperty(
-        name='Decal Scale Y',
-        description='Decal Scale Value Y',
-        min=0.0, max=100.0, default=1.0, precision=3
+    decal_scale: FloatVectorProperty(
+        name='Decal Scale',
+        description='Decal Scale Value',
+        size=3,
+        default=(1.0, 1.0, 1.0),
+        min=0.0,
+        max=100.0,
+        precision=3,
+        subtype='XYZ'
     )
 
     decal_distance_value : FloatProperty(

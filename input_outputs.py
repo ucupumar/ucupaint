@@ -643,6 +643,9 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty, float
     elif type(prop_value) == Color:
         socket_type = 'NodeSocketColor'
         default_value = (rna.default, rna.default, rna.default, 1.0)
+    elif type(prop_value) == Vector:
+        socket_type = 'NodeSocketVector'
+        default_value = (rna.default, rna.default, rna.default)
     else:
         return False # Not implemented yet
 
@@ -683,7 +686,6 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty, float
     return dirty
 
 def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False):
-
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
     root_tree = layer.id_data
@@ -744,9 +746,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if layer.texcoord_type == 'Decal':
             dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
-            dirty = create_prop_input(layer, 'decal_scale_x', valid_inputs, input_index, dirty, float_factor_input_names)
-            input_index += 1
-            dirty = create_prop_input(layer, 'decal_scale_y', valid_inputs, input_index, dirty, float_factor_input_names)
+            dirty = create_prop_input(layer, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
 
         if is_bl_newer_than(2, 81) and layer.enable_uniform_scale and is_layer_using_vector(layer) and layer.segment_name == '':
@@ -899,9 +899,7 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 input_index += 1
                 dirty = create_prop_input(mask, 'decal_scale_x', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
-                dirty = create_prop_input(mask, 'decal_scale_y', valid_inputs, input_index, dirty, float_factor_input_names)
-                input_index += 1
-                
+
             # Color ID
             if mask.type == 'COLOR_ID':
                 dirty = create_prop_input(mask, 'color_id', valid_inputs, input_index, dirty, float_factor_input_names)
