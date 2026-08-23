@@ -917,12 +917,25 @@ class YPaintNodeInputCollItem(bpy.types.PropertyGroup):
     node_name : StringProperty(default='')
     input_name : StringProperty(default='')
     input_index : IntProperty(default=0)
+    input_type : StringProperty(default='')
+
+def update_new_channel_type(self, context):
+    if self.type == 'RGB':
+        self.colorspace = 'SRGB'
+    else: self.colorspace = 'LINEAR'
 
 def update_connect_to(self, context):
     yp = get_active_ypaint_node().node_tree.yp
     item = self.input_coll.get(self.connect_to)
     if item:
         self.name = get_unique_name(item.input_name, yp.channels)
+
+        if item.input_type == 'RGBA':
+            self.type = 'RGB'
+        elif item.input_type == 'VALUE':
+            self.type = 'VALUE'
+        elif item.input_type == 'VECTOR':
+            self.type = 'VECTOR'
 
     # Emission will not use clamp by default
     self.use_clamp = 'Emission' not in self.name
@@ -940,9 +953,7 @@ def refresh_input_coll(self, context, ch_type):
     for node in nodes:
         if node == yp_node: continue
         for i, inp in enumerate(node.inputs):
-            if ch_type == 'VALUE' and inp.type != 'VALUE': continue
-            elif ch_type == 'RGB' and inp.type != 'RGBA': continue
-            elif ch_type == 'VECTOR' and inp.type != 'VECTOR': continue
+            if inp.type not in {'RGBA', 'VALUE', 'VECTOR'}: continue
             if len(inp.links) > 0 : continue
             label = inp.name + ' (' + node.name +')'
             item = self.input_coll.add()
@@ -950,6 +961,7 @@ def refresh_input_coll(self, context, ch_type):
             item.node_name = node.name
             item.input_name = inp.name
             item.input_index = i
+            item.input_type = inp.type
 
 def update_channel_use_height_as_bump(self, context):
     yp = self.id_data.yp
@@ -1268,12 +1280,13 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
     name : StringProperty(
         name = 'Channel Name', 
         description = 'Name of the channel',
-        default = 'Albedo'
+        default = 'Channel'
     )
 
     type : EnumProperty(
         name = 'Channel Type',
-        items = new_channel_items
+        items = new_channel_items,
+        update = update_new_channel_type
     )
 
     connect_to : StringProperty(name='Connect To', default='', update=update_connect_to)
@@ -1324,15 +1337,6 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
         group_node = get_active_ypaint_node()
         channels = group_node.node_tree.yp.channels
 
-        if self.type == 'RGB':
-            self.name = 'Color'
-            self.colorspace = 'SRGB'
-        elif self.type == 'VALUE':
-            self.name = 'Value'
-            self.colorspace = 'LINEAR'
-        elif self.type == 'VECTOR':
-            self.name = 'Vector'
-
         # Check if name already available on the list
         self.name = get_unique_name(self.name, channels)
 
@@ -1373,7 +1377,7 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
                 if item.input_name in {'Emission Color', 'Subsurface Scale'}:
                     show_strength_option = True
 
-        split_val = 0.35
+        split_val = 0.3
         layout = self.layout.column()
 
         row = split_layout(layout, split_val)
@@ -1383,6 +1387,11 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
         row = split_layout(layout, split_val)
         right_aligned_label(row, 'Connect To:')
         row.prop_search(self, "connect_to", self, "input_coll", icon='NODETREE', text='')
+
+        row = split_layout(layout, split_val)
+        right_aligned_label(row, 'Type:')
+        rrow = row.row(align=True)
+        rrow.prop(self, 'type', expand=True)
 
         if self.type != 'VECTOR':
             row = split_layout(layout, split_val)

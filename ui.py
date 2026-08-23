@@ -6844,17 +6844,7 @@ class YNewChannelMenu(bpy.types.Menu):
         col = self.layout.column()
         col.label(text='Add New Channel')
 
-        icon_value = lib.get_icon(lib.channel_custom_icon_dict['VALUE'])
-        col.operator("wm.y_add_new_ypaint_channel", icon_value=icon_value, text='Value').type = 'VALUE'
-
-        icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
-        col.operator("wm.y_add_new_ypaint_channel", icon_value=icon_value, text='RGB').type = 'RGB'
-
-        icon_value = lib.get_icon(lib.channel_custom_icon_dict['VECTOR'])
-        col.operator("wm.y_add_new_ypaint_channel", icon_value=icon_value, text='Vector').type = 'VECTOR'
-
-        col.separator()
-        col.label(text='Auto Setup New Channel')
+        col.operator("wm.y_add_new_ypaint_channel", icon='RADIOBUT_OFF', text='Custom')
 
         icon_value = lib.get_icon(lib.channel_custom_icon_dict['VALUE'])
         col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Alpha').mode = 'ALPHA'
