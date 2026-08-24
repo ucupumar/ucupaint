@@ -9,6 +9,11 @@ def update_icons(self, context):
     lib.unload_custom_icons()
     lib.load_custom_icons()
 
+    # Reload panel icon
+    if is_bl_newer_than(5, 2):
+        from . import ui
+        ui.register_panels()
+
 def update_default_bake_device(self, context):
     if self.default_bake_device != 'DEFAULT':
         # Get all yp trees

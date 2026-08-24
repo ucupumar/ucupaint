@@ -9325,6 +9325,74 @@ class YPendingUpdate(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def register_panels():
+    panels = [
+        VIEW3D_PT_YPaint_about_ui,
+        VIEW3D_PT_YPaint_obj_mat_settings_ui,
+        VIEW3D_PT_YPaint_main_ui,
+        VIEW3D_PT_YPaint_channel_settings_ui,
+        VIEW3D_PT_YPaint_bake_target_settings_ui,
+        #VIEW3D_PT_YPaint_stats_ui,
+        VIEW3D_PT_YPaint_test_ui,
+    ]
+
+    if not is_bl_newer_than(2, 80):
+        panels.append(NODE_PT_YPaint_legacy_about_ui)
+        panels.append(NODE_PT_YPaint_legacy_main_ui)
+        panels.append(NODE_PT_YPaint_legacy_channel_settings_ui)
+        panels.append(NODE_PT_YPaint_legacy_bake_target_settings_ui)
+
+        panels.append(VIEW3D_PT_YPaint_legacy_about_tools)
+        panels.append(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
+        panels.append(VIEW3D_PT_YPaint_legacy_main_tools)
+        panels.append(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
+        panels.append(VIEW3D_PT_YPaint_legacy_bake_target_settings_tools)
+    else: 
+        panels.append(NODE_PT_YPaint_about_ui)
+        panels.append(NODE_PT_YPaint_main_ui)
+        panels.append(NODE_PT_YPaint_channel_settings_ui)
+        panels.append(NODE_PT_YPaint_bake_target_settings_ui)
+
+    # Set up icon value and register panels
+    icon_value = lib.get_icon('ucupaint')
+    for panel in panels:
+        if hasattr(bpy.types, panel.__name__):
+            bpy.utils.unregister_class(panel)
+        if is_bl_newer_than(5, 2):
+            panel.bl_icon_value = icon_value
+        bpy.utils.register_class(panel)
+
+def unregister_panels():
+    panels = [
+        VIEW3D_PT_YPaint_about_ui,
+        VIEW3D_PT_YPaint_obj_mat_settings_ui,
+        VIEW3D_PT_YPaint_main_ui,
+        VIEW3D_PT_YPaint_channel_settings_ui,
+        VIEW3D_PT_YPaint_bake_target_settings_ui,
+        #VIEW3D_PT_YPaint_stats_ui,
+        VIEW3D_PT_YPaint_test_ui,
+    ]
+
+    if not is_bl_newer_than(2, 80):
+        panels.append(NODE_PT_YPaint_legacy_about_ui)
+        panels.append(NODE_PT_YPaint_legacy_main_ui)
+        panels.append(NODE_PT_YPaint_legacy_channel_settings_ui)
+        panels.append(NODE_PT_YPaint_legacy_bake_target_settings_ui)
+
+        panels.append(VIEW3D_PT_YPaint_legacy_about_tools)
+        panels.append(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
+        panels.append(VIEW3D_PT_YPaint_legacy_main_tools)
+        panels.append(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
+        panels.append(VIEW3D_PT_YPaint_legacy_bake_target_settings_tools)
+    else: 
+        panels.append(NODE_PT_YPaint_about_ui)
+        panels.append(NODE_PT_YPaint_main_ui)
+        panels.append(NODE_PT_YPaint_channel_settings_ui)
+        panels.append(NODE_PT_YPaint_bake_target_settings_ui)
+
+    for panel in panels:
+        bpy.utils.unregister_class(panel)
+
 def register():
 
     if not is_bl_newer_than(2, 80):
@@ -9391,33 +9459,9 @@ def register():
     bpy.utils.register_class(YPFileBrowserMenu)
     bpy.utils.register_class(NODE_MT_copy_image_path_menu)
     bpy.utils.register_class(YPendingUpdate)
-
-    if not is_bl_newer_than(2, 80):
-        bpy.utils.register_class(NODE_PT_YPaint_legacy_about_ui)
-        bpy.utils.register_class(NODE_PT_YPaint_legacy_main_ui)
-        bpy.utils.register_class(NODE_PT_YPaint_legacy_channel_settings_ui)
-        bpy.utils.register_class(NODE_PT_YPaint_legacy_bake_target_settings_ui)
-
-        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_about_tools)
-        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
-        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_main_tools)
-        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
-        bpy.utils.register_class(VIEW3D_PT_YPaint_legacy_bake_target_settings_tools)
-    else: 
-        bpy.utils.register_class(NODE_PT_YPaint_about_ui)
-        bpy.utils.register_class(NODE_PT_YPaint_main_ui)
-        bpy.utils.register_class(NODE_PT_YPaint_channel_settings_ui)
-        bpy.utils.register_class(NODE_PT_YPaint_bake_target_settings_ui)
-
-    bpy.utils.register_class(VIEW3D_PT_YPaint_about_ui)
-    bpy.utils.register_class(VIEW3D_PT_YPaint_obj_mat_settings_ui)
-    bpy.utils.register_class(VIEW3D_PT_YPaint_main_ui)
-    #bpy.utils.register_class(VIEW3D_PT_YPaint_stats_ui)
-    bpy.utils.register_class(VIEW3D_PT_YPaint_channel_settings_ui)
-    bpy.utils.register_class(VIEW3D_PT_YPaint_bake_target_settings_ui)
-    bpy.utils.register_class(VIEW3D_PT_YPaint_test_ui)
-
     bpy.utils.register_class(YPaintUI)
+
+    register_panels()
 
     bpy.types.Scene.ypui = PointerProperty(type=YPaintUI)
     bpy.types.WindowManager.ypui = PointerProperty(type=YPaintUI)
@@ -9508,33 +9552,9 @@ def unregister():
     bpy.utils.unregister_class(YPFileBrowserMenu)
     bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
     bpy.utils.unregister_class(YPendingUpdate)
-
-    if not is_bl_newer_than(2, 80):
-        bpy.utils.unregister_class(NODE_PT_YPaint_legacy_about_ui)
-        bpy.utils.unregister_class(NODE_PT_YPaint_legacy_main_ui)
-        bpy.utils.unregister_class(NODE_PT_YPaint_legacy_channel_settings_ui)
-        bpy.utils.unregister_class(NODE_PT_YPaint_legacy_bake_target_settings_ui)
-
-        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_about_tools)
-        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
-        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_main_tools)
-        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
-        bpy.utils.unregister_class(VIEW3D_PT_YPaint_legacy_bake_target_settings_tools)
-    else: 
-        bpy.utils.unregister_class(NODE_PT_YPaint_about_ui)
-        bpy.utils.unregister_class(NODE_PT_YPaint_main_ui)
-        bpy.utils.unregister_class(NODE_PT_YPaint_channel_settings_ui)
-        bpy.utils.unregister_class(NODE_PT_YPaint_bake_target_settings_ui)
-
-    bpy.utils.unregister_class(VIEW3D_PT_YPaint_about_ui)
-    bpy.utils.unregister_class(VIEW3D_PT_YPaint_obj_mat_settings_ui)
-    bpy.utils.unregister_class(VIEW3D_PT_YPaint_main_ui)
-    #bpy.utils.unregister_class(VIEW3D_PT_YPaint_stats_ui)
-    bpy.utils.unregister_class(VIEW3D_PT_YPaint_channel_settings_ui)
-    bpy.utils.unregister_class(VIEW3D_PT_YPaint_bake_target_settings_ui)
-    bpy.utils.unregister_class(VIEW3D_PT_YPaint_test_ui)
-
     bpy.utils.unregister_class(YPaintUI)
+
+    unregister_panels()
 
     # Remove add yPaint node ui
     bpy.types.NODE_MT_add.remove(add_new_ypaint_node_menu)
