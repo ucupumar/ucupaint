@@ -102,18 +102,6 @@ def remove_mask(layer, mask, obj, refresh_list=True):
     if refresh_list:
         ListItem.refresh_list_items(yp)
 
-def update_new_mask_uv_map(self, context):
-    if not is_udim_supported(): return
-    if self.type != 'IMAGE': 
-        self.use_udim = False
-        return
-
-    if get_user_preferences().enable_auto_udim_detection:
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_name)
-
-
 def get_mask_cache_name(mask_type, modifier_type=''):
     name = 'cache_' + mask_type.lower()
 
@@ -452,7 +440,7 @@ class YNewLayerMask(bpy.types.Operator):
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '',
-        update = update_new_mask_uv_map
+        update = BaseOperator.update_uv_map_name
     )
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 

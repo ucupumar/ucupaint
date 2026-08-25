@@ -543,6 +543,13 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         nodes.active = node
         mat.yp.active_ypaint_node = node.name
 
+        # Set bake target default settings
+        ypup = get_user_preferences()
+        uv_name = get_default_uv_name()
+        group_tree.yp.bake_target_global_settings.uv_map = uv_name
+        if ypup.default_bake_device != 'DEFAULT':
+            group_tree.yp.bake_target_global_settings.bake_device = ypup.default_bake_device
+
         # BSDF node
         if not main_bsdf:
             if self.type == 'BSDF_PRINCIPLED':
@@ -794,13 +801,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator, BaseOperator.BlendMethodOptions)
         # Expand channels now is enabled by default if it's the only yp node
         if len([ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node]) == 1:
             context.window_manager.ypui.expand_channels = True
-
-        # Set bake target default settings
-        ypup = get_user_preferences()
-        uv_name = get_default_uv_name()
-        group_tree.yp.bake_target_global_settings.uv_map = uv_name
-        if ypup.default_bake_device != 'DEFAULT':
-            group_tree.yp.bake_target_global_settings.bake_device = ypup.default_bake_device
 
         # Update list items
         ListItem.refresh_list_items(group_tree.yp, repoint_active=True)

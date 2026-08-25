@@ -8,7 +8,7 @@ from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from .input_outputs import *
-from . import lib, Layer, Mask, MaskModifier, image_ops, ListItem, BakeInfo, channel_common, BakeTarget, displacement_common, layer_common, modifier_common, BaseOperator
+from . import lib, Layer, Mask, MaskModifier, image_ops, ListItem, BakeInfo, channel_common, BakeTarget, displacement_common, layer_common, modifier_common, BaseOperator, UDIM
 
 UV_OUTSIDE_PREFIX = '__BAKE_TARGET_UV__'
 
@@ -1294,7 +1294,7 @@ class BaseBakeBakeTargetOperator():
     #    default = False
     #)
 
-    uv_map : StringProperty(default='', update=update_bake_uv_map)
+    uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     def invoke_op(self, context, event):
@@ -1681,7 +1681,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     bl_label = "Bake channels to Image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    uv_map : StringProperty(default='', update=update_bake_uv_map)
+    uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     interpolation : EnumProperty(

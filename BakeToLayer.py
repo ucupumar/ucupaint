@@ -128,14 +128,6 @@ class YRemoveBakeInfoOtherObject(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def update_bake_to_layer_uv_map(self, context):
-    if not UDIM.is_udim_supported(): return
-
-    if get_user_preferences().enable_auto_udim_detection:
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
-
 class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
     bl_idname = "wm.y_bake_to_layer"
     bl_label = "Bake To Layer"
@@ -152,7 +144,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         name = 'UV Map', 
         description = 'UV Map to use for baked image coordinate', 
         default = '',
-        update = update_bake_to_layer_uv_map
+        update = BaseOperator.update_uv_map_name
     )
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -1026,7 +1018,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         name = 'UV Map', 
         description = 'UV Map to use for baked image coordinate', 
         default = '',
-        update = update_bake_to_layer_uv_map
+        update = BaseOperator.update_uv_map_name
     )
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)

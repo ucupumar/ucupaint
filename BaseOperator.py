@@ -131,6 +131,36 @@ def draw_self_channel_idx(self, layout, yp=None):
             icon_name = lib.channel_custom_icon_dict[first_ch.type]
             layout.label(text=first_ch.name, icon_value=lib.get_icon(icon_name))
 
+def update_uv_map_name(self, context):
+    if not is_udim_supported(): return
+
+    if isinstance(self.id_data, bpy.types.ShaderNodeTree):
+        if self.id_data.yp.halt_update:
+            return
+
+    if hasattr(self, 'use_udim') and get_user_preferences().enable_auto_udim_detection:
+
+        if hasattr(self, 'type') and self.type != 'IMAGE': 
+            self.use_udim = False
+        else:
+            from . import UDIM
+            mat = get_active_material()
+            objs = get_all_objects_with_same_materials(mat)
+            self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+
+def update_mask_uv_map_name(self, context):
+    if not is_udim_supported(): return
+
+    if hasattr(self, 'use_udim_for_mask') and get_user_preferences().enable_auto_udim_detection:
+
+        if hasattr(self, 'mask_type') and self.mask_type != 'IMAGE': 
+            self.use_udim_for_mask = False
+        else:
+            from . import UDIM
+            mat = get_active_material()
+            objs = get_all_objects_with_same_materials(mat)
+            self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
+
 def draw_base_image_settings(self, layout, split_val=0.4, show_hdr=True, show_interpolation=True, show_texcoord=True):
     acol = layout.column(align=False)
 

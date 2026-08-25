@@ -6,9 +6,6 @@ from . import lib, BakeInfo
 UDIM_DIR = 'UDIM__'
 UV_TOLERANCE = 0.1
 
-def is_udim_supported():
-    return is_bl_newer_than(3, 3)
-
 def fill_tiles(image, color=None, width=0, height=0, empty_only=False):
     if image.source != 'TILED': return
     if color == None: color = image.yui.base_color

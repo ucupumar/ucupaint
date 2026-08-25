@@ -2,7 +2,7 @@ import bpy, time
 from .common import *
 from bpy.props import *
 from .bake_common import *
-from . import BakeInfo, BaseOperator
+from . import BakeInfo, BaseOperator, UDIM
 
 rgbw_items = (
     ('0', 'R', ''),
@@ -140,7 +140,7 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     # Deprecated
     use_float : BoolProperty(default=False)
 
-    uv_map : StringProperty(default='', update=update_bake_uv_map)
+    uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     r : PointerProperty(type=YBakeTargetChannel)
@@ -207,7 +207,7 @@ class BaseBakeTargetGlobalSettings(BaseBakeProps, BakeInfo.BaseBakeInfoProps):
         default = True
     )
 
-    uv_map : StringProperty(default='', update=update_bake_uv_map)
+    uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
 
     # Baked counters to make use bake target popover switch after baking
     baked_counters : IntProperty(default=0)

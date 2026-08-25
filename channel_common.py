@@ -161,7 +161,12 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         bt.data_type = 'IMAGE'
 
         if hasattr(bpy.context, 'object'):
-            bt.uv_map = get_default_uv_name(bpy.context.object, yp)
+            # Do halt update so there's no unecessary UDIM checking
+            ori_halt_update = yp.halt_update
+            yp.halt_update = True
+            bt.uv_map = yp.bake_target_global_settings.uv_map
+            bt.use_udim = yp.bake_target_global_settings.use_udim
+            yp.halt_update = ori_halt_update
 
         # Set denoise default values
         bt.denoise = False

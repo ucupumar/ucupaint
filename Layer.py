@@ -203,28 +203,6 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def update_new_layer_uv_map(self, context):
-    if not is_udim_supported(): return
-    if hasattr(self, 'type') and self.type != 'IMAGE': 
-        self.use_udim = False
-        return
-
-    if get_user_preferences().enable_auto_udim_detection:
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
-
-def update_new_layer_mask_uv_map(self, context):
-    if not is_udim_supported(): return
-    if self.mask_type != 'IMAGE': 
-        self.use_udim_for_mask = False
-        return
-
-    if get_user_preferences().enable_auto_udim_detection:
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-        self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
-
 def update_channel_idx_new_layer(self, context):
 
     node = get_active_ypaint_node()
@@ -285,7 +263,7 @@ class YNewVDMLayer(bpy.types.Operator):
     uv_map : StringProperty(
         name = 'UV Map', 
         description = 'UV Map to use for layer coordinate',
-        default = '') #, update=update_new_layer_uv_map)
+        default = '') #, update=BaseOperator.update_uv_map_name)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -606,7 +584,7 @@ class YNewLayer(bpy.types.Operator):
     mask_uv_name : StringProperty(
         name='UV Map for Mask', 
         description = 'UV Map to use for mask coordinate',
-        default='', update=update_new_layer_mask_uv_map
+        default='', update=BaseOperator.update_mask_uv_map_name
     )
 
     mask_use_hdr : BoolProperty(
@@ -642,7 +620,7 @@ class YNewLayer(bpy.types.Operator):
         name = 'UV Map',
         description = 'UV Map to use for layer coordinate',
         default = '',
-        update = update_new_layer_uv_map
+        update = BaseOperator.update_uv_map_name
     )
 
     normal_map_type : EnumProperty(

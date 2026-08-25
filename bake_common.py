@@ -6338,14 +6338,6 @@ def get_output_uv_names_from_geometry_nodes(obj):
 
     return uv_names
 
-def update_bake_uv_map(self, context):
-    if not is_udim_supported(): return
-
-    if get_user_preferences().enable_auto_udim_detection:
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat)
-        self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
-
 #def update_bake_image_resolution(self, context):
 #    pass
 
