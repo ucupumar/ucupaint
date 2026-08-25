@@ -1691,7 +1691,7 @@ class BaseMultipleImagesLayer(BaseOperator.OpenImage):
     mask_uv_name : StringProperty(
         name='UV Map for Mask', 
         description = 'UV Map to use for mask coordinate',
-        default='', update=update_new_layer_mask_uv_map
+        default='', update=BaseOperator.update_mask_uv_map_name
     )
 
     mask_use_hdr : BoolProperty(
