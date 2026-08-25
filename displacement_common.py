@@ -700,10 +700,13 @@ class YQuickDisplacementSetup(bpy.types.Operator):
 
         return {'FINISHED'}
 
+classes = (
+    YQuickDisplacementSetup,
+    YRemoveDisplacementSetup,
+)
+
 def register():
-    bpy.utils.register_class(YQuickDisplacementSetup)
-    bpy.utils.register_class(YRemoveDisplacementSetup)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YQuickDisplacementSetup)
-    bpy.utils.unregister_class(YRemoveDisplacementSetup)
+    for cls in classes: bpy.utils.unregister_class(cls)

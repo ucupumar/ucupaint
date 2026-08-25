@@ -808,28 +808,22 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
     ori_sculpt_brush : StringProperty(default='')
     ori_sculpt_tool : StringProperty(default='')
 
+classes = [
+    YVcolEditorProps,
+    YVcolFill,
+    YSelectFacesByVcol,
+    YVcolFillFaceCustom,
+    YToggleEraser,
+    YSetActiveVcol,
+    VIEW3D_PT_y_vcol_editor_ui,
+]
+if not is_bl_newer_than(2, 80):
+    classes.append(VIEW3D_PT_y_vcol_editor_tools)
+
 def register():
-    bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
-    if not is_bl_newer_than(2, 80):
-        bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
-    bpy.utils.register_class(YVcolEditorProps)
+    for cls in classes: bpy.utils.register_class(cls)
 
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
 
-    bpy.utils.register_class(YVcolFill)
-    bpy.utils.register_class(YSelectFacesByVcol)
-    bpy.utils.register_class(YVcolFillFaceCustom)
-    bpy.utils.register_class(YToggleEraser)
-    bpy.utils.register_class(YSetActiveVcol)
-
 def unregister():
-    bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
-    if not is_bl_newer_than(2, 80):
-        bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
-    bpy.utils.unregister_class(YVcolEditorProps)
-
-    bpy.utils.unregister_class(YVcolFill)
-    bpy.utils.unregister_class(YSelectFacesByVcol)
-    bpy.utils.unregister_class(YVcolFillFaceCustom)
-    bpy.utils.unregister_class(YToggleEraser)
-    bpy.utils.unregister_class(YSetActiveVcol)
+    for cls in classes: bpy.utils.unregister_class(cls)

@@ -1642,24 +1642,20 @@ class YToggleOtherObjectsVisibility(bpy.types.Operator):
 
         return {'FINISHED'}
 
+classes = (
+    YBakeToLayer,
+    YBakeEntityToImage,
+    YRemoveBakeInfoOtherObject,
+    YTryToSelectBakedVertexSelect,
+    YRemoveBakedEntity,
+    YRebakeBakedImages,
+    YRebakeSpecificLayers,
+    YSelectAllOtherObjects,
+    YToggleOtherObjectsVisibility,
+)
+
 def register():
-    bpy.utils.register_class(YBakeToLayer)
-    bpy.utils.register_class(YBakeEntityToImage)
-    bpy.utils.register_class(YRemoveBakeInfoOtherObject)
-    bpy.utils.register_class(YTryToSelectBakedVertexSelect)
-    bpy.utils.register_class(YRemoveBakedEntity)
-    bpy.utils.register_class(YRebakeBakedImages)
-    bpy.utils.register_class(YRebakeSpecificLayers)
-    bpy.utils.register_class(YSelectAllOtherObjects)
-    bpy.utils.register_class(YToggleOtherObjectsVisibility)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YBakeToLayer)
-    bpy.utils.unregister_class(YBakeEntityToImage)
-    bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
-    bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
-    bpy.utils.unregister_class(YRemoveBakedEntity)
-    bpy.utils.unregister_class(YRebakeBakedImages)
-    bpy.utils.unregister_class(YRebakeSpecificLayers)
-    bpy.utils.unregister_class(YSelectAllOtherObjects)
-    bpy.utils.unregister_class(YToggleOtherObjectsVisibility)
+    for cls in classes: bpy.utils.unregister_class(cls)

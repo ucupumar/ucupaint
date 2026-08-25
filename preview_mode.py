@@ -425,10 +425,13 @@ class YTogglePreviewMode(bpy.types.Operator):
 
         return{'FINISHED'}
 
+classes = (
+    YSelectPreviewModeChannel,
+    YTogglePreviewMode,
+)
+
 def register():
-    bpy.utils.register_class(YSelectPreviewModeChannel)
-    bpy.utils.register_class(YTogglePreviewMode)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YSelectPreviewModeChannel)
-    bpy.utils.unregister_class(YTogglePreviewMode)
+    for cls in classes: bpy.utils.unregister_class(cls)

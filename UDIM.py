@@ -1276,29 +1276,24 @@ class YUDIMAtlas(bpy.types.PropertyGroup):
 class YUDIMInfo(bpy.types.PropertyGroup):
     base_color : FloatVectorProperty(subtype='COLOR', size=4, min=0.0, max=1.0, default=(0.0, 0.0, 0.0, 0.0))
 
+classes = (
+    YRefillUDIMTiles,
+    YNewUDIMAtlasSegmentTest,
+    YRefreshUDIMAtlasOffset,
+    YRemoveUDIMAtlasSegment,
+    YConvertImageTiled,
+    #Y_PT_UDIM_Atlas_menu,
+    YUDIMAtlasSegmentTile,
+    YUDIMAtlasSegment,
+    YUDIMAtlas,
+    YUDIMInfo,
+)
+
 def register():
-    bpy.utils.register_class(YRefillUDIMTiles)
-    bpy.utils.register_class(YNewUDIMAtlasSegmentTest)
-    bpy.utils.register_class(YRefreshUDIMAtlasOffset)
-    bpy.utils.register_class(YRemoveUDIMAtlasSegment)
-    bpy.utils.register_class(YConvertImageTiled)
-    #bpy.utils.register_class(Y_PT_UDIM_Atlas_menu)
-    bpy.utils.register_class(YUDIMAtlasSegmentTile)
-    bpy.utils.register_class(YUDIMAtlasSegment)
-    bpy.utils.register_class(YUDIMAtlas)
-    bpy.utils.register_class(YUDIMInfo)
+    for cls in classes: bpy.utils.register_class(cls)
 
     bpy.types.Image.yua = PointerProperty(type=YUDIMAtlas)
     bpy.types.Image.yui = PointerProperty(type=YUDIMInfo)
 
 def unregister():
-    bpy.utils.unregister_class(YRefillUDIMTiles)
-    bpy.utils.unregister_class(YNewUDIMAtlasSegmentTest)
-    bpy.utils.unregister_class(YRefreshUDIMAtlasOffset)
-    bpy.utils.unregister_class(YRemoveUDIMAtlasSegment)
-    bpy.utils.unregister_class(YConvertImageTiled)
-    #bpy.utils.unregister_class(Y_PT_UDIM_Atlas_menu)
-    bpy.utils.unregister_class(YUDIMAtlasSegmentTile)
-    bpy.utils.unregister_class(YUDIMAtlasSegment)
-    bpy.utils.unregister_class(YUDIMAtlas)
-    bpy.utils.unregister_class(YUDIMInfo)
+    for cls in classes: bpy.utils.unregister_class(cls)

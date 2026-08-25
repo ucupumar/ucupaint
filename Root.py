@@ -4355,44 +4355,48 @@ def ypaint_force_update_on_anim(scene):
                 if ng.path_resolve(fc.data_path) != val and entity_path != '' and prop_name != '':
                     setattr(ng.path_resolve(entity_path), prop_name, val)
 
+classes = (
+    YSelectMaterialPolygons,
+    YRenameUVMaterial,
+    YQuickYPaintNodeSetup,
+    YNewYPaintNode,
+    YPaintNodeInputCollItem,
+    YConnectYPaintChannel,
+    YConnectYPaintChannelAlpha,
+    YNewYPaintChannel,
+    YSetChannelSpecialType,
+    YAutoSetupNewYPaintChannel,
+    YMoveYPaintChannel,
+    YRemoveYPaintChannel,
+    YAddSimpleUVs,
+    YSwitchToMaterialView,
+    YFixChannelMissmatch,
+    YFixMissingUV,
+    YRenameYPaintTree,
+    YChangeActiveYPaintNode,
+    YDuplicateYPNodes,
+    YOptimizeNormalProcess,
+    YFixMissingData,
+    YRemoveMio3Checker,
+    YRefreshTangentSignVcol,
+    YRemoveYPaintNode,
+    YCleanYPCaches,
+    YNodeConnections,
+    YPaintChannel,
+    YPaintUV,
+    YPaint,
+    YPaintMaterialProps,
+    YPaintTimer,
+    YPaintCacheAnimatedTree,
+    YPaintWMProps,
+    YPaintSceneProps,
+    YPaintObjectUVHash,
+    YPaintObjectProps,
+    #YPaintMeshProps,
+)
+
 def register():
-    bpy.utils.register_class(YSelectMaterialPolygons)
-    bpy.utils.register_class(YRenameUVMaterial)
-    bpy.utils.register_class(YQuickYPaintNodeSetup)
-    bpy.utils.register_class(YNewYPaintNode)
-    bpy.utils.register_class(YPaintNodeInputCollItem)
-    bpy.utils.register_class(YConnectYPaintChannel)
-    bpy.utils.register_class(YConnectYPaintChannelAlpha)
-    bpy.utils.register_class(YNewYPaintChannel)
-    bpy.utils.register_class(YSetChannelSpecialType)
-    bpy.utils.register_class(YAutoSetupNewYPaintChannel)
-    bpy.utils.register_class(YMoveYPaintChannel)
-    bpy.utils.register_class(YRemoveYPaintChannel)
-    bpy.utils.register_class(YAddSimpleUVs)
-    bpy.utils.register_class(YSwitchToMaterialView)
-    bpy.utils.register_class(YFixChannelMissmatch)
-    bpy.utils.register_class(YFixMissingUV)
-    bpy.utils.register_class(YRenameYPaintTree)
-    bpy.utils.register_class(YChangeActiveYPaintNode)
-    bpy.utils.register_class(YDuplicateYPNodes)
-    bpy.utils.register_class(YOptimizeNormalProcess)
-    bpy.utils.register_class(YFixMissingData)
-    bpy.utils.register_class(YRemoveMio3Checker)
-    bpy.utils.register_class(YRefreshTangentSignVcol)
-    bpy.utils.register_class(YRemoveYPaintNode)
-    bpy.utils.register_class(YCleanYPCaches)
-    bpy.utils.register_class(YNodeConnections)
-    bpy.utils.register_class(YPaintChannel)
-    bpy.utils.register_class(YPaintUV)
-    bpy.utils.register_class(YPaint)
-    bpy.utils.register_class(YPaintMaterialProps)
-    bpy.utils.register_class(YPaintTimer)
-    bpy.utils.register_class(YPaintCacheAnimatedTree)
-    bpy.utils.register_class(YPaintWMProps)
-    bpy.utils.register_class(YPaintSceneProps)
-    bpy.utils.register_class(YPaintObjectUVHash)
-    bpy.utils.register_class(YPaintObjectProps)
-    #bpy.utils.register_class(YPaintMeshProps)
+    for cls in classes: bpy.utils.register_class(cls)
 
     # YPaint Props
     bpy.types.ShaderNodeTree.yp = PointerProperty(type=YPaint)
@@ -4423,43 +4427,7 @@ def register():
         bpy.app.handlers.load_post.append(yp_load_msgbus_subscription)
 
 def unregister():
-    bpy.utils.unregister_class(YSelectMaterialPolygons)
-    bpy.utils.unregister_class(YRenameUVMaterial)
-    bpy.utils.unregister_class(YQuickYPaintNodeSetup)
-    bpy.utils.unregister_class(YNewYPaintNode)
-    bpy.utils.unregister_class(YPaintNodeInputCollItem)
-    bpy.utils.unregister_class(YConnectYPaintChannel)
-    bpy.utils.unregister_class(YConnectYPaintChannelAlpha)
-    bpy.utils.unregister_class(YNewYPaintChannel)
-    bpy.utils.unregister_class(YSetChannelSpecialType)
-    bpy.utils.unregister_class(YAutoSetupNewYPaintChannel)
-    bpy.utils.unregister_class(YMoveYPaintChannel)
-    bpy.utils.unregister_class(YRemoveYPaintChannel)
-    bpy.utils.unregister_class(YAddSimpleUVs)
-    bpy.utils.unregister_class(YSwitchToMaterialView)
-    bpy.utils.unregister_class(YFixChannelMissmatch)
-    bpy.utils.unregister_class(YFixMissingUV)
-    bpy.utils.unregister_class(YRenameYPaintTree)
-    bpy.utils.unregister_class(YChangeActiveYPaintNode)
-    bpy.utils.unregister_class(YDuplicateYPNodes)
-    bpy.utils.unregister_class(YOptimizeNormalProcess)
-    bpy.utils.unregister_class(YFixMissingData)
-    bpy.utils.unregister_class(YRemoveMio3Checker)
-    bpy.utils.unregister_class(YRefreshTangentSignVcol)
-    bpy.utils.unregister_class(YRemoveYPaintNode)
-    bpy.utils.unregister_class(YCleanYPCaches)
-    bpy.utils.unregister_class(YNodeConnections)
-    bpy.utils.unregister_class(YPaintChannel)
-    bpy.utils.unregister_class(YPaintUV)
-    bpy.utils.unregister_class(YPaint)
-    bpy.utils.unregister_class(YPaintMaterialProps)
-    bpy.utils.unregister_class(YPaintTimer)
-    bpy.utils.unregister_class(YPaintCacheAnimatedTree)
-    bpy.utils.unregister_class(YPaintWMProps)
-    bpy.utils.unregister_class(YPaintSceneProps)
-    bpy.utils.unregister_class(YPaintObjectUVHash)
-    bpy.utils.unregister_class(YPaintObjectProps)
-    #bpy.utils.unregister_class(YPaintMeshProps)
+    for cls in classes: bpy.utils.unregister_class(cls)
 
     # Remove handlers
     if is_bl_newer_than(2, 80):

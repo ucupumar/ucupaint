@@ -295,14 +295,15 @@ def update_enable_transition_bump(self, context):
         print('INFO: Transition bump is enabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     else: print('INFO: Transition bump is disabled in {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
+classes = (
+    YShowTransitionBump,
+    YShowTransitionRamp,
+    YShowTransitionAO,
+    YHideTransitionEffect,
+)
+
 def register():
-    bpy.utils.register_class(YShowTransitionBump)
-    bpy.utils.register_class(YShowTransitionRamp)
-    bpy.utils.register_class(YShowTransitionAO)
-    bpy.utils.register_class(YHideTransitionEffect)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YShowTransitionBump)
-    bpy.utils.unregister_class(YShowTransitionRamp)
-    bpy.utils.unregister_class(YShowTransitionAO)
-    bpy.utils.unregister_class(YHideTransitionEffect)
+    for cls in classes: bpy.utils.unregister_class(cls)

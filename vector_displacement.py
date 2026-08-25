@@ -1752,20 +1752,19 @@ class YPaintVDMObjectProps(bpy.types.PropertyGroup):
     mirror_modifier_name : StringProperty(default='')
     armature_index : IntProperty(default=0)
 
+classes = (
+    YSculptImage,
+    YApplySculptToImage,
+    YCancelSculptToImage,
+    YRemoveVDMandAddMultires,
+    YFixVDMMismatchUV,
+    YPaintVDMObjectProps,
+)
+
 def register():
-    bpy.utils.register_class(YSculptImage)
-    bpy.utils.register_class(YApplySculptToImage)
-    bpy.utils.register_class(YCancelSculptToImage)
-    bpy.utils.register_class(YRemoveVDMandAddMultires)
-    bpy.utils.register_class(YFixVDMMismatchUV)
-    bpy.utils.register_class(YPaintVDMObjectProps)
+    for cls in classes: bpy.utils.register_class(cls)
 
     bpy.types.Object.yp_vdm = PointerProperty(type=YPaintVDMObjectProps)
 
 def unregister():
-    bpy.utils.unregister_class(YSculptImage)
-    bpy.utils.unregister_class(YApplySculptToImage)
-    bpy.utils.unregister_class(YCancelSculptToImage)
-    bpy.utils.unregister_class(YRemoveVDMandAddMultires)
-    bpy.utils.unregister_class(YFixVDMMismatchUV)
-    bpy.utils.unregister_class(YPaintVDMObjectProps)
+    for cls in classes: bpy.utils.unregister_class(cls)

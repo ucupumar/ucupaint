@@ -770,16 +770,16 @@ def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
             remove_node(parent_tree, mg, 'name')
         parent.mod_groups.clear()
 
+classes = (
+    YNewYPaintModifier,
+    YMoveYPaintModifier,
+    YRemoveYPaintModifier,
+    YPaintModifier,
+    YPaintModifierGroupNode,
+)
+
 def register():
-    bpy.utils.register_class(YNewYPaintModifier)
-    bpy.utils.register_class(YMoveYPaintModifier)
-    bpy.utils.register_class(YRemoveYPaintModifier)
-    bpy.utils.register_class(YPaintModifier)
-    bpy.utils.register_class(YPaintModifierGroupNode)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YNewYPaintModifier)
-    bpy.utils.unregister_class(YMoveYPaintModifier)
-    bpy.utils.unregister_class(YRemoveYPaintModifier)
-    bpy.utils.unregister_class(YPaintModifier)
-    bpy.utils.unregister_class(YPaintModifierGroupNode)
+    for cls in classes: bpy.utils.unregister_class(cls)

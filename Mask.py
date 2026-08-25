@@ -2498,28 +2498,22 @@ class YLayerMask(bpy.types.PropertyGroup, Decal.BaseDecal):
     expand_source : BoolProperty(default=False)
     expand_vector : BoolProperty(default=False)
 
+classes = (
+    YNewLayerMask,
+    YOpenImageAsMask,
+    YOpenExistingDataAsMask,
+    YOpenImageToReplaceMask,
+    YMoveLayerMask,
+    YRemoveLayerMask,
+    YReplaceMaskType,
+    YSetMaskInput,
+    YFixEdgeDetectAO,
+    YLayerMaskChannel,
+    YLayerMask,
+)
+
 def register():
-    bpy.utils.register_class(YNewLayerMask)
-    bpy.utils.register_class(YOpenImageAsMask)
-    bpy.utils.register_class(YOpenExistingDataAsMask)
-    bpy.utils.register_class(YOpenImageToReplaceMask)
-    bpy.utils.register_class(YMoveLayerMask)
-    bpy.utils.register_class(YRemoveLayerMask)
-    bpy.utils.register_class(YReplaceMaskType)
-    bpy.utils.register_class(YSetMaskInput)
-    bpy.utils.register_class(YFixEdgeDetectAO)
-    bpy.utils.register_class(YLayerMaskChannel)
-    bpy.utils.register_class(YLayerMask)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YNewLayerMask)
-    bpy.utils.unregister_class(YOpenImageAsMask)
-    bpy.utils.unregister_class(YOpenExistingDataAsMask)
-    bpy.utils.unregister_class(YOpenImageToReplaceMask)
-    bpy.utils.unregister_class(YMoveLayerMask)
-    bpy.utils.unregister_class(YRemoveLayerMask)
-    bpy.utils.unregister_class(YReplaceMaskType)
-    bpy.utils.unregister_class(YSetMaskInput)
-    bpy.utils.unregister_class(YFixEdgeDetectAO)
-    bpy.utils.unregister_class(YLayerMaskChannel)
-    bpy.utils.unregister_class(YLayerMask)
+    for cls in classes: bpy.utils.unregister_class(cls)

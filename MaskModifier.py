@@ -273,14 +273,15 @@ class YMaskModifier(bpy.types.PropertyGroup):
     # UI
     expand_content : BoolProperty(default=True)
 
+classes = (
+    YNewMaskModifier,
+    YMoveMaskModifier,
+    YRemoveMaskModifier,
+    YMaskModifier,
+)
+
 def register():
-    bpy.utils.register_class(YNewMaskModifier)
-    bpy.utils.register_class(YMoveMaskModifier)
-    bpy.utils.register_class(YRemoveMaskModifier)
-    bpy.utils.register_class(YMaskModifier)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YNewMaskModifier)
-    bpy.utils.unregister_class(YMoveMaskModifier)
-    bpy.utils.unregister_class(YRemoveMaskModifier)
-    bpy.utils.unregister_class(YMaskModifier)
+    for cls in classes: bpy.utils.unregister_class(cls)

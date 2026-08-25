@@ -333,10 +333,14 @@ def ypaint_decal_constraint_update_legacy(scene):
         if op.bl_idname.startswith('TRANSFORM_OT'):
             apply_decal_constraint_transforms(op)
 
+classes = (
+    YSelectDecalObject,
+    YSetDecalObjectPositionToCursor,
+    YPaintDecalObjectProps,
+)
+
 def register():
-    bpy.utils.register_class(YSelectDecalObject)
-    bpy.utils.register_class(YSetDecalObjectPositionToCursor)
-    bpy.utils.register_class(YPaintDecalObjectProps)
+    for cls in classes: bpy.utils.register_class(cls)
 
     # YPaint Props
     bpy.types.Object.yp_decal = PointerProperty(type=YPaintDecalObjectProps)
@@ -347,9 +351,7 @@ def register():
     else: bpy.app.handlers.scene_update_pre.append(ypaint_decal_constraint_update_legacy)
 
 def unregister():
-    bpy.utils.unregister_class(YSelectDecalObject)
-    bpy.utils.unregister_class(YSetDecalObjectPositionToCursor)
-    bpy.utils.unregister_class(YPaintDecalObjectProps)
+    for cls in classes: bpy.utils.unregister_class(cls)
 
     # Handlers
     if is_bl_newer_than(2, 80):

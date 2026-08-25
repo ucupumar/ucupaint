@@ -308,17 +308,17 @@ class YBakeInfoProps(bpy.types.PropertyGroup, BaseBakeInfoProps):
         description = 'Use custom Resolution to adjust the width and height individually'
     )
 
+classes = (
+    YBakeInfoOtherObject,
+    YBakeInfoSelectedVertex,
+    YBakeInfoSelectedObject,
+    YBakeInfoProps,
+)
+
 def register():
-    bpy.utils.register_class(YBakeInfoOtherObject)
-    bpy.utils.register_class(YBakeInfoSelectedVertex)
-    bpy.utils.register_class(YBakeInfoSelectedObject)
-    bpy.utils.register_class(YBakeInfoProps)
+    for cls in classes: bpy.utils.register_class(cls)
 
     bpy.types.Image.y_bake_info = PointerProperty(type=YBakeInfoProps)
 
 def unregister():
-    bpy.utils.unregister_class(YBakeInfoOtherObject)
-    bpy.utils.unregister_class(YBakeInfoSelectedVertex)
-    bpy.utils.unregister_class(YBakeInfoSelectedObject)
-    bpy.utils.unregister_class(YBakeInfoProps)
-
+    for cls in classes: bpy.utils.unregister_class(cls)

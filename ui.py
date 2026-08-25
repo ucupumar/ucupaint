@@ -9164,8 +9164,8 @@ class YPaintUI(bpy.types.PropertyGroup):
         default= ''
     )
 
-    expanded_about_ui_VIEW_3D : BoolProperty(default=True)
-    expanded_about_ui_NODE_EDITOR : BoolProperty(default=True)
+    expanded_about_ui_VIEW_3D : BoolProperty(default=False)
+    expanded_about_ui_NODE_EDITOR : BoolProperty(default=False)
     expanded_main_ui : BoolProperty(default=True)
     expanded_settings_ui : BoolProperty(default=False)
 
@@ -9325,34 +9325,109 @@ class YPendingUpdate(bpy.types.Operator):
 
         return {'FINISHED'}
 
+classes = []
+if not is_bl_newer_than(2, 80):
+    classes.extend([
+        YPaintAboutMenu,
+        YListItemOptionMenu,
+    ])
+else: 
+    classes.extend([
+        YPaintAboutPopover,
+        YListItemOptionPopover,
+
+        YPaintBakeTargetPopover,
+        YPaintBakeTargetAltPopover,
+        YPaintChannelPopover,
+        YPaintPreviewModeSettingsPopover,
+        YPaintPreviewModeChannelSettingsPopover,
+    ])
+classes.extend([
+    YPaintSpecialMenu,
+    YChannelSpecialTypeMenu,
+    YChannelActiveBakeTargetMenu,
+    YNewChannelMenu,
+    YNewLayerMenu,
+    YBakeTargetMenu,
+    YBakeListSpecialMenu,
+    YBakedImageMenu,
+    YLayerListSpecialMenu,
+    YLayerChannelBlendMenu,
+    YLayerChannelNormalBlendMenu,
+    YLayerChannelInputMenu,
+    YLayerChannelInput1Menu,
+    YLayerMaskInputMenu,
+    YImageConvertToMenu,
+    YOpenImagesToSingleLayerMenu,
+    YNewSolidColorLayerMenu,
+    YUVSpecialMenu,
+    YModifierMenu,
+    YModifier1Menu,
+    YMaskModifierMenu,
+    YTransitionBumpMenu,
+    YTransitionRampMenu,
+    YTransitionAOMenu,
+    YAddLayerMaskMenu,
+    YLayerMaskMenu,
+    YMaterialSpecialMenu,
+    YChannelSpecialMenu,
+    YLayerChannelSpecialMenu,
+    YReplaceChannelOverrideMenu,
+    YReplaceChannelOverride1Menu,
+    YPreviewModeChannelMenu,
+    YLayerSpecialMenu,
+    YLayerTypeMenu,
+    YMaskTypeMenu,
+    YModifierUI,
+    YBakeTargetUI,
+    YChannelUI,
+    YMaskChannelUI,
+    YMaskUI,
+    YLayerUI,
+    YMaterialUI,
+    NODE_UL_YPaint_bake_targets,
+    NODE_UL_YPaint_channels,
+    NODE_UL_YPaint_simple_channels,
+    NODE_UL_YPaint_layers,
+    NODE_UL_YPaint_list_items,
+    YPAssetBrowserMenu,
+    YPFileBrowserMenu,
+    NODE_MT_copy_image_path_menu,
+    YPendingUpdate,
+    YPaintUI,
+])
+
+panels = [
+    VIEW3D_PT_YPaint_about_ui,
+    VIEW3D_PT_YPaint_obj_mat_settings_ui,
+    VIEW3D_PT_YPaint_main_ui,
+    VIEW3D_PT_YPaint_channel_settings_ui,
+    VIEW3D_PT_YPaint_bake_target_settings_ui,
+    #VIEW3D_PT_YPaint_stats_ui,
+    VIEW3D_PT_YPaint_test_ui,
+]
+if not is_bl_newer_than(2, 80):
+    panels.extend([
+        NODE_PT_YPaint_legacy_about_ui,
+        NODE_PT_YPaint_legacy_main_ui,
+        NODE_PT_YPaint_legacy_channel_settings_ui,
+        NODE_PT_YPaint_legacy_bake_target_settings_ui,
+
+        VIEW3D_PT_YPaint_legacy_about_tools,
+        VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools,
+        VIEW3D_PT_YPaint_legacy_main_tools,
+        VIEW3D_PT_YPaint_legacy_channel_settings_tools,
+        VIEW3D_PT_YPaint_legacy_bake_target_settings_tools,
+    ])
+else: 
+    panels.extend([
+        NODE_PT_YPaint_about_ui,
+        NODE_PT_YPaint_main_ui,
+        NODE_PT_YPaint_channel_settings_ui,
+        NODE_PT_YPaint_bake_target_settings_ui,
+    ])
+
 def register_panels():
-    panels = [
-        VIEW3D_PT_YPaint_about_ui,
-        VIEW3D_PT_YPaint_obj_mat_settings_ui,
-        VIEW3D_PT_YPaint_main_ui,
-        VIEW3D_PT_YPaint_channel_settings_ui,
-        VIEW3D_PT_YPaint_bake_target_settings_ui,
-        #VIEW3D_PT_YPaint_stats_ui,
-        VIEW3D_PT_YPaint_test_ui,
-    ]
-
-    if not is_bl_newer_than(2, 80):
-        panels.append(NODE_PT_YPaint_legacy_about_ui)
-        panels.append(NODE_PT_YPaint_legacy_main_ui)
-        panels.append(NODE_PT_YPaint_legacy_channel_settings_ui)
-        panels.append(NODE_PT_YPaint_legacy_bake_target_settings_ui)
-
-        panels.append(VIEW3D_PT_YPaint_legacy_about_tools)
-        panels.append(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
-        panels.append(VIEW3D_PT_YPaint_legacy_main_tools)
-        panels.append(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
-        panels.append(VIEW3D_PT_YPaint_legacy_bake_target_settings_tools)
-    else: 
-        panels.append(NODE_PT_YPaint_about_ui)
-        panels.append(NODE_PT_YPaint_main_ui)
-        panels.append(NODE_PT_YPaint_channel_settings_ui)
-        panels.append(NODE_PT_YPaint_bake_target_settings_ui)
-
     # Set up icon value and register panels
     icon_value = lib.get_icon('ucupaint')
     for panel in panels:
@@ -9363,103 +9438,12 @@ def register_panels():
         bpy.utils.register_class(panel)
 
 def unregister_panels():
-    panels = [
-        VIEW3D_PT_YPaint_about_ui,
-        VIEW3D_PT_YPaint_obj_mat_settings_ui,
-        VIEW3D_PT_YPaint_main_ui,
-        VIEW3D_PT_YPaint_channel_settings_ui,
-        VIEW3D_PT_YPaint_bake_target_settings_ui,
-        #VIEW3D_PT_YPaint_stats_ui,
-        VIEW3D_PT_YPaint_test_ui,
-    ]
-
-    if not is_bl_newer_than(2, 80):
-        panels.append(NODE_PT_YPaint_legacy_about_ui)
-        panels.append(NODE_PT_YPaint_legacy_main_ui)
-        panels.append(NODE_PT_YPaint_legacy_channel_settings_ui)
-        panels.append(NODE_PT_YPaint_legacy_bake_target_settings_ui)
-
-        panels.append(VIEW3D_PT_YPaint_legacy_about_tools)
-        panels.append(VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools)
-        panels.append(VIEW3D_PT_YPaint_legacy_main_tools)
-        panels.append(VIEW3D_PT_YPaint_legacy_channel_settings_tools)
-        panels.append(VIEW3D_PT_YPaint_legacy_bake_target_settings_tools)
-    else: 
-        panels.append(NODE_PT_YPaint_about_ui)
-        panels.append(NODE_PT_YPaint_main_ui)
-        panels.append(NODE_PT_YPaint_channel_settings_ui)
-        panels.append(NODE_PT_YPaint_bake_target_settings_ui)
-
     for panel in panels:
         bpy.utils.unregister_class(panel)
 
 def register():
-
-    if not is_bl_newer_than(2, 80):
-        bpy.utils.register_class(YPaintAboutMenu)
-        bpy.utils.register_class(YListItemOptionMenu)
-    else: 
-        bpy.utils.register_class(YPaintAboutPopover)
-        bpy.utils.register_class(YListItemOptionPopover)
-
-        bpy.utils.register_class(YPaintBakeTargetPopover)
-        bpy.utils.register_class(YPaintBakeTargetAltPopover)
-        bpy.utils.register_class(YPaintChannelPopover)
-        bpy.utils.register_class(YPaintPreviewModeSettingsPopover)
-        bpy.utils.register_class(YPaintPreviewModeChannelSettingsPopover)
-
-    bpy.utils.register_class(YPaintSpecialMenu)
-    bpy.utils.register_class(YChannelSpecialTypeMenu)
-    bpy.utils.register_class(YChannelActiveBakeTargetMenu)
-    bpy.utils.register_class(YNewChannelMenu)
-    bpy.utils.register_class(YNewLayerMenu)
-    bpy.utils.register_class(YBakeTargetMenu)
-    bpy.utils.register_class(YBakeListSpecialMenu)
-    bpy.utils.register_class(YBakedImageMenu)
-    bpy.utils.register_class(YLayerListSpecialMenu)
-    bpy.utils.register_class(YLayerChannelBlendMenu)
-    bpy.utils.register_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.register_class(YLayerChannelInputMenu)
-    bpy.utils.register_class(YLayerChannelInput1Menu)
-    bpy.utils.register_class(YLayerMaskInputMenu)
-    bpy.utils.register_class(YImageConvertToMenu)
-    bpy.utils.register_class(YOpenImagesToSingleLayerMenu)
-    bpy.utils.register_class(YNewSolidColorLayerMenu)
-    bpy.utils.register_class(YUVSpecialMenu)
-    bpy.utils.register_class(YModifierMenu)
-    bpy.utils.register_class(YModifier1Menu)
-    bpy.utils.register_class(YMaskModifierMenu)
-    bpy.utils.register_class(YTransitionBumpMenu)
-    bpy.utils.register_class(YTransitionRampMenu)
-    bpy.utils.register_class(YTransitionAOMenu)
-    bpy.utils.register_class(YAddLayerMaskMenu)
-    bpy.utils.register_class(YLayerMaskMenu)
-    bpy.utils.register_class(YMaterialSpecialMenu)
-    bpy.utils.register_class(YChannelSpecialMenu)
-    bpy.utils.register_class(YLayerChannelSpecialMenu)
-    bpy.utils.register_class(YReplaceChannelOverrideMenu)
-    bpy.utils.register_class(YReplaceChannelOverride1Menu)
-    bpy.utils.register_class(YPreviewModeChannelMenu)
-    bpy.utils.register_class(YLayerSpecialMenu)
-    bpy.utils.register_class(YLayerTypeMenu)
-    bpy.utils.register_class(YMaskTypeMenu)
-    bpy.utils.register_class(YModifierUI)
-    bpy.utils.register_class(YBakeTargetUI)
-    bpy.utils.register_class(YChannelUI)
-    bpy.utils.register_class(YMaskChannelUI)
-    bpy.utils.register_class(YMaskUI)
-    bpy.utils.register_class(YLayerUI)
-    bpy.utils.register_class(YMaterialUI)
-    bpy.utils.register_class(NODE_UL_YPaint_bake_targets)
-    bpy.utils.register_class(NODE_UL_YPaint_channels)
-    bpy.utils.register_class(NODE_UL_YPaint_simple_channels)
-    bpy.utils.register_class(NODE_UL_YPaint_layers)
-    bpy.utils.register_class(NODE_UL_YPaint_list_items)
-    bpy.utils.register_class(YPAssetBrowserMenu)
-    bpy.utils.register_class(YPFileBrowserMenu)
-    bpy.utils.register_class(NODE_MT_copy_image_path_menu)
-    bpy.utils.register_class(YPendingUpdate)
-    bpy.utils.register_class(YPaintUI)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
     register_panels()
 
@@ -9487,72 +9471,8 @@ def register():
         bpy.app.handlers.load_post.append(yp_load_ui_msgbus_subscription)
 
 def unregister():
-
-    if not is_bl_newer_than(2, 80):
-        bpy.utils.unregister_class(YPaintAboutMenu)
-        bpy.utils.unregister_class(YListItemOptionMenu)
-    else: 
-        bpy.utils.unregister_class(YPaintAboutPopover)
-        bpy.utils.unregister_class(YListItemOptionPopover)
-
-        bpy.utils.unregister_class(YPaintBakeTargetPopover)
-        bpy.utils.unregister_class(YPaintBakeTargetAltPopover)
-        bpy.utils.unregister_class(YPaintChannelPopover)
-        bpy.utils.unregister_class(YPaintPreviewModeSettingsPopover)
-        bpy.utils.unregister_class(YPaintPreviewModeChannelSettingsPopover)
-
-    bpy.utils.unregister_class(YPaintSpecialMenu)
-    bpy.utils.unregister_class(YChannelSpecialTypeMenu)
-    bpy.utils.unregister_class(YChannelActiveBakeTargetMenu)
-    bpy.utils.unregister_class(YNewChannelMenu)
-    bpy.utils.unregister_class(YNewLayerMenu)
-    bpy.utils.unregister_class(YBakeTargetMenu)
-    bpy.utils.unregister_class(YBakeListSpecialMenu)
-    bpy.utils.unregister_class(YBakedImageMenu)
-    bpy.utils.unregister_class(YLayerListSpecialMenu)
-    bpy.utils.unregister_class(YLayerChannelBlendMenu)
-    bpy.utils.unregister_class(YLayerChannelNormalBlendMenu)
-    bpy.utils.unregister_class(YLayerChannelInputMenu)
-    bpy.utils.unregister_class(YLayerChannelInput1Menu)
-    bpy.utils.unregister_class(YLayerMaskInputMenu)
-    bpy.utils.unregister_class(YImageConvertToMenu)
-    bpy.utils.unregister_class(YOpenImagesToSingleLayerMenu)
-    bpy.utils.unregister_class(YNewSolidColorLayerMenu)
-    bpy.utils.unregister_class(YUVSpecialMenu)
-    bpy.utils.unregister_class(YModifierMenu)
-    bpy.utils.unregister_class(YModifier1Menu)
-    bpy.utils.unregister_class(YMaskModifierMenu)
-    bpy.utils.unregister_class(YTransitionBumpMenu)
-    bpy.utils.unregister_class(YTransitionRampMenu)
-    bpy.utils.unregister_class(YTransitionAOMenu)
-    bpy.utils.unregister_class(YAddLayerMaskMenu)
-    bpy.utils.unregister_class(YLayerMaskMenu)
-    bpy.utils.unregister_class(YMaterialSpecialMenu)
-    bpy.utils.unregister_class(YChannelSpecialMenu)
-    bpy.utils.unregister_class(YLayerChannelSpecialMenu)
-    bpy.utils.unregister_class(YReplaceChannelOverrideMenu)
-    bpy.utils.unregister_class(YReplaceChannelOverride1Menu)
-    bpy.utils.unregister_class(YPreviewModeChannelMenu)
-    bpy.utils.unregister_class(YLayerSpecialMenu)
-    bpy.utils.unregister_class(YLayerTypeMenu)
-    bpy.utils.unregister_class(YMaskTypeMenu)
-    bpy.utils.unregister_class(YModifierUI)
-    bpy.utils.unregister_class(YBakeTargetUI)
-    bpy.utils.unregister_class(YChannelUI)
-    bpy.utils.unregister_class(YMaskChannelUI)
-    bpy.utils.unregister_class(YMaskUI)
-    bpy.utils.unregister_class(YLayerUI)
-    bpy.utils.unregister_class(YMaterialUI)
-    bpy.utils.unregister_class(NODE_UL_YPaint_bake_targets)
-    bpy.utils.unregister_class(NODE_UL_YPaint_channels)
-    bpy.utils.unregister_class(NODE_UL_YPaint_simple_channels)
-    bpy.utils.unregister_class(NODE_UL_YPaint_layers)
-    bpy.utils.unregister_class(NODE_UL_YPaint_list_items)
-    bpy.utils.unregister_class(YPAssetBrowserMenu)
-    bpy.utils.unregister_class(YPFileBrowserMenu)
-    bpy.utils.unregister_class(NODE_MT_copy_image_path_menu)
-    bpy.utils.unregister_class(YPendingUpdate)
-    bpy.utils.unregister_class(YPaintUI)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
 
     unregister_panels()
 

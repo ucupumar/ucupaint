@@ -4074,26 +4074,21 @@ def update_subdiv_max_polys(self, context):
 def update_subdiv_global_dicing(self, context):
     displacement_common.set_subdiv_global_dicing(self)
 
+classes = (
+    YTransferSomeLayerUV,
+    YTransferLayerUV,
+    YResizeImage,
+    #YBakeChannels, # Deprecated
+    YBakeChannelToVcol,
+    YMergeLayer,
+    YMergeMask,
+    YDeleteBakedChannelImages,
+    YBakeAllTargets,
+    YBakeSingleTarget,
+)
+
 def register():
-    bpy.utils.register_class(YTransferSomeLayerUV)
-    bpy.utils.register_class(YTransferLayerUV)
-    bpy.utils.register_class(YResizeImage)
-    #bpy.utils.register_class(YBakeChannels) # Deprecated
-    bpy.utils.register_class(YBakeChannelToVcol)
-    bpy.utils.register_class(YMergeLayer)
-    bpy.utils.register_class(YMergeMask)
-    bpy.utils.register_class(YDeleteBakedChannelImages)
-    bpy.utils.register_class(YBakeAllTargets)
-    bpy.utils.register_class(YBakeSingleTarget)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YTransferSomeLayerUV)
-    bpy.utils.unregister_class(YTransferLayerUV)
-    bpy.utils.unregister_class(YResizeImage)
-    #bpy.utils.unregister_class(YBakeChannels) # Deprecated
-    bpy.utils.unregister_class(YBakeChannelToVcol)
-    bpy.utils.unregister_class(YMergeLayer)
-    bpy.utils.unregister_class(YMergeMask)
-    bpy.utils.unregister_class(YDeleteBakedChannelImages)
-    bpy.utils.unregister_class(YBakeAllTargets)
-    bpy.utils.unregister_class(YBakeSingleTarget)
+    for cls in classes: bpy.utils.unregister_class(cls)

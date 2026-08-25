@@ -1164,28 +1164,22 @@ class YConvertImageBitDepth(bpy.types.Operator):
 
         return {'FINISHED'}
 
+classes = (
+    YCopyImagePathToClipboard,
+    YOpenContainingImageFolder,
+    YInvertImage,
+    YRefreshImage,
+    YPackImage,
+    YSaveImage,
+    YExportLayers,
+    YSaveAsImage,
+    YSavePackAll,
+    YSaveAllBakedImages,
+    YConvertImageBitDepth,
+)
+
 def register():
-    bpy.utils.register_class(YCopyImagePathToClipboard)
-    bpy.utils.register_class(YOpenContainingImageFolder)
-    bpy.utils.register_class(YInvertImage)
-    bpy.utils.register_class(YRefreshImage)
-    bpy.utils.register_class(YPackImage)
-    bpy.utils.register_class(YSaveImage)
-    bpy.utils.register_class(YExportLayers)
-    bpy.utils.register_class(YSaveAsImage)
-    bpy.utils.register_class(YSavePackAll)
-    bpy.utils.register_class(YSaveAllBakedImages)
-    bpy.utils.register_class(YConvertImageBitDepth)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YCopyImagePathToClipboard)
-    bpy.utils.unregister_class(YOpenContainingImageFolder)
-    bpy.utils.unregister_class(YInvertImage)
-    bpy.utils.unregister_class(YRefreshImage)
-    bpy.utils.unregister_class(YPackImage)
-    bpy.utils.unregister_class(YSaveImage)
-    bpy.utils.unregister_class(YExportLayers)
-    bpy.utils.unregister_class(YSaveAsImage)
-    bpy.utils.unregister_class(YSavePackAll)
-    bpy.utils.unregister_class(YSaveAllBakedImages)
-    bpy.utils.unregister_class(YConvertImageBitDepth)
+    for cls in classes: bpy.utils.unregister_class(cls)

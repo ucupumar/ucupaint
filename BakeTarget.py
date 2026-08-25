@@ -1284,28 +1284,22 @@ class YPasteBakeTarget(bpy.types.Operator):
 
         return {'FINISHED'}
 
+classes = (
+    YNewBakeTarget,
+    YNewChannelBakeTarget,
+    YRemoveBakeTarget,
+    YBakeTargetChannel,
+    YBakeTarget,
+    YBakeTargetGlobalSettings,
+    YCopyBakeTarget,
+    YPasteBakeTarget,
+    YMoveBakeTarget,
+    YSetChannelActiveBakeTarget,
+    YToggleChannelUseBaked,
+)
+
 def register():
-    bpy.utils.register_class(YNewBakeTarget)
-    bpy.utils.register_class(YNewChannelBakeTarget)
-    bpy.utils.register_class(YRemoveBakeTarget)
-    bpy.utils.register_class(YBakeTargetChannel)
-    bpy.utils.register_class(YBakeTarget)
-    bpy.utils.register_class(YBakeTargetGlobalSettings)
-    bpy.utils.register_class(YCopyBakeTarget)
-    bpy.utils.register_class(YPasteBakeTarget)
-    bpy.utils.register_class(YMoveBakeTarget)
-    bpy.utils.register_class(YSetChannelActiveBakeTarget)
-    bpy.utils.register_class(YToggleChannelUseBaked)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YNewBakeTarget)
-    bpy.utils.unregister_class(YNewChannelBakeTarget)
-    bpy.utils.unregister_class(YRemoveBakeTarget)
-    bpy.utils.unregister_class(YBakeTargetChannel)
-    bpy.utils.unregister_class(YBakeTarget)
-    bpy.utils.unregister_class(YBakeTargetGlobalSettings)
-    bpy.utils.unregister_class(YCopyBakeTarget)
-    bpy.utils.unregister_class(YPasteBakeTarget)
-    bpy.utils.unregister_class(YMoveBakeTarget)
-    bpy.utils.unregister_class(YSetChannelActiveBakeTarget)
-    bpy.utils.unregister_class(YToggleChannelUseBaked)
+    for cls in classes: bpy.utils.unregister_class(cls)

@@ -396,10 +396,13 @@ def set_active_entity_item(entity):
     if not ori_halt_update:
         yp.halt_update = False
 
+classes = (
+    YListItem,
+    YRefreshListItems,
+)
+
 def register():
-    bpy.utils.register_class(YListItem)
-    bpy.utils.register_class(YRefreshListItems)
+    for cls in classes: bpy.utils.register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(YListItem)
-    bpy.utils.unregister_class(YRefreshListItems)
+    for cls in classes: bpy.utils.unregister_class(cls)
