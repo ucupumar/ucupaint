@@ -763,14 +763,20 @@ def draw_inbetween_modifier_mask_props(layer, source, layout):
     elif layer.modifier_type == 'RAMP':
         col.template_color_ramp(source, "color_ramp", expand=True)
 
-def draw_input_prop(layout, entity, prop_name, emboss=None, text='', layer=None):
+def draw_input_prop(layout, entity, prop_name, emboss=None, text='', layer=None, index=None):
     inp = get_entity_prop_input(entity, prop_name, layer=layer)
-    if emboss != None:
-        if inp: layout.prop(inp, 'default_value', text=text, emboss=emboss)
-        else: layout.prop(entity, prop_name, text=text, emboss=emboss)
-    else:
-        if inp: layout.prop(inp, 'default_value', text=text)
-        else: layout.prop(entity, prop_name, text=text) 
+    target = inp if inp else entity
+    attr_name = 'default_value' if inp else prop_name
+
+    kwargs = {}
+    if text != '':
+        kwargs['text'] = text
+    if emboss is not None:
+        kwargs['emboss'] = emboss
+    if index is not None:
+        kwargs['index'] = index
+
+    layout.prop(target, attr_name, **kwargs)
 
 def draw_mask_modifier_stack(layer, mask, layout, ui, layer_tree):
     ypui = bpy.context.window_manager.ypui
@@ -1826,7 +1832,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     splits.label(text='Mode:')
                     splits.prop(layer, 'decal_projection_type', text='')
 
-                if hasattr(layer, 'decal_scale_x') and hasattr(layer, 'decal_scale_y') and layer.decal_projection_type != "FLAT":
+                if hasattr(layer, 'decal_scale') and layer.decal_projection_type != "FLAT":
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
 
@@ -1834,8 +1840,8 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     mrow = mcol.row()
                     mrow.label(text='Scale:')
 
-                    draw_input_prop(mcol, layer, 'decal_scale_x', None, 'X', layer=layer)
-                    draw_input_prop(mcol, layer, 'decal_scale_y', None, 'Y', layer=layer)
+                    draw_input_prop(mcol, layer, 'decal_scale', None, 'X', layer=layer, index=0)
+                    draw_input_prop(mcol, layer, 'decal_scale', None, 'Y', layer=layer, index=1)
 
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
@@ -3224,7 +3230,7 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             splits.label(text='Mode:')
                             splits.prop(mask, 'decal_projection_type', text='')
         
-                        if hasattr(mask, 'decal_scale_x') and hasattr(mask, 'decal_scale_y') and layer.decal_projection_type != "FLAT":
+                        if hasattr(mask, 'decal_scale') and layer.decal_projection_type != "FLAT":
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
 
@@ -3232,8 +3238,8 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                             mrow = mcol.row()
                             mrow.label(text='Scale:')
 
-                            draw_input_prop(mcol, mask, 'decal_scale_x', None, 'X', layer=layer)
-                            draw_input_prop(mcol, mask, 'decal_scale_y', None, 'Y', layer=layer)
+                            draw_input_prop(mcol, mask, 'decal_scale', None, 'X', layer=layer, index=0)
+                            draw_input_prop(mcol, mask, 'decal_scale', None, 'Y', layer=layer, index=1)
 
 
                     splits = split_layout(boxcol, 0.5, align=True)

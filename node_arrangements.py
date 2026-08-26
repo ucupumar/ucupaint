@@ -1244,7 +1244,7 @@ def rearrange_layer_nodes(layer, tree=None):
 
         if check_set_node_loc(tree, mask.decal_process, loc):
             loc.y -= 280
-
+    
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130
 
