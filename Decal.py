@@ -1,5 +1,3 @@
-from email.mime import image
-
 import bpy, re
 from . import lib
 from bpy.props import *
