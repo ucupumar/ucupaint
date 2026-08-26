@@ -1825,23 +1825,23 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                     splits.label(text='Decal Object:')
                     splits.prop(texcoord, 'object', text='')
 
-                if hasattr(layer, 'decal_projection_type'):
+                
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
                     splits = split_layout(rrow, 0.45, align=True)
                     splits.label(text='Mode:')
                     splits.prop(layer, 'decal_projection_type', text='')
 
-                if hasattr(layer, 'decal_scale') and layer.decal_projection_type != "FLAT":
-                    rrow = boxcol.row(align=True)
-                    rrow.label(text='', icon='BLANK1')
+                    if layer.decal_projection_type != "FLAT":
+                        rrow = boxcol.row(align=True)
+                        rrow.label(text='', icon='BLANK1')
 
-                    mcol = rrow.column(align=True)
-                    mrow = mcol.row()
-                    mrow.label(text='Scale:')
+                        mcol = rrow.column(align=True)
+                        mrow = mcol.row()
+                        mrow.label(text='Scale:')
 
-                    draw_input_prop(mcol, layer, 'decal_scale', None, 'X', layer=layer, index=0)
-                    draw_input_prop(mcol, layer, 'decal_scale', None, 'Y', layer=layer, index=1)
+                        draw_input_prop(mcol, layer, 'decal_scale', None, 'X', layer=layer, index=0)
+                        draw_input_prop(mcol, layer, 'decal_scale', None, 'Y', layer=layer, index=1)
 
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
@@ -3223,14 +3223,13 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                         splits.label(text='Decal Object:')
                         splits.prop(texcoord, 'object', text='')
 
-                        if hasattr(mask, 'decal_projection_type'):
-                            rrow = boxcol.row(align=True)
-                            rrow.label(text='', icon='BLANK1')
-                            splits = split_layout(rrow, 0.45, align=True) 
-                            splits.label(text='Mode:')
-                            splits.prop(mask, 'decal_projection_type', text='')
+                        rrow = boxcol.row(align=True)
+                        rrow.label(text='', icon='BLANK1')
+                        splits = split_layout(rrow, 0.45, align=True) 
+                        splits.label(text='Mode:')
+                        splits.prop(mask, 'decal_projection_type', text='')
         
-                        if hasattr(mask, 'decal_scale') and layer.decal_projection_type != "FLAT":
+                        if layer.decal_projection_type != "FLAT":
                             rrow = boxcol.row(align=True)
                             rrow.label(text='', icon='BLANK1')
 

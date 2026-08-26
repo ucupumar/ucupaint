@@ -993,7 +993,10 @@ def rearrange_layer_nodes(layer, tree=None):
     #    loc.y -= 240
 
     if check_set_node_loc(tree, layer.decal_process, loc):
-        loc.y -= 250
+        if layer.decal_projection_type != 'FLAT':
+            loc.y -= 170
+        else:
+            loc.y -= 240
 
     if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240

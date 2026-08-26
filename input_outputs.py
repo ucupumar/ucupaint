@@ -746,8 +746,9 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if layer.texcoord_type == 'Decal':
             dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
-            dirty = create_prop_input(layer, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)
-            input_index += 1
+            if layer.decal_projection_type != 'FLAT':  
+                dirty = create_prop_input(layer, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)
+                input_index += 1
 
         if is_bl_newer_than(2, 81) and layer.enable_uniform_scale and is_layer_using_vector(layer) and layer.segment_name == '':
             dirty = create_prop_input(layer, 'uniform_scale_value', valid_inputs, input_index, dirty, float_factor_input_names)
@@ -897,8 +898,9 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             if mask.texcoord_type == 'Decal':
                 dirty = create_prop_input(mask, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
-                dirty = create_prop_input(mask, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)
-                input_index += 1
+                if mask.decal_projection_type != 'FLAT':  
+                    dirty = create_prop_input(mask, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
 
             # Color ID
             if mask.type == 'COLOR_ID':
@@ -1168,13 +1170,13 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                     entity_path = m.group(1)
                     prop_name = m.group(2)
 
-                    if socket_type in {'NodeSocketColor', 'RGBA'}:
+                    if socket_type in {'NodeSocketColor', 'RGBA', 'NodeSocketVector'}:
                         # Do not remove input if it has color brighter than 1.0
                         if val[0] > 1.0 or val[1] > 1.0 or val[2] > 1.0:
                             do_remove = False
 
                         try: setattr(root_tree.path_resolve(entity_path), prop_name, (val[0], val[1], val[2]))
-                        except Exception as e: print(e)
+                        except Exception as e: print(e)      
                     else:
                         # Do not remove input if it has value outside of min max
                         if val < inp.min_value or val > inp.max_value:
