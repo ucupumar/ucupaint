@@ -1,3 +1,5 @@
+from email.mime import image
+
 import bpy, re
 from . import lib
 from bpy.props import *
@@ -50,6 +52,8 @@ decal_projection_items = (
     ('SPHERE', "Sphere", "Spherical projection"),
 )
 
+
+
 def set_gizmo_style(entity, mode):
     decal_obj = get_decal_object(entity)
     if not decal_obj:
@@ -70,6 +74,42 @@ def set_gizmo_style(entity, mode):
             decal_obj.empty_draw_type = 'SINGLE_ARROW'        
 
 
+def set_scale_socket_value(entity, decal_node, Vec_scale):
+    socket = decal_node.inputs.get("Scale")
+    if not socket:
+        return
+
+    parent_tree = decal_node.id_data
+
+    if socket.is_linked:
+        link = socket.links[0]
+        parent_tree.links.remove(link)
+    socket.default_value = Vec_scale
+
+def reset_scale_socket_value(entity, decal_node):
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    
+    if m1: 
+        tree = get_tree(entity)
+        socket_name = ".decal_scale"
+    elif m2: 
+        tree = get_mask_tree(entity)
+        mask_idx = m2.group(2)
+        socket_name = f".masks[{mask_idx}].decal_scale"
+    if not tree:
+        return
+     
+    scale_socket = decal_node.inputs.get("Scale")
+    if not scale_socket:
+        return
+    
+    source_socket = tree.nodes.get("Group Input").outputs.get(socket_name)
+    if source_socket:
+        if not scale_socket.is_linked:
+            tree.links.new(source_socket, scale_socket)
+
+
 def update_decal_projection(self, context):
     entity = self
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -88,15 +128,27 @@ def update_decal_projection(self, context):
     decal_node = tree.nodes.get(getattr(entity, 'decal_process', ''))
     if not decal_node or not decal_node.node_tree:
         return
+
+    image = None
+    if entity.type == 'IMAGE' and source:
+        image = source.image
+
+    if image and image.size[0] > 0 and image.size[1] > 0:
+        if image.size[0] > image.size[1]:
+            Vec_scale = (image.size[1] / image.size[0], 1.0, 1.0)
+        else: Vec_scale = (1.0, image.size[0] / image.size[1], 1.0)
     
     mode = getattr(entity, 'decal_projection_type', 'FLAT')
     set_gizmo_style(entity, mode)
     if mode == 'SPHERE':
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_SPHERE)
+        reset_scale_socket_value(entity, decal_node)
     elif mode == 'CYLINDER':
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS_CYLINDER)
+        reset_scale_socket_value(entity, decal_node)
     else:
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
+        set_scale_socket_value(entity,decal_node, Vec_scale)
 
         
 
@@ -184,6 +236,12 @@ def check_entity_decal_nodes(entity, tree=None):
 
         decal_process = tree.nodes.get(entity.decal_process)
         if not decal_process:
+
+            # Set image extension only after decal process node is initialized
+            if image and source:
+                entity.original_image_extension = source.extension
+                source.extension = 'CLIP'
+
             decal_process = new_node(tree, entity, 'decal_process', 'ShaderNodeGroup', 'Decal Process')
             mode = getattr(entity, 'decal_projection_type', 'FLAT')
             
@@ -194,10 +252,15 @@ def check_entity_decal_nodes(entity, tree=None):
             else:
                 decal_process.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
 
-            # Set image extension only after decal process node is initialized
-            if image and source:
-                entity.original_image_extension = source.extension
-                source.extension = 'CLIP'
+        if image and image.size[0] > 0 and image.size[1] > 0:
+            if image.size[0] > image.size[1]:
+                Vec_scale = (image.size[1] / image.size[0], 1.0, 1.0)
+            else: Vec_scale = (1.0, image.size[0] / image.size[1], 1.0)  
+
+        if getattr(entity, 'decal_projection_type', 'FLAT') == 'FLAT':        
+            set_scale_socket_value(entity, decal_process, Vec_scale)
+        else: 
+            reset_scale_socket_value(entity, decal_process)
 
         # Create decal alpha nodes
         if mask:
