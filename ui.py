@@ -2322,6 +2322,9 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     elif layer.type == 'PREV_LAYERS':
         icon_value = lib.get_icon('COLLAPSEMENU')
         label += layer.name
+    elif layer.type == 'BUNDLE':
+        icon_value = lib.get_icon('NODE_SOCKET_BUNDLE')
+        label += layer.name
     else:
         icon_value = lib.get_icon('texture')
         label += layer.name
@@ -2408,6 +2411,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         elif layer.type == 'PREV_LAYERS':
             menu_label = 'Adjustment (Previous Layers)'
             icon_value = lib.get_icon('COLLAPSEMENU')
+        elif layer.type == 'BUNDLE':
+            icon_value = lib.get_icon('NODE_SOCKET_BUNDLE')
         else: icon_value = lib.get_icon('texture')
 
     #if layer.type == 'COLOR' and not lui.expand_source:
@@ -5850,6 +5855,7 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon(icon_name))
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
         elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
+        elif layer.type == 'BUNDLE': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('NODE_SOCKET_BUNDLE'))
         else: 
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
     else:
@@ -5879,6 +5885,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('group'))
+            elif layer.type == 'BUNDLE': 
+                row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('NODE_SOCKET_BUNDLE'))
             else: 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('texture'))
         else:
@@ -5902,6 +5910,8 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
                 row.label(text='', icon_value=lib.get_icon('group'))
+            elif layer.type == 'BUNDLE': 
+                row.label(text='', icon_value=lib.get_icon('NODE_SOCKET_BUNDLE'))
             else: 
                 row.label(text='', icon_value=lib.get_icon('texture'))
 
@@ -6984,6 +6994,11 @@ class YNewLayerMenu(bpy.types.Menu):
         if is_bl_newer_than(3, 2):
             col.separator()
             col.operator("wm.y_new_vdm_layer", text='Vector Displacement Image', icon='SCULPTMODE_HLT')
+        
+        if is_bl_newer_than(5):
+            col.separator()
+            c = col.operator("wm.y_new_layer", text='Bundle Input', icon='NODE_SOCKET_BUNDLE')
+            c.type = 'BUNDLE'
 
         col = row.column()
         col.label(text='New Generated Layer:')

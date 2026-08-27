@@ -1736,6 +1736,11 @@ def update_yp_tree(tree):
         # Update list item since there's a new base layer
         ListItem.refresh_list_items(yp)
 
+    # Version 3.1 has layer original names
+    if version_tuple(yp.version) < (3, 1, 0):
+        for layer in yp.layers:
+            layer.original_name = layer.name
+
     # SECTION II: Updates based on the blender version
 
     # Blender 2.92 can finally access it's vertex color alpha

@@ -159,8 +159,13 @@ def add_new_layer(
     # Add layer to group
     layer = yp.layers.add()
     layer.type = layer_type
-    layer.name = get_unique_name(layer_name, yp.layers)
     layer.enable = enable
+
+    # Set layer name
+    if layer_type == 'BUNDLE':
+        layer_name = get_unique_name(layer_name, get_tree_inputs(yp.id_data))
+    layer.name = get_unique_name(layer_name, yp.layers)
+    layer.original_name = layer.name
 
     # Set default uv name if it's an empty string
     if uv_name == '':
@@ -430,6 +435,9 @@ def add_new_layer(
     # Check layer IO
     input_outputs.check_all_layer_channel_io_and_nodes(layer, tree)
     input_outputs.check_start_end_root_ch_nodes(group_tree)
+
+    if layer.type == 'BUNDLE':
+        input_outputs.check_all_channel_ios(yp, reconnect=False, specific_layer=layer)
 
     # Rearrange node inside layers
     reconnect_layer_nodes(layer)

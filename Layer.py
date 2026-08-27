@@ -6327,6 +6327,12 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
         update = update_layer_name
     )
 
+    original_name : StringProperty(
+        name = 'Original Layer Name',
+        description = 'Original layer name',
+        default = '',
+    )
+
     enable : BoolProperty(
         name = 'Enable Layer',
         description = 'Enable layer',

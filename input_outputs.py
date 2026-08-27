@@ -337,6 +337,12 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                     create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
                     output_index += 1
 
+    # Check layer inputs
+    for i, layer in enumerate(yp.layers):
+        if layer.type == 'BUNDLE':
+            #name = 'Layer '+str(i)+' Input'
+            create_input(group_tree, layer.name, 'NodeSocketBundle', valid_inputs, input_index)
+
     # Check start and end nodes
     check_start_end_root_ch_nodes(group_tree)
 
@@ -862,6 +868,14 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 name = root_ch.name + io_suffix['SCALE'] + io_suffix['GROUP']
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
                 input_index += 1
+
+    if layer.type == 'BUNDLE':
+        name = BUNDLE_SOCKET_NAME
+        dirty = create_input(
+            tree, name, 'NodeSocketBundle',
+            valid_inputs, input_index, dirty
+        )
+        input_index += 1
 
     # Create UV inputs
     for uv in yp.uvs:

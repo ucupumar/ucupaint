@@ -249,6 +249,8 @@ TANGENT_SIGN_PREFIX = '__tsign_'
 
 neighbor_directions = ['n', 's', 'e', 'w']
 
+BUNDLE_SOCKET_NAME = 'Bundle Input'
+
 def get_vertex_color_label(capital=11):
     if not is_bl_newer_than(3, 2):
 
@@ -318,6 +320,7 @@ layer_type_items = (
     ('EDGE_DETECT', 'Edge Detect', ''),
     ('AO', 'Ambient Occlusion', ''),
     ('PREV_LAYERS', 'Previous Layers', ''),
+    ('BUNDLE', 'Bundle Input', ''),
 )
 
 mask_type_items = (
@@ -387,6 +390,7 @@ layer_type_labels = {
     'EDGE_DETECT' : 'Edge Detect',
     'AO' : 'Ambient Occlusion',
     'PREV_LAYERS' : 'Previous Layers',
+    'BUNDLE' : 'Bundle Input',
 }
 
 mask_type_labels = {
@@ -620,6 +624,7 @@ layer_node_bl_idnames = {
     'MODIFIER' : 'ShaderNodeGroup',
     'AO' : 'ShaderNodeAmbientOcclusion',
     'PREV_LAYERS' : 'NodeGroupInput',
+    'BUNDLE' : 'NodeSeparateBundle',
 }
 
 io_suffix = {
@@ -2658,6 +2663,7 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
 
 def change_layer_name(yp, obj, src, layer, texes):
     if yp.halt_update: return
+    if hasattr(layer, 'original_name') and layer.name == layer.original_name: return
 
     yp.halt_update = True
 
@@ -2670,6 +2676,18 @@ def change_layer_name(yp, obj, src, layer, texes):
         src.image.name = '___TEMP___'
         layer.name = get_unique_name(layer.name, bpy.data.images) 
         src.image.name = layer.name
+
+    elif layer.type == 'BUNDLE':
+        tree = layer.id_data
+        name = layer.name
+        layer.name = '___TEMP___'
+        layer.name = get_unique_name(name, texes) 
+        inputs = get_tree_inputs(tree)
+        inp_names = [inp.name for inp in inputs]
+        layer.name = get_unique_name(layer.name, inp_names) 
+        inps = [inp for inp in inputs if inp.name == layer.original_name]
+        if inps: 
+            inps[0].name = layer.name
 
     else:
         name = layer.name
@@ -2702,6 +2720,9 @@ def change_layer_name(yp, obj, src, layer, texes):
                     change_vcol_name(yp, obj, msrc, new_mask_name, mask)
                 else:
                     mask.name = new_mask_name
+
+    if hasattr(layer, 'original_name'):
+        layer.original_name = layer.name
 
     yp.halt_update = False
 
