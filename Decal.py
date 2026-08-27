@@ -1,12 +1,12 @@
 import bpy, re
 
-from .node_arrangements import rearrange_layer_nodes
-
 from . import input_outputs
 from . import lib
 from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
+from .node_arrangements import *
+from .node_connections import *
 
 def get_decal_object(entity):
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -74,14 +74,17 @@ def set_gizmo_style(entity, mode):
             decal_obj.empty_draw_type = 'SINGLE_ARROW'        
 
 def update_decal_projection(self, context):
+    yp = self.id_data.yp
     entity = self
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     if m1: 
+        layer = entity
         tree = get_tree(entity)
         source = get_layer_source(entity)
     elif m2: 
+        layer = yp.layers[int(m2.group(1))]
         tree = get_mask_tree(entity)
         source = get_mask_source(entity)
     
@@ -101,10 +104,6 @@ def update_decal_projection(self, context):
             Vec_scale = (image.size[1] / image.size[0], 1.0, 1.0)
         else: Vec_scale = (1.0, image.size[0] / image.size[1], 1.0)
 
-    input_outputs.check_layer_tree_ios(entity)    
-    input_outputs.reconnect_layer_nodes(entity)
-    rearrange_layer_nodes(entity)
-
     mode = getattr(entity, 'decal_projection_type', 'FLAT')
     set_gizmo_style(entity, mode)
     if mode == 'SPHERE':
@@ -115,12 +114,22 @@ def update_decal_projection(self, context):
         decal_node.node_tree = get_node_tree_lib(lib.DECAL_PROCESS)
         decal_node.inputs.get("Scale").default_value = Vec_scale
 
+    input_outputs.check_layer_tree_ios(layer)    
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
+    # Update decal constraint
+    texcoord = tree.nodes.get(entity.texcoord)
+    if texcoord and texcoord.object:
+        texcoord.object.yp_decal.decal_projection_type = self.decal_projection_type
+        update_enable_decal_object_constraint(texcoord.object.yp_decal, context)
+
 def update_enable_decal_object_constraint(self, context):
     obj = context.object
     decal_obj = self.id_data
     decal_const = get_decal_shrinkwrap_constraint(decal_obj)
 
-    if self.enable_shrinkwrap:
+    if self.enable_shrinkwrap and self.decal_projection_type == 'FLAT':
         if not decal_const and obj:
             c = decal_obj.constraints.new('SHRINKWRAP')
             c.target = obj
@@ -402,6 +411,13 @@ class YPaintDecalObjectProps(bpy.types.PropertyGroup):
         description = 'Enable shrinkwrap constraint, so decal object always follow the target object',
         default = False,
         update = update_enable_decal_object_constraint
+    )
+
+    decal_projection_type : EnumProperty(
+        name='Projection',
+        description='Decal projection mapping mode',
+        items=decal_projection_items,
+        default='FLAT'
     )
 
     last_operator : StringProperty(default='')
