@@ -95,6 +95,36 @@ def check_layer_projections(layer):
     # Check projection blends
     check_layer_projection_blends(layer)
 
+def get_socket_type_from_socket(soc):
+    return soc.type if soc.type != 'VALUE' else 'FLOAT'
+
+def create_new_combine_bundle_node(mat, yp_node, layer, source=None):
+    comb = mat.node_tree.nodes.new('NodeCombineBundle')
+    comb.label = layer.name
+    comb.location.x = yp_node.location.x #- 180
+    comb.location.y = yp_node.location.y - yp_node.dimensions.y - 40
+    mat.node_tree.links.new(comb.outputs[0], yp_node.inputs[layer.name])
+
+    # Copy items from source
+    if source and source.type == 'NodeSeparateBundle':
+        for outp in source.outputs:
+            if outp.name == '': continue
+            socket_type = get_socket_type_from_socket(outp)
+            soc = comb.bundle_items.new(socket_type=socket_type, name=outp.name)
+
+def check_and_connect_combine_bundle_node(mat, yp_node, layer):
+    inp = yp_node.inputs.get(layer.name)
+    if inp and len(inp.links) == 0:
+        comb = None
+        combs = [n for n in mat.node_tree.nodes if n.label == layer.name]
+        for c in combs:
+            if c and c.type == 'NodeCombineBundle' and len(c.outputs[0].links) == 0:
+                comb = c
+        if comb == None: 
+            source = get_layer_source(layer)
+            comb = create_new_combine_bundle_node(mat, yp_node, layer, source=source)
+        if comb: mat.node_tree.links.new(comb.outputs[0], inp)
+
 def add_new_layer(
         group_tree, layer_name, layer_type, channel_idx, 
         blend_type, normal_blend_type, normal_map_type, 
@@ -162,7 +192,7 @@ def add_new_layer(
     layer.enable = enable
 
     # Set layer name
-    if layer_type == 'BUNDLE':
+    if layer_type == 'INPUT_BUNDLE':
         layer_name = get_unique_name(layer_name, get_tree_inputs(yp.id_data))
     layer.name = get_unique_name(layer_name, yp.layers)
     layer.original_name = layer.name
@@ -436,8 +466,32 @@ def add_new_layer(
     input_outputs.check_all_layer_channel_io_and_nodes(layer, tree)
     input_outputs.check_start_end_root_ch_nodes(group_tree)
 
-    if layer.type == 'BUNDLE':
+    if layer.type == 'INPUT_BUNDLE':
+        # Create node input
         input_outputs.check_all_channel_ios(yp, reconnect=False, specific_layer=layer)
+
+        # Add source socket items based on channels
+        source = get_layer_source(layer)
+        for i, c in enumerate(yp.channels):
+            socket_type = 'FLOAT'
+            if c.type == 'RGB':
+                socket_type = 'RGBA'
+            elif c.type == 'VECTOR':
+                socket_type = 'VECTOR'
+            outp = source.bundle_items.new(socket_type=socket_type, name=c.name)
+
+            #if comb: inp = comb.bundle_items.new(socket_type=socket_type, name=c.name)
+
+            # NOTE: Only first channel is used for now
+            if i == 0:
+                break
+
+        # Create combine bundle node
+        yp_nodes = [n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree==group_tree]
+        comb = None
+        if yp_nodes:
+            yp_node = yp_nodes[0]
+            comb = create_new_combine_bundle_node(mat, yp_node, layer, source=source)
 
     # Rearrange node inside layers
     reconnect_layer_nodes(layer)
@@ -661,6 +715,14 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         reconnect_yp_nodes(layer.id_data)
         rearrange_yp_nodes(layer.id_data)
 
+    # Reconnect combine bundle
+    if layer.type == 'INPUT_BUNDLE':
+        mats = get_all_materials_with_yp_nodes(specific_yp=yp)
+        for mat in mats:
+            yp_nodes = get_nodes_using_yp(mat, yp)
+            for yp_node in yp_nodes:
+                check_and_connect_combine_bundle_node(mat, yp_node, layer)
+
     # Update UI
     bpy.context.window_manager.ypui.need_update = True
     layer.expand_source = layer.type not in {'IMAGE', 'VCOL'} or (image != None and image.y_bake_info.is_baked and not image.y_bake_info.is_baked_channel)
@@ -691,6 +753,22 @@ def remove_layer(yp, index, remove_on_disk=False):
     # Remove the source first to remove image
     source_tree = get_source_tree(layer) #, layer_tree)
     remove_node(source_tree, layer, 'source', remove_on_disk=remove_on_disk)
+
+    # Remove combine bundle node
+    if layer.type == 'INPUT_BUNDLE':
+        yp_nodes = [n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree==group_tree]
+        if yp_nodes:
+            yp_node = yp_nodes[0]
+            inp = yp_node.inputs.get(layer.name)
+            if inp and len(inp.links) > 0:
+                n = inp.links[0].from_node
+                if n and n.type == 'NodeCombineBundle':
+                    simple_remove_node(mat.node_tree, n)
+
+    # Remove input layer socket
+    if layer.type.startswith('INPUT_'):
+        inp = get_tree_input_by_name(group_tree, layer.name)
+        if inp: remove_tree_input(group_tree, inp)
 
     # Remove baked source
     baked_source = get_layer_source(layer, get_baked=True)

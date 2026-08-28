@@ -249,8 +249,6 @@ TANGENT_SIGN_PREFIX = '__tsign_'
 
 neighbor_directions = ['n', 's', 'e', 'w']
 
-BUNDLE_SOCKET_NAME = 'Bundle Input'
-
 def get_vertex_color_label(capital=11):
     if not is_bl_newer_than(3, 2):
 
@@ -320,7 +318,7 @@ layer_type_items = (
     ('EDGE_DETECT', 'Edge Detect', ''),
     ('AO', 'Ambient Occlusion', ''),
     ('PREV_LAYERS', 'Previous Layers', ''),
-    ('BUNDLE', 'Bundle Input', ''),
+    ('INPUT_BUNDLE', 'Bundle Input', ''),
 )
 
 mask_type_items = (
@@ -390,7 +388,7 @@ layer_type_labels = {
     'EDGE_DETECT' : 'Edge Detect',
     'AO' : 'Ambient Occlusion',
     'PREV_LAYERS' : 'Previous Layers',
-    'BUNDLE' : 'Bundle Input',
+    'INPUT_BUNDLE' : 'Bundle Input',
 }
 
 mask_type_labels = {
@@ -624,7 +622,7 @@ layer_node_bl_idnames = {
     'MODIFIER' : 'ShaderNodeGroup',
     'AO' : 'ShaderNodeAmbientOcclusion',
     'PREV_LAYERS' : 'NodeGroupInput',
-    'BUNDLE' : 'NodeSeparateBundle',
+    'INPUT_BUNDLE' : 'NodeSeparateBundle',
 }
 
 io_suffix = {
@@ -2677,17 +2675,41 @@ def change_layer_name(yp, obj, src, layer, texes):
         layer.name = get_unique_name(layer.name, bpy.data.images) 
         src.image.name = layer.name
 
-    elif layer.type == 'BUNDLE':
-        tree = layer.id_data
+    elif layer.type == 'INPUT_BUNDLE':
         name = layer.name
         layer.name = '___TEMP___'
         layer.name = get_unique_name(name, texes) 
+
+        # Check main tree inputs
+        tree = layer.id_data
         inputs = get_tree_inputs(tree)
         inp_names = [inp.name for inp in inputs]
         layer.name = get_unique_name(layer.name, inp_names) 
         inps = [inp for inp in inputs if inp.name == layer.original_name]
+
+        # Check layer tree inputs
+        layer_tree = get_tree(layer)
+        layer_inputs = get_tree_inputs(layer_tree)
+        layer_inp_names = [inp.name for inp in inputs]
+        layer.name = get_unique_name(layer.name, layer_inp_names) 
+        layer_inps = [inp for inp in layer_inputs if inp.name == layer.original_name]
+
         if inps: 
             inps[0].name = layer.name
+
+        if layer_inps: 
+            layer_inps[0].name = layer.name
+
+        # Rename combine bundle node
+        mats = get_all_materials_with_yp_nodes(specific_yp=yp)
+        for mat in mats:
+            yp_nodes = get_nodes_using_yp(mat, yp)
+            for yp_node in yp_nodes:
+                inp = yp_node.inputs.get(layer.name)
+                if inp and len(inp.links) > 0:
+                    comb = inp.links[0].from_node
+                    if comb and comb.type == 'NodeCombineBundle':
+                        comb.label = layer.name
 
     else:
         name = layer.name
@@ -6100,14 +6122,14 @@ def is_mesh_flat_shaded(mesh):
 
     return False
 
-def get_all_materials_with_yp_nodes(mesh_only=True):
+def get_all_materials_with_yp_nodes(mesh_only=True, specific_yp=None):
     mats = []
 
     for obj in get_scene_objects():
         if mesh_only and obj.type != 'MESH': continue
         if not hasattr(obj, 'data') or not hasattr(obj.data, 'materials'): continue
         for mat in obj.data.materials:
-            if any([n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree and n.node_tree.yp.is_ypaint_node]):
+            if any([n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree and n.node_tree.yp.is_ypaint_node and (specific_yp==None or specific_yp==n.node_tree.yp)]):
                 if mat not in mats:
                     mats.append(mat)
 
@@ -6419,7 +6441,7 @@ def get_all_baked_channel_images(tree):
 def is_layer_using_vector(layer, exclude_baked=False):
     yp = layer.id_data.yp
 
-    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
+    if (not exclude_baked and layer.use_baked) or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'AO', 'PREV_LAYERS', 'INPUT_BUNDLE'}:
         return True
 
     for i, ch in enumerate(layer.channels):
@@ -8551,7 +8573,7 @@ def get_available_source_outputs(source, entity_type):
     elif entity_type == 'AO':
         valid_socket_names = ['Color']
 
-    outps = [outp for outp in source.outputs if outp.enabled and (not valid_socket_names or outp.name in valid_socket_names)]
+    outps = [outp for outp in source.outputs if outp.enabled and outp.name != '' and (not valid_socket_names or outp.name in valid_socket_names)]
 
     return outps
 

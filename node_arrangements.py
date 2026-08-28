@@ -681,6 +681,10 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 260
         cache_found = True
 
+    if check_set_node_loc(tree, layer.cache_input_bundle, loc, hide=False):
+        loc.y -= 200
+        cache_found = True
+
     # Channel Caches
     for ch in layer.channels:
 

@@ -708,6 +708,11 @@ def draw_tex_props(source, layout, entity=None, show_source_input=False):
             if is_input_skipped(inp): continue
             col.prop(inp, 'default_value', text='')
 
+def draw_input_bundle_props(entity, source, layout):
+    col = layout.column()
+    row = col.row()
+    row.operator('wm.y_sync_bundle_input_layer', text='Sync Inputs')
+
 def draw_colorid_props(entity, source, layout, layer=None):
     col = layout.column()
     row = col.row()
@@ -1323,12 +1328,14 @@ def draw_main_ui(context, layout):
         missing_data = ypui.cache_missing_data
         linear_problem = ypui.cache_linear_problem
         ao_problem = ypui.cache_ao_problem
+        missing_combine_bundle = ypui.cache_missing_combine_bundle
     else:
         vcols = get_vertex_colors(obj)
-        linear_problem, ao_problem, missing_data = any_yp_problems(yp, vcols)
+        linear_problem, ao_problem, missing_data, missing_combine_bundle = any_yp_problems(node, vcols)
         ypui.cache_linear_problem = linear_problem
         ypui.cache_ao_problem = ao_problem
         ypui.cache_missing_data = missing_data
+        ypui.cache_missing_combine_bundle = missing_combine_bundle
     
     # Show missing data button
     if missing_data:
@@ -1337,6 +1344,12 @@ def draw_main_ui(context, layout):
         row.operator("wm.y_fix_missing_data", icon='ERROR')
         row.alert = False
         return
+
+    if missing_combine_bundle:
+        row = layout.row(align=True)
+        row.alert = True
+        row.operator("wm.y_fix_missing_combine_bundle_node", icon='ERROR')
+        row.alert = False
 
     if linear_problem:
         row = layout.row(align=True)
@@ -2322,7 +2335,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     elif layer.type == 'PREV_LAYERS':
         icon_value = lib.get_icon('COLLAPSEMENU')
         label += layer.name
-    elif layer.type == 'BUNDLE':
+    elif layer.type == 'INPUT_BUNDLE':
         icon_value = lib.get_icon('NODE_SOCKET_BUNDLE')
         label += layer.name
     else:
@@ -2411,7 +2424,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         elif layer.type == 'PREV_LAYERS':
             menu_label = 'Adjustment (Previous Layers)'
             icon_value = lib.get_icon('COLLAPSEMENU')
-        elif layer.type == 'BUNDLE':
+        elif layer.type == 'INPUT_BUNDLE':
             icon_value = lib.get_icon('NODE_SOCKET_BUNDLE')
         else: icon_value = lib.get_icon('texture')
 
@@ -2451,6 +2464,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             draw_edge_detect_props(layer, source, ccol, layer=layer)
         elif layer.type == 'AO':
             draw_ao_props(layer, source, ccol, layer=layer)
+        elif layer.type == 'INPUT_BUNDLE':
+            draw_input_bundle_props(layer, source, ccol)
         else: draw_tex_props(source, ccol, entity=layer)
 
         if layer.baked_source == '' and layer.type in {'EDGE_DETECT', 'HEMI', 'AO'}:
@@ -3962,7 +3977,8 @@ def is_gamma_incorrect(gamma, linear_node):
         (gamma != 1.0 and (not linear_node or not isclose(linear_node.inputs[1].default_value, gamma, rel_tol=1e-5)))
     )
 
-def any_yp_problems(yp, vcols=[]):
+def any_yp_problems(node, vcols=[]):
+    yp = node.node_tree.yp
     #T = time.time()
 
     scene = bpy.context.scene
@@ -3971,6 +3987,7 @@ def any_yp_problems(yp, vcols=[]):
     linear_problem = False
     ao_problem = False
     missing_data = False
+    missing_combine_bundle = False
 
     gtao_not_used = is_bl_newer_than(2, 93) and not is_bl_newer_than(4, 2) and not scene.eevee.use_gtao
 
@@ -3978,6 +3995,12 @@ def any_yp_problems(yp, vcols=[]):
         layer_tree = None
         layer_source = None
         layer_enabled = get_layer_enabled(layer)
+
+        # Check for combine bundle node
+        if layer.type == 'INPUT_BUNDLE':
+            inp = node.inputs.get(layer.name)
+            if inp and (len(inp.links) == 0 or inp.links[0].from_node.type != 'NodeCombineBundle'):
+                missing_combine_bundle = True
 
         # Check for missing data
         if not missing_data:
@@ -4104,7 +4127,7 @@ def any_yp_problems(yp, vcols=[]):
 
     #print(get_addon_title()+': YP problems are calculated in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-    return linear_problem, ao_problem, missing_data
+    return linear_problem, ao_problem, missing_data, missing_combine_bundle
 
 def draw_baked_ui(context, layout, node):
     group_tree = node.node_tree
@@ -5855,7 +5878,7 @@ def layer_listing(layout, layer, show_expand=False):
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon(icon_name))
         elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
         elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
-        elif layer.type == 'BUNDLE': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('NODE_SOCKET_BUNDLE'))
+        elif layer.type == 'INPUT_BUNDLE': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('NODE_SOCKET_BUNDLE'))
         else: 
             row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
     else:
@@ -5885,7 +5908,7 @@ def layer_listing(layout, layer, show_expand=False):
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('group'))
-            elif layer.type == 'BUNDLE': 
+            elif layer.type == 'INPUT_BUNDLE': 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('NODE_SOCKET_BUNDLE'))
             else: 
                 row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('texture'))
@@ -5910,7 +5933,7 @@ def layer_listing(layout, layer, show_expand=False):
                 row.label(text='', icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': 
                 row.label(text='', icon_value=lib.get_icon('group'))
-            elif layer.type == 'BUNDLE': 
+            elif layer.type == 'INPUT_BUNDLE': 
                 row.label(text='', icon_value=lib.get_icon('NODE_SOCKET_BUNDLE'))
             else: 
                 row.label(text='', icon_value=lib.get_icon('texture'))
@@ -6998,7 +7021,7 @@ class YNewLayerMenu(bpy.types.Menu):
         if is_bl_newer_than(5):
             col.separator()
             c = col.operator("wm.y_new_layer", text='Bundle Input', icon='NODE_SOCKET_BUNDLE')
-            c.type = 'BUNDLE'
+            c.type = 'INPUT_BUNDLE'
 
         col = row.column()
         col.label(text='New Generated Layer:')
@@ -8363,6 +8386,11 @@ class YLayerTypeMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if layer.type == 'EDGE_DETECT' else 'RADIOBUT_OFF'
         col.operator("wm.y_replace_layer_type", icon=icon, text='Edge Detect').type = 'EDGE_DETECT'
 
+        col.separator()
+
+        icon = 'RADIOBUT_ON' if layer.type == 'INPUT_BUNDLE' else 'RADIOBUT_OFF'
+        col.operator('wm.y_replace_layer_type', text='Input Bundle', icon=icon).type = 'INPUT_BUNDLE'
+
 class YMaskTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_mask_type_menu"
     bl_label = "Mask Type Menu"
@@ -9161,6 +9189,7 @@ class YPaintUI(bpy.types.PropertyGroup):
     cache_linear_problem : BoolProperty(default=False)
     cache_ao_problem : BoolProperty(default=False)
     cache_missing_data : BoolProperty(default=False)
+    cache_missing_combine_bundle : BoolProperty(default=False)
 
     any_expandable_layers : BoolProperty(default=False)
 

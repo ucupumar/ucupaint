@@ -738,6 +738,14 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             if io_midlevel_name in get_essential_node(tree, TREE_END): 
                 create_link(tree, get_essential_node(tree, HALF_VALUE)[0], get_essential_node(tree, TREE_END)[io_midlevel_name])
 
+    # Input layers
+    for layer in yp.layers:
+        if layer.type.startswith('INPUT_'):
+            soc = get_essential_node(tree, TREE_START).get(layer.name)
+            node = nodes.get(layer.group_node)
+            if soc and layer.name in node.inputs:
+                create_link(tree, soc, node.inputs.get(layer.name))
+
     # Bake target image nodes
     for bt in yp.bake_targets:
         baked_node = nodes.get(bt.baked_node)
@@ -992,6 +1000,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if layer.hemi_use_prev_normal and bump_process:
             create_link(tree, bump_process.outputs['Normal'], source.inputs['Normal'])
         elif 'Normal' in source.inputs: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], source.inputs['Normal'])
+
+    # Connect input layer
+    if layer.type.startswith('INPUT_'):
+        soc = get_essential_node(tree, TREE_START).get(layer.name)
+        if soc: create_link(tree, soc, source.inputs[0])
 
     # Baked source
     baked_source = nodes.get(layer.baked_source)

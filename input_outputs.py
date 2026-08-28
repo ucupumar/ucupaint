@@ -339,7 +339,7 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
 
     # Check layer inputs
     for i, layer in enumerate(yp.layers):
-        if layer.type == 'BUNDLE':
+        if layer.type == 'INPUT_BUNDLE':
             #name = 'Layer '+str(i)+' Input'
             create_input(group_tree, layer.name, 'NodeSocketBundle', valid_inputs, input_index)
 
@@ -869,10 +869,9 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                 dirty = create_input(tree, name, 'NodeSocketFloat', valid_inputs, input_index, dirty)
                 input_index += 1
 
-    if layer.type == 'BUNDLE':
-        name = BUNDLE_SOCKET_NAME
+    if layer.type == 'INPUT_BUNDLE':
         dirty = create_input(
-            tree, name, 'NodeSocketBundle',
+            tree, layer.name, 'NodeSocketBundle',
             valid_inputs, input_index, dirty
         )
         input_index += 1

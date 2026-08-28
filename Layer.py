@@ -822,6 +822,9 @@ class YNewLayer(bpy.types.Operator):
             elif self.modifier_type == 'INVERT':
                 name = 'Invert'
             items = yp.layers
+        elif self.type.startswith('INPUT_'):
+            name = 'Input Layer'
+            items = yp.layers
         else:
             name = layer_type_labels[self.type]
             items = yp.layers
@@ -4355,6 +4358,87 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def sync_bundle_input_layer(mat, node, layer):
+    
+    # Get combine bundle node
+    inp = node.inputs.get(layer.name)
+    if not inp or len(inp.links) == 0: return
+
+    comb = inp.links[0].from_node
+    if comb.type != 'NodeCombineBundle': return
+
+    source = get_layer_source(layer)
+    if not source: return
+
+    valid_sockets = []
+    for inp in comb.inputs:
+        if inp.name == '': continue
+        soc = source.outputs.get(inp.name)
+        if not soc or soc.type != inp.type:
+            # Remove original socket
+            if soc:
+                item = source.bundle_items.get(soc.name)
+                if item: source.bundle_items.remove(item)
+
+        # Skip some socket types
+        if inp.type in {'RGBA', 'VALUE', 'VECTOR', 'BOOLEAN', 'INT'}:
+            socket_type = layer_common.get_socket_type_from_socket(inp)
+            item = source.bundle_items.new(socket_type=socket_type, name=inp.name)
+            soc = source.outputs.get(inp.name)
+        else:
+            soc = None
+
+        if soc != None:
+            valid_sockets.append(soc)
+
+    for soc in source.outputs:
+        if soc.name == '': continue
+        if soc not in valid_sockets:
+            item = source.bundle_items.get(soc.name)
+            if item: source.bundle_items.remove(item)
+
+    #reconnect_layer_nodes(layer)
+
+class YFixMissingCombineBundleNode(bpy.types.Operator):
+    bl_idname = "wm.y_fix_missing_combine_bundle_node"
+    bl_label = "Fix Missing Combine Bundle Node"
+    bl_description = "Fix missing combine bundle node"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def execute(self, context):
+        mat = get_active_material()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        for layer in yp.layers:
+            if layer.type == 'INPUT_BUNDLE':
+                layer_common.check_and_connect_combine_bundle_node(mat, node, layer)
+
+        return {'FINISHED'}
+
+class YSyncBundleInputLayer(bpy.types.Operator):
+    bl_idname = "wm.y_sync_bundle_input_layer"
+    bl_label = "Sync Bundle Input Layer"
+    bl_description = "Sync Bundle Input Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def execute(self, context):
+        mat = get_active_material()
+        node = get_active_ypaint_node()
+        layer = context.layer
+        sync_bundle_input_layer(mat, node, layer)
+        return {'FINISHED'}
+
 class YDuplicateLayer(bpy.types.Operator):
     bl_idname = "wm.y_duplicate_layer"
     bl_label = "Duplicate layer"
@@ -6573,6 +6657,7 @@ class YLayer(bpy.types.PropertyGroup, Decal.BaseDecal):
     cache_image : StringProperty(default='')
     cache_vcol : StringProperty(default='')
     cache_hemi : StringProperty(default='')
+    cache_input_bundle : StringProperty(default='')
 
     # UV
     uv_neighbor : StringProperty(default='')
@@ -6659,6 +6744,8 @@ classes = (
     YRemoveLayer,
     YRemoveLayerMenu,
     YReplaceLayerType,
+    YFixMissingCombineBundleNode,
+    YSyncBundleInputLayer,
     YSetLayerChannelBlendType,
     YSetLayerChannelNormalBlendType,
     YSetLayerChannelInput,
