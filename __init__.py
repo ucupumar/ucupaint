@@ -51,6 +51,7 @@ if "bpy" in locals():
     importlib.reload(Mask)
     importlib.reload(Modifier)
     importlib.reload(NormalMapModifier)
+    importlib.reload(input_layer)
     importlib.reload(Layer)
     importlib.reload(preview_mode)
     importlib.reload(Bake)
@@ -71,7 +72,7 @@ else:
     from . import image_ops, modifier_common, Decal, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, ListItem, BakeInfo, UDIM, ImageAtlas
     from . import channel_common, mask_common, layer_common
     from . import displacement_common, vector_displacement_lib, vector_displacement, bake_common
-    from . import vcol_editor, transition, BakeTarget, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, preview_mode, Bake, BakeToLayer, Root, versioning
+    from . import vcol_editor, transition, BakeTarget, MaskModifier, Mask, Modifier, NormalMapModifier, input_layer, Layer, preview_mode, Bake, BakeToLayer, Root, versioning
     if is_available('.addon_updater_ops'): from . import addon_updater_ops
     if is_available('.Test'): from . import Test
     if is_available('.psd_io'): from . import psd_io
@@ -114,6 +115,7 @@ def register():
     Mask.register()
     Modifier.register()
     NormalMapModifier.register()
+    input_layer.register()
     Layer.register()
     preview_mode.register()
     Bake.register()
@@ -148,6 +150,7 @@ def unregister():
     Mask.unregister()
     Modifier.unregister()
     NormalMapModifier.unregister()
+    input_layer.unregister()
     Layer.unregister()
     preview_mode.unregister()
     Bake.unregister()

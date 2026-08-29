@@ -99,11 +99,18 @@ def get_socket_type_from_socket(soc):
     return soc.type if soc.type != 'VALUE' else 'FLOAT'
 
 def create_new_combine_bundle_node(mat, yp_node, layer, source=None):
+    yp = yp_node.node_tree.yp
+
     comb = mat.node_tree.nodes.new('NodeCombineBundle')
     comb.label = layer.name
     comb.location.x = yp_node.location.x #- 180
     comb.location.y = yp_node.location.y - yp_node.dimensions.y - 40
+
+    # NOTE: Node connection can trigger sync, since it's not necessary right now, so enable halt update
+    ori_halt_update = yp.halt_update
+    yp.halt_update = True
     mat.node_tree.links.new(comb.outputs[0], yp_node.inputs[layer.name])
+    yp.halt_update = ori_halt_update
 
     # Copy items from source
     if source and source.type == 'NodeSeparateBundle':
@@ -123,7 +130,9 @@ def check_and_connect_combine_bundle_node(mat, yp_node, layer):
         if comb == None: 
             source = get_layer_source(layer)
             comb = create_new_combine_bundle_node(mat, yp_node, layer, source=source)
-        if comb: mat.node_tree.links.new(comb.outputs[0], inp)
+
+        if comb:
+            mat.node_tree.links.new(comb.outputs[0], inp)
 
 def add_new_layer(
         group_tree, layer_name, layer_type, channel_idx, 
@@ -479,8 +488,6 @@ def add_new_layer(
             elif c.type == 'VECTOR':
                 socket_type = 'VECTOR'
             outp = source.bundle_items.new(socket_type=socket_type, name=c.name)
-
-            #if comb: inp = comb.bundle_items.new(socket_type=socket_type, name=c.name)
 
             # NOTE: Only first channel is used for now
             if i == 0:
