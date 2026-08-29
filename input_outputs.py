@@ -236,6 +236,12 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
     try: active_preview_ch = yp.channels[yp.preview_mode_channel_index]
     except: active_preview_ch = None
 
+    # Check layer inputs
+    for layer in yp.layers:
+        if layer.type == 'INPUT_BUNDLE':
+            create_input(group_tree, layer.name, 'NodeSocketBundle', valid_inputs, input_index)
+            input_index += 1
+
     # Get channel pairs
     color_ch, alpha_ch = get_color_alpha_ch_pairs(yp)
     normal_ch, height_ch = get_normal_height_ch_pairs(yp)
@@ -336,12 +342,6 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None, remove_props=
                 if not is_bump_only:
                     create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
                     output_index += 1
-
-    # Check layer inputs
-    for i, layer in enumerate(yp.layers):
-        if layer.type == 'INPUT_BUNDLE':
-            #name = 'Layer '+str(i)+' Input'
-            create_input(group_tree, layer.name, 'NodeSocketBundle', valid_inputs, input_index)
 
     # Check start and end nodes
     check_start_end_root_ch_nodes(group_tree)
