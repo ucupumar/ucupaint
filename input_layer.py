@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import *
+from bpy.app.handlers import persistent
 from .common import *
 from .node_arrangements import *
 from .node_connections import *
@@ -109,9 +110,6 @@ class YSyncBundleInputLayer(bpy.types.Operator):
         layer = context.layer
         sync_bundle_input_layer(layer, node)
         return {'FINISHED'}
-
-import bpy
-from bpy.app.handlers import persistent
 
 def get_layer_from_combine_bundle_node(bund):
     # Check if the combine bundle is connected to yp node

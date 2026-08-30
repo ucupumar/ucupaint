@@ -993,7 +993,7 @@ class YNewLayer(bpy.types.Operator):
         right_aligned_label(row, 'Name:')
         row.prop(self, 'name', text='')
 
-        if self.type not in {'GROUP', 'BACKGROUND'}:
+        if self.type not in {'GROUP', 'BACKGROUND', 'INPUT_BUNDLE'}:
             row = split_layout(layout, split_val)
             right_aligned_label(row, 'Channel:')
 
@@ -1056,7 +1056,7 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             BaseOperator.draw_base_image_settings(self, layout, split_val)
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'EDGE_DETECT', 'AO', 'PREV_LAYERS', 'INPUT_BUNDLE'}:
             row = split_layout(layout, split_val)
             right_aligned_label(row, text='Mapping:')
 
@@ -3685,6 +3685,11 @@ class YMoveLayer(bpy.types.Operator):
         if not neighbor_layer:
             return {'CANCELLED'}
 
+        # Check if both of the layer are input bundle layers
+        bundle_swap = False
+        if layer.type == 'INPUT_BUNDLE' and neighbor_layer.type == 'INPUT_BUNDLE':
+            bundle_swap = True
+
         # Remember all parents and indices
         parent_dict = get_parent_dict(yp)
         index_dict = get_index_dict(yp)
@@ -3779,6 +3784,10 @@ class YMoveLayer(bpy.types.Operator):
 
         # Background layers should update its ios
         recheck_background_layers_ios(yp, index_dict)
+
+        # Refresh node inputs
+        if bundle_swap:
+            check_all_channel_ios(yp, reconnect=False, yp_node=node, do_process_layers=False)
 
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(node.node_tree)

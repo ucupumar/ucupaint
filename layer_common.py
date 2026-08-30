@@ -98,13 +98,51 @@ def check_layer_projections(layer):
 def get_socket_type_from_socket(soc):
     return soc.type if soc.type != 'VALUE' else 'FLOAT'
 
+def get_combine_bundle_dimension_y(node):
+    if node.dimensions.y != 0.0:
+        return node.dimensions.y
+
+    dim_y = 60
+
+    for inp in node.inputs:
+        if inp.type == 'VECTOR':
+            val = 80
+        else:  val = 20
+        dim_y += val
+
+    return dim_y
+
+def set_combine_bundle_node_location(layer, yp_node, comb):
+    yp = layer.id_data.yp
+
+    # Check for combine bundle node with highest y location
+    loc_x = yp_node.location.x - 180
+    loc_y = yp_node.location.y - yp_node.dimensions.y/2
+
+    for l in yp.layers:
+        if l == layer: continue
+        if l.type == 'INPUT_BUNDLE':
+            inp = yp_node.inputs.get(l.name)
+            if inp and len(inp.links) > 0:
+                link = inp.links[0]
+                if link.from_node.type == 'NodeCombineBundle':
+                    c = link.from_node
+                    if c.location.y >= loc_y:
+                        loc_y = c.location.y + get_combine_bundle_dimension_y(comb) + 20
+                        loc_x = c.location.x
+
+    # Make sure the node isn't in same place as yp node
+    if loc_x == yp_node.location.x and loc_y == yp_node.location.y:
+        loc_y = yp_node.location.y + get_combine_bundle_dimension_y(comb) + 20
+
+    comb.location.x = loc_x
+    comb.location.y = loc_y
+
 def create_new_combine_bundle_node(mat, yp_node, layer, source=None):
     yp = yp_node.node_tree.yp
 
     comb = mat.node_tree.nodes.new('NodeCombineBundle')
     comb.label = layer.name
-    comb.location.x = yp_node.location.x #- 180
-    comb.location.y = yp_node.location.y - yp_node.dimensions.y - 40
 
     # NOTE: Node connection can trigger sync, since it's not necessary right now, so enable halt update
     ori_halt_update = yp.halt_update
@@ -117,7 +155,16 @@ def create_new_combine_bundle_node(mat, yp_node, layer, source=None):
         for outp in source.outputs:
             if outp.name == '': continue
             socket_type = get_socket_type_from_socket(outp)
+
+            # Create new bundle item
             soc = comb.bundle_items.new(socket_type=socket_type, name=outp.name)
+
+            # Set default up normal
+            if soc.name == 'Normal' and socket_type == 'RGBA':
+                inp = comb.inputs.get(soc.name)
+                inp.default_value = (0.5, 0.5, 1.0, 1.0)
+
+    set_combine_bundle_node_location(layer, yp_node, comb)
 
 def check_and_connect_combine_bundle_node(mat, yp_node, layer):
     inp = yp_node.inputs.get(layer.name)
@@ -428,7 +475,7 @@ def add_new_layer(
         root_ch = yp.channels[i]
 
         # Set some props to selected channel
-        if layer.type in {'GROUP', 'BACKGROUND'} or channel_idx == i or channel_idx == -1:
+        if layer.type in {'GROUP', 'BACKGROUND', 'INPUT_BUNDLE'} or channel_idx == i or channel_idx == -1:
             ch.enable = True
             if root_ch.special_type == 'NORMAL':
                 ch.normal_blend_type = normal_blend_type
@@ -471,10 +518,6 @@ def add_new_layer(
     yp.halt_reconnect = False
     #yp.halt_update = False
 
-    # Check layer IO
-    input_outputs.check_all_layer_channel_io_and_nodes(layer, tree)
-    input_outputs.check_start_end_root_ch_nodes(group_tree)
-
     if layer.type == 'INPUT_BUNDLE':
         # Create node input
         input_outputs.check_all_channel_ios(yp, reconnect=False, specific_layer=layer)
@@ -482,23 +525,32 @@ def add_new_layer(
         # Add source socket items based on channels
         source = get_layer_source(layer)
         for i, c in enumerate(yp.channels):
+            #if channel_idx != -1 and i != channel_idx: continue
+
             socket_type = 'FLOAT'
-            if c.type == 'RGB':
+            # Normal channel will use RGB socket it uses tangent space by default
+            if c.type == 'RGB' or c.special_type == 'NORMAL':
                 socket_type = 'RGBA'
             elif c.type == 'VECTOR':
                 socket_type = 'VECTOR'
             outp = source.bundle_items.new(socket_type=socket_type, name=c.name)
 
-            # NOTE: Only first channel is used for now
-            if i == 0:
-                break
+            # Set input socket name
+            ch = layer.channels[i]
+            ori_halt_update = yp.halt_update
+            yp.halt_update = True
+            ch.socket_input_name = c.name
+            yp.halt_update = ori_halt_update
 
         # Create combine bundle node
         yp_nodes = [n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree==group_tree]
-        comb = None
         if yp_nodes:
             yp_node = yp_nodes[0]
             comb = create_new_combine_bundle_node(mat, yp_node, layer, source=source)
+
+    # Check layer IO
+    input_outputs.check_all_layer_channel_io_and_nodes(layer, tree)
+    input_outputs.check_start_end_root_ch_nodes(group_tree)
 
     # Rearrange node inside layers
     reconnect_layer_nodes(layer)
@@ -772,10 +824,8 @@ def remove_layer(yp, index, remove_on_disk=False):
                 if n and n.type == 'NodeCombineBundle':
                     simple_remove_node(mat.node_tree, n)
 
-    # Remove input layer socket
-    if layer.type.startswith('INPUT_'):
-        inp = get_tree_input_by_name(group_tree, layer.name)
-        if inp: remove_tree_input(group_tree, inp)
+    # Check if layer has input socket
+    is_input_layer = layer.type.startswith('INPUT_')
 
     # Remove baked source
     baked_source = get_layer_source(layer, get_baked=True)
@@ -848,6 +898,10 @@ def remove_layer(yp, index, remove_on_disk=False):
 
     # Delete the layer
     yp.layers.remove(index)
+
+    # Remove input
+    if is_input_layer:
+        input_outputs.check_all_channel_ios(yp, reconnect=False, do_process_layers=False)
 
 def update_driver_targets(obj, target_map):
     # Update driver target object references based on a given object map.
