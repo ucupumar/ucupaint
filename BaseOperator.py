@@ -140,9 +140,17 @@ def update_uv_map_name(self, context):
 
     if hasattr(self, 'use_udim') and get_user_preferences().enable_auto_udim_detection:
 
-        if hasattr(self, 'type') and self.type != 'IMAGE': 
-            self.use_udim = False
-        else:
+        do_udim_checking = True
+
+        # Only check for udim if the chosen type is image
+        if hasattr(self, 'type'):
+            prop = self.bl_rna.properties['type']
+            for item in prop.enum_items:
+                if item.identifier == 'IMAGE' and self.type != 'IMAGE':
+                    do_udim_checking = False
+                    break
+
+        if do_udim_checking:
             from . import UDIM
             mat = get_active_material()
             objs = get_all_objects_with_same_materials(mat)

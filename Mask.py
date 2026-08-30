@@ -436,7 +436,7 @@ class YNewLayerMask(bpy.types.Operator):
         default = 'UV'
     )
 
-    uv_name : StringProperty(
+    uv_map : StringProperty(
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '',
@@ -574,7 +574,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
 
-            self.uv_name = get_default_uv_name(obj, yp)
+            self.uv_map = get_default_uv_name(obj, yp)
 
             # UV Map collections update
             self.uv_map_coll.clear()
@@ -690,7 +690,7 @@ class YNewLayerMask(bpy.types.Operator):
             crow = row.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
-                crow.prop_search(self, "uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+                crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         if self.type == 'OBJECT_INDEX':
             row = split_layout(layout, split_val)
@@ -793,7 +793,7 @@ class YNewLayerMask(bpy.types.Operator):
 
             if self.use_udim:
                 objs = get_all_objects_with_same_materials(mat)
-                tilenums = UDIM.get_tile_numbers(objs, self.uv_name)
+                tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
 
             if self.use_image_atlas:
                 if self.use_udim:
@@ -868,7 +868,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         # Add new mask
         mask = mask_common.add_new_mask(
-            layer, self.name, self.type, self.texcoord_type, self.uv_name, 
+            layer, self.name, self.type, self.texcoord_type, self.uv_map, 
             image=img, vcol_name=vcol_name, segment=segment, 
             object_index = self.object_index, 
             blend_type = self.blend_type, 
