@@ -2,7 +2,7 @@ import bpy
 from .common import *
 from .node_arrangements import *
 from .node_connections import *
-from . import ListItem, subtree, input_outputs, mask_common, lib, UDIM, ImageAtlas, Decal, modifier_common
+from . import ListItem, subtree, input_outputs, mask_common, lib, UDIM, ImageAtlas, Decal, modifier_common, channel_common
 
 def get_normal_map_type_items(self, context):
     items = []
@@ -159,10 +159,12 @@ def create_new_combine_bundle_node(mat, yp_node, layer, source=None):
             # Create new bundle item
             soc = comb.bundle_items.new(socket_type=socket_type, name=outp.name)
 
-            # Set default up normal
-            if soc.name == 'Normal' and socket_type == 'RGBA':
-                inp = comb.inputs.get(soc.name)
-                inp.default_value = (0.5, 0.5, 1.0, 1.0)
+            # Set default value
+            inp = comb.inputs.get(outp.name)
+            if inp:
+                # Get channel
+                channel = yp.channels.get(soc.name)
+                if channel: channel_common.set_bundle_input_default_value(inp, socket_type, special_type=channel.special_type)
 
     set_combine_bundle_node_location(layer, yp_node, comb)
 

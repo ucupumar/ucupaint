@@ -96,7 +96,85 @@ def create_normal_without_bump_bake_target(yp):
 
     return bt
 
-def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False, special_type='NONE', add_bake_target=True):
+def remove_channel_socket_from_bundle_layers(yp_node, channel_name):
+    yp = yp_node.node_tree.yp
+
+    for layer in yp.layers:
+        if layer.type == 'INPUT_BUNDLE':
+
+            socket_removed = False
+
+            # Update combine bundle node
+            inp = yp_node.inputs.get(layer.name)
+            if inp and len(inp.links) > 0:
+                link = inp.links[0]
+                if link.from_node.type == 'NodeCombineBundle':
+                    comb = link.from_node
+
+                    # Only remove of the input is not connected
+                    combinp = comb.inputs.get(channel_name)
+                    if combinp and len(combinp.links) == 0:
+                        item = comb.bundle_items.get(channel_name)
+                        if item: comb.bundle_items.remove(item)
+                        socket_removed = True
+
+            if socket_removed:
+                # Update source node
+                source = get_layer_source(layer)
+                if source and source.type == 'NodeSeparateBundle':
+                    item = source.bundle_items.get(channel_name)
+                    if item: source.bundle_items.remove(item)
+
+def set_bundle_input_default_value(inp, socket_type, special_type='NONE'):
+    if socket_type == 'FLOAT':
+        if special_type == 'HEIGHT':
+            inp.default_value = 0.5
+    elif socket_type == 'RGBA':
+        if special_type == 'NORMAL':
+            inp.default_value = (0.5, 0.5, 1.0, 1.0)
+        if inp.name in {'Emission', 'Emission Color'} or special_type == 'VDISP':
+            inp.default_value = (0.0, 0.0, 0.0, 1.0)
+
+def add_channel_socket_to_input_bundle_layers(yp_node, channel):
+    yp = yp_node.node_tree.yp
+
+    socket_type = 'FLOAT'
+    if channel.type == 'RGB' or channel.special_type == 'NORMAL':
+        socket_type = 'RGBA'
+    elif channel.type == 'VECTOR':
+        socket_type = 'VECTOR'
+
+    for layer in yp.layers:
+        if layer.type == 'INPUT_BUNDLE':
+
+            socket_created = False
+
+            # Update combine bundle node
+            inp = yp_node.inputs.get(layer.name)
+            if inp and len(inp.links) > 0:
+                link = inp.links[0]
+                if link.from_node.type == 'NodeCombineBundle':
+                    comb = link.from_node
+                    if channel.name not in comb.inputs:
+                        soc = comb.bundle_items.new(socket_type=socket_type, name=channel.name)
+
+                        # Set default value
+                        combinp = comb.inputs.get(channel.name)
+                        if combinp:
+                            set_bundle_input_default_value(combinp, socket_type, channel.special_type)
+
+                        socket_created = True
+
+            # Update source node
+            if socket_created:
+                source = get_layer_source(layer)
+                if source and source.type == 'NodeSeparateBundle':
+                    soc = source.bundle_items.new(socket_type=socket_type, name=channel.name)
+
+            ch = layer.channels[get_channel_index(channel)]
+            ch.socket_input_name = channel.name
+
+def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable=False, special_type='NONE', add_bake_target=True, yp_node=None):
     yp = group_tree.yp
 
     yp.halt_reconnect = True
@@ -186,6 +264,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
     if bt: channel.bake_target_name = bt.name
         
+    if yp_node:
+        add_channel_socket_to_input_bundle_layers(yp_node, channel)
+
     yp.halt_reconnect = False
 
     return channel
@@ -771,7 +852,7 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
     add_bake_target = mode not in {'ALPHA', 'AO'} or (mode == 'AO' and not orm_bt)
 
     # Create new channel
-    channel = create_new_yp_channel(group_tree, ch_name, ch_type, non_color=True, special_type=special_type, add_bake_target=add_bake_target)
+    channel = create_new_yp_channel(group_tree, ch_name, ch_type, non_color=True, special_type=special_type, add_bake_target=add_bake_target, yp_node=node)
     actual_ch_name = channel.name
 
     # Add AO to ORM bake target
@@ -821,7 +902,7 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
 
     # Automatically enable new layer channel for group and background layers
     for layer in yp.layers:
-        if layer.type in {'GROUP', 'BACKGROUND'}:
+        if layer.type in {'GROUP', 'BACKGROUND', 'INPUT_BUNDLE'}:
             layer.channels[yp.active_channel_index].enable = True
 
     return ''

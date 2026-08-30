@@ -1524,7 +1524,7 @@ class YNewYPaintChannel(bpy.types.Operator, BaseOperator.BlendMethodOptions):
 
         # Automatically enable new layer channel for group and background layers
         for layer in yp.layers:
-            if layer.type in {'GROUP', 'BACKGROUND'}:
+            if layer.type in {'GROUP', 'BACKGROUND', 'INPUT_BUNDLE'}:
                 layer.channels[last_index].enable = True
 
         # Update UI
@@ -1810,6 +1810,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         for mod in channel.modifiers:
             modifier_common.delete_modifier_nodes(group_tree, mod)
+
+        channel_common.remove_channel_socket_from_bundle_layers(group_node, channel.name)
 
         # Remove channel
         yp.channels.remove(channel_idx)
