@@ -68,7 +68,7 @@ def update_yp_ui():
                 ypui.bake_target_ui.expand_b = bt.expand_b
                 ypui.bake_target_ui.expand_a = bt.expand_a
 
-        if len(yp.channels) > 0:
+        if len(yp.channels) > 0 and yp.active_channel_index < len(yp.channels) and yp.active_channel_index > 0:
 
             # Get channel
             channel = yp.channels[yp.active_channel_index]
@@ -1892,7 +1892,7 @@ def draw_root_channels_ui(context, layout, node, show_header=False, rows=3):
     rcol.operator("wm.y_move_ypaint_channel", text='', icon='TRIA_UP').direction = 'UP'
     rcol.operator("wm.y_move_ypaint_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
 
-    if len(yp.channels) > 0:
+    if len(yp.channels) > 0 and channel:
 
         mcol = col.column(align=False)
 

@@ -301,7 +301,7 @@ def update_preview_mode(self, context):
 
     # Disable Preview Mode
     else:
-        check_all_channel_ios(yp)
+        check_all_channel_ios(yp, reconnect=channel!=None)
         remove_preview(mat)
 
 preview_mode_type_items = (
