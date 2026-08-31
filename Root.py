@@ -3047,14 +3047,14 @@ def update_layer_preview_mode(self, context):
 
     tree = mat.node_tree
     index = yp.active_channel_index
-    channel = yp.channels[index]
+    channel = yp.channels[index] if index < len(yp.channels) and index >= 0 else None
     layer = yp.layers[yp.active_layer_index]
 
     if yp.preview_mode and yp.layer_preview_mode:
         yp.preview_mode = False
 
     # Get preview node
-    if yp.layer_preview_mode:
+    if yp.layer_preview_mode and channel:
 
         check_all_channel_ios(yp, specific_layer=layer)
 
@@ -3100,7 +3100,7 @@ def update_layer_preview_mode(self, context):
             preview.inputs['Missing Data'].default_value = 1.0 if (not ch.enable or not layer.enable) else 0.0
 
     else:
-        check_all_channel_ios(yp)
+        check_all_channel_ios(yp, reconnect=channel!=None)
         remove_preview(mat)
 
 def update_preview_mode_normal_space(self, context):
@@ -3132,12 +3132,12 @@ def update_preview_mode(self, context):
 
     tree = mat.node_tree
     index = yp.active_channel_index
-    channel = yp.channels[index]
+    channel = yp.channels[index] if index < len(yp.channels) and index >= 0 else None
 
     if yp.layer_preview_mode and yp.preview_mode:
         yp.layer_preview_mode = False
 
-    if self.preview_mode:
+    if self.preview_mode and channel:
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
 
