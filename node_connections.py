@@ -1883,6 +1883,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     layer_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'decal_distance_value'))
                     vector = create_link(tree, vector, decal_process.inputs[0])[0]
                     if layer_decal_distance: create_link(tree, layer_decal_distance, decal_process.inputs[1])
+                    if layer.decal_projection_type != 'FLAT':    
+                        layer_decal_scale = get_essential_node(tree, TREE_START).get(get_entity_input_name(layer, 'decal_scale'))
+                        if layer_decal_scale: create_link(tree, layer_decal_scale, decal_process.inputs[2])
         else: vector = get_essential_node(tree, TREE_START).get(io_names[layer.texcoord_type])
 
         if vector and blur_vector:
@@ -2163,9 +2166,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if mask_texcoord:
                     mask_vector = mask_texcoord.outputs['Object']
                     if mask_decal_process: 
-                        layer_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_distance_value'))
+                        mask_decal_distance = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_distance_value'))
                         mask_vector = create_link(tree, mask_vector, mask_decal_process.inputs[0])[0]
-                        if layer_decal_distance: create_link(tree, layer_decal_distance, mask_decal_process.inputs[1])
+                        if mask_decal_distance: create_link(tree, mask_decal_distance, mask_decal_process.inputs[1])
+                        if mask.decal_projection_type != 'FLAT':
+                            mask_decal_scale = get_essential_node(tree, TREE_START).get(get_entity_input_name(mask, 'decal_scale'))
+                            if mask_decal_scale: create_link(tree, mask_decal_scale, mask_decal_process.inputs[2])
             elif mask.texcoord_type == 'Layer':
                 mask_vector = vector
             else: 

@@ -643,6 +643,9 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty, float
     elif type(prop_value) == Color:
         socket_type = 'NodeSocketColor'
         default_value = (rna.default, rna.default, rna.default, 1.0)
+    elif type(prop_value) == Vector:
+        socket_type = 'NodeSocketVector'
+        default_value = (rna.default, rna.default, rna.default)
     else:
         return False # Not implemented yet
 
@@ -683,7 +686,6 @@ def create_prop_input(entity, prop_name, valid_inputs, input_index, dirty, float
     return dirty
 
 def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False):
-
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
     root_tree = layer.id_data
@@ -744,7 +746,10 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
         if layer.texcoord_type == 'Decal':
             dirty = create_prop_input(layer, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
-        
+            if layer.decal_projection_type != 'FLAT':  
+                dirty = create_prop_input(layer, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)
+                input_index += 1
+
         if is_bl_newer_than(2, 81) and layer.enable_uniform_scale and is_layer_using_vector(layer) and layer.segment_name == '':
             dirty = create_prop_input(layer, 'uniform_scale_value', valid_inputs, input_index, dirty, float_factor_input_names)
             input_index += 1
@@ -893,6 +898,9 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
             if mask.texcoord_type == 'Decal':
                 dirty = create_prop_input(mask, 'decal_distance_value', valid_inputs, input_index, dirty, float_factor_input_names)
                 input_index += 1
+                if mask.decal_projection_type != 'FLAT':  
+                    dirty = create_prop_input(mask, 'decal_scale', valid_inputs, input_index, dirty, float_factor_input_names)
+                    input_index += 1
 
             # Color ID
             if mask.type == 'COLOR_ID':
@@ -1170,9 +1178,13 @@ def check_layer_tree_ios(layer, tree=None, remove_props=False, hard_reset=False)
                         try: setattr(root_tree.path_resolve(entity_path), prop_name, (val[0], val[1], val[2]))
                         except Exception as e: print(e)
                     else:
-                        # Do not remove input if it has value outside of min max
-                        if val < inp.min_value or val > inp.max_value:
-                            do_remove = False
+                        bpytypes = get_bpytypes()
+                        if isinstance(val, bpytypes.bpy_prop_array): vals = val
+                        else: vals = [val]
+                        for val in vals:
+                            # Do not remove input if it has value outside of min max
+                            if val < inp.min_value or val > inp.max_value:
+                                do_remove = False
 
                         try: setattr(root_tree.path_resolve(entity_path), prop_name, val)
                         except Exception as e: print(e)

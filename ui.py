@@ -763,14 +763,19 @@ def draw_inbetween_modifier_mask_props(layer, source, layout):
     elif layer.modifier_type == 'RAMP':
         col.template_color_ramp(source, "color_ramp", expand=True)
 
-def draw_input_prop(layout, entity, prop_name, emboss=None, text='', layer=None):
+def draw_input_prop(layout, entity, prop_name, emboss=None, text='', layer=None, index=None):
     inp = get_entity_prop_input(entity, prop_name, layer=layer)
-    if emboss != None:
-        if inp: layout.prop(inp, 'default_value', text=text, emboss=emboss)
-        else: layout.prop(entity, prop_name, text=text, emboss=emboss)
-    else:
-        if inp: layout.prop(inp, 'default_value', text=text)
-        else: layout.prop(entity, prop_name, text=text) 
+    target = inp if inp else entity
+    attr_name = 'default_value' if inp else prop_name
+
+    kwargs = {}
+    kwargs['text'] = text
+    if emboss is not None:
+        kwargs['emboss'] = emboss
+    if index is not None:
+        kwargs['index'] = index
+
+    layout.prop(target, attr_name, **kwargs)
 
 def draw_mask_modifier_stack(layer, mask, layout, ui, layer_tree):
     ypui = bpy.context.window_manager.ypui
@@ -1809,6 +1814,7 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                 splits.label(text='Projection Blend:')
                 splits.prop(layer, 'projection_blend', text='')
 
+            # --- Decal Settings Block ---
             if layer.texcoord_type == 'Decal':
 
                 if texcoord:
@@ -1820,11 +1826,17 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
 
                 rrow = boxcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
+                splits = split_layout(rrow, 0.45, align=True)
+                splits.label(text='Mode:')
+                splits.prop(layer, 'decal_projection_type', text='')
+
+                rrow = boxcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
                 splits = split_layout(rrow, 0.5, align=True)
                 splits.label(text='Decal Distance:')
                 draw_input_prop(splits, layer, 'decal_distance_value', layer=layer)
 
-                if texcoord and texcoord.object:
+                if texcoord and texcoord.object and layer.decal_projection_type == 'FLAT':
 
                     rrow = boxcol.row(align=True)
                     rrow.label(text='', icon='BLANK1')
@@ -1842,6 +1854,17 @@ def draw_layer_vector(context, layout, layer, layer_tree, source, image, vcol, i
                             rrrow = rrow.row()
                             rrrow.label(text='Constraint Target:')
                             draw_input_prop(rrrow, decal_const, 'target')
+
+                if layer.decal_projection_type != "FLAT":
+                    rrow = boxcol.row(align=True)
+                    rrow.label(text='', icon='BLANK1')
+
+                    mcol = rrow.column(align=True)
+                    mrow = mcol.row()
+                    mrow.label(text='Decal Scale:')
+
+                    draw_input_prop(mcol, layer, 'decal_scale', None, 'X', layer=layer, index=0)
+                    draw_input_prop(mcol, layer, 'decal_scale', None, 'Y', layer=layer, index=1)
 
                 boxcol.context_pointer_set('entity', layer)
                 rrow = boxcol.row(align=True)
@@ -3198,11 +3221,16 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                         splits.label(text='Decal Object:')
                         splits.prop(texcoord, 'object', text='')
 
+                    rrow = boxcol.row(align=True)
+                    splits = split_layout(rrow, 0.45, align=True) 
+                    splits.label(text='Mode:')
+                    splits.prop(mask, 'decal_projection_type', text='')
+        
                     splits = split_layout(boxcol, 0.5, align=True)
                     splits.label(text='Decal Distance:')
                     draw_input_prop(splits, mask, 'decal_distance_value', layer=layer)
 
-                    if texcoord and texcoord.object:
+                    if texcoord and texcoord.object and mask.decal_projection_type == 'FLAT':
                         rrow = boxcol.row(align=True)
                         rrow.label(text='Decal Constraint:')
                         draw_input_prop(rrow, texcoord.object.yp_decal, 'enable_shrinkwrap')
@@ -3215,6 +3243,17 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
                                 rrow = boxcol.row(align=True)
                                 rrow.label(text='Constraint Target:')
                                 draw_input_prop(rrow, decal_const, 'target')
+
+                    if mask.decal_projection_type != "FLAT":
+                        rrow = boxcol.row(align=True)
+                        #rrow.label(text='', icon='BLANK1')
+
+                        mcol = rrow.column(align=True)
+                        mrow = mcol.row()
+                        mrow.label(text='Decal Scale:')
+
+                        draw_input_prop(mcol, mask, 'decal_scale', None, 'X', layer=layer, index=0)
+                        draw_input_prop(mcol, mask, 'decal_scale', None, 'Y', layer=layer, index=1)
 
                     boxcol.context_pointer_set('entity', mask)
                     if is_bl_newer_than(2, 80):
