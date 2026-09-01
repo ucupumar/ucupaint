@@ -3525,7 +3525,9 @@ def draw_layer_masks(context, layout, layer, specific_mask=None):
         rrow = row.row()
         rrow.alignment = 'RIGHT'
 
-        if is_bl_newer_than(2, 80):
+        if is_bl_newer_than(4) and not ypup.ui_legacy_add_layer_menu:
+            rrow.operator("wm.call_menu", text='', icon='ADD').name = "NODE_MT_y_add_layer_mask_menu"
+        elif is_bl_newer_than(2, 80):
             rrow.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='ADD')
         else: rrow.menu('NODE_MT_y_add_layer_mask_menu', text='', icon='ZOOMIN')
 
@@ -4464,9 +4466,10 @@ def draw_layers_ui(context, layout, node):
                 "list_items", yp, "active_item_index", rows=6, maxrows=6)  
 
     rcol = row.column(align=True)
-    if is_bl_newer_than(2, 80):
+    if is_bl_newer_than(4) and not ypup.ui_legacy_add_layer_menu:
+        rcol.operator("wm.call_menu", text='', icon='ADD').name = "NODE_MT_y_new_layer_menu"
+    elif is_bl_newer_than(2, 80):
         rcol.menu("NODE_MT_y_new_layer_menu", text='', icon='ADD')
-        #rcol.operator("wm.call_menu", text='', icon='ADD').name = "NODE_MT_y_new_layer_menu"
     else: rcol.menu("NODE_MT_y_new_layer_menu", text='', icon='ZOOMIN')
 
     if layer:
@@ -6882,261 +6885,360 @@ class YNewChannelMenu(bpy.types.Menu):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
         col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Vector Displacement').mode = 'VDISP'
 
-class YNewLayerMenu(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_new_layer_menu"
-    bl_description = 'Add New Layer'
-    bl_label = "New Layer Menu"
-    #bl_options = {'SEARCH_ON_KEY_PRESS'}
+def draw_new_image_layer_menu(layout, show_vdm=True):
+    layout.operator("wm.y_new_layer", text='New Image', icon_value=lib.get_icon('image')).type = 'IMAGE'
+
+    op = layout.operator("wm.y_open_image_to_layer", text='Open Image...')
+    op.texcoord_type = 'UV'
+    op.file_browser_filepath = ''
+    layout.operator("wm.y_open_existing_data_to_layer", text='Open Existing Image').type = 'IMAGE'
+
+    layout.operator("wm.y_open_images_to_single_layer", text='Open Images to Single Layer...')
+    layout.operator("wm.y_open_images_from_material_to_single_layer", text='Open Images from Material').asset_library_path = ''
+
+    # NOTE: Dedicated menu for opening images to single layer is kinda hard to see, so it's probably better be hidden for now
+    #layout.menu("NODE_MT_y_open_images_to_single_layer_menu", text='Open Images to Single Layer')
+
+    if is_bl_newer_than(3, 2) and show_vdm:
+        layout.separator()
+        layout.operator("wm.y_new_vdm_layer", text='Vector Displacement Image', icon='SCULPTMODE_HLT')
+
+def draw_new_vcol_layer_menu(layout):
+    layout.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New '+get_vertex_color_label()).type = 'VCOL'
+    layout.operator("wm.y_open_existing_data_to_layer", text='Open Existing '+get_vertex_color_label()).type = 'VCOL'
+
+def draw_new_color_layer_menu(layout):
+    icon_value = lib.get_icon("color")
+    c = layout.operator("wm.y_new_layer", icon_value=icon_value, text='Solid Color')
+    c.type = 'COLOR'
+    c.add_mask = False
+
+    c = layout.operator("wm.y_new_layer", text='Solid Color w/ Image Mask')
+    c.type = 'COLOR'
+    c.add_mask = True
+    c.mask_type = 'IMAGE'
+
+    c = layout.operator("wm.y_new_layer", text='Solid Color w/ '+get_vertex_color_label()+' Mask')
+    c.type = 'COLOR'
+    c.add_mask = True
+    c.mask_type = 'VCOL'
+
+    c = layout.operator("wm.y_new_layer", text='Solid Color w/ Color ID Mask')
+    c.type = 'COLOR'
+    c.add_mask = True
+    c.mask_type = 'COLOR_ID'
+
+    if is_bl_newer_than(2, 93):
+        c = layout.operator("wm.y_new_layer", text='Solid Color w/ Edge Detect Mask')
+        c.type = 'COLOR'
+        c.add_mask = True
+        c.mask_type = 'EDGE_DETECT'
+
+def draw_new_texture_layer_menu(layout):
+    layout.operator("wm.y_new_layer", icon_value=lib.get_icon('texture'), text='Brick').type = 'BRICK'
+    layout.operator("wm.y_new_layer", text='Checker').type = 'CHECKER'
+    layout.operator("wm.y_new_layer", text='Gradient').type = 'GRADIENT'
+    layout.operator("wm.y_new_layer", text='Magic').type = 'MAGIC'
+    if not is_bl_newer_than(4, 1): layout.operator("wm.y_new_layer", text='Musgrave').type = 'MUSGRAVE'
+    layout.operator("wm.y_new_layer", text='Noise').type = 'NOISE'
+    if is_bl_newer_than(4, 3): layout.operator("wm.y_new_layer", text='Gabor').type = 'GABOR'
+    layout.operator("wm.y_new_layer", text='Voronoi').type = 'VORONOI'
+    layout.operator("wm.y_new_layer", text='Wave').type = 'WAVE'
+
+def draw_new_generated_layer_menu(layout):
+    if is_bl_newer_than(2, 93):
+        layout.operator("wm.y_new_layer", icon_value=lib.get_icon('edge_detect'), text='Ambient Occlusion').type = 'AO'
+        layout.operator("wm.y_new_layer", text='Edge Detect').type = 'EDGE_DETECT'
+        layout.separator()
+    layout.operator("wm.y_new_layer", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
+
+def draw_new_adjustment_layer_menu(layout):
+    op = layout.operator("wm.y_new_layer", icon_value=lib.get_icon('modifier'), text='RGB Curve')
+    op.type = 'PREV_LAYERS'
+    op.modifier_type = 'RGB_CURVE'
+
+    op = layout.operator("wm.y_new_layer", text='Color Ramp')
+    op.type = 'PREV_LAYERS'
+    op.modifier_type = 'COLOR_RAMP'
+
+    op = layout.operator("wm.y_new_layer", text='Hue Saturation')
+    op.type = 'PREV_LAYERS'
+    op.modifier_type = 'HUE_SATURATION'
+
+    op = layout.operator("wm.y_new_layer", text='Brightness Contrast')
+    op.type = 'PREV_LAYERS'
+    op.modifier_type = 'BRIGHT_CONTRAST'
+
+    op = layout.operator("wm.y_new_layer", text='Math')
+    op.type = 'PREV_LAYERS'
+    op.modifier_type = 'MATH'
+
+    op = layout.operator("wm.y_new_layer", text='Invert')
+    op.type = 'PREV_LAYERS'
+    op.modifier_type = 'INVERT'
+
+def draw_new_bake_as_layer_menu(layout):
+    c = layout.operator("wm.y_bake_to_layer", icon_value=lib.get_icon('bake'), text='Ambient Occlusion')
+    c.type = 'AO'
+    c.target_type = 'LAYER'
+    c.overwrite_current = False
+
+    c = layout.operator("wm.y_bake_to_layer", text='Pointiness')
+    c.type = 'POINTINESS'
+    c.target_type = 'LAYER'
+    c.overwrite_current = False
+
+    c = layout.operator("wm.y_bake_to_layer", text='Cavity')
+    c.type = 'CAVITY'
+    c.target_type = 'LAYER'
+    c.overwrite_current = False
+
+    c = layout.operator("wm.y_bake_to_layer", text='Dust')
+    c.type = 'DUST'
+    c.target_type = 'LAYER'
+    c.overwrite_current = False
+
+    c = layout.operator("wm.y_bake_to_layer", text='Paint Base')
+    c.type = 'PAINT_BASE'
+    c.target_type = 'LAYER'
+    c.overwrite_current = False
+
+    c = layout.operator("wm.y_bake_to_layer", text='Wireframe')
+    c.type = 'WIREFRAME'
+    c.target_type = 'LAYER'
+    c.overwrite_current = False
+
+    if is_bl_newer_than(2, 80):
+        c = layout.operator("wm.y_bake_to_layer", text='Thickness')
+        c.type = 'THICKNESS'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+        c = layout.operator("wm.y_bake_to_layer", text='Curvature')
+        c.type = 'CURVATURE'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+        c = layout.operator("wm.y_bake_to_layer", text='Bevel Normal')
+        c.type = 'BEVEL_NORMAL'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+        c = layout.operator("wm.y_bake_to_layer", text='Bevel Grayscale')
+        c.type = 'BEVEL_MASK'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+    # NOTE: Blender 2.76 does not bake to object space normal correctly
+    if is_bl_newer_than(2, 77):
+        c = layout.operator("wm.y_bake_to_layer", text='Object Space Normal')
+        c.type = 'OBJECT_SPACE_NORMAL'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+    if is_bl_newer_than(2, 80):
+        layout.separator()
+
+        c = layout.operator("wm.y_bake_to_layer", text='Multires Normal')
+        c.type = 'MULTIRES_NORMAL'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+        c = layout.operator("wm.y_bake_to_layer", text='Multires Displacement')
+        c.type = 'MULTIRES_DISPLACEMENT'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+    # NOTE: Blender 2.76 currently cant bake from other objects since it has a different setup
+    if is_bl_newer_than(2, 77):
+        layout.separator()
+
+        c = layout.operator("wm.y_bake_to_layer", text='Other Objects Color')
+        c.type = 'OTHER_OBJECT_EMISSION'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+        c = layout.operator("wm.y_bake_to_layer", text='Other Objects Normal')
+        c.type = 'OTHER_OBJECT_NORMAL'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+        c = layout.operator("wm.y_bake_to_layer", text='Other Objects Channels')
+        c.type = 'OTHER_OBJECT_CHANNELS'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+    layout.separator()
+
+    c = layout.operator("wm.y_bake_to_layer", text='Selected Vertices')
+    c.type = 'SELECTED_VERTICES'
+    c.target_type = 'LAYER'
+    c.overwrite_current = False
+
+    ypup = get_user_preferences()
+    if ypup.show_experimental:
+        layout.separator()
+
+        c = layout.operator("wm.y_bake_to_layer", text='Flow')
+        c.type = 'FLOW'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+class YNewImageLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_image_layer_menu"
+    bl_description = 'Add New Image Layer'
+    bl_label = "New Image Layer Menu"
 
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
 
     def draw(self, context):
+        draw_new_image_layer_menu(self.layout)
 
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+class YNewVcolLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_vcol_layer_menu"
+    bl_description = 'Add New Attributes Layer'
+    bl_label = "New Attributes Layer Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_vcol_layer_menu(self.layout)
+
+class YNewColorLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_color_layer_menu"
+    bl_description = 'Add New Solid Color Layer'
+    bl_label = "New Solid Color Layer Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_color_layer_menu(self.layout)
+
+class YNewTextureLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_texture_layer_menu"
+    bl_description = 'Add New Texture Layer'
+    bl_label = "New Texture Layer Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_texture_layer_menu(self.layout)
+
+class YNewGeneratedLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_generated_layer_menu"
+    bl_description = 'Add New Generated Layer'
+    bl_label = "New Generated Layer Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_generated_layer_menu(self.layout)
+
+class YNewAdjustmentLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_adjustment_layer_menu"
+    bl_description = 'Add New Adjustment Layer'
+    bl_label = "New Adjustment Layer Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_adjustment_layer_menu(self.layout)
+
+class YNewBakeAsLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_bake_as_layer_menu"
+    bl_description = 'Add New Bake as Layer'
+    bl_label = "New Bake as Layer Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_bake_as_layer_menu(self.layout)
+
+class YNewLayerMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_layer_menu"
+    bl_description = 'Add New Layer'
+    bl_label = "Add Layer"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
         ypup = get_user_preferences()
 
-        row = self.layout.row()
-        col = row.column()
+        if is_bl_newer_than(4) and not ypup.ui_legacy_add_layer_menu:
+            col = self.layout
 
-        #if self.layout.operator_context == 'EXEC_REGION_WIN':
-        #    self.layout.operator_context = 'INVOKE_REGION_WIN'
-        #    col.operator(
-        #        "WM_OT_search_single_menu",
-        #        text="Search...",
-        #        icon='VIEWZOOM',
-        #    ).menu_idname = "NODE_MT_y_new_layer_menu"
-        #    col.separator()
+            if self.layout.operator_context == 'EXEC_REGION_WIN':
+                self.layout.operator_context = 'INVOKE_REGION_WIN'
+                col.operator(
+                    "WM_OT_search_single_menu",
+                    text="Search...",
+                    icon='VIEWZOOM',
+                ).menu_idname = "NODE_MT_y_new_layer_menu"
+                col.separator()
 
-        self.layout.operator_context = 'INVOKE_REGION_WIN'
+            self.layout.operator_context = 'INVOKE_REGION_WIN'
 
-        col.label(text='New Layer:')
-        col.operator("wm.y_new_layer", text='New Image', icon_value=lib.get_icon('image')).type = 'IMAGE'
+            col.menu("NODE_MT_y_new_image_layer_menu", text='Image', icon_value=lib.get_icon('image'))
+            col.menu("NODE_MT_y_new_vcol_layer_menu", text=get_vertex_color_label(), icon_value=lib.get_icon('vertex_color'))
+            col.menu("NODE_MT_y_new_color_layer_menu", text='Solid Color', icon_value=lib.get_icon('color'))
+            col.menu("NODE_MT_y_new_texture_layer_menu", text='Texture', icon_value=lib.get_icon('texture'))
+            col.separator()
+            col.menu("NODE_MT_y_new_generated_layer_menu", text='Geometry', icon_value=lib.get_icon('edge_detect'))
+            col.menu("NODE_MT_y_new_bake_as_layer_menu", text='Bake as Layer', icon_value=lib.get_icon('bake'))
+            col.menu("NODE_MT_y_new_adjustment_layer_menu", text='Adjustment', icon_value=lib.get_icon('modifier'))
+            col.separator()
+            col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
+        else:
+            row = self.layout.row()
+            col = row.column()
 
-        op = col.operator("wm.y_open_image_to_layer", text='Open Image...')
-        op.texcoord_type = 'UV'
-        op.file_browser_filepath = ''
-        col.operator("wm.y_open_existing_data_to_layer", text='Open Existing Image').type = 'IMAGE'
+            col.label(text='New Layer:')
 
-        col.operator("wm.y_open_images_to_single_layer", text='Open Images to Single Layer...')
-        col.operator("wm.y_open_images_from_material_to_single_layer", text='Open Images from Material').asset_library_path = ''
-
-        # NOTE: Dedicated menu for opening images to single layer is kinda hard to see, so it's probably better be hidden for now
-        #col.menu("NODE_MT_y_open_images_to_single_layer_menu", text='Open Images to Single Layer')
-
-        col.separator()
-
-        col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
-        #col.operator("wm.y_new_layer", icon_value=lib.get_icon('COLLAPSEMENU'), text='Previous Layers').type = 'PREV_LAYERS'
-        col.separator()
-
-        col.operator("wm.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New '+get_vertex_color_label()).type = 'VCOL'
-        col.operator("wm.y_open_existing_data_to_layer", text='Open Existing '+get_vertex_color_label()).type = 'VCOL'
-        col.separator()
-
-        #col.menu("NODE_MT_y_new_solid_color_layer_menu", text='Solid Color', icon_value=lib.get_icon('color'))
-
-        icon_value = lib.get_icon("color")
-        c = col.operator("wm.y_new_layer", icon_value=icon_value, text='Solid Color')
-        c.type = 'COLOR'
-        c.add_mask = False
-
-        c = col.operator("wm.y_new_layer", text='Solid Color w/ Image Mask')
-        c.type = 'COLOR'
-        c.add_mask = True
-        c.mask_type = 'IMAGE'
-
-        c = col.operator("wm.y_new_layer", text='Solid Color w/ '+get_vertex_color_label()+' Mask')
-        c.type = 'COLOR'
-        c.add_mask = True
-        c.mask_type = 'VCOL'
-
-        c = col.operator("wm.y_new_layer", text='Solid Color w/ Color ID Mask')
-        c.type = 'COLOR'
-        c.add_mask = True
-        c.mask_type = 'COLOR_ID'
-
-        if is_bl_newer_than(2, 93):
-            c = col.operator("wm.y_new_layer", text='Solid Color w/ Edge Detect Mask')
-            c.type = 'COLOR'
-            c.add_mask = True
-            c.mask_type = 'EDGE_DETECT'
-
-        # NOTE: Backgound layers are no longer accessible even with developer mode enabled
-        # Just remove the 'False' if anyone wants to test background layer again
-        if False and ypup.developer_mode:
+            draw_new_image_layer_menu(col, show_vdm=False)
             col.separator()
 
-            #col.label(text='Background:')
-            c = col.operator("wm.y_new_layer", icon_value=lib.get_icon('background'), text='Background w/ Image Mask')
-            c.type = 'BACKGROUND'
-            c.add_mask = True
-            c.mask_type = 'IMAGE'
-
-            c = col.operator("wm.y_new_layer", text='Background w/ '+get_vertex_color_label()+' Mask')
-
-            c.type = 'BACKGROUND'
-            c.add_mask = True
-            c.mask_type = 'VCOL'
-
-        if is_bl_newer_than(3, 2):
-            col.separator()
-            col.operator("wm.y_new_vdm_layer", text='Vector Displacement Image', icon='SCULPTMODE_HLT')
-
-        col = row.column()
-        col.label(text='New Generated Layer:')
-        #col.operator("wm.y_new_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
-        col.operator("wm.y_new_layer", icon_value=lib.get_icon('texture'), text='Brick').type = 'BRICK'
-        col.operator("wm.y_new_layer", text='Checker').type = 'CHECKER'
-        col.operator("wm.y_new_layer", text='Gradient').type = 'GRADIENT'
-        col.operator("wm.y_new_layer", text='Magic').type = 'MAGIC'
-        if not is_bl_newer_than(4, 1): col.operator("wm.y_new_layer", text='Musgrave').type = 'MUSGRAVE'
-        col.operator("wm.y_new_layer", text='Noise').type = 'NOISE'
-        if is_bl_newer_than(4, 3): col.operator("wm.y_new_layer", text='Gabor').type = 'GABOR'
-        col.operator("wm.y_new_layer", text='Voronoi').type = 'VORONOI'
-        col.operator("wm.y_new_layer", text='Wave').type = 'WAVE'
-
-        col.separator()
-        col.operator("wm.y_new_layer", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
-        if is_bl_newer_than(2, 93):
-            col.separator()
-            col.operator("wm.y_new_layer", icon_value=lib.get_icon('edge_detect'), text='Ambient Occlusion').type = 'AO'
-            col.operator("wm.y_new_layer", text='Edge Detect').type = 'EDGE_DETECT'
-
-        col.separator()
-        col.label(text='New Adjustment Layer:')
-        op = col.operator("wm.y_new_layer", icon_value=lib.get_icon('modifier'), text='RGB Curve')
-        op.type = 'PREV_LAYERS'
-        op.modifier_type = 'RGB_CURVE'
-
-        op = col.operator("wm.y_new_layer", text='Color Ramp')
-        op.type = 'PREV_LAYERS'
-        op.modifier_type = 'COLOR_RAMP'
-
-        op = col.operator("wm.y_new_layer", text='Hue Saturation')
-        op.type = 'PREV_LAYERS'
-        op.modifier_type = 'HUE_SATURATION'
-
-        op = col.operator("wm.y_new_layer", text='Brightness Contrast')
-        op.type = 'PREV_LAYERS'
-        op.modifier_type = 'BRIGHT_CONTRAST'
-
-        op = col.operator("wm.y_new_layer", text='Math')
-        op.type = 'PREV_LAYERS'
-        op.modifier_type = 'MATH'
-
-        op = col.operator("wm.y_new_layer", text='Invert')
-        op.type = 'PREV_LAYERS'
-        op.modifier_type = 'INVERT'
-
-        col = row.column()
-        col.label(text='Bake as Layer:')
-        c = col.operator("wm.y_bake_to_layer", icon_value=lib.get_icon('bake'), text='Ambient Occlusion')
-        c.type = 'AO'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
-
-        c = col.operator("wm.y_bake_to_layer", text='Pointiness')
-        c.type = 'POINTINESS'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
-
-        c = col.operator("wm.y_bake_to_layer", text='Cavity')
-        c.type = 'CAVITY'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
-
-        c = col.operator("wm.y_bake_to_layer", text='Dust')
-        c.type = 'DUST'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
-
-        c = col.operator("wm.y_bake_to_layer", text='Paint Base')
-        c.type = 'PAINT_BASE'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
-
-        c = col.operator("wm.y_bake_to_layer", text='Wireframe')
-        c.type = 'WIREFRAME'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
-
-        if is_bl_newer_than(2, 80):
-            c = col.operator("wm.y_bake_to_layer", text='Thickness')
-            c.type = 'THICKNESS'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
-
-            c = col.operator("wm.y_bake_to_layer", text='Curvature')
-            c.type = 'CURVATURE'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
-
-            c = col.operator("wm.y_bake_to_layer", text='Bevel Normal')
-            c.type = 'BEVEL_NORMAL'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
-
-            c = col.operator("wm.y_bake_to_layer", text='Bevel Grayscale')
-            c.type = 'BEVEL_MASK'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
-
-        # NOTE: Blender 2.76 does not bake to object space normal correctly
-        if is_bl_newer_than(2, 77):
-            c = col.operator("wm.y_bake_to_layer", text='Object Space Normal')
-            c.type = 'OBJECT_SPACE_NORMAL'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
-
-        if is_bl_newer_than(2, 80):
+            col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
             col.separator()
 
-            c = col.operator("wm.y_bake_to_layer", text='Multires Normal')
-            c.type = 'MULTIRES_NORMAL'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
-
-            c = col.operator("wm.y_bake_to_layer", text='Multires Displacement')
-            c.type = 'MULTIRES_DISPLACEMENT'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
-
-        # NOTE: Blender 2.76 currently cant bake from other objects since it has a different setup
-        if is_bl_newer_than(2, 77):
+            draw_new_vcol_layer_menu(col)
             col.separator()
 
-            c = col.operator("wm.y_bake_to_layer", text='Other Objects Color')
-            c.type = 'OTHER_OBJECT_EMISSION'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
+            draw_new_color_layer_menu(col)
 
-            c = col.operator("wm.y_bake_to_layer", text='Other Objects Normal')
-            c.type = 'OTHER_OBJECT_NORMAL'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
+            if is_bl_newer_than(3, 2):
+                col.separator()
+                col.operator("wm.y_new_vdm_layer", text='Vector Displacement Image', icon='SCULPTMODE_HLT')
 
-            c = col.operator("wm.y_bake_to_layer", text='Other Objects Channels')
-            c.type = 'OTHER_OBJECT_CHANNELS'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
+            col = row.column()
+            col.label(text='New Generated Layer:')
+            draw_new_texture_layer_menu(col)
 
-        col.separator()
-
-        c = col.operator("wm.y_bake_to_layer", text='Selected Vertices')
-        c.type = 'SELECTED_VERTICES'
-        c.target_type = 'LAYER'
-        c.overwrite_current = False
-
-        if ypup.show_experimental:
             col.separator()
+            draw_new_generated_layer_menu(col)
 
-            c = col.operator("wm.y_bake_to_layer", text='Flow')
-            c.type = 'FLOW'
-            c.target_type = 'LAYER'
-            c.overwrite_current = False
+            col.separator()
+            col.label(text='New Adjustment Layer:')
+            draw_new_adjustment_layer_menu(col)
+
+            col = row.column()
+            col.label(text='Bake as Layer:')
+            draw_new_bake_as_layer_menu(col)
 
 class YBakedImageMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_baked_image_menu"
@@ -7543,44 +7645,6 @@ class YOpenImagesToSingleLayerMenu(bpy.types.Menu):
         col.operator("wm.y_open_images_to_single_layer", icon='FILE_FOLDER', text='From Directory')
         col.operator("wm.y_open_images_from_material_to_single_layer", icon='MATERIAL_DATA', text='From Material').asset_library_path = ''
 
-class YNewSolidColorLayerMenu(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_new_solid_color_layer_menu"
-    bl_label = "New Solid Color Layer Menu"
-    bl_description = "New Solid Color layer menu"
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        col = self.layout.column()
-
-        icon_value = lib.get_icon("color")
-        c = col.operator("wm.y_new_layer", icon_value=icon_value, text='Solid Color')
-        c.type = 'COLOR'
-        c.add_mask = False
-
-        c = col.operator("wm.y_new_layer", text='Solid Color w/ Image Mask')
-        c.type = 'COLOR'
-        c.add_mask = True
-        c.mask_type = 'IMAGE'
-
-        c = col.operator("wm.y_new_layer", text='Solid Color w/ '+get_vertex_color_label()+' Mask')
-        c.type = 'COLOR'
-        c.add_mask = True
-        c.mask_type = 'VCOL'
-
-        c = col.operator("wm.y_new_layer", text='Solid Color w/ Color ID Mask')
-        c.type = 'COLOR'
-        c.add_mask = True
-        c.mask_type = 'COLOR_ID'
-
-        if is_bl_newer_than(2, 93):
-            c = col.operator("wm.y_new_layer", text='Solid Color w/ Edge Detect Mask')
-            c.type = 'COLOR'
-            c.add_mask = True
-            c.mask_type = 'EDGE_DETECT'
-
 class YImageConvertToMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_image_convert_menu"
     bl_label = "Convert Image to Menu"
@@ -7810,6 +7874,134 @@ def new_mask_button(layout, operator, text, lib_icon='', otype='', target_type='
 
     return op
 
+def draw_new_image_layer_mask_menu(layout):
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE')
+    op = new_mask_button(layout, 'wm.y_open_image_as_mask', 'Open Image as Mask...') #, lib_icon='open_image')
+    op.texcoord_type = 'UV'
+    op.file_browser_filepath = ''
+    new_mask_button(layout, 'wm.y_open_existing_data_as_mask', 'Open Existing Image as Mask', otype='IMAGE') #, lib_icon='open_image')
+
+def draw_new_vcol_layer_mask_menu(layout):
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'New '+get_vertex_color_label()+' Mask', lib_icon='vertex_color', otype='VCOL')
+    new_mask_button(layout, 'wm.y_open_existing_data_as_mask', 'Open Existing '+get_vertex_color_label()+' as Mask', otype='VCOL') # lib_icon='vertex_color')
+
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Color ID', lib_icon='color', otype='COLOR_ID')
+
+def draw_new_adjustment_layer_mask_menu(layout):
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Invert', otype='MODIFIER', modifier_type='INVERT', lib_icon='modifier')
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Ramp', otype='MODIFIER', modifier_type='RAMP') #, lib_icon='modifier')
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Curve', otype='MODIFIER', modifier_type='CURVE') #, lib_icon='modifier')
+
+def draw_new_texture_layer_mask_menu(layout):
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Brick', otype='BRICK', lib_icon='texture')
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Checker', otype='CHECKER')
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Gradient', otype='GRADIENT')
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Magic', otype='MAGIC')
+    if not is_bl_newer_than(4, 1): new_mask_button(layout, 'wm.y_new_layer_mask', 'Musgrave', otype='MUSGRAVE')
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Noise', otype='NOISE')
+    if is_bl_newer_than(4, 3): new_mask_button(layout, 'wm.y_new_layer_mask', 'Gabor', otype='GABOR')
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Voronoi', otype='VORONOI')
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Wave', otype='WAVE')
+
+def draw_new_generated_layer_mask_menu(layout):
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Object Index', otype='OBJECT_INDEX', lib_icon='object_index')
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Backface', otype='BACKFACE', lib_icon='backface')
+    layout.separator()
+
+    if is_bl_newer_than(2, 93):
+        new_mask_button(layout, 'wm.y_new_layer_mask', 'Ambient Occlusion', otype='AO', lib_icon='edge_detect')
+        new_mask_button(layout, 'wm.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT')
+        layout.separator()
+
+    new_mask_button(layout, 'wm.y_new_layer_mask', 'Fake Lighting', lib_icon='hemi', otype='HEMI')
+
+def draw_new_bake_as_layer_mask_menu(layout):
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Ambient Occlusion', lib_icon='bake', otype='AO', target_type='MASK', overwrite_current=False)
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Pointiness', otype='POINTINESS', target_type='MASK', overwrite_current=False)
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Cavity', otype='CAVITY', target_type='MASK', overwrite_current=False)
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Dust', otype='DUST', target_type='MASK', overwrite_current=False)
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Paint Base', otype='PAINT_BASE', target_type='MASK', overwrite_current=False)
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Thickness', otype='THICKNESS', target_type='MASK', overwrite_current=False)
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Wireframe', otype='WIREFRAME', target_type='MASK', overwrite_current=False)
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Curvature', otype='CURVATURE', target_type='MASK', overwrite_current=False)
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Bevel Grayscale', otype='BEVEL_MASK', target_type='MASK', overwrite_current=False)
+    new_mask_button(layout, 'wm.y_bake_to_layer', 'Selected Vertices', otype='SELECTED_VERTICES', target_type='MASK', overwrite_current=False)
+    if is_bl_newer_than(2, 77):
+        layout.separator()
+        new_mask_button(layout, 'wm.y_bake_to_layer', 'Other Objects Color', otype='OTHER_OBJECT_EMISSION', target_type='MASK', overwrite_current=False)
+
+class YAddImageLayerMaskMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_add_image_layer_mask_menu"
+    bl_description = 'Add Image Layer Mask'
+    bl_label = "Add Image Layer Mask"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_image_layer_mask_menu(self.layout)
+
+class YAddVColLayerMaskMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_add_vcol_layer_mask_menu"
+    bl_description = 'Add Attributes Layer Mask'
+    bl_label = "Add Attributes Layer Mask"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_vcol_layer_mask_menu(self.layout)
+
+class YAddAdjustmentLayerMaskMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_add_adjustment_layer_mask_menu"
+    bl_description = 'Add Adjustment Layer Mask'
+    bl_label = "Add Adjustment Layer Mask"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_adjustment_layer_mask_menu(self.layout)
+
+class YAddTextureLayerMaskMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_add_texture_layer_mask_menu"
+    bl_description = 'Add Texture Layer Mask'
+    bl_label = "Add Texture Layer Mask"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_texture_layer_mask_menu(self.layout)
+
+class YAddGeneratedLayerMaskMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_add_generated_layer_mask_menu"
+    bl_description = 'Add Generated Layer Mask'
+    bl_label = "Add Generated Layer Mask"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_generated_layer_mask_menu(self.layout)
+
+class YAddBakeAsLayerMaskMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_add_bake_as_layer_mask_menu"
+    bl_description = 'Add Bake as Layer Mask'
+    bl_label = "Add Bake as Layer Mask"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        draw_new_bake_as_layer_mask_menu(self.layout)
+
 class YAddLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_add_layer_mask_menu"
     bl_description = 'Add Layer Mask'
@@ -7817,80 +8009,66 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        #return hasattr(context, 'layer')
         return get_active_ypaint_node()
 
     def draw(self, context):
-        #print(context.layer)
+        ypup = get_user_preferences()
+
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = yp.layers[yp.active_layer_index] if yp.active_layer_index >= 0 and yp.active_layer_index <= len(yp.layers) else None
+
         layout = self.layout
         row = layout.row()
         col = row.column(align=True)
 
-        if not hasattr(context, 'layer'):
+        if not layer:
             col.label(text='ERROR: Context has no layer!', icon='ERROR')
             return
 
-        col.context_pointer_set('layer', context.layer)
+        col.context_pointer_set('layer', layer)
 
-        col.label(text='Image Mask:')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE')
-        op = new_mask_button(col, 'wm.y_open_image_as_mask', 'Open Image as Mask...') #, lib_icon='open_image')
-        op.texcoord_type = 'UV'
-        op.file_browser_filepath = ''
-        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing Image as Mask', otype='IMAGE') #, lib_icon='open_image')
-        col.separator()
+        if is_bl_newer_than(4) and not ypup.ui_legacy_add_layer_menu:
+            if self.layout.operator_context == 'EXEC_REGION_WIN':
+                self.layout.operator_context = 'INVOKE_REGION_WIN'
+                col.operator(
+                    "WM_OT_search_single_menu",
+                    text="Search...",
+                    icon='VIEWZOOM',
+                ).menu_idname = "NODE_MT_y_add_layer_mask_menu"
+                col.separator()
 
-        col.label(text=get_vertex_color_label()+' Mask:')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'New '+get_vertex_color_label()+' Mask', lib_icon='vertex_color', otype='VCOL')
-        new_mask_button(col, 'wm.y_open_existing_data_as_mask', 'Open Existing '+get_vertex_color_label()+' as Mask', otype='VCOL') # lib_icon='vertex_color')
+            self.layout.operator_context = 'INVOKE_REGION_WIN'
 
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Color ID', lib_icon='color', otype='COLOR_ID')
-
-        col.separator()
-        col.label(text='Adjustment Mask:')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Invert', otype='MODIFIER', modifier_type='INVERT', lib_icon='modifier')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Ramp', otype='MODIFIER', modifier_type='RAMP') #, lib_icon='modifier')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Curve', otype='MODIFIER', modifier_type='CURVE') #, lib_icon='modifier')
-
-        col = row.column(align=True)
-        col.label(text='Generated Mask:')
-
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Brick', otype='BRICK', lib_icon='texture')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Checker', otype='CHECKER')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Gradient', otype='GRADIENT')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Magic', otype='MAGIC')
-        if not is_bl_newer_than(4, 1): new_mask_button(col, 'wm.y_new_layer_mask', 'Musgrave', otype='MUSGRAVE')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Noise', otype='NOISE')
-        if is_bl_newer_than(4, 3): new_mask_button(col, 'wm.y_new_layer_mask', 'Gabor', otype='GABOR')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Voronoi', otype='VORONOI')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Wave', otype='WAVE')
-
-        col.separator()
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Fake Lighting', lib_icon='hemi', otype='HEMI')
-
-        col.separator()
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Object Index', otype='OBJECT_INDEX', lib_icon='object_index')
-        new_mask_button(col, 'wm.y_new_layer_mask', 'Backface', otype='BACKFACE', lib_icon='backface')
-        if is_bl_newer_than(2, 93):
+            col.menu("NODE_MT_y_add_image_layer_mask_menu", text='Image', icon_value=lib.get_icon('image'))
+            col.menu("NODE_MT_y_add_vcol_layer_mask_menu", text=get_vertex_color_label(), icon_value=lib.get_icon('vertex_color'))
+            col.menu("NODE_MT_y_add_texture_layer_mask_menu", text='Texture', icon_value=lib.get_icon('texture'))
             col.separator()
-            new_mask_button(col, 'wm.y_new_layer_mask', 'Ambient Occlusion', otype='AO', lib_icon='edge_detect')
-            new_mask_button(col, 'wm.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT')
-
-        col = row.column(align=True)
-        col.label(text='Bake as Mask:')
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Ambient Occlusion', lib_icon='bake', otype='AO', target_type='MASK', overwrite_current=False)
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Pointiness', otype='POINTINESS', target_type='MASK', overwrite_current=False)
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Cavity', otype='CAVITY', target_type='MASK', overwrite_current=False)
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Dust', otype='DUST', target_type='MASK', overwrite_current=False)
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Paint Base', otype='PAINT_BASE', target_type='MASK', overwrite_current=False)
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Thickness', otype='THICKNESS', target_type='MASK', overwrite_current=False)
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Wireframe', otype='WIREFRAME', target_type='MASK', overwrite_current=False)
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Curvature', otype='CURVATURE', target_type='MASK', overwrite_current=False)
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Bevel Grayscale', otype='BEVEL_MASK', target_type='MASK', overwrite_current=False)
-        new_mask_button(col, 'wm.y_bake_to_layer', 'Selected Vertices', otype='SELECTED_VERTICES', target_type='MASK', overwrite_current=False)
-        if is_bl_newer_than(2, 77):
+            col.menu("NODE_MT_y_add_generated_layer_mask_menu", text='Geometry', icon_value=lib.get_icon('edge_detect'))
+            col.menu("NODE_MT_y_add_bake_as_layer_mask_menu", text='Bake as Mask', icon_value=lib.get_icon('bake'))
+            col.menu("NODE_MT_y_add_adjustment_layer_mask_menu", text='Adjustment', icon_value=lib.get_icon('modifier'))
+        else:
+            col.label(text='Image Mask:')
+            draw_new_image_layer_mask_menu(col)
             col.separator()
-            new_mask_button(col, 'wm.y_bake_to_layer', 'Other Objects Color', otype='OTHER_OBJECT_EMISSION', target_type='MASK', overwrite_current=False)
+
+            col.label(text=get_vertex_color_label()+' Mask:')
+            draw_new_vcol_layer_mask_menu(col)
+            col.separator()
+
+            col.label(text='Adjustment Mask:')
+            draw_new_adjustment_layer_mask_menu(col)
+
+            col = row.column(align=True)
+            col.label(text='Generated Mask:')
+            draw_new_texture_layer_mask_menu(col)
+
+            col.separator()
+            draw_new_generated_layer_mask_menu(col)
+
+            col = row.column(align=True)
+            col.label(text='Bake as Mask:')
+            draw_new_bake_as_layer_mask_menu(col)
 
 class YLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_mask_menu"
@@ -9347,7 +9525,13 @@ classes.extend([
     YChannelSpecialTypeMenu,
     YChannelActiveBakeTargetMenu,
     YNewChannelMenu,
-    YNewLayerMenu,
+    YNewImageLayerMenu,
+    YNewVcolLayerMenu,
+    YNewColorLayerMenu,
+    YNewTextureLayerMenu,
+    YNewGeneratedLayerMenu,
+    YNewAdjustmentLayerMenu,
+    YNewBakeAsLayerMenu,
     YBakeTargetMenu,
     YBakeListSpecialMenu,
     YBakedImageMenu,
@@ -9359,7 +9543,6 @@ classes.extend([
     YLayerMaskInputMenu,
     YImageConvertToMenu,
     YOpenImagesToSingleLayerMenu,
-    YNewSolidColorLayerMenu,
     YUVSpecialMenu,
     YModifierMenu,
     YModifier1Menu,
@@ -9367,7 +9550,12 @@ classes.extend([
     YTransitionBumpMenu,
     YTransitionRampMenu,
     YTransitionAOMenu,
-    YAddLayerMaskMenu,
+    YAddImageLayerMaskMenu,
+    YAddVColLayerMaskMenu,
+    YAddAdjustmentLayerMaskMenu,
+    YAddTextureLayerMaskMenu,
+    YAddGeneratedLayerMaskMenu,
+    YAddBakeAsLayerMaskMenu,
     YLayerMaskMenu,
     YMaterialSpecialMenu,
     YChannelSpecialMenu,
@@ -9396,6 +9584,29 @@ classes.extend([
     YPendingUpdate,
     YPaintUI,
 ])
+
+new_entity_menus = (
+    YNewLayerMenu,
+    YAddLayerMaskMenu,
+)
+
+def register_new_entity_menus():
+    ypup = get_user_preferences()
+
+    for menu in new_entity_menus:
+        if hasattr(bpy.types, menu.bl_idname):
+            bpy.utils.unregister_class(menu)
+
+        if is_bl_newer_than(4):
+            # Enable search on keypress if legacy menu is not used
+            if not ypup.ui_legacy_add_layer_menu:
+                menu.bl_options = {'SEARCH_ON_KEY_PRESS'}
+            else: menu.bl_options = set()
+
+        bpy.utils.register_class(menu)
+
+def unregister_new_entity_menus():
+    for menu in new_entity_menus: bpy.utils.unregister_class(menu)
 
 panels = [
     VIEW3D_PT_YPaint_about_ui,
@@ -9438,13 +9649,13 @@ def register_panels():
         bpy.utils.register_class(panel)
 
 def unregister_panels():
-    for panel in panels:
-        bpy.utils.unregister_class(panel)
+    for panel in panels: bpy.utils.unregister_class(panel)
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    register_new_entity_menus()
     register_panels()
 
     bpy.types.Scene.ypui = PointerProperty(type=YPaintUI)
@@ -9474,6 +9685,7 @@ def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
 
+    unregister_new_entity_menus()
     unregister_panels()
 
     # Remove add yPaint node ui
