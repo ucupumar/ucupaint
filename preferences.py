@@ -14,6 +14,12 @@ def update_icons(self, context):
         from . import ui
         ui.register_panels()
 
+def update_legacy_add_layer_menu(self, context):
+    # Reload menus
+    if is_bl_newer_than(4):
+        from . import ui
+        ui.register_new_entity_menus()
+
 def update_default_bake_device(self, context):
     if self.default_bake_device != 'DEFAULT':
         # Get all yp trees
@@ -146,6 +152,13 @@ class YPaintPreferences(AddonPreferences):
         ),
         default = 'DYNAMIC'
     )
+
+    ui_legacy_add_layer_menu : BoolProperty(
+        name = 'Use Legacy Add Layer Menu UI',
+        description = "Use legacy add layer menu like Blender 3.6 or older",
+        default = False,
+        update = update_legacy_add_layer_menu
+    )
     
     default_image_resolution : EnumProperty(
         name = 'Default Image Size',
@@ -204,6 +217,8 @@ class YPaintPreferences(AddonPreferences):
             self.layout.prop(self, 'enable_uniform_uv_scale_by_default')
         if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'ui_non_popup_settings')
+        if is_bl_newer_than(4):
+            self.layout.prop(self, 'ui_legacy_add_layer_menu')
         self.layout.prop(self, 'hide_update_notification')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
