@@ -269,7 +269,11 @@ def create_bake_target_from_channel(ch, baked_node=None, use_vcol=False, bt_name
 
     bt.data_type = 'IMAGE' if not use_vcol else 'VCOL'
 
+    # Avoid checking UDIM when setting uv map
+    ori_halt_update = yp.halt_update
+    yp.halt_update = True
     bt.uv_map = yp.baked_uv_name
+    yp.halt_update = ori_halt_update
 
     if baked_node:
         bt.baked_node = baked_node.name
@@ -1723,7 +1727,15 @@ def update_yp_tree(tree):
             props = BakeTarget.get_global_settings_props()
             for prop in props:
                 if hasattr(first_bt, prop):
+                    # Avoid checking UDIM when setting uv map
+                    ori_halt_update = yp.halt_update
+                    if prop == 'uv_map':
+                        yp.halt_update = True
+
                     setattr(gloset, prop, getattr(first_bt, prop))
+
+                    if prop == 'uv_map':
+                        yp.halt_update = ori_halt_update
 
             # Also copy from image's bake info for some other props
             baked_node = tree.nodes.get(first_bt.baked_node)
