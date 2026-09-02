@@ -63,6 +63,7 @@ def update_yp_ui():
             except: bt = None
             if bt:
                 ypui.bake_target_ui.expand_content = bt.expand_content
+                ypui.bake_target_ui.expand_bake_settings = bt.expand_bake_settings
                 ypui.bake_target_ui.expand_r = bt.expand_r
                 ypui.bake_target_ui.expand_g = bt.expand_g
                 ypui.bake_target_ui.expand_b = bt.expand_b
@@ -1537,40 +1538,20 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
     box = layout
     col = box.column()
 
-    if show_header:
-        #col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
-        col.label(text='Bake Target Settings')
+    #if show_header:
+    #    #col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
+    #    col.label(text='Bake Target Settings')
 
     row = col.row(align=True)
-    row.prop(ypui, 'bake_target_settings_tab', expand=True)
 
-    col.separator()
+    col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
 
-    if ypui.bake_target_settings_tab == 'GLOBAL_SETTINGS':
-        gloset = yp.bake_target_global_settings
-        any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
-        #any_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL'])
-        BaseOperator.draw_base_bake_target_settings(context, col, gloset, bt=None, 
-            show_image_props = any_image_bts,
-            show_vcol_props = False, #any_vcol_bts,
-            show_hdr = False,
-            show_udim = is_udim_supported(),
-            yp = yp
-        )
-        col.separator()
-
-        col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = False
-        
-        return
-
-    #col.label(text='Individual Bake Target Settings')
+    if show_header:
+        col.label(text='Bake Target Settings')
 
     row = col.row()
 
     rcol = row.column(align=False)
-
-    #if show_header:
-    #    rcol.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).with_prompt = False
 
     rows = rows if rows >= 4 else 4
     rcol.template_list(
@@ -1620,9 +1601,10 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
             image_name = image.name if image else empty_label
             row_image.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
 
-            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-            row_image.context_pointer_set('image', image)
-            row_image.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        if bt.data_type == 'IMAGE': row_image.context_pointer_set('image', image)
+        row_image.context_pointer_set('bt', bt)
+        row_image.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
 
         #if not image:
         #    row = col.row(align=True)
@@ -1677,6 +1659,18 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
             for letter in rgba_letters:
                 draw_bake_target_channel(context, bcol, bt, letter)
 
+        # Vertex color specific settings
+        if bt.data_type == 'VCOL' and is_bl_newer_than(3, 2):
+            crow = col.row(align=True)
+            crow.label(text='', icon='BLANK1')
+            crow.label(text='Domain:')
+            crow.prop(bt, 'vcol_domain', expand=True)
+
+            crow = col.row(align=True)
+            crow.label(text='', icon='BLANK1')
+            crow.label(text='Data Type:')
+            crow.prop(bt, 'vcol_data_type', expand=True)
+
         # Channel specific settings
         for ch in channels:
             if ch.special_type == 'HEIGHT':
@@ -1686,81 +1680,61 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
 
         if has_height_channel:
             crow = col.row(align=True)
-            #crow.label(text='', icon='BLANK1')
             crow.label(text='', icon='BLANK1')
-            crow.label(text='Normalize Height:') #, icon='PREFERENCES')
+            crow.label(text='Normalize Height:')
             crow.prop(bt, 'height_normalize', text='')
 
         if has_normal_channel:
             crow = col.row(align=True)
-            #crow.label(text='', icon='BLANK1')
             crow.label(text='', icon='BLANK1')
-            crow.label(text='Normal includes Height:') #, icon='PREFERENCES')
+            crow.label(text='Normal includes Height:')
             crow.prop(bt, 'normal_includes_height', text='')
 
+        # Bake settings
         crow = col.row(align=True)
 
-        icon = get_collapse_arrow_icon(btui.expand_setting)
+        icon = get_collapse_arrow_icon(btui.expand_bake_settings)
 
         label_setting = "Bake Settings:"
-        icon_value = lib.get_icon('bake')
-        if bt.bake_settings == 'CUSTOM' or bt.data_type == 'VCOL':
+        if bt.bake_settings != 'GLOBAL':
             drow = crow.row(align=True)
             if is_bl_newer_than(2, 80):
                 drow.alignment = 'LEFT'
                 drow.scale_x = 0.85
 
-            drow.prop(btui, 'expand_setting', text='', emboss=False, icon=icon)
+            drow.prop(btui, 'expand_bake_settings', text='', emboss=False, icon=icon)
             if is_bl_newer_than(2, 80):
-                drow.prop(btui, 'expand_setting', text=label_setting, emboss=False) #, icon_value=icon_value)
+                drow.prop(btui, 'expand_bake_settings', text=label_setting, emboss=False)
             else: 
-                drow.label(text=label_setting) #, icon_value=icon_value)
+                drow.label(text=label_setting)
         else:
             crow.label(text='', icon='BLANK1')
-            crow.label(text=label_setting) #, icon_value=icon_value)
+            crow.label(text=label_setting)
 
-        if bt.data_type != 'VCOL':
-            srow = crow.row(align=True)
-            #srow = srow.row(align=True)
-            srow.alignment = 'RIGHT'
-            srow.prop(bt, 'bake_settings', text='')
+        #if bt.data_type != 'VCOL':
+        srow = crow.row(align=True)
+        srow.alignment = 'RIGHT'
+        srow.prop(bt, 'bake_settings', text='')
 
-        if btui.expand_setting and (bt.bake_settings == 'CUSTOM' or bt.data_type == 'VCOL'):
+        if btui.expand_bake_settings and bt.bake_settings != 'GLOBAL':
 
-            #crow = col.row(align=True)
-
-            #icon = get_collapse_arrow_icon(btui.expand_setting)
-
-            #if is_bl_newer_than(2, 80):
-            #    crow.alignment = 'LEFT'
-            #    crow.scale_x = 0.95
-
-            #crow.prop(btui, 'expand_setting', text='', emboss=False, icon=icon)
-
-            #label_setting = "Bake Settings"
-            #if is_bl_newer_than(2, 80):
-            #    crow.prop(btui, 'expand_setting', text=label_setting, emboss=False, icon_value=lib.get_icon('bake'))
-            #else: 
-            #    crow.label(text=label_setting, icon_value=icon_value)
-
-            #if btui.expand_setting:
             crow = col.row(align=True)
             crow.label(text='', icon='BLANK1')
 
             info_col = crow.column()
-            draw_bake_target_settings(context, info_col, bt)
-            #op = info_col.operator('wm.y_bake_single_target', text='Bake '+bt.name, icon_value=lib.get_icon('bake'))
-            #op.bake_target_index = yp.active_bake_target_index
+            if bt.data_type == 'VCOL':
+                bbox = info_col.box()
+                bcol = bbox.column()
 
-        crow = col.row(align=True)
-        crow.label(text='', icon='BLANK1')
-        op = crow.operator('wm.y_bake_single_target', text='Bake '+bt.name, icon_value=lib.get_icon('bake'))
-        op.bake_target_index = yp.active_bake_target_index
+                crow = bcol.row(align=True)
+                crow.label(text='Force Bake All Polygons:')
+                crow.prop(bt, 'force_bake_all_polygons', text='')
 
-        #col.separator()
-        #crow = col.row(align=True)
-        ##crow.label(text='', icon='BLANK1')
-        #crow.operator('wm.y_bake_all_targets', text='Bake All Bake Targets', icon_value=lib.get_icon('bake')).with_prompt = True
+                crow = bcol.row(align=True)
+                crow.label(text='Bake Disabled Layers:')
+                crow.prop(bt, 'bake_disabled_layers', text='')
+            else:
+                draw_bake_target_settings(context, info_col, bt)
 
 def draw_bake_target_settings(context, layout, bt):
 
@@ -6762,14 +6736,21 @@ class YBakeTargetMenu(bpy.types.Menu):
     def draw(self, context):
 
         col = self.layout.column()
-        col.operator('wm.y_pack_image', icon='PACKAGE')
-        col.operator('wm.y_save_image', icon='FILE_TICK')
 
-        if context.image:
-            if context.image.packed_file:
-                col.operator('wm.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').copy = False
-            else: col.operator('wm.y_save_as_image', text='Save As Image').copy = False
-            col.operator('wm.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
+        bt = context.bt
+        op = col.operator('wm.y_bake_single_target', text='Bake '+bt.name, icon_value=lib.get_icon('bake'))
+        op.bake_target_index = get_bake_target_index(bt)
+
+        if bt.data_type == 'IMAGE':
+            col.separator()
+            col.operator('wm.y_pack_image', icon='PACKAGE')
+            col.operator('wm.y_save_image', icon='FILE_TICK')
+
+            if context.image:
+                if context.image.packed_file:
+                    col.operator('wm.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').copy = False
+                else: col.operator('wm.y_save_as_image', text='Save As Image').copy = False
+                col.operator('wm.y_save_as_image', text='Save an Image Copy...', icon='FILE_TICK').copy = True
 
 class YChannelSpecialTypeMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_channel_special_type_menu"
@@ -8873,6 +8854,7 @@ def update_bake_target_ui(self, context):
     bt.expand_g = self.expand_g
     bt.expand_b = self.expand_b
     bt.expand_a = self.expand_a
+    bt.expand_bake_settings = self.expand_bake_settings
 
 def update_mask_channel_ui(self, context):
     ypui = context.window_manager.ypui
@@ -8929,15 +8911,12 @@ class YBakeTargetUI(bpy.types.PropertyGroup):
         update = update_bake_target_ui
     )
 
-    expand_options : BoolProperty(
-        name = 'Bake Options',
-        description = 'Expand bake target options',
-        default = True,
-        # update = update_bake_target_ui
+    expand_bake_settings : BoolProperty(
+        name = 'Bake Settings',
+        description = 'Expand bake target settings',
+        default=False,
+        update = update_bake_target_ui
     )
-
-    expand_setting : BoolProperty(default=True)
-
 
 class YModifierUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
@@ -9187,16 +9166,6 @@ else:
     )
 
 class YPaintUI(bpy.types.PropertyGroup):
-
-    bake_target_settings_tab : EnumProperty(
-        name = 'Bake Target Settings Tab',
-        description = 'Select bake target settings',
-        items = (
-           ('GLOBAL_SETTINGS', 'Global Settings', 'Global bake target settings'),
-           ('BAKE_TARGETS', 'Bake Targets', 'Individual Bake Target Settings'),
-        ),
-        default = 'GLOBAL_SETTINGS',
-    )
 
     show_object : BoolProperty(
         name = 'Active Object',
