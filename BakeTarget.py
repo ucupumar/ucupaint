@@ -88,6 +88,19 @@ def update_bake_target_name(self, context):
 
     self.original_name = self.name
 
+def update_bake_target_bake_settings(self, context):
+    ypui = bpy.context.window_manager.ypui
+    # Expand the settings if custom setting is selected
+    if self.bake_settings != 'GLOBAL':
+        ypui.bake_target_ui.expand_bake_settings = True
+        #self.expand_bake_settings = True
+        #ypui.need_update = True
+
+bake_settings_items = (
+    ('GLOBAL', 'Use Node Settings', 'Use settings that appear when doing \'Bake '+get_addon_title()+' Node\''),
+    ('CUSTOM', 'Custom', 'Use custom bake settings')
+)
+
 class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoProps):
     name : StringProperty(
         name = 'Bake Target Name',
@@ -126,15 +139,13 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
         default = True
     )
 
-    # Bake setting
+    # Bake settings
     bake_settings : EnumProperty(
         name = 'Bake Settings',
         description = 'Bake settings for this bake target',
-        items = (
-            ('GLOBAL', 'Use Global Settings', 'Use global bake settings'),
-            ('CUSTOM', 'Custom Settings', 'Use custom bake settings')
-        ),
-        default = 'GLOBAL'
+        items = bake_settings_items,
+        default = 'GLOBAL',
+        update = update_bake_target_bake_settings
     )
 
     # Deprecated
@@ -170,6 +181,7 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
 
     # UI
     expand_content : BoolProperty(default=False)
+    expand_bake_settings : BoolProperty(default=False)
     expand_r : BoolProperty(default=False)
     expand_g : BoolProperty(default=False)
     expand_b : BoolProperty(default=False)
@@ -962,7 +974,7 @@ class YNewBakeTarget(bpy.types.Operator):
             except: return {'CANCELLED'}
 
         bt = yp.bake_targets.add()
-        bt.name = self.name
+        bt.name = get_unique_name(self.name, yp.bake_targets)
         bt.hdr = self.hdr
         bt.a.default_value = 1.0
         bt.data_type = self.data_type
@@ -1013,7 +1025,7 @@ class YNewBakeTarget(bpy.types.Operator):
 
         yp.active_bake_target_index = len(yp.bake_targets)-1
 
-        ypui.bake_target_ui.expand_content = self.channel_idx == -1
+        bt.expand_content = self.channel_idx == '-1'
         ypui.need_update = True
         #wm.yptimer.time = str(time.time())
         

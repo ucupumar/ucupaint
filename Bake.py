@@ -1570,8 +1570,8 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
 
 class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSettings, BaseBakeBakeTargetOperator):
     bl_idname = "wm.y_bake_all_targets"
-    bl_label = "Bake All Bake Targets"
-    bl_description = "Bake all bake targets"
+    bl_label = "Bake "+get_addon_title()+" Node"
+    bl_description = "Bake "+get_addon_title()+" node and use bake targets as channel outputs"
     bl_options = {'REGISTER', 'UNDO'}
 
     with_prompt : BoolProperty(default=False)
