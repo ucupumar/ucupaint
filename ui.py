@@ -7234,7 +7234,7 @@ class YNewLayerMenu(bpy.types.Menu):
             col.menu("NODE_MT_y_new_bake_as_layer_menu", text='Bake as Layer', icon_value=lib.get_icon('bake'))
             col.menu("NODE_MT_y_new_adjustment_layer_menu", text='Adjustment', icon_value=lib.get_icon('modifier'))
             col.separator()
-            col.menu("NODE_MT_y_new_input_layer_menu", text='Input', icon_value=lib.get_icon('RADIOBUT_ON'))
+            col.menu("NODE_MT_y_new_input_layer_menu", text='Node Input', icon_value=lib.get_icon('RADIOBUT_ON'))
             col.separator()
             col.operator("wm.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
         else:
