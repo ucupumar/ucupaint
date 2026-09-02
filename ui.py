@@ -66,7 +66,7 @@ def update_yp_ui():
             ypui.bake_target_ui.expand_b = bt.expand_b
             ypui.bake_target_ui.expand_a = bt.expand_a
 
-        if len(yp.channels) > 0 and yp.active_channel_index < len(yp.channels) and yp.active_channel_index > 0:
+        if len(yp.channels) > 0 and yp.active_channel_index < len(yp.channels) and yp.active_channel_index >= 0:
 
             # Get channel
             channel = yp.channels[yp.active_channel_index]
