@@ -2010,6 +2010,33 @@ def update_routine(name):
 
         print('INFO: Bake Info is updated to be able to point directly to object since Blender 2.79')
 
+    # Dealing with new Blender 3.4 mix node and baked outside
+    if is_created_before(3, 4) and is_bl_newer_than(3, 4):
+        any_changes = False
+        mats = get_all_materials_with_yp_nodes()
+        for mat in mats:
+            mtree = mat.node_tree
+            yp_nodes = []
+            for node in mat.node_tree.nodes:
+                if node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node and node not in yp_nodes:
+                    yp_nodes.append(node)
+
+            for node in yp_nodes:
+                yp = node.node_tree.yp
+
+                for ch in yp.channels:
+                    for con in ch.ori_to:
+                        node = mtree.nodes.get(con.node)
+                        if node.type == 'MIX':
+                            if con.socket_index == 1:
+                                con.socket_index = 6
+                            if con.socket_index == 2:
+                                con.socket_index = 7
+                            any_changes = True
+
+        if any_changes:
+            print('INFO: Outside nodes are now correctly connected with the newer Blender 3.4 mix node!')
+
     print('INFO: ' + get_addon_title() + ' update routine is done in', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def get_inside_group_update_names(tree, update_names):
