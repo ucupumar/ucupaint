@@ -2547,8 +2547,9 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
             all_normal_ch = False
 
     tangent_sign_calculation = False
-    if BL28_HACK and any_normal_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and obj in objs:
+    if BL28_HACK and any_normal_ch and is_bl_newer_than(2, 80) and not is_bl_newer_than(3) and bpy.context.object in objs:
 
+        obj = bpy.context.object
         if len(yp.uvs) < MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
             print('INFO: Calculating tangent sign before bake...')
             tangent_sign_calculation = True
