@@ -4179,11 +4179,6 @@ def draw_baked_ui(context, layout, node):
         # Show list of bake targets of the channel
         if root_ch.name in chbts:
 
-            # Check if bake target is chosen not by choice
-            forced_bt = None
-            if root_height_ch and not root_height_ch.use_height_as_bump and root_ch == root_normal_ch:
-                forced_bt = get_normal_bake_target_without_height(yp, root_normal_ch)
-
             has_multiple_bts = len(chbts[root_ch.name]) > 1
 
             for bt in chbts[root_ch.name]:
@@ -4210,38 +4205,31 @@ def draw_baked_ui(context, layout, node):
 
                     is_active_bt = bt.name == root_ch.bake_target_name and (not root_ch.disable_global_baked or yp.enable_baked_outside)
 
-                    # Extra '(Active)' label
-                    #if not bake_disabled and has_multiple_bts and (
-                    #    bt == forced_bt or (not forced_bt and bt.name == root_ch.bake_target_name)
-                    #):
-                    #    title += ' (Active)'
                     if yp.preview_mode and is_active_bt:
                         ch_idx = get_channel_index(root_ch)
                         if ch_idx == yp.preview_mode_channel_index:
                             title += ' (Active)'
 
-                    # Bake target entry
-                    #row.label(text=title, icon_value=icon_value)
                     rrow = row.row(align=True)
                     rrow.context_pointer_set('channel', root_ch)
-                    rrow.alignment = 'LEFT'
-                    #rrow.scale_x = 0.95
+                    if is_bl_newer_than(2, 79):
+                        rrow.alignment = 'LEFT'
+                        #rrow.scale_x = 0.95
 
                     # Bake target selection
-                    #if forced_bt == None and has_multiple_bts:
-                    #rrow.context_pointer_set('channel', root_ch)
                     icon = 'RADIOBUT_ON' if is_active_bt else 'RADIOBUT_OFF'
                     op = rrow.operator('wm.y_set_channel_active_bake_target', text='', emboss=False, icon=icon)
                     op.bake_target_name = bt.name
-                    #else:
-                    #    rrow.label(text='', icon='BLANK1')
 
-                    op = rrow.operator('wm.y_set_channel_active_bake_target', text=title, emboss=False, icon_value=icon_value)
-                    op.bake_target_name = bt.name
+                    if is_bl_newer_than(2, 79):
+                        op = rrow.operator('wm.y_set_channel_active_bake_target', text=title, emboss=False, icon_value=icon_value)
+                        op.bake_target_name = bt.name
 
-                    rrow = row.row(align=True)
-                    rrow = row.row(align=True)
-                    rrow.alignment = 'RIGHT'
+                        rrow = row.row(align=True)
+                        rrow = row.row(align=True)
+                        rrow.alignment = 'RIGHT'
+                    else:
+                        rrow.label(text=title, icon_value=icon_value)
 
                     # Packed icon
                     if packed: rrow.label(text='', icon='PACKAGE')
@@ -4252,22 +4240,22 @@ def draw_baked_ui(context, layout, node):
                 #row.active = not yp.enable_baked_outside
                 row.active = root_ch.disable_global_baked
                 rrow = row.row(align=True)
-                rrow.alignment = 'LEFT'
-                is_active = root_ch.disable_global_baked and not yp.enable_baked_outside
+                rrow.context_pointer_set('channel', root_ch)
+                if is_bl_newer_than(2, 79):
+                    rrow.alignment = 'LEFT'
+                is_active = root_ch.disable_global_baked
                 icon = 'RADIOBUT_ON' if is_active else 'RADIOBUT_OFF'
-                rrow.label(text='', icon=icon)
-                #title = 'Disable Baked '+root_ch.name
+                #rrow.label(text='', icon=icon)
+                rrow.operator('wm.y_toggle_channel_use_baked', text='', icon=icon, emboss=False)
                 title = 'Use Layer Stack'
                 if yp.preview_mode and is_active:
                     ch_idx = get_channel_index(root_ch)
                     if ch_idx == yp.preview_mode_channel_index:
                         title += ' (Active)'
-                if yp.enable_baked_outside:
-                    rrow.label(text=title, icon='COLLAPSEMENU')
-                else:
-                    rrow.context_pointer_set('channel', root_ch)
+                if is_bl_newer_than(2, 79):
                     rrow.operator('wm.y_toggle_channel_use_baked', text=title, icon='COLLAPSEMENU', emboss=False)
-                rrow = row.row(align=True)
+                    rrow = row.row(align=True)
+                else: rrow.label(text=title, icon='COLLAPSEMENU')
 
     # Save buttons
     row = layout.row(align=True)
@@ -4851,6 +4839,7 @@ class NODE_PT_YPaint_legacy_about_ui(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_region_type = 'TOOLS'
+    bl_category = get_addon_title()
     bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
@@ -5063,7 +5052,7 @@ class NODE_PT_YPaint_legacy_main_ui(bpy.types.Panel, BaseMainUI):
     bl_space_type = 'NODE_EDITOR'
     bl_label = 'Layers'
     bl_region_type = 'TOOLS'
-    bl_options = {'DEFAULT_CLOSED'} 
+    bl_category = get_addon_title()
 
     @classmethod
     def poll(cls, context):
@@ -5244,7 +5233,7 @@ class BaseObjectMaterialSettingsUI():
 
 class VIEW3D_PT_YPaint_legacy_obj_mat_settings_tools(bpy.types.Panel, BaseObjectMaterialSettingsUI):
     bl_space_type = 'VIEW_3D'
-    bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
+    bl_label = 'Object & Material'
     bl_region_type = 'TOOLS'
     bl_category = get_addon_title()
     bl_options = {'DEFAULT_CLOSED'} 
@@ -5345,6 +5334,7 @@ class NODE_PT_YPaint_legacy_channel_settings_ui(bpy.types.Panel, BaseChannelSett
     bl_space_type = 'NODE_EDITOR'
     bl_label = 'Channel Settings'
     bl_region_type = 'TOOLS'
+    bl_category = get_addon_title()
     bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
@@ -5460,6 +5450,7 @@ class NODE_PT_YPaint_legacy_bake_target_settings_ui(bpy.types.Panel, BaseBakeTar
     bl_space_type = 'NODE_EDITOR'
     bl_label = 'Bake Target Settings'
     bl_region_type = 'TOOLS'
+    bl_category = get_addon_title()
     bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
