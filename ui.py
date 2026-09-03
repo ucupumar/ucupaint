@@ -990,7 +990,8 @@ def draw_preview_mode_ui(context, layout, node):
     scale_y = 1.0
     row.alert = yp.preview_mode
     title = 'Preview Mode'
-    row.prop(yp, 'preview_mode', text=title, icon='HIDE_OFF')
+    icon = 'HIDE_OFF' if is_bl_newer_than(2, 80) else 'RESTRICT_VIEW_OFF'
+    row.prop(yp, 'preview_mode', text=title, icon=icon)
 
     try: root_ch = yp.channels[yp.preview_mode_channel_index]
     except: root_ch = None
@@ -1166,8 +1167,9 @@ def draw_main_ui(context, layout):
     #    if delta > USE_CACHE_DELTA_MS:
     #        ypui.use_cache = False
 
-    ## Update ui props first
-    #update_yp_ui()
+    # Update ui props first
+    if not is_bl_newer_than(2, 80):
+        update_ui_and_timer(context)
 
     addon_updater_ops = get_package_module('.addon_updater_ops')
     if addon_updater_ops:
@@ -1215,6 +1217,12 @@ def draw_main_ui(context, layout):
     group_tree = node.node_tree
     nodes = group_tree.nodes
     yp = group_tree.yp
+
+    # Blender 2.7x header
+    if not is_bl_newer_than(2, 80):
+        row = layout.row()
+        row.label(text=group_tree.name, icon_value=lib.get_icon('nodetree'))
+        row.menu("NODE_MT_ypaint_special_menu", text='', icon='SCRIPTWIN')
 
     if version_tuple(yp.version) < version_tuple(get_current_version_str()):
         col = layout.column()
@@ -4886,6 +4894,7 @@ class VIEW3D_PT_YPaint_legacy_about_tools(bpy.types.Panel):
     bl_label = get_addon_title() + get_extra_title() + " " + get_current_version_str() + get_alpha_suffix()
     bl_region_type = 'TOOLS'
     bl_category = get_addon_title()
+    bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
     def poll(cls, context):
@@ -5027,6 +5036,19 @@ class VIEW3D_PT_YPaint_main_ui(bpy.types.Panel, BaseMainUI):
     def draw(self, context):
         self.base_draw(context)
 
+class VIEW3D_PT_YPaint_legacy_main_ui(bpy.types.Panel, BaseMainUI):
+    bl_label = 'Layers'
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = get_addon_title()
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
+
+    def draw(self, context):
+        self.base_draw(context)
+
 class NODE_PT_YPaint_main_ui(bpy.types.Panel, BaseMainUI):
     bl_space_type = 'NODE_EDITOR'
     bl_label = ' '
@@ -5049,7 +5071,7 @@ class NODE_PT_YPaint_main_ui(bpy.types.Panel, BaseMainUI):
 
 class NODE_PT_YPaint_legacy_main_ui(bpy.types.Panel, BaseMainUI):
     bl_space_type = 'NODE_EDITOR'
-    bl_label = ' '
+    bl_label = 'Layers'
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'} 
 
@@ -5058,30 +5080,18 @@ class NODE_PT_YPaint_legacy_main_ui(bpy.types.Panel, BaseMainUI):
         return (context.object and context.object.type in possible_object_types 
                 and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'} and context.space_data.tree_type == 'ShaderNodeTree')
 
-    def draw_header(self, context):
-        self.base_draw_header(context)
-
-    def draw_header_preset(self, context):
-        self.base_draw_header_preset(context)
-
     def draw(self, context):
         self.base_draw(context)
 
 class VIEW3D_PT_YPaint_legacy_main_tools(bpy.types.Panel, BaseMainUI):
     bl_space_type = 'VIEW_3D'
-    bl_label = ' '
+    bl_label = 'Layers'
     bl_region_type = 'TOOLS'
     bl_category = get_addon_title()
 
     @classmethod
     def poll(cls, context):
         return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'HYDRA_STORM'}
-
-    def draw_header(self, context):
-        self.base_draw_header(context)
-
-    def draw_header_preset(self, context):
-        self.base_draw_header_preset(context)
 
     def draw(self, context):
         self.base_draw(context)
@@ -5299,7 +5309,7 @@ class VIEW3D_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsU
     @classmethod
     def poll(cls, context):
         ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings: return False
+        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5325,7 +5335,7 @@ class NODE_PT_YPaint_channel_settings_ui(bpy.types.Panel, BaseChannelSettingsUI)
     @classmethod
     def poll(cls, context):
         ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings: return False
+        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5350,7 +5360,7 @@ class NODE_PT_YPaint_legacy_channel_settings_ui(bpy.types.Panel, BaseChannelSett
     @classmethod
     def poll(cls, context):
         ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings: return False
+        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5376,7 +5386,7 @@ class VIEW3D_PT_YPaint_legacy_channel_settings_tools(bpy.types.Panel, BaseChanne
     @classmethod
     def poll(cls, context):
         ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings: return False
+        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5414,7 +5424,7 @@ class VIEW3D_PT_YPaint_bake_target_settings_ui(bpy.types.Panel, BaseBakeTargetSe
     @classmethod
     def poll(cls, context):
         ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings: return False
+        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5440,7 +5450,7 @@ class NODE_PT_YPaint_bake_target_settings_ui(bpy.types.Panel, BaseBakeTargetSett
     @classmethod
     def poll(cls, context):
         ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings: return False
+        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5465,7 +5475,7 @@ class NODE_PT_YPaint_legacy_bake_target_settings_ui(bpy.types.Panel, BaseBakeTar
     @classmethod
     def poll(cls, context):
         ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings: return False
+        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -5491,7 +5501,7 @@ class VIEW3D_PT_YPaint_legacy_bake_target_settings_tools(bpy.types.Panel, BaseBa
     @classmethod
     def poll(cls, context):
         ypup = get_user_preferences()
-        if not ypup.ui_non_popup_settings: return False
+        if not ypup.ui_non_popup_settings and is_bl_newer_than(2, 80): return False
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
         use_baked = yp.use_baked if yp else False
@@ -6677,7 +6687,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
 
-        if ypup.ui_non_popup_settings:
+        if ypup.ui_non_popup_settings or not is_bl_newer_than(2, 80):
             col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
         col.operator('wm.y_rename_ypaint_tree', text='Rename '+get_addon_title()+' Node Tree', icon_value=lib.get_icon('rename'))
 
@@ -9581,12 +9591,16 @@ def unregister_new_entity_menus():
 panels = [
     VIEW3D_PT_YPaint_about_ui,
     VIEW3D_PT_YPaint_obj_mat_settings_ui,
-    VIEW3D_PT_YPaint_main_ui,
+]
+if not is_bl_newer_than(2, 80):
+    panels.append(VIEW3D_PT_YPaint_legacy_main_ui)
+else: panels.append(VIEW3D_PT_YPaint_main_ui)
+panels.extend([
     VIEW3D_PT_YPaint_channel_settings_ui,
     VIEW3D_PT_YPaint_bake_target_settings_ui,
     #VIEW3D_PT_YPaint_stats_ui,
     VIEW3D_PT_YPaint_test_ui,
-]
+])
 if not is_bl_newer_than(2, 80):
     panels.extend([
         NODE_PT_YPaint_legacy_about_ui,
