@@ -1542,12 +1542,28 @@ def draw_bake_targets_ui(context, layout, node, show_header=False, rows=4):
     #    #col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
     #    col.label(text='Bake Target Settings')
 
-    row = col.row(align=True)
-
     col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
 
-    if show_header:
-        col.label(text='Bake Target Settings')
+    if show_header and is_bl_newer_than(2, 80):
+        label = 'Bake Target Settings'
+
+        # NOTE: Just in case there's more options before bake target settings in the future
+        if is_bl_newer_than(4, 1):
+            header, panel = col.panel("MAT_YP_BakeTargetSettingsPanel", default_closed=False)
+            header.label(text=label) #, icon_value=ch_icon_value)
+
+            if panel: col = panel.column(align=False)
+            else: return
+        else:
+            row = col.row(align=True)
+            rrow = row.row(align=True)
+            rrow.alignment = 'LEFT'
+            rrow.scale_x = 0.95
+
+            icon = get_collapse_arrow_icon(ypui.expand_bake_target_settings)
+            rrow.prop(ypui, 'expand_bake_target_settings', text=label, emboss=False, icon=icon)
+
+            if not ypui.expand_bake_target_settings: return
 
     row = col.row()
 
@@ -9142,29 +9158,6 @@ class YMaterialUI(bpy.types.PropertyGroup):
 
     expand_content : BoolProperty(default=False)
 
-if is_bl_newer_than(2, 83):
-    tab_items = (
-       ('LAYERS', 'Layers', 'Layers', 'COLLAPSEMENU', 0),
-       ('CHANNELS', 'Channels', 'Channel Settings', 'OUTLINER_OB_POINTCLOUD', 1),
-       ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings', 'OUTPUT', 2),
-    )
-
-    setting_items = (
-       ('CHANNELS', 'Channels', 'Channel Settings', 'OUTLINER_OB_POINTCLOUD', 0),
-       ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings', 'OUTPUT', 1),
-    )
-else:
-    tab_items = (
-       ('LAYERS', 'Layers', 'Layers'),
-       ('CHANNELS', 'Channels', 'Channel Settings'),
-       ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings'),
-    )
-
-    setting_items = (
-       ('CHANNELS', 'Channels', 'Channel Settings'),
-       ('BAKE_TARGETS', 'Bake Targets', 'Bake Target Settings'),
-    )
-
 class YPaintUI(bpy.types.PropertyGroup):
 
     show_object : BoolProperty(
@@ -9213,6 +9206,12 @@ class YPaintUI(bpy.types.PropertyGroup):
         name = 'Show Channel Toggle',
         description = "Show layer channels toggle",
         default = False
+    )
+
+    expand_bake_target_settings : BoolProperty(
+        name = 'Show Bake Target Settings',
+        description = "Show bake target settings",
+        default = True
     )
 
     expand_mask_channels : BoolProperty(
