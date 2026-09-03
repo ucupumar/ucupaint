@@ -926,10 +926,11 @@ class YNewBakeTarget(bpy.types.Operator):
         right_aligned_label(row, 'Name:')
         row.prop(self, 'name', text='')
 
-        row = split_layout(layout, split_val)
-        right_aligned_label(row, 'Type:')
-        rrow = row.row(align=True)
-        rrow.prop(self, 'data_type', expand=True)
+        if is_bl_newer_than(2, 92):
+            row = split_layout(layout, split_val)
+            right_aligned_label(row, 'Type:')
+            rrow = row.row(align=True)
+            rrow.prop(self, 'data_type', expand=True)
 
         row = split_layout(layout, split_val)
         right_aligned_label(row, 'Channel:')
