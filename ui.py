@@ -2213,9 +2213,20 @@ def draw_root_channels_ui(context, layout, node, show_header=False, rows=3):
 
         #draw_channel_bake_target_dropdown(context, channel, mcol, draw_blank)
 
+def draw_switch_material_button(layout):
+    ypup = get_user_preferences()
+    if is_not_in_material_view() and ypup.enable_material_view_warning:
+        bbox = layout.box()
+        row = bbox.row(align=True)
+        row.alert = True
+        row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
+        row.alert = False
+
 def draw_base_layer_ui(context, layout, yp, node):
     ypui = context.window_manager.ypui
     ypup = get_user_preferences()
+
+    draw_switch_material_button(layout)
 
     row = layout.row(align=True)
     rrow = row.row(align=True)
@@ -4100,12 +4111,7 @@ def draw_baked_ui(context, layout, node):
 
     col = layout.column(align=False)
 
-    if is_not_in_material_view() and ypup.enable_material_view_warning:
-        bbox = col.box()
-        row = bbox.row(align=True)
-        row.alert = True
-        row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
-        row.alert = False
+    draw_switch_material_button(col)
 
     # Get paired channels
     root_color_ch, root_alpha_ch = get_color_alpha_ch_pairs(yp)
@@ -4722,12 +4728,7 @@ def draw_layers_ui(context, layout, node):
                 row.operator('object.y_fix_vdm_missmatch_uv')
                 row.alert = False
 
-        if is_not_in_material_view() and ypup.enable_material_view_warning:
-            bbox = col.box()
-            row = bbox.row(align=True)
-            row.alert = True
-            row.operator('wm.y_switch_to_material_view', icon='MATERIAL_DATA')
-            row.alert = False
+        draw_switch_material_button(col)
 
         # Check if list items are empty
         if len(yp.list_items) == 0 and len(yp.layers) > 0:
@@ -6872,8 +6873,9 @@ class YNewChannelMenu(bpy.types.Menu):
         icon_value = lib.get_icon(lib.channel_custom_icon_dict['VECTOR'])
         col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Normal').mode = 'NORMAL'
 
-        icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
-        col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Vector Displacement').mode = 'VDISP'
+        if is_bl_newer_than(2, 80):
+            icon_value = lib.get_icon(lib.channel_custom_icon_dict['RGB'])
+            col.operator("wm.y_auto_setup_new_ypaint_channel", icon_value=icon_value, text='Vector Displacement').mode = 'VDISP'
 
 def draw_new_image_layer_menu(layout, show_vdm=True):
     layout.operator("wm.y_new_layer", text='New Image', icon_value=lib.get_icon('image')).type = 'IMAGE'
