@@ -740,7 +740,7 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
             if outp and len(outp.links) > 0:
                 for link in outp.links:
                     for inp in link.to_node.inputs:
-                        if inp.name == 'Normal':
+                        if inp.name == 'Normal' and link.to_node.type not in {'DISPLACEMENT', 'VECTOR_DISPLACEMENT'}:
                             normal_inp = inp
                             break
                     if normal_inp != None: break
@@ -792,7 +792,8 @@ def auto_setup_active_yp_new_channel(mode, channel_pair_name='', blend_method='H
         make_channel_as_alpha(mat, node, channel, do_setup=True, move_index=True, ch_pair_name=channel_pair_name)
         set_material_methods(mat, blend_method, shadow_method)
     elif mode == 'HEIGHT':
-        if not channel.use_height_as_bump:
+        root_normal_ch = get_root_normal_channel(yp)
+        if not root_normal_ch or not root_normal_ch.use_height_as_bump:
             do_displacement_node_setup(mat, node, channel, is_vector_disp=False)
     elif mode == 'NORMAL':
         outp = node.outputs.get(channel.name)
