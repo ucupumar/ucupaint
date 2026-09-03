@@ -6671,12 +6671,14 @@ class YPaintSpecialMenu(bpy.types.Menu):
         mat = get_active_material()
         yp = node.node_tree.yp
         ypui = context.window_manager.ypui
+        ypup = get_user_preferences()
 
         row = self.layout.row()
 
         col = row.column()
 
-        col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
+        if ypup.ui_non_popup_settings:
+            col.operator('wm.y_bake_all_targets', text='Bake '+get_addon_title()+' Node', icon_value=lib.get_icon('bake')).with_prompt = True
         col.operator('wm.y_rename_ypaint_tree', text='Rename '+get_addon_title()+' Node Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()
