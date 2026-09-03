@@ -152,7 +152,7 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     use_float : BoolProperty(default=False)
 
     uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     r : PointerProperty(type=YBakeTargetChannel)
     g : PointerProperty(type=YBakeTargetChannel)

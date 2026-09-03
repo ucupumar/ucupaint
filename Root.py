@@ -82,7 +82,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         default = True
     )
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -206,7 +206,7 @@ class YRenameUVMaterial(bpy.types.Operator):
         default = ''
     )
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     new_uv_name : StringProperty(
         name = 'New UV Name', 
@@ -1956,7 +1956,7 @@ class YFixMissingUV(bpy.types.Operator):
     source_uv_name : StringProperty(name='Missing UV Name', description='Missing UV Name', default='')
     target_uv_name : StringProperty(name='Target UV Name', description='Target UV Name', default='')
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):

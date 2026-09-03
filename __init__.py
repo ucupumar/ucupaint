@@ -98,6 +98,7 @@ def register():
         
     Localization.register_module(ui)
 
+    BaseOperator.register()
     image_ops.register()
     Decal.register()
     ui.register()
@@ -132,6 +133,7 @@ def unregister():
 
     Localization.unregister_module(ui)
 
+    BaseOperator.unregister()
     image_ops.unregister()
     Decal.unregister()
     ui.unregister()

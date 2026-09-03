@@ -442,7 +442,7 @@ class YNewLayerMask(bpy.types.Operator):
         default = '',
         update = BaseOperator.update_uv_map_name
     )
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     use_udim : BoolProperty(
         name = 'Use UDIM Tiles',
@@ -924,7 +924,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper, BaseOperator.OpenImage)
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -1166,13 +1166,13 @@ class YOpenExistingDataAsMask(bpy.types.Operator):
         name = 'UV Map', 
         description = 'UV Map to use for mask coordinate',
         default = '')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     image_name : StringProperty(name="Image")
-    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    image_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     vcol_name : StringProperty(name=get_vertex_color_label())
-    vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    vcol_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -1626,7 +1626,7 @@ class YReplaceMaskType(bpy.types.Operator):
     )
 
     item_name : StringProperty(name="Item")
-    item_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    item_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     load_item : BoolProperty(default=False)
 

@@ -435,3 +435,15 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
 
         #layout.separator()
 
+class YPropertyGroup(bpy.types.PropertyGroup):
+    name : StringProperty(default='')
+
+classes = (
+    YPropertyGroup,
+)
+
+def register():
+    for cls in classes: bpy.utils.register_class(cls)
+
+def unregister():
+    for cls in classes: bpy.utils.unregister_class(cls)

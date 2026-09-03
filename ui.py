@@ -289,9 +289,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False, sh
             layer = yp.layers[int(m2.group(1))]
             col.context_pointer_set('layer', layer)
             col.context_pointer_set('channel', entity)
-            if show_flip_y:
-                unlink_op = 'wm.y_remove_channel_override_1_source'
-            else: unlink_op = 'wm.y_remove_channel_override_source'
+            unlink_op = 'wm.y_remove_channel_override_source'
 
     bi = image.y_bake_info
     if (bi.is_baked and not bi.is_baked_channel and 
@@ -818,13 +816,11 @@ def draw_mask_modifier_stack(layer, mask, layout, ui, layer_tree):
             box.active = m.enable
             MaskModifier.draw_modifier_properties(tree, m, box)
 
-def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False, use_modifier_1=False, layout_active=True, is_root_ch=False):
+def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False, layout_active=True, is_root_ch=False):
 
     ypui = context.window_manager.ypui
 
     modifiers = parent.modifiers
-    if use_modifier_1:
-        modifiers = parent.modifiers_1
 
     # Check if parent is layer channel
     match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', parent.path_from_id())
@@ -837,9 +833,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
     for i, m in enumerate(modifiers):
 
         try: 
-            if use_modifier_1:
-                modui = ui.modifiers_1[i]
-            else: modui = ui.modifiers[i]
+            modui = ui.modifiers[i]
         except: 
             ypui.need_update = True
             return
@@ -902,12 +896,8 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('parent', parent)
         row.context_pointer_set('modifier', m)
-        if use_modifier_1:
-            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-            row.menu("NODE_MT_y_modifier1_menu", text='', icon=icon)
-        else:
-            icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
-            row.menu("NODE_MT_y_modifier_menu", text='', icon=icon)
+        icon = 'PREFERENCES' if is_bl_newer_than(2, 80) else 'SCRIPTWIN'
+        row.menu("NODE_MT_y_modifier_menu", text='', icon=icon)
         row.prop(m, 'enable', text='')
 
         if modui.expand_content and can_be_expanded:
@@ -7458,71 +7448,6 @@ class YLayerChannelInputMenu(bpy.types.Menu):
         icon = 'RADIOBUT_ON' if ch.override and ch.override_type != 'DEFAULT' else 'RADIOBUT_OFF'
         col.menu("NODE_MT_y_replace_channel_override_menu", text=label, icon=icon)
 
-class YLayerChannelInput1Menu(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_layer_channel_input_1_menu"
-    bl_label = "Layer Normal Channel Source"
-    bl_description = "Replace layer normal channel source"
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        ch = context.channel
-        yp = ch.id_data.yp
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', ch.path_from_id())
-        if m: 
-            layer = yp.layers[int(m.group(1))]
-            root_ch = yp.channels[int(m.group(2))]
-            tree = get_tree(layer)
-        else: return
-        
-        col = self.layout.column()
-        col.label(text='Normal Source')
-        col.separator()
-
-        # Layer input based on source output sockets
-
-        if layer.type in {'GROUP', 'PREV_LAYERS'}:
-            label = 'Group ' if layer.type == 'GROUP' else 'Previous '
-            label += root_ch.name
-            icon = 'RADIOBUT_ON' if not ch.override_1 else 'RADIOBUT_OFF'
-            op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-            op.socket_name = ch.socket_input_1_name
-            op.set_normal_input = True
-        else:
-            source = get_layer_source(layer)
-            for outp in get_available_source_outputs(source, layer.type):
-                if not outp.enabled: continue
-                icon = 'RADIOBUT_ON' if get_channel_input_socket_name(layer, ch, secondary_input=True) == outp.name and not ch.override_1 else 'RADIOBUT_OFF'
-                label = 'Layer ' + outp.name
-
-                if layer.type not in {'IMAGE', 'VCOL'}:
-                    label += ' ('+layer_type_labels[layer.type]+')'
-
-                op = col.operator('wm.y_set_layer_channel_input', text=label, icon=icon)
-                op.socket_name = outp.name
-                op.set_normal_input = True
-
-        col.separator()
-
-        # Custom/Override Default
-        icon = 'RADIOBUT_ON' if ch.override_1 and ch.override_1_type == 'DEFAULT' else 'RADIOBUT_OFF'
-        op = col.operator('wm.y_set_layer_channel_input', text='Custom Color', icon=icon)
-        #op.type = 'CUSTOM'
-        op.socket_name = ''
-        op.set_normal_input = True
-
-        # Custom Data
-        label = 'Custom Image'
-        source = get_channel_source_1(ch, layer)
-        if source:
-            if ch.override_1_type == 'IMAGE':
-                label += ' (' + source.image.name + ')'
-
-        icon = 'RADIOBUT_ON' if ch.override_1 and ch.override_1_type != 'DEFAULT' else 'RADIOBUT_OFF'
-        col.menu("NODE_MT_y_replace_channel_override_1_menu", text=label, icon=icon)
-
 class YLayerMaskInputMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_mask_input_menu"
     bl_label = "Layer Mask Input"
@@ -7729,35 +7654,6 @@ class YModifierMenu(bpy.types.Menu):
         #if hasattr(context, 'layer') and context.modifier.type in {'RGB_TO_INTENSITY', 'OVERRIDE_COLOR'}:
         #    col.separator()
         #    col.prop(context.modifier, 'shortcut', text='Shortcut on layer list')
-
-class YModifier1Menu(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_modifier1_menu"
-    bl_label = "Modifier Menu"
-    bl_description = "Modifier Menu"
-
-    @classmethod
-    def poll(cls, context):
-        #return hasattr(context, 'modifier') and hasattr(context, 'parent') and get_active_ypaint_node()
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        layout = self.layout
-        col = layout.column()
-
-        if not hasattr(context, 'parent') or not hasattr(context, 'modifier'):
-            col.label(text='ERROR: Context has no parent or modifier!', icon='ERROR')
-            return
-
-        op = col.operator('wm.y_move_normalmap_modifier', icon='TRIA_UP', text='Move Modifier Up')
-        op.direction = 'UP'
-
-        op = col.operator('wm.y_move_normalmap_modifier', icon='TRIA_DOWN', text='Move Modifier Down')
-        op.direction = 'DOWN'
-
-        col.separator()
-        if is_bl_newer_than(2, 80):
-            op = col.operator('wm.y_remove_normalmap_modifier', icon='REMOVE', text='Remove Modifier')
-        else: op = col.operator('wm.y_remove_normalmap_modifier', icon='ZOOMOUT', text='Remove Modifier')
 
 class YMaskModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_mask_modifier_menu"
@@ -8258,68 +8154,6 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
             if item[0] in {'DEFAULT', 'IMAGE', 'VCOL'}: continue
 
             col.operator('wm.y_replace_layer_channel_override', text=item[1], icon=icon).type = item[0]
-
-class YReplaceChannelOverride1Menu(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_replace_channel_override_1_menu"
-    bl_label = "Replace Channel Override Menu"
-    bl_description = 'Replace Channel Override'
-
-    @classmethod
-    def poll(cls, context):
-        #return hasattr(context, 'parent') and get_active_ypaint_node()
-        return get_active_ypaint_node()
-
-    def draw(self, context):
-        #row = self.layout.row()
-        #col = row.column()
-        col = self.layout.column()
-
-        if not hasattr(context, 'parent'):
-            col.label(text='ERROR: Context has no parent!', icon='ERROR')
-            return
-
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
-        if m:
-            ch = context.parent
-            yp = ch.id_data.yp
-            layer = yp.layers[int(m.group(1))]
-            root_ch = yp.channels[int(m.group(2))]
-            tree = get_tree(layer)
-        else:
-            return
-
-        col.label(text='Custom Image:')
-
-        #icon = 'RADIOBUT_ON' if ch.override_1_type == 'DEFAULT' else 'RADIOBUT_OFF'
-        ##if root_ch.type == 'VALUE':
-        ##    col.operator('wm.y_replace_layer_channel_override_1', text='Value', icon=icon).type = 'DEFAULT'
-        ##else: 
-        #col.operator('wm.y_replace_layer_channel_override_1', text='Color', icon=icon).type = 'DEFAULT'
-
-        #col.separator()
-
-        label = 'Image'
-        cache_1_image = tree.nodes.get(ch.cache_1_image)
-        #source = tree.nodes.get(ch.source)
-        source = get_channel_source_1(ch, layer)
-        if cache_1_image:
-            label += ': ' + cache_1_image.image.name
-        elif (ch.override_1_type == 'IMAGE' and source):
-            label += ': ' + source.image.name
-
-        icon = 'RADIOBUT_ON' if ch.override_1 and ch.override_1_type == 'IMAGE' else 'RADIOBUT_OFF'
-        if cache_1_image and (ch.override_1_type != 'IMAGE' or not ch.override_1):
-            col.operator('wm.y_replace_layer_channel_override_1', text=label, icon=icon).type = 'IMAGE'
-        else:
-            col.label(text=label, icon=icon)
-
-        row = col.row(align=True)
-        #ccol = row.column(align=True)
-        #ccol.label(text='', icon='BLANK1')
-
-        ccol = row.column(align=True)
-        ccol.operator('wm.y_open_image_to_override_1_layer_channel', text='Open Image...', icon_value=lib.get_icon('open_image'))
-        ccol.operator('wm.y_open_existing_data_to_override_1_channel', text='Open Existing Image', icon_value=lib.get_icon('open_image'))
 
 class YChannelSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_channel_experimental_menu"
@@ -9519,13 +9353,11 @@ classes.extend([
     YLayerChannelBlendMenu,
     YLayerChannelNormalBlendMenu,
     YLayerChannelInputMenu,
-    YLayerChannelInput1Menu,
     YLayerMaskInputMenu,
     YImageConvertToMenu,
     YOpenImagesToSingleLayerMenu,
     YUVSpecialMenu,
     YModifierMenu,
-    YModifier1Menu,
     YMaskModifierMenu,
     YTransitionBumpMenu,
     YTransitionRampMenu,
@@ -9541,7 +9373,6 @@ classes.extend([
     YChannelSpecialMenu,
     YLayerChannelSpecialMenu,
     YReplaceChannelOverrideMenu,
-    YReplaceChannelOverride1Menu,
     YPreviewModeChannelMenu,
     YLayerSpecialMenu,
     YLayerTypeMenu,

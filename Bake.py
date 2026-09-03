@@ -419,7 +419,7 @@ class YTransferSomeLayerUV(bpy.types.Operator, BaseBakeOperator):
 
     from_uv_map : StringProperty(default='')
     uv_map : StringProperty(default='')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     remove_from_uv : BoolProperty(
         name = 'Delete From UV',
@@ -587,7 +587,7 @@ class YTransferLayerUV(bpy.types.Operator, BaseBakeOperator):
     bl_options = {'UNDO'}
 
     uv_map : StringProperty(default='')
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -1295,7 +1295,7 @@ class BaseBakeBakeTargetOperator():
     #)
 
     uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     def invoke_op(self, context, event):
         ypup = get_user_preferences()
@@ -1682,7 +1682,7 @@ class YBakeChannels(bpy.types.Operator, BaseBakeOperator):
     bl_options = {'REGISTER', 'UNDO'}
 
     uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     interpolation : EnumProperty(
         name = 'Image Interpolation Type',

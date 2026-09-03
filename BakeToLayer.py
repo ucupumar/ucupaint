@@ -147,7 +147,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         update = BaseOperator.update_uv_map_name
     )
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     uv_map_1 : StringProperty(default='')
 
@@ -173,7 +173,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         description = 'Image name that will be overwritten',
         default = ''
     )
-    overwrite_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    overwrite_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     overwrite_image_name : StringProperty(default='')
     overwrite_segment_name : StringProperty(default='')
@@ -199,7 +199,7 @@ class YBakeToLayer(bpy.types.Operator, BaseBakeOperator):
         default = ''
     )
 
-    cage_object_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    cage_object_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     cage_extrusion : FloatProperty(
         name = 'Cage Extrusion',
@@ -1021,7 +1021,7 @@ class YBakeEntityToImage(bpy.types.Operator, BaseBakeOperator):
         update = BaseOperator.update_uv_map_name
     )
 
-    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
     hdr : BoolProperty(
         name = '32-bit Float',
