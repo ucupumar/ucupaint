@@ -2865,7 +2865,7 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         rgb = node.outputs.get(normal_root_ch.name)
 
         # NOTE: Object space normal layers currently will gives less accurate result when baking using BSDF
-        if is_bl_newer_than(2, 80) and not any_object_space_normal(yp):
+        if is_bl_newer_than(3) and not any_object_space_normal(yp):
             # Use principled bsdf for Blender 2.80+
             bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfPrincipled')
 
@@ -2902,7 +2902,9 @@ def bake_bake_target(mat, node, bt, btprops, objs=[], do_objects_setup=True, bak
         else:
             # Use custom normal calculation for legacy blender
             norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-            norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
+            if is_bl_newer_than(3) or not is_bl_newer_than(2, 80):
+                norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
+            else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
 
             # Custom normal calculation setup
             if rgb: rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
