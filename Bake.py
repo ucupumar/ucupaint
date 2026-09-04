@@ -1271,21 +1271,22 @@ class BaseBakeBakeTargetOperator():
     uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
     uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
 
-    def invoke_op(self, context, event):
+    def invoke_op(self, context, event, fill_uv_coll=True):
         ypup = get_user_preferences()
         if ypup.default_bake_device != 'DEFAULT':
             self.bake_device = ypup.default_bake_device
 
-        # UV Map collections update
-        obj = context.object
-        if obj.type == 'MESH':
-            uv_layers = get_uv_layers(obj)
-            self.uv_map_coll.clear()
-            for uv in uv_layers:
-                if not uv.name.startswith(TEMP_UV):
-                    self.uv_map_coll.add().name = uv.name
-            if self.uv_map == '' or self.uv_map not in uv_layers:
-                self.uv_map = get_default_uv_name(obj)
+        if fill_uv_coll:
+            # UV Map collections update
+            obj = context.object
+            if obj.type == 'MESH':
+                uv_layers = get_uv_layers(obj)
+                self.uv_map_coll.clear()
+                for uv in uv_layers:
+                    if not uv.name.startswith(TEMP_UV):
+                        self.uv_map_coll.add().name = uv.name
+                if self.uv_map == '' or self.uv_map not in uv_layers:
+                    self.uv_map = get_default_uv_name(obj)
 
         return context.window_manager.invoke_props_dialog(self, width=300)
 
@@ -1548,24 +1549,29 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
         
         return obj and obj.type == 'MESH' and len(yp.bake_targets) > 0
 
-    def invoke(self, context, event):
-        if self.with_prompt:
-            node = get_active_ypaint_node()
-            yp = node.node_tree.yp
-            gloset = yp.bake_target_global_settings
-
-            # Read the global settings
-            props = BakeTarget.get_global_settings_props()
-            for prop in props:
-                setattr(self, prop, getattr(gloset, prop))
-
-            return self.invoke_op(context, event)
-        return self.execute(context)
-
     def get_any_global_bts(self, yp):
         any_global_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE' and bt.bake_settings == 'GLOBAL'])
         any_global_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL' and bt.bake_settings == 'GLOBAL'])
         return any_global_image_bts, any_global_vcol_bts
+
+    def invoke(self, context, event):
+        if self.with_prompt:
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
+            fill_uv_coll = False
+            any_global_image_bts, any_global_vcol_bts = self.get_any_global_bts(yp)
+            if any_global_image_bts or any_global_vcol_bts:
+                gloset = yp.bake_target_global_settings
+
+                # Read the global settings
+                props = BakeTarget.get_global_settings_props()
+                for prop in props:
+                    setattr(self, prop, getattr(gloset, prop))
+
+                fill_uv_coll = True
+
+            return self.invoke_op(context, event, fill_uv_coll=fill_uv_coll)
+        return self.execute(context)
 
     def draw(self, context):
         node = get_active_ypaint_node()
