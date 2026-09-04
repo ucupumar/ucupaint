@@ -12,32 +12,6 @@ from . import lib, Layer, Mask, MaskModifier, image_ops, ListItem, BakeInfo, cha
 
 UV_OUTSIDE_PREFIX = '__BAKE_TARGET_UV__'
 
-# todo : 
-# show all setting bake di bake target, setelah baked ambil dari bakeinfo
-# override vars, variable yang ga perlu : use 32 bit float, bake device (check channel use_clamp, new image layer dibawah resolution)
-# bake device & OSL selalu global, hilangkan dari bake target (tidak bisa override) (CPU, GPU, OSL) (termasuk di bake all)
-# resolution jadi 1 override
-# tambah use_float per bake target, hilangkan use for normal & displacement
-# tambah color_attribute
-
-
-# dropdown override tiap variable
-# override all, enable > tampilan mirip option standarnya
-# label rata kanan, lebarin width
-
-
-# new bake target menu : 
-# 1. Type bake target
-# 2. Color attr : Domain & Data Type
-# 3. Menu hapus yg ada hubungannya sama pixel dan image (sisakan Force Bake all, Bake Disabled Layers)
-# override all menu settingan, sesuai bake target tipe (color or image)
-# Color attribute tergenerate setelah bake
-
-# tidak support bake normal to vcol
-# check AO waktu create new bake target
-# replace bake to image seperti bake vcol
-# bake normal : lihat def bake_channel()
-
 def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     yp = entity.id_data.yp
@@ -1505,13 +1479,13 @@ class BaseBakeBakeTargetOperator():
         else: self.report({'INFO'}, ' Baking '+bts[0].name+' is done in '+'{:0.2f}'.format(time.time() - T)+' seconds!')
 
         # Add to baked counters
-        gloset.baked_counters += 1
+        yp.bake_target_global_settings.baked_counters += 1
 
         return {'FINISHED'}
     
 class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfoProps, BaseBakeBakeTargetOperator):
     bl_idname = "wm.y_bake_single_target"
-    bl_label = "Bake A Single Bake Target"
+    bl_label = "Bake Bake Target"
     bl_description = "Bake a single bake target"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1536,25 +1510,12 @@ class YBakeSingleTarget(bpy.types.Operator, BaseBakeProps, BakeInfo.BaseBakeInfo
         return self.invoke_op(context, event)
 
     def draw(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        ypup = get_user_preferences()
-        obj = context.object
+        col = self.layout.column()
 
-        root_col = self.layout.column()
-
-        row_var = split_layout(root_col, 0.4, True)
+        row_var = split_layout(col, 0.4, True)
         row_var.alignment = 'RIGHT'
         row_var.label(text="Bake Device" + ':')
         row_var.prop(self, "bake_device", text="")
-
-        #if ypup.default_bake_device != self.bake_device:
-        #    row_ovr = split_layout(root_col, 0.4, align=True)
-        #    row_ovr.alignment = 'RIGHT'
-        #    row_ovr.label(text="Set as default" + ':')
-        #    row_ovr.prop(self, "override_bake_device", text="")
-
-        #label_all_vars = self.draw_label(root_col, "Override all variables")
 
     def execute(self, context):
         if not self.is_cycles_exist(context): return {'CANCELLED'}
@@ -1601,15 +1562,20 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
             return self.invoke_op(context, event)
         return self.execute(context)
 
+    def get_any_global_bts(self, yp):
+        any_global_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE' and bt.bake_settings == 'GLOBAL'])
+        any_global_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL' and bt.bake_settings == 'GLOBAL'])
+        return any_global_image_bts, any_global_vcol_bts
+
     def draw(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        any_image_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'IMAGE'])
-        #any_vcol_bts = any([bt for bt in yp.bake_targets if bt.data_type == 'VCOL'])
         col = self.layout.column()
+        any_global_image_bts, any_global_vcol_bts = self.get_any_global_bts(yp)
         BaseOperator.draw_base_bake_target_settings(context, col, self, bt=None, 
-            show_image_props = any_image_bts,
-            show_vcol_props = False, #any_vcol_bts,
+            show_image_props = any_global_image_bts,
+            show_vcol_props = False,
+            show_general_props = any_global_image_bts or any_global_vcol_bts,
             show_hdr = False,
             show_udim = is_udim_supported(),
             yp = yp
@@ -1668,7 +1634,8 @@ class YBakeAllTargets(bpy.types.Operator, BakeTarget.BaseBakeTargetGlobalSetting
         status = self.execute_bake_bake_target(context, bts, bake_device=gloset.bake_device)
 
         # Copy back operator settings to global bake target settings
-        if self.with_prompt:
+        any_global_image_bts, any_global_vcol_bts = self.get_any_global_bts(yp)
+        if self.with_prompt and (any_global_image_bts or any_global_vcol_bts):
             props = BakeTarget.get_global_settings_props()
             for prop in props:
                 setattr(gloset, prop, getattr(self, prop))

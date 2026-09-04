@@ -244,7 +244,7 @@ def draw_base_mask_image_settings(parent, layout, split_val=0.4):
     #    right_aligned_label(row, 'Interpolation:')
     #    row.prop(parent, 'mask_interpolation', text='')
 
-def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image_props=True, show_vcol_props=True, show_hdr=True, show_udim=True, yp=None):
+def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image_props=True, show_vcol_props=True, show_general_props=True, show_hdr=True, show_udim=True, yp=None):
 
     #layout = layout.column(align=True)
 
@@ -410,18 +410,19 @@ def draw_base_bake_target_settings(context, layout, btprops, bt=None, show_image
         crow.prop(btprops, 'vcol_data_type', expand=True)
 
     # General properties
+    if show_general_props:
+        acol = layout.column(align=True)
+        row = split_layout(acol, factor)
+        row.label(text='')
+        row.prop(btprops, 'force_bake_all_polygons')
 
-    acol = layout.column(align=True)
-    row = split_layout(acol, factor)
-    row.label(text='')
-    row.prop(btprops, 'force_bake_all_polygons')
-
-    row = split_layout(acol, factor)
-    row.label(text='')
-    row.prop(btprops, 'bake_disabled_layers')
+        row = split_layout(acol, factor)
+        row.label(text='')
+        row.prop(btprops, 'bake_disabled_layers')
 
     if hasattr(btprops, 'bake_device') or hasattr(btprops, 'necessary_only'):
-        layout.separator()
+        if show_image_props or (show_vcol_props and is_bl_newer_than(3, 2)) or show_general_props:
+            layout.separator()
 
         if hasattr(btprops, 'necessary_only'):
             row = split_layout(layout, factor)
