@@ -44,35 +44,35 @@ def update_bake_target_height_normalize(self, context):
 
 class YBakeTargetChannel(bpy.types.PropertyGroup):
 
-    channel_name : StringProperty(
+    channel_name = StringProperty(
         name = 'Channel Source Name',
         description = 'Channel source name for bake target',
         default = ''
     )
 
     # TODO: Option to use entire luminosity value rather than using only one subchannel
-    subchannel_index : EnumProperty(
+    subchannel_index = EnumProperty(
         name = 'Subchannel',
         description = 'Channel source RGBA index',
         items = rgbw_items,
         default = '0'
     )
 
-    default_value : FloatProperty(
+    default_value = FloatProperty(
         name = 'Default Value',
         description = 'Channel default value',
         subtype = 'FACTOR',
         default = 0.0, min=0.0, max=1.0
     )
 
-    normal_type : EnumProperty(
+    normal_type = EnumProperty(
         name = 'Normal Channel Type',
         description = 'Normal channel source type',
         items = normal_type_items,
         default = 'COMBINED'
     )
 
-    invert_value : BoolProperty(
+    invert_value = BoolProperty(
         name = 'Invert Value',
         description = 'Invert value',
         default = False
@@ -102,20 +102,20 @@ bake_settings_items = (
 )
 
 class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoProps):
-    name : StringProperty(
+    name = StringProperty(
         name = 'Bake Target Name',
         description = 'Name of bake target name',
         default = '',
         update = update_bake_target_name
     )
 
-    original_name : StringProperty(
+    original_name = StringProperty(
         name = 'Original Bake Target Name',
         description = 'Original bake target name for updating',
         default = ''
     )
 
-    data_type : EnumProperty(
+    data_type = EnumProperty(
         name = 'Bake Target Data Type',
         description = 'Bake target data type',
         items = (
@@ -126,21 +126,21 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     )
 
     # Channel specific settings
-    height_normalize : BoolProperty(
+    height_normalize = BoolProperty(
         name = 'Normalize Height',
         description = 'Normalize height channel output',
         default = True,
         update = update_bake_target_height_normalize
     )
 
-    normal_includes_height : BoolProperty(
+    normal_includes_height = BoolProperty(
         name = 'Normal includes Height',
         description = 'Baked normal will includes normal from height',
         default = True
     )
 
     # Bake settings
-    bake_settings : EnumProperty(
+    bake_settings = EnumProperty(
         name = 'Bake Settings',
         description = 'Bake settings for this bake target',
         items = bake_settings_items,
@@ -149,80 +149,80 @@ class YBakeTarget(bpy.types.PropertyGroup, BaseBakeProps, BakeInfo.BaseBakeInfoP
     )
 
     # Deprecated
-    use_float : BoolProperty(default=False)
+    use_float = BoolProperty(default=False)
 
-    uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
-    uv_map_coll : CollectionProperty(type=BaseOperator.YPropertyGroup)
+    uv_map = StringProperty(default='', update=BaseOperator.update_uv_map_name)
+    uv_map_coll = CollectionProperty(type=BaseOperator.YPropertyGroup)
 
-    r : PointerProperty(type=YBakeTargetChannel)
-    g : PointerProperty(type=YBakeTargetChannel)
-    b : PointerProperty(type=YBakeTargetChannel)
-    a : PointerProperty(type=YBakeTargetChannel)
+    r = PointerProperty(type=YBakeTargetChannel)
+    g = PointerProperty(type=YBakeTargetChannel)
+    b = PointerProperty(type=YBakeTargetChannel)
+    a = PointerProperty(type=YBakeTargetChannel)
 
     # Nodes
-    image_node : StringProperty(default='') # Deprecated
-    image_node_outside : StringProperty(default='')# Deprecated
+    image_node = StringProperty(default='') # Deprecated
+    image_node_outside = StringProperty(default='')# Deprecated
 
-    baked_node : StringProperty(default='')
-    max_value_node : StringProperty(default='')
+    baked_node = StringProperty(default='')
+    max_value_node = StringProperty(default='')
 
-    separate_xyz : StringProperty(default='')
-    invert_r : StringProperty(default='')
-    invert_g : StringProperty(default='')
-    invert_b : StringProperty(default='')
-    invert_a : StringProperty(default='')
+    separate_xyz = StringProperty(default='')
+    invert_r = StringProperty(default='')
+    invert_g = StringProperty(default='')
+    invert_b = StringProperty(default='')
+    invert_a = StringProperty(default='')
 
-    baked_node_outside : StringProperty(default='')
-    separate_xyz_outside : StringProperty(default='')
-    invert_r_outside : StringProperty(default='')
-    invert_g_outside : StringProperty(default='')
-    invert_b_outside : StringProperty(default='')
-    invert_a_outside : StringProperty(default='')
+    baked_node_outside = StringProperty(default='')
+    separate_xyz_outside = StringProperty(default='')
+    invert_r_outside = StringProperty(default='')
+    invert_g_outside = StringProperty(default='')
+    invert_b_outside = StringProperty(default='')
+    invert_a_outside = StringProperty(default='')
 
     # UI
-    expand_content : BoolProperty(default=False)
-    expand_bake_settings : BoolProperty(default=False)
-    expand_r : BoolProperty(default=False)
-    expand_g : BoolProperty(default=False)
-    expand_b : BoolProperty(default=False)
-    expand_a : BoolProperty(default=False)
+    expand_content = BoolProperty(default=False)
+    expand_bake_settings = BoolProperty(default=False)
+    expand_r = BoolProperty(default=False)
+    expand_g = BoolProperty(default=False)
+    expand_b = BoolProperty(default=False)
+    expand_a = BoolProperty(default=False)
 
 class BaseBakeTargetGlobalSettings(BaseBakeProps, BakeInfo.BaseBakeInfoProps):
-    bake_device : EnumProperty(
+    bake_device = EnumProperty(
         name = 'Bake Device',
         description = 'Device to use for baking',
         items = bake_device_items,
         default = 'CPU'
     )
 
-    necessary_only : BoolProperty(
+    necessary_only = BoolProperty(
         name = 'Only Bake Necessary Channels',  
         description = 'Enabling this will only bake the channels that at least has one layer (unconnected base layer is not counted)',
         default = True
     )
 
-    use_float_for_normal : BoolProperty(
+    use_float_for_normal = BoolProperty(
         name = 'Use Float for Normal',
         description = 'Use float image for baked normal',
         default = False
     )
 
-    use_float_for_displacement : BoolProperty(
+    use_float_for_displacement = BoolProperty(
         name = 'Use Float for Height',
         description = 'Use float image for baked height',
         default = False
     )
 
-    use_float_for_vector_displacement : BoolProperty(
+    use_float_for_vector_displacement = BoolProperty(
         name = 'Use Float for Vector Displacement',
         description = 'Use float image for baked vector displacement',
         default = True
     )
 
-    uv_map : StringProperty(default='', update=BaseOperator.update_uv_map_name)
+    uv_map = StringProperty(default='', update=BaseOperator.update_uv_map_name)
 
     # Baked counters to make use bake target popover switch after baking
-    baked_counters : IntProperty(default=0)
+    baked_counters = IntProperty(default=0)
 
 class YBakeTargetGlobalSettings(bpy.types.PropertyGroup, BaseBakeTargetGlobalSettings):
     pass
@@ -696,7 +696,7 @@ class YSetChannelActiveBakeTarget(bpy.types.Operator):
     bl_description = "Set channel active bake target"
     bl_options = {'REGISTER', 'UNDO'}
 
-    bake_target_name : StringProperty(
+    bake_target_name = StringProperty(
         name = 'Bake Target Name',
         description = 'Bake target name to use as baked channel',
         default = ''
@@ -775,13 +775,13 @@ class YNewChannelBakeTarget(bpy.types.Operator):
     bl_description = "New bake target"
     bl_options = {'UNDO'}
 
-    name : StringProperty(
+    name = StringProperty(
         name = 'New Bake Target Name',
         description = 'New bake target name',
         default = ''
     )
 
-    data_type : EnumProperty(
+    data_type = EnumProperty(
         name = 'Bake Target Data Type',
         description = 'Bake target data type',
         items = (
@@ -854,20 +854,20 @@ class YNewBakeTarget(bpy.types.Operator):
     bl_description = "New bake target"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name : StringProperty(
+    name = StringProperty(
         name = 'New Bake Target Name',
         description = 'New bake target name',
         default = ''
     )
 
-    channel_idx : EnumProperty(
+    channel_idx = EnumProperty(
         name = 'Channel',
         description = 'Channel of new layer, can be changed later',
         items = new_bake_target_channel_items,
         update = update_new_bake_target_channel_idx
     )
 
-    preset : EnumProperty(
+    preset = EnumProperty(
         name = 'Bake Target Preset',
         description = 'Customm bake target preset',
         items = (
@@ -879,13 +879,13 @@ class YNewBakeTarget(bpy.types.Operator):
         update = update_new_bake_target_preset
     )
 
-    hdr : BoolProperty(
+    hdr = BoolProperty(
         name = '32-bit Float',
         description = 'Use 32-bit float image',
         default = False
     )
 
-    data_type : EnumProperty(
+    data_type = EnumProperty(
         name = 'Bake Target Data Type',
         description = 'Bake target data type',
         items = (
@@ -1191,7 +1191,7 @@ class YMoveBakeTarget(bpy.types.Operator):
     bl_description = "Move bake target"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction : EnumProperty(
+    direction = EnumProperty(
         name = 'Direction',
         items = (
             ('UP', 'Up', ''),
@@ -1236,7 +1236,7 @@ class YPasteBakeTarget(bpy.types.Operator):
     bl_description = "Paste Bake Target"
     bl_options = {'UNDO'}
 
-    paste_as_new : BoolProperty(
+    paste_as_new = BoolProperty(
         name = 'Paste As New Bake Target',
         default = True
     )
