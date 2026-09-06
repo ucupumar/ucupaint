@@ -312,14 +312,14 @@ preview_mode_type_items = (
 )
 
 class BasePreviewMode():
-    preview_mode : BoolProperty(
+    preview_mode = BoolProperty(
         name = 'Enable Preview Mode',
         description = 'Enable preview mode',
         default = False,
         update = update_preview_mode
     )
 
-    preview_mode_normal_space : EnumProperty(
+    preview_mode_normal_space = EnumProperty(
         name = 'Preview Mode Normal Space',
         description = 'Preview mode space to normal channel',
         items = (
@@ -331,14 +331,14 @@ class BasePreviewMode():
         update = update_preview_mode
     )
 
-    preview_mode_use_alpha : BoolProperty(
+    preview_mode_use_alpha = BoolProperty(
         name = 'Preview Mode Use Alpha',
         description = 'Use alpha channel for preview mode',
         default = False,
         update = update_preview_mode
     )
 
-    preview_mode_type : EnumProperty(
+    preview_mode_type = EnumProperty(
         name = 'Preview Mode Type',
         description = 'Preview mode type',
         items = preview_mode_type_items,
@@ -346,7 +346,7 @@ class BasePreviewMode():
         update = update_preview_mode
     )
 
-    preview_mode_channel_index : IntProperty(
+    preview_mode_channel_index = IntProperty(
         name = 'Preview Mode Channel Index',
         description = 'preview mode channel index',
         default = 0,
@@ -354,13 +354,13 @@ class BasePreviewMode():
     )
 
     # Layer Preview Mode
-    layer_preview_mode : BoolProperty(
+    layer_preview_mode = BoolProperty(
         name = 'Enable Layer Preview Mode',
         description = 'Enable layer preview mode',
         default = False,
     ) # Deprecated
 
-    layer_preview_mode_type : EnumProperty(
+    layer_preview_mode_type = EnumProperty(
         name = 'Layer Preview Mode Type',
         description = 'Layer preview mode type',
         items = (
@@ -378,7 +378,7 @@ class YSelectPreviewModeChannel(bpy.types.Operator):
     bl_description = "Select preview mode channel"
     bl_options = {'REGISTER', 'UNDO'}
 
-    channel_idx : IntProperty(
+    channel_idx = IntProperty(
         name = 'Channel Index',
         description = 'Channel index',
         default = 0
@@ -402,7 +402,7 @@ class YTogglePreviewMode(bpy.types.Operator):
     bl_description = "Toggle preview mode"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type : EnumProperty(
+    type = EnumProperty(
         name = 'Preview Mode Type',
         description = 'Preview mode type',
         items = preview_mode_type_items,

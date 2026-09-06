@@ -3782,7 +3782,9 @@ def fill_wireframe_uvs(obj, temp_uv, scale_uv):
     lv = numpy.empty(nl, dtype=numpy.int64); me.loops.foreach_get('vertex_index', lv)
     co = numpy.empty(nv * 3, dtype=numpy.float32); me.vertices.foreach_get('co', co); co.shape = (-1, 3)
     mw = numpy.array(obj.matrix_world, dtype=numpy.float32)
-    cow = co @ mw[:3, :3].T + mw[:3, 3]
+    if is_bl_newer_than(2, 80):
+        cow = eval('co @ mw[:3, :3].T + mw[:3, 3]')
+    else: cow = co * mw[:3, :3].T + mw[:3, 3]
 
     # Face world extents, the first edge spans u and the closing edge v
     v0 = cow[lv[ls]]
@@ -6346,36 +6348,36 @@ def get_output_uv_names_from_geometry_nodes(obj):
 
 class BaseBakeProps():
     # Image related
-    width : IntProperty(name='Width', default=1024, min=1, max=16384)
-    height : IntProperty(name='Height', default=1024, min=1, max=16384)
+    width = IntProperty(name='Width', default=1024, min=1, max=16384)
+    height = IntProperty(name='Height', default=1024, min=1, max=16384)
 
-    image_resolution : EnumProperty(
+    image_resolution = EnumProperty(
         name = 'Image Resolution',
         items = image_resolution_items,
         default = '1024'
         #update = update_bake_image_resolution
     )
     
-    use_custom_resolution : BoolProperty(
+    use_custom_resolution = BoolProperty(
         name = 'Custom Resolution',
         description = 'Use custom Resolution to adjust the width and height individually',
         default = False
     )
 
-    samples : IntProperty(
+    samples = IntProperty(
         name = 'Bake Samples', 
         description = 'Bake Samples, more means less jagged on generated textures', 
         default=1, min=1
     )
 
-    margin : IntProperty(
+    margin = IntProperty(
         name = 'Bake Margin',
         description = 'Bake margin in pixels',
         default = 5,
         subtype = 'PIXEL'
     )
 
-    margin_type : EnumProperty(
+    margin_type = EnumProperty(
         name = 'Margin Type',
         description = '',
         items = (
@@ -6387,14 +6389,14 @@ class BaseBakeProps():
 
     # Vertex color related
 
-    vcol_data_type : EnumProperty(
+    vcol_data_type = EnumProperty(
         name = get_vertex_color_label()+' Data Type',
         description = get_vertex_color_label(10)+' data type',
         items = vcol_data_type_items,
         default = 'BYTE_COLOR'
     )
 
-    vcol_domain : EnumProperty(
+    vcol_domain = EnumProperty(
         name = get_vertex_color_label()+' Domain',
         description = get_vertex_color_label(10)+' domain',
         items = vcol_domain_items,
@@ -6402,7 +6404,7 @@ class BaseBakeProps():
     )
 
 class BaseBakeOperator(BaseBakeProps):
-    bake_device : EnumProperty(
+    bake_device = EnumProperty(
         name = 'Bake Device',
         description = 'Device to use for baking',
         items = bake_device_items,
